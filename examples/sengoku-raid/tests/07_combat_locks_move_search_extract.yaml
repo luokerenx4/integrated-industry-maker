@@ -1,0 +1,57 @@
+name: 战斗激活时 dispatcher 拒绝 move/search/extract (#10)
+description: |
+  Pre-seeds the player at deep_grove (extract zone) with an active
+  encounter. Tries to dispatch raid:move:crossroads, raid:search, and
+  raid:extract — each should be refused with a narration, and the
+  encounter / zone / HP should remain unchanged.
+
+  Asserts: after all three rejected dispatches, the player is still
+  at deep_grove, still in combat mode, still with full HP, and the
+  enemy's HP hasn't moved. The pendingNarrations queue accumulated
+  three refusal lines.
+state:
+  baseline:
+    completedScripts:
+      - 000_intro
+    weapons:
+      ancestor_yaodao:
+        power: 6
+    currentMapId: kuro_swamp_deep_grove
+  sengoku-raid:
+    metCharacters: []
+    raid:
+      chain: kuro_swamp
+      entryMapId: kuro_swamp_edge
+      turnsTaken: 1
+      pendingLoot: {}
+      visited:
+        kuro_swamp_deep_grove:
+          visited: true
+          searched: false
+          encounter:
+            enemyId: oni_lesser
+            enemyHp: 8
+            enemyHpMax: 8
+          encounterCleared: false
+          pendingLoot:
+            soul_shard: 2
+inputs:
+  - type: doActivity
+    id: move:kuro_swamp_crossroads
+  - type: doActivity
+    id: search
+  - type: doActivity
+    id: extract
+assertions:
+  - kind: state
+    path: sengoku-raid.raid.visited.kuro_swamp_deep_grove.encounter.enemyHp
+    eq: 8
+  - kind: state
+    path: baseline.currentMapId
+    eq: kuro_swamp_deep_grove
+  - kind: state
+    path: sengoku-raid.raid.visited.kuro_swamp_deep_grove.searched
+    eq: false
+  - kind: state
+    path: baseline.characters.player.stats.hp
+    eq: 30

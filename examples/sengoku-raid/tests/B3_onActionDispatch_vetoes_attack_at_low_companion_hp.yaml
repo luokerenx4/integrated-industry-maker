@@ -1,0 +1,57 @@
+name: 提案B：onActionDispatch first-wins — 同行者 HP<=3 で attack を cancel
+description: |
+  Seed a raid encounter with companionHp=2. Dispatch attack — the
+  first-wins onActionDispatch hook returns "cancel", so the attack
+  handler never runs. Encounter HP unchanged; cancellation narration
+  appears in pendingNarrations.
+state:
+  baseline:
+    completedScripts:
+      - 000_intro
+    weapons:
+      ancestor_yaodao:
+        power: 8
+    characters:
+      player:
+        stats:
+          hp: 30
+          mental: 8
+          spectral: 30
+          intellect: 5
+      kagari:
+        stats:
+          affection: 6
+    switches:
+      companion_kagari: true
+    currentMapId: kuro_swamp_ruined_hut
+  sengoku-raid:
+    metCharacters:
+      - kagari
+    companion: kagari
+    companionHp: 2
+    raid:
+      chain: kuro_swamp
+      entryMapId: kuro_swamp_edge
+      turnsTaken: 3
+      pendingLoot: {}
+      visited:
+        kuro_swamp_ruined_hut:
+          visited: true
+          searched: false
+          encounter:
+            enemyId: oni_lesser
+            enemyHp: 8
+            enemyHpMax: 8
+          encounterCleared: false
+          pendingLoot: {}
+inputs:
+  - type: doActivity
+    id: attack
+  - type: next
+assertions:
+  - kind: state
+    path: sengoku-raid.raid.visited.kuro_swamp_ruined_hut.encounter.enemyHp
+    eq: 8
+  - kind: state
+    path: baseline.characters.player.stats.spectral
+    eq: 30

@@ -1,0 +1,18 @@
+name: 出立时 spawn zone 的 bg 应用到 visualState.bg
+description: |
+  Departing on kuro_swamp should set visualState.bg to the spawn zone's
+  declared bg (swamp-edge). Validates WU2 — MapZoneDef.bg field +
+  startRaid propagation.
+state:
+  baseline:
+    completedScripts:
+      - 000_intro
+  sengoku-raid:
+    raid: null
+inputs:
+  - type: doActivity
+    id: depart:kuro_swamp
+assertions:
+  - kind: state
+    path: baseline.visuals.bg
+    eq: assets/backgrounds/swamp-edge

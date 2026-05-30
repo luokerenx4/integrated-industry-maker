@@ -1,0 +1,22 @@
+node_modules
+dist
+*.tsbuildinfo
+.DS_Store
+.bun
+*.log
+
+# Player save state — local only
+.rpg-harness/
+# legacy pre-rebrand save dir; ignored so old saves don't pollute git status
+.autogal/
+
+# Asset masters — author's high-res sources stay local; the
+# `source.compressed.*` distribution copy travels with the repo
+# (see .claude/skills/rpg-harness-author/SKILL.md > "The source-image
+# two-tier convention"). Scoped to examples/ — downstream games living
+# elsewhere should extend this pattern for their own paths.
+examples/**/*.quality.png
+
+# Editor / OS junk
+.idea
+.vscode

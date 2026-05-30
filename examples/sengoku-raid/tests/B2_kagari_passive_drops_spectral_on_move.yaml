@@ -1,0 +1,65 @@
+name: 提案B：篝が同行している間、ゾーン移動するたび spectral -1
+description: |
+  Seed an in-raid state with kagari as companion and spectral=40.
+  Move from spawn to crossroads — spectral should be 39.
+state:
+  baseline:
+    completedScripts:
+      - 000_intro
+    weapons:
+      ancestor_yaodao:
+        power: 6
+    characters:
+      player:
+        stats:
+          hp: 30
+          mental: 8
+          spectral: 40
+          intellect: 5
+      kagari:
+        stats:
+          affection: 5
+    switches:
+      companion_kagari: true
+    currentMapId: kuro_swamp_edge
+  sengoku-raid:
+    metCharacters:
+      - kagari
+    companion: kagari
+    companionHp: 10
+    raid:
+      chain: kuro_swamp
+      entryMapId: kuro_swamp_edge
+      turnsTaken: 0
+      pendingLoot: {}
+      visited:
+        kuro_swamp_edge:
+          visited: true
+          searched: false
+          encounter: null
+          encounterCleared: false
+          pendingLoot: {}
+        kuro_swamp_crossroads:
+          visited: false
+          searched: false
+          encounter: null
+          encounterCleared: false
+          pendingLoot: {}
+        kuro_swamp_shrine:
+          visited: false
+          searched: false
+          encounter: null
+          encounterCleared: false
+          pendingLoot: {}
+inputs:
+  - type: doActivity
+    id: move:kuro_swamp_crossroads
+  - type: next
+  - type: next
+assertions:
+  - kind: state
+    path: baseline.characters.player.stats.spectral
+    eq: 39
+  - kind: state
+    path: baseline.currentMapId
+    eq: kuro_swamp_crossroads
