@@ -30,7 +30,7 @@ rpgh test .                                  # fixture 回帰（31 個）
 | 軸 | 内容 | 引擎特性 |
 |---|---|---|
 | **A — 密書主線** | 将軍からの三通の密書が raidsCompleted を区切り、お主の選択を結審する | `once: true` triggers + composite `all` + variable: string |
-| **B — 同行者** | 篝 / 霞 / 澪 を raid に誘う。各々 passive を提供、半分のダメージを引き受ける | onActionDispatch first-wins + onBeatBefore reducer + onChoicePresented reducer |
+| **B — 同行者** | 篝 / 霞 / 澪 を raid に誘う。各々 passive を提供、半分のダメージを引き受ける。初めて静かな zone に共に着くと一度だけ「同行道中」のシーンが流れる | onActionDispatch first-wins + onBeatBefore reducer + onChoicePresented reducer + moveHandler script-launch |
 | **C — 鬼の交渉** | 鬼 HP < 30% で「聞く / 逃がす / 妖刀の声に従う」の三択 | selfSwitch + enemy.stats + enemy.custom + composite condition |
 | **D — 妖刀の業** | 勝利毎に「浄 / 鬼 / 凡」の脈絡を選ぶ。三本道で異なる結末 | weapon.custom + weaponPower condition + 3 endings via composite requires |
 | **E — 情報屋** | hub の「両国橋」で 4 段階の情報を買う。intellect が解錠条件 | variable: string + onScriptSelect first-wins |
@@ -78,9 +78,11 @@ rpgh test .                                  # fixture 回帰（31 個）
 |---|---|---|---|
 | 篝 | `kuro_swamp_crossroads` / `kuro_swamp_ruined_hut`（`character_spawns` chance=1.0）| 鎮魂法（hub-only、spectral -20）| map 移動毎 spectral -1 |
 | 霞 | `mt_houkyou_stone_paths` / `mt_houkyou_lava_vent` | 早駆け（flee 無傷成功）| 同行中は flee 常時成功 |
-| 澪 | 第二の密書で登場（朝廷監察役）| 水鏡（mizukagami、scry）| —— |
+| 澪 | 第二の密書で登場（朝廷監察役）| 水鏡（mizukagami、scry）| 移動毎、接続する未踏 zone の鬼を先読み（水鏡 scry） |
 
 邦絆ループ：邂逅 → 親密度 ≥2 で `bond_<id>_01` → ≥4 で `bond_<id>_02`（grant skill）→ raid に誘う（switch `companion_<id>`）→ 生還で `befriended_<id>` 立つ → ≥6 + befriended で `bond_<id>_03`（companion 同道）→ 三人とも befriended で `three_flowers_alliance` trigger。
+
+**同行道中シーン**：同行者を連れて raid 中、初めて遭遇の無い静かな新 zone に着くと、その同行者の `road_<id>.md`（一幕の道中会話）が一度だけ自動で流れる。`moveHandler` が character_spawns と同じ要領で `currentScriptId` をセットして launch、シーン自身の effects ブロックが `road_<id>_seen` を立てて再発火を止め、親密度を加える。同行を「数値バフ」から「道連れの関係」へ寄せるレイヤー。
 
 三人とも `bond_<id>_01 / 02 / 03` の三段が揃っている。澪の `bond_mio_02` が伝授する**水鏡（mizukagami）は hell_gate chain 解錠の四条件の一つ**——澪の邦絆を進めない限り、地獄門は開かない。三技（鎮魂法 / 早駆け / 水鏡）はそれぞれ別のヒロイン経由でしか手に入らない。
 
@@ -134,11 +136,13 @@ depart:<chain>           ───→            chain の entry map に enterMa
 
 唯二 **未挂** の hook：`onNarrationDrain`（性価比低）、`onEndConditionFire`（training preset 専用、我々は使わない）。
 
-## Fixtures（33 個）
+## Fixtures（35 個）
 
 ```
-01–09  legacy + 邦絆（開幕状態 / 邂逅 / 邦絆×3 / 戦闘 / 撤退 / 死亡 / dispatcher guard）
-       └ 09  bond_mio_02 → mizukagami 伝授（澪線補完。05/06 の三人目ミラー）
+01–11  legacy + 邦絆 + 同行剧情（開幕状態 / 邂逅 / 邦絆×3 / 戦闘 / 撤退 / 死亡 / dispatcher guard）
+       ├ 09  bond_mio_02 → mizukagami 伝授（澪線補完。05/06 の三人目ミラー）
+       ├ 10  road_kagari → 静かな zone で同行道中シーン launch + 選択肢 affection
+       └ 11  澪 水鏡 scry → 接続未踏 zone の encounter を先 roll + 永続化
 A1–A4  提案A — 密書 milestone triggers、fenced choice branching
 B1–B6  提案B — 同行者 invite、passive、damage absorb、3 reducer hooks、composite trigger
 C1–C4  提案C — 鬼の交渉、selfSwitch、yaodao_voice gate、zone_haunt 解錠
@@ -166,3 +170,12 @@ F1–F2  收尾 — onStateMutated achievement log、onLabelEnter
   - 補完：`scripts/bond_mio_01.md`（査問する者 / 親密度≥2）+ `scripts/bond_mio_02.md`（水鏡を授ける / ≥4、`learn: [mizukagami]` + `learnedMizukagami` switch）。邦絆ループは完全データ駆動なので module 改変は不要——`buildHubMenu` が `bond_mio_*` を自動で surface する。
   - 回帰：`09_bond_mio_grants_mizukagami`（05/06 の三人目ミラー、入手経路を証明）+ `D4_hell_gate_locked_without_mizukagami`（D2 の負例、水鏡が binding constraint であることを証明）。
 - **新敵「鏡鬼」(`enemies/kagami_oni.md`)**：到達可能になった地獄門・映し井戸の主。覗き込む者の妖気を写し取り、その太刀筋で襲う（高 cunning）。放すと `zone_haunt_kagami_oni`（澪の水鏡と主題が呼応）を解錠。敵は完全データ駆動なので `.md` 追加 + encounter_table への参照のみ、コード 0 行。
+
+## 同行体験の拡張 — 「道連れ」を剧情にする
+
+同行システムは passive + ダメージ肩代わり止まりで、「共に歩く」物語が薄かった。二層を追加：
+
+- **同行道中シーン (`scripts/road_kagari|kasumi|mio.md`)**：同行者を連れて初めて静かな新 zone に着くと、一度だけその同行者の道中会話が流れる。`moveHandler` が character_spawns と同じ要領で `currentScriptId` を立てて launch（遭遇の無い zone 限定なので戦闘と競合しない）。シーンの effects ブロックが `road_<id>_seen` を立てて再発火を止め、選択肢で親密度が動く。switch 三つを `game.yaml` に追加。
+- **澪の同行 passive「水鏡 scry」(`mioScry`)**：澪同行中は新 zone に着くたび、接続する未踏 zone の鬼を先読みナレーション。`MapInstance.encounterRolled` guard を新設し、scry が roll した encounter を実際の到達時に再 roll しないことで「水鏡に映る」予言を**真**にする。これで三同行者の passive 欄が全て埋まる（篝=spectral減、霞=flee成功、澪=scry）。
+  - **注記**：選択肢の inline 加成は `parseChoiceBlock` が `->` の後ろしか解析しない。`road_*` は `- … -> +2mio` 形式を使う（無印字の `+mio` はラベル文字列扱いで無効）。
+- 回帰：`10_road_scene_fires_with_companion`（launch + 選択肢 affection + raid 復帰）+ `11_mio_scry_scouts_connected_zones`（接続 zone の `encounterRolled` 先立ち）。
