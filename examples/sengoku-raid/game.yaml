@@ -6,6 +6,10 @@ modules:
 switches:
   learnedChinkonho: false
   learnedHayagake: false
+  # 澪の bond_mio_02 で伝授される「水鏡」。chinkonho / hayagake と
+  # 対になる三つ目の邦絆技能フラグ。hell_gate chain の解錠は
+  # knownSkills を直接読むが、他二技と揃える形でスイッチも立てる。
+  learnedMizukagami: false
   # Companion currently in party (one of three exclusive). Flipped by
   # the invite_<id> hub action; cleared on raid end. Read by raid menu
   # passives + onActionDispatch veto guard.

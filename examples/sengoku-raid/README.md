@@ -64,7 +64,7 @@ rpgh test .                                  # fixture 回帰（31 個）
 | `kuro_swamp`   | 黒沼地 | 1 | `kuro_swamp_edge` | `kuro_swamp_shrine` / `kuro_swamp_deep_grove` | 下級の鬼 | 開幕から |
 | `sumida_river` | 隅田河 | 2 | `sumida_river_bridge_foot` | `sumida_river_ferry_landing` / `sumida_river_under_eaves` | 下級の鬼 + 戦鬼 | 開幕から |
 | `mt_houkyou`   | 砲響山 | 3 | `mt_houkyou_foothills` | `mt_houkyou_burnt_temple` / `mt_houkyou_caldera` | 戦鬼 + 鬼神 (boss) | 開幕から |
-| `hell_gate`    | 地獄門 | 5 | `hell_gate_mouth` | `hell_gate_mirror_pool` | 鬼神 × n | pulse_oni≥8 AND power≥12 AND chinkonho AND mizukagami |
+| `hell_gate`    | 地獄門 | 5 | `hell_gate_mouth` | `hell_gate_mirror_pool` | 鬼神 + 鏡鬼（映し井戸） | pulse_oni≥8 AND power≥12 AND chinkonho AND mizukagami |
 
 各 map は `maps/<chain>_<zone>.yaml`：自分の `bg` / `connections` / `encounter_table` / `loot_table` / `is_extract` / 場合により `character_spawns` を持つ。引擎の `enterMap` primitive がトランジションを駆動（`currentMapId` + `visuals.bg` 同期）。
 
@@ -81,6 +81,8 @@ rpgh test .                                  # fixture 回帰（31 個）
 | 澪 | 第二の密書で登場（朝廷監察役）| 水鏡（mizukagami、scry）| —— |
 
 邦絆ループ：邂逅 → 親密度 ≥2 で `bond_<id>_01` → ≥4 で `bond_<id>_02`（grant skill）→ raid に誘う（switch `companion_<id>`）→ 生還で `befriended_<id>` 立つ → ≥6 + befriended で `bond_<id>_03`（companion 同道）→ 三人とも befriended で `three_flowers_alliance` trigger。
+
+三人とも `bond_<id>_01 / 02 / 03` の三段が揃っている。澪の `bond_mio_02` が伝授する**水鏡（mizukagami）は hell_gate chain 解錠の四条件の一つ**——澪の邦絆を進めない限り、地獄門は開かない。三技（鎮魂法 / 早駆け / 水鏡）はそれぞれ別のヒロイン経由でしか手に入らない。
 
 ## Loop
 
@@ -132,14 +134,15 @@ depart:<chain>           ───→            chain の entry map に enterMa
 
 唯二 **未挂** の hook：`onNarrationDrain`（性価比低）、`onEndConditionFire`（training preset 専用、我々は使わない）。
 
-## Fixtures（31 個）
+## Fixtures（33 個）
 
 ```
-01–08  legacy（基本骨子 — 開幕状態 / 邂逅 / 邦絆 / 戦闘 / 撤退 / 死亡 / dispatcher guard）
+01–09  legacy + 邦絆（開幕状態 / 邂逅 / 邦絆×3 / 戦闘 / 撤退 / 死亡 / dispatcher guard）
+       └ 09  bond_mio_02 → mizukagami 伝授（澪線補完。05/06 の三人目ミラー）
 A1–A4  提案A — 密書 milestone triggers、fenced choice branching
 B1–B6  提案B — 同行者 invite、passive、damage absorb、3 reducer hooks、composite trigger
 C1–C4  提案C — 鬼の交渉、selfSwitch、yaodao_voice gate、zone_haunt 解錠
-D1–D3  提案D — pulse imbue、hell_gate gate、upgrade_oni cost
+D1–D4  提案D — pulse imbue、hell_gate gate、upgrade_oni cost、水鏡欠如で hell_gate ロック（D2 負例）
 DE1    提案D+E 結 — ending_pure_rite で gameEnd
 E1–E3  提案E — infoshop tiers、onScriptSelect redirect、intellect gate
 F1–F2  收尾 — onStateMutated achievement log、onLabelEnter
@@ -156,3 +159,10 @@ F1–F2  收尾 — onStateMutated achievement log、onLabelEnter
 
 - **parser/condition.ts `selfSwitch`**：engine の `evaluateCondition` と validator は selfSwitch を理解していたが、parser がフロントマターから読めなかった（条件 AST の漏れ）。15 行追加で修正。
 - **`onChoicePresented` の意味的制限**：reducer は option を **ADD** できる（visual に追加可）が、`runScript` は ピックを `beat.options[index]` で再解決するため、追加 option は dispatch 不能。よって reducer は **filter / lock** にのみ使うべき。コメントで note 追加（modules/raid.ts onChoicePresented）。
+
+## 内容 bug（this branch で fix）— 澪線の補完
+
+- **水鏡（mizukagami）が入手不能 → hell_gate が到達不能だった**：`chainUnlocked()` は地獄門の解錠に `mizukagami` を要求し、skill 定義 / hell_gate map / D2 fixture もすべて存在していた。だが**この技を伝授する script が無かった**——澪は `bond_mio_03` だけを持ち、`bond_mio_01 / 02` が欠落していた（篝・霞は三段揃い）。結果、ゲーム内で水鏡を学ぶ術が無く、終盤 chain 全体が dead content 化していた。
+  - 補完：`scripts/bond_mio_01.md`（査問する者 / 親密度≥2）+ `scripts/bond_mio_02.md`（水鏡を授ける / ≥4、`learn: [mizukagami]` + `learnedMizukagami` switch）。邦絆ループは完全データ駆動なので module 改変は不要——`buildHubMenu` が `bond_mio_*` を自動で surface する。
+  - 回帰：`09_bond_mio_grants_mizukagami`（05/06 の三人目ミラー、入手経路を証明）+ `D4_hell_gate_locked_without_mizukagami`（D2 の負例、水鏡が binding constraint であることを証明）。
+- **新敵「鏡鬼」(`enemies/kagami_oni.md`)**：到達可能になった地獄門・映し井戸の主。覗き込む者の妖気を写し取り、その太刀筋で襲う（高 cunning）。放すと `zone_haunt_kagami_oni`（澪の水鏡と主題が呼応）を解錠。敵は完全データ駆動なので `.md` 追加 + encounter_table への参照のみ、コード 0 行。
