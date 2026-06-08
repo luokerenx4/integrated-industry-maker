@@ -1741,22 +1741,31 @@ function mioScry(ctx: Ctx, fromMap: MapDef): void {
   }
 }
 
-// 同行道中の一幕 — the first time the player reaches a quiet (no-encounter)
-// new zone with a companion in party, play that companion's one-shot
-// "on the road" scene (scripts/road_<id>.md). The scene's own effects
-// block sets `road_<id>_seen` + grants affection, so it never re-fires.
-// Returns true if a scene was launched (caller should return early, the
-// same contract the character_spawns path uses).
+// 同行道中の一幕 — on reaching a quiet (no-encounter) new zone with a
+// companion in party, play that companion's next unseen "on the road"
+// scene. Two tiers, in order:
+//   road_<id>    — first time out together (gate: !road_<id>_seen)
+//   road_<id>_2  — deeper, after surviving a raid together
+//                  (gate: befriended_<id> && !road_<id>_2_seen)
+// Each scene's own effects block sets its `_seen` switch + grants
+// affection, so neither re-fires. Returns true if a scene was launched
+// (caller returns early, same contract as the character_spawns path).
 function maybeLaunchRoadScene(ctx: Ctx): boolean {
   const m = moduleState(ctx);
   if (!m.companion) return false;
-  const seenSwitch = `road_${m.companion}_seen`;
-  if (ctx.state.baseline.switches[seenSwitch] === true) return false;
-  const roadId = `road_${m.companion}`;
-  if (!ctx.game.scripts.some((s) => s.id === roadId)) return false;
-  ctx.state.baseline.currentScriptId = roadId;
-  ctx.state.baseline.beatIndex = 0;
-  return true;
+  const id = m.companion;
+  const sw = ctx.state.baseline.switches;
+  const launch = (scriptId: string): boolean => {
+    if (!ctx.game.scripts.some((s) => s.id === scriptId)) return false;
+    ctx.state.baseline.currentScriptId = scriptId;
+    ctx.state.baseline.beatIndex = 0;
+    return true;
+  };
+  if (sw[`road_${id}_seen`] !== true) return launch(`road_${id}`);
+  if (sw[`befriended_${id}`] === true && sw[`road_${id}_2_seen`] !== true) {
+    return launch(`road_${id}_2`);
+  }
+  return false;
 }
 
 const moveHandler: ActionHandler = (ctx) => {

@@ -82,7 +82,7 @@ rpgh test .                                  # fixture 回帰（31 個）
 
 邦絆ループ：邂逅 → 親密度 ≥2 で `bond_<id>_01` → ≥4 で `bond_<id>_02`（grant skill）→ raid に誘う（switch `companion_<id>`）→ 生還で `befriended_<id>` 立つ → ≥6 + befriended で `bond_<id>_03`（companion 同道）→ 三人とも befriended で `three_flowers_alliance` trigger。
 
-**同行道中シーン**：同行者を連れて raid 中、初めて遭遇の無い静かな新 zone に着くと、その同行者の `road_<id>.md`（一幕の道中会話）が一度だけ自動で流れる。`moveHandler` が character_spawns と同じ要領で `currentScriptId` をセットして launch、シーン自身の effects ブロックが `road_<id>_seen` を立てて再発火を止め、親密度を加える。同行を「数値バフ」から「道連れの関係」へ寄せるレイヤー。
+**同行道中シーン**：同行者を連れて raid 中、初めて遭遇の無い静かな新 zone に着くと、その同行者の道中会話が一度だけ自動で流れる。二档ある——`road_<id>`（一幕目）と、befriended（生還を共にした）後に解錠される `road_<id>_2`（二幕目、より踏み込んだ告白）。`moveHandler` が character_spawns と同じ要領で `currentScriptId` をセットして launch、シーン自身の effects ブロックが `road_<id>(_2)_seen` を立てて再発火を止め、親密度を加える。各シーンには `:cg assets/cgs/road-<id>` が付く。同行を「数値バフ」から「道連れの関係」へ寄せるレイヤー。
 
 三人とも `bond_<id>_01 / 02 / 03` の三段が揃っている。澪の `bond_mio_02` が伝授する**水鏡（mizukagami）は hell_gate chain 解錠の四条件の一つ**——澪の邦絆を進めない限り、地獄門は開かない。三技（鎮魂法 / 早駆け / 水鏡）はそれぞれ別のヒロイン経由でしか手に入らない。
 
@@ -136,13 +136,15 @@ depart:<chain>           ───→            chain の entry map に enterMa
 
 唯二 **未挂** の hook：`onNarrationDrain`（性価比低）、`onEndConditionFire`（training preset 専用、我々は使わない）。
 
-## Fixtures（35 個）
+## Fixtures（37 個）
 
 ```
-01–11  legacy + 邦絆 + 同行剧情（開幕状態 / 邂逅 / 邦絆×3 / 戦闘 / 撤退 / 死亡 / dispatcher guard）
+01–13  legacy + 邦絆 + 同行剧情（開幕状態 / 邂逅 / 邦絆×3 / 戦闘 / 撤退 / 死亡 / dispatcher guard）
        ├ 09  bond_mio_02 → mizukagami 伝授（澪線補完。05/06 の三人目ミラー）
        ├ 10  road_kagari → 静かな zone で同行道中シーン launch + 選択肢 affection
-       └ 11  澪 水鏡 scry → 接続未踏 zone の encounter を先 roll + 永続化
+       ├ 11  澪 水鏡 scry → 接続未踏 zone の encounter を先 roll + 永続化
+       ├ 12  road_<id>_2 → befriended 後に二幕目が解錠して launch
+       └ 13  bond_*_03 の選択肢 inline 加成（`-> +2` 矢印修正）の回帰
 A1–A4  提案A — 密書 milestone triggers、fenced choice branching
 B1–B6  提案B — 同行者 invite、passive、damage absorb、3 reducer hooks、composite trigger
 C1–C4  提案C — 鬼の交渉、selfSwitch、yaodao_voice gate、zone_haunt 解錠
@@ -175,7 +177,9 @@ F1–F2  收尾 — onStateMutated achievement log、onLabelEnter
 
 同行システムは passive + ダメージ肩代わり止まりで、「共に歩く」物語が薄かった。二層を追加：
 
-- **同行道中シーン (`scripts/road_kagari|kasumi|mio.md`)**：同行者を連れて初めて静かな新 zone に着くと、一度だけその同行者の道中会話が流れる。`moveHandler` が character_spawns と同じ要領で `currentScriptId` を立てて launch（遭遇の無い zone 限定なので戦闘と競合しない）。シーンの effects ブロックが `road_<id>_seen` を立てて再発火を止め、選択肢で親密度が動く。switch 三つを `game.yaml` に追加。
+- **同行道中シーン・二档 (`scripts/road_<id>.md` + `road_<id>_2.md`)**：同行者を連れて静かな新 zone に着くと、その同行者の道中会話が流れる。一幕目（`road_<id>`）はそのまま、二幕目（`road_<id>_2`）は befriended（生還を共にした）後に解錠——`maybeLaunchRoadScene` が未観の最上位档を選んで launch。`moveHandler` が character_spawns と同じ要領で `currentScriptId` を立てる（遭遇の無い zone 限定なので戦闘と競合しない）。各シーンの effects ブロックが `road_<id>(_2)_seen` を立てて再発火を止め、選択肢で親密度が動く。switch 六つを `game.yaml` に追加。
 - **澪の同行 passive「水鏡 scry」(`mioScry`)**：澪同行中は新 zone に着くたび、接続する未踏 zone の鬼を先読みナレーション。`MapInstance.encounterRolled` guard を新設し、scry が roll した encounter を実際の到達時に再 roll しないことで「水鏡に映る」予言を**真**にする。これで三同行者の passive 欄が全て埋まる（篝=spectral減、霞=flee成功、澪=scry）。
-  - **注記**：選択肢の inline 加成は `parseChoiceBlock` が `->` の後ろしか解析しない。`road_*` は `- … -> +2mio` 形式を使う（無印字の `+mio` はラベル文字列扱いで無効）。
-- 回帰：`10_road_scene_fires_with_companion`（launch + 選択肢 affection + raid 復帰）+ `11_mio_scry_scouts_connected_zones`（接続 zone の `encounterRolled` 先立ち）。
+- **選択肢 inline 加成の修正**：`parseChoiceBlock` は `->` の後ろしか effects を読まない。`bond_kagari_03 / bond_kasumi_03 / bond_mio_03` の三択は元々矢印無しの `- 「…」 +2kagari` で書かれており、**affection が全く加算されていなかった**（ラベル文字列扱い）。全て `- 「…」 -> +2kagari` 形へ修正。`road_*` も同形式。
+  - 既知の残課題：`letter_02_rival`（`+1mio`）と `three_flowers_alliance`（`+kagari +kasumi +mio`）の選択肢も矢印無しで未加算。主要効果は各 effects ブロック側にあり進行には影響しないため今回は据え置き。
+- **CG 配線**：描き上がっているのに未配線だった CG 資産 9 枚を各 script に `:cg` で接続（`encounter_kagari/kasumi_first`、`letter_02/03`、`pulse_intro`、`three_flowers_alliance`、`ending_*` ×3）。gameplay に戻る script は `:hide-cg` も付与（視覚 beat は runScript 上で自動進行＝`next` を消費しないので既存 fixture の drain 数に影響なし）。新 CG spec を `assets/cgs/road-{kagari,kasumi,mio}/spec.yaml` に追加（画像は未生成、`placeholder` で TUI フォールバック）。
+- 回帰：`10`（一幕 launch）/ `11`（水鏡 scry）/ `12`（二幕 befriended gate）/ `13`（bond_*_03 矢印修正）。

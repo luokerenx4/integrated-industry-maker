@@ -4,6 +4,8 @@ title: 道中 ・ 澪
 characters: [mio]
 ---
 
+:cg assets/cgs/road-mio
+
 @narrator 澪は水のある所で必ず足を止める。沢、溜まり、轍に残った雨——刀身を傾けて、流れに映す。
 
 @mio 査問の役目で諸国を回っていた頃、私はこうして「相手」を映していた。堕ちているか、否か。
@@ -24,6 +26,8 @@ characters: [mio]
 @mio ……公儀には、書けぬ見立てだな。
 
 @narrator 澪は刀身を鞘に納め、水面の波紋が消えるのを待った。それから、お主の歩幅に合わせて、静かに歩き出した。
+
+:hide-cg
 
 ```yaml
 type: effects

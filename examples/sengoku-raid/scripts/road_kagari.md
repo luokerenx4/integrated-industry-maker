@@ -4,6 +4,8 @@ title: 道中 ・ 篝
 characters: [kagari]
 ---
 
+:cg assets/cgs/road-kagari
+
 @narrator 二人で歩く道は、一人より静かだった。篝は槍を肩に担ぎ、半歩だけ前を行く。
 
 @kagari 足音を合わせろ。別々に鳴ると、鬼が二人ぶん数える。
@@ -26,6 +28,8 @@ characters: [kagari]
 @kagari ……減らず口は、生きてる証だ。よし。
 
 @narrator 篝は前を向いたまま、口の端だけ上げた。槍を担ぎ直す手が、ほんの少し緩んでいた。
+
+:hide-cg
 
 ```yaml
 type: effects

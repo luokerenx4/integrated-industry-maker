@@ -4,6 +4,8 @@ title: 三花の盟
 characters: [kagari, kasumi, mio]
 ---
 
+:cg assets/cgs/three-flowers-alliance
+
 深夜。大名府の中庭。三人の女が並んで立っている。
 
 @kagari 召されたのは私一人ではないらしいな。
@@ -29,6 +31,8 @@ characters: [kagari, kasumi, mio]
 @mio 私の鏡は、お主の刀が映す影を読む。
 
 @narrator 三人の声が一度に降りる。中庭の月が、いつもより低く見えた。
+
+:hide-cg
 
 ```yaml
 type: effects

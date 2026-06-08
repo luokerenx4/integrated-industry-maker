@@ -40,6 +40,11 @@ switches:
   road_kagari_seen: false
   road_kasumi_seen: false
   road_mio_seen:    false
+  # 同行道中の二幕目 — befriended（一度生還を共にした）後に解錠される、より
+  # 踏み込んだ道中シーン road_<id>_2。一幕目を観た後の静かな zone で流れる。
+  road_kagari_2_seen: false
+  road_kasumi_2_seen: false
+  road_mio_2_seen:    false
 
 variables:
   # Raid counters — incremented by endRaidExtract / endRaidFailure.
