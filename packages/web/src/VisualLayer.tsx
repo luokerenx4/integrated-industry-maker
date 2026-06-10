@@ -7,8 +7,10 @@ interface Props {
   assetUrls: Record<string, string>;
 }
 
-// The VN visual stack: bg fills the stage, portraits sit in a row above
-// the dialogue box, an active cg overlays everything. Each layer resolves
+// The VN visual stack: bg fills the stage, portraits stand flush against
+// the stage bottom (the dialogue box overlaps their waist, hiding the
+// source image's bottom bleed), an active cg overlays everything. Each
+// layer resolves
 // its VisualState asset path → a build-time image URL (assetUrls). When no
 // image exists (e.g. portraits that ship only tui.txt), we fall back to the
 // asset's placeholder text so the scene still reads.

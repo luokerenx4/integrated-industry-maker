@@ -125,18 +125,22 @@ body {
 }
 .portrait-row {
   position: absolute;
-  inset: 0 0 22% 0;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 4%;
+  gap: 3%;
   pointer-events: none;
 }
+/* Portraits sit flush against the stage bottom so the dialogue box
+   (stage-area, z-index 1) overlaps their waist — hides the source
+   image's bottom bleed/fade cut, standard VN framing. */
 .layer-portrait {
   position: static;
-  max-height: 72%;
-  max-width: 30%;
+  max-height: 88%;
+  max-width: 34%;
   object-fit: contain;
+  object-position: bottom;
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
 }
 .layer-cg {
@@ -165,6 +169,9 @@ body {
   position: static;
   width: 22%;
   height: 50%;
+  /* Text placeholders have no bleed to hide — keep them clear of the
+     dialogue box instead of flush-bottom like real portraits. */
+  margin-bottom: 24%;
 }
 
 /* ---------- stage area ---------- */
@@ -367,6 +374,56 @@ body {
 }
 
 /* ---------- backlog ---------- */
+/* ---------- 設定集 (art book) ---------- */
+.artbook-inner {
+  width: min(1100px, 100%);
+}
+.artbook-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 0;
+  flex-wrap: wrap;
+}
+.artbook-tab-active {
+  border-color: var(--accent, #5fd3f0);
+  color: var(--accent, #5fd3f0);
+}
+.artbook-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.artbook-plate {
+  margin: 0;
+}
+.artbook-plate img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+.artbook-plate figcaption {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9ba1ad;
+}
+.artbook-portrait-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.artbook-portrait-row .artbook-plate {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.artbook-placeholder,
+.artbook-empty {
+  padding: 24px;
+  text-align: center;
+  color: #9ba1ad;
+  border: 1px dashed #33333f;
+  border-radius: 8px;
+}
+
 .backlog-overlay {
   position: fixed;
   inset: 0;

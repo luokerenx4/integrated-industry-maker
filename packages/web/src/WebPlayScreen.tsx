@@ -24,6 +24,7 @@ import {
   type Stage,
   type UiAction,
 } from "@rpg-harness/frontend-core";
+import { ArtBook } from "./ArtBook";
 import { VisualLayer } from "./VisualLayer";
 
 // The browser twin of packages/cli/src/components/PlayScreen.tsx. Same
@@ -62,6 +63,7 @@ export function WebPlayScreen({
   const runnerRef = useRef<AsyncGenerator<Output, void, Input> | null>(null);
   const processingRef = useRef(false);
   const [showBacklog, setShowBacklog] = useState(false);
+  const [showArtBook, setShowArtBook] = useState(false);
 
   const assetMap = useRef(
     new Map((game.assets ?? []).map((a) => [a.path, a] as const)),
@@ -130,7 +132,7 @@ export function WebPlayScreen({
         onExit();
         return;
       }
-      if (showBacklog) return;
+      if (showBacklog || showArtBook) return;
       const k = model.stage.kind;
       if ((e.key === " " || e.key === "Enter") && (k === "narration" || k === "dialogue")) {
         e.preventDefault();
@@ -139,7 +141,7 @@ export function WebPlayScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [model.stage.kind, showBacklog, sendInput, onExit]);
+  }, [model.stage.kind, showBacklog, showArtBook, sendInput, onExit]);
 
   return (
     <div className="play-root">
@@ -161,9 +163,15 @@ export function WebPlayScreen({
             回看
           </button>
         )}
+        <button className="hud-btn" onClick={() => setShowArtBook(true)}>
+          設定集
+        </button>
       </div>
       {showBacklog && (
         <BacklogOverlay entries={model.backlog} onClose={() => setShowBacklog(false)} />
+      )}
+      {showArtBook && (
+        <ArtBook game={game} assetUrls={assetUrls} onClose={() => setShowArtBook(false)} />
       )}
     </div>
   );
