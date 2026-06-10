@@ -2,6 +2,10 @@
 id: three_flowers_alliance
 title: 三花の盟
 characters: [kagari, kasumi, mio]
+defaultPortraits:
+  - { characterId: kagari, emotion: default }
+  - { characterId: mio, emotion: default }
+  - { characterId: kasumi, emotion: default }
 ---
 
 :cg assets/cgs/three-flowers-alliance
