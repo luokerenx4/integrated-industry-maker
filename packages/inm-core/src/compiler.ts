@@ -1,6 +1,6 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
-  BlueprintLogisticsNetwork, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, DeviceAsset, DevicePort,
+  BlueprintLogisticsNetwork, BlueprintRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, DeviceAsset, DevicePort,
   IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
@@ -104,6 +104,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
   };
   for (let i = 0; i < distributors.length; i++) for (let j = i + 1; j < distributors.length; j++) {
     const left = distributors[i]!; const right = distributors[j]!;
+    if (left.region !== right.region) continue;
     const reach = Math.min(left.assetDef.power.distribution!.connectionRange, right.assetDef.power.distribution!.connectionRange);
     if (centerDistance(left, right) <= reach) union(left.id, right.id);
   }
@@ -116,13 +117,15 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
   const grids: Record<string, CompiledPowerGrid> = {};
   const gridDistributors = [...components.values()].map((members) => {
     members.sort((a, b) => a.id.localeCompare(b.id));
-    const id = `grid-${members[0]!.id}`;
-    grids[id] = { id, distributors: members.map((device) => device.id), members: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0 };
+    const region = members[0]!.region;
+    const id = `grid-${region}-${members[0]!.id}`;
+    grids[id] = { id, region, distributors: members.map((device) => device.id), members: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0 };
     return { id, members };
   }).sort((a, b) => a.id.localeCompare(b.id));
 
   for (const device of Object.values(devices).sort((a, b) => a.id.localeCompare(b.id))) {
     const candidates = gridDistributors.flatMap((grid) => {
+      if (grids[grid.id]!.region !== device.region) return [];
       const distances = grid.members.map((distributor) => ({
         distributor,
         distance: centerDistance(device, distributor),
@@ -143,7 +146,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
 
 function compileLogisticsNetworks(
   definitions: BlueprintLogisticsNetwork[], devices: Record<string, CompiledDevice>, assets: Record<string, DeviceAsset>,
-  resources: Record<string, ResourceAsset>, issues: ValidationIssue[],
+  resources: Record<string, ResourceAsset>, regions: Record<string, BlueprintRegion>, issues: ValidationIssue[],
 ): Record<string, CompiledLogisticsNetwork> {
   const networks: Record<string, CompiledLogisticsNetwork> = {};
   const ids = new Set<string>();
@@ -164,6 +167,7 @@ function compileLogisticsNetworks(
       stationIds.add(station.device);
       const device = devices[station.device];
       if (!device) { issues.push({ path: `${stationPath}/device`, code: "reference.device-instance", message: `Unknown station device '${station.device}'` }); continue; }
+      if (!regions[device.region]) continue;
       const spec = device.assetDef.logisticsStation;
       if (!spec || !spec.networkKinds.includes(definition.kind)) { issues.push({ path: `${stationPath}/device`, code: "station.network-kind", message: `Device '${station.device}' does not support '${definition.kind}' logistics` }); continue; }
       if (station.slots.length > spec.slots) issues.push({ path: `${stationPath}/slots`, code: "station.slot-capacity", message: `Station '${station.device}' exposes ${spec.slots} slots but configures ${station.slots.length}` });
@@ -178,17 +182,28 @@ function compileLogisticsNetworks(
       }
       validStations.push({ definition: station, device, buffer: spec.buffer });
     }
+    const stationRegions = new Set(validStations.map((station) => station.device.region));
+    if (definition.kind === "planetary" && stationRegions.size > 1) issues.push({ path: `${path}/stations`, code: "station.planetary-cross-region", message: `Planetary network '${definition.id}' cannot cross regions` });
+    if (definition.kind === "interstellar" && stationRegions.size < 2) issues.push({ path: `${path}/stations`, code: "station.interstellar-single-region", message: `Interstellar network '${definition.id}' must include stations in at least two regions` });
     if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind)) continue;
     const routes: CompiledLogisticsNetwork["routes"] = [];
     for (const supply of validStations) for (const supplySlot of supply.definition.slots.filter((slot) => slot.mode === "supply")) {
       for (const demand of validStations) for (const demandSlot of demand.definition.slots.filter((slot) => slot.mode === "demand" && slot.resource === supplySlot.resource)) {
         if (supply.device.id === demand.device.id) continue;
+        const crossesRegions = supply.device.region !== demand.device.region;
+        if ((definition.kind === "planetary" && crossesRegions) || (definition.kind === "interstellar" && !crossesRegions)) continue;
         const id = `${definition.id}:${supplySlot.resource}:${supply.device.id}->${demand.device.id}`;
-        const distance = Math.max(1, Math.abs(supply.device.position.x - demand.device.position.x) + Math.abs(supply.device.position.y - demand.device.position.y));
+        const supplyRegion = regions[supply.device.region]!;
+        const demandRegion = regions[demand.device.region]!;
+        const distance = Math.max(1,
+          Math.abs(supplyRegion.coordinates.x + supply.device.position.x - demandRegion.coordinates.x - demand.device.position.x)
+          + Math.abs(supplyRegion.coordinates.y - demandRegion.coordinates.y)
+          + Math.abs(supplyRegion.coordinates.z + supply.device.position.y - demandRegion.coordinates.z - demand.device.position.y),
+        );
         const plan = planDeviceTransport(fleetAsset.id, fleetAsset.program, { apiVersion: 1, connection: id, stage: "carrier", distance });
         const minimumBatch = Math.max(supplySlot.minimumBatch ?? 1, demandSlot.minimumBatch ?? 1);
         if (minimumBatch > plan.capacity) issues.push({ path, code: "station.minimum-batch", message: `Route '${id}' minimum batch ${minimumBatch} exceeds carrier capacity ${plan.capacity}` });
-        routes.push({ id, network: definition.id, resource: supplySlot.resource, from: supply.device.id, to: demand.device.id, fromBuffer: supply.buffer, toBuffer: demand.buffer, minimumBatch, distance, capacity: plan.capacity, travelTicks: plan.durationTicks });
+        routes.push({ id, network: definition.id, resource: supplySlot.resource, from: supply.device.id, to: demand.device.id, fromRegion: supply.device.region, toRegion: demand.device.region, fromBuffer: supply.buffer, toBuffer: demand.buffer, minimumBatch, distance, capacity: plan.capacity, travelTicks: plan.durationTicks });
       }
     }
     networks[definition.id] = { id: definition.id, kind: definition.kind, fleetAsset, fleetSize: definition.fleet.count, stations: structuredClone(definition.stations), routes };
@@ -198,6 +213,11 @@ function compileLogisticsNetworks(
 
 export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFactoryProject {
   const issues = validateAssets(loaded.resources, loaded.processes, loaded.deviceAssets);
+  const regions: Record<string, BlueprintRegion> = {};
+  for (const [index, region] of loaded.blueprint.regions.entries()) {
+    if (regions[region.id]) issues.push({ path: `blueprint/regions/${index}/id`, code: "reference.duplicate", message: `Duplicate region '${region.id}'` });
+    regions[region.id] = structuredClone(region);
+  }
   const devices: Record<string, CompiledDevice> = {};
   const ids = new Set<string>();
   for (const [index, instance] of loaded.blueprint.devices.entries()) {
@@ -206,10 +226,12 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     ids.add(instance.id);
     const asset = loaded.deviceAssets[instance.asset];
     if (!asset) { issues.push({ path: `${path}/asset`, code: "reference.device", message: `Unknown device asset '${instance.asset}'` }); continue; }
+    const region = regions[instance.region];
+    if (!region) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown region '${instance.region}'` });
     if (!asset.geometry.rotatable && instance.rotation !== 0) issues.push({ path: `${path}/rotation`, code: "geometry.rotation", message: `Device '${instance.asset}' is not rotatable` });
     const footprint = rotatedFootprint(asset, instance.rotation);
-    if (instance.position.x + footprint.width > loaded.blueprint.bounds.width || instance.position.y + footprint.height > loaded.blueprint.bounds.height) {
-      issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Footprint ${footprint.width}x${footprint.height} at (${instance.position.x},${instance.position.y}) exceeds ${loaded.blueprint.bounds.width}x${loaded.blueprint.bounds.height} bounds` });
+    if (region && (instance.position.x + footprint.width > region.bounds.width || instance.position.y + footprint.height > region.bounds.height)) {
+      issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Footprint ${footprint.width}x${footprint.height} at (${instance.position.x},${instance.position.y}) exceeds region '${region.id}' ${region.bounds.width}x${region.bounds.height} bounds` });
     }
     for (const message of validateDeviceConfig(asset.id, asset.program, instance.config ?? {})) {
       issues.push({ path: `${path}/config`, code: "runtime.invalid-config", message });
@@ -254,7 +276,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
   for (let a = 0; a < placed.length; a++) for (let b = a + 1; b < placed.length; b++) {
     const left = placed[a]!; const right = placed[b]!;
-    const overlap = left.position.x < right.position.x + right.footprint.width && left.position.x + left.footprint.width > right.position.x
+    const overlap = left.region === right.region && left.position.x < right.position.x + right.footprint.width && left.position.x + left.footprint.width > right.position.x
       && left.position.y < right.position.y + right.footprint.height && left.position.y + left.footprint.height > right.position.y;
     if (overlap) issues.push({ path: "blueprint/devices", code: "geometry.overlap", message: `Devices '${left.id}' and '${right.id}' overlap` });
   }
@@ -278,6 +300,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       return asset;
     });
     if (!from || !to || stageAssets.some((asset, stageIndex) => !asset?.capabilities.includes("transport") || !asset.logistics?.roles.includes(stageDefinitions[stageIndex]!.stage))) continue;
+    if (from.region !== to.region) { issues.push({ path, code: "connection.cross-region", message: `Physical connection '${connection.id}' cannot cross from '${from.region}' to '${to.region}'` }); continue; }
     const fromPort = from.ports.find((port) => port.id === connection.from.port);
     const toPort = to.ports.find((port) => port.id === connection.to.port);
     if (!fromPort) issues.push({ path: `${path}/from/port`, code: "reference.port", message: `Unknown port '${connection.from.port}' on '${from.id}'` });
@@ -304,7 +327,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, capacity, travelTicks, dispatchIntervalTicks };
   }
 
-  const logisticsNetworks = compileLogisticsNetworks(loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, issues);
+  const logisticsNetworks = compileLogisticsNetworks(loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, regions, issues);
 
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
   for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {
@@ -330,5 +353,5 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
-  return { ...loaded, devices, connections, logisticsNetworks, powerGrids, hashes };
+  return { ...loaded, regions, devices, connections, logisticsNetworks, powerGrids, hashes };
 }

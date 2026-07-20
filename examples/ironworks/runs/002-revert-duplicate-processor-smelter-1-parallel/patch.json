@@ -10,6 +10,7 @@
         "y": 6
       },
       "process": "smelt-iron",
+      "region": "forge-world",
       "rotation": 0
     }
   },

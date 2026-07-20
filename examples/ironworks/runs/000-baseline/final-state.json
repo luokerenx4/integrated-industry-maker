@@ -1,7 +1,7 @@
 {
-  "completedOrders": 12,
+  "completedOrders": 11,
   "consumed": {
-    "gear": 12
+    "gear": 11
   },
   "devices": {
     "assembler-1": {
@@ -16,15 +16,13 @@
             "resource": "gear"
           }
         ],
-        "startedAt": 118300
+        "startedAt": 117170
       },
       "buffers": {
-        "input": {
-          "iron-plate": 1
-        },
+        "input": {},
         "output": {}
       },
-      "progressTicks": 1700,
+      "progressTicks": 2830,
       "status": "processing"
     },
     "generator-1": {
@@ -103,19 +101,36 @@
   },
   "energy": {
     "availableMilliWatts": 2000000,
-    "consumedMilliJoules": 128988000,
+    "consumedMilliJoules": 200576600,
     "grids": {
-      "grid-generator-1": {
-        "availableMilliWatts": 2000000,
-        "consumedMilliJoules": 128988000
+      "grid-assembly-world-generator-2": {
+        "availableMilliWatts": 1000000,
+        "consumedMilliJoules": 91882600
+      },
+      "grid-forge-world-generator-1": {
+        "availableMilliWatts": 1000000,
+        "consumedMilliJoules": 108694000
       }
     }
   },
   "logisticsTransports": {
-    "planetary-main": []
+    "interstellar-main": [
+      {
+        "arriveTick": 124910,
+        "count": 3,
+        "departTick": 112870,
+        "from": "station-supply",
+        "fromBuffer": "storage",
+        "id": "transit-000131",
+        "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
+        "resource": "iron-plate",
+        "to": "station-demand",
+        "toBuffer": "storage"
+      }
+    ]
   },
   "produced": {
-    "gear": 12,
+    "gear": 11,
     "iron-ore": 74,
     "iron-plate": 29
   },
@@ -129,7 +144,7 @@
         "departTick": 119450,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000143",
+        "id": "transit-000139",
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"
@@ -140,7 +155,7 @@
         "departTick": 119700,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000144",
+        "id": "transit-000140",
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"
@@ -153,7 +168,7 @@
         "departTick": 119450,
         "from": "smelter-1",
         "fromBuffer": "output",
-        "id": "transit-000142",
+        "id": "transit-000138",
         "resource": "iron-plate",
         "to": "station-supply",
         "toBuffer": "storage"

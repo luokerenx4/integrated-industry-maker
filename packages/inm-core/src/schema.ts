@@ -79,9 +79,13 @@ export const deviceAssetSchema = z.object({
 
 export const blueprintSchema = z.object({
   version: z.literal(1), revision: z.string().optional(),
-  bounds: z.object({ width: positiveInt, height: positiveInt }).strict(),
+  regions: z.array(z.object({
+    id, name: z.string().min(1), kind: z.enum(["site", "planet", "orbit"]),
+    coordinates: z.object({ x: z.number().int(), y: z.number().int(), z: z.number().int() }).strict(),
+    bounds: z.object({ width: positiveInt, height: positiveInt }).strict(),
+  }).strict()).min(1),
   devices: z.array(z.object({
-    id, asset: id, position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
+    id, asset: id, region: id, position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
     rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
     process: id.optional(),
     config: z.record(z.unknown()).optional(),

@@ -108,8 +108,10 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
   const asset = project.deviceAssets[device.asset]!;
   const width = device.rotation === 90 || device.rotation === 270 ? asset.geometry.footprint.height : asset.geometry.footprint.width;
   const height = device.rotation === 90 || device.rotation === 270 ? asset.geometry.footprint.width : asset.geometry.footprint.height;
-  if (device.position.x + width > blueprint.bounds.width || device.position.y + height > blueprint.bounds.height) return true;
+  const region = blueprint.regions.find((item) => item.id === device.region);
+  if (!region || device.position.x + width > region.bounds.width || device.position.y + height > region.bounds.height) return true;
   return blueprint.devices.some((other) => {
+    if (other.region !== device.region) return false;
     const otherAsset = project.deviceAssets[other.asset]!;
     const ow = other.rotation === 90 || other.rotation === 270 ? otherAsset.geometry.footprint.height : otherAsset.geometry.footprint.width;
     const oh = other.rotation === 90 || other.rotation === 270 ? otherAsset.geometry.footprint.width : otherAsset.geometry.footprint.height;
@@ -126,8 +128,10 @@ function uniqueDeviceId(blueprint: Blueprint, base: string): string {
 }
 
 function placeDevice(blueprint: Blueprint, device: Blueprint["devices"][number], project: CompiledFactoryProject, preferred?: { x: number; y: number }): boolean {
-  const positions = Array.from({ length: blueprint.bounds.width * blueprint.bounds.height }, (_, index) => ({
-    x: index % blueprint.bounds.width, y: Math.floor(index / blueprint.bounds.width),
+  const bounds = blueprint.regions.find((region) => region.id === device.region)?.bounds;
+  if (!bounds) return false;
+  const positions = Array.from({ length: bounds.width * bounds.height }, (_, index) => ({
+    x: index % bounds.width, y: Math.floor(index / bounds.width),
   }));
   if (preferred) positions.sort((a, b) => Math.hypot(a.x - preferred.x, a.y - preferred.y) - Math.hypot(b.x - preferred.x, b.y - preferred.y) || a.y - b.y || a.x - b.x);
   for (const position of positions) {
@@ -144,6 +148,20 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
   const clone = structuredClone(instance); clone.id = id;
   if (!placeDevice(input.blueprint, clone, input.project, original.position)) return null;
   const patch: JsonPatchOperation[] = [{ op: "add", path: "/devices/-", value: clone }];
+  const grid = original.powerGrid ? input.production.powerGrids.find((item) => item.grid === original.powerGrid) : undefined;
+  const needsPowerSupport = original.assetDef.power.consumptionMilliWatts > (grid?.headroomMilliWatts ?? 0);
+  let powerSupport: Blueprint["devices"][number] | undefined;
+  if (needsPowerSupport) {
+    const generator = Object.values(input.project.deviceAssets)
+      .filter((asset) => asset.power.productionMilliWatts > asset.power.consumptionMilliWatts && asset.power.distribution)
+      .sort((a, b) => (b.power.productionMilliWatts - b.power.consumptionMilliWatts) - (a.power.productionMilliWatts - a.power.consumptionMilliWatts) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+    if (!generator) return null;
+    powerSupport = { id: uniqueDeviceId(input.blueprint, `${generator.id}-support`), asset: generator.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0 };
+    const candidateBlueprint = structuredClone(input.blueprint);
+    candidateBlueprint.devices.push(clone);
+    if (!placeDevice(candidateBlueprint, powerSupport, input.project, original.position)) return null;
+    patch.push({ op: "add", path: "/devices/-", value: powerSupport });
+  }
   const adjacent = input.blueprint.connections.filter((connection) => connection.to.device === original.id || connection.from.device === original.id);
   for (const connection of adjacent) {
     const copy = structuredClone(connection); copy.id = `${connection.id}-${id}`;
@@ -155,8 +173,8 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
     key: `capacity:${original.id}`,
     proposal: {
       strategy: `capacity:${original.id}`,
-      hypothesis: `Duplicate processor \`${original.id}\` as \`${id}\` because ${reason}.`,
-      expectedEffect: "Increase process capacity while preserving the existing resource and logistics contracts.",
+      hypothesis: `Duplicate processor \`${original.id}\` as \`${id}\`${powerSupport ? ` with regional power support \`${powerSupport.id}\`` : ""} because ${reason}.`,
+      expectedEffect: "Increase process capacity while preserving the existing resource, regional power, and logistics contracts.",
       patch,
     },
   };
@@ -171,7 +189,7 @@ function powerCandidates(input: ResearchInput): StrategyCandidate[] {
     const grid = diagnostic.code === "power-deficit" ? input.production.powerGrids.find((item) => diagnostic.message.startsWith(item.grid)) : undefined;
     const anchorId = target?.id ?? grid?.distributors[0]; const anchor = anchorId ? input.project.devices[anchorId] : undefined;
     const id = uniqueDeviceId(input.blueprint, `${generator.id}-support`);
-    const device: Blueprint["devices"][number] = { id, asset: generator.id, position: { x: 0, y: 0 }, rotation: 0 };
+    const device: Blueprint["devices"][number] = { id, asset: generator.id, region: anchor?.region ?? input.blueprint.regions[0]!.id, position: { x: 0, y: 0 }, rotation: 0 };
     if (!placeDevice(input.blueprint, device, input.project, anchor?.position)) continue;
     const key = `power:${diagnostic.code}:${anchorId ?? "factory"}`;
     candidates.push({ key, proposal: {
@@ -246,7 +264,7 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
   for (const original of processors) {
     const connection = input.blueprint.connections.find((item) => item.from.device === original.id); if (!connection) continue;
     const id = uniqueDeviceId(input.blueprint, `${original.id}-buffer`);
-    const buffer: Blueprint["devices"][number] = { id, asset: bufferAsset.id, position: { x: 0, y: 0 }, rotation: 0 };
+    const buffer: Blueprint["devices"][number] = { id, asset: bufferAsset.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0 };
     if (!placeDevice(input.blueprint, buffer, input.project, original.position)) continue;
     const connectionIndex = input.blueprint.connections.indexOf(connection);
     const inputPort = bufferAsset.geometry.ports.find((port) => port.direction === "input")!;

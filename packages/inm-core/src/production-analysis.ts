@@ -33,6 +33,7 @@ export interface ConnectionRateLimit {
 
 export interface PowerGridAnalysis {
   grid: string;
+  region: string;
   distributors: string[];
   members: string[];
   productionMilliWatts: number;
@@ -52,6 +53,8 @@ export interface StationNetworkAnalysis {
     resource: ResourceId;
     from: string;
     to: string;
+    fromRegion: string;
+    toRegion: string;
     minimumBatch: number;
     batchCapacity: number;
     travelTicks: number;
@@ -154,6 +157,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       resource: route.resource,
       from: route.from,
       to: route.to,
+      fromRegion: route.fromRegion,
+      toRegion: route.toRegion,
       minimumBatch: route.minimumBatch,
       batchCapacity: route.capacity,
       travelTicks: route.travelTicks,
@@ -181,6 +186,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
 
   const powerGrids = Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => ({
     grid: grid.id,
+    region: grid.region,
     distributors: [...grid.distributors],
     members: [...grid.members],
     productionMilliWatts: grid.productionMilliWatts,

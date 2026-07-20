@@ -60,21 +60,21 @@ JSON
 → TypeScript DeviceProgram injection
 → catalog reference resolution
 → rotation and footprint normalization
-→ bounds and overlap validation
+→ region identity, world coordinates, per-region bounds, and overlap validation
 → Process category, speed, port, buffer, resource-contract, and device-config validation
-→ power-distributor topology, coverage, and isolated-grid compilation
+→ region-local power-distributor topology, coverage, and isolated-grid compilation
 → loader/line/unloader logistics-stage resolution, throughput, and integer travel time
-→ supply/demand station matching, carrier compatibility, batch size, route time, and finite fleet compilation
+→ planetary/interstellar topology, supply/demand matching, carrier compatibility, world-distance route time, and finite fleet compilation
 → canonical CompiledFactoryProject
 ```
 
-The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or overlapping footprints; logistics assets used in unsupported stages; incompatible resource contracts; and input/output direction errors.
+The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown regions, resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or same-region overlapping footprints; cross-region physical links; cross-region planetary logistics; single-region interstellar logistics; logistics assets used in unsupported stages; incompatible resource contracts; and input/output direction errors.
 
 Each resource connection is a compiled logistics pipeline with three explicit stages: loader, line, and unloader. Each stage references a transport-capable Device asset whose declared roles determine where it may be used. Its `planTransport()` hook computes stage capacity and duration. The compiler sums stage latency and derives a dispatch interval from the slowest stage, so a sorter can bottleneck a belt independently of line length. Logistics equipment remains a Device capability rather than becoming a shared asset class.
 
-Longer-range logistics is declarative. A station-capable Device exposes a project-local internal buffer, supported network kinds, and a fixed number of resource slots. A blueprint groups station instances into `planetary` or `interstellar` networks, assigns a finite fleet of compatible carrier Devices, and marks each station/resource slot as `supply`, `demand`, or `storage`. The compiler creates deterministic routes only for matching supply/demand pairs. At runtime carriers are shared reusable capacity: a route reserves one fleet member, removes a bounded batch from the supply station, emits departure/arrival events, occupies the carrier for its compiled travel time, and deposits into demand storage without exceeding buffer capacity. Failures and spatial power availability gate new dispatches; already-departed cargo remains an explicit in-flight entity.
+Longer-range logistics is declarative. A station-capable Device exposes a project-local internal buffer, supported network kinds, and a fixed number of resource slots. A blueprint groups station instances into `planetary` or `interstellar` networks, assigns a finite fleet of compatible carrier Devices, and marks each station/resource slot as `supply`, `demand`, or `storage`. Planetary routes are restricted to one region; interstellar routes are restricted to different regions. Region coordinates plus device-local coordinates produce deterministic integer route distance, which is passed into the carrier's TypeScript `planTransport()` hook. At runtime carriers are shared reusable capacity: a route reserves one fleet member, removes a bounded batch from the supply station, emits departure/arrival events, occupies the carrier for its compiled travel time, and deposits into demand storage without exceeding buffer capacity. Failures and regional power availability gate new dispatches; already-departed cargo remains an explicit in-flight entity.
 
-Power is spatial rather than factory-global. A power-capable Device may declare distributor connection and consumer coverage ranges. Nearby distributors form deterministic connected components; every covered Device is assigned to the nearest component, and each resulting grid owns its generation, rated demand, active demand, and energy ledger. A consuming Device outside all coverage remains a valid blueprint entity but is explicitly unpowered at runtime and in static diagnostics.
+Power is spatial and region-local rather than factory-global. A power-capable Device may declare distributor connection and consumer coverage ranges. Nearby distributors in the same region form deterministic connected components; distributors on different worlds never join even when their local coordinates overlap. Every covered Device is assigned to the nearest component in its own region, and each resulting grid owns its generation, rated demand, active demand, and energy ledger. A consuming Device outside all same-region coverage remains a valid blueprint entity but is explicitly unpowered at runtime and in static diagnostics.
 
 ## Asset and program boundary
 
@@ -128,7 +128,7 @@ Research proposals use RFC 6902-style `add`, `remove`, and `replace` operations.
 
 The built-in research agent turns static diagnostic codes into bounded strategies: add process capacity for material deficits, replace a bottleneck local-logistics stage when a faster project-local Device exists, expand an undersized station fleet, extend or reinforce power for disconnected/deficit grids, insert storage for measured output blocking, or duplicate a measured high-utilization processor. `ResearchInput.history` records strategy keys, KEEP/REVERT decisions, and score deltas from earlier iterations in the same invocation so a rejected experiment is not immediately repeated. External agents receive the same diagnostic and history contract.
 
-Resource assets, Device assets and their scripts, Scenarios, Objectives, bounds, simulator code, evaluator code, and score definition cannot be patched. A proposal is applied to a copy, schema-validated, compiled, simulated, and evaluated before the score comparison.
+Resource assets, Device assets and their scripts, Scenarios, Objectives, region definitions, simulator code, evaluator code, and score definition cannot be patched. A proposal is applied to a copy, schema-validated, compiled, simulated, and evaluated before the score comparison.
 
 The built-in deterministic heuristic duplicates a highly utilized processor, finds a non-overlapping position, and mirrors its incoming/outgoing topology. `ExternalCommandResearchAgent` accepts vendor-neutral JSON over stdin, and `ProviderResearchAgent` supplies an optional LLM provider seam.
 
@@ -153,6 +153,6 @@ Files are written to a temporary file, flushed, and atomically renamed. `manifes
 
 `FactorySceneModel` contains plain serializable data only—no Three.js objects, React elements, cameras, renderer materials, or geometry. Event replay projects Device status plus local and station resource transit independently of rendering.
 
-Studio maps `blueprint.x → world.x`, `blueprint.y → world.z`, and visual height to `world.y`. Two-dimensional footprints remain the only collision and layout truth. The root UI first presents the engine's projects; opening one establishes `/<project-id>` as the browser route and sole project context. The runtime page can select baseline, KEEP, and REVERT runs, open the project's Device/Resource asset browser, play/pause/reset, scrub time, change speed, inspect semantic events, and highlight bottlenecks. It never writes a blueprint.
+Studio lays regions side-by-side for inspection, then maps each region's `blueprint.x → world.x`, `blueprint.y → world.z`, and visual height to `world.y`. Each region retains an independent floor, label, bounds, collision space, and power topology; dashed station routes bridge region floors. The root UI first presents the engine's projects; opening one establishes `/<project-id>` as the browser route and sole project context. The runtime page can select baseline, KEEP, and REVERT runs, open the project's Device/Resource asset browser, play/pause/reset, scrub time, change speed, inspect semantic events, and highlight bottlenecks. It never writes a blueprint.
 
 The local server bundles the UI into `.inm/cache`, reads project/run files directly, and refreshes after source changes. Project index, runtime data, and asset files use `/api/projects/<project-id>/...`; every asset URL is project-qualified and root-confined. It requires neither a database nor a cloud service.

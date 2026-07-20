@@ -165,10 +165,19 @@ export interface DeviceProgram {
 }
 
 export interface GridPosition { x: number; y: number }
+export interface WorldPosition { x: number; y: number; z: number }
+export interface BlueprintRegion {
+  id: string;
+  name: string;
+  kind: "site" | "planet" | "orbit";
+  coordinates: WorldPosition;
+  bounds: { width: number; height: number };
+}
 export type Rotation = 0 | 90 | 180 | 270;
 export interface BlueprintDevice {
   id: DeviceInstanceId;
   asset: DeviceAssetId;
+  region: string;
   position: GridPosition;
   rotation: Rotation;
   process?: ProcessId;
@@ -203,7 +212,7 @@ export interface BlueprintLogisticsNetwork {
 export interface Blueprint {
   version: 1;
   revision?: string;
-  bounds: { width: number; height: number };
+  regions: BlueprintRegion[];
   devices: BlueprintDevice[];
   connections: BlueprintConnection[];
   logisticsNetworks: BlueprintLogisticsNetwork[];
@@ -294,6 +303,8 @@ export interface CompiledLogisticsRoute {
   resource: ResourceId;
   from: DeviceInstanceId;
   to: DeviceInstanceId;
+  fromRegion: string;
+  toRegion: string;
   fromBuffer: BufferId;
   toBuffer: BufferId;
   minimumBatch: number;
@@ -311,6 +322,7 @@ export interface CompiledLogisticsNetwork {
 }
 export interface CompiledPowerGrid {
   id: string;
+  region: string;
   distributors: DeviceInstanceId[];
   members: DeviceInstanceId[];
   productionMilliWatts: number;
@@ -325,6 +337,7 @@ export interface CompiledFactoryProject {
   blueprint: Blueprint;
   scenario: Scenario;
   objective: Objective;
+  regions: Record<string, BlueprintRegion>;
   devices: Record<DeviceInstanceId, CompiledDevice>;
   connections: Record<ConnectionId, CompiledConnection>;
   logisticsNetworks: Record<string, CompiledLogisticsNetwork>;

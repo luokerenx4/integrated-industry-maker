@@ -29,7 +29,7 @@ interface ProjectSummary {
   connections: number;
   logisticsNetworks: number;
   runs: number;
-  bounds: { width: number; height: number };
+  regions: number;
 }
 
 interface ProjectIndex {
@@ -42,6 +42,7 @@ interface Device {
   id: string;
   assetId: string;
   name: string;
+  region: string;
   capabilities: string[];
   position: { x: number; y: number };
   rotation: number;
@@ -131,10 +132,10 @@ interface IndustrialAnalysis {
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
   }>;
-  powerGrids: Array<{ grid: string; distributors: string[]; members: string[]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
+  powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
-    routes: Array<{ route: string; resource: string; from: string; to: string; minimumBatch: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
+    routes: Array<{ route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string; minimumBatch: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
   }>;
   diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; message: string }>;
 }
@@ -144,6 +145,12 @@ interface StudioData {
   name: string;
   blueprintHash: string;
   bounds: { width: number; height: number };
+  regions: Array<{
+    id: string; name: string; kind: "site" | "planet" | "orbit";
+    coordinates: { x: number; y: number; z: number };
+    bounds: { width: number; height: number };
+    offset: { x: number; y: number };
+  }>;
   devices: Device[];
   connections: Array<{
     id: string;
@@ -287,8 +294,11 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
     <fog attach="fog" args={["#071014", 30, 72]} />
     <hemisphereLight args={["#bcecff", "#102026", 1.15]} />
     <directionalLight position={[12, 24, 8]} intensity={2.2} castShadow shadow-mapSize={[2048, 2048]} />
-    <Grid args={[data.bounds.width, data.bounds.height]} position={[data.bounds.width / 2, 0, data.bounds.height / 2]} cellSize={1} cellThickness={.55} cellColor="#24414a" sectionSize={4} sectionThickness={1.1} sectionColor="#397080" fadeDistance={60} infiniteGrid={false} />
-    <mesh position={[data.bounds.width / 2, -.04, data.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[data.bounds.width, data.bounds.height]} /><meshStandardMaterial color="#0b1a20" roughness={.92} metalness={.08} /></mesh>
+    {data.regions.map((region) => <group key={region.id}>
+      <Grid args={[region.bounds.width, region.bounds.height]} position={[region.offset.x + region.bounds.width / 2, 0, region.offset.y + region.bounds.height / 2]} cellSize={1} cellThickness={.55} cellColor="#24414a" sectionSize={4} sectionThickness={1.1} sectionColor={region.kind === "planet" ? "#397080" : "#67578a"} fadeDistance={70} infiniteGrid={false} />
+      <mesh position={[region.offset.x + region.bounds.width / 2, -.04, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color={region.kind === "planet" ? "#0b1a20" : "#151525"} roughness={.92} metalness={.08} /></mesh>
+      <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
+    </group>)}
     {data.connections.map((connection) => <Line key={connection.id} points={[[connection.from.x, .16, connection.from.y], [connection.to.x, .16, connection.to.y]]} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
     {data.logisticsRoutes.map((route) => <Line key={route.id} points={[[route.from.x, .32, route.from.y], [route.to.x, .32, route.to.y]]} color="#55c9df" lineWidth={1.5} dashed dashScale={2.4} dashSize={.45} gapSize={.28} transparent opacity={.7} />)}
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
@@ -443,14 +453,14 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>
           <div className="station-network-list">{analysis.stationNetworks.length ? analysis.stationNetworks.map((network) => <div className="station-network-card" key={network.network}>
             <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.fleetSize}× {network.fleetAsset}</b></div>
-            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from} → {route.to}</small></span><code>{route.minimumBatch}-{route.batchCapacity} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
+            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} → {route.to}@{route.toRegion}</small></span><code>{route.minimumBatch}-{route.batchCapacity} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
         </section>
         <section className="analysis-section power-analysis">
           <div className="analysis-section-title"><span>POWER GRIDS</span><b>RATED ENVELOPE</b></div>
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.distributors.join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>GENERATION</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} MEMBERS</footer></div>;
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.distributors.join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>GENERATION</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} MEMBERS</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>
@@ -468,7 +478,7 @@ function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (proj
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
         <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> local links</span><span><b>{project.logisticsNetworks}</b> station nets</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
-        <div className="project-card-footer"><span>{project.bounds.width} × {project.bounds.height} GRID</span><strong>OPEN PROJECT →</strong></div>
+        <div className="project-card-footer"><span>{project.regions} {project.regions === 1 ? "REGION" : "REGIONS"}</span><strong>OPEN PROJECT →</strong></div>
       </button>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
     </section>
     <footer className="launcher-footer"><span>INM PRE-ALPHA</span><span>PROJECTS ARE SELF-CONTAINED</span></footer>
@@ -614,8 +624,8 @@ function App() {
     <section className="workspace">
       <div className="viewport">
         <Canvas shadows camera={{ position: [30, 20, 30], fov: 39, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
-        <div className="viewport-title"><span className="live-dot" /> FACTORY WORLD <b>{data.bounds.width}×{data.bounds.height}</b></div>
-        <div className="scene-stats"><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
+        <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} REGIONS</b></div>
+        <div className="scene-stats"><span><b>{data.regions.length}</b> REGIONS</span><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>

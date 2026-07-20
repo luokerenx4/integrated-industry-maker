@@ -26,9 +26,9 @@ async function projectCopy(): Promise<string> {
 async function stationProjectSource(): Promise<LoadedFactoryProject> {
   const source = await loaded();
   source.blueprint.devices = [
-    { id: "station-supply", asset: "logistics-station", position: { x: 2, y: 10 }, rotation: 0 },
-    { id: "station-demand", asset: "logistics-station", position: { x: 14, y: 10 }, rotation: 0 },
-    { id: "generator-1", asset: "generator", position: { x: 10, y: 3 }, rotation: 0 },
+    { id: "station-supply", asset: "logistics-station", region: "forge-world", position: { x: 2, y: 10 }, rotation: 0 },
+    { id: "station-demand", asset: "logistics-station", region: "forge-world", position: { x: 14, y: 10 }, rotation: 0 },
+    { id: "generator-1", asset: "generator", region: "forge-world", position: { x: 10, y: 3 }, rotation: 0 },
   ];
   source.blueprint.connections = [];
   source.blueprint.logisticsNetworks = [{
@@ -50,18 +50,24 @@ describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
     expect(Object.keys(project.devices)).toHaveLength(8);
+    expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resources)).toEqual(["gear", "iron-ore", "iron-plate"]);
     expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
-    expect(project.devices["smelter-1"]!.powerGrid).toBe("grid-generator-1");
-    expect(project.powerGrids["grid-generator-1"]!.members).toContain("assembler-1");
-    expect(project.powerGrids["grid-generator-1"]!.productionMilliWatts).toBe(2_000_000);
+    expect(project.devices["smelter-1"]!.powerGrid).toBe("grid-forge-world-generator-1");
+    expect(project.devices["assembler-1"]!.powerGrid).toBe("grid-assembly-world-generator-2");
+    expect(project.powerGrids["grid-forge-world-generator-1"]!.members).not.toContain("assembler-1");
+    expect(project.powerGrids["grid-forge-world-generator-1"]!.productionMilliWatts).toBe(1_000_000);
+    expect(project.powerGrids["grid-assembly-world-generator-2"]!.productionMilliWatts).toBe(1_000_000);
     expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => `${stage.stage}:${stage.asset.id}`)).toEqual([
       "loader:sorter", "line:conveyor", "unloader:sorter",
     ]);
     expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(250);
     expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_200);
+    expect(project.logisticsNetworks["interstellar-main"]!.routes).toEqual([expect.objectContaining({
+      resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", distance: 88, travelTicks: 12_040,
+    })]);
     expect(project.hashes.blueprintHash).toHaveLength(64);
     expect(project.hashes.processCatalogHash).toHaveLength(64);
   });
@@ -75,7 +81,7 @@ describe("blueprint compiler", () => {
   });
 
   test("rejects out-of-bounds devices", async () => {
-    const source = await loaded(); source.blueprint.devices[0]!.position.x = 39;
+    const source = await loaded(); source.blueprint.devices[0]!.position.x = 19;
     expect(issueCodes(() => compileFactoryProject(source))).toContain("geometry.out-of-bounds");
   });
 
@@ -122,21 +128,46 @@ describe("blueprint compiler", () => {
     const generator = source.blueprint.devices.find((device) => device.id === "generator-1")!;
     const oreSource = source.blueprint.devices.find((device) => device.id === "ore-source-1")!;
     const assembler = source.blueprint.devices.find((device) => device.id === "assembler-1")!;
+    const secondGenerator = source.blueprint.devices.find((device) => device.id === "generator-2")!;
     source.deviceAssets.generator!.power.distribution = { connectionRange: 8, coverageRange: 8 };
     source.blueprint.devices = [
       { ...generator, position: { x: 0, y: 0 } },
-      { ...generator, id: "generator-2", position: { x: 30, y: 30 } },
+      { ...secondGenerator, position: { x: 0, y: 0 } },
       { ...oreSource, position: { x: 3, y: 0 } },
-      { ...assembler, position: { x: 27, y: 30 } },
+      { ...assembler, position: { x: 3, y: 0 } },
     ];
     source.blueprint.connections = [];
     source.blueprint.logisticsNetworks = [];
     const project = compileFactoryProject(source);
-    expect(Object.keys(project.powerGrids)).toEqual(["grid-generator-1", "grid-generator-2"]);
-    expect(project.devices["ore-source-1"]!.powerGrid).toBe("grid-generator-1");
-    expect(project.devices["assembler-1"]!.powerGrid).toBe("grid-generator-2");
-    expect(project.powerGrids["grid-generator-1"]!.ratedConsumptionMilliWatts).toBe(50_000);
-    expect(project.powerGrids["grid-generator-2"]!.ratedConsumptionMilliWatts).toBe(220_000);
+    expect(Object.keys(project.powerGrids)).toEqual(["grid-forge-world-generator-1", "grid-assembly-world-generator-2"]);
+    expect(project.devices["ore-source-1"]!.powerGrid).toBe("grid-forge-world-generator-1");
+    expect(project.devices["assembler-1"]!.powerGrid).toBe("grid-assembly-world-generator-2");
+    expect(project.powerGrids["grid-forge-world-generator-1"]!.ratedConsumptionMilliWatts).toBe(50_000);
+    expect(project.powerGrids["grid-assembly-world-generator-2"]!.ratedConsumptionMilliWatts).toBe(220_000);
+  });
+
+  test("enforces region-local physical and planetary links and cross-region interstellar links", async () => {
+    const physical = await loaded();
+    physical.blueprint.connections[0]!.to.device = "assembler-1";
+    physical.blueprint.connections[0]!.to.port = "input";
+    expect(issueCodes(() => compileFactoryProject(physical))).toContain("connection.cross-region");
+
+    const planetary = await stationProjectSource();
+    planetary.blueprint.devices.find((device) => device.id === "station-demand")!.region = "assembly-world";
+    expect(issueCodes(() => compileFactoryProject(planetary))).toContain("station.planetary-cross-region");
+
+    const interstellar = await loaded();
+    interstellar.blueprint.devices.find((device) => device.id === "station-demand")!.region = "forge-world";
+    interstellar.blueprint.devices.find((device) => device.id === "station-demand")!.position = { x: 1, y: 16 };
+    interstellar.blueprint.devices = interstellar.blueprint.devices.filter((device) => device.id.startsWith("station-") || device.id === "generator-1");
+    interstellar.blueprint.connections = [];
+    expect(issueCodes(() => compileFactoryProject(interstellar))).toContain("station.interstellar-single-region");
+  });
+
+  test("reports unknown device regions without crashing route compilation", async () => {
+    const source = await loaded();
+    source.blueprint.devices.find((device) => device.id === "station-supply")!.region = "missing-world";
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.region");
   });
 
   test("compiles supply and demand slots into reusable-carrier station routes", async () => {
@@ -173,7 +204,10 @@ describe("deterministic discrete-event simulation", () => {
     expect(plate.consumedPerMinute).toBe(40);
     expect(plate.netPerMinute).toBe(-25);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
-    expect(analysis.powerGrids).toEqual([expect.objectContaining({ grid: "grid-generator-1", headroomMilliWatts: 750_000 })]);
+    expect(analysis.powerGrids).toEqual([
+      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 80_000 }),
+      expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 70_000 }),
+    ]);
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
@@ -197,8 +231,8 @@ describe("deterministic discrete-event simulation", () => {
       planTransport: () => ({ capacity: 1, durationTicks: 1_000 }),
     };
     source.blueprint.devices = [
-      { id: "source-buffer", asset: "buffer", position: { x: 0, y: 0 }, rotation: 0 },
-      { id: "target-buffer", asset: "buffer", position: { x: 10, y: 0 }, rotation: 0 },
+      { id: "source-buffer", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target-buffer", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
     ];
     source.blueprint.connections = [{
       id: "buffer-link", from: { device: "source-buffer", port: "output" }, to: { device: "target-buffer", port: "input" },
@@ -251,7 +285,7 @@ describe("deterministic discrete-event simulation", () => {
     const source = await loaded();
     const oreSource = source.blueprint.devices.find((device) => device.id === "ore-source-1")!;
     const generator = source.blueprint.devices.find((device) => device.id === "generator-1")!;
-    source.blueprint.devices = [oreSource, generator, { id: "buffer-1", asset: "buffer", position: { x: 10, y: 10 }, rotation: 0 }];
+    source.blueprint.devices = [oreSource, generator, { id: "buffer-1", asset: "buffer", region: oreSource.region, position: { x: 10, y: 10 }, rotation: 0 }];
     source.blueprint.connections = [{
       id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" },
       logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
@@ -306,6 +340,8 @@ describe("deterministic discrete-event simulation", () => {
     } satisfies DeviceProgram;
     source.blueprint.devices = source.blueprint.devices.filter((device) => device.id === "assembler-1" || device.id === "generator-1");
     source.blueprint.devices.find((device) => device.id === "assembler-1")!.position = { x: 10, y: 10 };
+    source.blueprint.devices.find((device) => device.id === "generator-1")!.region = "assembly-world";
+    source.blueprint.devices.find((device) => device.id === "generator-1")!.position = { x: 4, y: 3 };
     delete source.blueprint.devices.find((device) => device.id === "assembler-1")!.process;
     source.blueprint.connections = [];
     source.blueprint.logisticsNetworks = [];
@@ -324,9 +360,9 @@ describe("deterministic discrete-event simulation", () => {
 });
 
 describe("research boundary and experiment decisions", () => {
-  test("patches can optimize logistics networks but cannot edit world assets, scenarios, objectives, or bounds", () => {
+  test("patches can optimize logistics networks but cannot edit world assets, scenarios, objectives, or regions", () => {
     expect(() => validateResearchPatch([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 2 }])).not.toThrow();
-    for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/bounds/width"]) {
+    for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/regions/0/bounds/width"]) {
       expect(() => validateResearchPatch([{ op: "replace", path, value: 1 }])).toThrow();
     }
   });
@@ -392,7 +428,7 @@ describe("research boundary and experiment decisions", () => {
 
   test("heuristic station strategy expands a statically undersized shared fleet", async () => {
     const source = await loaded();
-    source.deviceAssets["logistics-drone"]!.program = {
+    source.deviceAssets["logistics-vessel"]!.program = {
       apiVersion: 1,
       evaluate: () => ({ kind: "none" }),
       planTransport: () => ({ capacity: 3, durationTicks: 180_000 }),
@@ -402,7 +438,7 @@ describe("research boundary and experiment decisions", () => {
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "station-fleet-deficit")).toBeTrue();
     const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, history: [] });
-    expect(proposal.strategy).toBe("station-fleet:planetary-main:40");
+    expect(proposal.strategy).toBe("station-fleet:interstellar-main:40");
     expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 40 }]);
   });
 

@@ -10,6 +10,21 @@
         "y": 8
       },
       "process": "smelt-iron",
+      "region": "forge-world",
+      "rotation": 0
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "generator",
+      "id": "generator-support",
+      "position": {
+        "x": 7,
+        "y": 10
+      },
+      "region": "forge-world",
       "rotation": 0
     }
   },

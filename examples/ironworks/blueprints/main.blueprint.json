@@ -1,8 +1,4 @@
 {
-  "bounds": {
-    "height": 32,
-    "width": 40
-  },
   "connections": [
     {
       "from": {
@@ -104,6 +100,7 @@
         "x": 2,
         "y": 10
       },
+      "region": "forge-world",
       "rotation": 0
     },
     {
@@ -114,61 +111,68 @@
         "y": 10
       },
       "process": "smelt-iron",
+      "region": "forge-world",
       "rotation": 0
     },
     {
       "asset": "assembler",
       "id": "assembler-1",
       "position": {
-        "x": 28,
-        "y": 18
+        "x": 7,
+        "y": 10
       },
       "process": "assemble-gear",
+      "region": "assembly-world",
       "rotation": 0
     },
     {
       "asset": "material-sink",
       "id": "output-1",
       "position": {
-        "x": 35,
-        "y": 18
+        "x": 14,
+        "y": 10
       },
+      "region": "assembly-world",
       "rotation": 0
     },
     {
       "asset": "generator",
       "id": "generator-1",
       "position": {
-        "x": 11,
+        "x": 8,
         "y": 3
       },
+      "region": "forge-world",
       "rotation": 0
     },
     {
-      "asset": "logistics-station",
+      "asset": "interstellar-logistics-station",
       "id": "station-supply",
       "position": {
-        "x": 14,
-        "y": 9
+        "x": 13,
+        "y": 8
       },
+      "region": "forge-world",
       "rotation": 0
     },
     {
-      "asset": "logistics-station",
+      "asset": "interstellar-logistics-station",
       "id": "station-demand",
       "position": {
-        "x": 22,
-        "y": 18
+        "x": 1,
+        "y": 8
       },
+      "region": "assembly-world",
       "rotation": 0
     },
     {
       "asset": "generator",
       "id": "generator-2",
       "position": {
-        "x": 27,
-        "y": 10
+        "x": 4,
+        "y": 3
       },
+      "region": "assembly-world",
       "rotation": 0
     }
   ],
@@ -176,10 +180,10 @@
     {
       "fleet": {
         "count": 1,
-        "deviceAsset": "logistics-drone"
+        "deviceAsset": "logistics-vessel"
       },
-      "id": "planetary-main",
-      "kind": "planetary",
+      "id": "interstellar-main",
+      "kind": "interstellar",
       "stations": [
         {
           "device": "station-supply",
@@ -207,5 +211,35 @@
   "policies": {
     "dispatch": "round-robin"
   },
+  "regions": [
+    {
+      "bounds": {
+        "height": 24,
+        "width": 20
+      },
+      "coordinates": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "id": "forge-world",
+      "kind": "planet",
+      "name": "Forge World"
+    },
+    {
+      "bounds": {
+        "height": 24,
+        "width": 20
+      },
+      "coordinates": {
+        "x": 100,
+        "y": 0,
+        "z": 0
+      },
+      "id": "assembly-world",
+      "kind": "planet",
+      "name": "Assembly World"
+    }
+  ],
   "version": 1
 }

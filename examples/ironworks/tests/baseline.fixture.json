@@ -3,7 +3,7 @@
   "blueprint": "main", "scenario": "baseline", "objective": "default", "seed": 42,
   "assertions": [
     { "kind": "metric", "path": "consumed.gear", "min": 10 },
-    { "kind": "metric", "path": "energyConsumedMilliJoules", "max": 200000000 },
+    { "kind": "metric", "path": "energyConsumedMilliJoules", "max": 300000000 },
     { "kind": "event", "type": "resource.consumed", "present": true }
   ]
 }

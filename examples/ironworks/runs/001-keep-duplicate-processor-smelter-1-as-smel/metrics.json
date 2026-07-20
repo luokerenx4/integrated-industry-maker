@@ -1,9 +1,10 @@
 {
-  "averageWip": 7.225416666666667,
+  "averageWip": 11.867833333333333,
   "blockedOutputTime": {
     "assembler-1": 0,
     "generator-1": 0,
     "generator-2": 0,
+    "generator-support": 0,
     "ore-source-1": 0,
     "output-1": 0,
     "smelter-1": 0,
@@ -12,16 +13,17 @@
     "station-supply": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 24,
+  "completedOrders": 22,
   "consumed": {
-    "gear": 24
+    "gear": 22
   },
-  "energyConsumedMilliJoules": 159792000,
-  "finalScore": 111.83453833333334,
+  "energyConsumedMilliJoules": 230214600,
+  "finalScore": 92.31607066666668,
   "idleTime": {
     "assembler-1": 0,
     "generator-1": 120000,
     "generator-2": 120000,
+    "generator-support": 120000,
     "ore-source-1": 0,
     "output-1": 0,
     "smelter-1": 0,
@@ -31,9 +33,10 @@
   },
   "infeasibleReason": null,
   "machineUtilization": {
-    "assembler-1": 0.625,
+    "assembler-1": 0.56525,
     "generator-1": 0,
     "generator-2": 0,
+    "generator-support": 0,
     "ore-source-1": 1,
     "output-1": 0,
     "smelter-1": 0.9566666666666667,
@@ -41,30 +44,31 @@
     "station-demand": 0,
     "station-supply": 0
   },
-  "occupiedArea": 46,
+  "occupiedArea": 64,
   "onTimeDelivery": 1,
   "produced": {
-    "gear": 25,
+    "gear": 22,
     "iron-ore": 120,
     "iron-plate": 56
   },
   "scoreBreakdown": {
     "blocked": 0,
-    "buildCost": -6.645,
+    "buildCost": -11.395,
     "constraintPenalty": 0,
-    "energy": -1.59792,
-    "occupiedArea": -9.200000000000001,
+    "energy": -2.302146,
+    "occupiedArea": -12.8,
     "onTimeDelivery": 10,
-    "throughput": 120,
-    "wip": -0.7225416666666667
+    "throughput": 110,
+    "wip": -1.1867833333333333
   },
-  "throughputPerMinute": 12,
-  "totalBuildCost": 13290,
-  "transportCongestion": 0.15436507936507968,
+  "throughputPerMinute": 11,
+  "totalBuildCost": 22790,
+  "transportCongestion": 0.1844841269841268,
   "waitingInputTime": {
-    "assembler-1": 45000,
+    "assembler-1": 52170,
     "generator-1": 0,
     "generator-2": 0,
+    "generator-support": 0,
     "ore-source-1": 0,
     "output-1": 120000,
     "smelter-1": 5200,

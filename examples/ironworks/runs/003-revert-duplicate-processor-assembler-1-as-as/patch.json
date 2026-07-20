@@ -3,13 +3,28 @@
     "op": "add",
     "path": "/devices/-",
     "value": {
-      "asset": "smelter",
-      "id": "smelter-1-parallel-parallel-parallel",
+      "asset": "assembler",
+      "id": "assembler-1-parallel",
       "position": {
-        "x": 9,
-        "y": 4
+        "x": 7,
+        "y": 8
       },
-      "process": "smelt-iron",
+      "process": "assemble-gear",
+      "region": "assembly-world",
+      "rotation": 0
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "generator",
+      "id": "generator-support-2",
+      "position": {
+        "x": 5,
+        "y": 10
+      },
+      "region": "assembly-world",
       "rotation": 0
     }
   },
@@ -18,10 +33,10 @@
     "path": "/connections/-",
     "value": {
       "from": {
-        "device": "ore-source-1",
+        "device": "station-demand",
         "port": "output"
       },
-      "id": "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel-smelter-1-parallel-parallel-parallel",
+      "id": "station-to-assembler-assembler-1-parallel",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -34,7 +49,7 @@
         }
       },
       "to": {
-        "device": "smelter-1-parallel-parallel-parallel",
+        "device": "assembler-1-parallel",
         "port": "input"
       }
     }
@@ -44,10 +59,10 @@
     "path": "/connections/-",
     "value": {
       "from": {
-        "device": "smelter-1-parallel-parallel-parallel",
+        "device": "assembler-1-parallel",
         "port": "output"
       },
-      "id": "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel-smelter-1-parallel-parallel-parallel",
+      "id": "gear-to-output-assembler-1-parallel",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -60,7 +75,7 @@
         }
       },
       "to": {
-        "device": "station-supply",
+        "device": "output-1",
         "port": "input"
       }
     }

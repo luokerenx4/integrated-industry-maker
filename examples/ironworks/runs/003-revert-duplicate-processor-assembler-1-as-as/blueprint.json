@@ -1,8 +1,4 @@
 {
-  "bounds": {
-    "height": 32,
-    "width": 40
-  },
   "connections": [
     {
       "from": {
@@ -138,10 +134,10 @@
     },
     {
       "from": {
-        "device": "ore-source-1",
+        "device": "station-demand",
         "port": "output"
       },
-      "id": "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel",
+      "id": "station-to-assembler-assembler-1-parallel",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -154,16 +150,16 @@
         }
       },
       "to": {
-        "device": "smelter-1-parallel-parallel",
+        "device": "assembler-1-parallel",
         "port": "input"
       }
     },
     {
       "from": {
-        "device": "smelter-1-parallel-parallel",
+        "device": "assembler-1-parallel",
         "port": "output"
       },
-      "id": "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel",
+      "id": "gear-to-output-assembler-1-parallel",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -176,51 +172,7 @@
         }
       },
       "to": {
-        "device": "station-supply",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "ore-source-1",
-        "port": "output"
-      },
-      "id": "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel-smelter-1-parallel-parallel-parallel",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "to": {
-        "device": "smelter-1-parallel-parallel-parallel",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "smelter-1-parallel-parallel-parallel",
-        "port": "output"
-      },
-      "id": "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel-smelter-1-parallel-parallel-parallel",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "to": {
-        "device": "station-supply",
+        "device": "output-1",
         "port": "input"
       }
     }
@@ -236,6 +188,7 @@
         "x": 2,
         "y": 10
       },
+      "region": "forge-world",
       "rotation": 0
     },
     {
@@ -246,61 +199,68 @@
         "y": 10
       },
       "process": "smelt-iron",
+      "region": "forge-world",
       "rotation": 0
     },
     {
       "asset": "assembler",
       "id": "assembler-1",
       "position": {
-        "x": 28,
-        "y": 18
+        "x": 7,
+        "y": 10
       },
       "process": "assemble-gear",
+      "region": "assembly-world",
       "rotation": 0
     },
     {
       "asset": "material-sink",
       "id": "output-1",
       "position": {
-        "x": 35,
-        "y": 18
+        "x": 14,
+        "y": 10
       },
+      "region": "assembly-world",
       "rotation": 0
     },
     {
       "asset": "generator",
       "id": "generator-1",
       "position": {
-        "x": 11,
+        "x": 8,
         "y": 3
       },
+      "region": "forge-world",
       "rotation": 0
     },
     {
-      "asset": "logistics-station",
+      "asset": "interstellar-logistics-station",
       "id": "station-supply",
       "position": {
-        "x": 14,
-        "y": 9
+        "x": 13,
+        "y": 8
       },
+      "region": "forge-world",
       "rotation": 0
     },
     {
-      "asset": "logistics-station",
+      "asset": "interstellar-logistics-station",
       "id": "station-demand",
       "position": {
-        "x": 22,
-        "y": 18
+        "x": 1,
+        "y": 8
       },
+      "region": "assembly-world",
       "rotation": 0
     },
     {
       "asset": "generator",
       "id": "generator-2",
       "position": {
-        "x": 27,
-        "y": 10
+        "x": 4,
+        "y": 3
       },
+      "region": "assembly-world",
       "rotation": 0
     },
     {
@@ -311,26 +271,38 @@
         "y": 8
       },
       "process": "smelt-iron",
+      "region": "forge-world",
       "rotation": 0
     },
     {
-      "asset": "smelter",
-      "id": "smelter-1-parallel-parallel",
+      "asset": "generator",
+      "id": "generator-support",
       "position": {
-        "x": 9,
-        "y": 6
+        "x": 7,
+        "y": 10
       },
-      "process": "smelt-iron",
+      "region": "forge-world",
       "rotation": 0
     },
     {
-      "asset": "smelter",
-      "id": "smelter-1-parallel-parallel-parallel",
+      "asset": "assembler",
+      "id": "assembler-1-parallel",
       "position": {
-        "x": 9,
-        "y": 4
+        "x": 7,
+        "y": 8
       },
-      "process": "smelt-iron",
+      "process": "assemble-gear",
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "generator",
+      "id": "generator-support-2",
+      "position": {
+        "x": 5,
+        "y": 10
+      },
+      "region": "assembly-world",
       "rotation": 0
     }
   ],
@@ -338,10 +310,10 @@
     {
       "fleet": {
         "count": 1,
-        "deviceAsset": "logistics-drone"
+        "deviceAsset": "logistics-vessel"
       },
-      "id": "planetary-main",
-      "kind": "planetary",
+      "id": "interstellar-main",
+      "kind": "interstellar",
       "stations": [
         {
           "device": "station-supply",
@@ -369,6 +341,36 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "bd9b618fdf86c8fcfb57971ef7d3a73eb35d8f6b8657bea78fe75e5c985c9848",
+  "regions": [
+    {
+      "bounds": {
+        "height": 24,
+        "width": 20
+      },
+      "coordinates": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "id": "forge-world",
+      "kind": "planet",
+      "name": "Forge World"
+    },
+    {
+      "bounds": {
+        "height": 24,
+        "width": 20
+      },
+      "coordinates": {
+        "x": 100,
+        "y": 0,
+        "z": 0
+      },
+      "id": "assembly-world",
+      "kind": "planet",
+      "name": "Assembly World"
+    }
+  ],
+  "revision": "fd8c835170fe19ce18d8d591f2c565ef0fe0001b2e5a224add2529487c1a8fa2",
   "version": 1
 }

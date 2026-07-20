@@ -230,22 +230,39 @@ The filename must match `id`; every resource is compiler-resolved. The blueprint
 
 ## Blueprint
 
-Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or `270`. Connections run from an output port to an input port and explicitly select loader, line, and unloader Device assets.
+Every blueprint declares one or more industrial regions. A region is a `site`, `planet`, or `orbit`, owns an independent 2D factory floor, and has integer world coordinates used for long-range route distance. Every Device instance belongs to exactly one region. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region and explicitly select loader, line, and unloader Device assets.
 
 ```json
 {
   "version": 1,
-  "bounds": { "width": 32, "height": 32 },
+  "regions": [
+    {
+      "id": "forge-world",
+      "name": "Forge World",
+      "kind": "planet",
+      "coordinates": { "x": 0, "y": 0, "z": 0 },
+      "bounds": { "width": 20, "height": 24 }
+    },
+    {
+      "id": "assembly-world",
+      "name": "Assembly World",
+      "kind": "planet",
+      "coordinates": { "x": 100, "y": 0, "z": 0 },
+      "bounds": { "width": 20, "height": 24 }
+    }
+  ],
   "devices": [
     {
       "id": "ore-source-1",
       "asset": "ore-source",
+      "region": "forge-world",
       "position": { "x": 2, "y": 10 },
       "rotation": 0
     },
     {
       "id": "smelter-1",
       "asset": "smelter",
+      "region": "forge-world",
       "position": { "x": 10, "y": 10 },
       "rotation": 0,
       "process": "smelt-iron"
@@ -272,14 +289,14 @@ Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or 
 
 A transport Device declares the stages it can fill, for example `"logistics": { "roles": ["loader", "unloader"] }` for a sorter and `"roles": ["line"]` for a belt. Each stage contributes its own capacity, duration, and build cost. Static analysis reports the resulting end-to-end items/min and complete stage chain.
 
-`logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances:
+`logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances. A `planetary` network may route only between stations in the same region. An `interstellar` network must include at least two regions and routes only between different regions:
 
 ```json
 "logisticsNetworks": [
   {
-    "id": "planetary-main",
-    "kind": "planetary",
-    "fleet": { "deviceAsset": "logistics-drone", "count": 4 },
+    "id": "interstellar-main",
+    "kind": "interstellar",
+    "fleet": { "deviceAsset": "logistics-vessel", "count": 4 },
     "stations": [
       {
         "device": "station-supply",
@@ -298,7 +315,7 @@ A transport Device declares the stages it can fill, for example `"logistics": { 
 ]
 ```
 
-The compiler matches supply and demand slots for the same Resource, validates carrier kind and batch capacity, and builds deterministic station-to-station routes. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination capacity includes cargo already in flight. Station failures or unavailable spatial power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
+The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and capacity. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination capacity includes cargo already in flight. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
 
 ## Scenario and objective
 

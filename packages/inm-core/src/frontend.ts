@@ -5,8 +5,9 @@ import type {
 export interface FactorySceneModel {
   tick: number;
   bounds: { width: number; height: number };
+  regions: Array<{ id: string; name: string; kind: string; bounds: { width: number; height: number }; offset: GridPosition }>;
   devices: Record<string, {
-    assetId: string; position: GridPosition; rotation: number; footprint: { width: number; height: number };
+    assetId: string; region: string; position: GridPosition; rotation: number; footprint: { width: number; height: number };
     visual: Record<string, unknown>; runtimeStatus: DeviceStatus; progress?: number; bottleneck?: boolean;
   }>;
   resourcesInTransit: Array<{
@@ -18,25 +19,44 @@ export interface FactorySceneModel {
 
 const center = (position: GridPosition, footprint: { width: number; height: number }): GridPosition => ({ x: position.x + footprint.width / 2, y: position.y + footprint.height / 2 });
 
+function layoutRegions(project: CompiledFactoryProject): FactorySceneModel["regions"] {
+  let x = 0;
+  return project.blueprint.regions.map((region) => {
+    const layout = { id: region.id, name: region.name, kind: region.kind, bounds: { ...region.bounds }, offset: { x, y: 0 } };
+    x += region.bounds.width + 8;
+    return layout;
+  });
+}
+
 export function createFactorySceneModel(project: CompiledFactoryProject, metrics: FactoryMetrics | null = null): FactorySceneModel {
+  const regions = layoutRegions(project);
+  const offsets = new Map(regions.map((region) => [region.id, region.offset]));
+  const worldPosition = (device: CompiledFactoryProject["devices"][string]): GridPosition => {
+    const offset = offsets.get(device.region)!;
+    return { x: device.position.x + offset.x, y: device.position.y + offset.y };
+  };
   const devices = Object.fromEntries(Object.values(project.devices).map((device) => [device.id, {
-    assetId: device.asset, position: { ...device.position }, rotation: device.rotation, footprint: { ...device.footprint },
+    assetId: device.asset, region: device.region, position: worldPosition(device), rotation: device.rotation, footprint: { ...device.footprint },
     visual: { ...(device.assetDef.visual ?? {}) }, runtimeStatus: "idle" as DeviceStatus,
     ...(metrics?.bottleneckEntity === device.id ? { bottleneck: true } : {}),
   }]));
   const connections: FactorySceneModel["connections"] = [
     ...Object.values(project.connections).map((connection) => ({
-      id: connection.id, from: center(connection.fromDevice.position, connection.fromDevice.footprint),
-      to: center(connection.toDevice.position, connection.toDevice.footprint), kind: "physical" as const,
+      id: connection.id, from: center(worldPosition(connection.fromDevice), connection.fromDevice.footprint),
+      to: center(worldPosition(connection.toDevice), connection.toDevice.footprint), kind: "physical" as const,
     })),
     ...Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
       id: route.id,
-      from: center(project.devices[route.from]!.position, project.devices[route.from]!.footprint),
-      to: center(project.devices[route.to]!.position, project.devices[route.to]!.footprint),
+      from: center(worldPosition(project.devices[route.from]!), project.devices[route.from]!.footprint),
+      to: center(worldPosition(project.devices[route.to]!), project.devices[route.to]!.footprint),
       kind: "station" as const,
     }))),
   ];
-  return { tick: 0, bounds: { ...project.blueprint.bounds }, devices, resourcesInTransit: [], connections, metrics };
+  const bounds = {
+    width: regions.reduce((max, region) => Math.max(max, region.offset.x + region.bounds.width), 0),
+    height: regions.reduce((max, region) => Math.max(max, region.offset.y + region.bounds.height), 0),
+  };
+  return { tick: 0, bounds, regions, devices, resourcesInTransit: [], connections, metrics };
 }
 
 export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent, project: CompiledFactoryProject): FactorySceneModel {
@@ -49,17 +69,19 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
   else if (event.type === "device.breakdown") next.devices[event.device]!.runtimeStatus = "failed";
   else if (event.type === "resource.depart") {
     const connection = project.connections[event.connection]!;
+    const from = next.devices[connection.from.device]!; const to = next.devices[connection.to.device]!;
     next.resourcesInTransit.push({
       id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
-      from: center(connection.fromDevice.position, connection.fromDevice.footprint), to: center(connection.toDevice.position, connection.toDevice.footprint),
+      from: center(from.position, from.footprint), to: center(to.position, to.footprint),
       progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
   } else if (event.type === "logistics.depart") {
     const route = project.logisticsNetworks[event.network]!.routes.find((item) => item.id === event.route)!;
+    const from = next.devices[route.from]!; const to = next.devices[route.to]!;
     next.resourcesInTransit.push({
       id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
-      from: center(project.devices[route.from]!.position, project.devices[route.from]!.footprint),
-      to: center(project.devices[route.to]!.position, project.devices[route.to]!.footprint),
+      from: center(from.position, from.footprint),
+      to: center(to.position, to.footprint),
       progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
   } else if (event.type === "resource.arrive" || event.type === "logistics.arrive") next.resourcesInTransit = next.resourcesInTransit.filter((transit) => transit.id !== event.transit.id);

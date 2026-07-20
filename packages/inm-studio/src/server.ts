@@ -96,7 +96,7 @@ async function loadProjectIndex() {
       connections: blueprint.connections.length,
       logisticsNetworks: blueprint.logisticsNetworks.length,
       runs: runs.length,
-      bounds: blueprint.bounds,
+      regions: blueprint.regions.length,
     };
   }));
   const name = workspaceMode ? (await loadWorkspace(inputDir)).manifest.name : "INM Studio";
@@ -108,6 +108,23 @@ async function ensureBaseline(projectDir: string) {
   const result = runUntil(project, undefined, { seed: 42 });
   const cached = await findCachedRun(projectDir, result.runKey);
   if (!cached) await writeRunArtifact(project, result, { label: "studio-baseline", seed: 42, decision: "BASELINE" });
+}
+
+function layoutRegions(regions: Array<{ id: string; name: string; kind: "site" | "planet" | "orbit"; coordinates: { x: number; y: number; z: number }; bounds: { width: number; height: number } }>) {
+  let cursorX = 0;
+  const layouts = regions.map((region) => {
+    const layout = { ...region, offset: { x: cursorX, y: 0 } };
+    cursorX += region.bounds.width + 8;
+    return layout;
+  });
+  return {
+    layouts,
+    offsets: new Map(layouts.map((region) => [region.id, region.offset])),
+    bounds: {
+      width: Math.max(1, ...layouts.map((region) => region.offset.x + region.bounds.width)),
+      height: Math.max(1, ...layouts.map((region) => region.offset.y + region.bounds.height)),
+    },
+  };
 }
 
 async function loadStudioData(projectId: string, runName?: string) {
@@ -122,6 +139,7 @@ async function loadStudioData(projectId: string, runName?: string) {
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
     : loaded.blueprint;
   const project = compileFactoryProject({ ...loaded, blueprint: runBlueprint });
+  const regionLayout = layoutRegions(project.blueprint.regions);
   let events = [];
   let metrics = null;
   if (selected) {
@@ -143,13 +161,18 @@ async function loadStudioData(projectId: string, runName?: string) {
     name: project.manifest.name,
     projectId: project.manifest.id,
     blueprintHash: project.hashes.blueprintHash,
-    bounds: project.blueprint.bounds,
+    bounds: regionLayout.bounds,
+    regions: regionLayout.layouts,
     devices: Object.values(project.devices).map((device) => ({
       id: device.id,
       assetId: device.asset,
       name: device.assetDef.name,
       capabilities: device.assetDef.capabilities,
-      position: device.position,
+      region: device.region,
+      position: {
+        x: device.position.x + regionLayout.offsets.get(device.region)!.x,
+        y: device.position.y + regionLayout.offsets.get(device.region)!.y,
+      },
       rotation: device.rotation,
       footprint: device.footprint,
       visual: device.assetDef.visual,
@@ -159,12 +182,12 @@ async function loadStudioData(projectId: string, runName?: string) {
       fromDevice: connection.from.device,
       toDevice: connection.to.device,
       from: {
-        x: connection.fromDevice.position.x + connection.fromDevice.footprint.width / 2,
-        y: connection.fromDevice.position.y + connection.fromDevice.footprint.height / 2,
+        x: connection.fromDevice.position.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + connection.fromDevice.footprint.width / 2,
+        y: connection.fromDevice.position.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + connection.fromDevice.footprint.height / 2,
       },
       to: {
-        x: connection.toDevice.position.x + connection.toDevice.footprint.width / 2,
-        y: connection.toDevice.position.y + connection.toDevice.footprint.height / 2,
+        x: connection.toDevice.position.x + regionLayout.offsets.get(connection.toDevice.region)!.x + connection.toDevice.footprint.width / 2,
+        y: connection.toDevice.position.y + regionLayout.offsets.get(connection.toDevice.region)!.y + connection.toDevice.footprint.height / 2,
       },
     })),
     logisticsRoutes: Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
@@ -174,12 +197,12 @@ async function loadStudioData(projectId: string, runName?: string) {
       fromDevice: route.from,
       toDevice: route.to,
       from: {
-        x: project.devices[route.from]!.position.x + project.devices[route.from]!.footprint.width / 2,
-        y: project.devices[route.from]!.position.y + project.devices[route.from]!.footprint.height / 2,
+        x: project.devices[route.from]!.position.x + regionLayout.offsets.get(route.fromRegion)!.x + project.devices[route.from]!.footprint.width / 2,
+        y: project.devices[route.from]!.position.y + regionLayout.offsets.get(route.fromRegion)!.y + project.devices[route.from]!.footprint.height / 2,
       },
       to: {
-        x: project.devices[route.to]!.position.x + project.devices[route.to]!.footprint.width / 2,
-        y: project.devices[route.to]!.position.y + project.devices[route.to]!.footprint.height / 2,
+        x: project.devices[route.to]!.position.x + regionLayout.offsets.get(route.toRegion)!.x + project.devices[route.to]!.footprint.width / 2,
+        y: project.devices[route.to]!.position.y + regionLayout.offsets.get(route.toRegion)!.y + project.devices[route.to]!.footprint.height / 2,
       },
     }))),
     resources: Object.fromEntries(Object.entries(project.resources).map(([id, resource]) => [id, { visual: resource.visual }])),
