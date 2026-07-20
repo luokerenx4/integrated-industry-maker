@@ -1,0 +1,7 @@
+{
+  "type": "device", "id": "generator", "name": "Generator",
+  "geometry": { "footprint": { "width": 2, "height": 2 }, "rotatable": false, "ports": [] },
+  "behavior": { "kind": "power", "outputMilliWatts": 1000000 },
+  "economics": { "buildCost": 1000 },
+  "visual": { "shape": "cylinder", "height": 2.0, "color": "#e6c84f", "label": "PWR" }
+}

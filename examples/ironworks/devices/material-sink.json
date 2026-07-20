@@ -1,0 +1,10 @@
+{
+  "type": "device", "id": "material-sink", "name": "Material Sink",
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 }, "rotatable": true,
+    "ports": [{ "id": "input", "direction": "input", "kind": "material", "side": "west", "offset": 0 }]
+  },
+  "behavior": { "kind": "sink", "accepts": ["gear"] },
+  "economics": { "buildCost": 400 },
+  "visual": { "shape": "box", "height": 1.2, "color": "#48a777", "label": "OUT" }
+}

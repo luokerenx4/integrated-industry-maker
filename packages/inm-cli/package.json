@@ -1,0 +1,13 @@
+{
+  "name": "@inm/cli",
+  "version": "0.1.0",
+  "description": "CLI for Integrated Industry Maker",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "bin": { "inm": "./src/bin.ts" },
+  "dependencies": {
+    "@inm/core": "workspace:*",
+    "yaml": "^2.6.1"
+  }
+}

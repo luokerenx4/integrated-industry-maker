@@ -1,0 +1,19 @@
+{
+  "createdAt": "2026-07-20T12:00:01.125Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.1.0",
+  "hashes": {
+    "blueprintHash": "d57d383de797ee73262f352d6f3e63a26ca139708647bba9d5541403d32e76cf",
+    "deviceCatalogHash": "32d64099a5f625fcadefb956bef50cea972aaf7a7d9425fb3dd50a2b904a1893",
+    "engineVersion": "inm-sim/0.1.0",
+    "materialCatalogHash": "2d8dc3c6a1db15280e6e8024c1910c9c95a15167a6f5cd6d10751b6a2b40c3bd",
+    "objectiveHash": "7127dbc42f6d00423bf42ee0ffb3753582c267ac3ac2aa70000741330df8bca4",
+    "recipeCatalogHash": "6707af1abf4520a250d8c51ae41cbecc505a283ac75627b6ce053b96950b9c05",
+    "scenarioHash": "03639c6f6fa36a9173d5bdae609983e191ebe02967a37957c38ef8376c6955f6"
+  },
+  "resultHash": "f8a3a16487230c7573cc9de365ba68a4db74f38c412f6c93ed09437f7a5e5a72",
+  "runKey": "43d49a930382c8867432093ccd4ae7df9cc49c120c9c736ed16eb0e0f6b7cf21",
+  "seed": 42,
+  "status": "completed",
+  "version": 1
+}

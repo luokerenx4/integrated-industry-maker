@@ -1,0 +1,41 @@
+[
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "buffer",
+      "id": "smelter-1-buffer",
+      "position": {
+        "x": 2,
+        "y": 0
+      },
+      "rotation": 0
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/connections/1/to",
+    "value": {
+      "device": "smelter-1-buffer",
+      "port": "input"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/connections/-",
+    "value": {
+      "from": {
+        "device": "smelter-1-buffer",
+        "port": "output"
+      },
+      "id": "plate-to-assembler-smelter-1-buffer-output",
+      "to": {
+        "device": "assembler-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    }
+  }
+]

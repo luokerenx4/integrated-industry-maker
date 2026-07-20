@@ -1,0 +1,20 @@
+{
+  "createdAt": "2026-07-20T12:00:01.153Z",
+  "decision": "REVERT",
+  "engineVersion": "inm-sim/0.1.0",
+  "hashes": {
+    "blueprintHash": "8fad0b22f0a496a0092c284dfa4621d491725e8fc842ca181328e109c30dbe19",
+    "deviceCatalogHash": "32d64099a5f625fcadefb956bef50cea972aaf7a7d9425fb3dd50a2b904a1893",
+    "engineVersion": "inm-sim/0.1.0",
+    "materialCatalogHash": "2d8dc3c6a1db15280e6e8024c1910c9c95a15167a6f5cd6d10751b6a2b40c3bd",
+    "objectiveHash": "7127dbc42f6d00423bf42ee0ffb3753582c267ac3ac2aa70000741330df8bca4",
+    "recipeCatalogHash": "6707af1abf4520a250d8c51ae41cbecc505a283ac75627b6ce053b96950b9c05",
+    "scenarioHash": "03639c6f6fa36a9173d5bdae609983e191ebe02967a37957c38ef8376c6955f6"
+  },
+  "parentRun": "001-keep-duplicate-highly-utilized-processor-sme",
+  "resultHash": "710ebbf30dbb5f37604ffe397f1d26f95a3878755eda97a80465333f77e63287",
+  "runKey": "a99aaa8df1d09d6c713c9cc3d1d7a961ea21ae61c944a7247e29791d221408b7",
+  "seed": 42,
+  "status": "completed",
+  "version": 1
+}

@@ -1,0 +1,4 @@
+{
+  "id": "baseline", "name": "Baseline Production", "durationTicks": 120000,
+  "initialInventories": {}
+}

@@ -1,0 +1,7 @@
+{
+  "type": "device", "id": "conveyor", "name": "Conveyor",
+  "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },
+  "behavior": { "kind": "transport", "capacity": 4, "travelTicksPerCell": 100 },
+  "economics": { "buildCost": 10 },
+  "visual": { "shape": "plane", "height": 0.15, "color": "#2c3640", "label": "→" }
+}

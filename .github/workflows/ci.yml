@@ -1,10 +1,8 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   test:
@@ -13,7 +11,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.3.14
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun run test
+      - run: bun test packages/inm-core packages/inm-cli
+      - run: bun run inm test examples/ironworks

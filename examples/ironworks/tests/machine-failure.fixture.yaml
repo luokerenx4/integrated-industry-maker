@@ -1,0 +1,15 @@
+name: machine-failure-recovery
+blueprint: main
+scenario: machine-failure
+objective: default
+seed: 42
+assertions:
+  - kind: event
+    type: device.breakdown
+    present: true
+  - kind: event
+    type: device.recover
+    present: true
+  - kind: metric
+    path: consumed.gear
+    min: 8

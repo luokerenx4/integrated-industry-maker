@@ -1,32 +1,20 @@
 {
-  "name": "rpg-harness",
-  "version": "0.0.0",
+  "name": "integrated-industry-maker",
+  "version": "0.1.0",
+  "description": "AI-native industrial production design, deterministic simulation, and automated blueprint optimization",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "scripts": {
-    "rpgh": "bun packages/cli/src/bin.ts",
-    "play": "bun packages/cli/src/bin.ts play",
-    "test:unit": "bun test packages/engine packages/parser packages/frontend-core packages/cli",
-    "test:fixtures": "bun packages/cli/src/bin.ts test examples/hook-test && bun packages/cli/src/bin.ts test examples/eject-test && bun packages/cli/src/bin.ts test examples/sengoku-raid",
-    "test:validate-negative": "bash scripts/test-validate-negative.sh",
-    "test": "bun run test:unit && bun run test:fixtures && bun run test:validate-negative",
-    "autoplay": "bun packages/cli/src/bin.ts autoplay examples/sengoku-raid --persona extractor -v",
-    "dev:web": "bun run --filter='@rpg-harness/web' dev",
-    "build:web": "bun run --filter='@rpg-harness/web' build",
-    "typecheck": "bunx tsc -p packages/engine/tsconfig.json --noEmit && bunx tsc -p packages/parser/tsconfig.json --noEmit && bunx tsc -p packages/frontend-core/tsconfig.json --noEmit && bunx tsc -p packages/cli/tsconfig.json --noEmit && bunx tsc -p packages/studio/tsconfig.json --noEmit && bunx tsc -p packages/web/tsconfig.json --noEmit"
+    "inm": "bun packages/inm-cli/src/bin.ts",
+    "test": "bun run typecheck && bun test packages/inm-core packages/inm-cli && bun run inm test examples/ironworks",
+    "typecheck": "bunx tsc -p packages/inm-core/tsconfig.json --noEmit && bunx tsc -p packages/inm-cli/tsconfig.json --noEmit && bunx tsc -p packages/inm-studio/tsconfig.json --noEmit",
+    "studio": "bun run inm studio examples/ironworks"
   },
   "devDependencies": {
-    "@rpg-harness/cli": "workspace:*",
-    "@rpg-harness/engine": "workspace:*",
+    "@inm/cli": "workspace:*",
+    "@inm/core": "workspace:*",
     "@types/bun": "latest",
-    "@types/react": "^18.3.12",
-    "@xterm/headless": "^6.0.0",
-    "ink-testing-library": "^4.0.0",
-    "node-pty": "^1.1.0",
-    "react": "^18",
-    "typescript": "^5.6.3"
+    "typescript": "^5.9.3"
   }
 }

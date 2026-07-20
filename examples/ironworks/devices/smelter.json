@@ -1,0 +1,13 @@
+{
+  "type": "device", "id": "smelter", "name": "Smelter",
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 }, "rotatable": true,
+    "ports": [
+      { "id": "input", "direction": "input", "kind": "material", "side": "west", "offset": 0 },
+      { "id": "output", "direction": "output", "kind": "material", "side": "east", "offset": 0 }
+    ]
+  },
+  "behavior": { "kind": "processor", "supportedRecipes": ["iron-plate"], "inputCapacity": 8, "outputCapacity": 8 },
+  "simulation": { "powerConsumptionMilliWatts": 180000 }, "economics": { "buildCost": 1200 },
+  "visual": { "shape": "box", "height": 1.8, "color": "#e26437", "label": "S" }
+}

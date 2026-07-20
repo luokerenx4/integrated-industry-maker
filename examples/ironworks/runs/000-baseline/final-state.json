@@ -1,0 +1,54 @@
+{
+  "completedOrders": 14,
+  "consumed": {
+    "gear": 14
+  },
+  "devices": {
+    "assembler-1": {
+      "inventory": {
+        "iron-plate": 1
+      },
+      "status": "waiting-input"
+    },
+    "generator-1": {
+      "inventory": {},
+      "status": "idle"
+    },
+    "ore-source-1": {
+      "inventory": {
+        "iron-ore": 6
+      },
+      "progressTicks": 1200,
+      "startedAt": 118800,
+      "status": "processing"
+    },
+    "output-1": {
+      "inventory": {},
+      "status": "idle"
+    },
+    "smelter-1": {
+      "activeRecipe": "iron-plate",
+      "inventory": {
+        "iron-ore": 8
+      },
+      "progressTicks": 1200,
+      "startedAt": 118800,
+      "status": "processing"
+    }
+  },
+  "energy": {
+    "availableMilliWatts": 1000000,
+    "consumedMilliJoules": 34096000
+  },
+  "produced": {
+    "gear": 14,
+    "iron-ore": 74,
+    "iron-plate": 29
+  },
+  "tick": 120000,
+  "transports": {
+    "gear-to-output": [],
+    "ore-to-smelter": [],
+    "plate-to-assembler": []
+  }
+}

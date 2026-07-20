@@ -1,0 +1,13 @@
+{
+  "type": "device", "id": "buffer", "name": "Buffer",
+  "geometry": {
+    "footprint": { "width": 1, "height": 1 }, "rotatable": true,
+    "ports": [
+      { "id": "input", "direction": "input", "kind": "material", "side": "west", "offset": 0 },
+      { "id": "output", "direction": "output", "kind": "material", "side": "east", "offset": 0 }
+    ]
+  },
+  "behavior": { "kind": "storage", "capacity": 20, "accepts": ["*"] },
+  "economics": { "buildCost": 300 },
+  "visual": { "shape": "box", "height": 1.0, "color": "#c1a15a", "label": "B" }
+}

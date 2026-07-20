@@ -1,0 +1,179 @@
+{
+  "bounds": {
+    "height": 32,
+    "width": 32
+  },
+  "connections": [
+    {
+      "from": {
+        "device": "ore-source-1",
+        "port": "output"
+      },
+      "id": "ore-to-smelter",
+      "to": {
+        "device": "smelter-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1",
+        "port": "output"
+      },
+      "id": "plate-to-assembler",
+      "to": {
+        "device": "smelter-1-buffer",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "assembler-1",
+        "port": "output"
+      },
+      "id": "gear-to-output",
+      "to": {
+        "device": "output-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "ore-source-1",
+        "port": "output"
+      },
+      "id": "ore-to-smelter-smelter-1-parallel",
+      "to": {
+        "device": "smelter-1-parallel",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1-parallel",
+        "port": "output"
+      },
+      "id": "plate-to-assembler-smelter-1-parallel",
+      "to": {
+        "device": "assembler-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1-buffer",
+        "port": "output"
+      },
+      "id": "plate-to-assembler-smelter-1-buffer-output",
+      "to": {
+        "device": "assembler-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "asset": "ore-source",
+      "id": "ore-source-1",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 2,
+        "y": 10
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "smelter",
+      "config": {
+        "recipe": "iron-plate"
+      },
+      "id": "smelter-1",
+      "position": {
+        "x": 10,
+        "y": 10
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "assembler",
+      "config": {
+        "recipe": "gear"
+      },
+      "id": "assembler-1",
+      "position": {
+        "x": 18,
+        "y": 10
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "config": {
+        "accepts": [
+          "gear"
+        ]
+      },
+      "id": "output-1",
+      "position": {
+        "x": 26,
+        "y": 10
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "generator",
+      "id": "generator-1",
+      "position": {
+        "x": 10,
+        "y": 3
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "smelter",
+      "config": {
+        "recipe": "iron-plate"
+      },
+      "id": "smelter-1-parallel",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "buffer",
+      "id": "smelter-1-buffer",
+      "position": {
+        "x": 2,
+        "y": 0
+      },
+      "rotation": 0
+    }
+  ],
+  "policies": {
+    "dispatch": "round-robin"
+  },
+  "revision": "cc4a4271a88106acf70e4f79dbfb35600852ad79ecd045df3703daa50f37f709",
+  "version": 1
+}

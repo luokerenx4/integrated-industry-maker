@@ -1,0 +1,20 @@
+{
+  "createdAt": "2026-07-20T12:00:01.135Z",
+  "decision": "KEEP",
+  "engineVersion": "inm-sim/0.1.0",
+  "hashes": {
+    "blueprintHash": "cc4a4271a88106acf70e4f79dbfb35600852ad79ecd045df3703daa50f37f709",
+    "deviceCatalogHash": "32d64099a5f625fcadefb956bef50cea972aaf7a7d9425fb3dd50a2b904a1893",
+    "engineVersion": "inm-sim/0.1.0",
+    "materialCatalogHash": "2d8dc3c6a1db15280e6e8024c1910c9c95a15167a6f5cd6d10751b6a2b40c3bd",
+    "objectiveHash": "7127dbc42f6d00423bf42ee0ffb3753582c267ac3ac2aa70000741330df8bca4",
+    "recipeCatalogHash": "6707af1abf4520a250d8c51ae41cbecc505a283ac75627b6ce053b96950b9c05",
+    "scenarioHash": "03639c6f6fa36a9173d5bdae609983e191ebe02967a37957c38ef8376c6955f6"
+  },
+  "parentRun": "000-baseline",
+  "resultHash": "0c4efe4edf202650bd34b889a7e0429d6a6d8745b72468bb29023cb129e89bc2",
+  "runKey": "44d630431ed95e104ed61695caab6c8c331802fb020f9c489350b7071b78c193",
+  "seed": 42,
+  "status": "completed",
+  "version": 1
+}

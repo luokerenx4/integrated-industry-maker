@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "name": "Ironworks Research Cell",
+  "defaultBlueprint": "main",
+  "defaultScenario": "baseline",
+  "defaultObjective": "default"
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "smelter",
+      "config": {
+        "recipe": "iron-plate"
+      },
+      "id": "smelter-1-parallel-2",
+      "position": {
+        "x": 2,
+        "y": 0
+      },
+      "rotation": 0
+    }
+  },
+  {
+    "op": "add",
+    "path": "/connections/-",
+    "value": {
+      "from": {
+        "device": "ore-source-1",
+        "port": "output"
+      },
+      "id": "ore-to-smelter-smelter-1-parallel-2",
+      "to": {
+        "device": "smelter-1-parallel-2",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/connections/-",
+    "value": {
+      "from": {
+        "device": "smelter-1-parallel-2",
+        "port": "output"
+      },
+      "id": "plate-to-assembler-smelter-1-parallel-2",
+      "to": {
+        "device": "assembler-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    }
+  }
+]
