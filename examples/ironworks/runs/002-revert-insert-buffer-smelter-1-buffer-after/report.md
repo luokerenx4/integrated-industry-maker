@@ -2,7 +2,7 @@
 
 - Decision: **REVERT**
 - Score: **130.340**
-- Result hash: `b3cd0dbab28456524759e5cd1e957a18337cbeedf71142222f10a381351d5d6e`
+- Result hash: `552330345fe2ee73084bde3249ea25ada5527772b477caa722b3eae3160f8d62`
 - Bottleneck: smelter-1
 - Throughput/min: 13.000
 - Feasible: yes

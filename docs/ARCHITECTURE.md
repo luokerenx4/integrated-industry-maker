@@ -62,6 +62,7 @@ JSON
 → rotation and footprint normalization
 → bounds and overlap validation
 → Process category, speed, port, buffer, resource-contract, and device-config validation
+→ power-distributor topology, coverage, and isolated-grid compilation
 → transport-program resolution and integer travel time
 → canonical CompiledFactoryProject
 ```
@@ -69,6 +70,8 @@ JSON
 The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or overlapping footprints; non-transport connection assets; incompatible resource contracts; and input/output direction errors.
 
 The chosen transport representation is a logical edge that references a transport-capable Device asset. The transport asset's `planTransport()` hook computes connection capacity and duration. Transport remains a Device capability rather than becoming a third asset class.
+
+Power is spatial rather than factory-global. A power-capable Device may declare distributor connection and consumer coverage ranges. Nearby distributors form deterministic connected components; every covered Device is assigned to the nearest component, and each resulting grid owns its generation, rated demand, active demand, and energy ledger. A consuming Device outside all coverage remains a valid blueprint entity but is explicitly unpowered at runtime and in static diagnostics.
 
 ## Asset and program boundary
 
@@ -85,7 +88,7 @@ none     take no local action
 
 The injection interface is uniform even though each device's implementation and configuration are private. For a Process-bound Device, the compiler injects a resolved, buffer-bound Process plan into the frozen local context. Programs see that plan and local buffers, not mutable factory state. The host validates actions and remains the only authority allowed to write buffers, schedule events, allocate power, or update metrics. Transport-capable programs additionally implement `planTransport()`.
 
-`inm analyze` compiles nominal cycles/min, material production/consumption balance, boundary supply/demand, and connection rate limits without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
+`inm analyze` compiles nominal cycles/min, material production/consumption balance, boundary supply/demand, connection rate limits, disconnected consumers, and per-grid rated power headroom without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
 
 Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract.
 

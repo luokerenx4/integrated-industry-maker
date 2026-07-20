@@ -31,6 +31,9 @@ describe("blueprint compiler", () => {
     expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
+    expect(project.devices["smelter-1"]!.powerGrid).toBe("grid-generator-1");
+    expect(project.powerGrids["grid-generator-1"]!.members).toContain("assembler-1");
+    expect(project.powerGrids["grid-generator-1"]!.productionMilliWatts).toBe(1_000_000);
     expect(project.hashes.blueprintHash).toHaveLength(64);
     expect(project.hashes.processCatalogHash).toHaveLength(64);
   });
@@ -80,6 +83,27 @@ describe("blueprint compiler", () => {
     const source = await loaded(); source.processes["smelt-iron"]!.inputs[0]!.resource = "unobtainium";
     expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.resource");
   });
+
+  test("compiles spatially isolated power grids instead of a factory-global pool", async () => {
+    const source = await loaded();
+    const generator = source.blueprint.devices.find((device) => device.id === "generator-1")!;
+    const oreSource = source.blueprint.devices.find((device) => device.id === "ore-source-1")!;
+    const assembler = source.blueprint.devices.find((device) => device.id === "assembler-1")!;
+    source.deviceAssets.generator!.power.distribution = { connectionRange: 8, coverageRange: 8 };
+    source.blueprint.devices = [
+      { ...generator, position: { x: 0, y: 0 } },
+      { ...generator, id: "generator-2", position: { x: 30, y: 30 } },
+      { ...oreSource, position: { x: 3, y: 0 } },
+      { ...assembler, position: { x: 27, y: 30 } },
+    ];
+    source.blueprint.connections = [];
+    const project = compileFactoryProject(source);
+    expect(Object.keys(project.powerGrids)).toEqual(["grid-generator-1", "grid-generator-2"]);
+    expect(project.devices["ore-source-1"]!.powerGrid).toBe("grid-generator-1");
+    expect(project.devices["assembler-1"]!.powerGrid).toBe("grid-generator-2");
+    expect(project.powerGrids["grid-generator-1"]!.ratedConsumptionMilliWatts).toBe(50_000);
+    expect(project.powerGrids["grid-generator-2"]!.ratedConsumptionMilliWatts).toBe(220_000);
+  });
 });
 
 describe("deterministic discrete-event simulation", () => {
@@ -96,6 +120,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(plate.consumedPerMinute).toBe(40);
     expect(plate.netPerMinute).toBe(-25);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
+    expect(analysis.powerGrids).toEqual([expect.objectContaining({ grid: "grid-generator-1", headroomMilliWatts: 550_000 })]);
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
@@ -114,7 +139,7 @@ describe("deterministic discrete-event simulation", () => {
   test("power shortage produces an event and unpowered state", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42, untilTick: 10_000 });
-    expect(result.events.some((event) => event.type === "power.shortage")).toBeTrue();
+    expect(result.events.some((event) => event.type === "power.shortage" && event.grid === null)).toBeTrue();
     expect(result.state.devices["ore-source-1"]!.status).toBe("unpowered");
   });
 

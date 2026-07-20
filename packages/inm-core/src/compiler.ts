@@ -1,6 +1,6 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
-  CompiledConnection, CompiledDevice, CompiledFactoryProject, DeviceAsset, DevicePort,
+  CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledPowerGrid, DeviceAsset, DevicePort,
   IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
@@ -59,9 +59,73 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       if (!output) issues.push({ path: `assets/devices/${id}/asset.json/production/outputBuffer`, code: "reference.buffer", message: `Unknown buffer '${asset.production.outputBuffer}'` });
       else if (output.role === "input") issues.push({ path: `assets/devices/${id}/asset.json/production/outputBuffer`, code: "production.buffer-role", message: "Production output buffer cannot be input-only" });
     }
+    if (asset.power.distribution && !asset.capabilities.includes("power")) {
+      issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "capability.not-power", message: "Power distribution requires power capability" });
+    }
+    if (asset.power.productionMilliWatts > 0 && !asset.power.distribution) {
+      issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "power.distribution-required", message: "Power-producing devices must declare grid connection and coverage ranges" });
+    }
     if (asset.capabilities.includes("transport") && !asset.program.planTransport) issues.push({ path: `assets/devices/${id}/${asset.runtime.entry}`, code: "runtime.missing-transport-hook", message: "Transport capability requires planTransport(context)" });
   }
   return issues;
+}
+
+function centerDistance(left: CompiledDevice, right: CompiledDevice): number {
+  const lx = left.position.x + left.footprint.width / 2; const ly = left.position.y + left.footprint.height / 2;
+  const rx = right.position.x + right.footprint.width / 2; const ry = right.position.y + right.footprint.height / 2;
+  return Math.hypot(lx - rx, ly - ry);
+}
+
+function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<string, CompiledPowerGrid> {
+  const distributors = Object.values(devices).filter((device) => device.assetDef.power.distribution).sort((a, b) => a.id.localeCompare(b.id));
+  const parent = new Map(distributors.map((device) => [device.id, device.id]));
+  const find = (id: string): string => {
+    const current = parent.get(id)!;
+    if (current === id) return current;
+    const root = find(current); parent.set(id, root); return root;
+  };
+  const union = (left: string, right: string): void => {
+    const a = find(left); const b = find(right);
+    if (a === b) return;
+    if (a.localeCompare(b) < 0) parent.set(b, a); else parent.set(a, b);
+  };
+  for (let i = 0; i < distributors.length; i++) for (let j = i + 1; j < distributors.length; j++) {
+    const left = distributors[i]!; const right = distributors[j]!;
+    const reach = Math.min(left.assetDef.power.distribution!.connectionRange, right.assetDef.power.distribution!.connectionRange);
+    if (centerDistance(left, right) <= reach) union(left.id, right.id);
+  }
+
+  const components = new Map<string, CompiledDevice[]>();
+  for (const distributor of distributors) {
+    const members = components.get(find(distributor.id)) ?? [];
+    members.push(distributor); components.set(find(distributor.id), members);
+  }
+  const grids: Record<string, CompiledPowerGrid> = {};
+  const gridDistributors = [...components.values()].map((members) => {
+    members.sort((a, b) => a.id.localeCompare(b.id));
+    const id = `grid-${members[0]!.id}`;
+    grids[id] = { id, distributors: members.map((device) => device.id), members: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0 };
+    return { id, members };
+  }).sort((a, b) => a.id.localeCompare(b.id));
+
+  for (const device of Object.values(devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    const candidates = gridDistributors.flatMap((grid) => {
+      const distances = grid.members.map((distributor) => ({
+        distributor,
+        distance: centerDistance(device, distributor),
+      })).filter((candidate) => candidate.distance <= candidate.distributor.assetDef.power.distribution!.coverageRange);
+      if (!distances.length) return [];
+      distances.sort((a, b) => a.distance - b.distance || a.distributor.id.localeCompare(b.distributor.id));
+      return [{ grid: grid.id, distance: distances[0]!.distance }];
+    }).sort((a, b) => a.distance - b.distance || a.grid.localeCompare(b.grid));
+    if (!candidates.length) continue;
+    const grid = grids[candidates[0]!.grid]!;
+    device.powerGrid = grid.id;
+    grid.members.push(device.id);
+    grid.productionMilliWatts += device.assetDef.power.productionMilliWatts;
+    grid.ratedConsumptionMilliWatts += device.assetDef.power.consumptionMilliWatts;
+  }
+  return grids;
 }
 
 export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFactoryProject {
@@ -127,6 +191,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (overlap) issues.push({ path: "blueprint/devices", code: "geometry.overlap", message: `Devices '${left.id}' and '${right.id}' overlap` });
   }
 
+  const powerGrids = compilePowerGrids(devices);
+
   const connections: Record<string, CompiledConnection> = {};
   const connectionIds = new Set<string>();
   for (const [index, connection] of loaded.blueprint.connections.entries()) {
@@ -182,5 +248,5 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
-  return { ...loaded, devices, connections, hashes };
+  return { ...loaded, devices, connections, powerGrids, hashes };
 }

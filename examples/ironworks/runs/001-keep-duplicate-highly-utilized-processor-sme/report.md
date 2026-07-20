@@ -2,7 +2,7 @@
 
 - Decision: **KEEP**
 - Score: **135.923**
-- Result hash: `7dded792e351b04076dd63210e6392c0b5e12d2c98af1f5facbdfb0dd464eaef`
+- Result hash: `207408bdcac5fad0448649199813f9cd3b18dd083880978301adf1f4a980a06a`
 - Bottleneck: smelter-1
 - Throughput/min: 13.500
 - Feasible: yes

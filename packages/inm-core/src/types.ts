@@ -101,7 +101,11 @@ export interface DeviceAssetManifest {
     outputBuffer: BufferId;
   };
   runtime: { apiVersion: 1; entry: string };
-  power: { consumptionMilliWatts: number; productionMilliWatts: number };
+  power: {
+    consumptionMilliWatts: number;
+    productionMilliWatts: number;
+    distribution?: { connectionRange: number; coverageRange: number };
+  };
   economics: { buildCost: number };
   files: { visual: string };
 }
@@ -240,6 +244,7 @@ export interface CompiledDevice extends BlueprintDevice {
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   };
+  powerGrid?: string;
 }
 export interface CompiledConnection extends BlueprintConnection {
   fromDevice: CompiledDevice;
@@ -250,6 +255,13 @@ export interface CompiledConnection extends BlueprintConnection {
   distance: number;
   capacity: number;
   travelTicks: Tick;
+}
+export interface CompiledPowerGrid {
+  id: string;
+  distributors: DeviceInstanceId[];
+  members: DeviceInstanceId[];
+  productionMilliWatts: number;
+  ratedConsumptionMilliWatts: number;
 }
 export interface CompiledFactoryProject {
   rootDir: string;
@@ -262,6 +274,7 @@ export interface CompiledFactoryProject {
   objective: Objective;
   devices: Record<DeviceInstanceId, CompiledDevice>;
   connections: Record<ConnectionId, CompiledConnection>;
+  powerGrids: Record<string, CompiledPowerGrid>;
   hashes: ProjectHashes;
 }
 
@@ -306,7 +319,11 @@ export interface FactoryState {
   transports: Record<ConnectionId, ResourceTransit[]>;
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;
-  energy: { availableMilliWatts: number; consumedMilliJoules: number };
+  energy: {
+    availableMilliWatts: number;
+    consumedMilliJoules: number;
+    grids: Record<string, { availableMilliWatts: number; consumedMilliJoules: number }>;
+  };
   completedOrders: number;
 }
 
@@ -318,7 +335,7 @@ export type FactoryEvent =
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
-  | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; requiredMilliWatts: number; availableMilliWatts: number }
+  | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
   | { type: "device.breakdown"; tick: Tick; device: DeviceInstanceId }
   | { type: "device.recover"; tick: Tick; device: DeviceInstanceId }
   | { type: "simulation.completed"; tick: Tick; reason: "until-tick" | "max-events" | "infeasible" };

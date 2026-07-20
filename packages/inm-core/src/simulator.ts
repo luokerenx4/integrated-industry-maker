@@ -28,8 +28,12 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     devices[id] = { status: "idle", buffers };
   }
   const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as ResourceTransit[]]));
-  const availableMilliWatts = Object.values(project.devices).reduce((sum, device) => sum + device.assetDef.power.productionMilliWatts, 0);
-  return { tick: 0, devices, transports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0 }, completedOrders: 0 };
+  const grids = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => [grid.id, {
+    availableMilliWatts: grid.productionMilliWatts,
+    consumedMilliJoules: 0,
+  }]));
+  const availableMilliWatts = Object.values(project.powerGrids).reduce((sum, grid) => sum + grid.productionMilliWatts, 0);
+  return { tick: 0, devices, transports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0, grids }, completedOrders: 0 };
 }
 
 export function runUntil(project: CompiledFactoryProject, initialState = createInitialFactoryState(project), options: RunOptions = {}): SimulationResult {
@@ -54,7 +58,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     statusSince[device] = state.tick;
     mutateFactoryState(state, { kind: "status", device, status });
   };
-  const activePower = () => Object.values(state.devices).reduce((sum, runtime) => sum + (runtime.activeJob?.powerMilliWatts ?? 0), 0);
+  const activePower = (grid?: string) => Object.entries(state.devices).reduce((sum, [id, runtime]) => {
+    if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
+    return sum + (runtime.activeJob?.powerMilliWatts ?? 0);
+  }, 0);
   const measureUntil = (tick: number) => {
     const delta = tick - state.tick;
     if (delta <= 0) return;
@@ -62,7 +69,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       + Object.values(state.transports).flat().reduce((sum, transit) => sum + transit.count, 0);
     const congestion = Object.entries(state.transports).reduce((sum, [id, transits]) => sum + transits.reduce((n, transit) => n + transit.count, 0) / project.connections[id]!.capacity, 0);
     stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
-    mutateFactoryState(state, { kind: "energy", consumedMilliJoules: activePower() * delta / 1000 });
+    for (const grid of Object.keys(project.powerGrids).sort()) {
+      const consumedMilliJoules = activePower(grid) * delta / 1000;
+      if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
+    }
     mutateFactoryState(state, { kind: "tick", tick }); stats.elapsedTicks = tick;
   };
   const accepts = (device: CompiledDevice, buffer: string, resource: string) => {
@@ -149,9 +159,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       return false;
     }
     const required = decision.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
-    const available = state.energy.availableMilliWatts - activePower();
-    if (required > available) {
-      if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, requiredMilliWatts: required, availableMilliWatts: Math.max(0, available) });
+    const grid = device.powerGrid ?? null;
+    const available = grid ? state.energy.grids[grid]!.availableMilliWatts - activePower(grid) : 0;
+    if (required > 0 && required > available) {
+      if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: Math.max(0, available) });
       setStatus(device.id, "unpowered"); return false;
     }
     applyConsume(device, decision.consume, false);

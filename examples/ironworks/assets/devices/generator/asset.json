@@ -9,7 +9,11 @@
   "geometry": { "footprint": { "width": 2, "height": 2 }, "rotatable": false, "ports": [] },
   "buffers": [],
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 0, "productionMilliWatts": 1000000 },
+  "power": {
+    "consumptionMilliWatts": 0,
+    "productionMilliWatts": 1000000,
+    "distribution": { "connectionRange": 20, "coverageRange": 20 }
+  },
   "economics": { "buildCost": 1000 },
   "files": { "visual": "visual.json" }
 }

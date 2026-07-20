@@ -85,7 +85,7 @@ Splitting presentation and execution from identity is intentional. Catalog tools
 }
 ```
 
-A Resource asset describes a kind of flow. Runtime quantities are `(resource id, integer count)` values held in named device buffers or in transit. `unit.kind: continuous` and non-zero precision reserve the file contract for continuous resources; engine 0.2 executes integer quantities only.
+A Resource asset describes a kind of flow. Runtime quantities are `(resource id, integer count)` values held in named device buffers or in transit. `unit.kind: continuous` and non-zero precision reserve the file contract for continuous resources; the current engine executes integer quantities only.
 
 ## Device asset
 
@@ -129,6 +129,18 @@ Unlike the old single-behavior model, a Device declares a list of descriptive ca
 
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
+Power consumption and production use integer milliwatts. A generator or distribution pole also declares spatial grid semantics:
+
+```json
+"power": {
+  "consumptionMilliWatts": 0,
+  "productionMilliWatts": 1000000,
+  "distribution": { "connectionRange": 20, "coverageRange": 20 }
+}
+```
+
+Distributors within each other's connection range form an isolated power grid. A Device within a distributor's coverage range joins the nearest grid. Rated demand greater than grid generation and powered Devices outside every grid are reported by `inm analyze`; runtime power allocation and energy accounting are also isolated per grid.
+
 ## Device TypeScript program
 
 Every Device package has a TypeScript entry conforming to `DeviceProgram`:
@@ -138,23 +150,20 @@ import type { DeviceProgram } from "../../runtime-api";
 
 export default {
   apiVersion: 1,
-
-  validateConfig(config) {
-    return config.operation === "iron-plate"
-      ? []
-      : ["operation must be 'iron-plate'"];
-  },
-
   evaluate(context) {
-    if ((context.buffers.input?.["iron-ore"] ?? 0) < 2) {
+    const process = context.process;
+    if (!process) return { kind: "wait", reason: "idle" };
+    if (!process.inputs.every((input) =>
+      (context.buffers[input.buffer]?.[input.resource] ?? 0) >= input.count
+    )) {
       return { kind: "wait", reason: "input" };
     }
     return {
       kind: "start",
-      operation: "iron-plate",
-      durationTicks: 4000,
-      consume: [{ buffer: "input", resource: "iron-ore", count: 2 }],
-      produce: [{ buffer: "output", resource: "iron-plate", count: 1 }]
+      operation: process.id,
+      durationTicks: process.durationTicks,
+      consume: [...process.inputs],
+      produce: [...process.outputs]
     };
   }
 } satisfies DeviceProgram;

@@ -8,7 +8,7 @@ export type FactoryStateMutation =
   | { kind: "transport.remove"; connection: string; transitId: string }
   | { kind: "produced"; resource: string; count: number }
   | { kind: "consumed"; resource: string; count: number }
-  | { kind: "energy"; consumedMilliJoules: number }
+  | { kind: "energy"; grid: string; consumedMilliJoules: number }
   | { kind: "orders"; count: number }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
@@ -35,7 +35,11 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     }
     case "produced": state.produced[mutation.resource] = (state.produced[mutation.resource] ?? 0) + mutation.count; return;
     case "consumed": state.consumed[mutation.resource] = (state.consumed[mutation.resource] ?? 0) + mutation.count; return;
-    case "energy": state.energy.consumedMilliJoules += mutation.consumedMilliJoules; return;
+    case "energy": {
+      state.energy.consumedMilliJoules += mutation.consumedMilliJoules;
+      state.energy.grids[mutation.grid]!.consumedMilliJoules += mutation.consumedMilliJoules;
+      return;
+    }
     case "orders": state.completedOrders += mutation.count; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;

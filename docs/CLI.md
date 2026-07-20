@@ -30,7 +30,7 @@ Prints project topology, asset catalogs, capability counts, selected benchmark, 
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
-Compiles Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary supply/demand, and connection throughput limits without running a simulation. Diagnostics expose material deficits, unconsumed surplus, and insufficient input/output logistics. `--json` is designed to be consumed directly by optimization agents.
+Compiles Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary supply/demand, connection throughput limits, and isolated power-grid headroom without running a simulation. Diagnostics expose material deficits, unconsumed surplus, insufficient input/output logistics, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 

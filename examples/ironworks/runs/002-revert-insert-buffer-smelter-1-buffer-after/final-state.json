@@ -112,7 +112,13 @@
   },
   "energy": {
     "availableMilliWatts": 1000000,
-    "consumedMilliJoules": 65176000
+    "consumedMilliJoules": 65176000,
+    "grids": {
+      "grid-generator-1": {
+        "availableMilliWatts": 1000000,
+        "consumedMilliJoules": 65176000
+      }
+    }
   },
   "produced": {
     "gear": 26,

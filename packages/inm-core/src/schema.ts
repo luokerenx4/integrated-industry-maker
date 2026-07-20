@@ -61,7 +61,11 @@ export const deviceAssetSchema = z.object({
     inputBuffer: id, outputBuffer: id,
   }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
-  power: z.object({ consumptionMilliWatts: nonNegativeInt, productionMilliWatts: nonNegativeInt }).strict(),
+  power: z.object({
+    consumptionMilliWatts: nonNegativeInt,
+    productionMilliWatts: nonNegativeInt,
+    distribution: z.object({ connectionRange: positiveInt, coverageRange: positiveInt }).strict().optional(),
+  }).strict(),
   economics: z.object({ buildCost: nonNegativeInt }).strict(),
   files: z.object({ visual: relativeAssetFile }).strict(),
 }).strict();

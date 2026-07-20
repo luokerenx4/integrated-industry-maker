@@ -2,7 +2,7 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production cell as a folder of inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. The same two-dimensional blueprint can be validated, statically balanced, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production cell as a folder of inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. The same two-dimensional blueprint can be validated, statically balanced across materials, logistics, and isolated power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 > A factory is a folder. Blueprints are programs. Scenarios are tests. Objectives are benchmarks.
 

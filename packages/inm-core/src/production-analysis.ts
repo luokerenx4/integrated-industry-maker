@@ -29,8 +29,17 @@ export interface ConnectionRateLimit {
   travelTicks: number;
 }
 
+export interface PowerGridAnalysis {
+  grid: string;
+  distributors: string[];
+  members: string[];
+  productionMilliWatts: number;
+  ratedConsumptionMilliWatts: number;
+  headroomMilliWatts: number;
+}
+
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -43,6 +52,7 @@ export interface ProductionAnalysis {
   devices: DeviceProductionRate[];
   resources: ResourceProductionBalance[];
   connections: ConnectionRateLimit[];
+  powerGrids: PowerGridAnalysis[];
   diagnostics: ProductionDiagnostic[];
 }
 
@@ -112,6 +122,15 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     travelTicks: connection.travelTicks,
   }));
 
+  const powerGrids = Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => ({
+    grid: grid.id,
+    distributors: [...grid.distributors],
+    members: [...grid.members],
+    productionMilliWatts: grid.productionMilliWatts,
+    ratedConsumptionMilliWatts: grid.ratedConsumptionMilliWatts,
+    headroomMilliWatts: grid.productionMilliWatts - grid.ratedConsumptionMilliWatts,
+  }));
+
   const diagnostics: ProductionDiagnostic[] = [];
   for (const balance of resources) {
     if (balance.netPerMinute < -1e-9 && !balance.hasBoundarySupply) diagnostics.push({
@@ -123,6 +142,17 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       message: `${balance.resource} has ${balance.netPerMinute.toFixed(3)}/min nominal surplus without a declared boundary consumer`,
     });
   }
+
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (device.assetDef.power.consumptionMilliWatts > 0 && !device.powerGrid) diagnostics.push({
+      code: "power-disconnected", severity: "warning", device: device.id,
+      message: `${device.id} requires power but is outside every distribution grid`,
+    });
+  }
+  for (const grid of powerGrids) if (grid.headroomMilliWatts < 0) diagnostics.push({
+    code: "power-deficit", severity: "warning",
+    message: `${grid.grid} rated demand exceeds generation by ${(-grid.headroomMilliWatts / 1000).toFixed(3)} W`,
+  });
 
   for (const device of Object.values(project.devices)) {
     if (!device.processPlan) continue;
@@ -144,6 +174,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     devices,
     resources,
     connections,
+    powerGrids,
     diagnostics,
   };
 }
