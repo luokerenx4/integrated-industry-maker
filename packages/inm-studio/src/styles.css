@@ -136,7 +136,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .analysis-header .eyebrow { display: block; margin-bottom: 6px; color: #e1b852; }
 .analysis-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 12px 18px; border-bottom: 1px solid #283238; background: #081216; }
 .analysis-summary .metric { padding: 8px 10px; }
-.analysis-body { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 12px; align-content: start; padding: 16px 18px 30px; }
+.analysis-body { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); grid-auto-rows: max-content; gap: 12px; align-content: start; padding: 16px 18px 30px; }
 .analysis-section { min-width: 0; overflow: hidden; border: 1px solid #1a353c; border-radius: 8px; background: linear-gradient(145deg, #0b181c, #081216); }
 .analysis-section-title { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-bottom: 1px solid #193239; color: #94a8ad; font: 8px var(--mono); letter-spacing: .11em; }
 .analysis-section-title b { color: #506970; font-weight: 400; }
