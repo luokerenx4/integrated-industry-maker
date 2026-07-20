@@ -1,5 +1,5 @@
 {
   "id": "default", "name": "Maximize Gear Throughput", "targetResource": "gear",
-  "constraints": { "maxBuildCost": 10000, "maxOccupiedArea": 36, "minProduction": 5 },
+  "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": { "throughput": 10, "onTimeDelivery": 10, "energy": 0.01, "buildCost": 0.5, "occupiedArea": 0.2, "wip": 0.1, "blocked": 2 }
 }

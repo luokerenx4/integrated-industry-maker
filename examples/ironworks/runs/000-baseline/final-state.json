@@ -1,17 +1,37 @@
 {
-  "completedOrders": 13,
+  "completedOrders": 12,
   "consumed": {
-    "gear": 13
+    "gear": 12
   },
   "devices": {
     "assembler-1": {
+      "activeJob": {
+        "durationTicks": 3000,
+        "operation": "assemble-gear",
+        "powerMilliWatts": 220000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "gear"
+          }
+        ],
+        "startedAt": 118300
+      },
       "buffers": {
-        "input": {},
+        "input": {
+          "iron-plate": 1
+        },
         "output": {}
       },
-      "status": "waiting-input"
+      "progressTicks": 1700,
+      "status": "processing"
     },
     "generator-1": {
+      "buffers": {},
+      "status": "idle"
+    },
+    "generator-2": {
       "buffers": {},
       "status": "idle"
     },
@@ -27,14 +47,14 @@
             "resource": "iron-ore"
           }
         ],
-        "startedAt": 119800
+        "startedAt": 119700
       },
       "buffers": {
         "output": {
           "iron-ore": 6
         }
       },
-      "progressTicks": 200,
+      "progressTicks": 300,
       "status": "processing"
     },
     "output-1": {
@@ -55,7 +75,7 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 119550
+        "startedAt": 119450
       },
       "buffers": {
         "input": {
@@ -63,76 +83,82 @@
         },
         "output": {}
       },
-      "progressTicks": 450,
+      "progressTicks": 550,
       "status": "processing"
+    },
+    "station-demand": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "station-supply": {
+      "buffers": {
+        "storage": {
+          "iron-plate": 1
+        }
+      },
+      "status": "idle"
     }
   },
   "energy": {
-    "availableMilliWatts": 1000000,
-    "consumedMilliJoules": 33911000,
+    "availableMilliWatts": 2000000,
+    "consumedMilliJoules": 128988000,
     "grids": {
       "grid-generator-1": {
-        "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 33911000
+        "availableMilliWatts": 2000000,
+        "consumedMilliJoules": 128988000
       }
     }
   },
+  "logisticsTransports": {
+    "planetary-main": []
+  },
   "produced": {
-    "gear": 14,
+    "gear": 12,
     "iron-ore": 74,
     "iron-plate": 29
   },
   "tick": 120000,
   "transports": {
-    "gear-to-output": [
-      {
-        "arriveTick": 121150,
-        "count": 1,
-        "departTick": 119850,
-        "from": "assembler-1",
-        "fromBuffer": "output",
-        "id": "transit-000110",
-        "resource": "gear",
-        "to": "output-1",
-        "toBuffer": "input"
-      }
-    ],
+    "gear-to-output": [],
     "ore-to-smelter": [
       {
-        "arriveTick": 120850,
+        "arriveTick": 120650,
         "count": 1,
-        "departTick": 119550,
+        "departTick": 119450,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000108",
+        "id": "transit-000143",
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"
       },
       {
-        "arriveTick": 121100,
+        "arriveTick": 120900,
         "count": 1,
-        "departTick": 119800,
+        "departTick": 119700,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000109",
+        "id": "transit-000144",
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"
       }
     ],
-    "plate-to-assembler": [
+    "plate-to-station": [
       {
-        "arriveTick": 120850,
+        "arriveTick": 120550,
         "count": 1,
-        "departTick": 119550,
+        "departTick": 119450,
         "from": "smelter-1",
         "fromBuffer": "output",
-        "id": "transit-000107",
+        "id": "transit-000142",
         "resource": "iron-plate",
-        "to": "assembler-1",
-        "toBuffer": "input"
+        "to": "station-supply",
+        "toBuffer": "storage"
       }
-    ]
+    ],
+    "station-to-assembler": []
   }
 }

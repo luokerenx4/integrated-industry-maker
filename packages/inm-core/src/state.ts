@@ -6,6 +6,8 @@ export type FactoryStateMutation =
   | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number }
   | { kind: "transport.add"; connection: string; transit: ResourceTransit }
   | { kind: "transport.remove"; connection: string; transitId: string }
+  | { kind: "logistics.add"; network: string; transit: ResourceTransit }
+  | { kind: "logistics.remove"; network: string; transitId: string }
   | { kind: "produced"; resource: string; count: number }
   | { kind: "consumed"; resource: string; count: number }
   | { kind: "energy"; grid: string; consumedMilliJoules: number }
@@ -31,6 +33,12 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "transport.remove": {
       const transits = state.transports[mutation.connection]!; const index = transits.findIndex((item) => item.id === mutation.transitId);
       if (index < 0) throw new Error(`Unknown transit '${mutation.transitId}' on '${mutation.connection}'`);
+      transits.splice(index, 1); return;
+    }
+    case "logistics.add": state.logisticsTransports[mutation.network]!.push(mutation.transit); return;
+    case "logistics.remove": {
+      const transits = state.logisticsTransports[mutation.network]!; const index = transits.findIndex((item) => item.id === mutation.transitId);
+      if (index < 0) throw new Error(`Unknown logistics transit '${mutation.transitId}' on '${mutation.network}'`);
       transits.splice(index, 1); return;
     }
     case "produced": state.produced[mutation.resource] = (state.produced[mutation.resource] ?? 0) + mutation.count; return;

@@ -1,5 +1,5 @@
 {
-  "averageWip": 7.225416666666667,
+  "averageWip": 7.289166666666667,
   "blockedOutputTime": {
     "assembler-1": 0,
     "generator-1": 0,
@@ -8,16 +8,17 @@
     "output-1": 0,
     "smelter-1": 0,
     "smelter-1-parallel": 0,
+    "smelter-1-parallel-parallel": 0,
     "station-demand": 0,
     "station-supply": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 24,
+  "completedOrders": 25,
   "consumed": {
-    "gear": 24
+    "gear": 25
   },
-  "energyConsumedMilliJoules": 159792000,
-  "finalScore": 111.83453833333334,
+  "energyConsumedMilliJoules": 159684000,
+  "finalScore": 115.25424333333335,
   "idleTime": {
     "assembler-1": 0,
     "generator-1": 120000,
@@ -26,6 +27,7 @@
     "output-1": 0,
     "smelter-1": 0,
     "smelter-1-parallel": 0,
+    "smelter-1-parallel-parallel": 0,
     "station-demand": 120000,
     "station-supply": 120000
   },
@@ -36,39 +38,41 @@
     "generator-2": 0,
     "ore-source-1": 1,
     "output-1": 0,
-    "smelter-1": 0.9566666666666667,
-    "smelter-1-parallel": 0.955,
+    "smelter-1": 0.64,
+    "smelter-1-parallel": 0.6333333333333333,
+    "smelter-1-parallel-parallel": 0.6333333333333333,
     "station-demand": 0,
     "station-supply": 0
   },
-  "occupiedArea": 46,
+  "occupiedArea": 50,
   "onTimeDelivery": 1,
   "produced": {
     "gear": 25,
     "iron-ore": 120,
-    "iron-plate": 56
+    "iron-plate": 57
   },
   "scoreBreakdown": {
     "blocked": 0,
-    "buildCost": -6.645,
+    "buildCost": -7.42,
     "constraintPenalty": 0,
-    "energy": -1.59792,
-    "occupiedArea": -9.200000000000001,
+    "energy": -1.59684,
+    "occupiedArea": -10,
     "onTimeDelivery": 10,
-    "throughput": 120,
-    "wip": -0.7225416666666667
+    "throughput": 125,
+    "wip": -0.7289166666666667
   },
-  "throughputPerMinute": 12,
-  "totalBuildCost": 13290,
-  "transportCongestion": 0.15436507936507968,
+  "throughputPerMinute": 12.5,
+  "totalBuildCost": 14840,
+  "transportCongestion": 0.122337962962963,
   "waitingInputTime": {
     "assembler-1": 45000,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 0,
     "output-1": 120000,
-    "smelter-1": 5200,
-    "smelter-1-parallel": 5400,
+    "smelter-1": 43200,
+    "smelter-1-parallel": 44000,
+    "smelter-1-parallel-parallel": 44000,
     "station-demand": 0,
     "station-supply": 0
   }

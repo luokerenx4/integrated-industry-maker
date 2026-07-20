@@ -1,59 +1,71 @@
 {
-  "averageWip": 13.8975,
+  "averageWip": 16.152916666666666,
   "blockedOutputTime": {
     "assembler-1": 0,
     "generator-1": 0,
-    "ore-source-1": 45800,
+    "generator-2": 0,
+    "ore-source-1": 45700,
     "output-1": 0,
-    "smelter-1": 0
+    "smelter-1": 0,
+    "station-demand": 0,
+    "station-supply": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 13,
+  "completedOrders": 12,
   "consumed": {
-    "gear": 13
+    "gear": 12
   },
-  "energyConsumedMilliJoules": 33911000,
-  "finalScore": 65.91780666666665,
+  "energyConsumedMilliJoules": 128988000,
+  "finalScore": 52.04316166666668,
   "idleTime": {
     "assembler-1": 0,
     "generator-1": 120000,
+    "generator-2": 120000,
     "ore-source-1": 0,
     "output-1": 0,
-    "smelter-1": 0
+    "smelter-1": 0,
+    "station-demand": 120000,
+    "station-supply": 120000
   },
   "infeasibleReason": null,
   "machineUtilization": {
-    "assembler-1": 0.35,
+    "assembler-1": 0.31416666666666665,
     "generator-1": 0,
-    "ore-source-1": 0.6183333333333333,
+    "generator-2": 0,
+    "ore-source-1": 0.6191666666666666,
     "output-1": 0,
-    "smelter-1": 0.9704166666666667
+    "smelter-1": 0.97125,
+    "station-demand": 0,
+    "station-supply": 0
   },
-  "occupiedArea": 20,
+  "occupiedArea": 42,
   "onTimeDelivery": 1,
   "produced": {
-    "gear": 14,
+    "gear": 12,
     "iron-ore": 74,
     "iron-plate": 29
   },
   "scoreBreakdown": {
-    "blocked": -0.7633333333333333,
-    "buildCost": -2.59,
+    "blocked": -0.7616666666666667,
+    "buildCost": -5.89,
     "constraintPenalty": 0,
-    "energy": -0.33911,
-    "occupiedArea": -4,
+    "energy": -1.28988,
+    "occupiedArea": -8.4,
     "onTimeDelivery": 10,
-    "throughput": 65,
-    "wip": -1.3897500000000003
+    "throughput": 60,
+    "wip": -1.6152916666666668
   },
-  "throughputPerMinute": 6.5,
-  "totalBuildCost": 5180,
-  "transportCongestion": 0.06497685185185183,
+  "throughputPerMinute": 6,
+  "totalBuildCost": 11780,
+  "transportCongestion": 0.10919444444444448,
   "waitingInputTime": {
-    "assembler-1": 78000,
+    "assembler-1": 82300,
     "generator-1": 0,
+    "generator-2": 0,
     "ore-source-1": 0,
     "output-1": 120000,
-    "smelter-1": 3550
+    "smelter-1": 3450,
+    "station-demand": 0,
+    "station-supply": 0
   }
 }

@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "logistics-station",
+  "name": "Planetary Logistics Station",
+  "description": "A networked depot with project-configured supply, demand, and storage slots.",
+  "tags": ["logistics", "station", "planetary"],
+  "capabilities": ["store", "station"],
+  "geometry": {
+    "footprint": { "width": 3, "height": 3 },
+    "rotatable": true,
+    "ports": [
+      { "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 1, "buffer": "storage" },
+      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 1, "buffer": "storage" }
+    ]
+  },
+  "buffers": [{ "id": "storage", "role": "internal", "capacity": 200, "accepts": ["*"] }],
+  "logisticsStation": { "networkKinds": ["planetary"], "buffer": "storage", "slots": 4 },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 400000, "productionMilliWatts": 0 },
+  "economics": { "buildCost": 2500 },
+  "files": { "visual": "visual.json" }
+}

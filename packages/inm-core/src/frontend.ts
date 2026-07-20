@@ -12,7 +12,7 @@ export interface FactorySceneModel {
   resourcesInTransit: Array<{
     id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; progress: number; visual?: Record<string, unknown>;
   }>;
-  connections: Array<{ id: string; from: GridPosition; to: GridPosition; blocked?: boolean }>;
+  connections: Array<{ id: string; from: GridPosition; to: GridPosition; kind: "physical" | "station"; blocked?: boolean }>;
   metrics: FactoryMetrics | null;
 }
 
@@ -24,10 +24,18 @@ export function createFactorySceneModel(project: CompiledFactoryProject, metrics
     visual: { ...(device.assetDef.visual ?? {}) }, runtimeStatus: "idle" as DeviceStatus,
     ...(metrics?.bottleneckEntity === device.id ? { bottleneck: true } : {}),
   }]));
-  const connections = Object.values(project.connections).map((connection) => ({
-    id: connection.id, from: center(connection.fromDevice.position, connection.fromDevice.footprint),
-    to: center(connection.toDevice.position, connection.toDevice.footprint),
-  }));
+  const connections: FactorySceneModel["connections"] = [
+    ...Object.values(project.connections).map((connection) => ({
+      id: connection.id, from: center(connection.fromDevice.position, connection.fromDevice.footprint),
+      to: center(connection.toDevice.position, connection.toDevice.footprint), kind: "physical" as const,
+    })),
+    ...Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
+      id: route.id,
+      from: center(project.devices[route.from]!.position, project.devices[route.from]!.footprint),
+      to: center(project.devices[route.to]!.position, project.devices[route.to]!.footprint),
+      kind: "station" as const,
+    }))),
+  ];
   return { tick: 0, bounds: { ...project.blueprint.bounds }, devices, resourcesInTransit: [], connections, metrics };
 }
 
@@ -46,7 +54,15 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
       from: center(connection.fromDevice.position, connection.fromDevice.footprint), to: center(connection.toDevice.position, connection.toDevice.footprint),
       progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
-  } else if (event.type === "resource.arrive") next.resourcesInTransit = next.resourcesInTransit.filter((transit) => transit.id !== event.transit.id);
+  } else if (event.type === "logistics.depart") {
+    const route = project.logisticsNetworks[event.network]!.routes.find((item) => item.id === event.route)!;
+    next.resourcesInTransit.push({
+      id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
+      from: center(project.devices[route.from]!.position, project.devices[route.from]!.footprint),
+      to: center(project.devices[route.to]!.position, project.devices[route.to]!.footprint),
+      progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
+    });
+  } else if (event.type === "resource.arrive" || event.type === "logistics.arrive") next.resourcesInTransit = next.resourcesInTransit.filter((transit) => transit.id !== event.transit.id);
   for (const transit of next.resourcesInTransit) {
     const sourceEvent = model.resourcesInTransit.find((item) => item.id === transit.id);
     if (sourceEvent) transit.progress = sourceEvent.progress;
@@ -60,7 +76,7 @@ export function replayFactoryEvents(project: CompiledFactoryProject, events: Fac
   for (const event of events) {
     if (event.tick > throughTick) break;
     model = reduceFactoryEvent(model, event, project);
-    if (event.type === "resource.depart") departed.set(event.transit.id, event.transit);
+    if (event.type === "resource.depart" || event.type === "logistics.depart") departed.set(event.transit.id, event.transit);
   }
   model.tick = Math.min(throughTick, events.at(-1)?.tick ?? 0);
   for (const transit of model.resourcesInTransit) {

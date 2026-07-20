@@ -1,7 +1,7 @@
 {
   "bounds": {
     "height": 32,
-    "width": 32
+    "width": 40
   },
   "connections": [
     {
@@ -31,7 +31,29 @@
         "device": "smelter-1",
         "port": "output"
       },
-      "id": "plate-to-assembler",
+      "id": "plate-to-station",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "station-supply",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "station-demand",
+        "port": "output"
+      },
+      "id": "station-to-assembler",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -88,7 +110,7 @@
       "asset": "smelter",
       "id": "smelter-1",
       "position": {
-        "x": 10,
+        "x": 9,
         "y": 10
       },
       "process": "smelt-iron",
@@ -98,8 +120,8 @@
       "asset": "assembler",
       "id": "assembler-1",
       "position": {
-        "x": 18,
-        "y": 10
+        "x": 28,
+        "y": 18
       },
       "process": "assemble-gear",
       "rotation": 0
@@ -108,8 +130,8 @@
       "asset": "material-sink",
       "id": "output-1",
       "position": {
-        "x": 26,
-        "y": 10
+        "x": 35,
+        "y": 18
       },
       "rotation": 0
     },
@@ -117,10 +139,69 @@
       "asset": "generator",
       "id": "generator-1",
       "position": {
-        "x": 10,
+        "x": 11,
         "y": 3
       },
       "rotation": 0
+    },
+    {
+      "asset": "logistics-station",
+      "id": "station-supply",
+      "position": {
+        "x": 14,
+        "y": 9
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "logistics-station",
+      "id": "station-demand",
+      "position": {
+        "x": 22,
+        "y": 18
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "generator",
+      "id": "generator-2",
+      "position": {
+        "x": 27,
+        "y": 10
+      },
+      "rotation": 0
+    }
+  ],
+  "logisticsNetworks": [
+    {
+      "fleet": {
+        "count": 1,
+        "deviceAsset": "logistics-drone"
+      },
+      "id": "planetary-main",
+      "kind": "planetary",
+      "stations": [
+        {
+          "device": "station-supply",
+          "slots": [
+            {
+              "minimumBatch": 3,
+              "mode": "supply",
+              "resource": "iron-plate"
+            }
+          ]
+        },
+        {
+          "device": "station-demand",
+          "slots": [
+            {
+              "minimumBatch": 3,
+              "mode": "demand",
+              "resource": "iron-plate"
+            }
+          ]
+        }
+      ]
     }
   ],
   "policies": {

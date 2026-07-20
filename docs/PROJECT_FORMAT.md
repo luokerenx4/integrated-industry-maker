@@ -141,6 +141,34 @@ Power consumption and production use integer milliwatts. A generator or distribu
 
 Distributors within each other's connection range form an isolated power grid. A Device within a distributor's coverage range joins the nearest grid. Rated demand greater than grid generation and powered Devices outside every grid are reported by `inm analyze`; runtime power allocation and energy accounting are also isolated per grid.
 
+Station and carrier Devices remain ordinary project-local Device assets with explicit industrial roles. A station adds the `station` capability and binds all network slots to one internal buffer:
+
+```json
+{
+  "capabilities": ["store", "station"],
+  "buffers": [{ "id": "storage", "role": "internal", "capacity": 200, "accepts": ["*"] }],
+  "logisticsStation": {
+    "networkKinds": ["planetary"],
+    "buffer": "storage",
+    "slots": 4
+  }
+}
+```
+
+A reusable carrier declares the `carrier` logistics role and its supported network kinds:
+
+```json
+{
+  "capabilities": ["transport"],
+  "logistics": {
+    "roles": ["carrier"],
+    "carrierKinds": ["planetary"]
+  }
+}
+```
+
+Its `planTransport()` result defines per-trip batch capacity and occupied travel time. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
+
 ## Device TypeScript program
 
 Every Device package has a TypeScript entry conforming to `DeviceProgram`:
@@ -173,7 +201,7 @@ export default {
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
 - `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process plan when one is bound.
-- `planTransport(context)` is required for assets declaring `transport`; it receives `loader`, `line`, or `unloader` as the stage and returns capacity and duration for that stage.
+- `planTransport(context)` is required for assets declaring `transport`; it receives `loader`, `line`, `unloader`, or `carrier` as the logistics role and returns capacity and duration for that stage or trip.
 - A program returns declarative actions. It never receives the mutable global factory state.
 
 Supported decisions are `start`, `consume`, `wait`, and `none`. A `start` action may consume from and produce into any number of named buffers, so multi-input/multi-output equipment does not need a standardized internal recipe representation. The host validates every buffer, resource, count, capacity, duration, and power request before mutating state.
@@ -235,6 +263,7 @@ Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or 
       }
     }
   ],
+  "logisticsNetworks": [],
   "policies": { "dispatch": "round-robin" }
 }
 ```
@@ -242,6 +271,34 @@ Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or 
 `process` is engine-visible industrial semantics. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
 
 A transport Device declares the stages it can fill, for example `"logistics": { "roles": ["loader", "unloader"] }` for a sorter and `"roles": ["line"]` for a belt. Each stage contributes its own capacity, duration, and build cost. Static analysis reports the resulting end-to-end items/min and complete stage chain.
+
+`logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances:
+
+```json
+"logisticsNetworks": [
+  {
+    "id": "planetary-main",
+    "kind": "planetary",
+    "fleet": { "deviceAsset": "logistics-drone", "count": 4 },
+    "stations": [
+      {
+        "device": "station-supply",
+        "slots": [
+          { "resource": "iron-plate", "mode": "supply", "minimumBatch": 3 }
+        ]
+      },
+      {
+        "device": "station-demand",
+        "slots": [
+          { "resource": "iron-plate", "mode": "demand", "minimumBatch": 3 }
+        ]
+      }
+    ]
+  }
+]
+```
+
+The compiler matches supply and demand slots for the same Resource, validates carrier kind and batch capacity, and builds deterministic station-to-station routes. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination capacity includes cargo already in flight. Station failures or unavailable spatial power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
 
 ## Scenario and objective
 
@@ -266,7 +323,7 @@ Initial quantities address device and buffer explicitly:
   "id": "default",
   "name": "Maximize Gear Throughput",
   "targetResource": "gear",
-  "constraints": { "maxBuildCost": 10000, "maxOccupiedArea": 36, "minProduction": 5 },
+  "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": {
     "throughput": 10,
     "onTimeDelivery": 10,

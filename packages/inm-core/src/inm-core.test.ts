@@ -23,22 +23,45 @@ async function projectCopy(): Promise<string> {
   return dir;
 }
 
+async function stationProjectSource(): Promise<LoadedFactoryProject> {
+  const source = await loaded();
+  source.blueprint.devices = [
+    { id: "station-supply", asset: "logistics-station", position: { x: 2, y: 10 }, rotation: 0 },
+    { id: "station-demand", asset: "logistics-station", position: { x: 14, y: 10 }, rotation: 0 },
+    { id: "generator-1", asset: "generator", position: { x: 10, y: 3 }, rotation: 0 },
+  ];
+  source.blueprint.connections = [];
+  source.blueprint.logisticsNetworks = [{
+    id: "planetary-main",
+    kind: "planetary",
+    fleet: { deviceAsset: "logistics-drone", count: 1 },
+    stations: [
+      { device: "station-supply", slots: [{ resource: "iron-ore", mode: "supply", minimumBatch: 10 }] },
+      { device: "station-demand", slots: [{ resource: "iron-ore", mode: "demand", minimumBatch: 10 }] },
+    ],
+  }];
+  source.scenario.durationTicks = 7_000;
+  source.scenario.initialBuffers = { "station-supply": { storage: { "iron-ore": 25 } } };
+  source.scenario.failures = [];
+  return source;
+}
+
 describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
-    expect(Object.keys(project.devices)).toHaveLength(5);
+    expect(Object.keys(project.devices)).toHaveLength(8);
     expect(Object.keys(project.resources)).toEqual(["gear", "iron-ore", "iron-plate"]);
     expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
     expect(project.devices["smelter-1"]!.powerGrid).toBe("grid-generator-1");
     expect(project.powerGrids["grid-generator-1"]!.members).toContain("assembler-1");
-    expect(project.powerGrids["grid-generator-1"]!.productionMilliWatts).toBe(1_000_000);
+    expect(project.powerGrids["grid-generator-1"]!.productionMilliWatts).toBe(2_000_000);
     expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => `${stage.stage}:${stage.asset.id}`)).toEqual([
       "loader:sorter", "line:conveyor", "unloader:sorter",
     ]);
     expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(250);
-    expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_300);
+    expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_200);
     expect(project.hashes.blueprintHash).toHaveLength(64);
     expect(project.hashes.processCatalogHash).toHaveLength(64);
   });
@@ -52,7 +75,7 @@ describe("blueprint compiler", () => {
   });
 
   test("rejects out-of-bounds devices", async () => {
-    const source = await loaded(); source.blueprint.devices[0]!.position.x = 31;
+    const source = await loaded(); source.blueprint.devices[0]!.position.x = 39;
     expect(issueCodes(() => compileFactoryProject(source))).toContain("geometry.out-of-bounds");
   });
 
@@ -107,12 +130,32 @@ describe("blueprint compiler", () => {
       { ...assembler, position: { x: 27, y: 30 } },
     ];
     source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
     const project = compileFactoryProject(source);
     expect(Object.keys(project.powerGrids)).toEqual(["grid-generator-1", "grid-generator-2"]);
     expect(project.devices["ore-source-1"]!.powerGrid).toBe("grid-generator-1");
     expect(project.devices["assembler-1"]!.powerGrid).toBe("grid-generator-2");
     expect(project.powerGrids["grid-generator-1"]!.ratedConsumptionMilliWatts).toBe(50_000);
     expect(project.powerGrids["grid-generator-2"]!.ratedConsumptionMilliWatts).toBe(220_000);
+  });
+
+  test("compiles supply and demand slots into reusable-carrier station routes", async () => {
+    const project = compileFactoryProject(await stationProjectSource());
+    const network = project.logisticsNetworks["planetary-main"]!;
+    expect(network.fleetAsset.id).toBe("logistics-drone");
+    expect(network.fleetSize).toBe(1);
+    expect(network.routes).toEqual([expect.objectContaining({
+      resource: "iron-ore", from: "station-supply", to: "station-demand", capacity: 10, minimumBatch: 10, travelTicks: 3_400,
+    })]);
+  });
+
+  test("rejects incompatible station carriers and duplicate resource slots", async () => {
+    const source = await stationProjectSource();
+    source.blueprint.logisticsNetworks[0]!.fleet.deviceAsset = "conveyor";
+    source.blueprint.logisticsNetworks[0]!.stations[0]!.slots.push({ resource: "iron-ore", mode: "storage" });
+    const codes = issueCodes(() => compileFactoryProject(source));
+    expect(codes).toContain("logistics.carrier-kind");
+    expect(codes).toContain("station.duplicate-resource");
   });
 });
 
@@ -130,7 +173,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(plate.consumedPerMinute).toBe(40);
     expect(plate.netPerMinute).toBe(-25);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
-    expect(analysis.powerGrids).toEqual([expect.objectContaining({ grid: "grid-generator-1", headroomMilliWatts: 550_000 })]);
+    expect(analysis.powerGrids).toEqual([expect.objectContaining({ grid: "grid-generator-1", headroomMilliWatts: 750_000 })]);
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
@@ -161,12 +204,34 @@ describe("deterministic discrete-event simulation", () => {
       id: "buffer-link", from: { device: "source-buffer", port: "output" }, to: { device: "target-buffer", port: "input" },
       logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
     }];
+    source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "source-buffer": { storage: { "iron-ore": 4 } } };
     source.scenario.failures = [];
     const project = compileFactoryProject(source);
     expect(project.connections["buffer-link"]!.dispatchIntervalTicks).toBe(1_000);
     const result = runUntil(project, undefined, { untilTick: 2_500 });
     expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.tick)).toEqual([0, 1_000, 2_000]);
+  });
+
+  test("station networks batch resources and share a finite reusable fleet", async () => {
+    const project = compileFactoryProject(await stationProjectSource());
+    const result = runUntil(project, undefined, { untilTick: 7_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.count])).toEqual([[0, 10], [3_400, 10]]);
+    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([3_400, 6_800]);
+    expect(result.state.devices["station-demand"]!.buffers.storage!["iron-ore"]).toBe(20);
+    expect(result.state.devices["station-supply"]!.buffers.storage!["iron-ore"]).toBe(5);
+    expect(result.state.logisticsTransports["planetary-main"]).toHaveLength(0);
+    expect(result.metrics.totalBuildCost).toBe(6_500);
+  });
+
+  test("station infrastructure reports spatial power loss before cargo is available", async () => {
+    const source = await stationProjectSource();
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
+    source.scenario.initialBuffers = {};
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 100 });
+    expect(result.events.filter((event) => event.type === "power.shortage").map((event) => event.device)).toEqual(["station-demand", "station-supply"]);
+    expect(result.state.devices["station-supply"]!.status).toBe("unpowered");
+    expect(result.state.devices["station-demand"]!.status).toBe("unpowered");
   });
 
   test("power shortage produces an event and unpowered state", async () => {
@@ -191,6 +256,7 @@ describe("deterministic discrete-event simulation", () => {
       id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" },
       logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
     }];
+    source.blueprint.logisticsNetworks = [];
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
     expect(Object.values(result.state.devices["buffer-1"]!.buffers.storage!).reduce((sum, count) => sum + count, 0)).toBe(20);
     expect(result.metrics.blockedOutputTime["ore-source-1"]).toBeGreaterThan(0);
@@ -239,8 +305,10 @@ describe("deterministic discrete-event simulation", () => {
       },
     } satisfies DeviceProgram;
     source.blueprint.devices = source.blueprint.devices.filter((device) => device.id === "assembler-1" || device.id === "generator-1");
+    source.blueprint.devices.find((device) => device.id === "assembler-1")!.position = { x: 10, y: 10 };
     delete source.blueprint.devices.find((device) => device.id === "assembler-1")!.process;
     source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 1000;
     source.scenario.initialBuffers = { "assembler-1": { "ore-input": { "iron-ore": 1 }, "plate-input": { "iron-plate": 1 } } };
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 1000 });
@@ -256,7 +324,8 @@ describe("deterministic discrete-event simulation", () => {
 });
 
 describe("research boundary and experiment decisions", () => {
-  test("patches cannot edit world assets, scenarios, objectives, or bounds", () => {
+  test("patches can optimize logistics networks but cannot edit world assets, scenarios, objectives, or bounds", () => {
+    expect(() => validateResearchPatch([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 2 }])).not.toThrow();
     for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/bounds/width"]) {
       expect(() => validateResearchPatch([{ op: "replace", path, value: 1 }])).toThrow();
     }
@@ -319,6 +388,22 @@ describe("research boundary and experiment decisions", () => {
     expect(proposal.patch).toHaveLength(2);
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
     expect(candidate.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBeLessThan(project.connections["ore-to-smelter"]!.dispatchIntervalTicks);
+  });
+
+  test("heuristic station strategy expands a statically undersized shared fleet", async () => {
+    const source = await loaded();
+    source.deviceAssets["logistics-drone"]!.program = {
+      apiVersion: 1,
+      evaluate: () => ({ kind: "none" }),
+      planTransport: () => ({ capacity: 3, durationTicks: 180_000 }),
+    };
+    const project = compileFactoryProject(source);
+    const analysis = analyzeProduction(project);
+    expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "station-fleet-deficit")).toBeTrue();
+    const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
+    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, history: [] });
+    expect(proposal.strategy).toBe("station-fleet:planetary-main:40");
+    expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 40 }]);
   });
 
   test("worse valid candidate is reverted", async () => {

@@ -62,7 +62,9 @@ export interface IndustrialProcess extends IndustrialProcessManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "produce" | "process" | "store" | "transport" | "consume" | "power";
+export type DeviceCapability = "produce" | "process" | "store" | "transport" | "station" | "consume" | "power";
+export type LogisticsStage = "loader" | "line" | "unloader";
+export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
 export interface DevicePort {
   id: string;
@@ -100,7 +102,8 @@ export interface DeviceAssetManifest {
     inputBuffer: BufferId;
     outputBuffer: BufferId;
   };
-  logistics?: { roles: Array<"loader" | "line" | "unloader"> };
+  logistics?: { roles: LogisticsRole[]; carrierKinds?: Array<"planetary" | "interstellar"> };
+  logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: BufferId; slots: number };
   runtime: { apiVersion: 1; entry: string };
   power: {
     consumptionMilliWatts: number;
@@ -149,7 +152,7 @@ export type DeviceProgramDecision =
 export interface DeviceTransportContext {
   apiVersion: 1;
   connection: ConnectionId;
-  stage: "loader" | "line" | "unloader";
+  stage: LogisticsRole;
   distance: number;
 }
 
@@ -182,12 +185,28 @@ export interface BlueprintConnection {
     unloader: { deviceAsset: DeviceAssetId };
   };
 }
+export interface BlueprintLogisticsSlot {
+  resource: ResourceId;
+  mode: "supply" | "demand" | "storage";
+  minimumBatch?: number;
+}
+export interface BlueprintLogisticsStation {
+  device: DeviceInstanceId;
+  slots: BlueprintLogisticsSlot[];
+}
+export interface BlueprintLogisticsNetwork {
+  id: string;
+  kind: "planetary" | "interstellar";
+  fleet: { deviceAsset: DeviceAssetId; count: number };
+  stations: BlueprintLogisticsStation[];
+}
 export interface Blueprint {
   version: 1;
   revision?: string;
   bounds: { width: number; height: number };
   devices: BlueprintDevice[];
   connections: BlueprintConnection[];
+  logisticsNetworks: BlueprintLogisticsNetwork[];
   policies?: { dispatch?: "fifo" | "round-robin" };
 }
 
@@ -258,7 +277,7 @@ export interface CompiledConnection extends BlueprintConnection {
   fromPort: DevicePort;
   toPort: DevicePort;
   logisticsStages: Array<{
-    stage: "loader" | "line" | "unloader";
+    stage: LogisticsStage;
     asset: DeviceAsset;
     distance: number;
     capacity: number;
@@ -268,6 +287,27 @@ export interface CompiledConnection extends BlueprintConnection {
   capacity: number;
   travelTicks: Tick;
   dispatchIntervalTicks: Tick;
+}
+export interface CompiledLogisticsRoute {
+  id: string;
+  network: string;
+  resource: ResourceId;
+  from: DeviceInstanceId;
+  to: DeviceInstanceId;
+  fromBuffer: BufferId;
+  toBuffer: BufferId;
+  minimumBatch: number;
+  distance: number;
+  capacity: number;
+  travelTicks: Tick;
+}
+export interface CompiledLogisticsNetwork {
+  id: string;
+  kind: "planetary" | "interstellar";
+  fleetAsset: DeviceAsset;
+  fleetSize: number;
+  stations: BlueprintLogisticsStation[];
+  routes: CompiledLogisticsRoute[];
 }
 export interface CompiledPowerGrid {
   id: string;
@@ -287,6 +327,7 @@ export interface CompiledFactoryProject {
   objective: Objective;
   devices: Record<DeviceInstanceId, CompiledDevice>;
   connections: Record<ConnectionId, CompiledConnection>;
+  logisticsNetworks: Record<string, CompiledLogisticsNetwork>;
   powerGrids: Record<string, CompiledPowerGrid>;
   hashes: ProjectHashes;
 }
@@ -325,11 +366,13 @@ export interface ResourceTransit {
   toBuffer: BufferId;
   departTick: Tick;
   arriveTick: Tick;
+  logisticsRoute?: string;
 }
 export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
   transports: Record<ConnectionId, ResourceTransit[]>;
+  logisticsTransports: Record<string, ResourceTransit[]>;
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;
   energy: {
@@ -345,6 +388,8 @@ export type FactoryEvent =
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[] }
   | { type: "resource.depart"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
+  | { type: "logistics.depart"; tick: Tick; transit: ResourceTransit; network: string; route: string }
+  | { type: "logistics.arrive"; tick: Tick; transit: ResourceTransit; network: string; route: string }
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }

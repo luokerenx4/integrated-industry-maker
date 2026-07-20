@@ -23,7 +23,7 @@ export interface DeviceProgramContext {
 export interface DeviceTransportContext {
   apiVersion: 1;
   connection: string;
-  stage: "loader" | "line" | "unloader";
+  stage: "loader" | "line" | "unloader" | "carrier";
   distance: number;
 }
 

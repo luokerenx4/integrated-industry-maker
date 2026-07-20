@@ -11,7 +11,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const duration = Math.max(1, state.tick);
   const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + device.footprint.width * device.footprint.height, 0);
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
-    + Object.values(project.connections).reduce((sum, connection) => sum + connection.logisticsStages.reduce((stageSum, stage) => stageSum + stage.asset.economics.buildCost * stage.distance, 0), 0);
+    + Object.values(project.connections).reduce((sum, connection) => sum + connection.logisticsStages.reduce((stageSum, stage) => stageSum + stage.asset.economics.buildCost * stage.distance, 0), 0)
+    + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleetAsset.economics.buildCost * network.fleetSize, 0);
   const targetProduced = state.consumed[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const machineUtilization: Record<string, number> = {};
@@ -37,7 +38,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   if (constraints.maxOccupiedArea !== undefined && occupiedArea > constraints.maxOccupiedArea) violations.push(`occupied area ${occupiedArea} exceeds ${constraints.maxOccupiedArea}`);
   if (constraints.minProduction !== undefined && targetProduced < constraints.minProduction) violations.push(`production ${targetProduced} is below ${constraints.minProduction}`);
   const averageWip = stats.wipArea / duration;
-  const transportCongestion = stats.congestionArea / duration / Math.max(1, Object.keys(project.connections).length);
+  const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
+  const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
   const onTimeDelivery = constraints.minProduction ? Math.min(1, targetProduced / constraints.minProduction) : targetProduced > 0 ? 1 : 0;
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {

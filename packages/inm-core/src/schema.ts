@@ -49,7 +49,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["produce", "process", "store", "transport", "consume", "power"])).min(1),
+  capabilities: z.array(z.enum(["produce", "process", "store", "transport", "station", "consume", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -60,7 +60,13 @@ export const deviceAssetSchema = z.object({
     speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
     inputBuffer: id, outputBuffer: id,
   }).strict().optional(),
-  logistics: z.object({ roles: z.array(z.enum(["loader", "line", "unloader"])).min(1) }).strict().optional(),
+  logistics: z.object({
+    roles: z.array(z.enum(["loader", "line", "unloader", "carrier"])).min(1),
+    carrierKinds: z.array(z.enum(["planetary", "interstellar"])).min(1).optional(),
+  }).strict().optional(),
+  logisticsStation: z.object({
+    networkKinds: z.array(z.enum(["planetary", "interstellar"])).min(1), buffer: id, slots: positiveInt,
+  }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
   power: z.object({
     consumptionMilliWatts: nonNegativeInt,
@@ -88,6 +94,16 @@ export const blueprintSchema = z.object({
       line: z.object({ deviceAsset: id }).strict(),
       unloader: z.object({ deviceAsset: id }).strict(),
     }).strict(),
+  }).strict()),
+  logisticsNetworks: z.array(z.object({
+    id, kind: z.enum(["planetary", "interstellar"]),
+    fleet: z.object({ deviceAsset: id, count: positiveInt }).strict(),
+    stations: z.array(z.object({
+      device: id,
+      slots: z.array(z.object({
+        resource: id, mode: z.enum(["supply", "demand", "storage"]), minimumBatch: positiveInt.optional(),
+      }).strict()),
+    }).strict()).min(2),
   }).strict()),
   policies: z.object({ dispatch: z.enum(["fifo", "round-robin"]).optional() }).strict().optional(),
 }).strict();

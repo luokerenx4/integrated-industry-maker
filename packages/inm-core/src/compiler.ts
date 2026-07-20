@@ -1,6 +1,6 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
-  CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledPowerGrid, DeviceAsset, DevicePort,
+  BlueprintLogisticsNetwork, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, DeviceAsset, DevicePort,
   IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
@@ -67,8 +67,18 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     }
     if (asset.logistics && !asset.capabilities.includes("transport")) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "capability.not-transport", message: "Logistics roles require transport capability" });
     if (asset.logistics && new Set(asset.logistics.roles).size !== asset.logistics.roles.length) issues.push({ path: `assets/devices/${id}/asset.json/logistics/roles`, code: "logistics.duplicate-role", message: "Logistics roles must be unique" });
+    if (asset.logistics?.roles.includes("carrier") && !asset.logistics.carrierKinds) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-kinds-required", message: "Carrier role requires supported network kinds" });
+    if (asset.logistics?.carrierKinds && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-role-required", message: "Carrier kinds require carrier role" });
     if (asset.capabilities.includes("transport") && !asset.logistics) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "logistics.roles-required", message: "Transport capability requires explicit logistics roles" });
     if (asset.capabilities.includes("transport") && !asset.program.planTransport) issues.push({ path: `assets/devices/${id}/${asset.runtime.entry}`, code: "runtime.missing-transport-hook", message: "Transport capability requires planTransport(context)" });
+    if (asset.logisticsStation) {
+      if (!asset.capabilities.includes("station")) issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation`, code: "capability.not-station", message: "Logistics station specification requires station capability" });
+      if (new Set(asset.logisticsStation.networkKinds).size !== asset.logisticsStation.networkKinds.length) issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation/networkKinds`, code: "station.duplicate-kind", message: "Station network kinds must be unique" });
+      const buffer = asset.buffers.find((item) => item.id === asset.logisticsStation!.buffer);
+      if (!buffer) issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation/buffer`, code: "reference.buffer", message: `Unknown station buffer '${asset.logisticsStation.buffer}'` });
+      else if (buffer.role !== "internal") issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation/buffer`, code: "station.buffer-role", message: "Station buffer must use internal role for local input and output" });
+    }
+    if (asset.capabilities.includes("station") && !asset.logisticsStation) issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation`, code: "station.spec-required", message: "Station capability requires logisticsStation specification" });
   }
   return issues;
 }
@@ -129,6 +139,61 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.ratedConsumptionMilliWatts += device.assetDef.power.consumptionMilliWatts;
   }
   return grids;
+}
+
+function compileLogisticsNetworks(
+  definitions: BlueprintLogisticsNetwork[], devices: Record<string, CompiledDevice>, assets: Record<string, DeviceAsset>,
+  resources: Record<string, ResourceAsset>, issues: ValidationIssue[],
+): Record<string, CompiledLogisticsNetwork> {
+  const networks: Record<string, CompiledLogisticsNetwork> = {};
+  const ids = new Set<string>();
+  for (const [networkIndex, definition] of definitions.entries()) {
+    const path = `blueprint/logisticsNetworks/${networkIndex}`;
+    if (ids.has(definition.id)) issues.push({ path: `${path}/id`, code: "reference.duplicate", message: `Duplicate logistics network '${definition.id}'` });
+    ids.add(definition.id);
+    const fleetAsset = assets[definition.fleet.deviceAsset];
+    if (!fleetAsset) issues.push({ path: `${path}/fleet/deviceAsset`, code: "reference.device", message: `Unknown carrier asset '${definition.fleet.deviceAsset}'` });
+    else if (!fleetAsset.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind)) {
+      issues.push({ path: `${path}/fleet/deviceAsset`, code: "logistics.carrier-kind", message: `Device '${fleetAsset.id}' cannot carry '${definition.kind}' station traffic` });
+    }
+    const stationIds = new Set<string>();
+    const validStations: Array<{ definition: BlueprintLogisticsNetwork["stations"][number]; device: CompiledDevice; buffer: string }> = [];
+    for (const [stationIndex, station] of definition.stations.entries()) {
+      const stationPath = `${path}/stations/${stationIndex}`;
+      if (stationIds.has(station.device)) issues.push({ path: `${stationPath}/device`, code: "station.duplicate-device", message: `Station '${station.device}' is listed more than once` });
+      stationIds.add(station.device);
+      const device = devices[station.device];
+      if (!device) { issues.push({ path: `${stationPath}/device`, code: "reference.device-instance", message: `Unknown station device '${station.device}'` }); continue; }
+      const spec = device.assetDef.logisticsStation;
+      if (!spec || !spec.networkKinds.includes(definition.kind)) { issues.push({ path: `${stationPath}/device`, code: "station.network-kind", message: `Device '${station.device}' does not support '${definition.kind}' logistics` }); continue; }
+      if (station.slots.length > spec.slots) issues.push({ path: `${stationPath}/slots`, code: "station.slot-capacity", message: `Station '${station.device}' exposes ${spec.slots} slots but configures ${station.slots.length}` });
+      const slotResources = new Set<string>();
+      for (const [slotIndex, slot] of station.slots.entries()) {
+        const slotPath = `${stationPath}/slots/${slotIndex}`;
+        if (slotResources.has(slot.resource)) issues.push({ path: `${slotPath}/resource`, code: "station.duplicate-resource", message: `Station '${station.device}' configures '${slot.resource}' more than once` });
+        slotResources.add(slot.resource);
+        if (!resources[slot.resource]) issues.push({ path: `${slotPath}/resource`, code: "reference.resource", message: `Unknown resource '${slot.resource}'` });
+        const buffer = device.buffers[spec.buffer];
+        if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(slot.resource)) issues.push({ path: `${slotPath}/resource`, code: "station.resource-contract", message: `Station buffer '${spec.buffer}' does not accept '${slot.resource}'` });
+      }
+      validStations.push({ definition: station, device, buffer: spec.buffer });
+    }
+    if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind)) continue;
+    const routes: CompiledLogisticsNetwork["routes"] = [];
+    for (const supply of validStations) for (const supplySlot of supply.definition.slots.filter((slot) => slot.mode === "supply")) {
+      for (const demand of validStations) for (const demandSlot of demand.definition.slots.filter((slot) => slot.mode === "demand" && slot.resource === supplySlot.resource)) {
+        if (supply.device.id === demand.device.id) continue;
+        const id = `${definition.id}:${supplySlot.resource}:${supply.device.id}->${demand.device.id}`;
+        const distance = Math.max(1, Math.abs(supply.device.position.x - demand.device.position.x) + Math.abs(supply.device.position.y - demand.device.position.y));
+        const plan = planDeviceTransport(fleetAsset.id, fleetAsset.program, { apiVersion: 1, connection: id, stage: "carrier", distance });
+        const minimumBatch = Math.max(supplySlot.minimumBatch ?? 1, demandSlot.minimumBatch ?? 1);
+        if (minimumBatch > plan.capacity) issues.push({ path, code: "station.minimum-batch", message: `Route '${id}' minimum batch ${minimumBatch} exceeds carrier capacity ${plan.capacity}` });
+        routes.push({ id, network: definition.id, resource: supplySlot.resource, from: supply.device.id, to: demand.device.id, fromBuffer: supply.buffer, toBuffer: demand.buffer, minimumBatch, distance, capacity: plan.capacity, travelTicks: plan.durationTicks });
+      }
+    }
+    networks[definition.id] = { id: definition.id, kind: definition.kind, fleetAsset, fleetSize: definition.fleet.count, stations: structuredClone(definition.stations), routes };
+  }
+  return networks;
 }
 
 export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFactoryProject {
@@ -239,6 +304,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, capacity, travelTicks, dispatchIntervalTicks };
   }
 
+  const logisticsNetworks = compileLogisticsNetworks(loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, issues);
+
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
   for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {
     const device = devices[deviceId];
@@ -263,5 +330,5 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
-  return { ...loaded, devices, connections, powerGrids, hashes };
+  return { ...loaded, devices, connections, logisticsNetworks, powerGrids, hashes };
 }

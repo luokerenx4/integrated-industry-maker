@@ -59,15 +59,13 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 117200
+        "startedAt": 119200
       },
       "buffers": {
-        "input": {
-          "iron-ore": 1
-        },
+        "input": {},
         "output": {}
       },
-      "progressTicks": 2800,
+      "progressTicks": 800,
       "status": "processing"
     },
     "smelter-1-parallel": {
@@ -82,16 +80,32 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 117400
+        "startedAt": 119400
       },
+      "buffers": {
+        "input": {},
+        "output": {}
+      },
+      "progressTicks": 600,
+      "status": "processing"
+    },
+    "smelter-1-parallel-parallel": {
       "buffers": {
         "input": {
           "iron-ore": 1
         },
         "output": {}
       },
-      "progressTicks": 2600,
-      "status": "processing"
+      "status": "waiting-input"
+    },
+    "smelter-1-parallel-parallel-parallel": {
+      "buffers": {
+        "input": {
+          "iron-ore": 1
+        },
+        "output": {}
+      },
+      "status": "waiting-input"
     },
     "station-demand": {
       "buffers": {
@@ -110,16 +124,29 @@
   },
   "energy": {
     "availableMilliWatts": 2000000,
-    "consumedMilliJoules": 159792000,
+    "consumedMilliJoules": 159072000,
     "grids": {
       "grid-generator-1": {
         "availableMilliWatts": 2000000,
-        "consumedMilliJoules": 159792000
+        "consumedMilliJoules": 159072000
       }
     }
   },
   "logisticsTransports": {
-    "planetary-main": []
+    "planetary-main": [
+      {
+        "arriveTick": 120900,
+        "count": 3,
+        "departTick": 116500,
+        "from": "station-supply",
+        "fromBuffer": "storage",
+        "id": "transit-000262",
+        "logisticsRoute": "planetary-main:iron-plate:station-supply->station-demand",
+        "resource": "iron-plate",
+        "to": "station-demand",
+        "toBuffer": "storage"
+      }
+    ]
   },
   "produced": {
     "gear": 25,
@@ -130,9 +157,9 @@
   "transports": {
     "gear-to-output": [
       {
-        "arriveTick": 120250,
+        "arriveTick": 120850,
         "count": 1,
-        "departTick": 119050,
+        "departTick": 119650,
         "from": "assembler-1",
         "fromBuffer": "output",
         "id": "transit-000267",
@@ -141,68 +168,38 @@
         "toBuffer": "input"
       }
     ],
-    "ore-to-smelter": [
+    "ore-to-smelter": [],
+    "ore-to-smelter-smelter-1-parallel": [],
+    "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel": [
       {
-        "arriveTick": 121200,
+        "arriveTick": 121600,
         "count": 1,
         "departTick": 120000,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000271",
+        "id": "transit-000268",
         "resource": "iron-ore",
-        "to": "smelter-1",
+        "to": "smelter-1-parallel-parallel",
         "toBuffer": "input"
       }
     ],
-    "ore-to-smelter-smelter-1-parallel": [
+    "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel-smelter-1-parallel-parallel-parallel": [
       {
-        "arriveTick": 121400,
+        "arriveTick": 121800,
         "count": 1,
         "departTick": 120000,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000272",
+        "id": "transit-000269",
         "resource": "iron-ore",
-        "to": "smelter-1-parallel",
+        "to": "smelter-1-parallel-parallel-parallel",
         "toBuffer": "input"
       }
     ],
     "plate-to-station": [],
     "plate-to-station-smelter-1-parallel": [],
-    "station-to-assembler": [
-      {
-        "arriveTick": 120200,
-        "count": 1,
-        "departTick": 119100,
-        "from": "station-demand",
-        "fromBuffer": "storage",
-        "id": "transit-000268",
-        "resource": "iron-plate",
-        "to": "assembler-1",
-        "toBuffer": "input"
-      },
-      {
-        "arriveTick": 120450,
-        "count": 1,
-        "departTick": 119350,
-        "from": "station-demand",
-        "fromBuffer": "storage",
-        "id": "transit-000269",
-        "resource": "iron-plate",
-        "to": "assembler-1",
-        "toBuffer": "input"
-      },
-      {
-        "arriveTick": 120700,
-        "count": 1,
-        "departTick": 119600,
-        "from": "station-demand",
-        "fromBuffer": "storage",
-        "id": "transit-000270",
-        "resource": "iron-plate",
-        "to": "assembler-1",
-        "toBuffer": "input"
-      }
-    ]
+    "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel": [],
+    "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel-smelter-1-parallel-parallel-parallel": [],
+    "station-to-assembler": []
   }
 }

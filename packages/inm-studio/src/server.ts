@@ -94,6 +94,7 @@ async function loadProjectIndex() {
       processes,
       deviceInstances: blueprint.devices.length,
       connections: blueprint.connections.length,
+      logisticsNetworks: blueprint.logisticsNetworks.length,
       runs: runs.length,
       bounds: blueprint.bounds,
     };
@@ -133,6 +134,10 @@ async function loadStudioData(projectId: string, runName?: string) {
   for (const device of Object.values(project.devices)) {
     instanceCounts.set(device.asset, (instanceCounts.get(device.asset) ?? 0) + 1);
   }
+  const fleetCounts = new Map<string, number>();
+  for (const network of Object.values(project.logisticsNetworks)) {
+    fleetCounts.set(network.fleetAsset.id, (fleetCounts.get(network.fleetAsset.id) ?? 0) + network.fleetSize);
+  }
 
   return {
     name: project.manifest.name,
@@ -162,6 +167,21 @@ async function loadStudioData(projectId: string, runName?: string) {
         y: connection.toDevice.position.y + connection.toDevice.footprint.height / 2,
       },
     })),
+    logisticsRoutes: Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
+      id: route.id,
+      network: network.id,
+      resource: route.resource,
+      fromDevice: route.from,
+      toDevice: route.to,
+      from: {
+        x: project.devices[route.from]!.position.x + project.devices[route.from]!.footprint.width / 2,
+        y: project.devices[route.from]!.position.y + project.devices[route.from]!.footprint.height / 2,
+      },
+      to: {
+        x: project.devices[route.to]!.position.x + project.devices[route.to]!.footprint.width / 2,
+        y: project.devices[route.to]!.position.y + project.devices[route.to]!.footprint.height / 2,
+      },
+    }))),
     resources: Object.fromEntries(Object.entries(project.resources).map(([id, resource]) => [id, { visual: resource.visual }])),
     analysis: analyzeProduction(project),
     assets: {
@@ -176,12 +196,14 @@ async function loadStudioData(projectId: string, runName?: string) {
         buffers: asset.buffers,
         production: asset.production,
         logistics: asset.logistics,
+        logisticsStation: asset.logisticsStation,
         runtime: asset.runtime,
         power: asset.power,
         economics: asset.economics,
         visual: asset.visual,
         contentHash: asset.contentHash,
         instanceCount: instanceCounts.get(asset.id) ?? 0,
+        fleetCount: fleetCounts.get(asset.id) ?? 0,
       })),
       resources: Object.values(project.resources).map((asset) => ({
         type: "resource" as const,

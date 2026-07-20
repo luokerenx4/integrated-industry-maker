@@ -22,7 +22,7 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, reference resolution, geometry/rotation checks, port validation, logistics-stage resolution, power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, reference resolution, geometry/rotation checks, port validation, local logistics-stage resolution, station-network and carrier compatibility checks, power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
@@ -30,7 +30,7 @@ Prints project topology, asset catalogs, capability counts, selected benchmark, 
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
-Compiles Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary supply/demand, connection throughput limits, and isolated power-grid headroom without running a simulation. Diagnostics expose material deficits, unconsumed surplus, insufficient input/output logistics, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
+Compiles Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary supply/demand, local connection throughput limits, station routes and estimated carrier load, and isolated power-grid headroom without running a simulation. Diagnostics expose material deficits, unconsumed surplus, insufficient input/output logistics, unmatched station supply/demand, undersized shared fleets, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
@@ -63,7 +63,7 @@ Lists only completed immutable runs. Partial or interrupted directories without 
 inm research examples/ironworks --iterations 5 --seed 42
 ```
 
-Each iteration proposes a restricted JSON Patch, compiles and simulates a candidate, compares its score, and writes a `KEEP` or `REVERT` artifact. A KEEP atomically updates the selected blueprint with a revision hash. Built-in strategies consume material, logistics, and power diagnostics; every later iteration also receives earlier strategy keys, hypotheses, decisions, and score deltas so it can avoid repeating a reverted experiment.
+Each iteration proposes a restricted JSON Patch over blueprint devices, local connections, station networks, or policies; compiles and simulates a candidate; compares its score; and writes a `KEEP` or `REVERT` artifact. A KEEP atomically updates the selected blueprint with a revision hash. Built-in strategies consume material, local logistics, station fleet, and power diagnostics; every later iteration also receives earlier strategy keys, hypotheses, decisions, and score deltas so it can avoid repeating a reverted experiment.
 
 Use an external model or agent without binding INM to a provider:
 
@@ -90,7 +90,7 @@ Launches the local read-only 3D runtime debugger. `/` is a project launcher; cho
 
 The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from the project's Process definitions, previews their visual identity, and exposes tags, capabilities, geometry, ports, buffers, runtime entry, units, transformations, cycle times, transport limits, content hashes, and current instance counts. Every data and file request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
-The adjacent Analysis view recompiles the currently selected run blueprint and presents nominal material balance, warning diagnostics, loader/line/unloader pipelines, end-to-end throughput and latency, plus generation, rated demand, membership, and headroom for each isolated power grid.
+The adjacent Analysis view recompiles the currently selected run blueprint and presents nominal material balance, warning diagnostics, loader/line/unloader pipelines, station supply/demand routes and shared-fleet load, plus generation, rated demand, membership, and headroom for each isolated power grid.
 
 Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 

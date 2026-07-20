@@ -38,7 +38,7 @@ export class ProviderResearchAgent implements BlueprintResearchAgent {
   constructor(private readonly provider: LlmResearchProvider) {}
   propose(input: ResearchInput): Promise<ResearchProposal> {
     return this.provider.complete({
-      system: "Return a hypothesis and an RFC 6902 patch. Read static production diagnostics and experiment history, address a concrete material/logistics/power bottleneck, and do not repeat a reverted strategy. You may modify only blueprint devices, connections, and policies. Never modify assets, scenarios, objectives, simulator, or evaluator.",
+      system: "Return a hypothesis and an RFC 6902 patch. Read static production diagnostics and experiment history, address a concrete material/logistics/power bottleneck, and do not repeat a reverted strategy. You may modify only blueprint devices, connections, logisticsNetworks, and policies. Never modify assets, scenarios, objectives, simulator, or evaluator.",
       project: input,
     });
   }
@@ -65,14 +65,14 @@ export class ExternalCommandResearchAgent implements BlueprintResearchAgent {
   }
 }
 
-const allowedRoots = new Set(["devices", "connections", "policies"]);
+const allowedRoots = new Set(["devices", "connections", "logisticsNetworks", "policies"]);
 export function validateResearchPatch(patch: JsonPatchOperation[]): void {
   if (!Array.isArray(patch) || patch.length === 0) throw new Error("Research patch must contain at least one operation");
   for (const [index, operation] of patch.entries()) {
     if (!(["add", "remove", "replace"] as string[]).includes(operation.op)) throw new Error(`Patch operation ${index} uses unsupported op '${operation.op}'`);
     if (!operation.path.startsWith("/")) throw new Error(`Patch operation ${index} path must be an absolute JSON pointer`);
     const root = operation.path.split("/")[1];
-    if (!root || !allowedRoots.has(root)) throw new Error(`Patch operation ${index} cannot modify '${operation.path}'. Research may only edit /devices, /connections, or /policies`);
+    if (!root || !allowedRoots.has(root)) throw new Error(`Patch operation ${index} cannot modify '${operation.path}'. Research may only edit /devices, /connections, /logisticsNetworks, or /policies`);
     if (operation.path.includes("/__proto__") || operation.path.includes("/constructor") || operation.path.includes("/prototype")) throw new Error(`Patch operation ${index} uses an unsafe path`);
   }
 }
@@ -219,6 +219,24 @@ function logisticsCandidates(input: ResearchInput): StrategyCandidate[] {
   return candidates;
 }
 
+function stationCandidates(input: ResearchInput): StrategyCandidate[] {
+  const candidates: StrategyCandidate[] = [];
+  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "station-fleet-deficit" && item.network)) {
+    const networkIndex = input.blueprint.logisticsNetworks.findIndex((network) => network.id === diagnostic.network);
+    const analysis = input.production.stationNetworks.find((network) => network.network === diagnostic.network);
+    if (networkIndex < 0 || !analysis) continue;
+    const count = Math.max(analysis.fleetSize + 1, Math.ceil(analysis.estimatedCarrierLoad));
+    const key = `station-fleet:${analysis.network}:${count}`;
+    candidates.push({ key, proposal: {
+      strategy: key,
+      hypothesis: `Expand \`${analysis.network}\` from ${analysis.fleetSize} to ${count} \`${analysis.fleetAsset}\` carriers because ${diagnostic.message}.`,
+      expectedEffect: "Increase shared station-network throughput without changing station supply and demand declarations.",
+      patch: [{ op: "replace", path: `/logisticsNetworks/${networkIndex}/fleet/count`, value: count }],
+    } });
+  }
+  return candidates;
+}
+
 function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
   const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("store"));
   if (!bufferAsset) return [];
@@ -251,7 +269,7 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
 
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
-    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input)];
+    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...stationCandidates(input)];
     for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {
       const producer = input.production.devices.filter((device) => (device.outputsPerMinute[diagnostic.resource!] ?? 0) > 0)
         .sort((a, b) => (b.outputsPerMinute[diagnostic.resource!] ?? 0) - (a.outputsPerMinute[diagnostic.resource!] ?? 0) || a.device.localeCompare(b.device))[0];

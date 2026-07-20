@@ -27,6 +27,7 @@ interface ProjectSummary {
   processes: number;
   deviceInstances: number;
   connections: number;
+  logisticsNetworks: number;
   runs: number;
   bounds: { width: number; height: number };
 }
@@ -62,13 +63,15 @@ interface DeviceCatalogAsset {
   };
   buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
   production?: { categories: string[]; speed: { numerator: number; denominator: number }; inputBuffer: string; outputBuffer: string };
-  logistics?: { roles: Array<"loader" | "line" | "unloader"> };
+  logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar"> };
+  logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number };
   runtime: { apiVersion: 1; entry: string };
   power: { consumptionMilliWatts: number; productionMilliWatts: number; distribution?: { connectionRange: number; coverageRange: number } };
   economics: { buildCost: number };
   visual: Visual;
   contentHash: string;
   instanceCount: number;
+  fleetCount: number;
 }
 
 interface ResourceCatalogAsset {
@@ -104,6 +107,8 @@ interface FactoryEvent {
   resource?: string;
   transit?: { id: string; resource: string; count: number; departTick: number; arriveTick: number };
   connection?: string;
+  network?: string;
+  route?: string;
 }
 
 interface Metrics {
@@ -127,6 +132,10 @@ interface IndustrialAnalysis {
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
   }>;
   powerGrids: Array<{ grid: string; distributors: string[]; members: string[]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
+  stationNetworks: Array<{
+    network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
+    routes: Array<{ route: string; resource: string; from: string; to: string; minimumBatch: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
+  }>;
   diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; message: string }>;
 }
 
@@ -143,6 +152,10 @@ interface StudioData {
     from: { x: number; y: number };
     to: { x: number; y: number };
   }>;
+  logisticsRoutes: Array<{
+    id: string; network: string; resource: string; fromDevice: string; toDevice: string;
+    from: { x: number; y: number }; to: { x: number; y: number };
+  }>;
   resources: Record<string, { visual?: Visual }>;
   analysis: IndustrialAnalysis;
   assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[] };
@@ -153,7 +166,7 @@ interface StudioData {
 }
 
 interface DeviceFrame { status: Status; progress: number }
-interface TransitFrame { id: string; material: string; progress: number; connection: string }
+interface TransitFrame { id: string; material: string; progress: number; path: string }
 
 const STATUS_COLORS: Record<Status, string> = {
   idle: "#64748b",
@@ -207,8 +220,11 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     else if (event.device && event.type === "power.shortage") devices[event.device] = { status: "unpowered", progress: 0 };
     else if (event.device && event.type === "device.breakdown") devices[event.device] = { status: "failed", progress: 0 };
     else if (event.type === "resource.depart" && event.transit && event.connection) {
-      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, connection: event.connection });
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.connection });
     } else if (event.type === "resource.arrive" && event.transit) transits.delete(event.transit.id);
+    else if (event.type === "logistics.depart" && event.transit && event.route) {
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.route });
+    } else if (event.type === "logistics.arrive" && event.transit) transits.delete(event.transit.id);
   }
   for (const device of data.devices) {
     const start = starts.get(device.id);
@@ -218,7 +234,7 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     }
   }
   for (const transit of transits.values()) {
-    const depart = data.events.findLast((event) => event.type === "resource.depart" && event.transit?.id === transit.id)?.transit;
+    const depart = data.events.findLast((event) => (event.type === "resource.depart" || event.type === "logistics.depart") && event.transit?.id === transit.id)?.transit;
     if (depart) transit.progress = Math.max(0, Math.min(1, (tick - depart.departTick) / Math.max(1, depart.arriveTick - depart.departTick)));
   }
   return { devices, transits: [...transits.values()], visibleEvents };
@@ -274,9 +290,10 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
     <Grid args={[data.bounds.width, data.bounds.height]} position={[data.bounds.width / 2, 0, data.bounds.height / 2]} cellSize={1} cellThickness={.55} cellColor="#24414a" sectionSize={4} sectionThickness={1.1} sectionColor="#397080" fadeDistance={60} infiniteGrid={false} />
     <mesh position={[data.bounds.width / 2, -.04, data.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[data.bounds.width, data.bounds.height]} /><meshStandardMaterial color="#0b1a20" roughness={.92} metalness={.08} /></mesh>
     {data.connections.map((connection) => <Line key={connection.id} points={[[connection.from.x, .16, connection.from.y], [connection.to.x, .16, connection.to.y]]} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
+    {data.logisticsRoutes.map((route) => <Line key={route.id} points={[[route.from.x, .32, route.from.y], [route.to.x, .32, route.to.y]]} color="#55c9df" lineWidth={1.5} dashed dashScale={2.4} dashSize={.45} gapSize={.28} transparent opacity={.7} />)}
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
     {frame.transits.map((transit) => {
-      const connection = data.connections.find((item) => item.id === transit.connection)!;
+      const connection = [...data.connections, ...data.logisticsRoutes].find((item) => item.id === transit.path)!;
       const x = THREE.MathUtils.lerp(connection.from.x, connection.to.x, transit.progress);
       const z = THREE.MathUtils.lerp(connection.from.y, connection.to.y, transit.progress);
       const resource = data.resources[transit.material];
@@ -330,7 +347,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
           {items.map((asset) => <button key={asset.id} role="option" aria-selected={selected?.id === asset.id} className={selected?.id === asset.id ? "selected" : ""} onClick={() => setSelectedId(asset.id)}>
             <AssetGlyph projectId={data.projectId} asset={asset} />
             <span><strong>{asset.name}</strong><small>{asset.id}</small></span>
-            {asset.type === "device" && <em>{asset.instanceCount}×</em>}
+            {asset.type === "device" && <em>{asset.fleetCount ? `${asset.fleetCount} fleet` : `${asset.instanceCount}×`}</em>}
           </button>)}
         </div>
         <article className="asset-detail">
@@ -341,13 +358,16 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
             {selected.type === "device" ? <>
               <div className="detail-grid">
                 <div><label>FOOTPRINT</label><strong>{selected.geometry.footprint.width} × {selected.geometry.footprint.height}</strong></div>
-                <div><label>INSTANCES</label><strong>{selected.instanceCount}</strong></div>
+                <div><label>PLACED</label><strong>{selected.instanceCount}</strong></div>
+                {selected.fleetCount > 0 && <div><label>FLEET UNITS</label><strong>{selected.fleetCount}</strong></div>}
                 <div><label>BUILD COST</label><strong>{selected.economics.buildCost.toLocaleString()}</strong></div>
                 <div><label>POWER</label><strong>{(selected.power.consumptionMilliWatts / 1000).toFixed(0)} W</strong></div>
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
               {selected.production && <section className="asset-section"><h4>Process support</h4><div className="asset-table"><div><b>category</b><strong>{selected.production.categories.join(", ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div></div></section>}
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
+              {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
+              {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
               <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
@@ -395,6 +415,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <Metric label="PROCESS DEVICES" value={String(analysis.declarativeDevices)} accent />
         <Metric label="MATERIAL STREAMS" value={String(analysis.resources.length)} />
         <Metric label="LOGISTICS LINKS" value={String(analysis.connections.length)} />
+        <Metric label="STATION NETS" value={String(analysis.stationNetworks.length)} />
         <Metric label="POWER GRIDS" value={String(analysis.powerGrids.length)} />
         <Metric label="WARNINGS" value={String(warningCount)} />
       </div>
@@ -418,6 +439,13 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             <footer><span>LATENCY {connection.travelTicks}ms</span><span>DISPATCH {connection.dispatchIntervalTicks}ms</span></footer>
           </div>)}</div>
         </section>
+        <section className="analysis-section station-analysis">
+          <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>
+          <div className="station-network-list">{analysis.stationNetworks.length ? analysis.stationNetworks.map((network) => <div className="station-network-card" key={network.network}>
+            <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.fleetSize}× {network.fleetAsset}</b></div>
+            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from} → {route.to}</small></span><code>{route.minimumBatch}-{route.batchCapacity} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
+          </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
+        </section>
         <section className="analysis-section power-analysis">
           <div className="analysis-section-title"><span>POWER GRIDS</span><b>RATED ENVELOPE</b></div>
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
@@ -439,7 +467,7 @@ function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (proj
         <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
-        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> links</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
+        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> local links</span><span><b>{project.logisticsNetworks}</b> station nets</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
         <div className="project-card-footer"><span>{project.bounds.width} × {project.bounds.height} GRID</span><strong>OPEN PROJECT →</strong></div>
       </button>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
     </section>
@@ -587,7 +615,7 @@ function App() {
       <div className="viewport">
         <Canvas shadows camera={{ position: [30, 20, 30], fov: 39, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY WORLD <b>{data.bounds.width}×{data.bounds.height}</b></div>
-        <div className="scene-stats"><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LINKS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
+        <div className="scene-stats"><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>

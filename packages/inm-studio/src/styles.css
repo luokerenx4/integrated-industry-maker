@@ -134,7 +134,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .analysis-header h2 { display: inline; margin: 0 10px 0 0; color: #f2f0df; font-size: 17px; }
 .analysis-header p { display: inline; margin: 0; color: #716f58; font: 9px var(--mono); }
 .analysis-header .eyebrow { display: block; margin-bottom: 6px; color: #e1b852; }
-.analysis-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 12px 18px; border-bottom: 1px solid #283238; background: #081216; }
+.analysis-summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 12px 18px; border-bottom: 1px solid #283238; background: #081216; }
 .analysis-summary .metric { padding: 8px 10px; }
 .analysis-body { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); grid-auto-rows: max-content; gap: 12px; align-content: start; padding: 16px 18px 30px; }
 .analysis-section { min-width: 0; overflow: hidden; border: 1px solid #1a353c; border-radius: 8px; background: linear-gradient(145deg, #0b181c, #081216); }
@@ -161,6 +161,14 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .diagnostics-clear i { font-style: normal; }
 .logistics-analysis { grid-column: 1 / -1; }
 .pipeline-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; padding: 11px; }
+.station-network-list { display: grid; gap: 8px; padding: 11px; }
+.station-network-card { overflow: hidden; border: 1px solid #21414a; border-radius: 6px; background: #0a171b; }
+.station-route-list { display: grid; gap: 1px; border-top: 1px solid #193239; background: #193239; }
+.station-route-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; background: #0a171b; }
+.station-route-list span { display: grid; gap: 3px; }
+.station-route-list b { color: #b8f4ff; font: 10px var(--mono); }
+.station-route-list small { color: #6e858b; font: 8px var(--mono); }
+.station-route-list code { color: #55c9df; font: 8px var(--mono); }
 .pipeline-card { padding: 11px; border: 1px solid #173039; border-radius: 6px; background: #071115; }
 .pipeline-head { display: flex; justify-content: space-between; gap: 12px; }
 .pipeline-head strong, .pipeline-head small { display: block; }

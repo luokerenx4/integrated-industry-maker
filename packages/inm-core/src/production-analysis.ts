@@ -40,11 +40,31 @@ export interface PowerGridAnalysis {
   headroomMilliWatts: number;
 }
 
+export interface StationNetworkAnalysis {
+  network: string;
+  kind: "planetary" | "interstellar";
+  fleetAsset: string;
+  fleetSize: number;
+  stations: number;
+  estimatedCarrierLoad: number;
+  routes: Array<{
+    route: string;
+    resource: ResourceId;
+    from: string;
+    to: string;
+    minimumBatch: number;
+    batchCapacity: number;
+    travelTicks: number;
+    capacityItemsPerMinute: number;
+  }>;
+}
+
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
+  network?: string;
   message: string;
 }
 
@@ -54,6 +74,7 @@ export interface ProductionAnalysis {
   devices: DeviceProductionRate[];
   resources: ResourceProductionBalance[];
   connections: ConnectionRateLimit[];
+  stationNetworks: StationNetworkAnalysis[];
   powerGrids: PowerGridAnalysis[];
   diagnostics: ProductionDiagnostic[];
 }
@@ -126,6 +147,38 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     stages: connection.logisticsStages.map((stage) => ({ stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks })),
   }));
 
+  const deviceRates = new Map(devices.map((device) => [device.device, device]));
+  const stationNetworks: StationNetworkAnalysis[] = Object.values(project.logisticsNetworks).sort((a, b) => a.id.localeCompare(b.id)).map((network) => {
+    const routeRows = network.routes.map((route) => ({
+      route: route.id,
+      resource: route.resource,
+      from: route.from,
+      to: route.to,
+      minimumBatch: route.minimumBatch,
+      batchCapacity: route.capacity,
+      travelTicks: route.travelTicks,
+      capacityItemsPerMinute: route.capacity * 60_000 / route.travelTicks,
+    }));
+    let estimatedCarrierLoad = 0;
+    for (const station of network.stations) for (const slot of station.slots.filter((item) => item.mode === "demand")) {
+      const matchingRoutes = routeRows.filter((route) => route.to === station.device && route.resource === slot.resource);
+      const bestCarrierRate = Math.max(0, ...matchingRoutes.map((route) => route.capacityItemsPerMinute));
+      const downstreamDemand = Object.values(project.connections)
+        .filter((connection) => connection.from.device === station.device)
+        .reduce((sum, connection) => sum + (deviceRates.get(connection.to.device)?.inputsPerMinute[slot.resource] ?? 0), 0);
+      if (bestCarrierRate > 0 && downstreamDemand > 0) estimatedCarrierLoad += downstreamDemand / bestCarrierRate;
+    }
+    return {
+      network: network.id,
+      kind: network.kind,
+      fleetAsset: network.fleetAsset.id,
+      fleetSize: network.fleetSize,
+      stations: network.stations.length,
+      estimatedCarrierLoad,
+      routes: routeRows,
+    };
+  });
+
   const powerGrids = Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => ({
     grid: grid.id,
     distributors: [...grid.distributors],
@@ -158,6 +211,23 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     message: `${grid.grid} rated demand exceeds generation by ${(-grid.headroomMilliWatts / 1000).toFixed(3)} W`,
   });
 
+  for (const network of Object.values(project.logisticsNetworks).sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const station of network.stations) for (const slot of station.slots) {
+      if (slot.mode === "demand" && !network.routes.some((route) => route.to === station.device && route.resource === slot.resource)) diagnostics.push({
+        code: "station-unmatched-demand", severity: "warning", resource: slot.resource, device: station.device, network: network.id,
+        message: `${station.device} demands ${slot.resource} on ${network.id}, but the network has no matching supplier`,
+      });
+      if (slot.mode === "supply" && !network.routes.some((route) => route.from === station.device && route.resource === slot.resource)) diagnostics.push({
+        code: "station-unmatched-supply", severity: "info", resource: slot.resource, device: station.device, network: network.id,
+        message: `${station.device} supplies ${slot.resource} on ${network.id}, but the network has no matching demander`,
+      });
+    }
+  }
+  for (const network of stationNetworks) if (network.estimatedCarrierLoad > network.fleetSize + 1e-9) diagnostics.push({
+    code: "station-fleet-deficit", severity: "warning", network: network.network,
+    message: `${network.network} needs about ${network.estimatedCarrierLoad.toFixed(2)} carriers for its directly connected process demand but configures ${network.fleetSize}`,
+  });
+
   for (const device of Object.values(project.devices)) {
     if (!device.processPlan) continue;
     for (const [resource, demand] of Object.entries(devices.find((item) => item.device === device.id)!.inputsPerMinute)) {
@@ -178,6 +248,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     devices,
     resources,
     connections,
+    stationNetworks,
     powerGrids,
     diagnostics,
   };

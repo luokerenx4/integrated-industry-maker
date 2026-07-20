@@ -66,10 +66,13 @@ export async function validateCommand(projectDir: string, selection: ProjectSele
   const project = await openFactoryProject(projectDir, selection);
   const summary = {
     valid: true, project: project.manifest.name, blueprintHash: project.hashes.blueprintHash,
-    devices: Object.keys(project.devices).length, connections: Object.keys(project.connections).length,
+    devices: Object.keys(project.devices).length,
+    connections: Object.keys(project.connections).length,
+    logisticsNetworks: Object.keys(project.logisticsNetworks).length,
+    logisticsRoutes: Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.routes.length, 0),
   };
   if (options.json) write(summary, true);
-  else write(`✓ ${summary.project}: valid (${summary.devices} devices, ${summary.connections} connections)\nBlueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
+  else write(`✓ ${summary.project}: valid (${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nBlueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
 }
 
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
@@ -81,12 +84,14 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     name: project.manifest.name, rootDir: project.rootDir, bounds: project.blueprint.bounds,
     resources: Object.keys(project.resources), processes: Object.keys(project.processes), deviceAssets: Object.keys(project.deviceAssets),
     deviceInstances: Object.keys(project.devices).length, capabilityCounts, connections: Object.keys(project.connections).length,
+    logisticsNetworks: Object.keys(project.logisticsNetworks).length,
+    logisticsRoutes: Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.routes.length, 0),
     scenario: { id: project.scenario.id, durationTicks: project.scenario.durationTicks }, objective: project.objective,
     hashes: project.hashes, runs: runs.map((run) => ({ name: run.name, score: run.score, decision: run.manifest.decision })),
   };
   if (options.json) write(summary, true);
   else write([
-    `${summary.name}`, `Project: ${summary.rootDir}`, `Blueprint: ${summary.bounds.width}×${summary.bounds.height}, ${summary.deviceInstances} devices, ${summary.connections} connections`,
+    `${summary.name}`, `Project: ${summary.rootDir}`, `Blueprint: ${summary.bounds.width}×${summary.bounds.height}, ${summary.deviceInstances} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"}`,
     `Resources: ${summary.resources.join(", ")}`, `Processes: ${summary.processes.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
     `Objective: ${summary.objective.name} → ${summary.objective.targetResource}`, `Runs: ${summary.runs.length}`, "",
   ].join("\n"), false);
@@ -114,6 +119,13 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     "",
     "Logistics links",
     ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}`).join(" → ")}`),
+    "",
+    "Station networks",
+    ...analysis.stationNetworks.flatMap((network) => [
+      `  ${network.network}  ${network.kind}  fleet ${network.fleetSize}× ${network.fleetAsset}  ${network.stations} stations  estimated load ${network.estimatedCarrierLoad.toFixed(3)}`,
+      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from} → ${route.to}  batch ${route.minimumBatch}-${route.batchCapacity}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
+    ]),
+    ...(analysis.stationNetworks.length ? [] : ["  none"]),
     "",
     analysis.diagnostics.length ? "Diagnostics" : "Diagnostics: none",
     ...analysis.diagnostics.map((diagnostic) => `  ${diagnostic.severity === "warning" ? "!" : "·"} [${diagnostic.code}] ${diagnostic.message}`),
