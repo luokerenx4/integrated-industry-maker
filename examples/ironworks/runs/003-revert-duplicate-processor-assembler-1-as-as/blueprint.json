@@ -44,7 +44,7 @@
         }
       },
       "to": {
-        "device": "smelter-1-buffer",
+        "device": "assembler-1",
         "port": "input"
       }
     },
@@ -116,10 +116,10 @@
     },
     {
       "from": {
-        "device": "smelter-1-buffer",
+        "device": "smelter-1",
         "port": "output"
       },
-      "id": "plate-to-assembler-smelter-1-buffer-output",
+      "id": "plate-to-assembler-assembler-1-parallel",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -132,7 +132,51 @@
         }
       },
       "to": {
-        "device": "assembler-1",
+        "device": "assembler-1-parallel",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "assembler-1-parallel",
+        "port": "output"
+      },
+      "id": "gear-to-output-assembler-1-parallel",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "output-1",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1-parallel",
+        "port": "output"
+      },
+      "id": "plate-to-assembler-smelter-1-parallel-assembler-1-parallel",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "assembler-1-parallel",
         "port": "input"
       }
     }
@@ -192,25 +236,26 @@
       "asset": "smelter",
       "id": "smelter-1-parallel",
       "position": {
-        "x": 0,
-        "y": 0
+        "x": 10,
+        "y": 8
       },
       "process": "smelt-iron",
       "rotation": 0
     },
     {
-      "asset": "buffer",
-      "id": "smelter-1-buffer",
+      "asset": "assembler",
+      "id": "assembler-1-parallel",
       "position": {
-        "x": 2,
-        "y": 0
+        "x": 18,
+        "y": 8
       },
+      "process": "assemble-gear",
       "rotation": 0
     }
   ],
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "1da6c3433d0e2aed7b81e581aabe1d7dceefaa163b90d83094bd56df54f9ccb2",
+  "revision": "35470f804621b4684faf499dd79354864fc35fb5d514cfcd7bf3075c0948d631",
   "version": 1
 }

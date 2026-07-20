@@ -1,7 +1,8 @@
 {
-  "averageWip": 4.348333333333334,
+  "averageWip": 3.3675,
   "blockedOutputTime": {
     "assembler-1": 0,
+    "assembler-1-parallel": 0,
     "generator-1": 0,
     "ore-source-1": 0,
     "output-1": 0,
@@ -9,14 +10,15 @@
     "smelter-1-parallel": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 26,
+  "completedOrders": 27,
   "consumed": {
-    "gear": 26
+    "gear": 27
   },
-  "energyConsumedMilliJoules": 65040000,
-  "finalScore": 130.64476666666667,
+  "energyConsumedMilliJoules": 65340000,
+  "finalScore": 133.97985,
   "idleTime": {
     "assembler-1": 0,
+    "assembler-1-parallel": 0,
     "generator-1": 120000,
     "ore-source-1": 0,
     "output-1": 0,
@@ -25,14 +27,15 @@
   },
   "infeasibleReason": null,
   "machineUtilization": {
-    "assembler-1": 0.675,
+    "assembler-1": 0.35,
+    "assembler-1-parallel": 0.335,
     "generator-1": 0,
     "ore-source-1": 1,
     "output-1": 0,
     "smelter-1": 0.9558333333333333,
-    "smelter-1-parallel": 0.9525
+    "smelter-1-parallel": 0.9541666666666667
   },
-  "occupiedArea": 24,
+  "occupiedArea": 28,
   "onTimeDelivery": 1,
   "produced": {
     "gear": 27,
@@ -41,23 +44,24 @@
   },
   "scoreBreakdown": {
     "blocked": 0,
-    "buildCost": -3.47,
+    "buildCost": -4.43,
     "constraintPenalty": 0,
-    "energy": -0.6504000000000001,
-    "occupiedArea": -4.800000000000001,
+    "energy": -0.6534000000000001,
+    "occupiedArea": -5.6000000000000005,
     "onTimeDelivery": 10,
-    "throughput": 130,
-    "wip": -0.4348333333333334
+    "throughput": 135,
+    "wip": -0.33675000000000005
   },
-  "throughputPerMinute": 13,
-  "totalBuildCost": 6940,
-  "transportCongestion": 0.09405555555555559,
+  "throughputPerMinute": 13.5,
+  "totalBuildCost": 8860,
+  "transportCongestion": 0.04883680555555554,
   "waitingInputTime": {
-    "assembler-1": 39000,
+    "assembler-1": 78000,
+    "assembler-1-parallel": 79800,
     "generator-1": 0,
     "ore-source-1": 0,
     "output-1": 120000,
     "smelter-1": 5300,
-    "smelter-1-parallel": 5700
+    "smelter-1-parallel": 5500
   }
 }

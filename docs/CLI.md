@@ -63,7 +63,7 @@ Lists only completed immutable runs. Partial or interrupted directories without 
 inm research examples/ironworks --iterations 5 --seed 42
 ```
 
-Each iteration proposes a restricted JSON Patch, compiles and simulates a candidate, compares its score, and writes a `KEEP` or `REVERT` artifact. A KEEP atomically updates the selected blueprint with a revision hash.
+Each iteration proposes a restricted JSON Patch, compiles and simulates a candidate, compares its score, and writes a `KEEP` or `REVERT` artifact. A KEEP atomically updates the selected blueprint with a revision hash. Built-in strategies consume material, logistics, and power diagnostics; every later iteration also receives earlier strategy keys, hypotheses, decisions, and score deltas so it can avoid repeating a reverted experiment.
 
 Use an external model or agent without binding INM to a provider:
 
@@ -73,10 +73,11 @@ inm research examples/ironworks \
   --agent-command 'my-agent --format inm-proposal'
 ```
 
-The command receives `ResearchInput` JSON on stdin and must print:
+The command receives `ResearchInput` JSON on stdin—including static production analysis and current-invocation experiment history—and must print:
 
 ```json
 {
+  "strategy": "capacity:smelter-1",
   "hypothesis": "Add a second smelter",
   "expectedEffect": "Reduce smelting saturation",
   "patch": [{ "op": "add", "path": "/devices/-", "value": {} }]

@@ -122,6 +122,8 @@ Research proposals use RFC 6902-style `add`, `remove`, and `replace` operations.
 /policies
 ```
 
+The built-in research agent turns static diagnostic codes into bounded strategies: add process capacity for material deficits, replace a bottleneck logistics stage when a faster project-local Device exists, extend or reinforce power for disconnected/deficit grids, insert storage for measured output blocking, or duplicate a measured high-utilization processor. `ResearchInput.history` records strategy keys, KEEP/REVERT decisions, and score deltas from earlier iterations in the same invocation so a rejected experiment is not immediately repeated. External agents receive the same diagnostic and history contract.
+
 Resource assets, Device assets and their scripts, Scenarios, Objectives, bounds, simulator code, evaluator code, and score definition cannot be patched. A proposal is applied to a copy, schema-validated, compiled, simulated, and evaluated before the score comparison.
 
 The built-in deterministic heuristic duplicates a highly utilized processor, finds a non-overlapping position, and mirrors its incoming/outgoing topology. `ExternalCommandResearchAgent` accepts vendor-neutral JSON over stdin, and `ProviderResearchAgent` supplies an optional LLM provider seam.

@@ -1,67 +1,63 @@
 {
-  "averageWip": 5.113333333333333,
+  "averageWip": 3.3925,
   "blockedOutputTime": {
     "assembler-1": 0,
     "generator-1": 0,
     "ore-source-1": 0,
     "output-1": 0,
     "smelter-1": 0,
-    "smelter-1-buffer": 0,
     "smelter-1-parallel": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 26,
+  "completedOrders": 27,
   "consumed": {
-    "gear": 26
+    "gear": 27
   },
-  "energyConsumedMilliJoules": 64666000,
-  "finalScore": 130.00200666666666,
+  "energyConsumedMilliJoules": 65296000,
+  "finalScore": 135.83778999999998,
   "idleTime": {
     "assembler-1": 0,
     "generator-1": 120000,
     "ore-source-1": 0,
     "output-1": 0,
     "smelter-1": 0,
-    "smelter-1-buffer": 120000,
     "smelter-1-parallel": 0
   },
   "infeasibleReason": null,
   "machineUtilization": {
-    "assembler-1": 0.6608333333333334,
+    "assembler-1": 0.6833333333333333,
     "generator-1": 0,
     "ore-source-1": 1,
     "output-1": 0,
     "smelter-1": 0.9558333333333333,
-    "smelter-1-buffer": 0,
-    "smelter-1-parallel": 0.9525
+    "smelter-1-parallel": 0.9541666666666667
   },
-  "occupiedArea": 25,
+  "occupiedArea": 24,
   "onTimeDelivery": 1,
   "produced": {
-    "gear": 26,
+    "gear": 27,
     "iron-ore": 120,
     "iron-plate": 56
   },
   "scoreBreakdown": {
     "blocked": 0,
-    "buildCost": -3.84,
+    "buildCost": -3.37,
     "constraintPenalty": 0,
-    "energy": -0.64666,
-    "occupiedArea": -5,
+    "energy": -0.6529600000000001,
+    "occupiedArea": -4.800000000000001,
     "onTimeDelivery": 10,
-    "throughput": 130,
-    "wip": -0.5113333333333333
+    "throughput": 135,
+    "wip": -0.33925000000000005
   },
-  "throughputPerMinute": 13,
-  "totalBuildCost": 7680,
-  "transportCongestion": 0.10432870370370373,
+  "throughputPerMinute": 13.5,
+  "totalBuildCost": 6740,
+  "transportCongestion": 0.07741666666666665,
   "waitingInputTime": {
-    "assembler-1": 40700,
+    "assembler-1": 38000,
     "generator-1": 0,
     "ore-source-1": 0,
     "output-1": 120000,
     "smelter-1": 5300,
-    "smelter-1-buffer": 0,
-    "smelter-1-parallel": 5700
+    "smelter-1-parallel": 5500
   }
 }

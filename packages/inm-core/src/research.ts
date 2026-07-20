@@ -5,6 +5,7 @@ import type { Blueprint, CompiledFactoryProject, FactoryMetrics } from "./types"
 import type { JsonPatchOperation, RunSummary } from "./artifacts";
 import { writeRunArtifact } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
+import { planDeviceTransport } from "./device-runtime";
 import type { LoadedFactoryProject } from "./loader";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { runUntil } from "./simulator";
@@ -17,8 +18,17 @@ export interface ResearchInput {
   blueprint: Blueprint;
   metrics: FactoryMetrics;
   production: ProductionAnalysis;
+  history: ResearchHistoryEntry[];
 }
-export interface ResearchProposal { hypothesis: string; patch: JsonPatchOperation[]; expectedEffect?: string }
+export interface ResearchHistoryEntry {
+  iteration: number;
+  strategy: string;
+  hypothesis: string;
+  decision: "KEEP" | "REVERT";
+  score: number;
+  scoreDelta: number;
+}
+export interface ResearchProposal { hypothesis: string; patch: JsonPatchOperation[]; expectedEffect?: string; strategy?: string }
 export interface BlueprintResearchAgent { propose(input: ResearchInput): Promise<ResearchProposal> }
 export interface LlmResearchProvider {
   complete(input: { system: string; project: ResearchInput }): Promise<ResearchProposal>;
@@ -28,7 +38,7 @@ export class ProviderResearchAgent implements BlueprintResearchAgent {
   constructor(private readonly provider: LlmResearchProvider) {}
   propose(input: ResearchInput): Promise<ResearchProposal> {
     return this.provider.complete({
-      system: "Return a hypothesis and an RFC 6902 patch. You may modify only blueprint devices, connections, and policies. Never modify assets, scenarios, objectives, simulator, or evaluator.",
+      system: "Return a hypothesis and an RFC 6902 patch. Read static production diagnostics and experiment history, address a concrete material/logistics/power bottleneck, and do not repeat a reverted strategy. You may modify only blueprint devices, connections, and policies. Never modify assets, scenarios, objectives, simulator, or evaluator.",
       project: input,
     });
   }
@@ -107,62 +117,160 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
   });
 }
 
+interface StrategyCandidate { key: string; proposal: ResearchProposal }
+
+function uniqueDeviceId(blueprint: Blueprint, base: string): string {
+  let suffix = 1; let id = base;
+  while (blueprint.devices.some((device) => device.id === id)) id = `${base}-${++suffix}`;
+  return id;
+}
+
+function placeDevice(blueprint: Blueprint, device: Blueprint["devices"][number], project: CompiledFactoryProject, preferred?: { x: number; y: number }): boolean {
+  const positions = Array.from({ length: blueprint.bounds.width * blueprint.bounds.height }, (_, index) => ({
+    x: index % blueprint.bounds.width, y: Math.floor(index / blueprint.bounds.width),
+  }));
+  if (preferred) positions.sort((a, b) => Math.hypot(a.x - preferred.x, a.y - preferred.y) - Math.hypot(b.x - preferred.x, b.y - preferred.y) || a.y - b.y || a.x - b.x);
+  for (const position of positions) {
+    device.position = position;
+    if (!overlaps(blueprint, device, project)) return true;
+  }
+  return false;
+}
+
+function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFactoryProject["devices"][string], reason: string): StrategyCandidate | null {
+  const instance = input.blueprint.devices.find((device) => device.id === original.id);
+  if (!instance) return null;
+  const id = uniqueDeviceId(input.blueprint, `${original.id}-parallel`);
+  const clone = structuredClone(instance); clone.id = id;
+  if (!placeDevice(input.blueprint, clone, input.project, original.position)) return null;
+  const patch: JsonPatchOperation[] = [{ op: "add", path: "/devices/-", value: clone }];
+  const adjacent = input.blueprint.connections.filter((connection) => connection.to.device === original.id || connection.from.device === original.id);
+  for (const connection of adjacent) {
+    const copy = structuredClone(connection); copy.id = `${connection.id}-${id}`;
+    if (copy.to.device === original.id) copy.to.device = id;
+    if (copy.from.device === original.id) copy.from.device = id;
+    patch.push({ op: "add", path: "/connections/-", value: copy });
+  }
+  return {
+    key: `capacity:${original.id}`,
+    proposal: {
+      strategy: `capacity:${original.id}`,
+      hypothesis: `Duplicate processor \`${original.id}\` as \`${id}\` because ${reason}.`,
+      expectedEffect: "Increase process capacity while preserving the existing resource and logistics contracts.",
+      patch,
+    },
+  };
+}
+
+function powerCandidates(input: ResearchInput): StrategyCandidate[] {
+  const generators = Object.values(input.project.deviceAssets).filter((asset) => asset.power.productionMilliWatts > 0 && asset.power.distribution).sort((a, b) => b.power.productionMilliWatts - a.power.productionMilliWatts || a.id.localeCompare(b.id));
+  const generator = generators[0]; if (!generator) return [];
+  const candidates: StrategyCandidate[] = [];
+  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "power-disconnected" || item.code === "power-deficit")) {
+    const target = diagnostic.device ? input.project.devices[diagnostic.device] : undefined;
+    const grid = diagnostic.code === "power-deficit" ? input.production.powerGrids.find((item) => diagnostic.message.startsWith(item.grid)) : undefined;
+    const anchorId = target?.id ?? grid?.distributors[0]; const anchor = anchorId ? input.project.devices[anchorId] : undefined;
+    const id = uniqueDeviceId(input.blueprint, `${generator.id}-support`);
+    const device: Blueprint["devices"][number] = { id, asset: generator.id, position: { x: 0, y: 0 }, rotation: 0 };
+    if (!placeDevice(input.blueprint, device, input.project, anchor?.position)) continue;
+    const key = `power:${diagnostic.code}:${anchorId ?? "factory"}`;
+    candidates.push({ key, proposal: {
+      strategy: key,
+      hypothesis: `Add \`${id}\` near \`${anchorId ?? "the constrained grid"}\` to resolve ${diagnostic.code}.`,
+      expectedEffect: "Extend electrical coverage or generation without changing process semantics.",
+      patch: [{ op: "add", path: "/devices/-", value: device }],
+    } });
+  }
+  return candidates;
+}
+
+function logisticsCandidates(input: ResearchInput): StrategyCandidate[] {
+  const candidates: StrategyCandidate[] = [];
+  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "input-logistics" || item.code === "output-logistics")) {
+    const links = input.production.connections.filter((connection) => diagnostic.code === "input-logistics" ? connection.to === diagnostic.device : connection.from === diagnostic.device);
+    for (const link of links) {
+      const connectionIndex = input.blueprint.connections.findIndex((connection) => connection.id === link.connection);
+      const compiled = input.project.connections[link.connection]; if (connectionIndex < 0 || !compiled) continue;
+      const stageIntervals = compiled.logisticsStages.map((stage) => ({ stage, interval: Math.ceil(stage.durationTicks / stage.capacity) }));
+      const currentInterval = Math.max(...stageIntervals.map((item) => item.interval));
+      const bottlenecks = stageIntervals.filter((item) => item.interval === currentInterval);
+      const upgrades = bottlenecks.flatMap(({ stage }) => {
+        const alternatives = Object.values(input.project.deviceAssets).filter((asset) => asset.logistics?.roles.includes(stage.stage) && asset.id !== stage.asset.id).flatMap((asset) => {
+          const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: compiled.id, stage: stage.stage, distance: stage.distance });
+          const interval = Math.ceil(plan.durationTicks / plan.capacity);
+          return interval < currentInterval ? [{ asset, interval }] : [];
+        }).sort((a, b) => a.interval - b.interval || a.asset.economics.buildCost - b.asset.economics.buildCost || a.asset.id.localeCompare(b.asset.id));
+        return alternatives[0] ? [{ stage, replacement: alternatives[0] }] : [];
+      });
+      if (upgrades.length !== bottlenecks.length) continue;
+      const nextInterval = Math.max(
+        ...stageIntervals.filter((item) => item.interval < currentInterval).map((item) => item.interval),
+        ...upgrades.map((upgrade) => upgrade.replacement.interval),
+      );
+      const key = `logistics:${compiled.id}:${upgrades.map((upgrade) => `${upgrade.stage.stage}:${upgrade.replacement.asset.id}`).join("+")}`;
+      candidates.push({ key, proposal: {
+        strategy: key,
+        hypothesis: `Upgrade bottleneck stages on \`${compiled.id}\` (${upgrades.map((upgrade) => `${upgrade.stage.stage}: ${upgrade.stage.asset.id} → ${upgrade.replacement.asset.id}`).join(", ")}) because ${diagnostic.message}.`,
+        expectedEffect: `Reduce the end-to-end dispatch interval from ${currentInterval} ms to ${nextInterval} ms.`,
+        patch: upgrades.map((upgrade) => ({ op: "replace" as const, path: `/connections/${connectionIndex}/logistics/${upgrade.stage.stage}/deviceAsset`, value: upgrade.replacement.asset.id })),
+      } });
+    }
+  }
+  return candidates;
+}
+
+function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
+  const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("store"));
+  if (!bufferAsset) return [];
+  const candidates: StrategyCandidate[] = [];
+  const processors = Object.values(input.project.devices).filter((device) => device.assetDef.capabilities.includes("process") && (input.metrics.blockedOutputTime[device.id] ?? 0) > 0)
+    .sort((a, b) => (input.metrics.blockedOutputTime[b.id] ?? 0) - (input.metrics.blockedOutputTime[a.id] ?? 0) || a.id.localeCompare(b.id));
+  for (const original of processors) {
+    const connection = input.blueprint.connections.find((item) => item.from.device === original.id); if (!connection) continue;
+    const id = uniqueDeviceId(input.blueprint, `${original.id}-buffer`);
+    const buffer: Blueprint["devices"][number] = { id, asset: bufferAsset.id, position: { x: 0, y: 0 }, rotation: 0 };
+    if (!placeDevice(input.blueprint, buffer, input.project, original.position)) continue;
+    const connectionIndex = input.blueprint.connections.indexOf(connection);
+    const inputPort = bufferAsset.geometry.ports.find((port) => port.direction === "input")!;
+    const outputPort = bufferAsset.geometry.ports.find((port) => port.direction === "output")!;
+    const newConnection = { id: `${connection.id}-${id}-output`, from: { device: id, port: outputPort.id }, to: structuredClone(connection.to), logistics: structuredClone(connection.logistics) };
+    const key = `buffer:${connection.id}`;
+    candidates.push({ key, proposal: {
+      strategy: key,
+      hypothesis: `Insert buffer \`${id}\` after \`${original.id}\` because it spent ${input.metrics.blockedOutputTime[original.id]} ticks blocked.`,
+      expectedEffect: "Decouple producer completion from downstream demand and expose whether storage relieves the measured blockage.",
+      patch: [
+        { op: "add", path: "/devices/-", value: buffer },
+        { op: "replace", path: `/connections/${connectionIndex}/to`, value: { device: id, port: inputPort.id } },
+        { op: "add", path: "/connections/-", value: newConnection },
+      ],
+    } });
+  }
+  return candidates;
+}
+
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
-    const processors = Object.values(input.project.devices).filter((device) => device.assetDef.capabilities.includes("process"));
-    const original = processors.sort((a, b) => (input.metrics.machineUtilization[b.id] ?? 0) - (input.metrics.machineUtilization[a.id] ?? 0) || a.id.localeCompare(b.id))[0];
-    if (!original) throw new Error("Heuristic agent found no processor to improve");
-    const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("store"));
-    const bufferedConnection = input.blueprint.connections.find((connection) => connection.from.device === original.id);
-    if (input.iteration % 3 === 2 && bufferAsset && bufferedConnection) {
-      const base = `${original.id}-buffer`; let suffix = 1; let id = base;
-      while (input.blueprint.devices.some((device) => device.id === id)) id = `${base}-${++suffix}`;
-      const buffer = { id, asset: bufferAsset.id, position: { x: 0, y: 0 }, rotation: 0 as const };
-      let found = false;
-      for (let y = 0; y < input.blueprint.bounds.height && !found; y++) for (let x = 0; x < input.blueprint.bounds.width && !found; x++) {
-        buffer.position = { x, y }; if (!overlaps(input.blueprint, buffer, input.project)) found = true;
+    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input)];
+    for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {
+      const producer = input.production.devices.filter((device) => (device.outputsPerMinute[diagnostic.resource!] ?? 0) > 0)
+        .sort((a, b) => (b.outputsPerMinute[diagnostic.resource!] ?? 0) - (a.outputsPerMinute[diagnostic.resource!] ?? 0) || a.device.localeCompare(b.device))[0];
+      if (producer) {
+        const candidate = duplicateProcessorCandidate(input, input.project.devices[producer.device]!, diagnostic.message);
+        if (candidate) candidates.push(candidate);
       }
-      if (!found) throw new Error(`No free blueprint position for buffer '${bufferAsset.id}'`);
-      const connectionIndex = input.blueprint.connections.indexOf(bufferedConnection);
-      const bufferInput = bufferAsset.geometry.ports.find((port) => port.direction === "input")!;
-      const bufferOutput = bufferAsset.geometry.ports.find((port) => port.direction === "output")!;
-      const newConnection = {
-        id: `${bufferedConnection.id}-${id}-output`, from: { device: id, port: bufferOutput.id }, to: structuredClone(bufferedConnection.to),
-        logistics: structuredClone(bufferedConnection.logistics),
-      };
-      return {
-        hypothesis: `Insert buffer \`${id}\` after \`${original.id}\` to decouple processor output from downstream demand.`,
-        expectedEffect: "Reduce blocked-output time and intermediate transport congestion.",
-        patch: [
-          { op: "add", path: "/devices/-", value: buffer },
-          { op: "replace", path: `/connections/${connectionIndex}/to`, value: { device: id, port: bufferInput.id } },
-          { op: "add", path: "/connections/-", value: newConnection },
-        ],
-      };
     }
-    const base = `${original.id}-parallel`; let suffix = 1; let id = base;
-    while (input.blueprint.devices.some((device) => device.id === id)) id = `${base}-${++suffix}`;
-    const clone = structuredClone(input.blueprint.devices.find((device) => device.id === original.id)!);
-    clone.id = id;
-    let found = false;
-    for (let y = 0; y < input.blueprint.bounds.height && !found; y++) for (let x = 0; x < input.blueprint.bounds.width && !found; x++) {
-      clone.position = { x, y }; if (!overlaps(input.blueprint, clone, input.project)) found = true;
+    candidates.push(...bufferCandidates(input));
+    const processors = Object.values(input.project.devices).filter((device) => device.assetDef.capabilities.includes("process"))
+      .sort((a, b) => (input.metrics.machineUtilization[b.id] ?? 0) - (input.metrics.machineUtilization[a.id] ?? 0) || a.id.localeCompare(b.id));
+    for (const processor of processors) {
+      const candidate = duplicateProcessorCandidate(input, processor, `its measured utilization is ${((input.metrics.machineUtilization[processor.id] ?? 0) * 100).toFixed(1)}%`);
+      if (candidate) candidates.push(candidate);
     }
-    if (!found) throw new Error(`No free blueprint position for parallel ${original.asset}`);
-    const patch: JsonPatchOperation[] = [{ op: "add", path: "/devices/-", value: clone }];
-    const incoming = input.blueprint.connections.filter((connection) => connection.to.device === original.id);
-    const outgoing = input.blueprint.connections.filter((connection) => connection.from.device === original.id);
-    for (const connection of [...incoming, ...outgoing]) {
-      const copy = structuredClone(connection);
-      copy.id = `${connection.id}-${id}`;
-      if (copy.to.device === original.id) copy.to.device = id;
-      if (copy.from.device === original.id) copy.from.device = id;
-      patch.push({ op: "add", path: "/connections/-", value: copy });
-    }
-    return {
-      hypothesis: `Duplicate highly utilized processor \`${original.id}\` as \`${id}\` and connect it in parallel.`,
-      expectedEffect: "Reduce processor saturation and increase target-material throughput.", patch,
-    };
+    const used = new Set(input.history.map((entry) => entry.strategy));
+    const selected = candidates.find((candidate) => !used.has(candidate.key)) ?? candidates[input.iteration % Math.max(1, candidates.length)];
+    if (!selected) throw new Error("Heuristic agent found no valid blueprint strategy to evaluate");
+    return selected.proposal;
   }
 }
 
@@ -181,7 +289,15 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
   const iterations: ResearchIteration[] = []; const agent = options.agent ?? new HeuristicResearchAgent();
   let parentRun = baseline;
   for (let iteration = 1; iteration <= options.iterations; iteration++) {
-    const proposal = await agent.propose({ iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics, production: analyzeProduction(project) });
+    const history: ResearchHistoryEntry[] = iterations.map((entry) => ({
+      iteration: entry.iteration,
+      strategy: entry.proposal.strategy ?? hashValue(entry.proposal.patch),
+      hypothesis: entry.proposal.hypothesis,
+      decision: entry.decision,
+      score: entry.score,
+      scoreDelta: entry.score - entry.previousScore,
+    }));
+    const proposal = await agent.propose({ iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics, production: analyzeProduction(project), history });
     const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
     candidateBlueprint.revision = hashValue(bestBlueprint);
     let candidateProject: CompiledFactoryProject; let candidateResult: ReturnType<typeof runUntil>;

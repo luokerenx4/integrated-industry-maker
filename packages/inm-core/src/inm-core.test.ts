@@ -271,13 +271,54 @@ describe("research boundary and experiment decisions", () => {
   test("external command adapter accepts vendor-neutral proposal JSON", async () => {
     const command = `cat >/dev/null; printf '%s' '{"hypothesis":"Use FIFO","patch":[{"op":"replace","path":"/policies","value":{"dispatch":"fifo"}}]}'`;
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
-    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project) });
+    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), history: [] });
     expect(proposal.hypothesis).toBe("Use FIFO"); expect(proposal.patch[0]!.path).toBe("/policies");
   });
 
   test("heuristic candidate improves the Ironworks score and is kept", async () => {
     const dir = await projectCopy(); const result = await researchFactory(dir, { iterations: 1, seed: 42, agent: new HeuristicResearchAgent() });
     expect(result.iterations[0]!.decision).toBe("KEEP"); expect(result.bestScore).toBeGreaterThan(result.baseline.score);
+  });
+
+  test("heuristic strategies read diagnostics and do not immediately repeat experiment history", async () => {
+    const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
+    const agent = new HeuristicResearchAgent();
+    const base = { project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project) };
+    const first = await agent.propose({ iteration: 1, ...base, history: [] });
+    expect(first.strategy).toBe("capacity:smelter-1");
+    const second = await agent.propose({ iteration: 2, ...base, history: [{
+      iteration: 1, strategy: first.strategy!, hypothesis: first.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
+    }] });
+    expect(second.strategy).not.toBe(first.strategy);
+  });
+
+  test("heuristic strategy adds project-local generation for disconnected consumers", async () => {
+    const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
+    const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
+    const proposal = await new HeuristicResearchAgent().propose({
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), history: [],
+    });
+    expect(proposal.strategy?.startsWith("power:power-disconnected:")).toBeTrue();
+    const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
+    expect(analyzeProduction(candidate).diagnostics.filter((diagnostic) => diagnostic.code === "power-disconnected")).toHaveLength(0);
+  });
+
+  test("heuristic logistics strategy upgrades every tied bottleneck stage together", async () => {
+    const source = await loaded();
+    const sorter = source.deviceAssets.sorter!;
+    sorter.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 5_000 }) };
+    source.deviceAssets["fast-sorter"] = {
+      ...sorter, id: "fast-sorter", name: "Fast Sorter",
+      program: { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 100 }) },
+    };
+    const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
+    const analysis = analyzeProduction(project);
+    expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "input-logistics")).toBeTrue();
+    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, history: [] });
+    expect(proposal.strategy?.startsWith("logistics:ore-to-smelter:")).toBeTrue();
+    expect(proposal.patch).toHaveLength(2);
+    const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
+    expect(candidate.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBeLessThan(project.connections["ore-to-smelter"]!.dispatchIntervalTicks);
   });
 
   test("worse valid candidate is reverted", async () => {

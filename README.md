@@ -31,12 +31,12 @@ The bundled experiment demonstrates the complete loop:
 
 ```text
 000 baseline            score 65.918
-001 parallel smelter    score 130.645  KEEP
-002 output buffer       score 130.002  REVERT
-003 third smelter       score 128.936  REVERT
+001 parallel smelter    score 135.838  KEEP
+002 third smelter       score 134.154  REVERT
+003 parallel assembler  score 133.980  REVERT
 ```
 
-The heuristic identifies the saturated smelter, proposes an RFC 6902 patch that adds a parallel device and connections, validates and compiles the candidate, re-runs the exact benchmark, then keeps only the improvement.
+The heuristic reads the static iron-plate deficit, proposes an RFC 6902 patch that adds a nearby parallel smelter and connections, validates and compiles the candidate, re-runs the exact benchmark, then keeps only the improvement. Later iterations receive prior KEEP/REVERT outcomes and switch targets instead of replaying the same failed experiment.
 
 ## CLI
 
