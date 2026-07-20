@@ -6,13 +6,13 @@ import * as THREE from "three";
 import "./styles.css";
 
 type Status = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
-interface Device { id: string; assetId: string; name: string; behavior: string; position: { x: number; y: number }; rotation: number; footprint: { width: number; height: number }; visual: { shape?: string; height?: number; color?: string; label?: string; texture?: string | null; model?: string | null }; recipeDuration?: number }
-interface Event { type: string; tick: number; device?: string; transit?: { id: string; material: string; count: number; departTick: number; arriveTick: number }; connection?: string }
+interface Device { id: string; assetId: string; name: string; capabilities: string[]; position: { x: number; y: number }; rotation: number; footprint: { width: number; height: number }; visual: { shape?: string; height?: number; color?: string | null; label?: string; texture?: string | null; model?: string | null } }
+interface Event { type: string; tick: number; device?: string; durationTicks?: number; resource?: string; transit?: { id: string; resource: string; count: number; departTick: number; arriveTick: number }; connection?: string }
 interface Metrics { finalScore: number; throughputPerMinute: number; energyConsumedMilliJoules: number; totalBuildCost: number; occupiedArea: number; averageWip: number; bottleneckEntity: string | null; consumed: Record<string, number>; scoreBreakdown: Record<string, number> }
 interface StudioData {
   name: string; blueprintHash: string; bounds: { width: number; height: number }; devices: Device[];
   connections: Array<{ id: string; fromDevice: string; toDevice: string; from: { x: number; y: number }; to: { x: number; y: number } }>;
-  materials: Record<string, { visual?: { color?: string; shape?: string; texture?: string | null } }>; events: Event[]; metrics: Metrics | null;
+  resources: Record<string, { visual?: { color?: string | null; shape?: string; texture?: string | null } }>; events: Event[]; metrics: Metrics | null;
   selectedRun: string | null; runs: Array<{ name: string; score: number; decision: string; resultHash: string }>;
 }
 interface DeviceFrame { status: Status; progress: number }
@@ -32,14 +32,15 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     else if (event.device && event.type === "buffer.blocked") devices[event.device] = { status: "blocked-output", progress: 0 };
     else if (event.device && event.type === "power.shortage") devices[event.device] = { status: "unpowered", progress: 0 };
     else if (event.device && event.type === "device.breakdown") devices[event.device] = { status: "failed", progress: 0 };
-    else if (event.type === "material.depart" && event.transit && event.connection) transits.set(event.transit.id, { id: event.transit.id, material: event.transit.material, progress: 0, connection: event.connection });
-    else if (event.type === "material.arrive" && event.transit) transits.delete(event.transit.id);
+    else if (event.type === "resource.depart" && event.transit && event.connection) transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, connection: event.connection });
+    else if (event.type === "resource.arrive" && event.transit) transits.delete(event.transit.id);
   }
   for (const device of data.devices) {
-    const start = starts.get(device.id); if (start !== undefined && devices[device.id]?.status === "processing") devices[device.id]!.progress = Math.min(1, (tick - start) / Math.max(1, device.recipeDuration ?? 1));
+    const start = starts.get(device.id); const startEvent = data.events.findLast((event) => event.type === "device.start" && event.device === device.id && event.tick <= tick);
+    if (start !== undefined && devices[device.id]?.status === "processing") devices[device.id]!.progress = Math.min(1, (tick - start) / Math.max(1, startEvent?.durationTicks ?? 1));
   }
   for (const transit of transits.values()) {
-    const depart = data.events.findLast((event) => event.type === "material.depart" && event.transit?.id === transit.id)?.transit;
+    const depart = data.events.findLast((event) => event.type === "resource.depart" && event.transit?.id === transit.id)?.transit;
     if (depart) transit.progress = Math.max(0, Math.min(1, (tick - depart.departTick) / Math.max(1, depart.arriveTick - depart.departTick)));
   }
   return { devices, transits: [...transits.values()], visibleEvents };
@@ -90,8 +91,8 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
     {frame.transits.map((transit) => {
       const connection = data.connections.find((item) => item.id === transit.connection)!;
       const x = THREE.MathUtils.lerp(connection.from.x, connection.to.x, transit.progress); const z = THREE.MathUtils.lerp(connection.from.y, connection.to.y, transit.progress);
-      const material = data.materials[transit.material]; const color = material?.visual?.color ?? "#d7f3ff";
-      return <mesh key={transit.id} position={[x, .42, z]} castShadow>{material?.visual?.shape === "box" ? <boxGeometry args={[.28, .28, .28]} /> : material?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.17, .17, .22, 16]} /> : <sphereGeometry args={[.16, 16, 16]} />}{material?.visual?.texture ? <FactoryTexture path={material.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={color} emissiveIntensity={.55} />}</mesh>;
+      const resource = data.resources[transit.material]; const color = resource?.visual?.color ?? "#d7f3ff";
+      return <mesh key={transit.id} position={[x, .42, z]} castShadow>{resource?.visual?.shape === "box" ? <boxGeometry args={[.28, .28, .28]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.17, .17, .22, 16]} /> : <sphereGeometry args={[.16, 16, 16]} />}{resource?.visual?.texture ? <FactoryTexture path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={color} emissiveIntensity={.55} />}</mesh>;
     })}
     <OrbitControls makeDefault target={[14, 0, 10]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI * .47} />
   </>;
@@ -124,7 +125,7 @@ function App() {
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} onChange={(event) => void load(event.target.value)}>{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{data.runs.find((item) => item.name === run) && <div className={`decision ${data.runs.find((item) => item.name === run)!.decision.toLowerCase()}`}>{data.runs.find((item) => item.name === run)!.decision}</div>}</div>
         <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /><Metric label="AVG WIP" value={data.metrics?.averageWip.toFixed(2) ?? "—"} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the 3D world.</p></div>
-        <div className="panel events"><h2>Event stream <span>{frame?.visibleEvents.length ?? 0}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.material ?? ""}</b></div>)}</div>
+        <div className="panel events"><h2>Event stream <span>{frame?.visibleEvents.length ?? 0}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>
     </section>
     <footer><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>

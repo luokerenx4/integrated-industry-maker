@@ -1,72 +1,121 @@
 export type Tick = number;
-export type MaterialId = string;
+export type ResourceId = string;
 export type DeviceAssetId = string;
 export type DeviceInstanceId = string;
 export type ConnectionId = string;
+export type BufferId = string;
 
-export interface MaterialVisual {
-  shape?: "box" | "sphere" | "cylinder";
-  texture?: string | null;
-  color?: string | null;
-  icon?: string | null;
+export interface ResourceVisual {
+  shape: "box" | "sphere" | "cylinder";
+  texture: string | null;
+  color: string | null;
+  icon: string | null;
 }
 
 export interface DeviceVisual {
-  shape?: "box" | "cylinder" | "sphere" | "plane";
-  height?: number;
-  texture?: string | null;
-  model?: string | null;
-  color?: string | null;
-  label?: string;
+  shape: "box" | "cylinder" | "sphere" | "plane";
+  height: number;
+  texture: string | null;
+  model: string | null;
+  color: string | null;
+  label: string;
 }
 
-export interface MaterialAsset {
-  type: "material";
-  id: MaterialId;
+export interface ResourceAssetManifest {
+  assetVersion: 1;
+  type: "resource";
+  id: ResourceId;
   name: string;
-  visual?: MaterialVisual;
-  properties?: { stackSize?: number };
+  description: string;
+  tags: string[];
+  unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
+  transport: { stackSize: number };
+  files: { visual: string };
 }
 
+export interface ResourceAsset extends ResourceAssetManifest {
+  assetDir: string;
+  contentHash: string;
+  visual: ResourceVisual;
+}
+
+export type DeviceCapability = "produce" | "process" | "store" | "transport" | "consume" | "power";
 export type PortSide = "north" | "east" | "south" | "west";
 export interface DevicePort {
   id: string;
   direction: "input" | "output";
-  kind: "material";
+  kind: "resource";
   side: PortSide;
   offset: number;
+  buffer: BufferId;
 }
 
-export type DeviceBehavior =
-  | { kind: "source"; material: MaterialId; count: number; durationTicks: Tick; outputCapacity?: number }
-  | { kind: "sink"; accepts: MaterialId[] }
-  | { kind: "processor"; supportedRecipes: string[]; inputCapacity: number; outputCapacity: number }
-  | { kind: "storage"; capacity: number; accepts: MaterialId[] }
-  | { kind: "transport"; capacity: number; travelTicksPerCell: Tick }
-  | { kind: "power"; outputMilliWatts: number };
+export interface DeviceBufferDefinition {
+  id: BufferId;
+  role: "input" | "output" | "internal";
+  capacity: number;
+  accepts: Array<ResourceId | "*">;
+}
 
-export interface DeviceAsset {
+export interface DeviceAssetManifest {
+  assetVersion: 1;
   type: "device";
   id: DeviceAssetId;
   name: string;
+  description: string;
+  tags: string[];
+  capabilities: DeviceCapability[];
   geometry: {
     footprint: { width: number; height: number };
     rotatable: boolean;
     ports: DevicePort[];
   };
-  behavior: DeviceBehavior;
-  simulation?: { powerConsumptionMilliWatts?: number };
-  economics?: { buildCost?: number };
-  visual?: DeviceVisual;
+  buffers: DeviceBufferDefinition[];
+  runtime: { apiVersion: 1; entry: string };
+  power: { consumptionMilliWatts: number; productionMilliWatts: number };
+  economics: { buildCost: number };
+  files: { visual: string };
 }
 
-export interface RecipeQuantity { material: MaterialId; count: number }
-export interface Recipe {
-  id: string;
-  name: string;
-  durationTicks: Tick;
-  inputs: RecipeQuantity[];
-  outputs: RecipeQuantity[];
+export interface DeviceAsset extends DeviceAssetManifest {
+  assetDir: string;
+  contentHash: string;
+  visual: DeviceVisual;
+  runtimeSourceHash: string;
+  program: DeviceProgram;
+}
+
+export interface ResourceBufferQuantity {
+  buffer: BufferId;
+  resource: ResourceId;
+  count: number;
+}
+
+export interface DeviceProgramContext {
+  apiVersion: 1;
+  tick: Tick;
+  device: { id: DeviceInstanceId; asset: DeviceAssetId; config: Readonly<Record<string, unknown>> };
+  buffers: Readonly<Record<BufferId, Readonly<Record<ResourceId, number>>>>;
+}
+
+export type DeviceProgramDecision =
+  | { kind: "start"; operation: string; durationTicks: Tick; consume: ResourceBufferQuantity[]; produce: ResourceBufferQuantity[]; powerMilliWatts?: number }
+  | { kind: "consume"; consume: ResourceBufferQuantity[] }
+  | { kind: "wait"; reason: "input" | "output" | "idle" }
+  | { kind: "none" };
+
+export interface DeviceTransportContext {
+  apiVersion: 1;
+  connection: ConnectionId;
+  distance: number;
+}
+
+export interface DeviceTransportPlan { capacity: number; durationTicks: Tick }
+export interface DeviceProgram {
+  apiVersion: 1;
+  validateConfig?: (config: Readonly<Record<string, unknown>>) => string[];
+  evaluate: (context: Readonly<DeviceProgramContext>) => unknown;
+  planTransport?: (context: Readonly<DeviceTransportContext>) => unknown;
 }
 
 export interface GridPosition { x: number; y: number }
@@ -76,7 +125,7 @@ export interface BlueprintDevice {
   asset: DeviceAssetId;
   position: GridPosition;
   rotation: Rotation;
-  config?: { recipe?: string; accepts?: MaterialId[] };
+  config?: Record<string, unknown>;
   policy?: { dispatch?: "fifo" | "round-robin" };
 }
 export interface BlueprintConnection {
@@ -99,14 +148,14 @@ export interface Scenario {
   id: string;
   name: string;
   durationTicks: Tick;
-  initialInventories?: Record<DeviceInstanceId, Record<MaterialId, number>>;
+  initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
   failures?: ScenarioFailure[];
 }
 
 export interface Objective {
   id: string;
   name: string;
-  targetMaterial: MaterialId;
+  targetResource: ResourceId;
   constraints?: { maxBuildCost?: number; maxOccupiedArea?: number; minProduction?: number };
   weights: {
     throughput: number;
@@ -131,21 +180,23 @@ export interface CompiledDevice extends BlueprintDevice {
   assetDef: DeviceAsset;
   footprint: { width: number; height: number };
   ports: DevicePort[];
-  recipe?: Recipe;
+  buffers: Record<BufferId, DeviceBufferDefinition>;
 }
 export interface CompiledConnection extends BlueprintConnection {
   fromDevice: CompiledDevice;
   toDevice: CompiledDevice;
-  transportAsset: DeviceAsset & { behavior: Extract<DeviceBehavior, { kind: "transport" }> };
+  fromPort: DevicePort;
+  toPort: DevicePort;
+  transportAsset: DeviceAsset;
   distance: number;
+  capacity: number;
   travelTicks: Tick;
 }
 export interface CompiledFactoryProject {
   rootDir: string;
   manifest: InmManifest;
-  materials: Record<MaterialId, MaterialAsset>;
+  resources: Record<ResourceId, ResourceAsset>;
   deviceAssets: Record<DeviceAssetId, DeviceAsset>;
-  recipes: Record<string, Recipe>;
   blueprint: Blueprint;
   scenario: Scenario;
   objective: Objective;
@@ -156,52 +207,59 @@ export interface CompiledFactoryProject {
 
 export interface ProjectHashes {
   engineVersion: string;
-  materialCatalogHash: string;
+  resourceCatalogHash: string;
   deviceCatalogHash: string;
-  recipeCatalogHash: string;
   blueprintHash: string;
   scenarioHash: string;
   objectiveHash: string;
 }
 
 export type DeviceStatus = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
+export interface ActiveDeviceJob {
+  operation: string;
+  startedAt: Tick;
+  durationTicks: Tick;
+  powerMilliWatts: number;
+  produce: ResourceBufferQuantity[];
+}
 export interface DeviceRuntimeState {
   status: DeviceStatus;
-  inventory: Record<MaterialId, number>;
+  buffers: Record<BufferId, Record<ResourceId, number>>;
   progressTicks?: number;
-  activeRecipe?: string;
-  startedAt?: Tick;
+  activeJob?: ActiveDeviceJob;
 }
-export interface MaterialTransit {
+export interface ResourceTransit {
   id: string;
-  material: MaterialId;
+  resource: ResourceId;
   count: number;
   from: DeviceInstanceId;
+  fromBuffer: BufferId;
   to: DeviceInstanceId;
+  toBuffer: BufferId;
   departTick: Tick;
   arriveTick: Tick;
 }
 export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
-  transports: Record<ConnectionId, MaterialTransit[]>;
-  produced: Record<MaterialId, number>;
-  consumed: Record<MaterialId, number>;
+  transports: Record<ConnectionId, ResourceTransit[]>;
+  produced: Record<ResourceId, number>;
+  consumed: Record<ResourceId, number>;
   energy: { availableMilliWatts: number; consumedMilliJoules: number };
   completedOrders: number;
 }
 
 export type FactoryEvent =
-  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; recipe?: string }
-  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; recipe?: string; material?: MaterialId; count?: number }
-  | { type: "material.depart"; tick: Tick; transit: MaterialTransit; connection: ConnectionId }
-  | { type: "material.arrive"; tick: Tick; transit: MaterialTransit; connection: ConnectionId }
+  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick }
+  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[] }
+  | { type: "resource.depart"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
+  | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
+  | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; requiredMilliWatts: number; availableMilliWatts: number }
   | { type: "device.breakdown"; tick: Tick; device: DeviceInstanceId }
   | { type: "device.recover"; tick: Tick; device: DeviceInstanceId }
-  | { type: "sink.accepted"; tick: Tick; device: DeviceInstanceId; material: MaterialId; count: number }
   | { type: "simulation.completed"; tick: Tick; reason: "until-tick" | "max-events" | "infeasible" };
 
 export interface ScoreBreakdown {
@@ -215,8 +273,8 @@ export interface ScoreBreakdown {
   constraintPenalty: number;
 }
 export interface FactoryMetrics {
-  produced: Record<MaterialId, number>;
-  consumed: Record<MaterialId, number>;
+  produced: Record<ResourceId, number>;
+  consumed: Record<ResourceId, number>;
   throughputPerMinute: number;
   completedOrders: number;
   onTimeDelivery: number;

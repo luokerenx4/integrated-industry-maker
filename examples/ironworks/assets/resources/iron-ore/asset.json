@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "iron-ore",
+  "name": "Iron Ore",
+  "description": "Unrefined iron-bearing rock extracted by the ore source.",
+  "tags": ["raw", "solid", "metal"],
+  "unit": { "kind": "discrete", "symbol": "unit", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "files": { "visual": "visual.json" }
+}

@@ -5,7 +5,7 @@
     "value": {
       "asset": "smelter",
       "config": {
-        "recipe": "iron-plate"
+        "operation": "iron-plate"
       },
       "id": "smelter-1-parallel-2",
       "position": {

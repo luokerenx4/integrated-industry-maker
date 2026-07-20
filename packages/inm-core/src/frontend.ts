@@ -1,5 +1,5 @@
 import type {
-  CompiledFactoryProject, DeviceStatus, FactoryEvent, FactoryMetrics, GridPosition, MaterialTransit,
+  CompiledFactoryProject, DeviceStatus, FactoryEvent, FactoryMetrics, GridPosition, ResourceTransit,
 } from "./types";
 
 export interface FactorySceneModel {
@@ -9,8 +9,8 @@ export interface FactorySceneModel {
     assetId: string; position: GridPosition; rotation: number; footprint: { width: number; height: number };
     visual: Record<string, unknown>; runtimeStatus: DeviceStatus; progress?: number; bottleneck?: boolean;
   }>;
-  materialsInTransit: Array<{
-    id: string; materialId: string; count: number; from: GridPosition; to: GridPosition; progress: number; visual?: Record<string, unknown>;
+  resourcesInTransit: Array<{
+    id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; progress: number; visual?: Record<string, unknown>;
   }>;
   connections: Array<{ id: string; from: GridPosition; to: GridPosition; blocked?: boolean }>;
   metrics: FactoryMetrics | null;
@@ -28,7 +28,7 @@ export function createFactorySceneModel(project: CompiledFactoryProject, metrics
     id: connection.id, from: center(connection.fromDevice.position, connection.fromDevice.footprint),
     to: center(connection.toDevice.position, connection.toDevice.footprint),
   }));
-  return { tick: 0, bounds: { ...project.blueprint.bounds }, devices, materialsInTransit: [], connections, metrics };
+  return { tick: 0, bounds: { ...project.blueprint.bounds }, devices, resourcesInTransit: [], connections, metrics };
 }
 
 export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent, project: CompiledFactoryProject): FactorySceneModel {
@@ -39,16 +39,16 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
   else if (event.type === "buffer.unblocked") next.devices[event.device]!.runtimeStatus = "idle";
   else if (event.type === "power.shortage") next.devices[event.device]!.runtimeStatus = "unpowered";
   else if (event.type === "device.breakdown") next.devices[event.device]!.runtimeStatus = "failed";
-  else if (event.type === "material.depart") {
+  else if (event.type === "resource.depart") {
     const connection = project.connections[event.connection]!;
-    next.materialsInTransit.push({
-      id: event.transit.id, materialId: event.transit.material, count: event.transit.count,
+    next.resourcesInTransit.push({
+      id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
       from: center(connection.fromDevice.position, connection.fromDevice.footprint), to: center(connection.toDevice.position, connection.toDevice.footprint),
-      progress: 0, visual: { ...(project.materials[event.transit.material]?.visual ?? {}) },
+      progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
-  } else if (event.type === "material.arrive") next.materialsInTransit = next.materialsInTransit.filter((transit) => transit.id !== event.transit.id);
-  for (const transit of next.materialsInTransit) {
-    const sourceEvent = model.materialsInTransit.find((item) => item.id === transit.id);
+  } else if (event.type === "resource.arrive") next.resourcesInTransit = next.resourcesInTransit.filter((transit) => transit.id !== event.transit.id);
+  for (const transit of next.resourcesInTransit) {
+    const sourceEvent = model.resourcesInTransit.find((item) => item.id === transit.id);
     if (sourceEvent) transit.progress = sourceEvent.progress;
   }
   return next;
@@ -56,14 +56,14 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
 
 export function replayFactoryEvents(project: CompiledFactoryProject, events: FactoryEvent[], throughTick = Number.MAX_SAFE_INTEGER, metrics: FactoryMetrics | null = null): FactorySceneModel {
   let model = createFactorySceneModel(project, metrics);
-  const departed = new Map<string, MaterialTransit>();
+  const departed = new Map<string, ResourceTransit>();
   for (const event of events) {
     if (event.tick > throughTick) break;
     model = reduceFactoryEvent(model, event, project);
-    if (event.type === "material.depart") departed.set(event.transit.id, event.transit);
+    if (event.type === "resource.depart") departed.set(event.transit.id, event.transit);
   }
   model.tick = Math.min(throughTick, events.at(-1)?.tick ?? 0);
-  for (const transit of model.materialsInTransit) {
+  for (const transit of model.resourcesInTransit) {
     const timing = departed.get(transit.id);
     if (timing) transit.progress = Math.max(0, Math.min(1, (model.tick - timing.departTick) / Math.max(1, timing.arriveTick - timing.departTick)));
   }

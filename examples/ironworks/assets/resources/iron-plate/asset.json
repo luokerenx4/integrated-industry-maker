@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "iron-plate",
+  "name": "Iron Plate",
+  "description": "A smelted plate used as the intermediate stock for assembly.",
+  "tags": ["intermediate", "solid", "metal"],
+  "unit": { "kind": "discrete", "symbol": "plate", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "files": { "visual": "visual.json" }
+}

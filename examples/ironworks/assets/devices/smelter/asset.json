@@ -1,0 +1,25 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "smelter",
+  "name": "Smelter",
+  "description": "A configurable thermal processor with isolated input and output buffers.",
+  "tags": ["thermal", "processing"],
+  "capabilities": ["process"],
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input" },
+      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
+    ]
+  },
+  "buffers": [
+    { "id": "input", "role": "input", "capacity": 8, "accepts": ["iron-ore"] },
+    { "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-plate"] }
+  ],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 180000, "productionMilliWatts": 0 },
+  "economics": { "buildCost": 1200 },
+  "files": { "visual": "visual.json" }
+}

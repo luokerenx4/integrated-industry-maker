@@ -1,6 +1,6 @@
 # Ironworks
 
-Ironworks is INM's executable reference factory and research benchmark.
+Ironworks is INM's executable reference factory, asset-package example, and research benchmark. Every resource lives under `assets/resources/<id>/`; every device lives under `assets/devices/<id>/` with an editable, statically checked `runtime.ts` black-box program.
 
 The baseline chain is intentionally under-provisioned:
 

@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "../../..",
+    "paths": { "@inm/core": ["packages/inm-core/src/index.ts"] },
+    "types": ["bun"]
+  },
+  "include": ["devices/**/*.ts"]
+}

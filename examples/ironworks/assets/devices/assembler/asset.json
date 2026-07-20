@@ -1,0 +1,25 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "assembler",
+  "name": "Assembler",
+  "description": "A programmable assembly cell that turns plate stock into gears.",
+  "tags": ["assembly", "processing"],
+  "capabilities": ["process"],
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input" },
+      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
+    ]
+  },
+  "buffers": [
+    { "id": "input", "role": "input", "capacity": 8, "accepts": ["iron-plate"] },
+    { "id": "output", "role": "output", "capacity": 8, "accepts": ["gear"] }
+  ],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 220000, "productionMilliWatts": 0 },
+  "economics": { "buildCost": 1600 },
+  "files": { "visual": "visual.json" }
+}

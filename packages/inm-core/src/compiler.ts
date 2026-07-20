@@ -1,6 +1,7 @@
+import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
   CompiledConnection, CompiledDevice, CompiledFactoryProject, DeviceAsset, DevicePort,
-  MaterialAsset, ProjectHashes, Recipe, ValidationIssue,
+  ProjectHashes, ResourceAsset, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
@@ -8,9 +9,7 @@ import { ENGINE_VERSION, hashValue } from "./utils";
 
 function rotatedFootprint(asset: DeviceAsset, rotation: number): { width: number; height: number } {
   const footprint = asset.geometry.footprint;
-  return rotation === 90 || rotation === 270
-    ? { width: footprint.height, height: footprint.width }
-    : { ...footprint };
+  return rotation === 90 || rotation === 270 ? { width: footprint.height, height: footprint.width } : { ...footprint };
 }
 
 function rotateSide(side: DevicePort["side"], rotation: number): DevicePort["side"] {
@@ -18,36 +17,35 @@ function rotateSide(side: DevicePort["side"], rotation: number): DevicePort["sid
   return sides[(sides.indexOf(side) + rotation / 90) % 4]!;
 }
 
-function validateCatalog(materials: Record<string, MaterialAsset>, devices: Record<string, DeviceAsset>, recipes: Record<string, Recipe>): ValidationIssue[] {
+function validateAssets(resources: Record<string, ResourceAsset>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  const materialRef = (id: string, path: string) => {
-    if (!materials[id]) issues.push({ path, code: "reference.material", message: `Unknown material '${id}'` });
-  };
-  for (const [id, recipe] of Object.entries(recipes)) {
-    recipe.inputs.forEach((item, index) => materialRef(item.material, `recipes/${id}/inputs/${index}/material`));
-    recipe.outputs.forEach((item, index) => materialRef(item.material, `recipes/${id}/outputs/${index}/material`));
-  }
-  for (const [id, device] of Object.entries(devices)) {
-    const behavior = device.behavior;
-    if (behavior.kind === "source") materialRef(behavior.material, `devices/${id}/behavior/material`);
-    if (behavior.kind === "sink") behavior.accepts.forEach((item, index) => materialRef(item, `devices/${id}/behavior/accepts/${index}`));
-    if (behavior.kind === "storage") behavior.accepts.filter((item) => item !== "*").forEach((item, index) => materialRef(item, `devices/${id}/behavior/accepts/${index}`));
-    if (behavior.kind === "processor") behavior.supportedRecipes.forEach((recipe, index) => {
-      if (!recipes[recipe]) issues.push({ path: `devices/${id}/behavior/supportedRecipes/${index}`, code: "reference.recipe", message: `Unknown recipe '${recipe}'` });
-    });
+  for (const [id, asset] of Object.entries(devices)) {
+    const bufferIds = new Set<string>();
+    for (const [index, buffer] of asset.buffers.entries()) {
+      if (bufferIds.has(buffer.id)) issues.push({ path: `assets/devices/${id}/asset.json/buffers/${index}/id`, code: "asset.duplicate-buffer", message: `Duplicate buffer '${buffer.id}'` });
+      bufferIds.add(buffer.id);
+      for (const [resourceIndex, resource] of buffer.accepts.entries()) if (resource !== "*" && !resources[resource]) {
+        issues.push({ path: `assets/devices/${id}/asset.json/buffers/${index}/accepts/${resourceIndex}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
+      }
+    }
     const portIds = new Set<string>();
-    device.geometry.ports.forEach((port, index) => {
-      if (portIds.has(port.id)) issues.push({ path: `devices/${id}/geometry/ports/${index}/id`, code: "geometry.duplicate-port", message: `Duplicate port '${port.id}'` });
+    for (const [index, port] of asset.geometry.ports.entries()) {
+      if (portIds.has(port.id)) issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/id`, code: "asset.duplicate-port", message: `Duplicate port '${port.id}'` });
       portIds.add(port.id);
-      const edgeLength = port.side === "north" || port.side === "south" ? device.geometry.footprint.width : device.geometry.footprint.height;
-      if (port.offset >= edgeLength) issues.push({ path: `devices/${id}/geometry/ports/${index}/offset`, code: "geometry.port-offset", message: `Port offset ${port.offset} is outside edge length ${edgeLength}` });
-    });
+      const buffer = asset.buffers.find((item) => item.id === port.buffer);
+      if (!buffer) issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/buffer`, code: "reference.buffer", message: `Unknown buffer '${port.buffer}'` });
+      else if (port.direction === "input" && buffer.role === "output") issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/buffer`, code: "port.buffer-role", message: "Input port cannot target an output-only buffer" });
+      else if (port.direction === "output" && buffer.role === "input") issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/buffer`, code: "port.buffer-role", message: "Output port cannot read an input-only buffer" });
+      const edgeLength = port.side === "north" || port.side === "south" ? asset.geometry.footprint.width : asset.geometry.footprint.height;
+      if (port.offset >= edgeLength) issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/offset`, code: "geometry.port-offset", message: `Port offset ${port.offset} is outside edge length ${edgeLength}` });
+    }
+    if (asset.capabilities.includes("transport") && !asset.program.planTransport) issues.push({ path: `assets/devices/${id}/${asset.runtime.entry}`, code: "runtime.missing-transport-hook", message: "Transport capability requires planTransport(context)" });
   }
   return issues;
 }
 
 export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFactoryProject {
-  const issues = validateCatalog(loaded.materials, loaded.deviceAssets, loaded.recipes);
+  const issues = validateAssets(loaded.resources, loaded.deviceAssets);
   const devices: Record<string, CompiledDevice> = {};
   const ids = new Set<string>();
   for (const [index, instance] of loaded.blueprint.devices.entries()) {
@@ -61,22 +59,13 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (instance.position.x + footprint.width > loaded.blueprint.bounds.width || instance.position.y + footprint.height > loaded.blueprint.bounds.height) {
       issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Footprint ${footprint.width}x${footprint.height} at (${instance.position.x},${instance.position.y}) exceeds ${loaded.blueprint.bounds.width}x${loaded.blueprint.bounds.height} bounds` });
     }
-    let recipe: Recipe | undefined;
-    if (instance.config?.recipe) {
-      recipe = loaded.recipes[instance.config.recipe];
-      if (!recipe) issues.push({ path: `${path}/config/recipe`, code: "reference.recipe", message: `Unknown recipe '${instance.config.recipe}'` });
-      else if (asset.behavior.kind !== "processor" || !asset.behavior.supportedRecipes.includes(recipe.id)) {
-        issues.push({ path: `${path}/config/recipe`, code: "behavior.unsupported-recipe", message: `Device '${instance.asset}' does not support recipe '${recipe.id}'` });
-      }
-    } else if (asset.behavior.kind === "processor") {
-      issues.push({ path: `${path}/config/recipe`, code: "behavior.missing-recipe", message: "Processor instance requires config.recipe" });
-    }
-    for (const [acceptIndex, material] of (instance.config?.accepts ?? []).entries()) {
-      if (!loaded.materials[material]) issues.push({ path: `${path}/config/accepts/${acceptIndex}`, code: "reference.material", message: `Unknown material '${material}'` });
+    for (const message of validateDeviceConfig(asset.id, asset.program, instance.config ?? {})) {
+      issues.push({ path: `${path}/config`, code: "runtime.invalid-config", message });
     }
     devices[instance.id] = {
-      ...instance, assetDef: asset, footprint, recipe,
+      ...instance, assetDef: asset, footprint,
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotateSide(port.side, instance.rotation) })),
+      buffers: Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, buffer])),
     };
   }
 
@@ -99,30 +88,47 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (!to) issues.push({ path: `${path}/to/device`, code: "reference.device-instance", message: `Unknown device instance '${connection.to.device}'` });
     const transport = loaded.deviceAssets[connection.transport.deviceAsset];
     if (!transport) issues.push({ path: `${path}/transport/deviceAsset`, code: "reference.device", message: `Unknown transport asset '${connection.transport.deviceAsset}'` });
-    else if (transport.behavior.kind !== "transport") issues.push({ path: `${path}/transport/deviceAsset`, code: "behavior.not-transport", message: `Device '${transport.id}' is not a transport` });
-    if (!from || !to || !transport || transport.behavior.kind !== "transport") continue;
+    else if (!transport.capabilities.includes("transport")) issues.push({ path: `${path}/transport/deviceAsset`, code: "capability.not-transport", message: `Device '${transport.id}' does not declare transport capability` });
+    if (!from || !to || !transport || !transport.capabilities.includes("transport")) continue;
     const fromPort = from.ports.find((port) => port.id === connection.from.port);
     const toPort = to.ports.find((port) => port.id === connection.to.port);
     if (!fromPort) issues.push({ path: `${path}/from/port`, code: "reference.port", message: `Unknown port '${connection.from.port}' on '${from.id}'` });
     if (!toPort) issues.push({ path: `${path}/to/port`, code: "reference.port", message: `Unknown port '${connection.to.port}' on '${to.id}'` });
-    if (fromPort && fromPort.direction !== "output") issues.push({ path: `${path}/from/port`, code: "port.direction", message: "Connection must start at an output port" });
-    if (toPort && toPort.direction !== "input") issues.push({ path: `${path}/to/port`, code: "port.direction", message: "Connection must end at an input port" });
-    if (fromPort && toPort && fromPort.kind !== toPort.kind) issues.push({ path, code: "port.kind", message: `Incompatible port kinds '${fromPort.kind}' and '${toPort.kind}'` });
+    if (!fromPort || !toPort) continue;
+    if (fromPort.direction !== "output") issues.push({ path: `${path}/from/port`, code: "port.direction", message: "Connection must start at an output port" });
+    if (toPort.direction !== "input") issues.push({ path: `${path}/to/port`, code: "port.direction", message: "Connection must end at an input port" });
+    if (fromPort.kind !== toPort.kind) issues.push({ path, code: "port.kind", message: `Incompatible port kinds '${fromPort.kind}' and '${toPort.kind}'` });
+    const sourceResources = from.buffers[fromPort.buffer]?.accepts ?? [];
+    const targetResources = to.buffers[toPort.buffer]?.accepts ?? [];
+    if (!sourceResources.includes("*") && !targetResources.includes("*") && !sourceResources.some((resource) => targetResources.includes(resource))) {
+      issues.push({ path, code: "port.resource-contract", message: `Connection '${connection.id}' has no resource accepted by both endpoint buffers` });
+    }
     const distance = Math.max(1, Math.abs(from.position.x - to.position.x) + Math.abs(from.position.y - to.position.y));
-    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, transportAsset: transport as CompiledConnection["transportAsset"], distance, travelTicks: distance * transport.behavior.travelTicksPerCell };
+    const plan = planDeviceTransport(transport.id, transport.program, { apiVersion: 1, connection: connection.id, distance });
+    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, transportAsset: transport, distance, capacity: plan.capacity, travelTicks: plan.durationTicks };
   }
 
-  if (!loaded.materials[loaded.objective.targetMaterial]) issues.push({ path: "objective/targetMaterial", code: "reference.material", message: `Unknown target material '${loaded.objective.targetMaterial}'` });
-  for (const [deviceId, inventory] of Object.entries(loaded.scenario.initialInventories ?? {})) {
-    if (!devices[deviceId]) issues.push({ path: `scenario/initialInventories/${deviceId}`, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` });
-    for (const material of Object.keys(inventory)) if (!loaded.materials[material]) issues.push({ path: `scenario/initialInventories/${deviceId}/${material}`, code: "reference.material", message: `Unknown material '${material}'` });
+  if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
+  for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {
+    const device = devices[deviceId];
+    if (!device) { issues.push({ path: `scenario/initialBuffers/${deviceId}`, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` }); continue; }
+    for (const [bufferId, inventory] of Object.entries(buffers)) {
+      const buffer = device.buffers[bufferId];
+      if (!buffer) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "reference.buffer", message: `Unknown buffer '${bufferId}'` });
+      for (const resource of Object.keys(inventory)) {
+        if (!loaded.resources[resource]) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
+        else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "buffer.resource-contract", message: `Buffer '${bufferId}' does not accept '${resource}'` });
+      }
+      if (buffer && Object.values(inventory).reduce((sum, count) => sum + count, 0) > buffer.capacity) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "buffer.capacity", message: `Initial quantity exceeds buffer capacity ${buffer.capacity}` });
+    }
   }
   for (const [index, failure] of (loaded.scenario.failures ?? []).entries()) if (!devices[failure.device]) issues.push({ path: `scenario/failures/${index}/device`, code: "reference.device-instance", message: `Unknown device instance '${failure.device}'` });
   if (issues.length) throw new InmValidationError(issues);
 
   const hashes: ProjectHashes = {
     engineVersion: ENGINE_VERSION,
-    materialCatalogHash: hashValue(loaded.materials), deviceCatalogHash: hashValue(loaded.deviceAssets), recipeCatalogHash: hashValue(loaded.recipes),
+    resourceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.resources).map(([id, asset]) => [id, asset.contentHash]))),
+    deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
   return { ...loaded, devices, connections, hashes };

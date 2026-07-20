@@ -34,16 +34,15 @@ async function loadStudioData(runName?: string) {
   return {
     name: project.manifest.name, blueprintHash: project.hashes.blueprintHash, bounds: project.blueprint.bounds,
     devices: Object.values(project.devices).map((device) => ({
-      id: device.id, assetId: device.asset, name: device.assetDef.name, behavior: device.assetDef.behavior.kind,
+      id: device.id, assetId: device.asset, name: device.assetDef.name, capabilities: device.assetDef.capabilities,
       position: device.position, rotation: device.rotation, footprint: device.footprint, visual: device.assetDef.visual ?? {},
-      recipeDuration: device.recipe?.durationTicks ?? (device.assetDef.behavior.kind === "source" ? device.assetDef.behavior.durationTicks : undefined),
     })),
     connections: Object.values(project.connections).map((connection) => ({
       id: connection.id, fromDevice: connection.from.device, toDevice: connection.to.device,
       from: { x: connection.fromDevice.position.x + connection.fromDevice.footprint.width / 2, y: connection.fromDevice.position.y + connection.fromDevice.footprint.height / 2 },
       to: { x: connection.toDevice.position.x + connection.toDevice.footprint.width / 2, y: connection.toDevice.position.y + connection.toDevice.footprint.height / 2 },
     })),
-    materials: project.materials, events, metrics, selectedRun: selected?.name ?? null,
+    resources: project.resources, events, metrics, selectedRun: selected?.name ?? null,
     runs: runs.map((run) => ({ name: run.name, score: run.score, decision: run.manifest.decision, resultHash: run.manifest.resultHash })),
   };
 }

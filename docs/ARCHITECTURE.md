@@ -2,11 +2,17 @@
 
 ## Design principles
 
+> INM is pre-alpha. Domain correctness wins over backward compatibility.
+
+> When a model changes, migrate the current examples and tests, delete the superseded format and implementation, and do not add compatibility loaders, aliases, deprecation periods, or automatic migrations unless the project explicitly leaves pre-alpha.
+
 > A factory is a folder.
 
-> A material is something that flows.
+> A Resource is a packaged, self-described kind of flow.
 
-> A device is something that occupies space and transforms, stores, produces, consumes, transports, or otherwise affects materials.
+> A Device is a packaged black box with geometry, buffers, ports, visuals, and an editable TypeScript program.
+
+> Resource and Device are the two asset classes. Every asset owns a directory.
 
 > A blueprint is a two-dimensional arrangement and connection graph of devices.
 
@@ -37,18 +43,36 @@ Raw blueprints never execute directly:
 ```text
 JSON
 → strict Zod schema
+→ asset-package file resolution and content hashing
+→ TypeScript DeviceProgram injection
 → catalog reference resolution
 → rotation and footprint normalization
 → bounds and overlap validation
-→ recipe compatibility validation
-→ port direction/kind validation
-→ transport resolution and integer travel time
+→ port, buffer, resource-contract, and device-config validation
+→ transport-program resolution and integer travel time
 → canonical CompiledFactoryProject
 ```
 
-The compiler rejects unknown materials, device assets, recipes, device instances and ports; duplicate identifiers; unsupported recipes; invalid rotations; out-of-bounds or overlapping footprints; non-transport edge assets; and input/output direction errors.
+The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or overlapping footprints; non-transport connection assets; incompatible resource contracts; and input/output direction errors.
 
-The chosen transport representation is a logical edge that references a transport Device asset. Material, Device, and Recipe remain the only domain concepts needed: transport is still a Device behavior, not a third asset class.
+The chosen transport representation is a logical edge that references a transport-capable Device asset. The transport asset's `planTransport()` hook computes connection capacity and duration. Transport remains a Device capability rather than becoming a third asset class.
+
+## Asset and program boundary
+
+Every Resource or Device is a directory package rooted at `assets/resources/<id>` or `assets/devices/<id>`. `asset.json` is the self-description index; presentation lives in `visual.json`; Device execution lives in `runtime.ts`. All indexed paths are relative and confined to the package. Catalog hashes cover the complete directory, including scripts, textures, and models.
+
+The old `behavior.kind` execution switch and global Recipe catalog do not exist in engine 0.2. A Device may declare several semantic capabilities and any number of named buffers and ports. Its `DeviceProgram` owns the internal throughput function and returns one of four declarative decisions:
+
+```text
+start    consume N resource streams now, produce M streams after a duration
+consume  remove delivered resources from local buffers
+wait     expose input/output/idle wait state
+none     take no local action
+```
+
+The injection interface is uniform even though each device's implementation and configuration are private. Programs see a frozen local snapshot, not the mutable factory. The host validates actions and remains the only authority allowed to write buffers, schedule events, allocate power, or update metrics. Transport-capable programs additionally implement `planTransport()`.
+
+Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract.
 
 ## Runtime and determinism
 
@@ -58,9 +82,9 @@ Time is integer milliseconds. Production rates are integer counts per integer du
 tick → priority → insertion sequence
 ```
 
-It does not depend on wall-clock time, frame rate, `Math.random()`, object insertion accidents, browser state, or Three.js. `SeededRandom` provides the deterministic randomness seam for stochastic scenario extensions. Explicit failures are scheduled events.
+The engine does not depend on wall-clock time, frame rate, `Math.random()`, object insertion accidents, browser state, or Three.js. Asset programs share this determinism requirement. `SeededRandom` provides the deterministic randomness seam for stochastic scenario extensions. Explicit failures are scheduled events.
 
-All runtime writes pass through `mutateFactoryState()`. Sources, processors, transports, sinks, storage, failure handling, and power allocation do not own independent mutable stores.
+All runtime writes pass through `mutateFactoryState()`. Buffers are addressed by `(device, buffer, resource)`; jobs carry their declared outputs until completion; transports carry source and destination buffer identities. Device scripts and simulator subsystems do not own independent mutable stores.
 
 Each result is keyed by engine version, all catalog and input hashes, seed, duration, and event limit. `resultHash` covers the run key, ordered event stream, final state, and metrics.
 
@@ -80,7 +104,7 @@ Research proposals use RFC 6902-style `add`, `remove`, and `replace` operations.
 /policies
 ```
 
-Materials, Device assets, Recipes, Scenarios, Objectives, bounds, simulator code, evaluator code, and score definition cannot be patched. A proposal is applied to a copy, schema-validated, compiled, simulated, and evaluated before the score comparison.
+Resource assets, Device assets and their scripts, Scenarios, Objectives, bounds, simulator code, evaluator code, and score definition cannot be patched. A proposal is applied to a copy, schema-validated, compiled, simulated, and evaluated before the score comparison.
 
 The built-in deterministic heuristic duplicates a highly utilized processor, finds a non-overlapping position, and mirrors its incoming/outgoing topology. `ExternalCommandResearchAgent` accepts vendor-neutral JSON over stdin, and `ProviderResearchAgent` supplies an optional LLM provider seam.
 
@@ -103,7 +127,7 @@ Files are written to a temporary file, flushed, and atomically renamed. `manifes
 
 ## Scene projection and Studio
 
-`FactorySceneModel` contains plain serializable data only—no Three.js objects, React elements, cameras, materials, or geometry. Event replay projects Device status and material transit independently of rendering.
+`FactorySceneModel` contains plain serializable data only—no Three.js objects, React elements, cameras, renderer materials, or geometry. Event replay projects Device status and resource transit independently of rendering.
 
 Studio maps `blueprint.x → world.x`, `blueprint.y → world.z`, and visual height to `world.y`. Two-dimensional footprints remain the only collision and layout truth. The UI can select baseline, KEEP, and REVERT runs, play/pause/reset, scrub time, change speed, inspect semantic events, and highlight bottlenecks. It never writes a blueprint.
 

@@ -1,5 +1,0 @@
-{
-  "id": "gear", "name": "Assemble Gear", "durationTicks": 3000,
-  "inputs": [{ "material": "iron-plate", "count": 2 }],
-  "outputs": [{ "material": "gear", "count": 1 }]
-}

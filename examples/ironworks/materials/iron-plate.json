@@ -1,5 +1,0 @@
-{
-  "type": "material", "id": "iron-plate", "name": "Iron Plate",
-  "visual": { "shape": "box", "color": "#9ba3aa" },
-  "properties": { "stackSize": 100 }
-}

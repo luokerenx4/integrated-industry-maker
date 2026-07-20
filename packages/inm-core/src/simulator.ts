@@ -1,8 +1,9 @@
 import { DeterministicPriorityQueue } from "./priority-queue";
 import { evaluateFactory, type SimulationStats } from "./evaluator";
+import { evaluateDeviceProgram } from "./device-runtime";
 import type {
-  CompiledDevice, CompiledFactoryProject, DeviceRuntimeState, FactoryEvent, FactoryState,
-  MaterialTransit, SimulationResult,
+  CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
+  ResourceBufferQuantity, ResourceTransit, SimulationResult,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
@@ -16,14 +17,18 @@ type InternalEvent =
 export interface RunOptions { untilTick?: number; maxEvents?: number; seed?: number }
 
 function quantity(inventory: Record<string, number>): number { return Object.values(inventory).reduce((sum, count) => sum + count, 0); }
+function deviceQuantity(state: DeviceRuntimeState): number { return Object.values(state.buffers).reduce((sum, inventory) => sum + quantity(inventory), 0); }
 
 export function createInitialFactoryState(project: CompiledFactoryProject): FactoryState {
   const devices: Record<string, DeviceRuntimeState> = {};
   for (const id of Object.keys(project.devices).sort()) {
-    devices[id] = { status: "idle", inventory: { ...(project.scenario.initialInventories?.[id] ?? {}) } };
+    const buffers = Object.fromEntries(project.devices[id]!.assetDef.buffers.map((buffer) => [
+      buffer.id, { ...(project.scenario.initialBuffers?.[id]?.[buffer.id] ?? {}) },
+    ]));
+    devices[id] = { status: "idle", buffers };
   }
-  const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as MaterialTransit[]]));
-  const availableMilliWatts = Object.values(project.devices).reduce((sum, device) => device.assetDef.behavior.kind === "power" ? sum + device.assetDef.behavior.outputMilliWatts : sum, 0);
+  const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as ResourceTransit[]]));
+  const availableMilliWatts = Object.values(project.devices).reduce((sum, device) => sum + device.assetDef.power.productionMilliWatts, 0);
   return { tick: 0, devices, transports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0 }, completedOrders: 0 };
 }
 
@@ -49,38 +54,23 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     statusSince[device] = state.tick;
     mutateFactoryState(state, { kind: "status", device, status });
   };
-  const activePower = () => Object.entries(state.devices).reduce((sum, [id, runtime]) => runtime.status === "processing" ? sum + (project.devices[id]!.assetDef.simulation?.powerConsumptionMilliWatts ?? 0) : sum, 0);
+  const activePower = () => Object.values(state.devices).reduce((sum, runtime) => sum + (runtime.activeJob?.powerMilliWatts ?? 0), 0);
   const measureUntil = (tick: number) => {
     const delta = tick - state.tick;
     if (delta <= 0) return;
-    const wip = Object.values(state.devices).reduce((sum, runtime) => sum + quantity(runtime.inventory), 0)
+    const wip = Object.values(state.devices).reduce((sum, runtime) => sum + deviceQuantity(runtime), 0)
       + Object.values(state.transports).flat().reduce((sum, transit) => sum + transit.count, 0);
-    const congestion = Object.entries(state.transports).reduce((sum, [id, transits]) => sum + transits.reduce((n, transit) => n + transit.count, 0) / project.connections[id]!.transportAsset.behavior.capacity, 0);
+    const congestion = Object.entries(state.transports).reduce((sum, [id, transits]) => sum + transits.reduce((n, transit) => n + transit.count, 0) / project.connections[id]!.capacity, 0);
     stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
     mutateFactoryState(state, { kind: "energy", consumedMilliJoules: activePower() * delta / 1000 });
     mutateFactoryState(state, { kind: "tick", tick }); stats.elapsedTicks = tick;
   };
-  const outputMaterials = (device: CompiledDevice): string[] => {
-    const behavior = device.assetDef.behavior;
-    if (behavior.kind === "source") return [behavior.material];
-    if (behavior.kind === "processor") return device.recipe?.outputs.map((item) => item.material) ?? [];
-    return Object.keys(state.devices[device.id]!.inventory).sort();
+  const accepts = (device: CompiledDevice, buffer: string, resource: string) => {
+    const contract = device.buffers[buffer]!.accepts;
+    return contract.includes("*") || contract.includes(resource);
   };
-  const targetAccepts = (target: CompiledDevice, material: string): boolean => {
-    const behavior = target.assetDef.behavior;
-    if (behavior.kind === "sink") return (target.config?.accepts ?? behavior.accepts).includes(material);
-    if (behavior.kind === "storage") return behavior.accepts.includes("*") || behavior.accepts.includes(material);
-    if (behavior.kind === "processor") return Boolean(target.recipe?.inputs.some((item) => item.material === material));
-    return false;
-  };
-  const targetCapacity = (target: CompiledDevice): number => {
-    const behavior = target.assetDef.behavior;
-    if (behavior.kind === "sink") return Number.MAX_SAFE_INTEGER;
-    if (behavior.kind === "storage") return behavior.capacity;
-    if (behavior.kind === "processor") return behavior.inputCapacity;
-    return 0;
-  };
-  const incomingQuantity = (device: string) => Object.values(state.transports).flat().filter((transit) => transit.to === device).reduce((sum, transit) => sum + transit.count, 0);
+  const incomingQuantity = (device: string, buffer: string) => Object.values(state.transports).flat()
+    .filter((transit) => transit.to === device && transit.toBuffer === buffer).reduce((sum, transit) => sum + transit.count, 0);
 
   const dispatch = (): boolean => {
     let moved = false;
@@ -93,19 +83,24 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     });
     for (const connection of orderedConnections) {
       const sourceState = state.devices[connection.from.device]!;
-      const target = connection.toDevice;
+      const sourceBuffer = sourceState.buffers[connection.fromPort.buffer]!;
+      const targetState = state.devices[connection.to.device]!;
+      const targetBuffer = targetState.buffers[connection.toPort.buffer]!;
       const inTransit = state.transports[connection.id]!.reduce((sum, transit) => sum + transit.count, 0);
-      if (inTransit >= connection.transportAsset.behavior.capacity) continue;
-      const material = outputMaterials(connection.fromDevice).find((id) => (sourceState.inventory[id] ?? 0) > 0 && targetAccepts(target, id));
-      if (!material) continue;
-      if (quantity(state.devices[target.id]!.inventory) + incomingQuantity(target.id) >= targetCapacity(target)) continue;
-      mutateFactoryState(state, { kind: "inventory", device: connection.from.device, material, delta: -1 });
-      const transit: MaterialTransit = {
-        id: `transit-${String(transitSequence++).padStart(6, "0")}`, material, count: 1,
-        from: connection.from.device, to: connection.to.device, departTick: state.tick, arriveTick: state.tick + connection.travelTicks,
+      if (inTransit >= connection.capacity) continue;
+      const resource = Object.keys(sourceBuffer).sort().find((id) => (sourceBuffer[id] ?? 0) > 0 && accepts(connection.toDevice, connection.toPort.buffer, id));
+      if (!resource) continue;
+      const targetCapacity = connection.toDevice.buffers[connection.toPort.buffer]!.capacity;
+      if (quantity(targetBuffer) + incomingQuantity(connection.to.device, connection.toPort.buffer) >= targetCapacity) continue;
+      mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -1 });
+      const transit: ResourceTransit = {
+        id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count: 1,
+        from: connection.from.device, fromBuffer: connection.fromPort.buffer,
+        to: connection.to.device, toBuffer: connection.toPort.buffer,
+        departTick: state.tick, arriveTick: state.tick + connection.travelTicks,
       };
       mutateFactoryState(state, { kind: "transport.add", connection: connection.id, transit });
-      emit({ type: "material.depart", tick: state.tick, transit: { ...transit }, connection: connection.id });
+      emit({ type: "resource.depart", tick: state.tick, transit: { ...transit }, connection: connection.id });
       schedule(transit.arriveTick, 10, { kind: "arrive", connection: connection.id, transitId: transit.id });
       moved = true;
       if ((connection.fromDevice.policy?.dispatch ?? project.blueprint.policies?.dispatch) === "round-robin") {
@@ -117,47 +112,79 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return moved;
   };
 
-  const canStartProcessor = (device: CompiledDevice): boolean => Boolean(device.recipe?.inputs.every((input) => (state.devices[device.id]!.inventory[input.material] ?? 0) >= input.count));
-  const tryStart = (device: CompiledDevice): boolean => {
-    const runtime = state.devices[device.id]!; const behavior = device.assetDef.behavior;
-    if (runtime.status === "failed" || runtime.status === "processing") return false;
-    if (behavior.kind !== "source" && behavior.kind !== "processor") return false;
-    if (behavior.kind === "processor" && !canStartProcessor(device)) { setStatus(device.id, "waiting-input"); return false; }
-    if (behavior.kind === "processor") {
-      const pendingOutput = device.recipe!.outputs.reduce((sum, output) => sum + (runtime.inventory[output.material] ?? 0) + output.count, 0);
-      if (pendingOutput > behavior.outputCapacity) {
-        if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
-        return false;
+  const amountAvailable = (device: CompiledDevice, amount: ResourceBufferQuantity): boolean => {
+    if (!device.buffers[amount.buffer] || !project.resources[amount.resource]) return false;
+    return (state.devices[device.id]!.buffers[amount.buffer]![amount.resource] ?? 0) >= amount.count;
+  };
+  const outputFits = (device: CompiledDevice, produce: ResourceBufferQuantity[]): boolean => {
+    const additions: Record<string, number> = {};
+    for (const amount of produce) {
+      const buffer = device.buffers[amount.buffer];
+      if (!buffer || !project.resources[amount.resource] || !(buffer.accepts.includes("*") || buffer.accepts.includes(amount.resource))) return false;
+      additions[amount.buffer] = (additions[amount.buffer] ?? 0) + amount.count;
+    }
+    return Object.entries(additions).every(([buffer, count]) => quantity(state.devices[device.id]!.buffers[buffer]!) + count <= device.buffers[buffer]!.capacity);
+  };
+  const allAmountsKnown = (device: CompiledDevice, amounts: ResourceBufferQuantity[]) => amounts.every((amount) => device.buffers[amount.buffer] && project.resources[amount.resource]);
+  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], delivered: boolean) => {
+    for (const amount of amounts) {
+      mutateFactoryState(state, { kind: "buffer", device: device.id, buffer: amount.buffer, resource: amount.resource, delta: -amount.count });
+      if (delivered) {
+        mutateFactoryState(state, { kind: "consumed", resource: amount.resource, count: amount.count });
+        mutateFactoryState(state, { kind: "orders", count: amount.count });
+        emit({ type: "resource.consumed", tick: state.tick, device: device.id, resource: amount.resource, count: amount.count });
       }
     }
-    if (behavior.kind === "source" && quantity(runtime.inventory) >= (behavior.outputCapacity ?? behavior.count * 4)) {
+  };
+  const tryDecision = (device: CompiledDevice, decision: DeviceProgramDecision): boolean => {
+    const runtime = state.devices[device.id]!;
+    if (decision.kind === "none") { setStatus(device.id, "idle"); return false; }
+    if (decision.kind === "wait") { setStatus(device.id, decision.reason === "input" ? "waiting-input" : decision.reason === "output" ? "blocked-output" : "idle"); return false; }
+    if (!allAmountsKnown(device, decision.consume)) throw new Error(`Device program '${device.asset}' referenced an unknown resource or buffer`);
+    if (!decision.consume.every((amount) => amountAvailable(device, amount))) { setStatus(device.id, "waiting-input"); return false; }
+    if (decision.kind === "consume") { applyConsume(device, decision.consume, true); setStatus(device.id, "idle"); return true; }
+    if (!allAmountsKnown(device, decision.produce)) throw new Error(`Device program '${device.asset}' referenced an unknown output resource or buffer`);
+    if (!outputFits(device, decision.produce)) {
       if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
       return false;
     }
-    const required = device.assetDef.simulation?.powerConsumptionMilliWatts ?? 0;
+    const required = decision.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
     const available = state.energy.availableMilliWatts - activePower();
     if (required > available) {
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, requiredMilliWatts: required, availableMilliWatts: Math.max(0, available) });
       setStatus(device.id, "unpowered"); return false;
     }
-    if (behavior.kind === "processor") for (const input of device.recipe!.inputs) mutateFactoryState(state, { kind: "inventory", device: device.id, material: input.material, delta: -input.count });
-    const duration = behavior.kind === "source" ? behavior.durationTicks : device.recipe!.durationTicks;
-    setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, tick: state.tick, ...(device.recipe ? { recipe: device.recipe.id } : {}) });
-    emit({ type: "device.start", tick: state.tick, device: device.id, ...(device.recipe ? { recipe: device.recipe.id } : {}) });
-    schedule(state.tick + duration, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+    applyConsume(device, decision.consume, false);
+    const job = { operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: required, produce: structuredClone(decision.produce) };
+    setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
+    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
+    schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
+  const tryEvaluate = (device: CompiledDevice): boolean => {
+    const runtime = state.devices[device.id]!;
+    if (runtime.status === "failed" || runtime.status === "processing") return false;
+    const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
+      apiVersion: 1, tick: state.tick,
+      device: { id: device.id, asset: device.asset, config: device.config ?? {} },
+      buffers: runtime.buffers,
+    });
+    return tryDecision(device, decision);
+  };
+  const hasBlockedOutput = (device: CompiledDevice): boolean => device.ports.some((port) => port.direction === "output" && quantity(state.devices[device.id]!.buffers[port.buffer]!) > 0);
 
   const settle = () => {
     let changed = true; let guard = 0;
     while (changed && guard++ < 100_000) {
       changed = dispatch();
-      for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) if (tryStart(device)) changed = true;
+      for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) if (tryEvaluate(device)) changed = true;
     }
+    if (guard >= 100_000) throw new Error("Device scripts did not reach a stable state after 100000 actions at one tick");
     for (const device of Object.values(project.devices)) {
       const runtime = state.devices[device.id]!;
-      if ((device.assetDef.behavior.kind === "source" || device.assetDef.behavior.kind === "processor") && runtime.status === "idle" && outputMaterials(device).some((id) => (runtime.inventory[id] ?? 0) > 0)) {
-        setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id });
+      if (runtime.status !== "failed" && runtime.status !== "processing" && hasBlockedOutput(device)) {
+        if (runtime.status !== "blocked-output") emit({ type: "buffer.blocked", tick: state.tick, device: device.id });
+        setStatus(device.id, "blocked-output");
       }
     }
   };
@@ -174,30 +201,24 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const event = item.value;
     if (event.kind === "complete") {
       if (event.generation !== generations[event.device] || state.devices[event.device]!.status !== "processing") continue;
-      const device = project.devices[event.device]!; const runtime = state.devices[event.device]!; const behavior = device.assetDef.behavior;
-      setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
-      if (behavior.kind === "source") {
-        mutateFactoryState(state, { kind: "inventory", device: event.device, material: behavior.material, delta: behavior.count });
-        mutateFactoryState(state, { kind: "produced", material: behavior.material, count: behavior.count });
-        emit({ type: "device.finish", tick: state.tick, device: event.device, material: behavior.material, count: behavior.count });
-      } else if (behavior.kind === "processor") {
-        for (const output of device.recipe!.outputs) {
-          mutateFactoryState(state, { kind: "inventory", device: event.device, material: output.material, delta: output.count });
-          mutateFactoryState(state, { kind: "produced", material: output.material, count: output.count });
-        }
-        emit({ type: "device.finish", tick: state.tick, device: event.device, recipe: device.recipe!.id });
+      const runtime = state.devices[event.device]!; const job = runtime.activeJob!;
+      for (const output of job.produce) {
+        mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count });
+        mutateFactoryState(state, { kind: "produced", resource: output.resource, count: output.count });
       }
+      setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
+      emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce) });
     } else if (event.kind === "arrive") {
       const transits = state.transports[event.connection]!; const index = transits.findIndex((transit) => transit.id === event.transitId);
       if (index < 0) continue;
-      const transit = transits[index]!; mutateFactoryState(state, { kind: "transport.remove", connection: event.connection, transitId: transit.id }); const target = project.devices[transit.to]!; const behavior = target.assetDef.behavior;
-      emit({ type: "material.arrive", tick: state.tick, transit: { ...transit! }, connection: event.connection });
-      if (behavior.kind === "sink") {
-        mutateFactoryState(state, { kind: "consumed", material: transit.material, count: transit.count }); mutateFactoryState(state, { kind: "orders", count: transit.count });
-        emit({ type: "sink.accepted", tick: state.tick, device: target.id, material: transit.material, count: transit.count });
-      } else mutateFactoryState(state, { kind: "inventory", device: target.id, material: transit.material, delta: transit.count });
+      const transit = transits[index]!;
+      mutateFactoryState(state, { kind: "transport.remove", connection: event.connection, transitId: transit.id });
+      mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count });
+      emit({ type: "resource.arrive", tick: state.tick, transit: { ...transit }, connection: event.connection });
     } else if (event.kind === "breakdown") {
-      generations[event.device]!++; setStatus(event.device, "failed"); emit({ type: "device.breakdown", tick: state.tick, device: event.device });
+      generations[event.device]!++;
+      if (state.devices[event.device]!.activeJob) mutateFactoryState(state, { kind: "job.finish", device: event.device });
+      setStatus(event.device, "failed"); emit({ type: "device.breakdown", tick: state.tick, device: event.device });
     } else {
       setStatus(event.device, "idle"); emit({ type: "device.recover", tick: state.tick, device: event.device });
     }
@@ -207,7 +228,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   for (const id of Object.keys(project.devices)) {
     const runtime = state.devices[id]!; const durations = stats.durations[id] ??= {};
     durations[runtime.status] = (durations[runtime.status] ?? 0) + state.tick - statusSince[id]!;
-    if (runtime.status === "processing" && runtime.startedAt !== undefined) mutateFactoryState(state, { kind: "progress", device: id, progressTicks: state.tick - runtime.startedAt });
+    if (runtime.status === "processing" && runtime.activeJob) mutateFactoryState(state, { kind: "progress", device: id, progressTicks: state.tick - runtime.activeJob.startedAt });
   }
   const reason = publicEventCount >= maxEvents ? "max-events" : "until-tick";
   emit({ type: "simulation.completed", tick: state.tick, reason });

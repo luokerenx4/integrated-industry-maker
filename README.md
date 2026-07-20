@@ -2,9 +2,11 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production cell as a folder of inspectable JSON files. The same two-dimensional blueprint can be validated, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production cell as a folder of inspectable asset packages, JSON blueprints, and device-local TypeScript programs. The same two-dimensional blueprint can be validated, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 > A factory is a folder. Blueprints are programs. Scenarios are tests. Objectives are benchmarks.
+
+INM is currently pre-alpha. File formats and APIs intentionally make clean breaking changes while the domain model is being established; obsolete formats are removed rather than carried through compatibility layers.
 
 ## See the closed loop
 
@@ -57,9 +59,14 @@ An INM project contains only source files and immutable experiment artifacts:
 ```text
 my-factory/
   inm.json
-  materials/*.json
-  devices/*.json
-  recipes/*.json
+  assets/
+    resources/<id>/
+      asset.json
+      visual.json
+    devices/<id>/
+      asset.json
+      visual.json
+      runtime.ts
   blueprints/*.blueprint.json
   scenarios/*.scenario.json
   objectives/*.objective.json
@@ -68,9 +75,9 @@ my-factory/
   .inm/cache/               # disposable
 ```
 
-- A **material** is something that flows.
-- A **device** occupies space and produces, transforms, stores, consumes, transports, or affects materials.
-- A **recipe** is a reusable conversion law, not a spatial asset.
+- A **resource asset** is a self-described kind of flow with units, transport properties, and presentation files.
+- A **device asset** owns geometry, multiple named buffers and ports, presentation files, and a private TypeScript throughput program.
+- Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
 - A **blueprint** is a two-dimensional device arrangement and connection graph.
 - A **scenario** fixes initial state, failures, duration, and test conditions.
 - An **objective** defines hard constraints and a transparent weighted score.
@@ -92,7 +99,7 @@ Project files
   → read-only 3D replay
 ```
 
-The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Visual metadata is optional and cannot affect simulation.
+The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Visual files cannot affect simulation.
 
 Read [architecture](docs/ARCHITECTURE.md) for determinism, reliability, research permissions, and package boundaries.
 
@@ -103,4 +110,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers deterministic replay, seeded randomness, geometry and reference failures, incompatible ports, missing materials/devices/recipes, unsupported recipes, power shortage, blocking, transport latency, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, project initialization, and renderer-independent scene projection.
+The suite covers asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, geometry and reference failures, port/buffer contracts, power shortage, blocking, transport latency, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, project initialization, and renderer-independent scene projection.

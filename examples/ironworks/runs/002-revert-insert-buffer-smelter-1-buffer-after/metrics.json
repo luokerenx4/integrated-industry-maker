@@ -20,7 +20,7 @@
     "assembler-1": 0,
     "generator-1": 120000,
     "ore-source-1": 0,
-    "output-1": 120000,
+    "output-1": 0,
     "smelter-1": 0,
     "smelter-1-buffer": 120000,
     "smelter-1-parallel": 0
@@ -59,7 +59,7 @@
     "assembler-1": 39200,
     "generator-1": 0,
     "ore-source-1": 0,
-    "output-1": 0,
+    "output-1": 120000,
     "smelter-1": 4800,
     "smelter-1-buffer": 0,
     "smelter-1-parallel": 5200

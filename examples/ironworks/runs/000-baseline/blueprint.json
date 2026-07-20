@@ -63,7 +63,7 @@
     {
       "asset": "smelter",
       "config": {
-        "recipe": "iron-plate"
+        "operation": "iron-plate"
       },
       "id": "smelter-1",
       "position": {
@@ -75,7 +75,7 @@
     {
       "asset": "assembler",
       "config": {
-        "recipe": "gear"
+        "operation": "gear"
       },
       "id": "assembler-1",
       "position": {
@@ -86,11 +86,6 @@
     },
     {
       "asset": "material-sink",
-      "config": {
-        "accepts": [
-          "gear"
-        ]
-      },
       "id": "output-1",
       "position": {
         "x": 26,

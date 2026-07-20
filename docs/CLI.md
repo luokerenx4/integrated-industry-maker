@@ -6,7 +6,7 @@ Run locally with `bun run inm`, or link `packages/inm-cli/src/bin.ts` as `inm`.
 
 ### `inm init <dir> [--force] [--json]`
 
-Creates a complete offline project containing materials, devices, recipes, a deliberately suboptimal blueprint, scenarios, objective, and fixture.
+Creates a complete offline project containing resource/device asset packages, editable device `runtime.ts` files, a deliberately suboptimal blueprint, scenarios, objective, and fixture.
 
 ### `inm validate <project-dir>`
 
@@ -14,7 +14,7 @@ Runs schema validation, reference resolution, geometry/rotation checks, port val
 
 ### `inm inspect <project-dir>`
 
-Prints project topology, catalogs, behavior counts, selected benchmark, content hashes, and completed runs.
+Prints project topology, asset catalogs, capability counts, selected benchmark, content hashes, and completed runs.
 
 ### `inm simulate <project-dir>`
 

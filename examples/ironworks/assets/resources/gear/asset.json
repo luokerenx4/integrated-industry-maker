@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "gear",
+  "name": "Gear",
+  "description": "The finished mechanical component produced by the research cell.",
+  "tags": ["finished", "solid", "component"],
+  "unit": { "kind": "discrete", "symbol": "gear", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "files": { "visual": "visual.json" }
+}

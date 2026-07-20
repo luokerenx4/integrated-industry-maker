@@ -11,8 +11,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const duration = Math.max(1, state.tick);
   const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + device.footprint.width * device.footprint.height, 0);
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
-    + Object.values(project.connections).reduce((sum, connection) => sum + (connection.transportAsset.economics?.buildCost ?? 0) * connection.distance, 0);
-  const targetProduced = state.consumed[project.objective.targetMaterial] ?? 0;
+    + Object.values(project.connections).reduce((sum, connection) => sum + connection.transportAsset.economics.buildCost * connection.distance, 0);
+  const targetProduced = state.consumed[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
@@ -26,8 +26,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     waitingInputTime[id] = times["waiting-input"] ?? 0;
     blockedOutputTime[id] = times["blocked-output"] ?? 0;
     const value = machineUtilization[id]! * duration + blockedOutputTime[id]! * 0.5;
-    const behavior = project.devices[id]!.assetDef.behavior.kind;
-    if (behavior === "processor" && value > bottleneckValue) {
+    const processCapable = project.devices[id]!.assetDef.capabilities.includes("process");
+    if (processCapable && value > bottleneckValue) {
       bottleneckValue = value; bottleneckEntity = id;
     }
   }

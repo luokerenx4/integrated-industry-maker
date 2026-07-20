@@ -4,6 +4,6 @@
   "assertions": [
     { "kind": "metric", "path": "consumed.gear", "min": 10 },
     { "kind": "metric", "path": "energyConsumedMilliJoules", "max": 100000000 },
-    { "kind": "event", "type": "sink.accepted", "present": true }
+    { "kind": "event", "type": "resource.consumed", "present": true }
   ]
 }

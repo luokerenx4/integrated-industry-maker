@@ -1,5 +1,0 @@
-{
-  "type": "material", "id": "gear", "name": "Gear",
-  "visual": { "shape": "cylinder", "color": "#d7a84b" },
-  "properties": { "stackSize": 100 }
-}

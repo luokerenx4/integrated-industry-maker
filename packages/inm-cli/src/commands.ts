@@ -38,20 +38,20 @@ export async function validateCommand(projectDir: string, selection: ProjectSele
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
   const project = await openFactoryProject(projectDir, selection);
   const runs = await listRuns(project.rootDir);
-  const behaviorCounts: Record<string, number> = {};
-  for (const device of Object.values(project.devices)) behaviorCounts[device.assetDef.behavior.kind] = (behaviorCounts[device.assetDef.behavior.kind] ?? 0) + 1;
+  const capabilityCounts: Record<string, number> = {};
+  for (const device of Object.values(project.devices)) for (const capability of device.assetDef.capabilities) capabilityCounts[capability] = (capabilityCounts[capability] ?? 0) + 1;
   const summary = {
     name: project.manifest.name, rootDir: project.rootDir, bounds: project.blueprint.bounds,
-    materials: Object.keys(project.materials), recipes: Object.keys(project.recipes), deviceAssets: Object.keys(project.deviceAssets),
-    deviceInstances: Object.keys(project.devices).length, behaviorCounts, connections: Object.keys(project.connections).length,
+    resources: Object.keys(project.resources), deviceAssets: Object.keys(project.deviceAssets),
+    deviceInstances: Object.keys(project.devices).length, capabilityCounts, connections: Object.keys(project.connections).length,
     scenario: { id: project.scenario.id, durationTicks: project.scenario.durationTicks }, objective: project.objective,
     hashes: project.hashes, runs: runs.map((run) => ({ name: run.name, score: run.score, decision: run.manifest.decision })),
   };
   if (options.json) write(summary, true);
   else write([
     `${summary.name}`, `Project: ${summary.rootDir}`, `Blueprint: ${summary.bounds.width}×${summary.bounds.height}, ${summary.deviceInstances} devices, ${summary.connections} connections`,
-    `Materials: ${summary.materials.join(", ")}`, `Recipes: ${summary.recipes.join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
-    `Objective: ${summary.objective.name} → ${summary.objective.targetMaterial}`, `Runs: ${summary.runs.length}`, "",
+    `Resources: ${summary.resources.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
+    `Objective: ${summary.objective.name} → ${summary.objective.targetResource}`, `Runs: ${summary.runs.length}`, "",
   ].join("\n"), false);
 }
 
@@ -64,7 +64,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
   if (options.json) write(summary, true);
   else write([
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
-    `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetMaterial}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
+    `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
     `Result hash: ${result.resultHash}`, "",
   ].join("\n"), false);
 }

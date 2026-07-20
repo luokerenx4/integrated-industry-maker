@@ -1,19 +1,18 @@
 {
-  "createdAt": "2026-07-20T12:00:01.146Z",
+  "createdAt": "2026-07-20T14:40:08.319Z",
   "decision": "REVERT",
-  "engineVersion": "inm-sim/0.1.0",
+  "engineVersion": "inm-sim/0.2.0",
   "hashes": {
-    "blueprintHash": "fafc23e0f031423285f298490cd02f76e18a3c8c221b47ca1874aa9ae2b0267a",
-    "deviceCatalogHash": "32d64099a5f625fcadefb956bef50cea972aaf7a7d9425fb3dd50a2b904a1893",
-    "engineVersion": "inm-sim/0.1.0",
-    "materialCatalogHash": "2d8dc3c6a1db15280e6e8024c1910c9c95a15167a6f5cd6d10751b6a2b40c3bd",
-    "objectiveHash": "7127dbc42f6d00423bf42ee0ffb3753582c267ac3ac2aa70000741330df8bca4",
-    "recipeCatalogHash": "6707af1abf4520a250d8c51ae41cbecc505a283ac75627b6ce053b96950b9c05",
-    "scenarioHash": "03639c6f6fa36a9173d5bdae609983e191ebe02967a37957c38ef8376c6955f6"
+    "blueprintHash": "c700cf8ba0ffd80d513d2b9dc79a046222412db27d08ac31cc6c9e74a1e513d2",
+    "deviceCatalogHash": "c851dde97a395b0319b59e4fab31080d55522eb0b93a8c313004e4948ca97a29",
+    "engineVersion": "inm-sim/0.2.0",
+    "objectiveHash": "1d2cd03fb5f1713a912fae01ff383b2f59f4e893eb029ac720363972cc3920b0",
+    "resourceCatalogHash": "fb99c4b6a1f939aaee42462bc030ef5976b582ed1075ccaf45dc20ca27143b50",
+    "scenarioHash": "385eb061aab5fbdd5f550346e73ca374203d840e79f985f2f30bde30df0c7ce7"
   },
   "parentRun": "001-keep-duplicate-highly-utilized-processor-sme",
-  "resultHash": "5c7c05c3c86b663218e77c24ab427e74587bd15063b798af5999b1fd1a213f5b",
-  "runKey": "2f05578046fdec3997a2193ea426d34ea8ba016e0d9f656f797bd966451f942b",
+  "resultHash": "5840b0f80f87120f512be06142fb49ba45f1e17c97ef840f27af0cb8693e87dd",
+  "runKey": "5c02c4ecbbad810ddbf21ecc0ec3bb444627dbdb4fdb51744c150a92128dc0d5",
   "seed": 42,
   "status": "completed",
   "version": 1

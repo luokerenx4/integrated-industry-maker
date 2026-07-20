@@ -105,7 +105,7 @@
     {
       "asset": "smelter",
       "config": {
-        "recipe": "iron-plate"
+        "operation": "iron-plate"
       },
       "id": "smelter-1",
       "position": {
@@ -117,7 +117,7 @@
     {
       "asset": "assembler",
       "config": {
-        "recipe": "gear"
+        "operation": "gear"
       },
       "id": "assembler-1",
       "position": {
@@ -128,11 +128,6 @@
     },
     {
       "asset": "material-sink",
-      "config": {
-        "accepts": [
-          "gear"
-        ]
-      },
       "id": "output-1",
       "position": {
         "x": 26,
@@ -152,7 +147,7 @@
     {
       "asset": "smelter",
       "config": {
-        "recipe": "iron-plate"
+        "operation": "iron-plate"
       },
       "id": "smelter-1-parallel",
       "position": {
@@ -174,6 +169,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "cc4a4271a88106acf70e4f79dbfb35600852ad79ecd045df3703daa50f37f709",
+  "revision": "585df0da36bed889b06b1eec4baf39b71e799572457d293fca7240a811d5eefd",
   "version": 1
 }

@@ -10,6 +10,7 @@ export * from "./frontend";
 export * from "./utils";
 export * from "./rng";
 export * from "./state";
+export * from "./device-runtime";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

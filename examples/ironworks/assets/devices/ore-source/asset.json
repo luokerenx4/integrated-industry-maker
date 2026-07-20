@@ -1,0 +1,19 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "ore-source",
+  "name": "Ore Source",
+  "description": "A powered extraction head that emits batches of iron ore.",
+  "tags": ["extraction", "upstream"],
+  "capabilities": ["produce"],
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 },
+    "rotatable": true,
+    "ports": [{ "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }]
+  },
+  "buffers": [{ "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-ore"] }],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 50000, "productionMilliWatts": 0 },
+  "economics": { "buildCost": 500 },
+  "files": { "visual": "visual.json" }
+}

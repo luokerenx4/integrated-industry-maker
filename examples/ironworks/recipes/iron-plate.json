@@ -1,5 +1,0 @@
-{
-  "id": "iron-plate", "name": "Smelt Iron Plate", "durationTicks": 4000,
-  "inputs": [{ "material": "iron-ore", "count": 2 }],
-  "outputs": [{ "material": "iron-plate", "count": 1 }]
-}

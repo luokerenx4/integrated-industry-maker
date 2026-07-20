@@ -3,9 +3,9 @@
   "bounds": { "width": 32, "height": 32 },
   "devices": [
     { "id": "ore-source-1", "asset": "ore-source", "position": { "x": 2, "y": 10 }, "rotation": 0, "policy": { "dispatch": "round-robin" } },
-    { "id": "smelter-1", "asset": "smelter", "position": { "x": 10, "y": 10 }, "rotation": 0, "config": { "recipe": "iron-plate" } },
-    { "id": "assembler-1", "asset": "assembler", "position": { "x": 18, "y": 10 }, "rotation": 0, "config": { "recipe": "gear" } },
-    { "id": "output-1", "asset": "material-sink", "position": { "x": 26, "y": 10 }, "rotation": 0, "config": { "accepts": ["gear"] } },
+    { "id": "smelter-1", "asset": "smelter", "position": { "x": 10, "y": 10 }, "rotation": 0, "config": { "operation": "iron-plate" } },
+    { "id": "assembler-1", "asset": "assembler", "position": { "x": 18, "y": 10 }, "rotation": 0, "config": { "operation": "gear" } },
+    { "id": "output-1", "asset": "material-sink", "position": { "x": 26, "y": 10 }, "rotation": 0 },
     { "id": "generator-1", "asset": "generator", "position": { "x": 10, "y": 3 }, "rotation": 0 }
   ],
   "connections": [

@@ -6,12 +6,11 @@ import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
   listRuns, loadFactoryProject, openFactoryProject, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
-  type BlueprintResearchAgent, type LoadedFactoryProject,
+  type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
 const ironworks = resolve(import.meta.dir, "../../../examples/ironworks");
 async function loaded(): Promise<LoadedFactoryProject> { return loadFactoryProject(ironworks); }
-function clone<T>(value: T): T { return structuredClone(value); }
 function issueCodes(fn: () => unknown): string[] {
   try { fn(); return []; } catch (error) {
     expect(error).toBeInstanceOf(InmValidationError);
@@ -28,7 +27,16 @@ describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
     expect(Object.keys(project.devices)).toHaveLength(5);
+    expect(Object.keys(project.resources)).toEqual(["gear", "iron-ore", "iron-plate"]);
     expect(project.hashes.blueprintHash).toHaveLength(64);
+  });
+
+  test("loads self-contained resource and TypeScript device asset packages", async () => {
+    const source = await loaded();
+    expect(source.resources.gear!.assetDir.endsWith("assets/resources/gear")).toBeTrue();
+    expect(source.deviceAssets.smelter!.runtime.entry).toBe("runtime.ts");
+    expect(source.deviceAssets.smelter!.runtimeSourceHash).toHaveLength(64);
+    expect(typeof source.deviceAssets.smelter!.program.evaluate).toBe("function");
   });
 
   test("rejects out-of-bounds devices", async () => {
@@ -46,11 +54,10 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(source))).toContain("port.direction");
   });
 
-  test("rejects unknown material references", async () => {
+  test("rejects unknown resource references", async () => {
     const source = await loaded();
-    const ore = source.deviceAssets["ore-source"]!;
-    if (ore.behavior.kind !== "source") throw new Error("fixture changed"); ore.behavior.material = "unobtainium";
-    expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.material");
+    source.deviceAssets["ore-source"]!.buffers[0]!.accepts[0] = "unobtainium";
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.resource");
   });
 
   test("rejects unknown device assets", async () => {
@@ -58,11 +65,9 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.device");
   });
 
-  test("rejects unknown and unsupported recipes", async () => {
-    const unknown = await loaded(); unknown.blueprint.devices[1]!.config!.recipe = "missing-recipe";
-    expect(issueCodes(() => compileFactoryProject(unknown))).toContain("reference.recipe");
-    const unsupported = await loaded(); unsupported.blueprint.devices[2]!.config!.recipe = "iron-plate";
-    expect(issueCodes(() => compileFactoryProject(unsupported))).toContain("behavior.unsupported-recipe");
+  test("lets each device program validate its own configuration", async () => {
+    const source = await loaded(); source.blueprint.devices[1]!.config = { operation: "missing-operation" };
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("runtime.invalid-config");
   });
 });
 
@@ -79,9 +84,9 @@ describe("deterministic discrete-event simulation", () => {
 
   test("transport arrivals preserve configured delay", async () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
-    const departure = result.events.find((event) => event.type === "material.depart");
-    if (!departure || departure.type !== "material.depart") throw new Error("missing departure");
-    const arrival = result.events.find((event) => event.type === "material.arrive" && event.transit.id === departure.transit.id);
+    const departure = result.events.find((event) => event.type === "resource.depart");
+    if (!departure || departure.type !== "resource.depart") throw new Error("missing departure");
+    const arrival = result.events.find((event) => event.type === "resource.arrive" && event.transit.id === departure.transit.id);
     if (!arrival) throw new Error("missing arrival");
     expect(arrival.tick - departure.tick).toBe(project.connections[departure.connection]!.travelTicks);
   });
@@ -108,18 +113,59 @@ describe("deterministic discrete-event simulation", () => {
       id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" }, transport: { deviceAsset: "conveyor" },
     }];
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
-    expect(Object.values(result.state.devices["buffer-1"]!.inventory).reduce((sum, count) => sum + count, 0)).toBe(20);
+    expect(Object.values(result.state.devices["buffer-1"]!.buffers.storage!).reduce((sum, count) => sum + count, 0)).toBe(20);
     expect(result.metrics.blockedOutputTime["ore-source-1"]).toBeGreaterThan(0);
     expect(result.events.some((event) => event.type === "buffer.blocked" && event.device === "ore-source-1")).toBeTrue();
   });
 
   test("visual metadata has no effect on logical execution", async () => {
-    const source = await loaded(); const withVisual = compileFactoryProject(clone(source));
-    for (const material of Object.values(source.materials)) delete material.visual;
-    for (const device of Object.values(source.deviceAssets)) delete device.visual;
-    const withoutVisual = compileFactoryProject(source);
-    const first = runUntil(withVisual, undefined, { seed: 42 }); const second = runUntil(withoutVisual, undefined, { seed: 42 });
+    const withVisual = compileFactoryProject(await loaded()); const source = await loaded();
+    for (const resource of Object.values(source.resources)) resource.visual.color = "#ffffff";
+    for (const device of Object.values(source.deviceAssets)) device.visual.color = "#000000";
+    const recolored = compileFactoryProject(source);
+    const first = runUntil(withVisual, undefined, { seed: 42 }); const second = runUntil(recolored, undefined, { seed: 42 });
     expect(first.events).toEqual(second.events); expect(first.state).toEqual(second.state); expect(first.metrics).toEqual(second.metrics);
+  });
+
+  test("one TypeScript device program can consume and produce multiple resource streams", async () => {
+    const source = await loaded(); const asset = source.deviceAssets.assembler!;
+    asset.geometry.ports = [
+      { id: "ore-input", direction: "input", kind: "resource", side: "west", offset: 0, buffer: "ore-input" },
+      { id: "plate-input", direction: "input", kind: "resource", side: "west", offset: 1, buffer: "plate-input" },
+      { id: "gear-output", direction: "output", kind: "resource", side: "east", offset: 0, buffer: "gear-output" },
+      { id: "plate-output", direction: "output", kind: "resource", side: "east", offset: 1, buffer: "plate-output" },
+    ];
+    asset.buffers = [
+      { id: "ore-input", role: "input", capacity: 4, accepts: ["iron-ore"] },
+      { id: "plate-input", role: "input", capacity: 4, accepts: ["iron-plate"] },
+      { id: "gear-output", role: "output", capacity: 4, accepts: ["gear"] },
+      { id: "plate-output", role: "output", capacity: 4, accepts: ["iron-plate"] },
+    ];
+    asset.program = {
+      apiVersion: 1,
+      evaluate(context) {
+        if (!(context.buffers["ore-input"]?.["iron-ore"] && context.buffers["plate-input"]?.["iron-plate"])) return { kind: "wait", reason: "input" };
+        return {
+          kind: "start", operation: "multi-stream", durationTicks: 500,
+          consume: [
+            { buffer: "ore-input", resource: "iron-ore", count: 1 },
+            { buffer: "plate-input", resource: "iron-plate", count: 1 },
+          ],
+          produce: [
+            { buffer: "gear-output", resource: "gear", count: 1 },
+            { buffer: "plate-output", resource: "iron-plate", count: 1 },
+          ],
+        };
+      },
+    } satisfies DeviceProgram;
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id === "assembler-1" || device.id === "generator-1");
+    source.blueprint.devices.find((device) => device.id === "assembler-1")!.config = {};
+    source.blueprint.connections = [];
+    source.scenario.durationTicks = 1000;
+    source.scenario.initialBuffers = { "assembler-1": { "ore-input": { "iron-ore": 1 }, "plate-input": { "iron-plate": 1 } } };
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 1000 });
+    expect(result.metrics.produced.gear).toBe(1);
+    expect(result.metrics.produced["iron-plate"]).toBe(1);
   });
 
   test("failure scenarios break and recover devices deterministically", async () => {
@@ -131,7 +177,7 @@ describe("deterministic discrete-event simulation", () => {
 
 describe("research boundary and experiment decisions", () => {
   test("patches cannot edit world assets, scenarios, objectives, or bounds", () => {
-    for (const path of ["/materials/iron-ore", "/devices-assets/smelter", "/scenarios/baseline", "/objectives/default", "/bounds/width"]) {
+    for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/bounds/width"]) {
       expect(() => validateResearchPatch([{ op: "replace", path, value: 1 }])).toThrow();
     }
   });

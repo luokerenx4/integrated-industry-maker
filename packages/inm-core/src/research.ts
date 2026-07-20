@@ -107,10 +107,10 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
 
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
-    const processors = Object.values(input.project.devices).filter((device) => device.assetDef.behavior.kind === "processor");
+    const processors = Object.values(input.project.devices).filter((device) => device.assetDef.capabilities.includes("process"));
     const original = processors.sort((a, b) => (input.metrics.machineUtilization[b.id] ?? 0) - (input.metrics.machineUtilization[a.id] ?? 0) || a.id.localeCompare(b.id))[0];
     if (!original) throw new Error("Heuristic agent found no processor to improve");
-    const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.behavior.kind === "storage");
+    const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("store"));
     const bufferedConnection = input.blueprint.connections.find((connection) => connection.from.device === original.id);
     if (input.iteration % 3 === 2 && bufferAsset && bufferedConnection) {
       const base = `${original.id}-buffer`; let suffix = 1; let id = base;
@@ -122,8 +122,10 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
       }
       if (!found) throw new Error(`No free blueprint position for buffer '${bufferAsset.id}'`);
       const connectionIndex = input.blueprint.connections.indexOf(bufferedConnection);
+      const bufferInput = bufferAsset.geometry.ports.find((port) => port.direction === "input")!;
+      const bufferOutput = bufferAsset.geometry.ports.find((port) => port.direction === "output")!;
       const newConnection = {
-        id: `${bufferedConnection.id}-${id}-output`, from: { device: id, port: "output" }, to: structuredClone(bufferedConnection.to),
+        id: `${bufferedConnection.id}-${id}-output`, from: { device: id, port: bufferOutput.id }, to: structuredClone(bufferedConnection.to),
         transport: structuredClone(bufferedConnection.transport),
       };
       return {
@@ -131,7 +133,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
         expectedEffect: "Reduce blocked-output time and intermediate transport congestion.",
         patch: [
           { op: "add", path: "/devices/-", value: buffer },
-          { op: "replace", path: `/connections/${connectionIndex}/to`, value: { device: id, port: "input" } },
+          { op: "replace", path: `/connections/${connectionIndex}/to`, value: { device: id, port: bufferInput.id } },
           { op: "add", path: "/connections/-", value: newConnection },
         ],
       };

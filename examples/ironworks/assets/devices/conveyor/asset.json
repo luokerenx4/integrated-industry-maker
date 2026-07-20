@@ -1,0 +1,15 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "conveyor",
+  "name": "Conveyor",
+  "description": "A link device whose TypeScript program plans connection capacity and transit time.",
+  "tags": ["logistics", "belt"],
+  "capabilities": ["transport"],
+  "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },
+  "buffers": [],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 0, "productionMilliWatts": 0 },
+  "economics": { "buildCost": 10 },
+  "files": { "visual": "visual.json" }
+}

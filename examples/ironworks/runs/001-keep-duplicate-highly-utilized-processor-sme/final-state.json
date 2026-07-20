@@ -5,42 +5,100 @@
   },
   "devices": {
     "assembler-1": {
-      "activeRecipe": "gear",
-      "inventory": {},
+      "activeJob": {
+        "durationTicks": 3000,
+        "operation": "gear",
+        "powerMilliWatts": 220000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "gear"
+          }
+        ],
+        "startedAt": 120000
+      },
+      "buffers": {
+        "input": {},
+        "output": {}
+      },
       "progressTicks": 0,
-      "startedAt": 120000,
       "status": "processing"
     },
     "generator-1": {
-      "inventory": {},
+      "buffers": {},
       "status": "idle"
     },
     "ore-source-1": {
-      "inventory": {},
+      "activeJob": {
+        "durationTicks": 2000,
+        "operation": "extract-iron-ore",
+        "powerMilliWatts": 50000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 2,
+            "resource": "iron-ore"
+          }
+        ],
+        "startedAt": 120000
+      },
+      "buffers": {
+        "output": {}
+      },
       "progressTicks": 0,
-      "startedAt": 120000,
       "status": "processing"
     },
     "output-1": {
-      "inventory": {},
-      "status": "idle"
+      "buffers": {
+        "input": {}
+      },
+      "status": "waiting-input"
     },
     "smelter-1": {
-      "activeRecipe": "iron-plate",
-      "inventory": {
-        "iron-ore": 1
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "iron-plate",
+        "powerMilliWatts": 180000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-plate"
+          }
+        ],
+        "startedAt": 116800
+      },
+      "buffers": {
+        "input": {
+          "iron-ore": 1
+        },
+        "output": {}
       },
       "progressTicks": 3200,
-      "startedAt": 116800,
       "status": "processing"
     },
     "smelter-1-parallel": {
-      "activeRecipe": "iron-plate",
-      "inventory": {
-        "iron-ore": 1
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "iron-plate",
+        "powerMilliWatts": 180000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-plate"
+          }
+        ],
+        "startedAt": 117200
+      },
+      "buffers": {
+        "input": {
+          "iron-ore": 1
+        },
+        "output": {}
       },
       "progressTicks": 2800,
-      "startedAt": 117200,
       "status": "processing"
     }
   },
@@ -62,9 +120,11 @@
         "count": 1,
         "departTick": 120000,
         "from": "ore-source-1",
+        "fromBuffer": "output",
         "id": "transit-000201",
-        "material": "iron-ore",
-        "to": "smelter-1"
+        "resource": "iron-ore",
+        "to": "smelter-1",
+        "toBuffer": "input"
       }
     ],
     "ore-to-smelter-smelter-1-parallel": [
@@ -73,9 +133,11 @@
         "count": 1,
         "departTick": 120000,
         "from": "ore-source-1",
+        "fromBuffer": "output",
         "id": "transit-000202",
-        "material": "iron-ore",
-        "to": "smelter-1-parallel"
+        "resource": "iron-ore",
+        "to": "smelter-1-parallel",
+        "toBuffer": "input"
       }
     ],
     "plate-to-assembler": [],

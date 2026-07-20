@@ -1,5 +1,5 @@
 {
   "id": "machine-failure", "name": "Smelter Failure", "durationTicks": 120000,
-  "initialInventories": {},
+  "initialBuffers": {},
   "failures": [{ "device": "smelter-1", "atTick": 40000, "durationTicks": 15000 }]
 }
