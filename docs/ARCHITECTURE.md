@@ -16,6 +16,8 @@
 
 > A Device is a packaged black box with geometry, buffers, ports, visuals, and an editable TypeScript program.
 
+> A Process is project-local industrial source code: explicit inputs, outputs, category, and base cycle time.
+
 > Resource and Device are the two asset classes. Every asset owns a directory.
 
 > A blueprint is a two-dimensional arrangement and connection graph of devices.
@@ -54,11 +56,12 @@ Raw blueprints never execute directly:
 JSON
 → strict Zod schema
 → asset-package file resolution and content hashing
+→ Process catalog resolution and content hashing
 → TypeScript DeviceProgram injection
 → catalog reference resolution
 → rotation and footprint normalization
 → bounds and overlap validation
-→ port, buffer, resource-contract, and device-config validation
+→ Process category, speed, port, buffer, resource-contract, and device-config validation
 → transport-program resolution and integer travel time
 → canonical CompiledFactoryProject
 ```
@@ -71,7 +74,7 @@ The chosen transport representation is a logical edge that references a transpor
 
 Every Resource or Device is a directory package rooted at `assets/resources/<id>` or `assets/devices/<id>`. `asset.json` is the self-description index; presentation lives in `visual.json`; Device execution lives in `runtime.ts`. All indexed paths are relative and confined to the package. Catalog hashes cover the complete directory, including scripts, textures, and models.
 
-The old `behavior.kind` execution switch and global Recipe catalog do not exist in engine 0.2. A Device may declare several semantic capabilities and any number of named buffers and ports. Its `DeviceProgram` owns the internal throughput function and returns one of four declarative decisions:
+The old `behavior.kind` execution switch does not exist. Processes are not shared assets or an engine-global Recipe database: each project owns `processes/*.process.json`, and their hashes participate in run identity. A Device may declare supported Process categories, an exact rational speed multiplier, input/output buffer bindings, semantic capabilities, and any number of named buffers and ports. Its `DeviceProgram` owns the final local throughput decision and returns one of four declarative decisions:
 
 ```text
 start    consume N resource streams now, produce M streams after a duration
@@ -80,7 +83,9 @@ wait     expose input/output/idle wait state
 none     take no local action
 ```
 
-The injection interface is uniform even though each device's implementation and configuration are private. Programs see a frozen local snapshot, not the mutable factory. The host validates actions and remains the only authority allowed to write buffers, schedule events, allocate power, or update metrics. Transport-capable programs additionally implement `planTransport()`.
+The injection interface is uniform even though each device's implementation and configuration are private. For a Process-bound Device, the compiler injects a resolved, buffer-bound Process plan into the frozen local context. Programs see that plan and local buffers, not mutable factory state. The host validates actions and remains the only authority allowed to write buffers, schedule events, allocate power, or update metrics. Transport-capable programs additionally implement `planTransport()`.
+
+`inm analyze` compiles nominal cycles/min, material production/consumption balance, boundary supply/demand, and connection rate limits without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
 
 Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract.
 

@@ -6,7 +6,7 @@ import * as THREE from "three";
 import "./styles.css";
 
 type Status = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
-type AssetKind = "devices" | "resources";
+type AssetKind = "devices" | "resources" | "processes";
 
 interface Visual {
   shape?: string;
@@ -24,6 +24,7 @@ interface ProjectSummary {
   isDefault: boolean;
   resourceAssets: number;
   deviceAssets: number;
+  processes: number;
   deviceInstances: number;
   connections: number;
   runs: number;
@@ -60,6 +61,7 @@ interface DeviceCatalogAsset {
     ports: Array<{ id: string; direction: "input" | "output"; side: string; buffer: string }>;
   };
   buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
+  production?: { categories: string[]; speed: { numerator: number; denominator: number }; inputBuffer: string; outputBuffer: string };
   runtime: { apiVersion: 1; entry: string };
   power: { consumptionMilliWatts: number; productionMilliWatts: number };
   economics: { buildCost: number };
@@ -77,6 +79,19 @@ interface ResourceCatalogAsset {
   unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
   transport: { stackSize: number };
   visual: Visual;
+  contentHash: string;
+}
+
+interface ProcessCatalogAsset {
+  type: "process";
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  durationTicks: number;
+  inputs: Array<{ resource: string; count: number }>;
+  outputs: Array<{ resource: string; count: number }>;
   contentHash: string;
 }
 
@@ -116,7 +131,7 @@ interface StudioData {
     to: { x: number; y: number };
   }>;
   resources: Record<string, { visual?: Visual }>;
-  assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[] };
+  assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[] };
   events: FactoryEvent[];
   metrics: Metrics | null;
   selectedRun: string | null;
@@ -265,14 +280,15 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   return <div className={`metric ${accent ? "accent" : ""}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset }) {
+function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset }) {
+  if (asset.type === "process") return <span className="asset-glyph process">ƒ</span>;
   if (asset.visual.icon) return <img className="asset-icon-image" src={fileUrl(projectId, asset.visual.icon)} alt="" />;
   return <span className={`asset-glyph ${asset.visual.shape ?? "box"}`} style={{ "--asset-color": asset.visual.color ?? "#4f7f86" } as React.CSSProperties} />;
 }
 
 function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
   const [kind, setKind] = useState<AssetKind>("devices");
-  const items: Array<DeviceCatalogAsset | ResourceCatalogAsset> = kind === "devices" ? data.assets.devices : data.assets.resources;
+  const items: Array<DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset> = kind === "devices" ? data.assets.devices : kind === "resources" ? data.assets.resources : data.assets.processes;
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
   const selected = items.find((asset) => asset.id === selectedId) ?? items[0];
 
@@ -286,13 +302,14 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
     <section className="asset-browser" role="dialog" aria-modal="true" aria-label="Project assets">
       <header className="asset-browser-header">
-        <div><span className="eyebrow">PROJECT ASSETS</span><h2>{data.name}</h2><p>Self-contained catalog · {data.assets.devices.length} devices · {data.assets.resources.length} resources</p></div>
+        <div><span className="eyebrow">PROJECT CATALOG</span><h2>{data.name}</h2><p>Self-contained · {data.assets.devices.length} devices · {data.assets.resources.length} resources · {data.assets.processes.length} processes</p></div>
         <button className="icon-button" onClick={onClose} aria-label="Close asset browser">×</button>
       </header>
       <div className="asset-browser-body">
         <nav className="asset-kinds" aria-label="Asset categories">
           <button className={kind === "devices" ? "active" : ""} onClick={() => setKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
           <button className={kind === "resources" ? "active" : ""} onClick={() => setKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
+          <button className={kind === "processes" ? "active" : ""} onClick={() => setKind("processes")}><span>PROCESS</span><b>{data.assets.processes.length}</b></button>
         </nav>
         <div className="asset-list" role="listbox" aria-label={kind}>
           <div className="asset-list-title">{kind.toUpperCase()} <span>{items.length}</span></div>
@@ -315,10 +332,11 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>POWER</label><strong>{(selected.power.consumptionMilliWatts / 1000).toFixed(0)} W</strong></div>
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
+              {selected.production && <section className="asset-section"><h4>Process support</h4><div className="asset-table"><div><b>category</b><strong>{selected.production.categories.join(", ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
               <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
               <section className="asset-section compact"><h4>Runtime</h4><code>{selected.runtime.entry}</code></section>
-            </> : <>
+            </> : selected.type === "resource" ? <>
               <div className="detail-grid">
                 <div><label>UNIT</label><strong>{selected.unit.symbol}</strong></div>
                 <div><label>KIND</label><strong>{selected.unit.kind}</strong></div>
@@ -326,6 +344,14 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>STACK SIZE</label><strong>{selected.transport.stackSize}</strong></div>
               </div>
               <section className="asset-section"><h4>Presentation</h4><div className="asset-table"><div><b>shape</b><strong>{selected.visual.shape}</strong><span>color</span><code>{selected.visual.color ?? "default"}</code></div></div></section>
+            </> : <>
+              <div className="detail-grid">
+                <div><label>CATEGORY</label><strong>{selected.category}</strong></div>
+                <div><label>CYCLE</label><strong>{(selected.durationTicks / 1000).toFixed(2)} s</strong></div>
+                <div><label>INPUT STREAMS</label><strong>{selected.inputs.length}</strong></div>
+                <div><label>OUTPUT STREAMS</label><strong>{selected.outputs.length}</strong></div>
+              </div>
+              <section className="asset-section"><h4>Material transformation</h4><div className="process-flow"><div><label>INPUT</label>{selected.inputs.map((amount) => <span key={amount.resource}><b>{amount.count}×</b> {amount.resource}</span>)}</div><i>→</i><div><label>OUTPUT</label>{selected.outputs.map((amount) => <span key={amount.resource}><b>{amount.count}×</b> {amount.resource}</span>)}</div></div></section>
             </>}
             <div className="asset-hash"><label>CONTENT HASH</label><code>{selected.contentHash}</code></div>
           </>}
@@ -344,7 +370,7 @@ function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (proj
         <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
-        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> links</span><span><b>{project.deviceAssets + project.resourceAssets}</b> assets</span><span><b>{project.runs}</b> runs</span></div>
+        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> links</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
         <div className="project-card-footer"><span>{project.bounds.width} × {project.bounds.height} GRID</span><strong>OPEN PROJECT →</strong></div>
       </button>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
     </section>
@@ -480,7 +506,7 @@ function App() {
       <div className="header-tools">
         <span className="project-local"><i /> PROJECT LOCAL</span>
         <span className="hash">BP {data.blueprintHash.slice(0, 10)}</span>
-        <button className="assets-button" onClick={() => setAssetsOpen(true)}>ASSETS <b>{data.assets.devices.length + data.assets.resources.length}</b></button>
+        <button className="assets-button" onClick={() => setAssetsOpen(true)}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length}</b></button>
         <button onClick={() => void loadProject(data.projectId, run)}>{loading ? "SYNCING" : "REFRESH"}</button>
       </div>
     </header>
@@ -488,7 +514,7 @@ function App() {
       <div className="viewport">
         <Canvas shadows camera={{ position: [30, 20, 30], fov: 39, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY WORLD <b>{data.bounds.width}×{data.bounds.height}</b></div>
-        <div className="scene-stats"><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LINKS</span><span><b>{data.assets.devices.length + data.assets.resources.length}</b> ASSETS</span></div>
+        <div className="scene-stats"><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LINKS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>

@@ -18,6 +18,12 @@
     { "id": "input", "role": "input", "capacity": 8, "accepts": ["iron-ore"] },
     { "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-plate"] }
   ],
+  "production": {
+    "categories": ["smelting"],
+    "speed": { "numerator": 1, "denominator": 1 },
+    "inputBuffer": "input",
+    "outputBuffer": "output"
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 180000, "productionMilliWatts": 0 },
   "economics": { "buildCost": 1200 },

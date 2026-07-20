@@ -1,17 +1,106 @@
 {
-  "version": 1,
-  "bounds": { "width": 32, "height": 32 },
-  "devices": [
-    { "id": "ore-source-1", "asset": "ore-source", "position": { "x": 2, "y": 10 }, "rotation": 0, "policy": { "dispatch": "round-robin" } },
-    { "id": "smelter-1", "asset": "smelter", "position": { "x": 10, "y": 10 }, "rotation": 0, "config": { "operation": "iron-plate" } },
-    { "id": "assembler-1", "asset": "assembler", "position": { "x": 18, "y": 10 }, "rotation": 0, "config": { "operation": "gear" } },
-    { "id": "output-1", "asset": "material-sink", "position": { "x": 26, "y": 10 }, "rotation": 0 },
-    { "id": "generator-1", "asset": "generator", "position": { "x": 10, "y": 3 }, "rotation": 0 }
-  ],
+  "bounds": {
+    "height": 32,
+    "width": 32
+  },
   "connections": [
-    { "id": "ore-to-smelter", "from": { "device": "ore-source-1", "port": "output" }, "to": { "device": "smelter-1", "port": "input" }, "transport": { "deviceAsset": "conveyor" } },
-    { "id": "plate-to-assembler", "from": { "device": "smelter-1", "port": "output" }, "to": { "device": "assembler-1", "port": "input" }, "transport": { "deviceAsset": "conveyor" } },
-    { "id": "gear-to-output", "from": { "device": "assembler-1", "port": "output" }, "to": { "device": "output-1", "port": "input" }, "transport": { "deviceAsset": "conveyor" } }
+    {
+      "from": {
+        "device": "ore-source-1",
+        "port": "output"
+      },
+      "id": "ore-to-smelter",
+      "to": {
+        "device": "smelter-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1",
+        "port": "output"
+      },
+      "id": "plate-to-assembler",
+      "to": {
+        "device": "assembler-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    },
+    {
+      "from": {
+        "device": "assembler-1",
+        "port": "output"
+      },
+      "id": "gear-to-output",
+      "to": {
+        "device": "output-1",
+        "port": "input"
+      },
+      "transport": {
+        "deviceAsset": "conveyor"
+      }
+    }
   ],
-  "policies": { "dispatch": "round-robin" }
+  "devices": [
+    {
+      "asset": "ore-source",
+      "id": "ore-source-1",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 2,
+        "y": 10
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "smelter",
+      "id": "smelter-1",
+      "position": {
+        "x": 10,
+        "y": 10
+      },
+      "process": "smelt-iron",
+      "rotation": 0
+    },
+    {
+      "asset": "assembler",
+      "id": "assembler-1",
+      "position": {
+        "x": 18,
+        "y": 10
+      },
+      "process": "assemble-gear",
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "id": "output-1",
+      "position": {
+        "x": 26,
+        "y": 10
+      },
+      "rotation": 0
+    },
+    {
+      "asset": "generator",
+      "id": "generator-1",
+      "position": {
+        "x": 10,
+        "y": 3
+      },
+      "rotation": 0
+    }
+  ],
+  "policies": {
+    "dispatch": "round-robin"
+  },
+  "version": 1
 }

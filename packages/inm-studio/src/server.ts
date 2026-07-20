@@ -68,14 +68,20 @@ async function countAssetDirectories(projectDir: string, kind: "devices" | "reso
   return entries.filter((entry) => !entry.name.startsWith(".") && entry.isDirectory()).length;
 }
 
+async function countProcessFiles(projectDir: string): Promise<number> {
+  const entries = await readdir(join(projectDir, "processes"), { withFileTypes: true });
+  return entries.filter((entry) => !entry.name.startsWith(".") && entry.isFile() && entry.name.endsWith(".process.json")).length;
+}
+
 async function loadProjectIndex() {
   const projects = await workspaceProjects();
   const summaries = await Promise.all(projects.map(async (summary) => {
     const manifest = manifestSchema.parse(await readJson(join(summary.path, "inm.json")));
     const blueprint = blueprintSchema.parse(await readJson(join(summary.path, "blueprints", `${manifest.defaultBlueprint}.blueprint.json`)));
-    const [resourceAssets, deviceAssets, runs] = await Promise.all([
+    const [resourceAssets, deviceAssets, processes, runs] = await Promise.all([
       countAssetDirectories(summary.path, "resources"),
       countAssetDirectories(summary.path, "devices"),
+      countProcessFiles(summary.path),
       listRuns(summary.path),
     ]);
     return {
@@ -84,6 +90,7 @@ async function loadProjectIndex() {
       isDefault: summary.isDefault,
       resourceAssets,
       deviceAssets,
+      processes,
       deviceInstances: blueprint.devices.length,
       connections: blueprint.connections.length,
       runs: runs.length,
@@ -165,6 +172,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         capabilities: asset.capabilities,
         geometry: asset.geometry,
         buffers: asset.buffers,
+        production: asset.production,
         runtime: asset.runtime,
         power: asset.power,
         economics: asset.economics,
@@ -182,6 +190,18 @@ async function loadStudioData(projectId: string, runName?: string) {
         transport: asset.transport,
         visual: asset.visual,
         contentHash: asset.contentHash,
+      })),
+      processes: Object.values(project.processes).map((process) => ({
+        type: "process" as const,
+        id: process.id,
+        name: process.name,
+        description: process.description,
+        category: process.category,
+        tags: process.tags,
+        durationTicks: process.durationTicks,
+        inputs: process.inputs,
+        outputs: process.outputs,
+        contentHash: process.contentHash,
       })),
     },
     events,

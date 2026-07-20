@@ -4,14 +4,12 @@
     "path": "/devices/-",
     "value": {
       "asset": "smelter",
-      "config": {
-        "operation": "iron-plate"
-      },
       "id": "smelter-1-parallel-2",
       "position": {
         "x": 2,
         "y": 0
       },
+      "process": "smelt-iron",
       "rotation": 0
     }
   },

@@ -28,6 +28,10 @@ Runs schema validation, reference resolution, geometry/rotation checks, port val
 
 Prints project topology, asset catalogs, capability counts, selected benchmark, content hashes, and completed runs.
 
+### `inm analyze <project-or-workspace-dir> [--project ID]`
+
+Compiles Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary supply/demand, and connection throughput limits without running a simulation. Diagnostics expose material deficits, unconsumed surplus, and insufficient input/output logistics. `--json` is designed to be consumed directly by optimization agents.
+
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
 Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact.
@@ -83,7 +87,7 @@ The command receives `ResearchInput` JSON on stdin and must print:
 
 Launches the local read-only 3D runtime debugger. `/` is a project launcher; choosing a project navigates to the stable `/<project-id>` route, so refresh, browser history, and copied links retain project identity. There is no project switcher inside the runtime sidebar—return to the launcher to open another project.
 
-The project header opens a read-only asset browser modeled after an editor asset catalog. It separates Device and Resource packages, previews their visual identity, and exposes tags, capabilities, geometry, ports, buffers, runtime entry, units, transport limits, content hashes, and current instance counts. Every data and file request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from the project's Process definitions, previews their visual identity, and exposes tags, capabilities, geometry, ports, buffers, runtime entry, units, transformations, cycle times, transport limits, content hashes, and current instance counts. Every data and file request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
 Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 

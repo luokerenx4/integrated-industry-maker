@@ -10,6 +10,14 @@ export interface DeviceProgramContext {
   tick: number;
   device: { id: string; asset: string; config: Readonly<Record<string, unknown>> };
   buffers: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  process?: Readonly<{
+    id: string;
+    name: string;
+    category: string;
+    durationTicks: number;
+    inputs: ResourceBufferQuantity[];
+    outputs: ResourceBufferQuantity[];
+  }>;
 }
 
 export interface DeviceTransportContext {

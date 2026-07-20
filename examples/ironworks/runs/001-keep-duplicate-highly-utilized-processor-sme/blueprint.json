@@ -90,26 +90,22 @@
     },
     {
       "asset": "smelter",
-      "config": {
-        "operation": "iron-plate"
-      },
       "id": "smelter-1",
       "position": {
         "x": 10,
         "y": 10
       },
+      "process": "smelt-iron",
       "rotation": 0
     },
     {
       "asset": "assembler",
-      "config": {
-        "operation": "gear"
-      },
       "id": "assembler-1",
       "position": {
         "x": 18,
         "y": 10
       },
+      "process": "assemble-gear",
       "rotation": 0
     },
     {
@@ -132,20 +128,18 @@
     },
     {
       "asset": "smelter",
-      "config": {
-        "operation": "iron-plate"
-      },
       "id": "smelter-1-parallel",
       "position": {
         "x": 0,
         "y": 0
       },
+      "process": "smelt-iron",
       "rotation": 0
     }
   ],
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "f8bafebbe254eeadaa2ab9d436d59924be3a5ddfd8c7f2458825e13b03cc943c",
+  "revision": "7280def2d1c87e18566a578bf37df2c78a1285d2982e0992a8e3f6f251e58541",
   "version": 1
 }

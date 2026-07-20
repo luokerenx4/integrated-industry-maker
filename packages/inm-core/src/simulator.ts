@@ -168,6 +168,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       apiVersion: 1, tick: state.tick,
       device: { id: device.id, asset: device.asset, config: device.config ?? {} },
       buffers: runtime.buffers,
+      ...(device.processPlan ? { process: {
+        id: device.processPlan.definition.id,
+        name: device.processPlan.definition.name,
+        category: device.processPlan.definition.category,
+        durationTicks: device.processPlan.durationTicks,
+        inputs: device.processPlan.inputs,
+        outputs: device.processPlan.outputs,
+      } } : {}),
     });
     return tryDecision(device, decision);
   };

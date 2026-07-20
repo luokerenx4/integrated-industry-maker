@@ -2,7 +2,7 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production cell as a folder of inspectable asset packages, JSON blueprints, and device-local TypeScript programs. The same two-dimensional blueprint can be validated, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production cell as a folder of inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. The same two-dimensional blueprint can be validated, statically balanced, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 > A factory is a folder. Blueprints are programs. Scenarios are tests. Objectives are benchmarks.
 
@@ -17,6 +17,7 @@ bun install
 
 # Validate and simulate the deliberately suboptimal Ironworks baseline
 bun run inm validate examples/ironworks
+bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --scenario baseline --seed 42
 
 # Let the deterministic research agent improve the blueprint
@@ -45,6 +46,7 @@ inm project create <workspace-dir> <project-id>
 inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
 inm validate|inspect|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
+inm analyze <project-or-workspace-dir> [--project ID]
 inm studio <project-or-workspace-dir> [--project ID]
 ```
 
@@ -76,6 +78,7 @@ my-factory/
       asset.json
       visual.json
       runtime.ts
+  processes/*.process.json
   blueprints/*.blueprint.json
   scenarios/*.scenario.json
   objectives/*.objective.json
@@ -89,6 +92,7 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - A **resource asset** is a self-described kind of flow with units, transport properties, and presentation files.
 - A **device asset** owns geometry, multiple named buffers and ports, presentation files, and a private TypeScript throughput program.
 - Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
+- A **process** declares a visible material transformation, category, and base cycle time; a blueprint binds it to a compatible Device.
 - A **blueprint** is a two-dimensional device arrangement and connection graph.
 - A **scenario** fixes initial state, failures, duration, and test conditions.
 - An **objective** defines hard constraints and a transparent weighted score.
@@ -100,6 +104,7 @@ See [project format](docs/PROJECT_FORMAT.md) and the complete [Ironworks example
 ```text
 Project files
   → strict schema validation
+  → process/resource/device compatibility and nominal-rate analysis
   → reference, geometry, port, and transport compilation
   → canonical factory project + content hashes
   → deterministic discrete-event simulation

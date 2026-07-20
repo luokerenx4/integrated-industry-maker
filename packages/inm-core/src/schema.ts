@@ -31,6 +31,12 @@ export const resourceAssetSchema = z.object({
   files: z.object({ visual: relativeAssetFile }).strict(),
 }).strict();
 
+const processAmountSchema = z.object({ resource: id, count: positiveInt }).strict();
+export const processSchema = z.object({
+  version: z.literal(1), id, name: z.string().min(1), description: z.string(), category: id, tags: z.array(id),
+  durationTicks: positiveInt, inputs: z.array(processAmountSchema), outputs: z.array(processAmountSchema).min(1),
+}).strict();
+
 const portSchema = z.object({
   id, direction: z.enum(["input", "output"]), kind: z.literal("resource"),
   side: z.enum(["north", "east", "south", "west"]), offset: nonNegativeInt, buffer: id,
@@ -49,6 +55,11 @@ export const deviceAssetSchema = z.object({
     rotatable: z.boolean(), ports: z.array(portSchema),
   }).strict(),
   buffers: z.array(bufferSchema),
+  production: z.object({
+    categories: z.array(id).min(1),
+    speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
+    inputBuffer: id, outputBuffer: id,
+  }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
   power: z.object({ consumptionMilliWatts: nonNegativeInt, productionMilliWatts: nonNegativeInt }).strict(),
   economics: z.object({ buildCost: nonNegativeInt }).strict(),
@@ -61,6 +72,7 @@ export const blueprintSchema = z.object({
   devices: z.array(z.object({
     id, asset: id, position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
     rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+    process: id.optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({ dispatch: z.enum(["fifo", "round-robin"]).optional() }).strict().optional(),
   }).strict()),
@@ -94,12 +106,13 @@ export const workspaceSchema = z.object({
   version: z.literal(1), name: z.string().min(1), projectsDirectory: relativeDirectory, defaultProject: id.nullable(),
 }).strict();
 
-export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "device-asset" | "device-visual" | "blueprint" | "scenario" | "objective";
+export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "process" | "device-asset" | "device-visual" | "blueprint" | "scenario" | "objective";
 export const schemas = {
   manifest: manifestSchema,
   workspace: workspaceSchema,
   "resource-asset": resourceAssetSchema,
   "resource-visual": resourceVisualSchema,
+  process: processSchema,
   "device-asset": deviceAssetSchema,
   "device-visual": deviceVisualSchema,
   blueprint: blueprintSchema,

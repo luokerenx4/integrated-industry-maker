@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  formatCliError, inspectCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, formatCliError, inspectCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, simulateCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
@@ -25,6 +25,7 @@ WORKSPACE COMMANDS
 PROJECT COMMANDS
   validate <path>             Parse, resolve, and compile a blueprint
   inspect <path>              Show assets, topology, objective, hashes, and runs
+  analyze <path>              Compile nominal process rates and material balance
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
@@ -86,10 +87,12 @@ async function main(): Promise<void> {
     }
     throw new Error("Usage: inm project <create|list|default> ...");
   }
-  if (subcommand === "validate" || subcommand === "inspect") {
+  if (subcommand === "validate" || subcommand === "inspect" || subcommand === "analyze") {
     const { values, positionals } = parseArgs({ args, options: common, allowPositionals: true });
     const projectDir = await selectedProject(positionals, `inm ${subcommand} <project-or-workspace-dir> [--project ID]`, values.project);
-    return subcommand === "validate" ? validateCommand(projectDir, selectionOf(values), values) : inspectCommand(projectDir, selectionOf(values), values);
+    if (subcommand === "validate") return validateCommand(projectDir, selectionOf(values), values);
+    if (subcommand === "inspect") return inspectCommand(projectDir, selectionOf(values), values);
+    return analyzeCommand(projectDir, selectionOf(values), values);
   }
   if (subcommand === "simulate") {
     const { values, positionals } = parseArgs({ args, options: { ...common, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });

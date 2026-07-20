@@ -12,6 +12,7 @@ export * from "./rng";
 export * from "./state";
 export * from "./device-runtime";
 export * from "./workspace";
+export * from "./production-analysis";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

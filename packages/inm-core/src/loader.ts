@@ -5,7 +5,7 @@ import type { ZodError, ZodType } from "zod";
 import { importDeviceProgram } from "./device-runtime";
 import { schemas, type SchemaKind } from "./schema";
 import type {
-  Blueprint, DeviceAsset, DeviceAssetManifest, DeviceVisual, InmManifest, Objective,
+  Blueprint, DeviceAsset, DeviceAssetManifest, DeviceVisual, IndustrialProcess, IndustrialProcessManifest, InmManifest, Objective,
   ResourceAsset, ResourceAssetManifest, ResourceVisual, Scenario, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
@@ -15,6 +15,7 @@ export interface LoadedFactoryProject {
   rootDir: string;
   manifest: InmManifest;
   resources: Record<string, ResourceAsset>;
+  processes: Record<string, IndustrialProcess>;
   deviceAssets: Record<string, DeviceAsset>;
   blueprint: Blueprint;
   scenario: Scenario;
@@ -50,6 +51,10 @@ async function contentHash(directory: string): Promise<string> {
   }
   await visit(directory);
   return hash.digest("hex");
+}
+
+async function fileHash(path: string): Promise<string> {
+  return createHash("sha256").update(await readFile(path)).digest("hex");
 }
 
 function assetFile(assetDir: string, path: string): string {
@@ -97,6 +102,27 @@ async function loadResources(rootDir: string): Promise<Record<string, ResourceAs
   return catalog;
 }
 
+async function loadProcesses(rootDir: string): Promise<Record<string, IndustrialProcess>> {
+  const directory = join(rootDir, "processes");
+  let entries;
+  try { entries = await readdir(directory, { withFileTypes: true }); }
+  catch { throw new Error(`Missing required process directory: ${directory}`); }
+  const visible = entries.filter((entry) => !entry.name.startsWith("."));
+  const invalid = visible.filter((entry) => !entry.isFile() || !entry.name.endsWith(".process.json"));
+  if (invalid.length) throw new Error(`Processes in ${directory} must be *.process.json files: ${invalid.map((entry) => entry.name).join(", ")}`);
+  if (!visible.length) throw new Error(`No process definitions found in ${directory}`);
+  const catalog: Record<string, IndustrialProcess> = {};
+  for (const entry of visible.sort((a, b) => a.name.localeCompare(b.name))) {
+    const sourceFile = join(directory, entry.name);
+    const process = await parseFile<IndustrialProcessManifest>(sourceFile, "process");
+    const fileId = entry.name.slice(0, -".process.json".length);
+    if (process.id !== fileId) throw new InmValidationError([{ path: `${sourceFile}/id`, code: "process.filename-id", message: `Process id '${process.id}' must match filename '${fileId}'` }]);
+    if (catalog[process.id]) throw new InmValidationError([{ path: sourceFile, code: "reference.duplicate", message: `Duplicate process '${process.id}'` }]);
+    catalog[process.id] = { ...process, sourceFile, contentHash: await fileHash(sourceFile) };
+  }
+  return catalog;
+}
+
 async function loadDevices(rootDir: string): Promise<Record<string, DeviceAsset>> {
   const catalog: Record<string, DeviceAsset> = {};
   for (const assetDir of await assetDirectories(rootDir, "devices")) {
@@ -125,11 +151,11 @@ export async function loadFactoryProject(projectDir: string, selection: ProjectS
   const blueprintId = selection.blueprint ?? manifest.defaultBlueprint;
   const scenarioId = selection.scenario ?? manifest.defaultScenario;
   const objectiveId = selection.objective ?? manifest.defaultObjective;
-  const [resources, deviceAssets, blueprint, scenario, objective] = await Promise.all([
-    loadResources(rootDir), loadDevices(rootDir),
+  const [resources, processes, deviceAssets, blueprint, scenario, objective] = await Promise.all([
+    loadResources(rootDir), loadProcesses(rootDir), loadDevices(rootDir),
     parseFile<Blueprint>(join(rootDir, "blueprints", `${blueprintId}.blueprint.json`), "blueprint"),
     parseFile<Scenario>(join(rootDir, "scenarios", `${scenarioId}.scenario.json`), "scenario"),
     parseFile<Objective>(join(rootDir, "objectives", `${objectiveId}.objective.json`), "objective"),
   ]);
-  return { rootDir, manifest, resources, deviceAssets, blueprint, scenario, objective };
+  return { rootDir, manifest, resources, processes, deviceAssets, blueprint, scenario, objective };
 }

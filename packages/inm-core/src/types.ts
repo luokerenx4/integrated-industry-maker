@@ -1,5 +1,6 @@
 export type Tick = number;
 export type ResourceId = string;
+export type ProcessId = string;
 export type DeviceAssetId = string;
 export type DeviceInstanceId = string;
 export type ConnectionId = string;
@@ -39,6 +40,28 @@ export interface ResourceAsset extends ResourceAssetManifest {
   visual: ResourceVisual;
 }
 
+export interface ProcessAmount {
+  resource: ResourceId;
+  count: number;
+}
+
+export interface IndustrialProcessManifest {
+  version: 1;
+  id: ProcessId;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  durationTicks: Tick;
+  inputs: ProcessAmount[];
+  outputs: ProcessAmount[];
+}
+
+export interface IndustrialProcess extends IndustrialProcessManifest {
+  sourceFile: string;
+  contentHash: string;
+}
+
 export type DeviceCapability = "produce" | "process" | "store" | "transport" | "consume" | "power";
 export type PortSide = "north" | "east" | "south" | "west";
 export interface DevicePort {
@@ -71,6 +94,12 @@ export interface DeviceAssetManifest {
     ports: DevicePort[];
   };
   buffers: DeviceBufferDefinition[];
+  production?: {
+    categories: string[];
+    speed: { numerator: number; denominator: number };
+    inputBuffer: BufferId;
+    outputBuffer: BufferId;
+  };
   runtime: { apiVersion: 1; entry: string };
   power: { consumptionMilliWatts: number; productionMilliWatts: number };
   economics: { buildCost: number };
@@ -96,6 +125,14 @@ export interface DeviceProgramContext {
   tick: Tick;
   device: { id: DeviceInstanceId; asset: DeviceAssetId; config: Readonly<Record<string, unknown>> };
   buffers: Readonly<Record<BufferId, Readonly<Record<ResourceId, number>>>>;
+  process?: Readonly<{
+    id: ProcessId;
+    name: string;
+    category: string;
+    durationTicks: Tick;
+    inputs: ResourceBufferQuantity[];
+    outputs: ResourceBufferQuantity[];
+  }>;
 }
 
 export type DeviceProgramDecision =
@@ -125,6 +162,7 @@ export interface BlueprintDevice {
   asset: DeviceAssetId;
   position: GridPosition;
   rotation: Rotation;
+  process?: ProcessId;
   config?: Record<string, unknown>;
   policy?: { dispatch?: "fifo" | "round-robin" };
 }
@@ -196,6 +234,12 @@ export interface CompiledDevice extends BlueprintDevice {
   footprint: { width: number; height: number };
   ports: DevicePort[];
   buffers: Record<BufferId, DeviceBufferDefinition>;
+  processPlan?: {
+    definition: IndustrialProcess;
+    durationTicks: Tick;
+    inputs: ResourceBufferQuantity[];
+    outputs: ResourceBufferQuantity[];
+  };
 }
 export interface CompiledConnection extends BlueprintConnection {
   fromDevice: CompiledDevice;
@@ -211,6 +255,7 @@ export interface CompiledFactoryProject {
   rootDir: string;
   manifest: InmManifest;
   resources: Record<ResourceId, ResourceAsset>;
+  processes: Record<ProcessId, IndustrialProcess>;
   deviceAssets: Record<DeviceAssetId, DeviceAsset>;
   blueprint: Blueprint;
   scenario: Scenario;
@@ -223,6 +268,7 @@ export interface CompiledFactoryProject {
 export interface ProjectHashes {
   engineVersion: string;
   resourceCatalogHash: string;
+  processCatalogHash: string;
   deviceCatalogHash: string;
   blueprintHash: string;
   scenarioHash: string;

@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  InmValidationError, WORKSPACE_MANIFEST, atomicWriteJson, findCachedRun, listRuns, listWorkspaceProjects, loadWorkspace, openFactoryProject, pathExists,
+  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, findCachedRun, listRuns, listWorkspaceProjects, loadWorkspace, openFactoryProject, pathExists,
   researchFactory, runUntil, stableStringify, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
@@ -79,7 +79,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   for (const device of Object.values(project.devices)) for (const capability of device.assetDef.capabilities) capabilityCounts[capability] = (capabilityCounts[capability] ?? 0) + 1;
   const summary = {
     name: project.manifest.name, rootDir: project.rootDir, bounds: project.blueprint.bounds,
-    resources: Object.keys(project.resources), deviceAssets: Object.keys(project.deviceAssets),
+    resources: Object.keys(project.resources), processes: Object.keys(project.processes), deviceAssets: Object.keys(project.deviceAssets),
     deviceInstances: Object.keys(project.devices).length, capabilityCounts, connections: Object.keys(project.connections).length,
     scenario: { id: project.scenario.id, durationTicks: project.scenario.durationTicks }, objective: project.objective,
     hashes: project.hashes, runs: runs.map((run) => ({ name: run.name, score: run.score, decision: run.manifest.decision })),
@@ -87,9 +87,33 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   if (options.json) write(summary, true);
   else write([
     `${summary.name}`, `Project: ${summary.rootDir}`, `Blueprint: ${summary.bounds.width}×${summary.bounds.height}, ${summary.deviceInstances} devices, ${summary.connections} connections`,
-    `Resources: ${summary.resources.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
+    `Resources: ${summary.resources.join(", ")}`, `Processes: ${summary.processes.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
     `Objective: ${summary.objective.name} → ${summary.objective.targetResource}`, `Runs: ${summary.runs.length}`, "",
   ].join("\n"), false);
+}
+
+export async function analyzeCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
+  const project = await openFactoryProject(projectDir, selection);
+  const analysis = analyzeProduction(project);
+  if (options.json) {
+    write({ project: project.manifest.name, blueprintHash: project.hashes.blueprintHash, ...analysis }, true);
+    return;
+  }
+  const lines = [
+    `${project.manifest.name} · nominal production analysis`,
+    `Coverage: ${analysis.declarativeDevices} declarative process devices, ${analysis.opaqueDevices} opaque/boundary devices`,
+    "",
+    "Device rates",
+    ...analysis.devices.map((device) => `  ${device.device.padEnd(24)} ${device.process.padEnd(20)} ${device.cyclesPerMinute.toFixed(3)} cycles/min`),
+    "",
+    "Material balance",
+    ...analysis.resources.map((resource) => `  ${resource.resource.padEnd(20)} produce ${resource.producedPerMinute.toFixed(3).padStart(9)}/min  consume ${resource.consumedPerMinute.toFixed(3).padStart(9)}/min  net ${resource.netPerMinute.toFixed(3).padStart(9)}/min${resource.hasBoundarySupply ? "  [boundary supply]" : ""}${resource.hasBoundaryDemand ? "  [boundary demand]" : ""}`),
+    "",
+    analysis.diagnostics.length ? "Diagnostics" : "Diagnostics: none",
+    ...analysis.diagnostics.map((diagnostic) => `  ${diagnostic.severity === "warning" ? "!" : "·"} [${diagnostic.code}] ${diagnostic.message}`),
+    "",
+  ];
+  write(lines.join("\n"), false);
 }
 
 export async function simulateCommand(projectDir: string, selection: ProjectSelection, options: { seed: number; untilTick?: number; maxEvents?: number; json: boolean }): Promise<void> {

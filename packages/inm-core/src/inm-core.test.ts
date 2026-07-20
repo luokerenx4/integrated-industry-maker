@@ -3,7 +3,7 @@ import { cp, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
+  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
   listRuns, loadFactoryProject, openFactoryProject, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
@@ -28,7 +28,11 @@ describe("blueprint compiler", () => {
     const project = compileFactoryProject(await loaded());
     expect(Object.keys(project.devices)).toHaveLength(5);
     expect(Object.keys(project.resources)).toEqual(["gear", "iron-ore", "iron-plate"]);
+    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
+    expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
+    expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
     expect(project.hashes.blueprintHash).toHaveLength(64);
+    expect(project.hashes.processCatalogHash).toHaveLength(64);
   });
 
   test("loads self-contained resource and TypeScript device asset packages", async () => {
@@ -65,9 +69,16 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.device");
   });
 
-  test("lets each device program validate its own configuration", async () => {
-    const source = await loaded(); source.blueprint.devices[1]!.config = { operation: "missing-operation" };
-    expect(issueCodes(() => compileFactoryProject(source))).toContain("runtime.invalid-config");
+  test("rejects missing and incompatible process bindings", async () => {
+    const missing = await loaded(); missing.blueprint.devices[1]!.process = "missing-process";
+    expect(issueCodes(() => compileFactoryProject(missing))).toContain("reference.process");
+    const incompatible = await loaded(); incompatible.blueprint.devices[1]!.process = "assemble-gear";
+    expect(issueCodes(() => compileFactoryProject(incompatible))).toContain("production.category");
+  });
+
+  test("validates process resource references", async () => {
+    const source = await loaded(); source.processes["smelt-iron"]!.inputs[0]!.resource = "unobtainium";
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.resource");
   });
 });
 
@@ -76,6 +87,15 @@ describe("deterministic discrete-event simulation", () => {
     const first = new SeededRandom(42); const second = new SeededRandom(42); const third = new SeededRandom(43);
     const a = Array.from({ length: 8 }, () => first.nextUint32()); const b = Array.from({ length: 8 }, () => second.nextUint32()); const c = Array.from({ length: 8 }, () => third.nextUint32());
     expect(a).toEqual(b); expect(a).not.toEqual(c);
+  });
+  test("static production analysis exposes nominal material deficits before simulation", async () => {
+    const analysis = analyzeProduction(await openFactoryProject(ironworks));
+    const plate = analysis.resources.find((resource) => resource.resource === "iron-plate")!;
+    expect(analysis.declarativeDevices).toBe(2);
+    expect(plate.producedPerMinute).toBe(15);
+    expect(plate.consumedPerMinute).toBe(40);
+    expect(plate.netPerMinute).toBe(-25);
+    expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
@@ -141,6 +161,7 @@ describe("deterministic discrete-event simulation", () => {
       { id: "gear-output", role: "output", capacity: 4, accepts: ["gear"] },
       { id: "plate-output", role: "output", capacity: 4, accepts: ["iron-plate"] },
     ];
+    asset.production = undefined;
     asset.program = {
       apiVersion: 1,
       evaluate(context) {
@@ -159,7 +180,7 @@ describe("deterministic discrete-event simulation", () => {
       },
     } satisfies DeviceProgram;
     source.blueprint.devices = source.blueprint.devices.filter((device) => device.id === "assembler-1" || device.id === "generator-1");
-    source.blueprint.devices.find((device) => device.id === "assembler-1")!.config = {};
+    delete source.blueprint.devices.find((device) => device.id === "assembler-1")!.process;
     source.blueprint.connections = [];
     source.scenario.durationTicks = 1000;
     source.scenario.initialBuffers = { "assembler-1": { "ore-input": { "iron-ore": 1 }, "plate-input": { "iron-plate": 1 } } };
@@ -191,7 +212,7 @@ describe("research boundary and experiment decisions", () => {
   test("external command adapter accepts vendor-neutral proposal JSON", async () => {
     const command = `cat >/dev/null; printf '%s' '{"hypothesis":"Use FIFO","patch":[{"op":"replace","path":"/policies","value":{"dispatch":"fifo"}}]}'`;
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
-    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics });
+    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project) });
     expect(proposal.hypothesis).toBe("Use FIFO"); expect(proposal.patch[0]!.path).toBe("/policies");
   });
 

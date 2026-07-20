@@ -62,26 +62,22 @@
     },
     {
       "asset": "smelter",
-      "config": {
-        "operation": "iron-plate"
-      },
       "id": "smelter-1",
       "position": {
         "x": 10,
         "y": 10
       },
+      "process": "smelt-iron",
       "rotation": 0
     },
     {
       "asset": "assembler",
-      "config": {
-        "operation": "gear"
-      },
       "id": "assembler-1",
       "position": {
         "x": 18,
         "y": 10
       },
+      "process": "assemble-gear",
       "rotation": 0
     },
     {

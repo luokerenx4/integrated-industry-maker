@@ -43,6 +43,7 @@ factory/
         visual.json
         runtime.ts
         ... private implementation files
+  processes/<id>.process.json
   blueprints/<id>.blueprint.json
   scenarios/<id>.scenario.json
   objectives/<id>.objective.json
@@ -111,6 +112,12 @@ A Resource asset describes a kind of flow. Runtime quantities are `(resource id,
     { "id": "input", "role": "input", "capacity": 8, "accepts": ["iron-ore"] },
     { "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-plate"] }
   ],
+  "production": {
+    "categories": ["smelting"],
+    "speed": { "numerator": 1, "denominator": 1 },
+    "inputBuffer": "input",
+    "outputBuffer": "output"
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 180000, "productionMilliWatts": 0 },
   "economics": { "buildCost": 1200 },
@@ -118,7 +125,7 @@ A Resource asset describes a kind of flow. Runtime quantities are `(resource id,
 }
 ```
 
-Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. Capabilities are semantic hints for inspection, evaluation, and optimization; they do not implement throughput. The device's TypeScript program does.
+Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A production-capable Device may additionally declare compatible Process categories, an exact rational speed multiplier, and the buffers used to bind Process inputs and outputs. The device's TypeScript program still owns the final local decision.
 
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
@@ -156,13 +163,33 @@ export default {
 `assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. The program is a black box behind one host interface:
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
-- `evaluate(context)` receives only the current tick, instance identity/config, and a frozen snapshot of that device's buffers.
+- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process plan when one is bound.
 - `planTransport(context)` is required for assets declaring `transport`; it returns capacity and transit duration for a compiled connection.
 - A program returns declarative actions. It never receives the mutable global factory state.
 
 Supported decisions are `start`, `consume`, `wait`, and `none`. A `start` action may consume from and produce into any number of named buffers, so multi-input/multi-output equipment does not need a standardized internal recipe representation. The host validates every buffer, resource, count, capacity, duration, and power request before mutating state.
 
 Programs must be synchronous and deterministic. They are local trusted project code—not a security sandbox—and therefore should not use clocks, network calls, ambient process state, or unseeded randomness. Repeated simulations and immutable run hashes detect nondeterministic results.
+
+## Industrial Process
+
+Processes are project-local data, not shared assets. `processes/smelt-iron.process.json`:
+
+```json
+{
+  "version": 1,
+  "id": "smelt-iron",
+  "name": "Smelt Iron",
+  "description": "Reduce iron ore into iron plate stock.",
+  "category": "smelting",
+  "tags": ["iron", "primary-processing"],
+  "durationTicks": 4000,
+  "inputs": [{ "resource": "iron-ore", "count": 2 }],
+  "outputs": [{ "resource": "iron-plate", "count": 1 }]
+}
+```
+
+The filename must match `id`; every resource is compiler-resolved. The blueprint binds a Process to a Device, and the compiler checks the Device category, input/output buffer contracts, and exact speed ratio before producing a buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
 
 ## Blueprint
 
@@ -178,7 +205,7 @@ Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or 
       "asset": "smelter",
       "position": { "x": 10, "y": 10 },
       "rotation": 0,
-      "config": { "operation": "iron-plate" }
+      "process": "smelt-iron"
     }
   ],
   "connections": [],
@@ -186,7 +213,7 @@ Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or 
 }
 ```
 
-`config` is intentionally device-owned data. The compiler passes it to that asset's `validateConfig()` hook.
+`process` is engine-visible industrial semantics. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
 
 ## Scenario and objective
 

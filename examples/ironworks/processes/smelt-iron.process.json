@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "smelt-iron",
+  "name": "Smelt Iron",
+  "description": "Reduce iron ore into iron plate stock.",
+  "category": "smelting",
+  "tags": ["iron", "primary-processing"],
+  "durationTicks": 4000,
+  "inputs": [
+    { "resource": "iron-ore", "count": 2 }
+  ],
+  "outputs": [
+    { "resource": "iron-plate", "count": 1 }
+  ]
+}

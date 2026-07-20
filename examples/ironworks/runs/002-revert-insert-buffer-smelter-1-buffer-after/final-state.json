@@ -7,7 +7,7 @@
     "assembler-1": {
       "activeJob": {
         "durationTicks": 3000,
-        "operation": "gear",
+        "operation": "assemble-gear",
         "powerMilliWatts": 220000,
         "produce": [
           {
@@ -60,7 +60,7 @@
     "smelter-1": {
       "activeJob": {
         "durationTicks": 4000,
-        "operation": "iron-plate",
+        "operation": "smelt-iron",
         "powerMilliWatts": 180000,
         "produce": [
           {
@@ -89,7 +89,7 @@
     "smelter-1-parallel": {
       "activeJob": {
         "durationTicks": 4000,
-        "operation": "iron-plate",
+        "operation": "smelt-iron",
         "powerMilliWatts": 180000,
         "produce": [
           {

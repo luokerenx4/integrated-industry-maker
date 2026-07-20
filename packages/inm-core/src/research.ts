@@ -8,6 +8,7 @@ import { compileFactoryProject } from "./compiler";
 import type { LoadedFactoryProject } from "./loader";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { runUntil } from "./simulator";
+import { analyzeProduction, type ProductionAnalysis } from "./production-analysis";
 import { atomicWriteJson, hashValue } from "./utils";
 
 export interface ResearchInput {
@@ -15,6 +16,7 @@ export interface ResearchInput {
   project: CompiledFactoryProject;
   blueprint: Blueprint;
   metrics: FactoryMetrics;
+  production: ProductionAnalysis;
 }
 export interface ResearchProposal { hypothesis: string; patch: JsonPatchOperation[]; expectedEffect?: string }
 export interface BlueprintResearchAgent { propose(input: ResearchInput): Promise<ResearchProposal> }
@@ -179,7 +181,7 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
   const iterations: ResearchIteration[] = []; const agent = options.agent ?? new HeuristicResearchAgent();
   let parentRun = baseline;
   for (let iteration = 1; iteration <= options.iterations; iteration++) {
-    const proposal = await agent.propose({ iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics });
+    const proposal = await agent.propose({ iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics, production: analyzeProduction(project) });
     const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
     candidateBlueprint.revision = hashValue(bestBlueprint);
     let candidateProject: CompiledFactoryProject; let candidateResult: ReturnType<typeof runUntil>;

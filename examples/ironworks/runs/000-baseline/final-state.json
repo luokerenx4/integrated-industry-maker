@@ -48,7 +48,7 @@
     "smelter-1": {
       "activeJob": {
         "durationTicks": 4000,
-        "operation": "iron-plate",
+        "operation": "smelt-iron",
         "powerMilliWatts": 180000,
         "produce": [
           {
