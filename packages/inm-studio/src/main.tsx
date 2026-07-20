@@ -118,6 +118,18 @@ interface Metrics {
   scoreBreakdown: Record<string, number>;
 }
 
+interface IndustrialAnalysis {
+  declarativeDevices: number;
+  opaqueDevices: number;
+  resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
+  connections: Array<{
+    connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number;
+    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
+  }>;
+  powerGrids: Array<{ grid: string; distributors: string[]; members: string[]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
+  diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; message: string }>;
+}
+
 interface StudioData {
   projectId: string;
   name: string;
@@ -132,6 +144,7 @@ interface StudioData {
     to: { x: number; y: number };
   }>;
   resources: Record<string, { visual?: Visual }>;
+  analysis: IndustrialAnalysis;
   assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[] };
   events: FactoryEvent[];
   metrics: Metrics | null;
@@ -364,6 +377,59 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
   </div>;
 }
 
+function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
+  const analysis = data.analysis;
+  const warningCount = analysis.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [onClose]);
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <section className="analysis-browser" role="dialog" aria-modal="true" aria-label="Industrial analysis">
+      <header className="analysis-header">
+        <div><span className="eyebrow">COMPILED INDUSTRIAL MODEL</span><h2>{data.name}</h2><p>Nominal rates before simulation · selected run blueprint</p></div>
+        <button className="icon-button" onClick={onClose} aria-label="Close industrial analysis">×</button>
+      </header>
+      <div className="analysis-summary">
+        <Metric label="PROCESS DEVICES" value={String(analysis.declarativeDevices)} accent />
+        <Metric label="MATERIAL STREAMS" value={String(analysis.resources.length)} />
+        <Metric label="LOGISTICS LINKS" value={String(analysis.connections.length)} />
+        <Metric label="POWER GRIDS" value={String(analysis.powerGrids.length)} />
+        <Metric label="WARNINGS" value={String(warningCount)} />
+      </div>
+      <div className="analysis-body">
+        <section className="analysis-section material-analysis">
+          <div className="analysis-section-title"><span>MATERIAL BALANCE</span><b>ITEMS / MIN</b></div>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RESOURCE</span><span>PRODUCE</span><span>CONSUME</span><span>NET</span></div>{analysis.resources.map((resource) => <div key={resource.resource}>
+            <strong>{resource.resource}</strong><span>{resource.producedPerMinute.toFixed(3)}</span><span>{resource.consumedPerMinute.toFixed(3)}</span><b className={resource.netPerMinute < 0 ? "negative" : resource.netPerMinute > 0 ? "positive" : ""}>{resource.netPerMinute.toFixed(3)}</b>
+            <small>{resource.hasBoundarySupply ? "SUPPLY" : ""}{resource.hasBoundarySupply && resource.hasBoundaryDemand ? " · " : ""}{resource.hasBoundaryDemand ? "DEMAND" : ""}</small>
+          </div>)}</div>
+        </section>
+        <section className="analysis-section diagnostics-analysis">
+          <div className="analysis-section-title"><span>DIAGNOSTICS</span><b>{analysis.diagnostics.length}</b></div>
+          <div className="diagnostic-list">{analysis.diagnostics.length ? analysis.diagnostics.map((diagnostic, index) => <div className={diagnostic.severity} key={`${diagnostic.code}-${index}`}><i>{diagnostic.severity === "warning" ? "!" : "·"}</i><span><code>{diagnostic.code}</code><p>{diagnostic.message}</p></span></div>) : <div className="diagnostics-clear"><i>✓</i><span>NO STATIC WARNINGS</span></div>}</div>
+        </section>
+        <section className="analysis-section logistics-analysis">
+          <div className="analysis-section-title"><span>LOGISTICS PIPELINES</span><b>LOADER → LINE → UNLOADER</b></div>
+          <div className="pipeline-list">{analysis.connections.map((connection) => <div className="pipeline-card" key={connection.connection}>
+            <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}</small></span><b>{connection.capacityItemsPerMinute.toFixed(1)} /min</b></div>
+            <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+            <footer><span>LATENCY {connection.travelTicks}ms</span><span>DISPATCH {connection.dispatchIntervalTicks}ms</span></footer>
+          </div>)}</div>
+        </section>
+        <section className="analysis-section power-analysis">
+          <div className="analysis-section-title"><span>POWER GRIDS</span><b>RATED ENVELOPE</b></div>
+          <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
+            const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.distributors.join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>GENERATION</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} MEMBERS</footer></div>;
+          }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
+        </section>
+      </div>
+    </section>
+  </div>;
+}
+
 function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (projectId: string) => void }) {
   return <div className="launcher-shell">
     <header className="launcher-header"><div className="brand"><div className="mark">INM</div><div><h1>Integrated Industry Maker</h1><p>PROJECT WORKSPACE</p></div></div><span className="engine-status"><i /> ENGINE READY</span></header>
@@ -396,6 +462,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assetsOpen, setAssetsOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
   const runRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
   const requestSequence = useRef(0);
@@ -432,6 +499,7 @@ function App() {
     runRef.current = null;
     setRouteProject(projectId);
     setAssetsOpen(false);
+    setAnalysisOpen(false);
     setError(null);
     if (!projectId) {
       requestSequence.current += 1;
@@ -447,6 +515,7 @@ function App() {
       projectRef.current = projectId;
       setRouteProject(projectId);
       setAssetsOpen(false);
+      setAnalysisOpen(false);
       if (!projectId) setData(null);
     };
     window.addEventListener("popstate", popstate);
@@ -509,7 +578,8 @@ function App() {
       <div className="header-tools">
         <span className="project-local"><i /> PROJECT LOCAL</span>
         <span className="hash">BP {data.blueprintHash.slice(0, 10)}</span>
-        <button className="assets-button" onClick={() => setAssetsOpen(true)}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length}</b></button>
+        <button className="analysis-button" onClick={() => { setAssetsOpen(false); setAnalysisOpen(true); }}>ANALYSIS <b>{data.analysis.diagnostics.length}</b></button>
+        <button className="assets-button" onClick={() => { setAnalysisOpen(false); setAssetsOpen(true); }}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length}</b></button>
         <button onClick={() => void loadProject(data.projectId, run)}>{loading ? "SYNCING" : "REFRESH"}</button>
       </div>
     </header>
@@ -529,6 +599,7 @@ function App() {
     </section>
     <footer className="timeline"><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>
     {assetsOpen && <AssetBrowser data={data} onClose={() => setAssetsOpen(false)} />}
+    {analysisOpen && <AnalysisBrowser data={data} onClose={() => setAnalysisOpen(false)} />}
   </main>;
 }
 

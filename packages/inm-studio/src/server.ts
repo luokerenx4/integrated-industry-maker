@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, watch } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  analyzeProduction,
   blueprintSchema,
   compileFactoryProject,
   findCachedRun,
@@ -162,6 +163,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       },
     })),
     resources: Object.fromEntries(Object.entries(project.resources).map(([id, resource]) => [id, { visual: resource.visual }])),
+    analysis: analyzeProduction(project),
     assets: {
       devices: Object.values(project.deviceAssets).map((asset) => ({
         type: "device" as const,
