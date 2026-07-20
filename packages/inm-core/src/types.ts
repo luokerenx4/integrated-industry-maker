@@ -31,6 +31,7 @@ export interface ResourceAssetManifest {
   tags: string[];
   unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
   transport: { stackSize: number };
+  fuel?: { energyMilliJoules: number };
   files: { visual: string };
 }
 
@@ -114,7 +115,9 @@ export interface DeviceAssetManifest {
   runtime: { apiVersion: 1; entry: string };
   power: {
     consumptionMilliWatts: number;
-    productionMilliWatts: number;
+    generation?:
+      | { kind: "renewable"; outputMilliWatts: number }
+      | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: ResourceId[] };
     distribution?: { connectionRange: number; coverageRange: number };
   };
   economics: { buildCost: number };
@@ -154,11 +157,18 @@ export interface DeviceProgramContext {
     itemsPerCycle: number;
     nodes: ReadonlyArray<Readonly<{ id: string; resource: ResourceId; remaining: number }>>;
   }>;
+  generation?: Readonly<{
+    kind: "fuel";
+    outputMilliWatts: number;
+    fuelBuffer: BufferId;
+    fuels: ReadonlyArray<Readonly<{ resource: ResourceId; energyMilliJoules: number; durationTicks: Tick }>>;
+  }>;
 }
 
 export type DeviceProgramDecision =
   | { kind: "start"; operation: string; durationTicks: Tick; consume: ResourceBufferQuantity[]; produce: ResourceBufferQuantity[]; powerMilliWatts?: number }
   | { kind: "extract"; operation: string; durationTicks: Tick; node: string; count: number; powerMilliWatts?: number }
+  | { kind: "generate"; operation: string; durationTicks: Tick; resource: ResourceId; count: number; outputMilliWatts: number }
   | { kind: "consume"; consume: ResourceBufferQuantity[] }
   | { kind: "wait"; reason: "input" | "output" | "idle" }
   | { kind: "none" };
@@ -313,6 +323,9 @@ export interface CompiledDevice extends BlueprintDevice {
     cycleTicks: Tick;
     itemsPerCycle: number;
   };
+  generationPlan?:
+    | { kind: "renewable"; outputMilliWatts: number }
+    | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: Array<{ resource: ResourceId; energyMilliJoules: number; durationTicks: Tick }> };
   powerGrid?: string;
 }
 export interface CompiledConnection extends BlueprintConnection {
@@ -401,6 +414,8 @@ export interface ActiveDeviceJob {
   powerMilliWatts: number;
   produce: ResourceBufferQuantity[];
   extraction?: { node: string; count: number };
+  generationMilliWatts?: number;
+  fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
 }
 export interface DeviceRuntimeState {
   status: DeviceStatus;
@@ -432,6 +447,7 @@ export interface FactoryState {
     availableMilliWatts: number;
     consumedMilliJoules: number;
     grids: Record<string, { availableMilliWatts: number; consumedMilliJoules: number }>;
+    fuelConsumed: Record<ResourceId, number>;
   };
   completedOrders: number;
 }
@@ -449,6 +465,8 @@ export type FactoryEvent =
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
+  | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
+  | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
   | { type: "device.breakdown"; tick: Tick; device: DeviceInstanceId }
   | { type: "device.recover"; tick: Tick; device: DeviceInstanceId }
   | { type: "simulation.completed"; tick: Tick; reason: "until-tick" | "max-events" | "infeasible" };
@@ -472,6 +490,7 @@ export interface FactoryMetrics {
   completedOrders: number;
   onTimeDelivery: number;
   energyConsumedMilliJoules: number;
+  fuelConsumed: Record<ResourceId, number>;
   totalBuildCost: number;
   occupiedArea: number;
   machineUtilization: Record<DeviceInstanceId, number>;

@@ -25,7 +25,7 @@
     "outputBuffer": "output"
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 220000, "productionMilliWatts": 0 },
+  "power": { "consumptionMilliWatts": 220000 },
   "economics": { "buildCost": 1600 },
   "files": { "visual": "visual.json" }
 }

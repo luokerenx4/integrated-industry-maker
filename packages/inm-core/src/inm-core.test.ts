@@ -41,7 +41,10 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
     ],
   }];
   source.scenario.durationTicks = 7_000;
-  source.scenario.initialBuffers = { "station-supply": { storage: { "iron-ore": 25 } } };
+  source.scenario.initialBuffers = {
+    "station-supply": { storage: { "iron-ore": 25 } },
+    "generator-1": { fuel: { coal: 1 } },
+  };
   source.scenario.failures = [];
   return source;
 }
@@ -49,11 +52,11 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
 describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
-    expect(Object.keys(project.devices)).toHaveLength(8);
+    expect(Object.keys(project.devices)).toHaveLength(10);
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
-    expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3"]);
+    expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
-    expect(Object.keys(project.resources)).toEqual(["gear", "iron-ore", "iron-plate"]);
+    expect(Object.keys(project.resources)).toEqual(["coal", "gear", "iron-ore", "iron-plate"]);
     expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
@@ -81,6 +84,11 @@ describe("blueprint compiler", () => {
     expect(source.deviceAssets.smelter!.runtime.entry).toBe("runtime.ts");
     expect(source.deviceAssets.smelter!.runtimeSourceHash).toHaveLength(64);
     expect(typeof source.deviceAssets.smelter!.program.evaluate).toBe("function");
+  });
+
+  test("fuel generators require resources with declared energy values", async () => {
+    const source = await loaded(); source.resources.coal!.fuel = undefined;
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("power.resource-not-fuel");
   });
 
   test("rejects out-of-bounds devices", async () => {
@@ -212,21 +220,45 @@ describe("deterministic discrete-event simulation", () => {
   test("static production analysis exposes nominal material deficits before simulation", async () => {
     const analysis = analyzeProduction(await openFactoryProject(ironworks));
     const plate = analysis.resources.find((resource) => resource.resource === "iron-plate")!;
-    expect(analysis.declarativeDevices).toBe(3);
-    expect(analysis.extractionDevices).toEqual([expect.objectContaining({ device: "ore-source-1", resource: "iron-ore", itemsPerMinute: 60 })]);
-    expect(analysis.resourceNodes).toHaveLength(3);
+    expect(analysis.declarativeDevices).toBe(7);
+    expect(analysis.extractionDevices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ device: "ore-source-1", resource: "iron-ore", itemsPerMinute: 60 }),
+      expect.objectContaining({ device: "coal-miner-forge", resource: "coal", itemsPerMinute: 60 }),
+      expect.objectContaining({ device: "coal-miner-assembly", resource: "coal", itemsPerMinute: 60 }),
+    ]));
+    expect(analysis.generationDevices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ device: "generator-1", kind: "fuel", fuelResource: "coal", fuelPerMinute: 60_000 / 70_000 }),
+      expect.objectContaining({ device: "generator-2", kind: "fuel", fuelResource: "coal", fuelPerMinute: 60_000 / 70_000 }),
+    ]));
+    expect(analysis.resourceNodes).toHaveLength(5);
     expect(plate.producedPerMinute).toBe(15);
     expect(plate.consumedPerMinute).toBe(40);
     expect(plate.netPerMinute).toBe(-25);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
     expect(analysis.powerGrids).toEqual([
-      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 80_000 }),
-      expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 70_000 }),
+      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 30_000 }),
+      expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 20_000 }),
     ]);
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
     expect(first).toEqual(second); expect(first.metrics.consumed.gear).toBeGreaterThanOrEqual(10);
+  });
+
+  test("fuel generation burns delivered coal and contributes power only for its compiled burn duration", async () => {
+    const source = await loaded();
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id === "station-supply" || device.id === "generator-1");
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { "generator-1": { fuel: { coal: 1 } } };
+    source.scenario.failures = [];
+    source.scenario.durationTicks = 71_000;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 71_000 });
+    expect(result.events.some((event) => event.type === "power.fuel-loaded" && event.tick === 0 && event.device === "generator-1" && event.resource === "coal" && event.durationTicks === 70_000)).toBeTrue();
+    expect(result.events.some((event) => event.type === "power.fuel-spent" && event.tick === 70_000 && event.device === "generator-1" && event.resource === "coal")).toBeTrue();
+    expect(result.events.some((event) => event.type === "power.shortage" && event.tick === 70_000 && event.device === "station-supply")).toBeTrue();
+    expect(result.metrics.fuelConsumed).toEqual({ coal: 1 });
+    expect(result.state.energy.availableMilliWatts).toBe(0);
   });
 
   test("finite world nodes reserve, extract, deplete, and conserve their initial amount", async () => {
@@ -242,7 +274,10 @@ describe("deterministic discrete-event simulation", () => {
     source.world.resourceNodes = [{ ...source.world.resourceNodes[0]!, position: { x: 3, y: 9 }, amount: 2 }];
     const first = source.blueprint.devices.find((device) => device.id === "ore-source-1")!;
     first.resourceNodes = ["iron-vein-1"];
-    source.blueprint.devices.push({ ...structuredClone(first), id: "ore-source-2", position: { x: 4, y: 10 } });
+    source.blueprint.devices = [first, { ...structuredClone(first), id: "ore-source-2", position: { x: 4, y: 10 } }, source.blueprint.devices.find((device) => device.id === "generator-1")!];
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { "generator-1": { fuel: { coal: 1 } } };
     source.scenario.durationTicks = 1_000;
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 1_000 });
     expect(result.metrics.resourceNodes["iron-vein-1"]).toEqual({ initial: 2, remaining: 0, reserved: 0, extracted: 2, depleted: true });
@@ -305,6 +340,8 @@ describe("deterministic discrete-event simulation", () => {
 
   test("power shortage produces an event and unpowered state", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
+    source.blueprint.connections = source.blueprint.connections.filter((connection) => connection.to.device !== "generator-1" && connection.from.device !== "generator-1");
+    delete source.scenario.initialBuffers?.["generator-1"];
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42, untilTick: 10_000 });
     expect(result.events.some((event) => event.type === "power.shortage" && event.grid === null)).toBeTrue();
     expect(result.state.devices["ore-source-1"]!.status).toBe("unpowered");
@@ -326,6 +363,7 @@ describe("deterministic discrete-event simulation", () => {
       logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
     }];
     source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { "generator-1": { fuel: { coal: 1 } } };
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
     expect(Object.values(result.state.devices["buffer-1"]!.buffers.storage!).reduce((sum, count) => sum + count, 0)).toBe(20);
     expect(result.metrics.blockedOutputTime["ore-source-1"]).toBeGreaterThan(0);
@@ -381,7 +419,10 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [];
     source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 1000;
-    source.scenario.initialBuffers = { "assembler-1": { "ore-input": { "iron-ore": 1 }, "plate-input": { "iron-plate": 1 } } };
+    source.scenario.initialBuffers = {
+      "assembler-1": { "ore-input": { "iron-ore": 1 }, "plate-input": { "iron-plate": 1 } },
+      "generator-1": { fuel: { coal: 1 } },
+    };
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 1000 });
     expect(result.metrics.produced.gear).toBe(1);
     expect(result.metrics.produced["iron-plate"]).toBe(1);
@@ -434,6 +475,8 @@ describe("research boundary and experiment decisions", () => {
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
+    source.blueprint.connections = source.blueprint.connections.filter((connection) => connection.to.device !== "generator-1" && connection.from.device !== "generator-1");
+    delete source.scenario.initialBuffers?.["generator-1"];
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({
       iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), history: [],

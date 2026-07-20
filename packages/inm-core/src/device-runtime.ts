@@ -57,6 +57,14 @@ export function parseDeviceDecision(assetId: string, value: unknown): DeviceProg
         ...(value.powerMilliWatts === undefined ? {} : { powerMilliWatts: value.powerMilliWatts as number }),
       };
     }
+    if (value.kind === "generate") {
+      if (typeof value.operation !== "string" || !value.operation) throw new Error("generate.operation must be a non-empty string");
+      if (typeof value.resource !== "string" || !value.resource) throw new Error("generate.resource must be a non-empty string");
+      if (!Number.isInteger(value.durationTicks) || (value.durationTicks as number) <= 0) throw new Error("generate.durationTicks must be a positive integer");
+      if (!Number.isInteger(value.count) || (value.count as number) <= 0) throw new Error("generate.count must be a positive integer");
+      if (!Number.isInteger(value.outputMilliWatts) || (value.outputMilliWatts as number) <= 0) throw new Error("generate.outputMilliWatts must be a positive integer");
+      return { kind: "generate", operation: value.operation, resource: value.resource, durationTicks: value.durationTicks as number, count: value.count as number, outputMilliWatts: value.outputMilliWatts as number };
+    }
     if (value.kind === "start") {
       if (typeof value.operation !== "string" || !value.operation) throw new Error("start.operation must be a non-empty string");
       if (!Number.isInteger(value.durationTicks) || (value.durationTicks as number) <= 0) throw new Error("start.durationTicks must be a positive integer");

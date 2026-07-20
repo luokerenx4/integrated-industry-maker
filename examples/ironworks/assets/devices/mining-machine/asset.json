@@ -11,16 +11,16 @@
     "rotatable": true,
     "ports": [{ "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }]
   },
-  "buffers": [{ "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-ore"] }],
+  "buffers": [{ "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-ore", "coal"] }],
   "extraction": {
-    "resources": ["iron-ore"],
+    "resources": ["iron-ore", "coal"],
     "radius": 3,
     "outputBuffer": "output",
     "cycleTicks": 1000,
     "itemsPerCycle": 1
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 50000, "productionMilliWatts": 0 },
+  "power": { "consumptionMilliWatts": 50000 },
   "economics": { "buildCost": 500 },
   "files": { "visual": "visual.json" }
 }

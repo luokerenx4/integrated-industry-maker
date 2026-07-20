@@ -1,0 +1,12 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "coal",
+  "name": "Coal",
+  "description": "Solid chemical fuel extracted from finite world deposits.",
+  "tags": ["raw", "solid", "fuel"],
+  "unit": { "kind": "discrete", "symbol": "unit", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "fuel": { "energyMilliJoules": 70000000 },
+  "files": { "visual": "visual.json" }
+}

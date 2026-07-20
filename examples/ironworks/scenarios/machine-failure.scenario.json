@@ -1,5 +1,8 @@
 {
   "id": "machine-failure", "name": "Smelter Failure", "durationTicks": 120000,
-  "initialBuffers": {},
+  "initialBuffers": {
+    "generator-1": { "fuel": { "coal": 1 } },
+    "generator-2": { "fuel": { "coal": 1 } }
+  },
   "failures": [{ "device": "smelter-1", "atTick": 40000, "durationTicks": 15000 }]
 }

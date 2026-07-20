@@ -76,8 +76,25 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     if (asset.power.distribution && !asset.capabilities.includes("power")) {
       issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "capability.not-power", message: "Power distribution requires power capability" });
     }
-    if (asset.power.productionMilliWatts > 0 && !asset.power.distribution) {
-      issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "power.distribution-required", message: "Power-producing devices must declare grid connection and coverage ranges" });
+    if (asset.power.generation) {
+      if (!asset.capabilities.includes("power")) issues.push({ path: `assets/devices/${id}/asset.json/power/generation`, code: "capability.not-power", message: "Power generation requires power capability" });
+      if (!asset.power.distribution) issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "power.distribution-required", message: "Power-generating devices must declare grid connection and coverage ranges" });
+      if (asset.power.generation.kind === "fuel") {
+        const generation = asset.power.generation;
+        const buffer = asset.buffers.find((item) => item.id === generation.fuelBuffer);
+        if (!buffer) issues.push({ path: `assets/devices/${id}/asset.json/power/generation/fuelBuffer`, code: "reference.buffer", message: `Unknown fuel buffer '${asset.power.generation.fuelBuffer}'` });
+        else if (buffer.role === "output") issues.push({ path: `assets/devices/${id}/asset.json/power/generation/fuelBuffer`, code: "power.fuel-buffer-role", message: "Fuel buffer cannot be output-only" });
+        const seenFuels = new Set<string>();
+        for (const [fuelIndex, fuel] of asset.power.generation.fuels.entries()) {
+          const fuelPath = `assets/devices/${id}/asset.json/power/generation/fuels/${fuelIndex}`;
+          if (seenFuels.has(fuel)) issues.push({ path: fuelPath, code: "power.duplicate-fuel", message: `Fuel '${fuel}' is duplicated` });
+          seenFuels.add(fuel);
+          const resource = resources[fuel];
+          if (!resource) issues.push({ path: fuelPath, code: "reference.resource", message: `Unknown fuel resource '${fuel}'` });
+          else if (!resource.fuel) issues.push({ path: fuelPath, code: "power.resource-not-fuel", message: `Resource '${fuel}' has no fuel energy value` });
+          if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(fuel)) issues.push({ path: fuelPath, code: "power.fuel-contract", message: `Fuel buffer '${buffer.id}' does not accept '${fuel}'` });
+        }
+      }
     }
     if (asset.logistics && !asset.capabilities.includes("transport")) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "capability.not-transport", message: "Logistics roles require transport capability" });
     if (asset.logistics && new Set(asset.logistics.roles).size !== asset.logistics.roles.length) issues.push({ path: `assets/devices/${id}/asset.json/logistics/roles`, code: "logistics.duplicate-role", message: "Logistics roles must be unique" });
@@ -152,7 +169,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     const grid = grids[candidates[0]!.grid]!;
     device.powerGrid = grid.id;
     grid.members.push(device.id);
-    grid.productionMilliWatts += device.assetDef.power.productionMilliWatts;
+    grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.ratedConsumptionMilliWatts += device.assetDef.power.consumptionMilliWatts;
   }
   return grids;
@@ -262,6 +279,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
     let processPlan: CompiledDevice["processPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
+    let generationPlan: CompiledDevice["generationPlan"];
     if (instance.process) {
       const definition = loaded.processes[instance.process];
       if (!definition) issues.push({ path: `${path}/process`, code: "reference.process", message: `Unknown process '${instance.process}'` });
@@ -313,12 +331,23 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     } else if (instance.resourceNodes) {
       issues.push({ path: `${path}/resourceNodes`, code: "extraction.unsupported", message: `Device asset '${asset.id}' cannot bind world resource nodes` });
     }
+    if (asset.power.generation?.kind === "renewable") generationPlan = { ...asset.power.generation };
+    else if (asset.power.generation?.kind === "fuel") generationPlan = {
+      kind: "fuel",
+      outputMilliWatts: asset.power.generation.outputMilliWatts,
+      fuelBuffer: asset.power.generation.fuelBuffer,
+      fuels: asset.power.generation.fuels.flatMap((resource) => {
+        const energyMilliJoules = loaded.resources[resource]?.fuel?.energyMilliJoules;
+        return energyMilliJoules === undefined ? [] : [{ resource, energyMilliJoules, durationTicks: Math.max(1, Math.floor(energyMilliJoules * 1000 / asset.power.generation!.outputMilliWatts)) }];
+      }),
+    };
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotateSide(port.side, instance.rotation) })),
       buffers: Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, buffer])),
       ...(processPlan ? { processPlan } : {}),
       ...(extractionPlan ? { extractionPlan } : {}),
+      ...(generationPlan ? { generationPlan } : {}),
     };
   }
 

@@ -8,9 +8,10 @@ The baseline chain is intentionally under-provisioned:
 
 ```text
 finite iron veins → mining-machine → smelter → interstellar logistics → assembler → material-sink
+finite coal seam  → mining-machine → local belt → thermal generator → regional power grid
 ```
 
-The miner can feed two smelters while its bound deposits last, but the blueprint starts with one. The built-in heuristic detects that bottleneck and adds a parallel smelter plus mirrored input/output connections without changing the world or its resource inventory.
+Each planet has its own self-contained coal-to-power loop. A startup coal unit boots the grid, after which the powered miner replenishes the thermal generator through a local logistics pipeline. Coal's resource asset declares 70 MJ per unit, so a 1 kW generator contributes to its regional grid for exactly 70 seconds per burn. The iron miner can feed two smelters while its bound deposits last, but the blueprint starts with one. The built-in heuristic detects that bottleneck and adds a parallel smelter plus mirrored input/output connections; if it needs new local power capacity it chooses the project-local renewable wind turbine rather than inventing an unfueled thermal plant.
 
 ```bash
 bun run inm validate examples/ironworks

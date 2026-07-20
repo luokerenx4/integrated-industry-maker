@@ -112,11 +112,15 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
   }
   const lines = [
     `${project.manifest.name} · nominal production analysis`,
-    `Coverage: ${analysis.declarativeDevices} declarative process devices, ${analysis.opaqueDevices} opaque/boundary devices`,
+    `Coverage: ${analysis.declarativeDevices} declarative industrial devices, ${analysis.opaqueDevices} opaque/boundary devices`,
     "",
     "Device rates",
     ...analysis.extractionDevices.map((device) => `  ${device.device.padEnd(24)} extract ${device.resource.padEnd(15)} ${device.itemsPerMinute.toFixed(3)} items/min from ${device.nodes.join(", ")}`),
     ...analysis.devices.map((device) => `  ${device.device.padEnd(24)} ${device.process.padEnd(20)} ${device.cyclesPerMinute.toFixed(3)} cycles/min`),
+    "",
+    "Power generation",
+    ...analysis.generationDevices.map((device) => `  ${device.device.padEnd(24)} ${device.kind.padEnd(10)} ${(device.outputMilliWatts / 1000).toFixed(3).padStart(9)} W${device.fuelResource ? `  burn ${device.fuelPerMinute!.toFixed(3)} ${device.fuelResource}/min · ${device.burnTicks} ms/unit` : ""}`),
+    ...(analysis.generationDevices.length ? [] : ["  none"]),
     "",
     "Finite resource nodes",
     ...analysis.resourceNodes.map((node) => `  ${node.node.padEnd(24)} [${node.region}] ${node.amount.toString().padStart(7)} ${node.resource}  miners ${node.miners.join(", ") || "none"}  depletion ${node.estimatedDepletionMinutes === null ? "never" : `${node.estimatedDepletionMinutes.toFixed(3)} min`}`),

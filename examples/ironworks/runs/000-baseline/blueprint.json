@@ -87,6 +87,50 @@
         "device": "output-1",
         "port": "input"
       }
+    },
+    {
+      "from": {
+        "device": "coal-miner-forge",
+        "port": "output"
+      },
+      "id": "coal-forge-to-generator",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "generator-1",
+        "port": "fuel-input"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-miner-assembly",
+        "port": "output"
+      },
+      "id": "coal-assembly-to-generator",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "generator-2",
+        "port": "fuel-input"
+      }
     }
   ],
   "devices": [
@@ -178,6 +222,32 @@
         "y": 3
       },
       "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "mining-machine",
+      "id": "coal-miner-forge",
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "region": "forge-world",
+      "resourceNodes": [
+        "coal-seam-forge"
+      ],
+      "rotation": 0
+    },
+    {
+      "asset": "mining-machine",
+      "id": "coal-miner-assembly",
+      "position": {
+        "x": 1,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "resourceNodes": [
+        "coal-seam-assembly"
+      ],
       "rotation": 0
     }
   ],

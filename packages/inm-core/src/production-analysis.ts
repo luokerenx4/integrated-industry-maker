@@ -23,6 +23,18 @@ export interface DeviceExtractionRate {
   powerMilliWatts: number;
 }
 
+export interface DevicePowerGenerationRate {
+  device: string;
+  asset: string;
+  region: string;
+  kind: "renewable" | "fuel";
+  outputMilliWatts: number;
+  fuelBuffer?: string;
+  fuelResource?: ResourceId;
+  fuelPerMinute?: number;
+  burnTicks?: number;
+}
+
 export interface ResourceNodeAnalysis {
   node: string;
   region: string;
@@ -57,6 +69,7 @@ export interface PowerGridAnalysis {
   region: string;
   distributors: string[];
   members: string[];
+  generators: DevicePowerGenerationRate[];
   productionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
   headroomMilliWatts: number;
@@ -84,7 +97,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -97,6 +110,7 @@ export interface ProductionAnalysis {
   opaqueDevices: number;
   devices: DeviceProductionRate[];
   extractionDevices: DeviceExtractionRate[];
+  generationDevices: DevicePowerGenerationRate[];
   resourceNodes: ResourceNodeAnalysis[];
   resources: ResourceProductionBalance[];
   connections: ConnectionRateLimit[];
@@ -123,6 +137,7 @@ function declaredBoundaryResources(project: CompiledFactoryProject): Set<Resourc
 export function analyzeProduction(project: CompiledFactoryProject): ProductionAnalysis {
   const devices: DeviceProductionRate[] = [];
   const extractionDevices: DeviceExtractionRate[] = [];
+  const generationDevices: DevicePowerGenerationRate[] = [];
   const produced: Record<ResourceId, number> = {};
   const consumed: Record<ResourceId, number> = {};
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
@@ -148,6 +163,23 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       inputsPerMinute,
       outputsPerMinute,
       powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
+    });
+  }
+
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    const plan = device.generationPlan;
+    if (!plan) continue;
+    if (plan.kind === "renewable") {
+      generationDevices.push({ device: device.id, asset: device.asset, region: device.region, kind: plan.kind, outputMilliWatts: plan.outputMilliWatts });
+      continue;
+    }
+    const fuel = plan.fuels[0]!;
+    const fuelPerMinute = 60_000 / fuel.durationTicks;
+    add(consumed, fuel.resource, fuelPerMinute);
+    generationDevices.push({
+      device: device.id, asset: device.asset, region: device.region, kind: plan.kind,
+      outputMilliWatts: plan.outputMilliWatts, fuelBuffer: plan.fuelBuffer,
+      fuelResource: fuel.resource, fuelPerMinute, burnTicks: fuel.durationTicks,
     });
   }
 
@@ -227,6 +259,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     region: grid.region,
     distributors: [...grid.distributors],
     members: [...grid.members],
+    generators: generationDevices.filter((device) => grid.distributors.includes(device.device)),
     productionMilliWatts: grid.productionMilliWatts,
     ratedConsumptionMilliWatts: grid.ratedConsumptionMilliWatts,
     headroomMilliWatts: grid.productionMilliWatts - grid.ratedConsumptionMilliWatts,
@@ -267,6 +300,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     code: "power-deficit", severity: "warning",
     message: `${grid.grid} rated demand exceeds generation by ${(-grid.headroomMilliWatts / 1000).toFixed(3)} W`,
   });
+  for (const generator of generationDevices.filter((device) => device.kind === "fuel")) {
+    const inbound = Object.values(project.connections).some((connection) => connection.to.device === generator.device && connection.toPort.buffer === generator.fuelBuffer);
+    const initialFuel = Object.values(project.scenario.initialBuffers?.[generator.device]?.[generator.fuelBuffer ?? ""] ?? {}).reduce((sum, count) => sum + count, 0);
+    if (!inbound && initialFuel <= 0) diagnostics.push({
+      code: "power-fuel-unfed", severity: "warning", resource: generator.fuelResource, device: generator.device,
+      message: `${generator.device} requires ${generator.fuelResource} in ${generator.fuelBuffer} but has no inbound fuel link or scenario startup fuel`,
+    });
+  }
 
   for (const network of Object.values(project.logisticsNetworks).sort((a, b) => a.id.localeCompare(b.id))) {
     for (const station of network.stations) for (const slot of station.slots) {
@@ -299,10 +340,11 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     }
   }
 
+  const declarativeDeviceIds = new Set([...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device), ...generationDevices.map((device) => device.device)]);
   return {
-    declarativeDevices: new Set([...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device)]).size,
-    opaqueDevices: Object.keys(project.devices).length - new Set([...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device)]).size,
-    devices, extractionDevices, resourceNodes,
+    declarativeDevices: declarativeDeviceIds.size,
+    opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
+    devices, extractionDevices, generationDevices, resourceNodes,
     resources,
     connections,
     stationNetworks,

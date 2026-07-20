@@ -11,13 +11,65 @@
       },
       "status": "waiting-input"
     },
+    "coal-miner-assembly": {
+      "buffers": {
+        "output": {
+          "coal": 7
+        }
+      },
+      "status": "blocked-output"
+    },
+    "coal-miner-forge": {
+      "buffers": {
+        "output": {
+          "coal": 7
+        }
+      },
+      "status": "blocked-output"
+    },
     "generator-1": {
-      "buffers": {},
-      "status": "idle"
+      "activeJob": {
+        "durationTicks": 70000,
+        "fuel": {
+          "count": 1,
+          "energyMilliJoules": 70000000,
+          "resource": "coal"
+        },
+        "generationMilliWatts": 1000000,
+        "operation": "burn-coal",
+        "powerMilliWatts": 0,
+        "produce": [],
+        "startedAt": 70000
+      },
+      "buffers": {
+        "fuel": {
+          "coal": 4
+        }
+      },
+      "progressTicks": 50000,
+      "status": "processing"
     },
     "generator-2": {
-      "buffers": {},
-      "status": "idle"
+      "activeJob": {
+        "durationTicks": 70000,
+        "fuel": {
+          "count": 1,
+          "energyMilliJoules": 70000000,
+          "resource": "coal"
+        },
+        "generationMilliWatts": 1000000,
+        "operation": "burn-coal",
+        "powerMilliWatts": 0,
+        "produce": [],
+        "startedAt": 70000
+      },
+      "buffers": {
+        "fuel": {
+          "coal": 4
+        }
+      },
+      "progressTicks": 50000,
+      "status": "processing"
     },
     "ore-source-1": {
       "activeJob": {
@@ -91,15 +143,18 @@
   },
   "energy": {
     "availableMilliWatts": 2000000,
-    "consumedMilliJoules": 200684000,
+    "consumedMilliJoules": 201884000,
+    "fuelConsumed": {
+      "coal": 4
+    },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 91920000
+        "consumedMilliJoules": 92520000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 108764000
+        "consumedMilliJoules": 109364000
       }
     }
   },
@@ -111,7 +166,7 @@
         "departTick": 112620,
         "from": "station-supply",
         "fromBuffer": "storage",
-        "id": "transit-000131",
+        "id": "transit-000141",
         "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
@@ -120,11 +175,22 @@
     ]
   },
   "produced": {
+    "coal": 24,
     "gear": 12,
     "iron-ore": 74,
     "iron-plate": 29
   },
   "resourceNodes": {
+    "coal-seam-assembly": {
+      "extracted": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "extracted": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
     "iron-vein-1": {
       "extracted": 30,
       "remaining": 0,
@@ -143,6 +209,8 @@
   },
   "tick": 120000,
   "transports": {
+    "coal-assembly-to-generator": [],
+    "coal-forge-to-generator": [],
     "gear-to-output": [
       {
         "arriveTick": 121120,
@@ -150,7 +218,7 @@
         "departTick": 119920,
         "from": "assembler-1",
         "fromBuffer": "output",
-        "id": "transit-000141",
+        "id": "transit-000151",
         "resource": "gear",
         "to": "output-1",
         "toBuffer": "input"
@@ -163,7 +231,7 @@
         "departTick": 119200,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000139",
+        "id": "transit-000149",
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"
@@ -174,7 +242,7 @@
         "departTick": 119450,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000140",
+        "id": "transit-000150",
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"
@@ -187,7 +255,7 @@
         "departTick": 119200,
         "from": "smelter-1",
         "fromBuffer": "output",
-        "id": "transit-000138",
+        "id": "transit-000148",
         "resource": "iron-plate",
         "to": "station-supply",
         "toBuffer": "storage"

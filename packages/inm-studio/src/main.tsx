@@ -69,7 +69,11 @@ interface DeviceCatalogAsset {
   logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar"> };
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number };
   runtime: { apiVersion: 1; entry: string };
-  power: { consumptionMilliWatts: number; productionMilliWatts: number; distribution?: { connectionRange: number; coverageRange: number } };
+  power: {
+    consumptionMilliWatts: number;
+    generation?: { kind: "renewable"; outputMilliWatts: number } | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: string; fuels: string[] };
+    distribution?: { connectionRange: number; coverageRange: number };
+  };
   economics: { buildCost: number };
   visual: Visual;
   contentHash: string;
@@ -85,6 +89,7 @@ interface ResourceCatalogAsset {
   tags: string[];
   unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
   transport: { stackSize: number };
+  fuel?: { energyMilliJoules: number };
   visual: Visual;
   contentHash: string;
 }
@@ -121,6 +126,7 @@ interface Metrics {
   finalScore: number;
   throughputPerMinute: number;
   energyConsumedMilliJoules: number;
+  fuelConsumed: Record<string, number>;
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
@@ -135,13 +141,14 @@ interface IndustrialAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
   extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; powerMilliWatts: number }>;
+  generationDevices: Array<{ device: string; asset: string; region: string; kind: "renewable" | "fuel"; outputMilliWatts: number; fuelBuffer?: string; fuelResource?: string; fuelPerMinute?: number; burnTicks?: number }>;
   resourceNodes: Array<{ node: string; region: string; resource: string; amount: number; miners: string[]; nominalSharePerMinute: number; estimatedDepletionMinutes: number | null }>;
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
   }>;
-  powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
+  powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
     routes: Array<{ route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string; minimumBatch: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
@@ -408,6 +415,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
               {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
+              {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "continuous"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "renewable"}</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
               <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
@@ -418,6 +426,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>KIND</label><strong>{selected.unit.kind}</strong></div>
                 <div><label>PRECISION</label><strong>{selected.unit.precision}</strong></div>
                 <div><label>STACK SIZE</label><strong>{selected.transport.stackSize}</strong></div>
+                {selected.fuel && <div><label>FUEL ENERGY</label><strong>{(selected.fuel.energyMilliJoules / 1e6).toFixed(1)} MJ</strong></div>}
               </div>
               <section className="asset-section"><h4>Presentation</h4><div className="asset-table"><div><b>shape</b><strong>{selected.visual.shape}</strong><span>color</span><code>{selected.visual.color ?? "default"}</code></div></div></section>
             </> : <>
@@ -496,7 +505,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>POWER GRIDS</span><b>RATED ENVELOPE</b></div>
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.distributors.join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>GENERATION</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} MEMBERS</footer></div>;
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} MEMBERS · FUEL-DEPENDENT GRIDS CAN DROP BELOW RATED OUTPUT</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>
@@ -666,7 +675,7 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /><Metric label="AVG WIP" value={data.metrics?.averageWip.toFixed(2) ?? "—"} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p></div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>

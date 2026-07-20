@@ -13,17 +13,65 @@
       },
       "status": "waiting-input"
     },
+    "coal-miner-assembly": {
+      "buffers": {
+        "output": {
+          "coal": 7
+        }
+      },
+      "status": "blocked-output"
+    },
+    "coal-miner-forge": {
+      "buffers": {
+        "output": {
+          "coal": 7
+        }
+      },
+      "status": "blocked-output"
+    },
     "generator-1": {
-      "buffers": {},
-      "status": "idle"
+      "activeJob": {
+        "durationTicks": 70000,
+        "fuel": {
+          "count": 1,
+          "energyMilliJoules": 70000000,
+          "resource": "coal"
+        },
+        "generationMilliWatts": 1000000,
+        "operation": "burn-coal",
+        "powerMilliWatts": 0,
+        "produce": [],
+        "startedAt": 70000
+      },
+      "buffers": {
+        "fuel": {
+          "coal": 4
+        }
+      },
+      "progressTicks": 50000,
+      "status": "processing"
     },
     "generator-2": {
-      "buffers": {},
-      "status": "idle"
-    },
-    "generator-support": {
-      "buffers": {},
-      "status": "idle"
+      "activeJob": {
+        "durationTicks": 70000,
+        "fuel": {
+          "count": 1,
+          "energyMilliJoules": 70000000,
+          "resource": "coal"
+        },
+        "generationMilliWatts": 1000000,
+        "operation": "burn-coal",
+        "powerMilliWatts": 0,
+        "produce": [],
+        "startedAt": 70000
+      },
+      "buffers": {
+        "fuel": {
+          "coal": 4
+        }
+      },
+      "progressTicks": 50000,
+      "status": "processing"
     },
     "ore-source-1": {
       "buffers": {
@@ -69,19 +117,26 @@
         "storage": {}
       },
       "status": "idle"
+    },
+    "wind-turbine-support": {
+      "buffers": {},
+      "status": "idle"
     }
   },
   "energy": {
-    "availableMilliWatts": 3000000,
-    "consumedMilliJoules": 219420000,
+    "availableMilliWatts": 2600000,
+    "consumedMilliJoules": 220620000,
+    "fuelConsumed": {
+      "coal": 4
+    },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 98520000
+        "consumedMilliJoules": 99120000
       },
       "grid-forge-world-generator-1": {
-        "availableMilliWatts": 2000000,
-        "consumedMilliJoules": 120900000
+        "availableMilliWatts": 1600000,
+        "consumedMilliJoules": 121500000
       }
     }
   },
@@ -89,11 +144,22 @@
     "interstellar-main": []
   },
   "produced": {
+    "coal": 24,
     "gear": 22,
     "iron-ore": 90,
     "iron-plate": 45
   },
   "resourceNodes": {
+    "coal-seam-assembly": {
+      "extracted": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "extracted": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
     "iron-vein-1": {
       "extracted": 30,
       "remaining": 0,
@@ -112,6 +178,8 @@
   },
   "tick": 120000,
   "transports": {
+    "coal-assembly-to-generator": [],
+    "coal-forge-to-generator": [],
     "gear-to-output": [
       {
         "arriveTick": 120520,
@@ -119,7 +187,7 @@
         "departTick": 119320,
         "from": "assembler-1",
         "fromBuffer": "output",
-        "id": "transit-000209",
+        "id": "transit-000219",
         "resource": "gear",
         "to": "output-1",
         "toBuffer": "input"

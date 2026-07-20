@@ -28,6 +28,7 @@ export const resourceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("resource"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
   unit: z.object({ kind: z.enum(["discrete", "continuous"]), symbol: z.string().min(1), precision: nonNegativeInt }).strict(),
   transport: z.object({ stackSize: positiveInt }).strict(),
+  fuel: z.object({ energyMilliJoules: positiveInt }).strict().optional(),
   files: z.object({ visual: relativeAssetFile }).strict(),
 }).strict();
 
@@ -74,7 +75,10 @@ export const deviceAssetSchema = z.object({
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
   power: z.object({
     consumptionMilliWatts: nonNegativeInt,
-    productionMilliWatts: nonNegativeInt,
+    generation: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("renewable"), outputMilliWatts: positiveInt }).strict(),
+      z.object({ kind: z.literal("fuel"), outputMilliWatts: positiveInt, fuelBuffer: id, fuels: z.array(id).min(1) }).strict(),
+    ]).optional(),
     distribution: z.object({ connectionRange: positiveInt, coverageRange: positiveInt }).strict().optional(),
   }).strict(),
   economics: z.object({ buildCost: nonNegativeInt }).strict(),

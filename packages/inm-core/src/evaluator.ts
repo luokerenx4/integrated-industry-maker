@@ -61,7 +61,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   }));
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
-    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules,
+    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, fuelConsumed: { ...state.energy.fuelConsumed },
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime,
     averageWip, transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,
     scoreBreakdown, finalScore,

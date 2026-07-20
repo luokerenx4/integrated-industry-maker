@@ -32,12 +32,12 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
   const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as ResourceTransit[]]));
   const logisticsTransports = Object.fromEntries(Object.keys(project.logisticsNetworks).sort().map((id) => [id, [] as ResourceTransit[]]));
   const grids = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => [grid.id, {
-    availableMilliWatts: grid.productionMilliWatts,
+    availableMilliWatts: grid.members.reduce((sum, id) => sum + (project.devices[id]!.generationPlan?.kind === "renewable" ? project.devices[id]!.generationPlan.outputMilliWatts : 0), 0),
     consumedMilliJoules: 0,
   }]));
-  const availableMilliWatts = Object.values(project.powerGrids).reduce((sum, grid) => sum + grid.productionMilliWatts, 0);
+  const availableMilliWatts = Object.values(grids).reduce((sum, grid) => sum + grid.availableMilliWatts, 0);
   const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => [node.id, { remaining: node.amount, reserved: 0, extracted: 0 }]));
-  return { tick: 0, devices, resourceNodes, transports, logisticsTransports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0, grids }, completedOrders: 0 };
+  return { tick: 0, devices, resourceNodes, transports, logisticsTransports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0, grids, fuelConsumed: {} }, completedOrders: 0 };
 }
 
 export function runUntil(project: CompiledFactoryProject, initialState = createInitialFactoryState(project), options: RunOptions = {}): SimulationResult {
@@ -80,6 +80,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
     return sum + (runtime.activeJob?.powerMilliWatts ?? 0);
   }, 0);
+  const availablePower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
+    if (grid !== undefined && device.powerGrid !== grid) return sum;
+    if (state.devices[device.id]!.status === "failed") return sum;
+    if (device.generationPlan?.kind === "renewable") return sum + device.generationPlan.outputMilliWatts;
+    return sum + (state.devices[device.id]!.activeJob?.generationMilliWatts ?? 0);
+  }, 0);
+  const syncPowerAvailability = () => {
+    for (const grid of Object.keys(project.powerGrids)) state.energy.grids[grid]!.availableMilliWatts = availablePower(grid);
+    state.energy.availableMilliWatts = availablePower();
+  };
   const measureUntil = (tick: number) => {
     const delta = tick - state.tick;
     if (delta <= 0) return;
@@ -91,7 +101,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const congestion = connectionCongestion + stationCongestion;
     stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
     for (const grid of Object.keys(project.powerGrids).sort()) {
-      const consumedMilliJoules = Math.min(state.energy.grids[grid]!.availableMilliWatts, activePower(grid)) * delta / 1000;
+      const consumedMilliJoules = Math.min(availablePower(grid), activePower(grid)) * delta / 1000;
       if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
     }
     mutateFactoryState(state, { kind: "tick", tick }); stats.elapsedTicks = tick;
@@ -154,7 +164,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const required = device.assetDef.power.consumptionMilliWatts;
     if (required === 0) return true;
     const grid = device.powerGrid ?? null;
-    const available = grid ? state.energy.grids[grid]!.availableMilliWatts : 0;
+    const available = grid ? availablePower(grid) : 0;
     if (grid && activePower(grid) <= available) {
       if (state.devices[device.id]!.status === "unpowered") setStatus(device.id, "idle");
       return true;
@@ -265,7 +275,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
       const required = decision.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
       const grid = device.powerGrid ?? null;
-      const available = grid ? state.energy.grids[grid]!.availableMilliWatts - activePower(grid) : 0;
+      const available = grid ? availablePower(grid) - activePower(grid) : 0;
       if (required > 0 && required > available) {
         if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: Math.max(0, available) });
         setStatus(device.id, "unpowered"); return false;
@@ -273,6 +283,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "resource.reserve", node: node.id, count: decision.count });
       const job = { operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: required, produce, extraction: { node: node.id, count: decision.count } };
       setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
+      emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
+      schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+      return true;
+    }
+    if (decision.kind === "generate") {
+      const plan = device.generationPlan;
+      const fuel = plan?.kind === "fuel" ? plan.fuels.find((item) => item.resource === decision.resource) : undefined;
+      if (!plan || plan.kind !== "fuel" || !fuel) throw new Error(`Device program '${device.asset}' tried to burn unsupported fuel '${decision.resource}'`);
+      if (decision.count !== 1 || decision.durationTicks !== fuel.durationTicks || decision.outputMilliWatts !== plan.outputMilliWatts) throw new Error(`Device program '${device.asset}' must use the compiled fuel generation plan`);
+      const amount = { buffer: plan.fuelBuffer, resource: fuel.resource, count: 1 };
+      if (!amountAvailable(device, amount)) { setStatus(device.id, "waiting-input"); return false; }
+      applyConsume(device, [amount], false);
+      mutateFactoryState(state, { kind: "fuel", resource: fuel.resource, count: 1 });
+      const job = {
+        operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: 0, produce: [],
+        generationMilliWatts: plan.outputMilliWatts, fuel: { resource: fuel.resource, count: 1, energyMilliJoules: fuel.energyMilliJoules },
+      };
+      setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
+      emit({ type: "power.fuel-loaded", tick: state.tick, device: device.id, grid: device.powerGrid!, resource: fuel.resource, count: 1, energyMilliJoules: fuel.energyMilliJoules, durationTicks: fuel.durationTicks });
       emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
       schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
       return true;
@@ -287,7 +316,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     const required = decision.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
     const grid = device.powerGrid ?? null;
-    const available = grid ? state.energy.grids[grid]!.availableMilliWatts - activePower(grid) : 0;
+    const available = grid ? availablePower(grid) - activePower(grid) : 0;
     if (required > 0 && required > available) {
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: Math.max(0, available) });
       setStatus(device.id, "unpowered"); return false;
@@ -320,6 +349,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         itemsPerCycle: device.extractionPlan.itemsPerCycle,
         nodes: device.extractionPlan.nodes.map((node) => ({ id: node.id, resource: node.resource, remaining: state.resourceNodes[node.id]!.remaining })),
       } } : {}),
+      ...(device.generationPlan?.kind === "fuel" ? { generation: {
+        kind: "fuel" as const,
+        outputMilliWatts: device.generationPlan.outputMilliWatts,
+        fuelBuffer: device.generationPlan.fuelBuffer,
+        fuels: device.generationPlan.fuels,
+      } } : {}),
     });
     return tryDecision(device, decision);
   };
@@ -329,12 +364,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const settle = () => {
     let changed = true; let guard = 0;
     while (changed && guard++ < 100_000) {
+      syncPowerAvailability();
+      const evaluationOrder = Object.values(project.devices).sort((a, b) => Number(Boolean(b.generationPlan)) - Number(Boolean(a.generationPlan)) || a.id.localeCompare(b.id));
+      let generationChanged = false;
+      for (const device of evaluationOrder.filter((item) => item.generationPlan)) if (tryEvaluate(device)) generationChanged = true;
+      syncPowerAvailability();
       const stationPowerChanged = refreshStationPower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
-      changed = stationPowerChanged || physicalMoved || stationMoved;
-      for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) if (tryEvaluate(device)) changed = true;
+      changed = generationChanged || stationPowerChanged || physicalMoved || stationMoved;
+      for (const device of evaluationOrder.filter((item) => !item.generationPlan)) if (tryEvaluate(device)) changed = true;
     }
+    syncPowerAvailability();
     if (guard >= 100_000) throw new Error("Device scripts did not reach a stable state after 100000 actions at one tick");
     for (const device of Object.values(project.devices)) {
       const runtime = state.devices[device.id]!;
@@ -368,6 +409,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         emit({ type: "resource.extracted", tick: state.tick, device: event.device, node: node.id, resource: node.resource, count: job.extraction.count, remaining: state.resourceNodes[node.id]!.remaining });
         if (state.resourceNodes[node.id]!.remaining === 0 && state.resourceNodes[node.id]!.reserved === 0) emit({ type: "resource.depleted", tick: state.tick, node: node.id, resource: node.resource });
       }
+      if (job.fuel) emit({ type: "power.fuel-spent", tick: state.tick, device: event.device, grid: project.devices[event.device]!.powerGrid!, resource: job.fuel.resource, count: job.fuel.count });
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce) });
     } else if (event.kind === "arrive") {

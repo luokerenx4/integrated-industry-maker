@@ -251,6 +251,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         tags: asset.tags,
         unit: asset.unit,
         transport: asset.transport,
+        fuel: asset.fuel,
         visual: asset.visual,
         contentHash: asset.contentHash,
       })),

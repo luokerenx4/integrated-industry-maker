@@ -18,8 +18,8 @@
     "op": "add",
     "path": "/devices/-",
     "value": {
-      "asset": "generator",
-      "id": "generator-support",
+      "asset": "wind-turbine",
+      "id": "wind-turbine-support",
       "position": {
         "x": 7,
         "y": 10

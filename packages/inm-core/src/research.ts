@@ -153,8 +153,8 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
   let powerSupport: Blueprint["devices"][number] | undefined;
   if (needsPowerSupport) {
     const generator = Object.values(input.project.deviceAssets)
-      .filter((asset) => asset.power.productionMilliWatts > asset.power.consumptionMilliWatts && asset.power.distribution)
-      .sort((a, b) => (b.power.productionMilliWatts - b.power.consumptionMilliWatts) - (a.power.productionMilliWatts - a.power.consumptionMilliWatts) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+      .filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts && asset.power.distribution)
+      .sort((a, b) => ((b.power.generation?.outputMilliWatts ?? 0) - b.power.consumptionMilliWatts) - ((a.power.generation?.outputMilliWatts ?? 0) - a.power.consumptionMilliWatts) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
     if (!generator) return null;
     powerSupport = { id: uniqueDeviceId(input.blueprint, `${generator.id}-support`), asset: generator.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0 };
     const candidateBlueprint = structuredClone(input.blueprint);
@@ -181,7 +181,9 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
 }
 
 function powerCandidates(input: ResearchInput): StrategyCandidate[] {
-  const generators = Object.values(input.project.deviceAssets).filter((asset) => asset.power.productionMilliWatts > 0 && asset.power.distribution).sort((a, b) => b.power.productionMilliWatts - a.power.productionMilliWatts || a.id.localeCompare(b.id));
+  const generators = Object.values(input.project.deviceAssets)
+    .filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.generation.outputMilliWatts > 0 && asset.power.distribution)
+    .sort((a, b) => (b.power.generation?.outputMilliWatts ?? 0) - (a.power.generation?.outputMilliWatts ?? 0) || a.id.localeCompare(b.id));
   const generator = generators[0]; if (!generator) return [];
   const candidates: StrategyCandidate[] = [];
   for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "power-disconnected" || item.code === "power-deficit")) {

@@ -90,6 +90,50 @@
     },
     {
       "from": {
+        "device": "coal-miner-forge",
+        "port": "output"
+      },
+      "id": "coal-forge-to-generator",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "generator-1",
+        "port": "fuel-input"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-miner-assembly",
+        "port": "output"
+      },
+      "id": "coal-assembly-to-generator",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "to": {
+        "device": "generator-2",
+        "port": "fuel-input"
+      }
+    },
+    {
+      "from": {
         "device": "ore-source-1",
         "port": "output"
       },
@@ -225,6 +269,32 @@
       "rotation": 0
     },
     {
+      "asset": "mining-machine",
+      "id": "coal-miner-forge",
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "region": "forge-world",
+      "resourceNodes": [
+        "coal-seam-forge"
+      ],
+      "rotation": 0
+    },
+    {
+      "asset": "mining-machine",
+      "id": "coal-miner-assembly",
+      "position": {
+        "x": 1,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "resourceNodes": [
+        "coal-seam-assembly"
+      ],
+      "rotation": 0
+    },
+    {
       "asset": "smelter",
       "id": "smelter-1-parallel",
       "position": {
@@ -236,8 +306,8 @@
       "rotation": 0
     },
     {
-      "asset": "generator",
-      "id": "generator-support",
+      "asset": "wind-turbine",
+      "id": "wind-turbine-support",
       "position": {
         "x": 7,
         "y": 10
@@ -281,6 +351,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "e45305cb65e7edddc1262c416420284d78e11c98e4bc534e91f610d208764c4d",
+  "revision": "96bcdcd2c2526bbf4f0d54d2cbe073015d344e47d599f5930d374384ba2c6228",
   "version": 1
 }

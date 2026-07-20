@@ -1,8 +1,8 @@
 # INM Run 002-revert-duplicate-processor-smelter-1-parallel
 
 - Decision: **REVERT**
-- Score: **85.926**
-- Result hash: `a9c7d66ec285e8b581966a930b7872fe890480cdac8ed0b75c7cf1985c250802`
+- Score: **77.707**
+- Result hash: `8fc35469a1e6299a62679fab934343f5e5ad1176eb14ca1eebe599201cda7365`
 - Bottleneck: assembler-1
 - Throughput/min: 10.500
 - Feasible: yes
@@ -11,13 +11,13 @@
 
 ```json
 {
-  "blocked": 0,
-  "buildCost": -12.16,
+  "blocked": -3.6,
+  "buildCost": -12.98,
   "constraintPenalty": 0,
-  "energy": -2.1942,
-  "occupiedArea": -13.600000000000001,
+  "energy": -2.2062,
+  "occupiedArea": -15.200000000000001,
   "onTimeDelivery": 10,
   "throughput": 105,
-  "wip": -1.1198833333333333
+  "wip": -3.30655
 }
 ```

@@ -30,13 +30,13 @@ bun run inm studio examples/ironworks
 The bundled experiment demonstrates the complete loop:
 
 ```text
-000 finite-deposit baseline      score 39.075
-001 smelter + regional power     score 87.472  KEEP
-002 another parallel smelter     score 85.926  REVERT
-003 assembler + regional power   score 89.485  KEEP
+000 finite-resource/fuel baseline score 31.057
+001 smelter + renewable support   score 79.254  KEEP
+002 another parallel smelter      score 77.707  REVERT
+003 assembler + renewable support score 81.067  KEEP
 ```
 
-The default world and blueprint form an executable two-planet example: a TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates; Assembly World unloads it into a local assembler. Physical links and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint machinery and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
+The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates; Assembly World unloads it into a local assembler. Each planet also has a finite coal seam, coal miner, local fuel link, and thermal generator. A coal unit has a declared energy value, starts a time-bounded generation job, and can leave its regional grid dark when fuel logistics fail. Physical links and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint machinery and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
 
 ## CLI
 
@@ -90,7 +90,7 @@ my-factory/
 
 There is deliberately no shared-asset lookup or inheritance layer. To reuse an asset, copy its directory into another project; from that point onward the two copies have independent contents and hashes.
 
-- A **resource asset** is a self-described kind of flow with units, transport properties, and presentation files.
+- A **resource asset** is a self-described kind of flow with units, transport properties, optional fuel energy, and presentation files.
 - A **device asset** owns geometry, multiple named buffers and ports, presentation files, and a private TypeScript throughput program.
 - Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
 - A **process** declares a visible material transformation, category, and base cycle time; a blueprint binds it to a compatible Device.
@@ -128,4 +128,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers isolated multi-project workspaces, immutable world hashing, finite resource conservation and depletion, extractor range/region contracts, asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, multi-region geometry and reference failures, region-local physical links and power grids, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.
+The suite covers isolated multi-project workspaces, immutable world hashing, finite resource conservation and depletion, extractor range/region contracts, fuel energy and time-bounded generation, asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, multi-region geometry and reference failures, region-local physical links and power grids, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.

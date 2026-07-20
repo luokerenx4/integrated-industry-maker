@@ -1,8 +1,8 @@
 # INM Run 003-keep-duplicate-processor-assembler-1-as-as
 
 - Decision: **KEEP**
-- Score: **89.485**
-- Result hash: `977af403957d83c31e82c0fb492972c6ef42a649ae6896d6eadb6561d452865b`
+- Score: **81.067**
+- Result hash: `c5b560fb976cecf5bb8254450f719393e1716bdbf2f281c183d69dbc636705fc`
 - Bottleneck: smelter-1
 - Throughput/min: 11.000
 - Feasible: yes
@@ -11,13 +11,13 @@
 
 ```json
 {
-  "blocked": 0,
-  "buildCost": -12.85,
+  "blocked": -3.6,
+  "buildCost": -13.87,
   "constraintPenalty": 0,
-  "energy": -2.187,
-  "occupiedArea": -14.4,
+  "energy": -2.1990000000000003,
+  "occupiedArea": -16,
   "onTimeDelivery": 10,
   "throughput": 110,
-  "wip": -1.0777333333333334
+  "wip": -3.2644
 }
 ```

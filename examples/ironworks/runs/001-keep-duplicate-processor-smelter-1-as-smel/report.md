@@ -1,8 +1,8 @@
 # INM Run 001-keep-duplicate-processor-smelter-1-as-smel
 
 - Decision: **KEEP**
-- Score: **87.472**
-- Result hash: `6c718281ddb2191a8508b08df08b79dbe5d9872f0fa6a52b1615fce68e483772`
+- Score: **79.254**
+- Result hash: `59c9dcd61bc425b074f8a77f22ecd95fc4b285b1661e14418aeceb2ab0bcacee`
 - Bottleneck: smelter-1
 - Throughput/min: 10.500
 - Feasible: yes
@@ -11,13 +11,13 @@
 
 ```json
 {
-  "blocked": 0,
-  "buildCost": -11.395,
+  "blocked": -3.6,
+  "buildCost": -12.215,
   "constraintPenalty": 0,
-  "energy": -2.187,
-  "occupiedArea": -12.8,
+  "energy": -2.1990000000000003,
+  "occupiedArea": -14.4,
   "onTimeDelivery": 10,
   "throughput": 105,
-  "wip": -1.1457166666666667
+  "wip": -3.3323833333333335
 }
 ```

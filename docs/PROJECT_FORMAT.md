@@ -88,6 +88,12 @@ Splitting presentation and execution from identity is intentional. Catalog tools
 
 A Resource asset describes a kind of flow. Runtime quantities are `(resource id, integer count)` values held in named device buffers or in transit. `unit.kind: continuous` and non-zero precision reserve the file contract for continuous resources; the current engine executes integer quantities only.
 
+A combustible Resource declares how much energy one unit contains. The value is an integer number of millijoules and is consumed only through a fuel generator's compiled generation job:
+
+```json
+"fuel": { "energyMilliJoules": 70000000 }
+```
+
 ## Device asset
 
 `assets/devices/smelter/asset.json`:
@@ -120,7 +126,7 @@ A Resource asset describes a kind of flow. Runtime quantities are `(resource id,
     "outputBuffer": "output"
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 180000, "productionMilliWatts": 0 },
+  "power": { "consumptionMilliWatts": 180000 },
   "economics": { "buildCost": 1200 },
   "files": { "visual": "visual.json" }
 }
@@ -130,17 +136,32 @@ Unlike the old single-behavior model, a Device declares a list of descriptive ca
 
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
-Power consumption and production use integer milliwatts. A generator or distribution pole also declares spatial grid semantics:
+Power consumption and generation use integer milliwatts. Renewable generation is continuously available while its Device is healthy:
 
 ```json
 "power": {
   "consumptionMilliWatts": 0,
-  "productionMilliWatts": 1000000,
+  "generation": { "kind": "renewable", "outputMilliWatts": 600000 },
   "distribution": { "connectionRange": 20, "coverageRange": 20 }
 }
 ```
 
-Distributors within each other's connection range form an isolated power grid. A Device within a distributor's coverage range joins the nearest grid. Rated demand greater than grid generation and powered Devices outside every grid are reported by `inm analyze`; runtime power allocation and energy accounting are also isolated per grid.
+A thermal generator instead names an input buffer and accepted fuel Resources:
+
+```json
+"power": {
+  "consumptionMilliWatts": 0,
+  "generation": {
+    "kind": "fuel",
+    "outputMilliWatts": 1000000,
+    "fuelBuffer": "fuel",
+    "fuels": ["coal"]
+  },
+  "distribution": { "connectionRange": 20, "coverageRange": 20 }
+}
+```
+
+The compiler converts fuel energy and rated output into an exact burn duration. The Device program receives this immutable plan and returns `generate`; the host consumes one delivered fuel unit, records it in metrics, and adds rated generation only while that job is active. Distributors within each other's connection range form an isolated power grid. A Device within a distributor's coverage range joins the nearest grid. Rated demand greater than grid generation, unfed fuel generators, and powered Devices outside every grid are reported by `inm analyze`; runtime power allocation and energy accounting are also isolated per grid.
 
 Station and carrier Devices remain ordinary project-local Device assets with explicit industrial roles. A station adds the `station` capability and binds all network slots to one internal buffer:
 
@@ -201,11 +222,11 @@ export default {
 `assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. The program is a black box behind one host interface:
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
-- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process or extraction plan when one is bound.
+- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process, extraction, or fuel-generation plan when one is bound.
 - `planTransport(context)` is required for assets declaring `transport`; it receives `loader`, `line`, `unloader`, or `carrier` as the logistics role and returns capacity and duration for that stage or trip.
 - A program returns declarative actions. It never receives the mutable global factory state.
 
-Supported decisions are `start`, `extract`, `consume`, `wait`, and `none`. An `extract` action names one of the instance's compiled resource-node bindings; the host enforces its maximum cycle rate, atomically reserves finite inventory, restores a reservation if the machine fails, and records extraction/depletion only on completion. A `start` action may consume from and produce into any number of named buffers. The host validates every buffer, resource, node, count, capacity, duration, and power request before mutating state.
+Supported decisions are `start`, `extract`, `generate`, `consume`, `wait`, and `none`. An `extract` action names one of the instance's compiled resource-node bindings; the host enforces its maximum cycle rate, atomically reserves finite inventory, restores a reservation if the machine fails, and records extraction/depletion only on completion. A `generate` action must exactly match a compiled fuel, output, and burn duration. A `start` action may consume from and produce into any number of named buffers. The host validates every buffer, resource, node, count, capacity, duration, and power request before mutating state.
 
 Programs must be synchronous and deterministic. They are local trusted project code—not a security sandbox—and therefore should not use clocks, network calls, ambient process state, or unseeded randomness. Repeated simulations and immutable run hashes detect nondeterministic results.
 
