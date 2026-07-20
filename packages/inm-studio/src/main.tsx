@@ -6,40 +6,187 @@ import * as THREE from "three";
 import "./styles.css";
 
 type Status = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
-interface Device { id: string; assetId: string; name: string; capabilities: string[]; position: { x: number; y: number }; rotation: number; footprint: { width: number; height: number }; visual: { shape?: string; height?: number; color?: string | null; label?: string; texture?: string | null; model?: string | null } }
-interface Event { type: string; tick: number; device?: string; durationTicks?: number; resource?: string; transit?: { id: string; resource: string; count: number; departTick: number; arriveTick: number }; connection?: string }
-interface Metrics { finalScore: number; throughputPerMinute: number; energyConsumedMilliJoules: number; totalBuildCost: number; occupiedArea: number; averageWip: number; bottleneckEntity: string | null; consumed: Record<string, number>; scoreBreakdown: Record<string, number> }
+type AssetKind = "devices" | "resources";
+
+interface Visual {
+  shape?: string;
+  height?: number;
+  color?: string | null;
+  label?: string;
+  texture?: string | null;
+  model?: string | null;
+  icon?: string | null;
+}
+
+interface ProjectSummary {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  resourceAssets: number;
+  deviceAssets: number;
+  deviceInstances: number;
+  connections: number;
+  runs: number;
+  bounds: { width: number; height: number };
+}
+
+interface ProjectIndex {
+  name: string;
+  workspace: boolean;
+  projects: ProjectSummary[];
+}
+
+interface Device {
+  id: string;
+  assetId: string;
+  name: string;
+  capabilities: string[];
+  position: { x: number; y: number };
+  rotation: number;
+  footprint: { width: number; height: number };
+  visual: Visual;
+}
+
+interface DeviceCatalogAsset {
+  type: "device";
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  capabilities: string[];
+  geometry: {
+    footprint: { width: number; height: number };
+    rotatable: boolean;
+    ports: Array<{ id: string; direction: "input" | "output"; side: string; buffer: string }>;
+  };
+  buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
+  runtime: { apiVersion: 1; entry: string };
+  power: { consumptionMilliWatts: number; productionMilliWatts: number };
+  economics: { buildCost: number };
+  visual: Visual;
+  contentHash: string;
+  instanceCount: number;
+}
+
+interface ResourceCatalogAsset {
+  type: "resource";
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
+  transport: { stackSize: number };
+  visual: Visual;
+  contentHash: string;
+}
+
+interface FactoryEvent {
+  type: string;
+  tick: number;
+  device?: string;
+  durationTicks?: number;
+  resource?: string;
+  transit?: { id: string; resource: string; count: number; departTick: number; arriveTick: number };
+  connection?: string;
+}
+
+interface Metrics {
+  finalScore: number;
+  throughputPerMinute: number;
+  energyConsumedMilliJoules: number;
+  totalBuildCost: number;
+  occupiedArea: number;
+  averageWip: number;
+  bottleneckEntity: string | null;
+  consumed: Record<string, number>;
+  scoreBreakdown: Record<string, number>;
+}
+
 interface StudioData {
   projectId: string;
-  workspace: { name: string; projects: Array<{ id: string; name: string; isDefault: boolean }> } | null;
-  name: string; blueprintHash: string; bounds: { width: number; height: number }; devices: Device[];
-  connections: Array<{ id: string; fromDevice: string; toDevice: string; from: { x: number; y: number }; to: { x: number; y: number } }>;
-  resources: Record<string, { visual?: { color?: string | null; shape?: string; texture?: string | null } }>; events: Event[]; metrics: Metrics | null;
-  selectedRun: string | null; runs: Array<{ name: string; score: number; decision: string; resultHash: string }>;
+  name: string;
+  blueprintHash: string;
+  bounds: { width: number; height: number };
+  devices: Device[];
+  connections: Array<{
+    id: string;
+    fromDevice: string;
+    toDevice: string;
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+  }>;
+  resources: Record<string, { visual?: Visual }>;
+  assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[] };
+  events: FactoryEvent[];
+  metrics: Metrics | null;
+  selectedRun: string | null;
+  runs: Array<{ name: string; score: number; decision: string; resultHash: string }>;
 }
+
 interface DeviceFrame { status: Status; progress: number }
 interface TransitFrame { id: string; material: string; progress: number; connection: string }
 
-const STATUS_COLORS: Record<Status, string> = { idle: "#64748b", "waiting-input": "#818cf8", processing: "#22d3a7", "blocked-output": "#f59e0b", unpowered: "#a855f7", failed: "#ef4444" };
-const STATUS_LABELS: Record<Status, string> = { idle: "IDLE", "waiting-input": "WAITING", processing: "RUNNING", "blocked-output": "BLOCKED", unpowered: "NO POWER", failed: "FAILED" };
-const formatTick = (tick: number) => `${(tick / 1000).toFixed(1)}s`;
+const STATUS_COLORS: Record<Status, string> = {
+  idle: "#64748b",
+  "waiting-input": "#818cf8",
+  processing: "#22d3a7",
+  "blocked-output": "#f59e0b",
+  unpowered: "#a855f7",
+  failed: "#ef4444",
+};
+const STATUS_LABELS: Record<Status, string> = {
+  idle: "IDLE",
+  "waiting-input": "WAITING",
+  processing: "RUNNING",
+  "blocked-output": "BLOCKED",
+  unpowered: "NO POWER",
+  failed: "FAILED",
+};
 
-function buildFrame(data: StudioData, tick: number): { devices: Record<string, DeviceFrame>; transits: TransitFrame[]; visibleEvents: Event[] } {
+const formatTick = (tick: number) => `${(tick / 1000).toFixed(1)}s`;
+const projectPath = (projectId: string) => `/${encodeURIComponent(projectId)}`;
+const fileUrl = (projectId: string, path: string) => `/api/projects/${encodeURIComponent(projectId)}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
+
+function routeProjectId(): string | null {
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  if (segments.length !== 1) return null;
+  try { return decodeURIComponent(segments[0]!); }
+  catch { return null; }
+}
+
+async function responseJson<T>(response: Response): Promise<T> {
+  const value = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(value.error ?? `Request failed (${response.status})`);
+  return value;
+}
+
+function buildFrame(data: StudioData, tick: number): { devices: Record<string, DeviceFrame>; transits: TransitFrame[]; visibleEvents: FactoryEvent[] } {
   const devices = Object.fromEntries(data.devices.map((device) => [device.id, { status: "idle" as Status, progress: 0 }]));
-  const starts = new Map<string, number>(); const transits = new Map<string, TransitFrame>(); const visibleEvents: Event[] = [];
+  const starts = new Map<string, number>();
+  const transits = new Map<string, TransitFrame>();
+  const visibleEvents: FactoryEvent[] = [];
   for (const event of data.events) {
-    if (event.tick > tick) break; visibleEvents.push(event);
-    if (event.device && event.type === "device.start") { devices[event.device] = { status: "processing", progress: 0 }; starts.set(event.device, event.tick); }
-    else if (event.device && (event.type === "device.finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) { devices[event.device] = { status: "idle", progress: 0 }; starts.delete(event.device); }
-    else if (event.device && event.type === "buffer.blocked") devices[event.device] = { status: "blocked-output", progress: 0 };
+    if (event.tick > tick) break;
+    visibleEvents.push(event);
+    if (event.device && event.type === "device.start") {
+      devices[event.device] = { status: "processing", progress: 0 };
+      starts.set(event.device, event.tick);
+    } else if (event.device && (event.type === "device.finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
+      devices[event.device] = { status: "idle", progress: 0 };
+      starts.delete(event.device);
+    } else if (event.device && event.type === "buffer.blocked") devices[event.device] = { status: "blocked-output", progress: 0 };
     else if (event.device && event.type === "power.shortage") devices[event.device] = { status: "unpowered", progress: 0 };
     else if (event.device && event.type === "device.breakdown") devices[event.device] = { status: "failed", progress: 0 };
-    else if (event.type === "resource.depart" && event.transit && event.connection) transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, connection: event.connection });
-    else if (event.type === "resource.arrive" && event.transit) transits.delete(event.transit.id);
+    else if (event.type === "resource.depart" && event.transit && event.connection) {
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, connection: event.connection });
+    } else if (event.type === "resource.arrive" && event.transit) transits.delete(event.transit.id);
   }
   for (const device of data.devices) {
-    const start = starts.get(device.id); const startEvent = data.events.findLast((event) => event.type === "device.start" && event.device === device.id && event.tick <= tick);
-    if (start !== undefined && devices[device.id]?.status === "processing") devices[device.id]!.progress = Math.min(1, (tick - start) / Math.max(1, startEvent?.durationTicks ?? 1));
+    const start = starts.get(device.id);
+    const startEvent = data.events.findLast((event) => event.type === "device.start" && event.device === device.id && event.tick <= tick);
+    if (start !== undefined && devices[device.id]?.status === "processing") {
+      devices[device.id]!.progress = Math.min(1, (tick - start) / Math.max(1, startEvent?.durationTicks ?? 1));
+    }
   }
   for (const transit of transits.values()) {
     const depart = data.events.findLast((event) => event.type === "resource.depart" && event.transit?.id === transit.id)?.transit;
@@ -48,18 +195,24 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
   return { devices, transits: [...transits.values()], visibleEvents };
 }
 
-const fileUrl = (projectId: string, path: string) => `/files/${encodeURIComponent(projectId)}/${path.split("/").map(encodeURIComponent).join("/")}`;
 function FactoryTexture({ projectId, path, color, processing }: { projectId: string; path: string; color: string; processing: boolean }) {
-  const texture = useTexture(fileUrl(projectId, path)); texture.colorSpace = THREE.SRGBColorSpace;
+  const texture = useTexture(fileUrl(projectId, path));
+  texture.colorSpace = THREE.SRGBColorSpace;
   return <meshStandardMaterial map={texture} color={color} metalness={.32} roughness={.48} emissive={color} emissiveIntensity={processing ? .16 : .02} />;
 }
+
 function PrimitiveMaterial({ projectId, texture, color, processing }: { projectId: string; texture?: string | null; color: string; processing: boolean }) {
-  return texture ? <FactoryTexture projectId={projectId} path={texture} color={color} processing={processing} /> : <meshStandardMaterial color={color} metalness={.45} roughness={.38} emissive={color} emissiveIntensity={processing ? .22 : .03} />;
+  return texture
+    ? <FactoryTexture projectId={projectId} path={texture} color={color} processing={processing} />
+    : <meshStandardMaterial color={color} metalness={.45} roughness={.38} emissive={color} emissiveIntensity={processing ? .22 : .03} />;
 }
+
 function FactoryModel({ projectId, path, footprint, height }: { projectId: string; path: string; footprint: Device["footprint"]; height: number }) {
-  const gltf = useGLTF(fileUrl(projectId, path)); const scale = Math.min(footprint.width, footprint.height, height);
+  const gltf = useGLTF(fileUrl(projectId, path));
+  const scale = Math.min(footprint.width, footprint.height, height);
   return <Clone object={gltf.scene} scale={scale} castShadow receiveShadow />;
 }
+
 function DeviceBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
   if (device.visual.model) return <FactoryModel projectId={projectId} path={device.visual.model} footprint={device.footprint} height={height} />;
   const material = <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />;
@@ -70,13 +223,15 @@ function DeviceBody({ projectId, device, height, color, processing }: { projectI
 }
 
 function FactoryDevice({ projectId, device, frame, bottleneck }: { projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean }) {
-  const h = device.visual.height ?? 1.25; const baseColor = device.visual.color ?? "#475569"; const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
-  const position: [number, number, number] = [device.position.x + device.footprint.width / 2, h / 2, device.position.y + device.footprint.height / 2];
+  const height = device.visual.height ?? 1.25;
+  const baseColor = device.visual.color ?? "#475569";
+  const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
+  const position: [number, number, number] = [device.position.x + device.footprint.width / 2, height / 2, device.position.y + device.footprint.height / 2];
   return <group position={position} rotation={[0, -device.rotation * Math.PI / 180, 0]}>
-    {bottleneck && <mesh position={[0, .03 - h / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .7, Math.max(device.footprint.width, device.footprint.height) * .88, 48]} /><meshBasicMaterial color="#ffcf5c" transparent opacity={.8} /></mesh>}
-    <DeviceBody projectId={projectId} device={device} height={h} color={color} processing={frame.status === "processing"} />
-    <mesh position={[0, h / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    <Billboard position={[0, h / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text></Billboard>
+    {bottleneck && <mesh position={[0, .03 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .7, Math.max(device.footprint.width, device.footprint.height) * .88, 48]} /><meshBasicMaterial color="#ffcf5c" transparent opacity={.8} /></mesh>}
+    <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />
+    <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
+    <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text></Billboard>
   </group>;
 }
 
@@ -85,55 +240,266 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
   return <>
     <color attach="background" args={["#071014"]} />
     <fog attach="fog" args={["#071014", 30, 72]} />
-    <hemisphereLight args={["#bcecff", "#102026", 1.15]} /><directionalLight position={[12, 24, 8]} intensity={2.2} castShadow shadow-mapSize={[2048, 2048]} />
+    <hemisphereLight args={["#bcecff", "#102026", 1.15]} />
+    <directionalLight position={[12, 24, 8]} intensity={2.2} castShadow shadow-mapSize={[2048, 2048]} />
     <Grid args={[data.bounds.width, data.bounds.height]} position={[data.bounds.width / 2, 0, data.bounds.height / 2]} cellSize={1} cellThickness={.55} cellColor="#24414a" sectionSize={4} sectionThickness={1.1} sectionColor="#397080" fadeDistance={60} infiniteGrid={false} />
     <mesh position={[data.bounds.width / 2, -.04, data.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[data.bounds.width, data.bounds.height]} /><meshStandardMaterial color="#0b1a20" roughness={.92} metalness={.08} /></mesh>
     {data.connections.map((connection) => <Line key={connection.id} points={[[connection.from.x, .16, connection.from.y], [connection.to.x, .16, connection.to.y]]} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
     {frame.transits.map((transit) => {
       const connection = data.connections.find((item) => item.id === transit.connection)!;
-      const x = THREE.MathUtils.lerp(connection.from.x, connection.to.x, transit.progress); const z = THREE.MathUtils.lerp(connection.from.y, connection.to.y, transit.progress);
-      const resource = data.resources[transit.material]; const color = resource?.visual?.color ?? "#d7f3ff";
-      return <mesh key={transit.id} position={[x, .42, z]} castShadow>{resource?.visual?.shape === "box" ? <boxGeometry args={[.28, .28, .28]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.17, .17, .22, 16]} /> : <sphereGeometry args={[.16, 16, 16]} />}{resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={color} emissiveIntensity={.55} />}</mesh>;
+      const x = THREE.MathUtils.lerp(connection.from.x, connection.to.x, transit.progress);
+      const z = THREE.MathUtils.lerp(connection.from.y, connection.to.y, transit.progress);
+      const resource = data.resources[transit.material];
+      const color = resource?.visual?.color ?? "#d7f3ff";
+      return <mesh key={transit.id} position={[x, .42, z]} castShadow>
+        {resource?.visual?.shape === "box" ? <boxGeometry args={[.28, .28, .28]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.17, .17, .22, 16]} /> : <sphereGeometry args={[.16, 16, 16]} />}
+        {resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={color} emissiveIntensity={.55} />}
+      </mesh>;
     })}
-    <OrbitControls makeDefault target={[14, 0, 10]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI * .47} />
+    <OrbitControls makeDefault target={[data.bounds.width / 2, 0, data.bounds.height / 2]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI * .47} />
   </>;
 }
 
-function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) { return <div className={`metric ${accent ? "accent" : ""}`}><span>{label}</span><strong>{value}</strong></div>; }
+function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return <div className={`metric ${accent ? "accent" : ""}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset }) {
+  if (asset.visual.icon) return <img className="asset-icon-image" src={fileUrl(projectId, asset.visual.icon)} alt="" />;
+  return <span className={`asset-glyph ${asset.visual.shape ?? "box"}`} style={{ "--asset-color": asset.visual.color ?? "#4f7f86" } as React.CSSProperties} />;
+}
+
+function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
+  const [kind, setKind] = useState<AssetKind>("devices");
+  const items: Array<DeviceCatalogAsset | ResourceCatalogAsset> = kind === "devices" ? data.assets.devices : data.assets.resources;
+  const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
+  const selected = items.find((asset) => asset.id === selectedId) ?? items[0];
+
+  useEffect(() => { setSelectedId(items[0]?.id ?? ""); }, [kind]);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [onClose]);
+
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <section className="asset-browser" role="dialog" aria-modal="true" aria-label="Project assets">
+      <header className="asset-browser-header">
+        <div><span className="eyebrow">PROJECT ASSETS</span><h2>{data.name}</h2><p>Self-contained catalog · {data.assets.devices.length} devices · {data.assets.resources.length} resources</p></div>
+        <button className="icon-button" onClick={onClose} aria-label="Close asset browser">×</button>
+      </header>
+      <div className="asset-browser-body">
+        <nav className="asset-kinds" aria-label="Asset categories">
+          <button className={kind === "devices" ? "active" : ""} onClick={() => setKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
+          <button className={kind === "resources" ? "active" : ""} onClick={() => setKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
+        </nav>
+        <div className="asset-list" role="listbox" aria-label={kind}>
+          <div className="asset-list-title">{kind.toUpperCase()} <span>{items.length}</span></div>
+          {items.map((asset) => <button key={asset.id} role="option" aria-selected={selected?.id === asset.id} className={selected?.id === asset.id ? "selected" : ""} onClick={() => setSelectedId(asset.id)}>
+            <AssetGlyph projectId={data.projectId} asset={asset} />
+            <span><strong>{asset.name}</strong><small>{asset.id}</small></span>
+            {asset.type === "device" && <em>{asset.instanceCount}×</em>}
+          </button>)}
+        </div>
+        <article className="asset-detail">
+          {selected && <>
+            <div className="asset-hero"><AssetGlyph projectId={data.projectId} asset={selected} /><div><span className="asset-type">{selected.type}</span><h3>{selected.name}</h3><code>{selected.id}</code></div></div>
+            <p className="asset-description">{selected.description}</p>
+            <div className="tag-row">{selected.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+            {selected.type === "device" ? <>
+              <div className="detail-grid">
+                <div><label>FOOTPRINT</label><strong>{selected.geometry.footprint.width} × {selected.geometry.footprint.height}</strong></div>
+                <div><label>INSTANCES</label><strong>{selected.instanceCount}</strong></div>
+                <div><label>BUILD COST</label><strong>{selected.economics.buildCost.toLocaleString()}</strong></div>
+                <div><label>POWER</label><strong>{(selected.power.consumptionMilliWatts / 1000).toFixed(0)} W</strong></div>
+              </div>
+              <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
+              <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
+              <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
+              <section className="asset-section compact"><h4>Runtime</h4><code>{selected.runtime.entry}</code></section>
+            </> : <>
+              <div className="detail-grid">
+                <div><label>UNIT</label><strong>{selected.unit.symbol}</strong></div>
+                <div><label>KIND</label><strong>{selected.unit.kind}</strong></div>
+                <div><label>PRECISION</label><strong>{selected.unit.precision}</strong></div>
+                <div><label>STACK SIZE</label><strong>{selected.transport.stackSize}</strong></div>
+              </div>
+              <section className="asset-section"><h4>Presentation</h4><div className="asset-table"><div><b>shape</b><strong>{selected.visual.shape}</strong><span>color</span><code>{selected.visual.color ?? "default"}</code></div></div></section>
+            </>}
+            <div className="asset-hash"><label>CONTENT HASH</label><code>{selected.contentHash}</code></div>
+          </>}
+        </article>
+      </div>
+    </section>
+  </div>;
+}
+
+function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (projectId: string) => void }) {
+  return <div className="launcher-shell">
+    <header className="launcher-header"><div className="brand"><div className="mark">INM</div><div><h1>Integrated Industry Maker</h1><p>PROJECT WORKSPACE</p></div></div><span className="engine-status"><i /> ENGINE READY</span></header>
+    <section className="launcher-content">
+      <div className="launcher-intro"><span className="eyebrow">{index.workspace ? "ENGINE WORKSPACE" : "STANDALONE PROJECT"}</span><h2>{index.name}</h2><p>Choose a self-contained industrial project. Its route, assets, runs, and simulation state remain isolated from every other project.</p></div>
+      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <button className="project-card" key={project.id} onClick={() => onOpen(project.id)}>
+        <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
+        <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
+        <h3>{project.name}</h3><code>/{project.id}</code>
+        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> links</span><span><b>{project.deviceAssets + project.resourceAssets}</b> assets</span><span><b>{project.runs}</b> runs</span></div>
+        <div className="project-card-footer"><span>{project.bounds.width} × {project.bounds.height} GRID</span><strong>OPEN PROJECT →</strong></div>
+      </button>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
+    </section>
+    <footer className="launcher-footer"><span>INM PRE-ALPHA</span><span>PROJECTS ARE SELF-CONTAINED</span></footer>
+  </div>;
+}
+
+function ProjectLoading({ projectId, onBack }: { projectId: string; onBack: () => void }) {
+  return <div className="route-state"><div className="route-mark">INM</div><span>OPENING PROJECT</span><strong>{projectId}</strong><div className="loading-bar"><i /></div><button onClick={onBack}>← PROJECTS</button></div>;
+}
 
 function App() {
-  const [data, setData] = useState<StudioData | null>(null); const [run, setRun] = useState<string | null>(null);
-  const runRef = useRef<string | null>(null); const projectRef = useRef<string | null>(null);
-  const [tick, setTick] = useState(0); const [playing, setPlaying] = useState(false); const [speed, setSpeed] = useState(4); const [loading, setLoading] = useState(true);
-  const load = useCallback(async (selected?: string | null, projectId?: string | null) => {
-    setLoading(true); const params = new URLSearchParams();
-    if (selected) params.set("run", selected); if (projectId) params.set("project", projectId);
-    const response = await fetch(`/api/data${params.size ? `?${params.toString()}` : ""}`); const next = await response.json() as StudioData;
-    setData(next); setRun(next.selectedRun); runRef.current = next.selectedRun; projectRef.current = next.projectId; setTick(0); setPlaying(false); setLoading(false);
+  const [routeProject, setRouteProject] = useState<string | null>(() => routeProjectId());
+  const [index, setIndex] = useState<ProjectIndex | null>(null);
+  const [data, setData] = useState<StudioData | null>(null);
+  const [run, setRun] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(4);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [assetsOpen, setAssetsOpen] = useState(false);
+  const runRef = useRef<string | null>(null);
+  const projectRef = useRef<string | null>(routeProject);
+  const requestSequence = useRef(0);
+
+  const loadIndex = useCallback(async () => {
+    try { setIndex(await responseJson<ProjectIndex>(await fetch("/api/projects"))); }
+    catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
   }, []);
-  useEffect(() => { void load(); const source = new EventSource("/api/watch"); source.onmessage = (event) => { if (event.data === "refresh") void load(runRef.current, projectRef.current); }; return () => source.close(); }, [load]);
+
+  const loadProject = useCallback(async (projectId: string, selectedRun?: string | null) => {
+    const sequence = ++requestSequence.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const query = selectedRun ? `?run=${encodeURIComponent(selectedRun)}` : "";
+      const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`));
+      if (sequence !== requestSequence.current) return;
+      setData(next);
+      setRun(next.selectedRun);
+      runRef.current = next.selectedRun;
+      projectRef.current = next.projectId;
+      setTick(0);
+      setPlaying(false);
+    } catch (nextError) {
+      if (sequence === requestSequence.current) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      if (sequence === requestSequence.current) setLoading(false);
+    }
+  }, []);
+
+  const navigateProject = useCallback((projectId: string | null) => {
+    window.history.pushState({}, "", projectId ? projectPath(projectId) : "/");
+    projectRef.current = projectId;
+    runRef.current = null;
+    setRouteProject(projectId);
+    setAssetsOpen(false);
+    setError(null);
+    if (!projectId) {
+      requestSequence.current += 1;
+      setData(null);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadIndex(); }, [loadIndex]);
+  useEffect(() => {
+    const popstate = () => {
+      const projectId = routeProjectId();
+      projectRef.current = projectId;
+      setRouteProject(projectId);
+      setAssetsOpen(false);
+      if (!projectId) setData(null);
+    };
+    window.addEventListener("popstate", popstate);
+    return () => window.removeEventListener("popstate", popstate);
+  }, []);
+  useEffect(() => {
+    if (routeProject) void loadProject(routeProject);
+  }, [routeProject, loadProject]);
+  useEffect(() => {
+    const source = new EventSource("/api/watch");
+    source.onmessage = (event) => {
+      if (event.data !== "refresh") return;
+      void loadIndex();
+      if (projectRef.current) void loadProject(projectRef.current, runRef.current);
+    };
+    return () => source.close();
+  }, [loadIndex, loadProject]);
+  useEffect(() => {
+    document.title = data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
+  }, [data, index]);
+
   const maxTick = data?.events.at(-1)?.tick ?? 0;
   useEffect(() => {
-    if (!playing || !data) return; let animation = 0; let previous = performance.now();
-    const step = (now: number) => { const delta = now - previous; previous = now; setTick((value) => { const next = Math.min(maxTick, value + delta * speed); if (next >= maxTick) setPlaying(false); return next; }); animation = requestAnimationFrame(step); };
-    animation = requestAnimationFrame(step); return () => cancelAnimationFrame(animation);
+    if (!playing || !data) return;
+    let animation = 0;
+    let previous = performance.now();
+    const step = (now: number) => {
+      const delta = now - previous;
+      previous = now;
+      setTick((value) => {
+        const next = Math.min(maxTick, value + delta * speed);
+        if (next >= maxTick) setPlaying(false);
+        return next;
+      });
+      animation = requestAnimationFrame(step);
+    };
+    animation = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animation);
   }, [playing, speed, maxTick, data]);
-  const frame = data ? buildFrame(data, tick) : null; const recent = frame?.visibleEvents.slice(-8).reverse() ?? [];
-  if (!data) return <div className="loading">BOOTING FACTORY SCENE…</div>;
-  return <main>
-    <header><div className="brand"><div className="mark">INM</div><div><h1>{data.name}</h1><p>PROJECT {data.projectId} · READ-ONLY RUNTIME DEBUGGER</p></div></div><div className="header-tools"><span className="hash">BP {data.blueprintHash.slice(0, 10)}</span><button onClick={() => load(run, data.projectId)}>{loading ? "SYNCING" : "REFRESH"}</button></div></header>
+
+  if (!routeProject) {
+    if (!index && !error) return <div className="loading">DISCOVERING PROJECTS…</div>;
+    if (error && !index) return <div className="route-state error-state"><span>WORKSPACE ERROR</span><strong>{error}</strong><button onClick={() => window.location.reload()}>RETRY</button></div>;
+    return <ProjectLauncher index={index!} onOpen={(projectId) => navigateProject(projectId)} />;
+  }
+  if (!data && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
+  if (!data || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
+
+  const frame = buildFrame(data, tick);
+  const recent = frame.visibleEvents.slice(-8).reverse();
+  const selectedRun = data.runs.find((item) => item.name === run);
+
+  return <main className={loading ? "syncing" : ""}>
+    <header className="project-header">
+      <div className="header-project">
+        <button className="back-button" onClick={() => navigateProject(null)} aria-label="Back to projects">←</button>
+        <div className="mark">INM</div>
+        <div><div className="breadcrumb"><span>{index?.name ?? "WORKSPACE"}</span><b>/</b><code>{data.projectId}</code></div><h1>{data.name}</h1></div>
+      </div>
+      <div className="header-tools">
+        <span className="project-local"><i /> PROJECT LOCAL</span>
+        <span className="hash">BP {data.blueprintHash.slice(0, 10)}</span>
+        <button className="assets-button" onClick={() => setAssetsOpen(true)}>ASSETS <b>{data.assets.devices.length + data.assets.resources.length}</b></button>
+        <button onClick={() => void loadProject(data.projectId, run)}>{loading ? "SYNCING" : "REFRESH"}</button>
+      </div>
+    </header>
     <section className="workspace">
-      <div className="viewport"><Canvas shadows camera={{ position: [30, 20, 30], fov: 39, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas><div className="viewport-title"><span className="live-dot" /> FACTORY WORLD <b>{data.bounds.width}×{data.bounds.height}</b></div><div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div></div>
+      <div className="viewport">
+        <Canvas shadows camera={{ position: [30, 20, 30], fov: 39, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
+        <div className="viewport-title"><span className="live-dot" /> FACTORY WORLD <b>{data.bounds.width}×{data.bounds.height}</b></div>
+        <div className="scene-stats"><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LINKS</span><span><b>{data.assets.devices.length + data.assets.resources.length}</b> ASSETS</span></div>
+        <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
+      </div>
       <aside>
-        {data.workspace && <div className="panel project-panel"><label>ENGINE PROJECT</label><select value={data.projectId} onChange={(event) => void load(null, event.target.value)}>{data.workspace.projects.map((project) => <option key={project.id} value={project.id}>{project.isDefault ? "DEFAULT · " : ""}{project.name}</option>)}</select><p>{data.workspace.name} · assets isolated per project</p></div>}
-        <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} onChange={(event) => void load(event.target.value, data.projectId)}>{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{data.runs.find((item) => item.name === run) && <div className={`decision ${data.runs.find((item) => item.name === run)!.decision.toLowerCase()}`}>{data.runs.find((item) => item.name === run)!.decision}</div>}</div>
+        <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
         <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /><Metric label="AVG WIP" value={data.metrics?.averageWip.toFixed(2) ?? "—"} /></div></div>
-        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the 3D world.</p></div>
-        <div className="panel events"><h2>Event stream <span>{frame?.visibleEvents.length ?? 0}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
+        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p></div>
+        <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>
     </section>
-    <footer><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>
+    <footer className="timeline"><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>
+    {assetsOpen && <AssetBrowser data={data} onClose={() => setAssetsOpen(false)} />}
   </main>;
 }
 

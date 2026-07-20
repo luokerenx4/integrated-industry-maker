@@ -81,7 +81,11 @@ The command receives `ResearchInput` JSON on stdin and must print:
 
 ### `inm studio <project-or-workspace-dir> [--project ID] [--port N] [--no-open]`
 
-Launches the local read-only 3D runtime debugger. When opened on a workspace, Studio can switch projects as well as run artifacts. Asset requests are qualified by project id and confined to that project root. Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
+Launches the local read-only 3D runtime debugger. `/` is a project launcher; choosing a project navigates to the stable `/<project-id>` route, so refresh, browser history, and copied links retain project identity. There is no project switcher inside the runtime sidebar—return to the launcher to open another project.
+
+The project header opens a read-only asset browser modeled after an editor asset catalog. It separates Device and Resource packages, previews their visual identity, and exposes tags, capabilities, geometry, ports, buffers, runtime entry, units, transport limits, content hashes, and current instance counts. Every data and file request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+
+Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 
 ## Selection and output
 

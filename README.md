@@ -22,7 +22,7 @@ bun run inm simulate examples/ironworks --scenario baseline --seed 42
 # Let the deterministic research agent improve the blueprint
 bun run inm research examples/ironworks --iterations 3 --seed 42
 
-# Replay baseline, KEEP, and REVERT experiments in 3D
+# Choose a project, inspect its local assets, and replay experiments in 3D
 bun run inm studio examples/ironworks
 ```
 
@@ -110,7 +110,7 @@ Project files
   → read-only 3D replay
 ```
 
-The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Visual files cannot affect simulation.
+The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Studio opens on a project launcher, gives every project a stable `/<project-id>` URL, and exposes that project's self-contained Device and Resource catalog in an asset browser. Visual files cannot affect simulation.
 
 Read [architecture](docs/ARCHITECTURE.md) for determinism, reliability, research permissions, and package boundaries.
 
