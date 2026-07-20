@@ -108,7 +108,7 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
   const asset = project.deviceAssets[device.asset]!;
   const width = device.rotation === 90 || device.rotation === 270 ? asset.geometry.footprint.height : asset.geometry.footprint.width;
   const height = device.rotation === 90 || device.rotation === 270 ? asset.geometry.footprint.width : asset.geometry.footprint.height;
-  const region = blueprint.regions.find((item) => item.id === device.region);
+  const region = project.regions[device.region];
   if (!region || device.position.x + width > region.bounds.width || device.position.y + height > region.bounds.height) return true;
   return blueprint.devices.some((other) => {
     if (other.region !== device.region) return false;
@@ -128,7 +128,7 @@ function uniqueDeviceId(blueprint: Blueprint, base: string): string {
 }
 
 function placeDevice(blueprint: Blueprint, device: Blueprint["devices"][number], project: CompiledFactoryProject, preferred?: { x: number; y: number }): boolean {
-  const bounds = blueprint.regions.find((region) => region.id === device.region)?.bounds;
+  const bounds = project.regions[device.region]?.bounds;
   if (!bounds) return false;
   const positions = Array.from({ length: bounds.width * bounds.height }, (_, index) => ({
     x: index % bounds.width, y: Math.floor(index / bounds.width),
@@ -189,7 +189,7 @@ function powerCandidates(input: ResearchInput): StrategyCandidate[] {
     const grid = diagnostic.code === "power-deficit" ? input.production.powerGrids.find((item) => diagnostic.message.startsWith(item.grid)) : undefined;
     const anchorId = target?.id ?? grid?.distributors[0]; const anchor = anchorId ? input.project.devices[anchorId] : undefined;
     const id = uniqueDeviceId(input.blueprint, `${generator.id}-support`);
-    const device: Blueprint["devices"][number] = { id, asset: generator.id, region: anchor?.region ?? input.blueprint.regions[0]!.id, position: { x: 0, y: 0 }, rotation: 0 };
+    const device: Blueprint["devices"][number] = { id, asset: generator.id, region: anchor?.region ?? input.project.world.regions[0]!.id, position: { x: 0, y: 0 }, rotation: 0 };
     if (!placeDevice(input.blueprint, device, input.project, anchor?.position)) continue;
     const key = `power:${diagnostic.code}:${anchorId ?? "factory"}`;
     candidates.push({ key, proposal: {

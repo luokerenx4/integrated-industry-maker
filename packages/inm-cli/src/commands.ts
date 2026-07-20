@@ -67,13 +67,14 @@ export async function validateCommand(projectDir: string, selection: ProjectSele
   const summary = {
     valid: true, project: project.manifest.name, blueprintHash: project.hashes.blueprintHash,
     regions: Object.keys(project.regions).length,
+    resourceNodes: Object.keys(project.resourceNodes).length,
     devices: Object.keys(project.devices).length,
     connections: Object.keys(project.connections).length,
     logisticsNetworks: Object.keys(project.logisticsNetworks).length,
     logisticsRoutes: Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.routes.length, 0),
   };
   if (options.json) write(summary, true);
-  else write(`✓ ${summary.project}: valid (${summary.regions} ${summary.regions === 1 ? "region" : "regions"}, ${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nBlueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
+  else write(`✓ ${summary.project}: valid (${summary.regions} ${summary.regions === 1 ? "region" : "regions"}, ${summary.resourceNodes} finite resource ${summary.resourceNodes === 1 ? "node" : "nodes"}, ${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nWorld ${project.hashes.worldHash.slice(0, 12)} · Blueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
 }
 
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
@@ -83,7 +84,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   for (const device of Object.values(project.devices)) for (const capability of device.assetDef.capabilities) capabilityCounts[capability] = (capabilityCounts[capability] ?? 0) + 1;
   const summary = {
     name: project.manifest.name, rootDir: project.rootDir,
-    regions: project.blueprint.regions.map((region) => ({ id: region.id, name: region.name, kind: region.kind, coordinates: region.coordinates, bounds: region.bounds })),
+    world: { id: project.world.id, name: project.world.name },
+    regions: project.world.regions.map((region) => ({ id: region.id, name: region.name, kind: region.kind, coordinates: region.coordinates, bounds: region.bounds })),
+    resourceNodes: Object.values(project.resourceNodes).map((node) => ({ id: node.id, region: node.region, resource: node.resource, amount: node.amount, position: node.position })),
     resources: Object.keys(project.resources), processes: Object.keys(project.processes), deviceAssets: Object.keys(project.deviceAssets),
     deviceInstances: Object.keys(project.devices).length, capabilityCounts, connections: Object.keys(project.connections).length,
     logisticsNetworks: Object.keys(project.logisticsNetworks).length,
@@ -93,7 +96,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   };
   if (options.json) write(summary, true);
   else write([
-    `${summary.name}`, `Project: ${summary.rootDir}`, `Blueprint: ${summary.regions.length} ${summary.regions.length === 1 ? "region" : "regions"}, ${summary.deviceInstances} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"}`,
+    `${summary.name}`, `Project: ${summary.rootDir}`, `World: ${summary.world.name} [${summary.world.id}] · ${summary.regions.length} ${summary.regions.length === 1 ? "region" : "regions"} · ${summary.resourceNodes.length} finite resource ${summary.resourceNodes.length === 1 ? "node" : "nodes"}`, `Blueprint: ${summary.deviceInstances} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"}`,
     `Regions: ${summary.regions.map((region) => `${region.name} [${region.id}] ${region.kind} @ (${region.coordinates.x},${region.coordinates.y},${region.coordinates.z}) ${region.bounds.width}×${region.bounds.height}`).join("; ")}`,
     `Resources: ${summary.resources.join(", ")}`, `Processes: ${summary.processes.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
     `Objective: ${summary.objective.name} → ${summary.objective.targetResource}`, `Runs: ${summary.runs.length}`, "",
@@ -112,7 +115,11 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     `Coverage: ${analysis.declarativeDevices} declarative process devices, ${analysis.opaqueDevices} opaque/boundary devices`,
     "",
     "Device rates",
+    ...analysis.extractionDevices.map((device) => `  ${device.device.padEnd(24)} extract ${device.resource.padEnd(15)} ${device.itemsPerMinute.toFixed(3)} items/min from ${device.nodes.join(", ")}`),
     ...analysis.devices.map((device) => `  ${device.device.padEnd(24)} ${device.process.padEnd(20)} ${device.cyclesPerMinute.toFixed(3)} cycles/min`),
+    "",
+    "Finite resource nodes",
+    ...analysis.resourceNodes.map((node) => `  ${node.node.padEnd(24)} [${node.region}] ${node.amount.toString().padStart(7)} ${node.resource}  miners ${node.miners.join(", ") || "none"}  depletion ${node.estimatedDepletionMinutes === null ? "never" : `${node.estimatedDepletionMinutes.toFixed(3)} min`}`),
     "",
     "Material balance",
     ...analysis.resources.map((resource) => `  ${resource.resource.padEnd(20)} produce ${resource.producedPerMinute.toFixed(3).padStart(9)}/min  consume ${resource.consumedPerMinute.toFixed(3).padStart(9)}/min  net ${resource.netPerMinute.toFixed(3).padStart(9)}/min${resource.hasBoundarySupply ? "  [boundary supply]" : ""}${resource.hasBoundaryDemand ? "  [boundary demand]" : ""}`),

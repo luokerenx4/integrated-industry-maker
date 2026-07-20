@@ -5,25 +5,11 @@
   },
   "devices": {
     "assembler-1": {
-      "activeJob": {
-        "durationTicks": 3000,
-        "operation": "assemble-gear",
-        "powerMilliWatts": 220000,
-        "produce": [
-          {
-            "buffer": "output",
-            "count": 1,
-            "resource": "gear"
-          }
-        ],
-        "startedAt": 117170
-      },
       "buffers": {
         "input": {},
         "output": {}
       },
-      "progressTicks": 2830,
-      "status": "processing"
+      "status": "waiting-input"
     },
     "generator-1": {
       "buffers": {},
@@ -35,24 +21,28 @@
     },
     "ore-source-1": {
       "activeJob": {
-        "durationTicks": 2000,
+        "durationTicks": 1000,
+        "extraction": {
+          "count": 1,
+          "node": "iron-vein-3"
+        },
         "operation": "extract-iron-ore",
         "powerMilliWatts": 50000,
         "produce": [
           {
             "buffer": "output",
-            "count": 2,
+            "count": 1,
             "resource": "iron-ore"
           }
         ],
-        "startedAt": 119700
+        "startedAt": 119200
       },
       "buffers": {
         "output": {
           "iron-ore": 6
         }
       },
-      "progressTicks": 300,
+      "progressTicks": 800,
       "status": "processing"
     },
     "output-1": {
@@ -73,7 +63,7 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 119450
+        "startedAt": 119200
       },
       "buffers": {
         "input": {
@@ -81,7 +71,7 @@
         },
         "output": {}
       },
-      "progressTicks": 550,
+      "progressTicks": 800,
       "status": "processing"
     },
     "station-demand": {
@@ -101,24 +91,24 @@
   },
   "energy": {
     "availableMilliWatts": 2000000,
-    "consumedMilliJoules": 200576600,
+    "consumedMilliJoules": 200684000,
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 91882600
+        "consumedMilliJoules": 91920000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 108694000
+        "consumedMilliJoules": 108764000
       }
     }
   },
   "logisticsTransports": {
     "interstellar-main": [
       {
-        "arriveTick": 124910,
+        "arriveTick": 124660,
         "count": 3,
-        "departTick": 112870,
+        "departTick": 112620,
         "from": "station-supply",
         "fromBuffer": "storage",
         "id": "transit-000131",
@@ -130,18 +120,47 @@
     ]
   },
   "produced": {
-    "gear": 11,
+    "gear": 12,
     "iron-ore": 74,
     "iron-plate": 29
   },
+  "resourceNodes": {
+    "iron-vein-1": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "extracted": 14,
+      "remaining": 15,
+      "reserved": 1
+    }
+  },
   "tick": 120000,
   "transports": {
-    "gear-to-output": [],
+    "gear-to-output": [
+      {
+        "arriveTick": 121120,
+        "count": 1,
+        "departTick": 119920,
+        "from": "assembler-1",
+        "fromBuffer": "output",
+        "id": "transit-000141",
+        "resource": "gear",
+        "to": "output-1",
+        "toBuffer": "input"
+      }
+    ],
     "ore-to-smelter": [
       {
-        "arriveTick": 120650,
+        "arriveTick": 120400,
         "count": 1,
-        "departTick": 119450,
+        "departTick": 119200,
         "from": "ore-source-1",
         "fromBuffer": "output",
         "id": "transit-000139",
@@ -150,9 +169,9 @@
         "toBuffer": "input"
       },
       {
-        "arriveTick": 120900,
+        "arriveTick": 120650,
         "count": 1,
-        "departTick": 119700,
+        "departTick": 119450,
         "from": "ore-source-1",
         "fromBuffer": "output",
         "id": "transit-000140",
@@ -163,9 +182,9 @@
     ],
     "plate-to-station": [
       {
-        "arriveTick": 120550,
+        "arriveTick": 120300,
         "count": 1,
-        "departTick": 119450,
+        "departTick": 119200,
         "from": "smelter-1",
         "fromBuffer": "output",
         "id": "transit-000138",

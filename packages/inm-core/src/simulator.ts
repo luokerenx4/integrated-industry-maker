@@ -36,7 +36,8 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     consumedMilliJoules: 0,
   }]));
   const availableMilliWatts = Object.values(project.powerGrids).reduce((sum, grid) => sum + grid.productionMilliWatts, 0);
-  return { tick: 0, devices, transports, logisticsTransports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0, grids }, completedOrders: 0 };
+  const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => [node.id, { remaining: node.amount, reserved: 0, extracted: 0 }]));
+  return { tick: 0, devices, resourceNodes, transports, logisticsTransports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0, grids }, completedOrders: 0 };
 }
 
 export function runUntil(project: CompiledFactoryProject, initialState = createInitialFactoryState(project), options: RunOptions = {}): SimulationResult {
@@ -250,6 +251,32 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const runtime = state.devices[device.id]!;
     if (decision.kind === "none") { setStatus(device.id, "idle"); return false; }
     if (decision.kind === "wait") { setStatus(device.id, decision.reason === "input" ? "waiting-input" : decision.reason === "output" ? "blocked-output" : "idle"); return false; }
+    if (decision.kind === "extract") {
+      const plan = device.extractionPlan;
+      const node = plan?.nodes.find((item) => item.id === decision.node);
+      if (!plan || !node) throw new Error(`Device program '${device.asset}' tried to extract unbound resource node '${decision.node}'`);
+      if (decision.count > plan.itemsPerCycle || decision.durationTicks !== plan.cycleTicks) throw new Error(`Device program '${device.asset}' cannot exceed its compiled extraction rate of ${plan.itemsPerCycle} items per ${plan.cycleTicks} ticks`);
+      const resourceState = state.resourceNodes[node.id]!;
+      if (resourceState.remaining < decision.count) { setStatus(device.id, "waiting-input"); return false; }
+      const produce = [{ buffer: plan.outputBuffer, resource: node.resource, count: decision.count }];
+      if (!outputFits(device, produce)) {
+        if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
+        return false;
+      }
+      const required = decision.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
+      const grid = device.powerGrid ?? null;
+      const available = grid ? state.energy.grids[grid]!.availableMilliWatts - activePower(grid) : 0;
+      if (required > 0 && required > available) {
+        if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: Math.max(0, available) });
+        setStatus(device.id, "unpowered"); return false;
+      }
+      mutateFactoryState(state, { kind: "resource.reserve", node: node.id, count: decision.count });
+      const job = { operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: required, produce, extraction: { node: node.id, count: decision.count } };
+      setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
+      emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
+      schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+      return true;
+    }
     if (!allAmountsKnown(device, decision.consume)) throw new Error(`Device program '${device.asset}' referenced an unknown resource or buffer`);
     if (!decision.consume.every((amount) => amountAvailable(device, amount))) { setStatus(device.id, "waiting-input"); return false; }
     if (decision.kind === "consume") { applyConsume(device, decision.consume, true); setStatus(device.id, "idle"); return true; }
@@ -286,6 +313,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         durationTicks: device.processPlan.durationTicks,
         inputs: device.processPlan.inputs,
         outputs: device.processPlan.outputs,
+      } } : {}),
+      ...(device.extractionPlan ? { extraction: {
+        outputBuffer: device.extractionPlan.outputBuffer,
+        cycleTicks: device.extractionPlan.cycleTicks,
+        itemsPerCycle: device.extractionPlan.itemsPerCycle,
+        nodes: device.extractionPlan.nodes.map((node) => ({ id: node.id, resource: node.resource, remaining: state.resourceNodes[node.id]!.remaining })),
       } } : {}),
     });
     return tryDecision(device, decision);
@@ -329,6 +362,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count });
         mutateFactoryState(state, { kind: "produced", resource: output.resource, count: output.count });
       }
+      if (job.extraction) {
+        const node = project.resourceNodes[job.extraction.node]!;
+        mutateFactoryState(state, { kind: "resource.extracted", node: node.id, count: job.extraction.count });
+        emit({ type: "resource.extracted", tick: state.tick, device: event.device, node: node.id, resource: node.resource, count: job.extraction.count, remaining: state.resourceNodes[node.id]!.remaining });
+        if (state.resourceNodes[node.id]!.remaining === 0 && state.resourceNodes[node.id]!.reserved === 0) emit({ type: "resource.depleted", tick: state.tick, node: node.id, resource: node.resource });
+      }
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce) });
     } else if (event.kind === "arrive") {
@@ -349,7 +388,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (scheduledDispatchTick[event.connection] === state.tick) delete scheduledDispatchTick[event.connection];
     } else if (event.kind === "breakdown") {
       generations[event.device]!++;
-      if (state.devices[event.device]!.activeJob) mutateFactoryState(state, { kind: "job.finish", device: event.device });
+      const activeJob = state.devices[event.device]!.activeJob;
+      if (activeJob?.extraction) mutateFactoryState(state, { kind: "resource.release", node: activeJob.extraction.node, count: activeJob.extraction.count });
+      if (activeJob) mutateFactoryState(state, { kind: "job.finish", device: event.device });
       setStatus(event.device, "failed"); emit({ type: "device.breakdown", tick: state.tick, device: event.device });
     } else {
       setStatus(event.device, "idle"); emit({ type: "device.recover", tick: state.tick, device: event.device });

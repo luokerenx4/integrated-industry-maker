@@ -44,6 +44,7 @@ factory/
         runtime.ts
         ... private implementation files
   processes/<id>.process.json
+  worlds/<id>.world.json
   blueprints/<id>.blueprint.json
   scenarios/<id>.scenario.json
   objectives/<id>.objective.json
@@ -52,7 +53,7 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors.
 
 Splitting presentation and execution from identity is intentional. Catalog tools can inspect `asset.json` without executing code, artists can replace files named by `visual.json`, and device authors can edit `runtime.ts` without turning the blueprint into a script container. The hash of an asset covers every file in its package.
 
@@ -125,7 +126,7 @@ A Resource asset describes a kind of flow. Runtime quantities are `(resource id,
 }
 ```
 
-Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A production-capable Device may additionally declare compatible Process categories, an exact rational speed multiplier, and the buffers used to bind Process inputs and outputs. The device's TypeScript program still owns the final local decision.
+Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device may declare compatible Process categories, an exact rational speed multiplier, and input/output bindings. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
 
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
@@ -200,11 +201,11 @@ export default {
 `assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. The program is a black box behind one host interface:
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
-- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process plan when one is bound.
+- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process or extraction plan when one is bound.
 - `planTransport(context)` is required for assets declaring `transport`; it receives `loader`, `line`, `unloader`, or `carrier` as the logistics role and returns capacity and duration for that stage or trip.
 - A program returns declarative actions. It never receives the mutable global factory state.
 
-Supported decisions are `start`, `consume`, `wait`, and `none`. A `start` action may consume from and produce into any number of named buffers, so multi-input/multi-output equipment does not need a standardized internal recipe representation. The host validates every buffer, resource, count, capacity, duration, and power request before mutating state.
+Supported decisions are `start`, `extract`, `consume`, `wait`, and `none`. An `extract` action names one of the instance's compiled resource-node bindings; the host enforces its maximum cycle rate, atomically reserves finite inventory, restores a reservation if the machine fails, and records extraction/depletion only on completion. A `start` action may consume from and produce into any number of named buffers. The host validates every buffer, resource, node, count, capacity, duration, and power request before mutating state.
 
 Programs must be synchronous and deterministic. They are local trusted project code—not a security sandbox—and therefore should not use clocks, network calls, ambient process state, or unseeded randomness. Repeated simulations and immutable run hashes detect nondeterministic results.
 
@@ -228,13 +229,15 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 
 The filename must match `id`; every resource is compiler-resolved. The blueprint binds a Process to a Device, and the compiler checks the Device category, input/output buffer contracts, and exact speed ratio before producing a buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
 
-## Blueprint
+## World
 
-Every blueprint declares one or more industrial regions. A region is a `site`, `planet`, or `orbit`, owns an independent 2D factory floor, and has integer world coordinates used for long-range route distance. Every Device instance belongs to exactly one region. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region and explicitly select loader, line, and unloader Device assets.
+`worlds/<id>.world.json` declares immutable benchmark input: one or more regions plus finite resource nodes. A region is a `site`, `planet`, or `orbit`, owns an independent 2D factory floor, and has integer world coordinates used for long-range route distance. A resource node names a project Resource, region, cell, and positive initial amount. World contents have their own run hash and are outside the research patch boundary.
 
 ```json
 {
   "version": 1,
+  "id": "main",
+  "name": "Twin Worlds",
   "regions": [
     {
       "id": "forge-world",
@@ -251,13 +254,27 @@ Every blueprint declares one or more industrial regions. A region is a `site`, `
       "bounds": { "width": 20, "height": 24 }
     }
   ],
+  "resourceNodes": [
+    { "id": "iron-vein-1", "region": "forge-world", "resource": "iron-ore", "position": { "x": 1, "y": 9 }, "amount": 30 }
+  ]
+}
+```
+
+## Blueprint
+
+Every Device instance belongs to exactly one region from the selected world. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region and explicitly select loader, line, and unloader Device assets. Extractors must explicitly bind reachable, same-region nodes supported by their asset.
+
+```json
+{
+  "version": 1,
   "devices": [
     {
       "id": "ore-source-1",
-      "asset": "ore-source",
+      "asset": "mining-machine",
       "region": "forge-world",
       "position": { "x": 2, "y": 10 },
-      "rotation": 0
+      "rotation": 0,
+      "resourceNodes": ["iron-vein-1"]
     },
     {
       "id": "smelter-1",

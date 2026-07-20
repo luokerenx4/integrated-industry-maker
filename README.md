@@ -2,7 +2,7 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production system as a folder of inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A blueprint can span multiple sites, planets, or orbital regions, each with its own two-dimensional factory floor and power topology. The complete system can be validated, statically balanced across materials, local transport, shared-fleet station networks, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production system as a folder of immutable world definitions, finite resource deposits, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple sites, planets, or orbital regions, each with its own two-dimensional factory floor, deposits, and power topology. The complete system can be validated, statically balanced across extraction, materials, local transport, shared-fleet station networks, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 > A factory is a folder. Blueprints are programs. Scenarios are tests. Objectives are benchmarks.
 
@@ -30,13 +30,13 @@ bun run inm studio examples/ironworks
 The bundled experiment demonstrates the complete loop:
 
 ```text
-000 two-planet baseline          score 39.106
-001 smelter + regional power     score 92.316  KEEP
-002 another parallel smelter     score 85.682  REVERT
-003 parallel assembler           score 89.283  REVERT
+000 finite-deposit baseline      score 39.075
+001 smelter + regional power     score 87.472  KEEP
+002 another parallel smelter     score 85.926  REVERT
+003 assembler + regional power   score 89.485  KEEP
 ```
 
-The default blueprint is an executable two-planet example: Forge World smelts ore and loads an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates; Assembly World unloads it into a local assembler. Physical links and power grids are region-local, while an interstellar station network must cross regions. The heuristic reads the static iron-plate deficit, proposes RFC 6902 patches that add nearby parallel smelters, connections, and any required regional power support, validates and compiles each candidate, re-runs the exact benchmark, then keeps only improvements. Fleet sizing is itself blueprint code and can be diagnosed and patched by the same loop.
+The default world and blueprint form an executable two-planet example: a TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates; Assembly World unloads it into a local assembler. Physical links and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint machinery and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
 
 ## CLI
 
@@ -79,6 +79,7 @@ my-factory/
       visual.json
       runtime.ts
   processes/*.process.json
+  worlds/*.world.json
   blueprints/*.blueprint.json
   scenarios/*.scenario.json
   objectives/*.objective.json
@@ -93,7 +94,8 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - A **device asset** owns geometry, multiple named buffers and ports, presentation files, and a private TypeScript throughput program.
 - Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
 - A **process** declares a visible material transformation, category, and base cycle time; a blueprint binds it to a compatible Device.
-- A **blueprint** is a set of named industrial regions, each with a two-dimensional device arrangement and local connection/power graph, plus declared planetary or interstellar station networks with finite carrier fleets.
+- A **world** declares regions, world coordinates, build bounds, and finite resource nodes; optimization cannot edit it.
+- A **blueprint** places Devices into world regions, binds extractors to reachable resource nodes, and declares local connections plus planetary or interstellar station networks with finite carrier fleets.
 - A **scenario** fixes initial state, failures, duration, and test conditions.
 - An **objective** defines hard constraints and a transparent weighted score.
 
@@ -105,7 +107,7 @@ See [project format](docs/PROJECT_FORMAT.md) and the complete [Ironworks example
 Project files
   → strict schema validation
   → process/resource/device compatibility and nominal-rate analysis
-  → region, geometry, port, staged-logistics, station-network, and regional power-grid compilation
+  → world resource-node, region, geometry, extraction, port, staged-logistics, station-network, and regional power-grid compilation
   → canonical factory project + content hashes
   → deterministic discrete-event simulation
   → semantic event stream + final state
@@ -126,4 +128,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers isolated multi-project workspaces, asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, multi-region geometry and reference failures, region-local physical links and power grids, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.
+The suite covers isolated multi-project workspaces, immutable world hashing, finite resource conservation and depletion, extractor range/region contracts, asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, multi-region geometry and reference failures, region-local physical links and power grids, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.

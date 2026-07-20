@@ -2,6 +2,7 @@
   "version": 1,
   "id": "ironworks",
   "name": "Ironworks Research Cell",
+  "defaultWorld": "main",
   "defaultBlueprint": "main",
   "defaultScenario": "baseline",
   "defaultObjective": "default"

@@ -1,5 +1,5 @@
 {
-  "averageWip": 11.867833333333333,
+  "averageWip": 11.457166666666666,
   "blockedOutputTime": {
     "assembler-1": 0,
     "generator-1": 0,
@@ -13,12 +13,15 @@
     "station-supply": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 22,
+  "completedOrders": 21,
   "consumed": {
-    "gear": 22
+    "gear": 21
   },
-  "energyConsumedMilliJoules": 230214600,
-  "finalScore": 92.31607066666668,
+  "energyConsumedMilliJoules": 218700000,
+  "extracted": {
+    "iron-ore": 90
+  },
+  "finalScore": 87.47228333333334,
   "idleTime": {
     "assembler-1": 0,
     "generator-1": 120000,
@@ -33,14 +36,14 @@
   },
   "infeasibleReason": null,
   "machineUtilization": {
-    "assembler-1": 0.56525,
+    "assembler-1": 0.55,
     "generator-1": 0,
     "generator-2": 0,
     "generator-support": 0,
-    "ore-source-1": 1,
+    "ore-source-1": 0.75,
     "output-1": 0,
-    "smelter-1": 0.9566666666666667,
-    "smelter-1-parallel": 0.955,
+    "smelter-1": 0.7333333333333333,
+    "smelter-1-parallel": 0.7333333333333333,
     "station-demand": 0,
     "station-supply": 0
   },
@@ -48,31 +51,54 @@
   "onTimeDelivery": 1,
   "produced": {
     "gear": 22,
-    "iron-ore": 120,
-    "iron-plate": 56
+    "iron-ore": 90,
+    "iron-plate": 44
+  },
+  "resourceNodes": {
+    "iron-vein-1": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    }
   },
   "scoreBreakdown": {
     "blocked": 0,
     "buildCost": -11.395,
     "constraintPenalty": 0,
-    "energy": -2.302146,
+    "energy": -2.187,
     "occupiedArea": -12.8,
     "onTimeDelivery": 10,
-    "throughput": 110,
-    "wip": -1.1867833333333333
+    "throughput": 105,
+    "wip": -1.1457166666666667
   },
-  "throughputPerMinute": 11,
+  "throughputPerMinute": 10.5,
   "totalBuildCost": 22790,
-  "transportCongestion": 0.1844841269841268,
+  "transportCongestion": 0.16297619047619047,
   "waitingInputTime": {
-    "assembler-1": 52170,
+    "assembler-1": 54000,
     "generator-1": 0,
     "generator-2": 0,
     "generator-support": 0,
-    "ore-source-1": 0,
+    "ore-source-1": 30000,
     "output-1": 120000,
-    "smelter-1": 5200,
-    "smelter-1-parallel": 5400,
+    "smelter-1": 32000,
+    "smelter-1-parallel": 32000,
     "station-demand": 0,
     "station-supply": 0
   }

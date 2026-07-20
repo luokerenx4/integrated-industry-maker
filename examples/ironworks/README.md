@@ -7,10 +7,10 @@ When `inm project create` reuses Ironworks, it copies this complete project tree
 The baseline chain is intentionally under-provisioned:
 
 ```text
-ore-source → smelter → assembler → material-sink
+finite iron veins → mining-machine → smelter → interstellar logistics → assembler → material-sink
 ```
 
-The source can feed two smelters, but the blueprint starts with one. The built-in heuristic detects that bottleneck and adds a parallel smelter plus mirrored input/output connections.
+The miner can feed two smelters while its bound deposits last, but the blueprint starts with one. The built-in heuristic detects that bottleneck and adds a parallel smelter plus mirrored input/output connections without changing the world or its resource inventory.
 
 ```bash
 bun run inm validate examples/ironworks

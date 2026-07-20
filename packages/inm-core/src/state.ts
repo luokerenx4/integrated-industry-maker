@@ -10,6 +10,9 @@ export type FactoryStateMutation =
   | { kind: "logistics.remove"; network: string; transitId: string }
   | { kind: "produced"; resource: string; count: number }
   | { kind: "consumed"; resource: string; count: number }
+  | { kind: "resource.reserve"; node: string; count: number }
+  | { kind: "resource.release"; node: string; count: number }
+  | { kind: "resource.extracted"; node: string; count: number }
   | { kind: "energy"; grid: string; consumedMilliJoules: number }
   | { kind: "orders"; count: number }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
@@ -43,6 +46,23 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     }
     case "produced": state.produced[mutation.resource] = (state.produced[mutation.resource] ?? 0) + mutation.count; return;
     case "consumed": state.consumed[mutation.resource] = (state.consumed[mutation.resource] ?? 0) + mutation.count; return;
+    case "resource.reserve": {
+      const node = state.resourceNodes[mutation.node];
+      if (!node || node.remaining < mutation.count) throw new Error(`Insufficient resource remaining on node '${mutation.node}'`);
+      node.remaining -= mutation.count; node.reserved += mutation.count; return;
+    }
+    case "resource.release": {
+      const node = state.resourceNodes[mutation.node];
+      if (!node) throw new Error(`Unknown resource node '${mutation.node}'`);
+      if (node.reserved < mutation.count) throw new Error(`Insufficient reserved resource on node '${mutation.node}'`);
+      node.remaining += mutation.count; node.reserved -= mutation.count; return;
+    }
+    case "resource.extracted": {
+      const node = state.resourceNodes[mutation.node];
+      if (!node) throw new Error(`Unknown resource node '${mutation.node}'`);
+      if (node.reserved < mutation.count) throw new Error(`Insufficient reserved resource on node '${mutation.node}'`);
+      node.reserved -= mutation.count; node.extracted += mutation.count; return;
+    }
     case "energy": {
       state.energy.consumedMilliJoules += mutation.consumedMilliJoules;
       state.energy.grids[mutation.grid]!.consumedMilliJoules += mutation.consumedMilliJoules;

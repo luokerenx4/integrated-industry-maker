@@ -62,7 +62,7 @@ export interface IndustrialProcess extends IndustrialProcessManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "produce" | "process" | "store" | "transport" | "station" | "consume" | "power";
+export type DeviceCapability = "extract" | "process" | "store" | "transport" | "station" | "consume" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -101,6 +101,13 @@ export interface DeviceAssetManifest {
     speed: { numerator: number; denominator: number };
     inputBuffer: BufferId;
     outputBuffer: BufferId;
+  };
+  extraction?: {
+    resources: ResourceId[];
+    radius: number;
+    outputBuffer: BufferId;
+    cycleTicks: Tick;
+    itemsPerCycle: number;
   };
   logistics?: { roles: LogisticsRole[]; carrierKinds?: Array<"planetary" | "interstellar"> };
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: BufferId; slots: number };
@@ -141,10 +148,17 @@ export interface DeviceProgramContext {
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   }>;
+  extraction?: Readonly<{
+    outputBuffer: BufferId;
+    cycleTicks: Tick;
+    itemsPerCycle: number;
+    nodes: ReadonlyArray<Readonly<{ id: string; resource: ResourceId; remaining: number }>>;
+  }>;
 }
 
 export type DeviceProgramDecision =
   | { kind: "start"; operation: string; durationTicks: Tick; consume: ResourceBufferQuantity[]; produce: ResourceBufferQuantity[]; powerMilliWatts?: number }
+  | { kind: "extract"; operation: string; durationTicks: Tick; node: string; count: number; powerMilliWatts?: number }
   | { kind: "consume"; consume: ResourceBufferQuantity[] }
   | { kind: "wait"; reason: "input" | "output" | "idle" }
   | { kind: "none" };
@@ -166,12 +180,26 @@ export interface DeviceProgram {
 
 export interface GridPosition { x: number; y: number }
 export interface WorldPosition { x: number; y: number; z: number }
-export interface BlueprintRegion {
+export interface WorldRegion {
   id: string;
   name: string;
   kind: "site" | "planet" | "orbit";
   coordinates: WorldPosition;
   bounds: { width: number; height: number };
+}
+export interface WorldResourceNode {
+  id: string;
+  region: string;
+  resource: ResourceId;
+  position: GridPosition;
+  amount: number;
+}
+export interface IndustrialWorld {
+  version: 1;
+  id: string;
+  name: string;
+  regions: WorldRegion[];
+  resourceNodes: WorldResourceNode[];
 }
 export type Rotation = 0 | 90 | 180 | 270;
 export interface BlueprintDevice {
@@ -181,6 +209,7 @@ export interface BlueprintDevice {
   position: GridPosition;
   rotation: Rotation;
   process?: ProcessId;
+  resourceNodes?: string[];
   config?: Record<string, unknown>;
   policy?: { dispatch?: "fifo" | "round-robin" };
 }
@@ -212,7 +241,6 @@ export interface BlueprintLogisticsNetwork {
 export interface Blueprint {
   version: 1;
   revision?: string;
-  regions: BlueprintRegion[];
   devices: BlueprintDevice[];
   connections: BlueprintConnection[];
   logisticsNetworks: BlueprintLogisticsNetwork[];
@@ -248,6 +276,7 @@ export interface InmManifest {
   version: 1;
   id: string;
   name: string;
+  defaultWorld: string;
   defaultBlueprint: string;
   defaultScenario: string;
   defaultObjective: string;
@@ -277,6 +306,12 @@ export interface CompiledDevice extends BlueprintDevice {
     durationTicks: Tick;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
+  };
+  extractionPlan?: {
+    nodes: WorldResourceNode[];
+    outputBuffer: BufferId;
+    cycleTicks: Tick;
+    itemsPerCycle: number;
   };
   powerGrid?: string;
 }
@@ -334,10 +369,12 @@ export interface CompiledFactoryProject {
   resources: Record<ResourceId, ResourceAsset>;
   processes: Record<ProcessId, IndustrialProcess>;
   deviceAssets: Record<DeviceAssetId, DeviceAsset>;
+  world: IndustrialWorld;
   blueprint: Blueprint;
   scenario: Scenario;
   objective: Objective;
-  regions: Record<string, BlueprintRegion>;
+  regions: Record<string, WorldRegion>;
+  resourceNodes: Record<string, WorldResourceNode>;
   devices: Record<DeviceInstanceId, CompiledDevice>;
   connections: Record<ConnectionId, CompiledConnection>;
   logisticsNetworks: Record<string, CompiledLogisticsNetwork>;
@@ -350,6 +387,7 @@ export interface ProjectHashes {
   resourceCatalogHash: string;
   processCatalogHash: string;
   deviceCatalogHash: string;
+  worldHash: string;
   blueprintHash: string;
   scenarioHash: string;
   objectiveHash: string;
@@ -362,6 +400,7 @@ export interface ActiveDeviceJob {
   durationTicks: Tick;
   powerMilliWatts: number;
   produce: ResourceBufferQuantity[];
+  extraction?: { node: string; count: number };
 }
 export interface DeviceRuntimeState {
   status: DeviceStatus;
@@ -384,6 +423,7 @@ export interface ResourceTransit {
 export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
+  resourceNodes: Record<string, { remaining: number; reserved: number; extracted: number }>;
   transports: Record<ConnectionId, ResourceTransit[]>;
   logisticsTransports: Record<string, ResourceTransit[]>;
   produced: Record<ResourceId, number>;
@@ -399,6 +439,8 @@ export interface FactoryState {
 export type FactoryEvent =
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick }
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[] }
+  | { type: "resource.extracted"; tick: Tick; device: DeviceInstanceId; node: string; resource: ResourceId; count: number; remaining: number }
+  | { type: "resource.depleted"; tick: Tick; node: string; resource: ResourceId }
   | { type: "resource.depart"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "logistics.depart"; tick: Tick; transit: ResourceTransit; network: string; route: string }
@@ -424,6 +466,8 @@ export interface ScoreBreakdown {
 export interface FactoryMetrics {
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;
+  extracted: Record<ResourceId, number>;
+  resourceNodes: Record<string, { initial: number; remaining: number; reserved: number; extracted: number; depleted: boolean }>;
   throughputPerMinute: number;
   completedOrders: number;
   onTimeDelivery: number;

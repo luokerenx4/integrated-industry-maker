@@ -34,6 +34,7 @@ PROJECT COMMANDS
 
 COMMON OPTIONS
   --project <id>              Project inside a workspace (default from workspace)
+  --world <id>                World name (default from project inm.json)
   --blueprint <id>            Blueprint name (default from project inm.json)
   --scenario <id>             Scenario name (default from project inm.json)
   --objective <id>            Objective name (default from project inm.json)
@@ -54,9 +55,9 @@ function twoArgs(positionals: string[], usage: string): [string, string] {
 }
 const projectOption = { project: { type: "string" as const } };
 const common = {
-  ...projectOption, blueprint: { type: "string" as const }, scenario: { type: "string" as const }, objective: { type: "string" as const }, json: { type: "boolean" as const, default: false },
+  ...projectOption, world: { type: "string" as const }, blueprint: { type: "string" as const }, scenario: { type: "string" as const }, objective: { type: "string" as const }, json: { type: "boolean" as const, default: false },
 };
-const selectionOf = (values: { blueprint?: string; scenario?: string; objective?: string }): ProjectSelection => ({ blueprint: values.blueprint, scenario: values.scenario, objective: values.objective });
+const selectionOf = (values: { world?: string; blueprint?: string; scenario?: string; objective?: string }): ProjectSelection => ({ world: values.world, blueprint: values.blueprint, scenario: values.scenario, objective: values.objective });
 async function selectedProject(positionals: string[], usage: string, project?: string): Promise<string> {
   return resolveProjectDirectory(oneArg(positionals, usage), project);
 }

@@ -26,24 +26,10 @@
       "status": "idle"
     },
     "ore-source-1": {
-      "activeJob": {
-        "durationTicks": 2000,
-        "operation": "extract-iron-ore",
-        "powerMilliWatts": 50000,
-        "produce": [
-          {
-            "buffer": "output",
-            "count": 2,
-            "resource": "iron-ore"
-          }
-        ],
-        "startedAt": 120000
-      },
       "buffers": {
         "output": {}
       },
-      "progressTicks": 0,
-      "status": "processing"
+      "status": "waiting-input"
     },
     "output-1": {
       "buffers": {
@@ -52,40 +38,22 @@
       "status": "waiting-input"
     },
     "smelter-1": {
-      "activeJob": {
-        "durationTicks": 4000,
-        "operation": "smelt-iron",
-        "powerMilliWatts": 180000,
-        "produce": [
-          {
-            "buffer": "output",
-            "count": 1,
-            "resource": "iron-plate"
-          }
-        ],
-        "startedAt": 119200
-      },
       "buffers": {
         "input": {},
         "output": {}
       },
-      "progressTicks": 800,
-      "status": "processing"
+      "status": "waiting-input"
     },
     "smelter-1-parallel": {
       "buffers": {
-        "input": {
-          "iron-ore": 1
-        },
+        "input": {},
         "output": {}
       },
       "status": "waiting-input"
     },
     "smelter-1-parallel-parallel": {
       "buffers": {
-        "input": {
-          "iron-ore": 1
-        },
+        "input": {},
         "output": {}
       },
       "status": "waiting-input"
@@ -98,16 +66,14 @@
     },
     "station-supply": {
       "buffers": {
-        "storage": {
-          "iron-plate": 4
-        }
+        "storage": {}
       },
       "status": "idle"
     }
   },
   "energy": {
     "availableMilliWatts": 3000000,
-    "consumedMilliJoules": 229704000,
+    "consumedMilliJoules": 219420000,
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1000000,
@@ -115,30 +81,34 @@
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 2000000,
-        "consumedMilliJoules": 131184000
+        "consumedMilliJoules": 120900000
       }
     }
   },
   "logisticsTransports": {
-    "interstellar-main": [
-      {
-        "arriveTick": 121060,
-        "count": 6,
-        "departTick": 109020,
-        "from": "station-supply",
-        "fromBuffer": "storage",
-        "id": "transit-000226",
-        "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
-        "resource": "iron-plate",
-        "to": "station-demand",
-        "toBuffer": "storage"
-      }
-    ]
+    "interstellar-main": []
   },
   "produced": {
     "gear": 22,
-    "iron-ore": 120,
-    "iron-plate": 57
+    "iron-ore": 90,
+    "iron-plate": 45
+  },
+  "resourceNodes": {
+    "iron-vein-1": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    }
   },
   "tick": 120000,
   "transports": {
@@ -149,66 +119,18 @@
         "departTick": 119320,
         "from": "assembler-1",
         "fromBuffer": "output",
-        "id": "transit-000248",
+        "id": "transit-000209",
         "resource": "gear",
         "to": "output-1",
         "toBuffer": "input"
       }
     ],
     "ore-to-smelter": [],
-    "ore-to-smelter-smelter-1-parallel": [
-      {
-        "arriveTick": 121400,
-        "count": 1,
-        "departTick": 120000,
-        "from": "ore-source-1",
-        "fromBuffer": "output",
-        "id": "transit-000251",
-        "resource": "iron-ore",
-        "to": "smelter-1-parallel",
-        "toBuffer": "input"
-      }
-    ],
-    "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel": [
-      {
-        "arriveTick": 121600,
-        "count": 1,
-        "departTick": 120000,
-        "from": "ore-source-1",
-        "fromBuffer": "output",
-        "id": "transit-000252",
-        "resource": "iron-ore",
-        "to": "smelter-1-parallel-parallel",
-        "toBuffer": "input"
-      }
-    ],
+    "ore-to-smelter-smelter-1-parallel": [],
+    "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel": [],
     "plate-to-station": [],
-    "plate-to-station-smelter-1-parallel": [
-      {
-        "arriveTick": 120300,
-        "count": 1,
-        "departTick": 119400,
-        "from": "smelter-1-parallel",
-        "fromBuffer": "output",
-        "id": "transit-000249",
-        "resource": "iron-plate",
-        "to": "station-supply",
-        "toBuffer": "storage"
-      }
-    ],
-    "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel": [
-      {
-        "arriveTick": 120700,
-        "count": 1,
-        "departTick": 119600,
-        "from": "smelter-1-parallel-parallel",
-        "fromBuffer": "output",
-        "id": "transit-000250",
-        "resource": "iron-plate",
-        "to": "station-supply",
-        "toBuffer": "storage"
-      }
-    ],
+    "plate-to-station-smelter-1-parallel": [],
+    "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel": [],
     "station-to-assembler": []
   }
 }

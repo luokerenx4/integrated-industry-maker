@@ -22,15 +22,15 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, region and world-coordinate resolution, per-region geometry/rotation checks, port validation, region-local physical-link resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, per-region geometry/rotation checks, port validation, region-local physical-link resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
-Prints project topology, region kinds/world coordinates/bounds, asset catalogs, capability counts, selected benchmark, content hashes, and completed runs.
+Prints the selected world, finite deposits, project topology, region kinds/world coordinates/bounds, asset catalogs, capability counts, selected benchmark, content hashes, and completed runs.
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
-Compiles Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary supply/demand, local connection throughput limits, region-to-region station routes and estimated carrier load, and region-qualified power-grid headroom without running a simulation. Diagnostics expose material deficits, unconsumed surplus, insufficient input/output logistics, unmatched station supply/demand, undersized shared fleets, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
+Compiles extractor rates, finite deposit inventory and estimated depletion, Process-bound Device cycle rates, per-resource nominal production/consumption balance, boundary demand, local connection throughput limits, region-to-region station routes and estimated carrier load, and region-qualified power-grid headroom without running a simulation. Diagnostics expose deposits that are unmined or expected to deplete during the scenario, material deficits, unconsumed surplus, insufficient input/output logistics, unmatched station supply/demand, undersized shared fleets, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
@@ -38,6 +38,7 @@ Runs the deterministic discrete-event simulator and writes or reuses an immutabl
 
 ```bash
 inm simulate examples/ironworks \
+  --world main \
   --blueprint main \
   --scenario baseline \
   --objective default \
@@ -90,10 +91,10 @@ Launches the local read-only 3D runtime debugger. `/` is a project launcher; cho
 
 The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from the project's Process definitions, previews their visual identity, and exposes tags, capabilities, geometry, ports, buffers, runtime entry, units, transformations, cycle times, transport limits, content hashes, and current instance counts. Every data and file request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
-The adjacent Analysis view recompiles the currently selected run blueprint and presents nominal material balance, warning diagnostics, loader/line/unloader pipelines, region-qualified station supply/demand routes and shared-fleet load, plus generation, rated demand, membership, and headroom for each regional power grid. The 3D view renders every region as a separate labeled factory floor and bridges them with interstellar routes.
+The adjacent Analysis view recompiles the currently selected run blueprint against the project world and presents finite deposits/depletion, nominal material balance, warning diagnostics, loader/line/unloader pipelines, region-qualified station supply/demand routes and shared-fleet load, plus generation, rated demand, membership, and headroom for each regional power grid. The 3D view renders every region as a separate labeled factory floor, shrinks deposits as extraction events replay, and bridges worlds with interstellar routes.
 
 Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 
 ## Selection and output
 
-Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `simulate`, and `research` accept `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.
+Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.

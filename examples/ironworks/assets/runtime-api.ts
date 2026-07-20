@@ -18,6 +18,12 @@ export interface DeviceProgramContext {
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   }>;
+  extraction?: Readonly<{
+    outputBuffer: string;
+    cycleTicks: number;
+    itemsPerCycle: number;
+    nodes: ReadonlyArray<Readonly<{ id: string; resource: string; remaining: number }>>;
+  }>;
 }
 
 export interface DeviceTransportContext {
@@ -32,6 +38,7 @@ export interface DeviceProgram {
   validateConfig?: (config: Readonly<Record<string, unknown>>) => string[];
   evaluate: (context: Readonly<DeviceProgramContext>) =>
     | { kind: "start"; operation: string; durationTicks: number; consume: ResourceBufferQuantity[]; produce: ResourceBufferQuantity[]; powerMilliWatts?: number }
+    | { kind: "extract"; operation: string; durationTicks: number; node: string; count: number; powerMilliWatts?: number }
     | { kind: "consume"; consume: ResourceBufferQuantity[] }
     | { kind: "wait"; reason: "input" | "output" | "idle" }
     | { kind: "none" };

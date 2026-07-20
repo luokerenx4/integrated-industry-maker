@@ -1,10 +1,17 @@
 {
-  "completedOrders": 21,
+  "completedOrders": 22,
   "consumed": {
-    "gear": 21
+    "gear": 22
   },
   "devices": {
     "assembler-1": {
+      "buffers": {
+        "input": {},
+        "output": {}
+      },
+      "status": "waiting-input"
+    },
+    "assembler-1-parallel": {
       "buffers": {
         "input": {},
         "output": {}
@@ -20,6 +27,10 @@
       "status": "idle"
     },
     "generator-support": {
+      "buffers": {},
+      "status": "idle"
+    },
+    "generator-support-2": {
       "buffers": {},
       "status": "idle"
     },
@@ -67,11 +78,11 @@
     }
   },
   "energy": {
-    "availableMilliWatts": 3000000,
+    "availableMilliWatts": 4000000,
     "consumedMilliJoules": 218700000,
     "grids": {
       "grid-assembly-world-generator-2": {
-        "availableMilliWatts": 1000000,
+        "availableMilliWatts": 2000000,
         "consumedMilliJoules": 98520000
       },
       "grid-forge-world-generator-1": {
@@ -107,23 +118,13 @@
   },
   "tick": 120000,
   "transports": {
-    "gear-to-output": [
-      {
-        "arriveTick": 121120,
-        "count": 1,
-        "departTick": 119920,
-        "from": "assembler-1",
-        "fromBuffer": "output",
-        "id": "transit-000207",
-        "resource": "gear",
-        "to": "output-1",
-        "toBuffer": "input"
-      }
-    ],
+    "gear-to-output": [],
+    "gear-to-output-assembler-1-parallel": [],
     "ore-to-smelter": [],
     "ore-to-smelter-smelter-1-parallel": [],
     "plate-to-station": [],
     "plate-to-station-smelter-1-parallel": [],
-    "station-to-assembler": []
+    "station-to-assembler": [],
+    "station-to-assembler-assembler-1-parallel": []
   }
 }

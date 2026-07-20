@@ -5,7 +5,7 @@ import type { ZodError, ZodType } from "zod";
 import { importDeviceProgram } from "./device-runtime";
 import { schemas, type SchemaKind } from "./schema";
 import type {
-  Blueprint, DeviceAsset, DeviceAssetManifest, DeviceVisual, IndustrialProcess, IndustrialProcessManifest, InmManifest, Objective,
+  Blueprint, DeviceAsset, DeviceAssetManifest, DeviceVisual, IndustrialProcess, IndustrialProcessManifest, IndustrialWorld, InmManifest, Objective,
   ResourceAsset, ResourceAssetManifest, ResourceVisual, Scenario, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
@@ -17,6 +17,7 @@ export interface LoadedFactoryProject {
   resources: Record<string, ResourceAsset>;
   processes: Record<string, IndustrialProcess>;
   deviceAssets: Record<string, DeviceAsset>;
+  world: IndustrialWorld;
   blueprint: Blueprint;
   scenario: Scenario;
   objective: Objective;
@@ -143,19 +144,21 @@ async function loadDevices(rootDir: string): Promise<Record<string, DeviceAsset>
   return catalog;
 }
 
-export interface ProjectSelection { blueprint?: string; scenario?: string; objective?: string }
+export interface ProjectSelection { world?: string; blueprint?: string; scenario?: string; objective?: string }
 
 export async function loadFactoryProject(projectDir: string, selection: ProjectSelection = {}): Promise<LoadedFactoryProject> {
   const rootDir = resolve(projectDir);
   const manifest = await parseFile<InmManifest>(join(rootDir, "inm.json"), "manifest");
+  const worldId = selection.world ?? manifest.defaultWorld;
   const blueprintId = selection.blueprint ?? manifest.defaultBlueprint;
   const scenarioId = selection.scenario ?? manifest.defaultScenario;
   const objectiveId = selection.objective ?? manifest.defaultObjective;
-  const [resources, processes, deviceAssets, blueprint, scenario, objective] = await Promise.all([
+  const [resources, processes, deviceAssets, world, blueprint, scenario, objective] = await Promise.all([
     loadResources(rootDir), loadProcesses(rootDir), loadDevices(rootDir),
+    parseFile<IndustrialWorld>(join(rootDir, "worlds", `${worldId}.world.json`), "world"),
     parseFile<Blueprint>(join(rootDir, "blueprints", `${blueprintId}.blueprint.json`), "blueprint"),
     parseFile<Scenario>(join(rootDir, "scenarios", `${scenarioId}.scenario.json`), "scenario"),
     parseFile<Objective>(join(rootDir, "objectives", `${objectiveId}.objective.json`), "objective"),
   ]);
-  return { rootDir, manifest, resources, processes, deviceAssets, blueprint, scenario, objective };
+  return { rootDir, manifest, resources, processes, deviceAssets, world, blueprint, scenario, objective };
 }

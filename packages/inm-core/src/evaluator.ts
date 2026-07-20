@@ -53,8 +53,14 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     constraintPenalty: violations.length ? -1_000_000 : 0,
   };
   const finalScore = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0);
+  const extracted: Record<string, number> = {};
+  const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => {
+    const runtime = state.resourceNodes[node.id]!;
+    extracted[node.resource] = (extracted[node.resource] ?? 0) + runtime.extracted;
+    return [node.id, { initial: node.amount, remaining: runtime.remaining, reserved: runtime.reserved, extracted: runtime.extracted, depleted: runtime.remaining === 0 && runtime.reserved === 0 }];
+  }));
   return {
-    produced: { ...state.produced }, consumed: { ...state.consumed }, throughputPerMinute,
+    produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules,
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime,
     averageWip, transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,

@@ -59,8 +59,9 @@ JSON
 → Process catalog resolution and content hashing
 → TypeScript DeviceProgram injection
 → catalog reference resolution
+→ immutable World region, coordinate, and finite resource-node resolution
 → rotation and footprint normalization
-→ region identity, world coordinates, per-region bounds, and overlap validation
+→ region identity, world coordinates, per-region bounds, resource-node range, and overlap validation
 → Process category, speed, port, buffer, resource-contract, and device-config validation
 → region-local power-distributor topology, coverage, and isolated-grid compilation
 → loader/line/unloader logistics-stage resolution, throughput, and integer travel time
@@ -68,7 +69,9 @@ JSON
 → canonical CompiledFactoryProject
 ```
 
-The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown regions, resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or same-region overlapping footprints; cross-region physical links; cross-region planetary logistics; single-region interstellar logistics; logistics assets used in unsupported stages; incompatible resource contracts; and input/output direction errors.
+The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown regions, resource nodes, resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds deposits or devices; extractor nodes of mixed type, wrong region, unsupported resource, or excessive range; same-region overlapping footprints; cross-region physical links; cross-region planetary logistics; single-region interstellar logistics; logistics assets used in unsupported stages; incompatible resource contracts; and input/output direction errors.
+
+World and blueprint are intentionally separate compilation inputs. A World owns geography and finite deposits and receives an independent `worldHash`; a blueprint owns only machinery, bindings, connections, station fleets, and dispatch policies. Research patches can rewrite the latter but cannot create ore, enlarge a planet, move a vein, or otherwise mutate benchmark input.
 
 Each resource connection is a compiled logistics pipeline with three explicit stages: loader, line, and unloader. Each stage references a transport-capable Device asset whose declared roles determine where it may be used. Its `planTransport()` hook computes stage capacity and duration. The compiler sums stage latency and derives a dispatch interval from the slowest stage, so a sorter can bottleneck a belt independently of line length. Logistics equipment remains a Device capability rather than becoming a shared asset class.
 
@@ -80,10 +83,11 @@ Power is spatial and region-local rather than factory-global. A power-capable De
 
 Every Resource or Device is a directory package rooted at `assets/resources/<id>` or `assets/devices/<id>`. `asset.json` is the self-description index; presentation lives in `visual.json`; Device execution lives in `runtime.ts`. All indexed paths are relative and confined to the package. Catalog hashes cover the complete directory, including scripts, textures, and models.
 
-The old `behavior.kind` execution switch does not exist. Processes are not shared assets or an engine-global Recipe database: each project owns `processes/*.process.json`, and their hashes participate in run identity. A Device may declare supported Process categories, an exact rational speed multiplier, input/output buffer bindings, semantic capabilities, and any number of named buffers and ports. Its `DeviceProgram` owns the final local throughput decision and returns one of four declarative decisions:
+The old `behavior.kind` execution switch does not exist. Processes are not shared assets or an engine-global Recipe database: each project owns `processes/*.process.json`, and their hashes participate in run identity. A Device may declare supported Process categories, an exact rational speed multiplier, input/output buffer bindings, semantic capabilities, and any number of named buffers and ports. Its `DeviceProgram` owns the final local throughput decision and returns one of five declarative decisions:
 
 ```text
 start    consume N resource streams now, produce M streams after a duration
+extract  reserve a bound finite resource node and emit its resource after a duration
 consume  remove delivered resources from local buffers
 wait     expose input/output/idle wait state
 none     take no local action
@@ -91,7 +95,7 @@ none     take no local action
 
 The injection interface is uniform even though each device's implementation and configuration are private. For a Process-bound Device, the compiler injects a resolved, buffer-bound Process plan into the frozen local context. Programs see that plan and local buffers, not mutable factory state. The host validates actions and remains the only authority allowed to write buffers, schedule events, allocate power, or update metrics. Transport-capable programs additionally implement `planTransport()`. Its stage is one of `loader`, `line`, `unloader`, or `carrier`; carrier assets also declare whether they support planetary, interstellar, or both network kinds.
 
-`inm analyze` compiles nominal cycles/min, material production/consumption balance, boundary supply/demand, connection rate limits, station routes, estimated shared-carrier load, unmatched station slots, disconnected consumers, and per-grid rated power headroom without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
+`inm analyze` compiles nominal extraction/cycles per minute, finite node inventory and estimated depletion, material production/consumption balance, boundary demand, connection rate limits, station routes, estimated shared-carrier load, unmatched station slots, disconnected consumers, and per-grid rated power headroom without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
 
 Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract.
 
@@ -105,7 +109,7 @@ tick → priority → insertion sequence
 
 The engine does not depend on wall-clock time, frame rate, `Math.random()`, object insertion accidents, browser state, or Three.js. Asset programs share this determinism requirement. `SeededRandom` provides the deterministic randomness seam for stochastic scenario extensions. Explicit failures are scheduled events.
 
-All runtime writes pass through `mutateFactoryState()`. Buffers are addressed by `(device, buffer, resource)`; jobs carry their declared outputs until completion; local transports and station-fleet transports carry source and destination buffer identities. Device scripts and simulator subsystems do not own independent mutable stores. WIP and congestion include both local links and station routes; station infrastructure power is charged continuously while available.
+All runtime writes pass through `mutateFactoryState()`. Buffers are addressed by `(device, buffer, resource)`; resource nodes account separately for remaining, in-flight reservation, and completed extraction; jobs carry their declared outputs until completion; local transports and station-fleet transports carry source and destination buffer identities. A failed extraction job releases its reservation. Device scripts and simulator subsystems do not own independent mutable stores. WIP and congestion include both local links and station routes; station infrastructure power is charged continuously while available.
 
 Each result is keyed by engine version, all catalog and input hashes, seed, duration, and event limit. `resultHash` covers the run key, ordered event stream, final state, and metrics.
 
@@ -153,6 +157,6 @@ Files are written to a temporary file, flushed, and atomically renamed. `manifes
 
 `FactorySceneModel` contains plain serializable data only—no Three.js objects, React elements, cameras, renderer materials, or geometry. Event replay projects Device status plus local and station resource transit independently of rendering.
 
-Studio lays regions side-by-side for inspection, then maps each region's `blueprint.x → world.x`, `blueprint.y → world.z`, and visual height to `world.y`. Each region retains an independent floor, label, bounds, collision space, and power topology; dashed station routes bridge region floors. The root UI first presents the engine's projects; opening one establishes `/<project-id>` as the browser route and sole project context. The runtime page can select baseline, KEEP, and REVERT runs, open the project's Device/Resource asset browser, play/pause/reset, scrub time, change speed, inspect semantic events, and highlight bottlenecks. It never writes a blueprint.
+Studio lays world regions side-by-side for inspection, then maps each region's local `x → world.x`, local `y → world.z`, and visual height to `world.y`. Each region retains an independent floor, label, bounds, collision space, deposit inventory, and power topology; dashed station routes bridge region floors. Deposit geometry shrinks as `resource.extracted` events replay. The root UI first presents the engine's projects; opening one establishes `/<project-id>` as the browser route and sole project context. The runtime page can select baseline, KEEP, and REVERT runs, open the project's Device/Resource asset browser, play/pause/reset, scrub time, change speed, inspect semantic events, and highlight bottlenecks. It never writes a blueprint or world.
 
 The local server bundles the UI into `.inm/cache`, reads project/run files directly, and refreshes after source changes. Project index, runtime data, and asset files use `/api/projects/<project-id>/...`; every asset URL is project-qualified and root-confined. It requires neither a database nor a cloud service.

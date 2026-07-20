@@ -49,7 +49,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["produce", "process", "store", "transport", "station", "consume", "power"])).min(1),
+  capabilities: z.array(z.enum(["extract", "process", "store", "transport", "station", "consume", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -59,6 +59,10 @@ export const deviceAssetSchema = z.object({
     categories: z.array(id).min(1),
     speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
     inputBuffer: id, outputBuffer: id,
+  }).strict().optional(),
+  extraction: z.object({
+    resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,
+    cycleTicks: positiveInt, itemsPerCycle: positiveInt,
   }).strict().optional(),
   logistics: z.object({
     roles: z.array(z.enum(["loader", "line", "unloader", "carrier"])).min(1),
@@ -77,17 +81,29 @@ export const deviceAssetSchema = z.object({
   files: z.object({ visual: relativeAssetFile }).strict(),
 }).strict();
 
+const regionSchema = z.object({
+  id, name: z.string().min(1), kind: z.enum(["site", "planet", "orbit"]),
+  coordinates: z.object({ x: z.number().int(), y: z.number().int(), z: z.number().int() }).strict(),
+  bounds: z.object({ width: positiveInt, height: positiveInt }).strict(),
+}).strict();
+
+export const worldSchema = z.object({
+  version: z.literal(1), id, name: z.string().min(1),
+  regions: z.array(regionSchema).min(1),
+  resourceNodes: z.array(z.object({
+    id, region: id, resource: id,
+    position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
+    amount: positiveInt,
+  }).strict()),
+}).strict();
+
 export const blueprintSchema = z.object({
   version: z.literal(1), revision: z.string().optional(),
-  regions: z.array(z.object({
-    id, name: z.string().min(1), kind: z.enum(["site", "planet", "orbit"]),
-    coordinates: z.object({ x: z.number().int(), y: z.number().int(), z: z.number().int() }).strict(),
-    bounds: z.object({ width: positiveInt, height: positiveInt }).strict(),
-  }).strict()).min(1),
   devices: z.array(z.object({
     id, asset: id, region: id, position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
     rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
     process: id.optional(),
+    resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({ dispatch: z.enum(["fifo", "round-robin"]).optional() }).strict().optional(),
   }).strict()),
@@ -128,14 +144,14 @@ export const objectiveSchema = z.object({
 }).strict();
 
 export const manifestSchema = z.object({
-  version: z.literal(1), id, name: z.string().min(1), defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
+  version: z.literal(1), id, name: z.string().min(1), defaultWorld: id, defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
 }).strict();
 
 export const workspaceSchema = z.object({
   version: z.literal(1), name: z.string().min(1), projectsDirectory: relativeDirectory, defaultProject: id.nullable(),
 }).strict();
 
-export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "process" | "device-asset" | "device-visual" | "blueprint" | "scenario" | "objective";
+export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "process" | "device-asset" | "device-visual" | "world" | "blueprint" | "scenario" | "objective";
 export const schemas = {
   manifest: manifestSchema,
   workspace: workspaceSchema,
@@ -144,6 +160,7 @@ export const schemas = {
   process: processSchema,
   "device-asset": deviceAssetSchema,
   "device-visual": deviceVisualSchema,
+  world: worldSchema,
   blueprint: blueprintSchema,
   scenario: scenarioSchema,
   objective: objectiveSchema,

@@ -30,6 +30,7 @@ interface ProjectSummary {
   logisticsNetworks: number;
   runs: number;
   regions: number;
+  resourceNodes: number;
 }
 
 interface ProjectIndex {
@@ -64,6 +65,7 @@ interface DeviceCatalogAsset {
   };
   buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
   production?: { categories: string[]; speed: { numerator: number; denominator: number }; inputBuffer: string; outputBuffer: string };
+  extraction?: { resources: string[]; radius: number; outputBuffer: string; cycleTicks: number; itemsPerCycle: number };
   logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar"> };
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number };
   runtime: { apiVersion: 1; entry: string };
@@ -106,6 +108,9 @@ interface FactoryEvent {
   device?: string;
   durationTicks?: number;
   resource?: string;
+  node?: string;
+  count?: number;
+  remaining?: number;
   transit?: { id: string; resource: string; count: number; departTick: number; arriveTick: number };
   connection?: string;
   network?: string;
@@ -121,12 +126,16 @@ interface Metrics {
   averageWip: number;
   bottleneckEntity: string | null;
   consumed: Record<string, number>;
+  extracted: Record<string, number>;
+  resourceNodes: Record<string, { initial: number; remaining: number; reserved: number; extracted: number; depleted: boolean }>;
   scoreBreakdown: Record<string, number>;
 }
 
 interface IndustrialAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
+  extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; powerMilliWatts: number }>;
+  resourceNodes: Array<{ node: string; region: string; resource: string; amount: number; miners: string[]; nominalSharePerMinute: number; estimatedDepletionMinutes: number | null }>;
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number;
@@ -151,6 +160,7 @@ interface StudioData {
     bounds: { width: number; height: number };
     offset: { x: number; y: number };
   }>;
+  resourceNodes: Array<{ id: string; region: string; resource: string; amount: number; remaining: number; position: { x: number; y: number } }>;
   devices: Device[];
   connections: Array<{
     id: string;
@@ -287,8 +297,26 @@ function FactoryDevice({ projectId, device, frame, bottleneck }: { projectId: st
   </group>;
 }
 
+function ResourceDeposit({ data, node, remaining }: { data: StudioData; node: StudioData["resourceNodes"][number]; remaining: number }) {
+  const fraction = remaining / node.amount;
+  const color = data.resources[node.resource]?.visual?.color ?? "#a8784f";
+  const scale = .18 + .48 * Math.cbrt(Math.max(0, fraction));
+  return <group position={[node.position.x + .5, scale * .55, node.position.y + .5]}>
+    <mesh scale={scale} castShadow receiveShadow>
+      <dodecahedronGeometry args={[1, 0]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={remaining ? .08 : 0} roughness={.72} metalness={.34} transparent opacity={remaining ? .95 : .18} />
+    </mesh>
+    <Billboard position={[0, scale + .25, 0]}><Text fontSize={.15} color={remaining ? "#d9edf0" : "#6d7d80"}>{node.id} · {remaining}/{node.amount}</Text></Billboard>
+  </group>;
+}
+
 function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
   const frame = useMemo(() => buildFrame(data, tick), [data, tick]);
+  const nodeRemaining = useMemo(() => {
+    const remaining = Object.fromEntries(data.resourceNodes.map((node) => [node.id, node.amount]));
+    for (const event of data.events) if (event.tick <= tick && event.type === "resource.extracted" && event.node && event.count) remaining[event.node] = Math.max(0, remaining[event.node]! - event.count);
+    return remaining;
+  }, [data, tick]);
   return <>
     <color attach="background" args={["#071014"]} />
     <fog attach="fog" args={["#071014", 30, 72]} />
@@ -299,6 +327,7 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       <mesh position={[region.offset.x + region.bounds.width / 2, -.04, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color={region.kind === "planet" ? "#0b1a20" : "#151525"} roughness={.92} metalness={.08} /></mesh>
       <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
     </group>)}
+    {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}
     {data.connections.map((connection) => <Line key={connection.id} points={[[connection.from.x, .16, connection.from.y], [connection.to.x, .16, connection.to.y]]} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
     {data.logisticsRoutes.map((route) => <Line key={route.id} points={[[route.from.x, .32, route.from.y], [route.to.x, .32, route.to.y]]} color="#55c9df" lineWidth={1.5} dashed dashScale={2.4} dashSize={.45} gapSize={.28} transparent opacity={.7} />)}
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
@@ -375,6 +404,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
               {selected.production && <section className="asset-section"><h4>Process support</h4><div className="asset-table"><div><b>category</b><strong>{selected.production.categories.join(", ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div></div></section>}
+              {selected.extraction && <section className="asset-section"><h4>Extraction</h4><div className="asset-table"><div><b>{selected.extraction.resources.join(", ")}</b><strong>{selected.extraction.itemsPerCycle} / {selected.extraction.cycleTicks}ms</strong><span>radius</span><code>{selected.extraction.radius} cells</code></div></div></section>}
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
               {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
@@ -422,7 +452,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <button className="icon-button" onClick={onClose} aria-label="Close industrial analysis">×</button>
       </header>
       <div className="analysis-summary">
-        <Metric label="PROCESS DEVICES" value={String(analysis.declarativeDevices)} accent />
+        <Metric label="DECLARATIVE DEVICES" value={String(analysis.declarativeDevices)} accent />
         <Metric label="MATERIAL STREAMS" value={String(analysis.resources.length)} />
         <Metric label="LOGISTICS LINKS" value={String(analysis.connections.length)} />
         <Metric label="STATION NETS" value={String(analysis.stationNetworks.length)} />
@@ -430,6 +460,12 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <Metric label="WARNINGS" value={String(warningCount)} />
       </div>
       <div className="analysis-body">
+        <section className="analysis-section material-analysis">
+          <div className="analysis-section-title"><span>FINITE RESOURCE NODES</span><b>WORLD INPUT</b></div>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>NODE</span><span>AMOUNT</span><span>MINERS</span><span>DEPLETION</span></div>{analysis.resourceNodes.map((node) => <div key={node.node}>
+            <strong>{node.node}</strong><span>{node.amount} {node.resource}</span><span>{node.miners.join(", ") || "none"}</span><b>{node.estimatedDepletionMinutes === null ? "—" : `${node.estimatedDepletionMinutes.toFixed(2)}m`}</b><small>{node.region}</small>
+          </div>)}</div>
+        </section>
         <section className="analysis-section material-analysis">
           <div className="analysis-section-title"><span>MATERIAL BALANCE</span><b>ITEMS / MIN</b></div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RESOURCE</span><span>PRODUCE</span><span>CONSUME</span><span>NET</span></div>{analysis.resources.map((resource) => <div key={resource.resource}>
@@ -477,7 +513,7 @@ function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (proj
         <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
-        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.connections}</b> local links</span><span><b>{project.logisticsNetworks}</b> station nets</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
+        <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.resourceNodes}</b> deposits</span><span><b>{project.connections}</b> local links</span><span><b>{project.logisticsNetworks}</b> station nets</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
         <div className="project-card-footer"><span>{project.regions} {project.regions === 1 ? "REGION" : "REGIONS"}</span><strong>OPEN PROJECT →</strong></div>
       </button>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
     </section>
@@ -623,9 +659,9 @@ function App() {
     </header>
     <section className="workspace">
       <div className="viewport">
-        <Canvas shadows camera={{ position: [30, 20, 30], fov: 39, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
+        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} REGIONS</b></div>
-        <div className="scene-stats"><span><b>{data.regions.length}</b> REGIONS</span><span><b>{data.devices.length}</b> NODES</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
+        <div className="scene-stats"><span><b>{data.regions.length}</b> REGIONS</span><span><b>{data.devices.length}</b> MACHINES</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>

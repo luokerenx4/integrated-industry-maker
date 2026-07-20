@@ -1,5 +1,5 @@
 {
-  "averageWip": 11.690333333333333,
+  "averageWip": 10.777333333333333,
   "blockedOutputTime": {
     "assembler-1": 0,
     "assembler-1-parallel": 0,
@@ -19,8 +19,11 @@
   "consumed": {
     "gear": 22
   },
-  "energyConsumedMilliJoules": 229812000,
-  "finalScore": 89.28284666666667,
+  "energyConsumedMilliJoules": 218700000,
+  "extracted": {
+    "iron-ore": 90
+  },
+  "finalScore": 89.48526666666667,
   "idleTime": {
     "assembler-1": 0,
     "assembler-1-parallel": 0,
@@ -43,10 +46,10 @@
     "generator-2": 0,
     "generator-support": 0,
     "generator-support-2": 0,
-    "ore-source-1": 1,
+    "ore-source-1": 0.75,
     "output-1": 0,
-    "smelter-1": 0.9566666666666667,
-    "smelter-1-parallel": 0.955,
+    "smelter-1": 0.7333333333333333,
+    "smelter-1-parallel": 0.7333333333333333,
     "station-demand": 0,
     "station-supply": 0
   },
@@ -54,22 +57,45 @@
   "onTimeDelivery": 1,
   "produced": {
     "gear": 22,
-    "iron-ore": 120,
-    "iron-plate": 56
+    "iron-ore": 90,
+    "iron-plate": 44
+  },
+  "resourceNodes": {
+    "iron-vein-1": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    }
   },
   "scoreBreakdown": {
     "blocked": 0,
     "buildCost": -12.85,
     "constraintPenalty": 0,
-    "energy": -2.2981200000000004,
+    "energy": -2.187,
     "occupiedArea": -14.4,
     "onTimeDelivery": 10,
     "throughput": 110,
-    "wip": -1.1690333333333334
+    "wip": -1.0777333333333334
   },
   "throughputPerMinute": 11,
   "totalBuildCost": 25700,
-  "transportCongestion": 0.1431172839506173,
+  "transportCongestion": 0.12659259259259262,
   "waitingInputTime": {
     "assembler-1": 87000,
     "assembler-1-parallel": 87000,
@@ -77,10 +103,10 @@
     "generator-2": 0,
     "generator-support": 0,
     "generator-support-2": 0,
-    "ore-source-1": 0,
+    "ore-source-1": 30000,
     "output-1": 120000,
-    "smelter-1": 5200,
-    "smelter-1-parallel": 5400,
+    "smelter-1": 32000,
+    "smelter-1-parallel": 32000,
     "station-demand": 0,
     "station-supply": 0
   }

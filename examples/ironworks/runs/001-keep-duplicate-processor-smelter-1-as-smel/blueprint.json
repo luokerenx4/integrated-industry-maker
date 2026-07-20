@@ -135,7 +135,7 @@
   ],
   "devices": [
     {
-      "asset": "ore-source",
+      "asset": "mining-machine",
       "id": "ore-source-1",
       "policy": {
         "dispatch": "round-robin"
@@ -145,6 +145,11 @@
         "y": 10
       },
       "region": "forge-world",
+      "resourceNodes": [
+        "iron-vein-1",
+        "iron-vein-2",
+        "iron-vein-3"
+      ],
       "rotation": 0
     },
     {
@@ -276,36 +281,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "regions": [
-    {
-      "bounds": {
-        "height": 24,
-        "width": 20
-      },
-      "coordinates": {
-        "x": 0,
-        "y": 0,
-        "z": 0
-      },
-      "id": "forge-world",
-      "kind": "planet",
-      "name": "Forge World"
-    },
-    {
-      "bounds": {
-        "height": 24,
-        "width": 20
-      },
-      "coordinates": {
-        "x": 100,
-        "y": 0,
-        "z": 0
-      },
-      "id": "assembly-world",
-      "kind": "planet",
-      "name": "Assembly World"
-    }
-  ],
-  "revision": "c57d5c6b0a4a77bdf8cdc275420ae0add042d6caab7ba8e0347638b2c96429e5",
+  "revision": "e45305cb65e7edddc1262c416420284d78e11c98e4bc534e91f610d208764c4d",
   "version": 1
 }

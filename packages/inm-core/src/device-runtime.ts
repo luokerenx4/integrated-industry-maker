@@ -46,6 +46,17 @@ export function parseDeviceDecision(assetId: string, value: unknown): DeviceProg
       if (!consume.length) throw new Error("consume decision must contain at least one amount");
       return { kind: "consume", consume };
     }
+    if (value.kind === "extract") {
+      if (typeof value.operation !== "string" || !value.operation) throw new Error("extract.operation must be a non-empty string");
+      if (typeof value.node !== "string" || !value.node) throw new Error("extract.node must be a non-empty string");
+      if (!Number.isInteger(value.durationTicks) || (value.durationTicks as number) <= 0) throw new Error("extract.durationTicks must be a positive integer");
+      if (!Number.isInteger(value.count) || (value.count as number) <= 0) throw new Error("extract.count must be a positive integer");
+      if (value.powerMilliWatts !== undefined && (!Number.isInteger(value.powerMilliWatts) || (value.powerMilliWatts as number) < 0)) throw new Error("extract.powerMilliWatts must be a non-negative integer");
+      return {
+        kind: "extract", operation: value.operation, node: value.node, durationTicks: value.durationTicks as number, count: value.count as number,
+        ...(value.powerMilliWatts === undefined ? {} : { powerMilliWatts: value.powerMilliWatts as number }),
+      };
+    }
     if (value.kind === "start") {
       if (typeof value.operation !== "string" || !value.operation) throw new Error("start.operation must be a non-empty string");
       if (!Number.isInteger(value.durationTicks) || (value.durationTicks as number) <= 0) throw new Error("start.durationTicks must be a positive integer");

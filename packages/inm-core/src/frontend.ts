@@ -21,7 +21,7 @@ const center = (position: GridPosition, footprint: { width: number; height: numb
 
 function layoutRegions(project: CompiledFactoryProject): FactorySceneModel["regions"] {
   let x = 0;
-  return project.blueprint.regions.map((region) => {
+  return project.world.regions.map((region) => {
     const layout = { id: region.id, name: region.name, kind: region.kind, bounds: { ...region.bounds }, offset: { x, y: 0 } };
     x += region.bounds.width + 8;
     return layout;

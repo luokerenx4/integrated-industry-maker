@@ -12,6 +12,7 @@ import {
   loadFactoryProject,
   loadWorkspace,
   manifestSchema,
+  worldSchema,
   openFactoryProject,
   pathExists,
   readJson,
@@ -79,6 +80,7 @@ async function loadProjectIndex() {
   const summaries = await Promise.all(projects.map(async (summary) => {
     const manifest = manifestSchema.parse(await readJson(join(summary.path, "inm.json")));
     const blueprint = blueprintSchema.parse(await readJson(join(summary.path, "blueprints", `${manifest.defaultBlueprint}.blueprint.json`)));
+    const world = worldSchema.parse(await readJson(join(summary.path, "worlds", `${manifest.defaultWorld}.world.json`)));
     const [resourceAssets, deviceAssets, processes, runs] = await Promise.all([
       countAssetDirectories(summary.path, "resources"),
       countAssetDirectories(summary.path, "devices"),
@@ -96,7 +98,8 @@ async function loadProjectIndex() {
       connections: blueprint.connections.length,
       logisticsNetworks: blueprint.logisticsNetworks.length,
       runs: runs.length,
-      regions: blueprint.regions.length,
+      regions: world.regions.length,
+      resourceNodes: world.resourceNodes.length,
     };
   }));
   const name = workspaceMode ? (await loadWorkspace(inputDir)).manifest.name : "INM Studio";
@@ -139,7 +142,7 @@ async function loadStudioData(projectId: string, runName?: string) {
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
     : loaded.blueprint;
   const project = compileFactoryProject({ ...loaded, blueprint: runBlueprint });
-  const regionLayout = layoutRegions(project.blueprint.regions);
+  const regionLayout = layoutRegions(project.world.regions);
   let events = [];
   let metrics = null;
   if (selected) {
@@ -163,6 +166,17 @@ async function loadStudioData(projectId: string, runName?: string) {
     blueprintHash: project.hashes.blueprintHash,
     bounds: regionLayout.bounds,
     regions: regionLayout.layouts,
+    resourceNodes: Object.values(project.resourceNodes).map((node) => ({
+      id: node.id,
+      region: node.region,
+      resource: node.resource,
+      amount: node.amount,
+      remaining: metrics?.resourceNodes?.[node.id]?.remaining ?? node.amount,
+      position: {
+        x: node.position.x + regionLayout.offsets.get(node.region)!.x,
+        y: node.position.y + regionLayout.offsets.get(node.region)!.y,
+      },
+    })),
     devices: Object.values(project.devices).map((device) => ({
       id: device.id,
       assetId: device.asset,
@@ -218,6 +232,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         geometry: asset.geometry,
         buffers: asset.buffers,
         production: asset.production,
+        extraction: asset.extraction,
         logistics: asset.logistics,
         logisticsStation: asset.logisticsStation,
         runtime: asset.runtime,

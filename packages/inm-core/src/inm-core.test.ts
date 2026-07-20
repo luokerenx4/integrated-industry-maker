@@ -51,6 +51,8 @@ describe("blueprint compiler", () => {
     const project = compileFactoryProject(await loaded());
     expect(Object.keys(project.devices)).toHaveLength(8);
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
+    expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3"]);
+    expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
     expect(Object.keys(project.resources)).toEqual(["gear", "iron-ore", "iron-plate"]);
     expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
@@ -69,6 +71,7 @@ describe("blueprint compiler", () => {
       resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", distance: 88, travelTicks: 12_040,
     })]);
     expect(project.hashes.blueprintHash).toHaveLength(64);
+    expect(project.hashes.worldHash).toHaveLength(64);
     expect(project.hashes.processCatalogHash).toHaveLength(64);
   });
 
@@ -102,7 +105,7 @@ describe("blueprint compiler", () => {
 
   test("rejects unknown resource references", async () => {
     const source = await loaded();
-    source.deviceAssets["ore-source"]!.buffers[0]!.accepts[0] = "unobtainium";
+    source.deviceAssets["mining-machine"]!.buffers[0]!.accepts[0] = "unobtainium";
     expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.resource");
   });
 
@@ -123,6 +126,15 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.resource");
   });
 
+  test("validates extractor bindings against immutable world resource nodes", async () => {
+    const unknown = await loaded(); unknown.blueprint.devices[0]!.resourceNodes = ["missing-vein"];
+    expect(issueCodes(() => compileFactoryProject(unknown))).toContain("reference.resource-node");
+    const crossRegion = await loaded(); crossRegion.world.resourceNodes[0]!.region = "assembly-world";
+    expect(issueCodes(() => compileFactoryProject(crossRegion))).toContain("extraction.cross-region");
+    const outOfRange = await loaded(); outOfRange.world.resourceNodes[0]!.position = { x: 19, y: 23 };
+    expect(issueCodes(() => compileFactoryProject(outOfRange))).toContain("extraction.out-of-range");
+  });
+
   test("compiles spatially isolated power grids instead of a factory-global pool", async () => {
     const source = await loaded();
     const generator = source.blueprint.devices.find((device) => device.id === "generator-1")!;
@@ -130,6 +142,7 @@ describe("blueprint compiler", () => {
     const assembler = source.blueprint.devices.find((device) => device.id === "assembler-1")!;
     const secondGenerator = source.blueprint.devices.find((device) => device.id === "generator-2")!;
     source.deviceAssets.generator!.power.distribution = { connectionRange: 8, coverageRange: 8 };
+    source.world.resourceNodes.forEach((node, index) => { node.position = { x: 3 + index, y: 2 }; });
     source.blueprint.devices = [
       { ...generator, position: { x: 0, y: 0 } },
       { ...secondGenerator, position: { x: 0, y: 0 } },
@@ -199,7 +212,9 @@ describe("deterministic discrete-event simulation", () => {
   test("static production analysis exposes nominal material deficits before simulation", async () => {
     const analysis = analyzeProduction(await openFactoryProject(ironworks));
     const plate = analysis.resources.find((resource) => resource.resource === "iron-plate")!;
-    expect(analysis.declarativeDevices).toBe(2);
+    expect(analysis.declarativeDevices).toBe(3);
+    expect(analysis.extractionDevices).toEqual([expect.objectContaining({ device: "ore-source-1", resource: "iron-ore", itemsPerMinute: 60 })]);
+    expect(analysis.resourceNodes).toHaveLength(3);
     expect(plate.producedPerMinute).toBe(15);
     expect(plate.consumedPerMinute).toBe(40);
     expect(plate.netPerMinute).toBe(-25);
@@ -212,6 +227,26 @@ describe("deterministic discrete-event simulation", () => {
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
     expect(first).toEqual(second); expect(first.metrics.consumed.gear).toBeGreaterThanOrEqual(10);
+  });
+
+  test("finite world nodes reserve, extract, deplete, and conserve their initial amount", async () => {
+    const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
+    expect(result.events.some((event) => event.type === "resource.extracted" && event.node === "iron-vein-1")).toBeTrue();
+    expect(result.events.some((event) => event.type === "resource.depleted" && event.node === "iron-vein-1")).toBeTrue();
+    expect(result.metrics.extracted["iron-ore"]).toBeGreaterThan(0);
+    for (const node of Object.values(result.metrics.resourceNodes)) expect(node.remaining + node.reserved + node.extracted).toBe(node.initial);
+  });
+
+  test("multiple miners atomically share a node without over-extraction or duplicate depletion", async () => {
+    const source = await loaded();
+    source.world.resourceNodes = [{ ...source.world.resourceNodes[0]!, position: { x: 3, y: 9 }, amount: 2 }];
+    const first = source.blueprint.devices.find((device) => device.id === "ore-source-1")!;
+    first.resourceNodes = ["iron-vein-1"];
+    source.blueprint.devices.push({ ...structuredClone(first), id: "ore-source-2", position: { x: 4, y: 10 } });
+    source.scenario.durationTicks = 1_000;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 1_000 });
+    expect(result.metrics.resourceNodes["iron-vein-1"]).toEqual({ initial: 2, remaining: 0, reserved: 0, extracted: 2, depleted: true });
+    expect(result.events.filter((event) => event.type === "resource.depleted" && event.node === "iron-vein-1")).toHaveLength(1);
   });
 
   test("transport arrivals preserve configured delay", async () => {
@@ -362,7 +397,7 @@ describe("deterministic discrete-event simulation", () => {
 describe("research boundary and experiment decisions", () => {
   test("patches can optimize logistics networks but cannot edit world assets, scenarios, objectives, or regions", () => {
     expect(() => validateResearchPatch([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 2 }])).not.toThrow();
-    for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/regions/0/bounds/width"]) {
+    for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/world/regions/0/bounds/width", "/resourceNodes/0/amount"]) {
       expect(() => validateResearchPatch([{ op: "replace", path, value: 1 }])).toThrow();
     }
   });

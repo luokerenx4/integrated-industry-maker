@@ -12,6 +12,27 @@ export interface DeviceProductionRate {
   powerMilliWatts: number;
 }
 
+export interface DeviceExtractionRate {
+  device: string;
+  asset: string;
+  resource: ResourceId;
+  nodes: string[];
+  cycleTicks: number;
+  itemsPerCycle: number;
+  itemsPerMinute: number;
+  powerMilliWatts: number;
+}
+
+export interface ResourceNodeAnalysis {
+  node: string;
+  region: string;
+  resource: ResourceId;
+  amount: number;
+  miners: string[];
+  nominalSharePerMinute: number;
+  estimatedDepletionMinutes: number | null;
+}
+
 export interface ResourceProductionBalance {
   resource: ResourceId;
   producedPerMinute: number;
@@ -63,7 +84,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -75,6 +96,8 @@ export interface ProductionAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
   devices: DeviceProductionRate[];
+  extractionDevices: DeviceExtractionRate[];
+  resourceNodes: ResourceNodeAnalysis[];
   resources: ResourceProductionBalance[];
   connections: ConnectionRateLimit[];
   stationNetworks: StationNetworkAnalysis[];
@@ -86,12 +109,11 @@ function add(target: Record<string, number>, resource: string, value: number): v
   target[resource] = (target[resource] ?? 0) + value;
 }
 
-function declaredBoundaryResources(project: CompiledFactoryProject, capability: "produce" | "consume"): Set<ResourceId> {
+function declaredBoundaryResources(project: CompiledFactoryProject): Set<ResourceId> {
   const resources = new Set<ResourceId>();
   for (const device of Object.values(project.devices)) {
-    if (device.processPlan || !device.assetDef.capabilities.includes(capability)) continue;
-    const direction = capability === "produce" ? "output" : "input";
-    for (const port of device.ports.filter((item) => item.direction === direction)) {
+    if (device.processPlan || !device.assetDef.capabilities.includes("consume")) continue;
+    for (const port of device.ports.filter((item) => item.direction === "input")) {
       for (const resource of device.buffers[port.buffer]!.accepts) if (resource !== "*") resources.add(resource);
     }
   }
@@ -100,6 +122,7 @@ function declaredBoundaryResources(project: CompiledFactoryProject, capability: 
 
 export function analyzeProduction(project: CompiledFactoryProject): ProductionAnalysis {
   const devices: DeviceProductionRate[] = [];
+  const extractionDevices: DeviceExtractionRate[] = [];
   const produced: Record<ResourceId, number> = {};
   const consumed: Record<ResourceId, number> = {};
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
@@ -128,8 +151,23 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     });
   }
 
-  const boundarySupply = declaredBoundaryResources(project, "produce");
-  const boundaryDemand = declaredBoundaryResources(project, "consume");
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (!device.extractionPlan || !device.extractionPlan.nodes.length) continue;
+    const resource = device.extractionPlan.nodes[0]!.resource;
+    const itemsPerMinute = device.extractionPlan.itemsPerCycle * 60_000 / device.extractionPlan.cycleTicks;
+    add(produced, resource, itemsPerMinute);
+    extractionDevices.push({
+      device: device.id, asset: device.asset, resource,
+      nodes: device.extractionPlan.nodes.map((node) => node.id),
+      cycleTicks: device.extractionPlan.cycleTicks,
+      itemsPerCycle: device.extractionPlan.itemsPerCycle,
+      itemsPerMinute,
+      powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
+    });
+  }
+
+  const boundarySupply = new Set<ResourceId>();
+  const boundaryDemand = declaredBoundaryResources(project);
   const resourceIds = [...new Set([...Object.keys(produced), ...Object.keys(consumed)])].sort();
   const resources = resourceIds.map((resource) => ({
     resource,
@@ -195,6 +233,19 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }));
 
   const diagnostics: ProductionDiagnostic[] = [];
+  const resourceNodes: ResourceNodeAnalysis[] = Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => {
+    const miners = extractionDevices.filter((device) => device.nodes.includes(node.id));
+    const nominalSharePerMinute = miners.reduce((sum, miner) => sum + miner.itemsPerMinute / miner.nodes.length, 0);
+    return {
+      node: node.id, region: node.region, resource: node.resource, amount: node.amount,
+      miners: miners.map((miner) => miner.device), nominalSharePerMinute,
+      estimatedDepletionMinutes: nominalSharePerMinute > 0 ? node.amount / nominalSharePerMinute : null,
+    };
+  });
+  for (const node of resourceNodes) {
+    if (!node.miners.length) diagnostics.push({ code: "resource-unmined", severity: "info", resource: node.resource, message: `${node.node} contains ${node.amount} ${node.resource} in ${node.region} but has no bound extractor` });
+    else if (node.estimatedDepletionMinutes !== null && node.estimatedDepletionMinutes * 60_000 < project.scenario.durationTicks) diagnostics.push({ code: "resource-depletes-during-scenario", severity: "warning", resource: node.resource, message: `${node.node} is estimated to deplete after ${node.estimatedDepletionMinutes.toFixed(3)} min, before the ${(project.scenario.durationTicks / 60_000).toFixed(3)} min scenario ends` });
+  }
   for (const balance of resources) {
     if (balance.netPerMinute < -1e-9 && !balance.hasBoundarySupply) diagnostics.push({
       code: "material-deficit", severity: "warning", resource: balance.resource,
@@ -249,9 +300,9 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }
 
   return {
-    declarativeDevices: devices.length,
-    opaqueDevices: Object.keys(project.devices).length - devices.length,
-    devices,
+    declarativeDevices: new Set([...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device)]).size,
+    opaqueDevices: Object.keys(project.devices).length - new Set([...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device)]).size,
+    devices, extractionDevices, resourceNodes,
     resources,
     connections,
     stationNetworks,

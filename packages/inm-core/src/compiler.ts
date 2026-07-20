@@ -1,7 +1,7 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
-  BlueprintLogisticsNetwork, BlueprintRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, DeviceAsset, DevicePort,
-  IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue,
+  BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, DeviceAsset, DevicePort,
+  IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue, WorldResourceNode,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
@@ -59,6 +59,20 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       if (!output) issues.push({ path: `assets/devices/${id}/asset.json/production/outputBuffer`, code: "reference.buffer", message: `Unknown buffer '${asset.production.outputBuffer}'` });
       else if (output.role === "input") issues.push({ path: `assets/devices/${id}/asset.json/production/outputBuffer`, code: "production.buffer-role", message: "Production output buffer cannot be input-only" });
     }
+    if (asset.extraction) {
+      if (!asset.capabilities.includes("extract")) issues.push({ path: `assets/devices/${id}/asset.json/extraction`, code: "capability.not-extract", message: "Extraction specification requires extract capability" });
+      const output = asset.buffers.find((buffer) => buffer.id === asset.extraction!.outputBuffer);
+      if (!output) issues.push({ path: `assets/devices/${id}/asset.json/extraction/outputBuffer`, code: "reference.buffer", message: `Unknown buffer '${asset.extraction.outputBuffer}'` });
+      else if (output.role === "input") issues.push({ path: `assets/devices/${id}/asset.json/extraction/outputBuffer`, code: "extraction.buffer-role", message: "Extraction output buffer cannot be input-only" });
+      const seen = new Set<string>();
+      for (const [index, resource] of asset.extraction.resources.entries()) {
+        if (seen.has(resource)) issues.push({ path: `assets/devices/${id}/asset.json/extraction/resources/${index}`, code: "extraction.duplicate-resource", message: `Extraction resource '${resource}' is duplicated` });
+        seen.add(resource);
+        if (!resources[resource]) issues.push({ path: `assets/devices/${id}/asset.json/extraction/resources/${index}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
+        else if (output && !output.accepts.includes("*") && !output.accepts.includes(resource)) issues.push({ path: `assets/devices/${id}/asset.json/extraction/resources/${index}`, code: "extraction.resource-contract", message: `Output buffer '${output.id}' does not accept '${resource}'` });
+      }
+    }
+    if (asset.capabilities.includes("extract") && !asset.extraction) issues.push({ path: `assets/devices/${id}/asset.json/extraction`, code: "extraction.spec-required", message: "Extract capability requires an extraction specification" });
     if (asset.power.distribution && !asset.capabilities.includes("power")) {
       issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "capability.not-power", message: "Power distribution requires power capability" });
     }
@@ -146,7 +160,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
 
 function compileLogisticsNetworks(
   definitions: BlueprintLogisticsNetwork[], devices: Record<string, CompiledDevice>, assets: Record<string, DeviceAsset>,
-  resources: Record<string, ResourceAsset>, regions: Record<string, BlueprintRegion>, issues: ValidationIssue[],
+  resources: Record<string, ResourceAsset>, regions: Record<string, WorldRegion>, issues: ValidationIssue[],
 ): Record<string, CompiledLogisticsNetwork> {
   const networks: Record<string, CompiledLogisticsNetwork> = {};
   const ids = new Set<string>();
@@ -213,10 +227,20 @@ function compileLogisticsNetworks(
 
 export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFactoryProject {
   const issues = validateAssets(loaded.resources, loaded.processes, loaded.deviceAssets);
-  const regions: Record<string, BlueprintRegion> = {};
-  for (const [index, region] of loaded.blueprint.regions.entries()) {
-    if (regions[region.id]) issues.push({ path: `blueprint/regions/${index}/id`, code: "reference.duplicate", message: `Duplicate region '${region.id}'` });
+  const regions: Record<string, WorldRegion> = {};
+  for (const [index, region] of loaded.world.regions.entries()) {
+    if (regions[region.id]) issues.push({ path: `world/regions/${index}/id`, code: "reference.duplicate", message: `Duplicate region '${region.id}'` });
     regions[region.id] = structuredClone(region);
+  }
+  const resourceNodes: Record<string, WorldResourceNode> = {};
+  for (const [index, node] of loaded.world.resourceNodes.entries()) {
+    const path = `world/resourceNodes/${index}`;
+    if (resourceNodes[node.id]) issues.push({ path: `${path}/id`, code: "reference.duplicate", message: `Duplicate resource node '${node.id}'` });
+    resourceNodes[node.id] = structuredClone(node);
+    const region = regions[node.region];
+    if (!region) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown region '${node.region}'` });
+    else if (node.position.x >= region.bounds.width || node.position.y >= region.bounds.height) issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Resource node '${node.id}' is outside region '${node.region}' bounds` });
+    if (!loaded.resources[node.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown resource '${node.resource}'` });
   }
   const devices: Record<string, CompiledDevice> = {};
   const ids = new Set<string>();
@@ -237,6 +261,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       issues.push({ path: `${path}/config`, code: "runtime.invalid-config", message });
     }
     let processPlan: CompiledDevice["processPlan"];
+    let extractionPlan: CompiledDevice["extractionPlan"];
     if (instance.process) {
       const definition = loaded.processes[instance.process];
       if (!definition) issues.push({ path: `${path}/process`, code: "reference.process", message: `Unknown process '${instance.process}'` });
@@ -265,11 +290,35 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     } else if (asset.production) {
       issues.push({ path: `${path}/process`, code: "production.process-required", message: `Device asset '${asset.id}' requires a blueprint process binding` });
     }
+    if (asset.extraction) {
+      if (!instance.resourceNodes?.length) issues.push({ path: `${path}/resourceNodes`, code: "extraction.nodes-required", message: `Extractor '${instance.id}' must bind at least one world resource node` });
+      const nodes: WorldResourceNode[] = [];
+      const seenNodes = new Set<string>();
+      for (const [nodeIndex, nodeId] of (instance.resourceNodes ?? []).entries()) {
+        const nodePath = `${path}/resourceNodes/${nodeIndex}`;
+        if (seenNodes.has(nodeId)) issues.push({ path: nodePath, code: "extraction.duplicate-node", message: `Resource node '${nodeId}' is bound more than once` });
+        seenNodes.add(nodeId);
+        const node = resourceNodes[nodeId];
+        if (!node) { issues.push({ path: nodePath, code: "reference.resource-node", message: `Unknown resource node '${nodeId}'` }); continue; }
+        if (node.region !== instance.region) issues.push({ path: nodePath, code: "extraction.cross-region", message: `Extractor '${instance.id}' cannot bind node '${nodeId}' in region '${node.region}'` });
+        if (!asset.extraction.resources.includes(node.resource)) issues.push({ path: nodePath, code: "extraction.resource-unsupported", message: `Extractor '${asset.id}' cannot extract '${node.resource}'` });
+        const centerX = instance.position.x + footprint.width / 2;
+        const centerY = instance.position.y + footprint.height / 2;
+        const distance = Math.hypot(centerX - node.position.x - 0.5, centerY - node.position.y - 0.5);
+        if (distance > asset.extraction.radius) issues.push({ path: nodePath, code: "extraction.out-of-range", message: `Resource node '${nodeId}' is ${distance.toFixed(3)} cells away, beyond radius ${asset.extraction.radius}` });
+        nodes.push(node);
+      }
+      if (new Set(nodes.map((node) => node.resource)).size > 1) issues.push({ path: `${path}/resourceNodes`, code: "extraction.mixed-resource", message: `Extractor '${instance.id}' may bind only one resource type at a time` });
+      extractionPlan = { nodes, outputBuffer: asset.extraction.outputBuffer, cycleTicks: asset.extraction.cycleTicks, itemsPerCycle: asset.extraction.itemsPerCycle };
+    } else if (instance.resourceNodes) {
+      issues.push({ path: `${path}/resourceNodes`, code: "extraction.unsupported", message: `Device asset '${asset.id}' cannot bind world resource nodes` });
+    }
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotateSide(port.side, instance.rotation) })),
       buffers: Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, buffer])),
       ...(processPlan ? { processPlan } : {}),
+      ...(extractionPlan ? { extractionPlan } : {}),
     };
   }
 
@@ -351,7 +400,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     resourceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.resources).map(([id, asset]) => [id, asset.contentHash]))),
     processCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.processes).map(([id, process]) => [id, process.contentHash]))),
     deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
+    worldHash: hashValue(loaded.world),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
-  return { ...loaded, regions, devices, connections, logisticsNetworks, powerGrids, hashes };
+  return { ...loaded, regions, resourceNodes, devices, connections, logisticsNetworks, powerGrids, hashes };
 }
