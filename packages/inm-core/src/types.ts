@@ -170,10 +170,25 @@ export interface Objective {
 
 export interface InmManifest {
   version: 1;
+  id: string;
   name: string;
   defaultBlueprint: string;
   defaultScenario: string;
   defaultObjective: string;
+}
+
+export interface InmWorkspaceManifest {
+  version: 1;
+  name: string;
+  projectsDirectory: string;
+  defaultProject: string | null;
+}
+
+export interface WorkspaceProjectSummary {
+  id: string;
+  name: string;
+  path: string;
+  isDefault: boolean;
 }
 
 export interface CompiledDevice extends BlueprintDevice {

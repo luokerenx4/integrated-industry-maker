@@ -1,28 +1,65 @@
 import { cp, mkdir, readdir, readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  InmValidationError, compileFactoryProject, findCachedRun, listRuns, loadFactoryProject, openFactoryProject,
+  InmValidationError, WORKSPACE_MANIFEST, atomicWriteJson, findCachedRun, listRuns, listWorkspaceProjects, loadWorkspace, openFactoryProject, pathExists,
   researchFactory, runUntil, stableStringify, writeRunArtifact, ExternalCommandResearchAgent,
-  type FactoryEvent, type FactoryMetrics, type ProjectSelection,
+  type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 
 export interface OutputOptions { json?: boolean }
 const write = (value: unknown, json: boolean) => process.stdout.write(json ? `${stableStringify(value, 2)}\n` : String(value));
 
-export async function initCommand(directory: string, options: { force: boolean; json: boolean }): Promise<void> {
-  const target = resolve(directory);
+async function requireEmptyTarget(target: string): Promise<void> {
   try {
     const entries = await readdir(target);
-    if (entries.length && !options.force) throw new Error(`Target directory is not empty: ${target} (use --force to overwrite matching files)`);
+    if (entries.length) throw new Error(`Target directory is not empty: ${target}`);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
+}
+
+export async function workspaceInitCommand(directory: string, options: { name?: string; json: boolean }): Promise<void> {
+  const target = resolve(directory); await requireEmptyTarget(target);
+  const manifest: InmWorkspaceManifest = { version: 1, name: options.name ?? basename(target), projectsDirectory: "projects", defaultProject: null };
+  await mkdir(join(target, manifest.projectsDirectory), { recursive: true });
+  await atomicWriteJson(join(target, WORKSPACE_MANIFEST), manifest);
+  if (options.json) write({ command: "workspace.init", workspaceDir: target, manifest }, true);
+  else write(`Initialized INM workspace at ${target}\n`, false);
+}
+
+export async function projectCreateCommand(workspaceDir: string, id: string, options: { name?: string; json: boolean }): Promise<void> {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error("Project id must use lowercase kebab-case");
+  const workspace = await loadWorkspace(workspaceDir); const target = join(workspace.projectsDir, id);
+  if (await pathExists(target)) throw new Error(`Project directory already exists: ${target}`);
   const template = resolve(import.meta.dir, "../../..", "examples/ironworks");
-  await mkdir(target, { recursive: true });
-  await cp(template, target, { recursive: true, force: options.force, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
-  if (options.json) write({ command: "init", projectDir: target }, true);
-  else write(`Initialized INM factory project at ${target}\n`, false);
+  await mkdir(workspace.projectsDir, { recursive: true });
+  await cp(template, target, { recursive: true, errorOnExist: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
+  const projectManifest = JSON.parse(await readFile(join(target, "inm.json"), "utf8")) as InmManifest;
+  projectManifest.id = id; projectManifest.name = options.name ?? id;
+  await atomicWriteJson(join(target, "inm.json"), projectManifest);
+  if (workspace.manifest.defaultProject === null) {
+    workspace.manifest.defaultProject = id;
+    await atomicWriteJson(join(workspace.rootDir, WORKSPACE_MANIFEST), workspace.manifest);
+  }
+  if (options.json) write({ command: "project.create", workspaceDir: workspace.rootDir, projectDir: target, id, name: projectManifest.name, isDefault: workspace.manifest.defaultProject === id }, true);
+  else write(`Created project '${id}' at ${target}${workspace.manifest.defaultProject === id ? " (default)" : ""}\n`, false);
+}
+
+export async function projectListCommand(workspaceDir: string, options: OutputOptions): Promise<void> {
+  const workspace = await loadWorkspace(workspaceDir); const projects = await listWorkspaceProjects(workspace.rootDir);
+  if (options.json) write({ workspace: workspace.manifest.name, workspaceDir: workspace.rootDir, defaultProject: workspace.manifest.defaultProject, projects }, true);
+  else if (!projects.length) write(`No projects in ${workspace.rootDir}\n`, false);
+  else write(`${projects.map((project) => `${project.isDefault ? "*" : " "} ${project.id.padEnd(24)} ${project.name}  ${project.path}`).join("\n")}\n`, false);
+}
+
+export async function projectDefaultCommand(workspaceDir: string, id: string, options: OutputOptions): Promise<void> {
+  const workspace = await loadWorkspace(workspaceDir); const projects = await listWorkspaceProjects(workspace.rootDir);
+  if (!projects.some((project) => project.id === id)) throw new Error(`Unknown workspace project '${id}'`);
+  workspace.manifest.defaultProject = id;
+  await atomicWriteJson(join(workspace.rootDir, WORKSPACE_MANIFEST), workspace.manifest);
+  if (options.json) write({ command: "project.default", workspaceDir: workspace.rootDir, defaultProject: id }, true);
+  else write(`Default project is now '${id}'\n`, false);
 }
 
 export async function validateCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {

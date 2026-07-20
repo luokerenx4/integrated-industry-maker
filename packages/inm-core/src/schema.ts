@@ -6,6 +6,7 @@ const nonNegativeInt = z.number().int().nonnegative();
 const visualColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const relativeAssetFile = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes(".."), "must be a relative path inside the asset directory");
 const runtimeEntry = relativeAssetFile.refine((value) => value.endsWith(".ts"), "device runtime entry must be a TypeScript file");
+const relativeDirectory = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes(".."), "must be a relative directory inside the workspace");
 
 export const resourceVisualSchema = z.object({
   shape: z.enum(["box", "sphere", "cylinder"]),
@@ -86,12 +87,17 @@ export const objectiveSchema = z.object({
 }).strict();
 
 export const manifestSchema = z.object({
-  version: z.literal(1), name: z.string().min(1), defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
+  version: z.literal(1), id, name: z.string().min(1), defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
 }).strict();
 
-export type SchemaKind = "manifest" | "resource-asset" | "resource-visual" | "device-asset" | "device-visual" | "blueprint" | "scenario" | "objective";
+export const workspaceSchema = z.object({
+  version: z.literal(1), name: z.string().min(1), projectsDirectory: relativeDirectory, defaultProject: id.nullable(),
+}).strict();
+
+export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "device-asset" | "device-visual" | "blueprint" | "scenario" | "objective";
 export const schemas = {
   manifest: manifestSchema,
+  workspace: workspaceSchema,
   "resource-asset": resourceAssetSchema,
   "resource-visual": resourceVisualSchema,
   "device-asset": deviceAssetSchema,

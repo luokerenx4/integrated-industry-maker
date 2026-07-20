@@ -8,6 +8,10 @@
 
 > A factory is a folder.
 
+> An engine workspace contains many factories, but owns no factory assets.
+
+> Every project is fully self-contained. Reuse across projects is explicit copying, never shared lookup, inheritance, or cross-project references.
+
 > A Resource is a packaged, self-described kind of flow.
 
 > A Device is a packaged black box with geometry, buffers, ports, visuals, and an editable TypeScript program.
@@ -35,6 +39,12 @@ The first product keeps only three packages:
 - `@inm/studio` serves a local, read-only React Three Fiber replay UI.
 
 These are concrete boundaries rather than a collection of placeholder packages. A future solver, distributed runner, or device library can split out only when it has an independent lifecycle.
+
+## Workspace boundary
+
+`inm-workspace.json` stores only the projects directory and selected default project. Project discovery scans one directory level, rejects symlink entries, and requires each project manifest id to match its directory. Runtime commands resolve exactly one project before loading any factory data.
+
+All asset paths are then resolved and confined beneath that selected project root. Studio also qualifies file requests with the project id. No loader walks upward into the workspace, falls back to another project, or consults a shared catalog. Creating a project copies the complete starter tree, including its local TypeScript runtime contract, so later edits and content hashes cannot leak between projects.
 
 ## Compile pipeline
 
@@ -131,4 +141,4 @@ Files are written to a temporary file, flushed, and atomically renamed. `manifes
 
 Studio maps `blueprint.x → world.x`, `blueprint.y → world.z`, and visual height to `world.y`. Two-dimensional footprints remain the only collision and layout truth. The UI can select baseline, KEEP, and REVERT runs, play/pause/reset, scrub time, change speed, inspect semantic events, and highlight bottlenecks. It never writes a blueprint.
 
-The local server bundles the UI into `.inm/cache`, reads project/run files directly, and refreshes after source changes. It requires neither a database nor a cloud service.
+The local server bundles the UI into `.inm/cache`, reads project/run files directly, and refreshes after source changes. When launched on a workspace it exposes explicit project selection while keeping every asset URL project-qualified and root-confined. It requires neither a database nor a cloud service.

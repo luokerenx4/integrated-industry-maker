@@ -1,4 +1,29 @@
-# INM project and asset format
+# INM workspace, project, and asset format
+
+## Workspace layout
+
+```text
+engine/
+  inm-workspace.json
+  projects/
+    factory-a/
+    factory-b/
+```
+
+`inm-workspace.json` only describes how the engine discovers and selects projects:
+
+```json
+{
+  "version": 1,
+  "name": "My factories",
+  "projectsDirectory": "projects",
+  "defaultProject": "factory-a"
+}
+```
+
+Projects are immediate, real directories; symbolic-link projects are rejected. Each directory name must equal the required project `id` in its `inm.json`. A workspace owns no assets and participates in no asset resolution.
+
+Projects are intentionally isolated and self-contained. There is no global catalog, shared asset directory, inheritance, fallback, or cross-project reference. Reuse means copying the complete asset directory into the target project; the copies then evolve and hash independently.
 
 ## Project layout
 
@@ -6,6 +31,7 @@
 factory/
   inm.json
   assets/
+    runtime-api.ts
     resources/
       <resource-id>/
         asset.json
@@ -25,7 +51,7 @@ factory/
   .inm/cache/
 ```
 
-Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors.
 
 Splitting presentation and execution from identity is intentional. Catalog tools can inspect `asset.json` without executing code, artists can replace files named by `visual.json`, and device authors can edit `runtime.ts` without turning the blueprint into a script container. The hash of an asset covers every file in its package.
 
@@ -101,7 +127,7 @@ Each port binds to exactly one named buffer. Input ports cannot bind to output-o
 Every Device package has a TypeScript entry conforming to `DeviceProgram`:
 
 ```ts
-import type { DeviceProgram } from "@inm/core";
+import type { DeviceProgram } from "../../runtime-api";
 
 export default {
   apiVersion: 1,
@@ -127,7 +153,7 @@ export default {
 } satisfies DeviceProgram;
 ```
 
-The program is a black box behind one host interface:
+`assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. The program is a black box behind one host interface:
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
 - `evaluate(context)` receives only the current tick, instance identity/config, and a frozen snapshot of that device's buffers.

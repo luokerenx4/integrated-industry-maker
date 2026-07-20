@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **71.069**
-- Result hash: `35f5c665ae049d1fed18fbdf75d9290b325d78bb84ae8374740595cde3791e96`
+- Result hash: `111e5dba495b4133eb4d04159d10e0c36977f9152a3cc7e5f80a7ac3ed5556aa`
 - Bottleneck: smelter-1
 - Throughput/min: 7.000
 - Feasible: yes

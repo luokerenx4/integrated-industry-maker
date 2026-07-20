@@ -1,9 +1,14 @@
 {
-  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": "../../..",
-    "paths": { "@inm/core": ["packages/inm-core/src/index.ts"] },
-    "types": ["bun"]
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
   },
-  "include": ["devices/**/*.ts"]
+  "include": ["runtime-api.ts", "devices/**/*.ts"]
 }

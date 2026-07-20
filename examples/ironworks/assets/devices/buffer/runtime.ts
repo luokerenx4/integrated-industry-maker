@@ -1,4 +1,4 @@
-import type { DeviceProgram } from "@inm/core";
+import type { DeviceProgram } from "../../runtime-api";
 
 export default {
   apiVersion: 1,

@@ -40,26 +40,35 @@ The heuristic identifies the saturated smelter, proposes an RFC 6902 patch that 
 ## CLI
 
 ```text
-inm init <dir>
-inm validate <project-dir>
-inm inspect <project-dir>
-inm simulate <project-dir> [--blueprint ID] [--scenario ID] [--objective ID] [--seed N]
-inm test <project-dir>
-inm runs <project-dir>
-inm research <project-dir> [--iterations N] [--agent-command COMMAND]
-inm studio <project-dir>
+inm workspace init <workspace-dir>
+inm project create <workspace-dir> <project-id>
+inm project list <workspace-dir>
+inm project default <workspace-dir> <project-id>
+inm validate|inspect|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
+inm studio <project-or-workspace-dir> [--project ID]
 ```
 
 Every headless command supports explicit exit codes; inspection, validation, simulation, tests, runs, and research support `--json` where machine-readable output matters. See [CLI reference](docs/CLI.md).
 
-## Project model
+## Workspace and project model
 
-An INM project contains only source files and immutable experiment artifacts:
+One engine workspace discovers and selects any number of projects:
+
+```text
+my-engine/
+  inm-workspace.json
+  projects/
+    ironworks/
+    refinery/
+```
+
+The workspace has no asset catalog. Each project is a fully self-contained factory with its own asset packages, runtime API, blueprints, scenarios, objectives, tests, runs, and cache:
 
 ```text
 my-factory/
   inm.json
   assets/
+    runtime-api.ts
     resources/<id>/
       asset.json
       visual.json
@@ -74,6 +83,8 @@ my-factory/
   runs/<immutable-run>/
   .inm/cache/               # disposable
 ```
+
+There is deliberately no shared-asset lookup or inheritance layer. To reuse an asset, copy its directory into another project; from that point onward the two copies have independent contents and hashes.
 
 - A **resource asset** is a self-described kind of flow with units, transport properties, and presentation files.
 - A **device asset** owns geometry, multiple named buffers and ports, presentation files, and a private TypeScript throughput program.
@@ -110,4 +121,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, geometry and reference failures, port/buffer contracts, power shortage, blocking, transport latency, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, project initialization, and renderer-independent scene projection.
+The suite covers isolated multi-project workspaces, asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, geometry and reference failures, port/buffer contracts, power shortage, blocking, transport latency, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.

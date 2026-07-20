@@ -1,6 +1,8 @@
 # Ironworks
 
-Ironworks is INM's executable reference factory, asset-package example, and research benchmark. Every resource lives under `assets/resources/<id>/`; every device lives under `assets/devices/<id>/` with an editable, statically checked `runtime.ts` black-box program.
+Ironworks is INM's executable reference factory, self-contained project template, asset-package example, and research benchmark. Every resource lives under `assets/resources/<id>/`; every device lives under `assets/devices/<id>/` with an editable, statically checked `runtime.ts` black-box program. `assets/runtime-api.ts` keeps that type contract inside the project.
+
+When `inm project create` reuses Ironworks, it copies this complete project tree. The resulting project owns its assets outright; it never reads or shares this example's asset files.
 
 The baseline chain is intentionally under-provisioned:
 

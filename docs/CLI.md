@@ -4,19 +4,31 @@ Run locally with `bun run inm`, or link `packages/inm-cli/src/bin.ts` as `inm`.
 
 ## Commands
 
-### `inm init <dir> [--force] [--json]`
+### `inm workspace init <workspace-dir> [--name NAME] [--json]`
 
-Creates a complete offline project containing resource/device asset packages, editable device `runtime.ts` files, a deliberately suboptimal blueprint, scenarios, objective, and fixture.
+Creates an engine workspace with an `inm-workspace.json` manifest and empty `projects/` directory.
 
-### `inm validate <project-dir>`
+### `inm project create <workspace-dir> <project-id> [--name NAME] [--json]`
+
+Creates a fully self-contained project from the starter factory. Every resource, device, runtime contract, blueprint, scenario, objective, and fixture is physically copied into the new project. The first project becomes the workspace default.
+
+### `inm project list <workspace-dir> [--json]`
+
+Lists immediate project directories and marks the default. A project directory id must match the required `id` in its `inm.json`.
+
+### `inm project default <workspace-dir> <project-id> [--json]`
+
+Changes the workspace default project. It does not move, merge, or share project contents.
+
+### `inm validate <project-or-workspace-dir> [--project ID]`
 
 Runs schema validation, reference resolution, geometry/rotation checks, port validation, transport resolution, and compilation. `--json` returns structured errors with exact paths and codes.
 
-### `inm inspect <project-dir>`
+### `inm inspect <project-or-workspace-dir> [--project ID]`
 
 Prints project topology, asset catalogs, capability counts, selected benchmark, content hashes, and completed runs.
 
-### `inm simulate <project-dir>`
+### `inm simulate <project-or-workspace-dir> [--project ID]`
 
 Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact.
 
@@ -33,15 +45,15 @@ inm simulate examples/ironworks \
 
 The response includes artifact path, cache status, run key, result hash, every metric, score breakdown, and final score.
 
-### `inm test <project-dir>`
+### `inm test <project-or-workspace-dir> [--project ID]`
 
 Runs every `tests/*.fixture.json`, including a duplicate run determinism check. Metric assertions support `min`, `max`, and `equals`; event assertions support presence/absence.
 
-### `inm runs <project-dir>`
+### `inm runs <project-or-workspace-dir> [--project ID]`
 
 Lists only completed immutable runs. Partial or interrupted directories without a completed manifest are ignored.
 
-### `inm research <project-dir>`
+### `inm research <project-or-workspace-dir> [--project ID]`
 
 ```bash
 inm research examples/ironworks --iterations 5 --seed 42
@@ -67,10 +79,10 @@ The command receives `ResearchInput` JSON on stdin and must print:
 }
 ```
 
-### `inm studio <project-dir> [--port N] [--no-open]`
+### `inm studio <project-or-workspace-dir> [--project ID] [--port N] [--no-open]`
 
-Launches the local read-only 3D runtime debugger. Studio can switch run artifacts, replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
+Launches the local read-only 3D runtime debugger. When opened on a workspace, Studio can switch projects as well as run artifacts. Asset requests are qualified by project id and confined to that project root. Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 
 ## Selection and output
 
-`validate`, `inspect`, `simulate`, and `research` accept `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.
+Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `simulate`, and `research` accept `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.

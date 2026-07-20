@@ -11,6 +11,7 @@ export * from "./utils";
 export * from "./rng";
 export * from "./state";
 export * from "./device-runtime";
+export * from "./workspace";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
