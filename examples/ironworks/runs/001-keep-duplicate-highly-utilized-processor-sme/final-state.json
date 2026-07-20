@@ -1,29 +1,17 @@
 {
-  "completedOrders": 27,
+  "completedOrders": 26,
   "consumed": {
-    "gear": 27
+    "gear": 26
   },
   "devices": {
     "assembler-1": {
-      "activeJob": {
-        "durationTicks": 3000,
-        "operation": "assemble-gear",
-        "powerMilliWatts": 220000,
-        "produce": [
-          {
-            "buffer": "output",
-            "count": 1,
-            "resource": "gear"
-          }
-        ],
-        "startedAt": 120000
-      },
       "buffers": {
-        "input": {},
+        "input": {
+          "iron-plate": 1
+        },
         "output": {}
       },
-      "progressTicks": 0,
-      "status": "processing"
+      "status": "waiting-input"
     },
     "generator-1": {
       "buffers": {},
@@ -67,7 +55,7 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 116800
+        "startedAt": 117300
       },
       "buffers": {
         "input": {
@@ -75,7 +63,7 @@
         },
         "output": {}
       },
-      "progressTicks": 3200,
+      "progressTicks": 2700,
       "status": "processing"
     },
     "smelter-1-parallel": {
@@ -90,7 +78,7 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 117200
+        "startedAt": 117700
       },
       "buffers": {
         "input": {
@@ -98,17 +86,17 @@
         },
         "output": {}
       },
-      "progressTicks": 2800,
+      "progressTicks": 2300,
       "status": "processing"
     }
   },
   "energy": {
     "availableMilliWatts": 1000000,
-    "consumedMilliJoules": 65220000,
+    "consumedMilliJoules": 65040000,
     "grids": {
       "grid-generator-1": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 65220000
+        "consumedMilliJoules": 65040000
       }
     }
   },
@@ -119,10 +107,22 @@
   },
   "tick": 120000,
   "transports": {
-    "gear-to-output": [],
+    "gear-to-output": [
+      {
+        "arriveTick": 121300,
+        "count": 1,
+        "departTick": 120000,
+        "from": "assembler-1",
+        "fromBuffer": "output",
+        "id": "transit-000200",
+        "resource": "gear",
+        "to": "output-1",
+        "toBuffer": "input"
+      }
+    ],
     "ore-to-smelter": [
       {
-        "arriveTick": 120800,
+        "arriveTick": 121300,
         "count": 1,
         "departTick": 120000,
         "from": "ore-source-1",
@@ -135,7 +135,7 @@
     ],
     "ore-to-smelter-smelter-1-parallel": [
       {
-        "arriveTick": 121200,
+        "arriveTick": 121700,
         "count": 1,
         "departTick": 120000,
         "from": "ore-source-1",
@@ -147,6 +147,18 @@
       }
     ],
     "plate-to-assembler": [],
-    "plate-to-assembler-smelter-1-parallel": []
+    "plate-to-assembler-smelter-1-parallel": [
+      {
+        "arriveTick": 121000,
+        "count": 1,
+        "departTick": 117700,
+        "from": "smelter-1-parallel",
+        "fromBuffer": "output",
+        "id": "transit-000197",
+        "resource": "iron-plate",
+        "to": "assembler-1",
+        "toBuffer": "input"
+      }
+    ]
   }
 }

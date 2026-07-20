@@ -10,12 +10,20 @@
         "port": "output"
       },
       "id": "ore-to-smelter",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "smelter-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -24,12 +32,20 @@
         "port": "output"
       },
       "id": "plate-to-assembler",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "smelter-1-buffer",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -38,12 +54,20 @@
         "port": "output"
       },
       "id": "gear-to-output",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "output-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -52,12 +76,20 @@
         "port": "output"
       },
       "id": "ore-to-smelter-smelter-1-parallel",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "smelter-1-parallel",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -66,12 +98,20 @@
         "port": "output"
       },
       "id": "plate-to-assembler-smelter-1-parallel",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "assembler-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -80,12 +120,20 @@
         "port": "output"
       },
       "id": "plate-to-assembler-smelter-1-buffer-output",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "assembler-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     }
   ],
@@ -163,6 +211,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "b9909b3c71c1be98be174058465ab3e78db3122982c1841b508ddb30fb61d190",
+  "revision": "1da6c3433d0e2aed7b81e581aabe1d7dceefaa163b90d83094bd56df54f9ccb2",
   "version": 1
 }

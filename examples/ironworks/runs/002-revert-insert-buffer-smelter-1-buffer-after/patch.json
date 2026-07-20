@@ -29,12 +29,20 @@
         "port": "output"
       },
       "id": "plate-to-assembler-smelter-1-buffer-output",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "assembler-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     }
   }

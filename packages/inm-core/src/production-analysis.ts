@@ -27,6 +27,8 @@ export interface ConnectionRateLimit {
   to: string;
   capacityItemsPerMinute: number;
   travelTicks: number;
+  dispatchIntervalTicks: number;
+  stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
 }
 
 export interface PowerGridAnalysis {
@@ -118,8 +120,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     connection: connection.id,
     from: connection.from.device,
     to: connection.to.device,
-    capacityItemsPerMinute: connection.capacity * 60_000 / connection.travelTicks,
+    capacityItemsPerMinute: 60_000 / connection.dispatchIntervalTicks,
     travelTicks: connection.travelTicks,
+    dispatchIntervalTicks: connection.dispatchIntervalTicks,
+    stages: connection.logisticsStages.map((stage) => ({ stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks })),
   }));
 
   const powerGrids = Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => ({
@@ -158,12 +162,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     if (!device.processPlan) continue;
     for (const [resource, demand] of Object.entries(devices.find((item) => item.device === device.id)!.inputsPerMinute)) {
       const inbound = Object.values(project.connections).filter((connection) => connection.to.device === device.id && (connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes("*") || connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes(resource)));
-      const capacity = inbound.reduce((sum, connection) => sum + connection.capacity * 60_000 / connection.travelTicks, 0);
+      const capacity = inbound.reduce((sum, connection) => sum + 60_000 / connection.dispatchIntervalTicks, 0);
       if (capacity + 1e-9 < demand) diagnostics.push({ code: "input-logistics", severity: "warning", resource, device: device.id, message: `${device.id} needs ${demand.toFixed(3)} ${resource}/min but inbound links carry at most ${capacity.toFixed(3)}/min` });
     }
     for (const [resource, supply] of Object.entries(devices.find((item) => item.device === device.id)!.outputsPerMinute)) {
       const outbound = Object.values(project.connections).filter((connection) => connection.from.device === device.id && (connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes("*") || connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes(resource)));
-      const capacity = outbound.reduce((sum, connection) => sum + connection.capacity * 60_000 / connection.travelTicks, 0);
+      const capacity = outbound.reduce((sum, connection) => sum + 60_000 / connection.dispatchIntervalTicks, 0);
       if (capacity + 1e-9 < supply) diagnostics.push({ code: "output-logistics", severity: "warning", resource, device: device.id, message: `${device.id} produces ${supply.toFixed(3)} ${resource}/min but outbound links carry at most ${capacity.toFixed(3)}/min` });
     }
   }

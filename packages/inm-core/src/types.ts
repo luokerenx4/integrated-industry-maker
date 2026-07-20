@@ -100,6 +100,7 @@ export interface DeviceAssetManifest {
     inputBuffer: BufferId;
     outputBuffer: BufferId;
   };
+  logistics?: { roles: Array<"loader" | "line" | "unloader"> };
   runtime: { apiVersion: 1; entry: string };
   power: {
     consumptionMilliWatts: number;
@@ -148,6 +149,7 @@ export type DeviceProgramDecision =
 export interface DeviceTransportContext {
   apiVersion: 1;
   connection: ConnectionId;
+  stage: "loader" | "line" | "unloader";
   distance: number;
 }
 
@@ -174,7 +176,11 @@ export interface BlueprintConnection {
   id: ConnectionId;
   from: { device: DeviceInstanceId; port: string };
   to: { device: DeviceInstanceId; port: string };
-  transport: { deviceAsset: DeviceAssetId };
+  logistics: {
+    loader: { deviceAsset: DeviceAssetId };
+    line: { deviceAsset: DeviceAssetId };
+    unloader: { deviceAsset: DeviceAssetId };
+  };
 }
 export interface Blueprint {
   version: 1;
@@ -251,10 +257,17 @@ export interface CompiledConnection extends BlueprintConnection {
   toDevice: CompiledDevice;
   fromPort: DevicePort;
   toPort: DevicePort;
-  transportAsset: DeviceAsset;
+  logisticsStages: Array<{
+    stage: "loader" | "line" | "unloader";
+    asset: DeviceAsset;
+    distance: number;
+    capacity: number;
+    durationTicks: Tick;
+  }>;
   distance: number;
   capacity: number;
   travelTicks: Tick;
+  dispatchIntervalTicks: Tick;
 }
 export interface CompiledPowerGrid {
   id: string;

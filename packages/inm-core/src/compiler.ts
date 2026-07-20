@@ -65,6 +65,9 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     if (asset.power.productionMilliWatts > 0 && !asset.power.distribution) {
       issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "power.distribution-required", message: "Power-producing devices must declare grid connection and coverage ranges" });
     }
+    if (asset.logistics && !asset.capabilities.includes("transport")) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "capability.not-transport", message: "Logistics roles require transport capability" });
+    if (asset.logistics && new Set(asset.logistics.roles).size !== asset.logistics.roles.length) issues.push({ path: `assets/devices/${id}/asset.json/logistics/roles`, code: "logistics.duplicate-role", message: "Logistics roles must be unique" });
+    if (asset.capabilities.includes("transport") && !asset.logistics) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "logistics.roles-required", message: "Transport capability requires explicit logistics roles" });
     if (asset.capabilities.includes("transport") && !asset.program.planTransport) issues.push({ path: `assets/devices/${id}/${asset.runtime.entry}`, code: "runtime.missing-transport-hook", message: "Transport capability requires planTransport(context)" });
   }
   return issues;
@@ -202,10 +205,14 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const from = devices[connection.from.device]; const to = devices[connection.to.device];
     if (!from) issues.push({ path: `${path}/from/device`, code: "reference.device-instance", message: `Unknown device instance '${connection.from.device}'` });
     if (!to) issues.push({ path: `${path}/to/device`, code: "reference.device-instance", message: `Unknown device instance '${connection.to.device}'` });
-    const transport = loaded.deviceAssets[connection.transport.deviceAsset];
-    if (!transport) issues.push({ path: `${path}/transport/deviceAsset`, code: "reference.device", message: `Unknown transport asset '${connection.transport.deviceAsset}'` });
-    else if (!transport.capabilities.includes("transport")) issues.push({ path: `${path}/transport/deviceAsset`, code: "capability.not-transport", message: `Device '${transport.id}' does not declare transport capability` });
-    if (!from || !to || !transport || !transport.capabilities.includes("transport")) continue;
+    const stageDefinitions = (["loader", "line", "unloader"] as const).map((stage) => ({ stage, deviceAsset: connection.logistics[stage].deviceAsset }));
+    const stageAssets = stageDefinitions.map(({ stage, deviceAsset }) => {
+      const asset = loaded.deviceAssets[deviceAsset];
+      if (!asset) issues.push({ path: `${path}/logistics/${stage}/deviceAsset`, code: "reference.device", message: `Unknown logistics asset '${deviceAsset}'` });
+      else if (!asset.capabilities.includes("transport") || !asset.logistics?.roles.includes(stage)) issues.push({ path: `${path}/logistics/${stage}/deviceAsset`, code: "logistics.stage-role", message: `Device '${asset.id}' cannot serve as logistics ${stage}` });
+      return asset;
+    });
+    if (!from || !to || stageAssets.some((asset, stageIndex) => !asset?.capabilities.includes("transport") || !asset.logistics?.roles.includes(stageDefinitions[stageIndex]!.stage))) continue;
     const fromPort = from.ports.find((port) => port.id === connection.from.port);
     const toPort = to.ports.find((port) => port.id === connection.to.port);
     if (!fromPort) issues.push({ path: `${path}/from/port`, code: "reference.port", message: `Unknown port '${connection.from.port}' on '${from.id}'` });
@@ -220,8 +227,16 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       issues.push({ path, code: "port.resource-contract", message: `Connection '${connection.id}' has no resource accepted by both endpoint buffers` });
     }
     const distance = Math.max(1, Math.abs(from.position.x - to.position.x) + Math.abs(from.position.y - to.position.y));
-    const plan = planDeviceTransport(transport.id, transport.program, { apiVersion: 1, connection: connection.id, distance });
-    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, transportAsset: transport, distance, capacity: plan.capacity, travelTicks: plan.durationTicks };
+    const logisticsStages = stageDefinitions.map(({ stage }, stageIndex) => {
+      const asset = stageAssets[stageIndex]!;
+      const stageDistance = stage === "line" ? distance : 1;
+      const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: connection.id, stage, distance: stageDistance });
+      return { stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks };
+    });
+    const capacity = logisticsStages.reduce((sum, stage) => sum + stage.capacity, 0);
+    const travelTicks = logisticsStages.reduce((sum, stage) => sum + stage.durationTicks, 0);
+    const dispatchIntervalTicks = Math.max(...logisticsStages.map((stage) => Math.ceil(stage.durationTicks / stage.capacity)));
+    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, capacity, travelTicks, dispatchIntervalTicks };
   }
 
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });

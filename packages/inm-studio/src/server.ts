@@ -173,6 +173,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         geometry: asset.geometry,
         buffers: asset.buffers,
         production: asset.production,
+        logistics: asset.logistics,
         runtime: asset.runtime,
         power: asset.power,
         economics: asset.economics,

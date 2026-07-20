@@ -11,7 +11,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const duration = Math.max(1, state.tick);
   const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + device.footprint.width * device.footprint.height, 0);
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
-    + Object.values(project.connections).reduce((sum, connection) => sum + connection.transportAsset.economics.buildCost * connection.distance, 0);
+    + Object.values(project.connections).reduce((sum, connection) => sum + connection.logisticsStages.reduce((stageSum, stage) => stageSum + stage.asset.economics.buildCost * stage.distance, 0), 0);
   const targetProduced = state.consumed[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const machineUtilization: Record<string, number> = {};

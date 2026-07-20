@@ -22,7 +22,7 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, reference resolution, geometry/rotation checks, port validation, transport resolution, and compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, reference resolution, geometry/rotation checks, port validation, logistics-stage resolution, power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 

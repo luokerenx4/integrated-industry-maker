@@ -34,6 +34,11 @@ describe("blueprint compiler", () => {
     expect(project.devices["smelter-1"]!.powerGrid).toBe("grid-generator-1");
     expect(project.powerGrids["grid-generator-1"]!.members).toContain("assembler-1");
     expect(project.powerGrids["grid-generator-1"]!.productionMilliWatts).toBe(1_000_000);
+    expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => `${stage.stage}:${stage.asset.id}`)).toEqual([
+      "loader:sorter", "line:conveyor", "unloader:sorter",
+    ]);
+    expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(250);
+    expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_300);
     expect(project.hashes.blueprintHash).toHaveLength(64);
     expect(project.hashes.processCatalogHash).toHaveLength(64);
   });
@@ -59,6 +64,11 @@ describe("blueprint compiler", () => {
   test("rejects incompatible port direction", async () => {
     const source = await loaded(); source.blueprint.connections[0]!.from = { device: "smelter-1", port: "input" };
     expect(issueCodes(() => compileFactoryProject(source))).toContain("port.direction");
+  });
+
+  test("rejects logistics assets in unsupported connection stages", async () => {
+    const source = await loaded(); source.blueprint.connections[0]!.logistics.loader.deviceAsset = "conveyor";
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.stage-role");
   });
 
   test("rejects unknown resource references", async () => {
@@ -136,6 +146,29 @@ describe("deterministic discrete-event simulation", () => {
     expect(arrival.tick - departure.tick).toBe(project.connections[departure.connection]!.travelTicks);
   });
 
+  test("the slowest logistics stage gates connection dispatch", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.program = {
+      apiVersion: 1,
+      evaluate: () => ({ kind: "none" }),
+      planTransport: () => ({ capacity: 1, durationTicks: 1_000 }),
+    };
+    source.blueprint.devices = [
+      { id: "source-buffer", asset: "buffer", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target-buffer", asset: "buffer", position: { x: 10, y: 0 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "buffer-link", from: { device: "source-buffer", port: "output" }, to: { device: "target-buffer", port: "input" },
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+    }];
+    source.scenario.initialBuffers = { "source-buffer": { storage: { "iron-ore": 4 } } };
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    expect(project.connections["buffer-link"]!.dispatchIntervalTicks).toBe(1_000);
+    const result = runUntil(project, undefined, { untilTick: 2_500 });
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.tick)).toEqual([0, 1_000, 2_000]);
+  });
+
   test("power shortage produces an event and unpowered state", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42, untilTick: 10_000 });
@@ -155,7 +188,8 @@ describe("deterministic discrete-event simulation", () => {
     const generator = source.blueprint.devices.find((device) => device.id === "generator-1")!;
     source.blueprint.devices = [oreSource, generator, { id: "buffer-1", asset: "buffer", position: { x: 10, y: 10 }, rotation: 0 }];
     source.blueprint.connections = [{
-      id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" }, transport: { deviceAsset: "conveyor" },
+      id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" },
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
     }];
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
     expect(Object.values(result.state.devices["buffer-1"]!.buffers.storage!).reduce((sum, count) => sum + count, 0)).toBe(20);

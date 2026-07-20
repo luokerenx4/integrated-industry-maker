@@ -62,8 +62,9 @@ interface DeviceCatalogAsset {
   };
   buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
   production?: { categories: string[]; speed: { numerator: number; denominator: number }; inputBuffer: string; outputBuffer: string };
+  logistics?: { roles: Array<"loader" | "line" | "unloader"> };
   runtime: { apiVersion: 1; entry: string };
-  power: { consumptionMilliWatts: number; productionMilliWatts: number };
+  power: { consumptionMilliWatts: number; productionMilliWatts: number; distribution?: { connectionRange: number; coverageRange: number } };
   economics: { buildCost: number };
   visual: Visual;
   contentHash: string;
@@ -333,6 +334,8 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
               {selected.production && <section className="asset-section"><h4>Process support</h4><div className="asset-table"><div><b>category</b><strong>{selected.production.categories.join(", ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div></div></section>}
+              {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
+              {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
               <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
               <section className="asset-section compact"><h4>Runtime</h4><code>{selected.runtime.entry}</code></section>

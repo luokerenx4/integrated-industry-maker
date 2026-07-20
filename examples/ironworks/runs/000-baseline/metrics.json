@@ -1,19 +1,19 @@
 {
-  "averageWip": 13.73,
+  "averageWip": 13.8975,
   "blockedOutputTime": {
     "assembler-1": 0,
     "generator-1": 0,
-    "ore-source-1": 44800,
+    "ore-source-1": 45800,
     "output-1": 0,
     "smelter-1": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 14,
+  "completedOrders": 13,
   "consumed": {
-    "gear": 14
+    "gear": 13
   },
-  "energyConsumedMilliJoules": 34096000,
-  "finalScore": 71.06937333333333,
+  "energyConsumedMilliJoules": 33911000,
+  "finalScore": 65.91780666666665,
   "idleTime": {
     "assembler-1": 0,
     "generator-1": 120000,
@@ -25,9 +25,9 @@
   "machineUtilization": {
     "assembler-1": 0.35,
     "generator-1": 0,
-    "ore-source-1": 0.6266666666666667,
+    "ore-source-1": 0.6183333333333333,
     "output-1": 0,
-    "smelter-1": 0.9766666666666667
+    "smelter-1": 0.9704166666666667
   },
   "occupiedArea": 20,
   "onTimeDelivery": 1,
@@ -37,23 +37,23 @@
     "iron-plate": 29
   },
   "scoreBreakdown": {
-    "blocked": -0.7466666666666667,
-    "buildCost": -2.47,
+    "blocked": -0.7633333333333333,
+    "buildCost": -2.59,
     "constraintPenalty": 0,
-    "energy": -0.34096,
+    "energy": -0.33911,
     "occupiedArea": -4,
     "onTimeDelivery": 10,
-    "throughput": 70,
-    "wip": -1.3730000000000002
+    "throughput": 65,
+    "wip": -1.3897500000000003
   },
-  "throughputPerMinute": 7,
-  "totalBuildCost": 4940,
-  "transportCongestion": 0.06166666666666667,
+  "throughputPerMinute": 6.5,
+  "totalBuildCost": 5180,
+  "transportCongestion": 0.06497685185185183,
   "waitingInputTime": {
     "assembler-1": 78000,
     "generator-1": 0,
     "ore-source-1": 0,
     "output-1": 120000,
-    "smelter-1": 2800
+    "smelter-1": 3550
   }
 }

@@ -173,7 +173,7 @@ export default {
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
 - `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process plan when one is bound.
-- `planTransport(context)` is required for assets declaring `transport`; it returns capacity and transit duration for a compiled connection.
+- `planTransport(context)` is required for assets declaring `transport`; it receives `loader`, `line`, or `unloader` as the stage and returns capacity and duration for that stage.
 - A program returns declarative actions. It never receives the mutable global factory state.
 
 Supported decisions are `start`, `consume`, `wait`, and `none`. A `start` action may consume from and produce into any number of named buffers, so multi-input/multi-output equipment does not need a standardized internal recipe representation. The host validates every buffer, resource, count, capacity, duration, and power request before mutating state.
@@ -202,13 +202,19 @@ The filename must match `id`; every resource is compiler-resolved. The blueprint
 
 ## Blueprint
 
-Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or `270`. Connections run from an output port to an input port and reference a transport-capable Device asset.
+Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or `270`. Connections run from an output port to an input port and explicitly select loader, line, and unloader Device assets.
 
 ```json
 {
   "version": 1,
   "bounds": { "width": 32, "height": 32 },
   "devices": [
+    {
+      "id": "ore-source-1",
+      "asset": "ore-source",
+      "position": { "x": 2, "y": 10 },
+      "rotation": 0
+    },
     {
       "id": "smelter-1",
       "asset": "smelter",
@@ -217,12 +223,25 @@ Blueprint coordinates and collisions are 2D. Rotations are `0`, `90`, `180`, or 
       "process": "smelt-iron"
     }
   ],
-  "connections": [],
+  "connections": [
+    {
+      "id": "ore-to-smelter",
+      "from": { "device": "ore-source-1", "port": "output" },
+      "to": { "device": "smelter-1", "port": "input" },
+      "logistics": {
+        "loader": { "deviceAsset": "sorter" },
+        "line": { "deviceAsset": "conveyor" },
+        "unloader": { "deviceAsset": "sorter" }
+      }
+    }
+  ],
   "policies": { "dispatch": "round-robin" }
 }
 ```
 
 `process` is engine-visible industrial semantics. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
+
+A transport Device declares the stages it can fill, for example `"logistics": { "roles": ["loader", "unloader"] }` for a sorter and `"roles": ["line"]` for a belt. Each stage contributes its own capacity, duration, and build cost. Static analysis reports the resulting end-to-end items/min and complete stage chain.
 
 ## Scenario and objective
 

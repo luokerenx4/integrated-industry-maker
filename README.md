@@ -30,10 +30,10 @@ bun run inm studio examples/ironworks
 The bundled experiment demonstrates the complete loop:
 
 ```text
-000 baseline            score 71.069
-001 parallel smelter    score 135.923  KEEP
-002 output buffer       score 130.340  REVERT
-003 third smelter       score 134.294  REVERT
+000 baseline            score 65.918
+001 parallel smelter    score 130.645  KEEP
+002 output buffer       score 130.002  REVERT
+003 third smelter       score 128.936  REVERT
 ```
 
 The heuristic identifies the saturated smelter, proposes an RFC 6902 patch that adds a parallel device and connections, validates and compiles the candidate, re-runs the exact benchmark, then keeps only the improvement.
@@ -105,7 +105,7 @@ See [project format](docs/PROJECT_FORMAT.md) and the complete [Ironworks example
 Project files
   → strict schema validation
   → process/resource/device compatibility and nominal-rate analysis
-  → reference, geometry, port, and transport compilation
+  → reference, geometry, port, staged-logistics, and power-grid compilation
   → canonical factory project + content hashes
   → deterministic discrete-event simulation
   → semantic event stream + final state

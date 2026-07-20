@@ -1,10 +1,10 @@
 # INM Run 003-revert-duplicate-highly-utilized-processor-sme
 
 - Decision: **REVERT**
-- Score: **134.294**
-- Result hash: `9ce6f9e9475284e603cd98f0ca0bbd7bcbda3b475535f96e3b8bbf346dc850c8`
+- Score: **128.936**
+- Result hash: `6a5a76c77c30f3b7b10c43fd932cee0617095cb27c997356b326f269e96e12f1`
 - Bottleneck: assembler-1
-- Throughput/min: 13.500
+- Throughput/min: 13.000
 - Feasible: yes
 
 ## Score breakdown
@@ -12,12 +12,12 @@
 ```json
 {
   "blocked": 0,
-  "buildCost": -4.05,
+  "buildCost": -4.33,
   "constraintPenalty": 0,
-  "energy": -0.6507599999999999,
+  "energy": -0.6498600000000001,
   "occupiedArea": -5.6000000000000005,
   "onTimeDelivery": 10,
-  "throughput": 135,
-  "wip": -0.4048333333333333
+  "throughput": 130,
+  "wip": -0.48458333333333337
 }
 ```

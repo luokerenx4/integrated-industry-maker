@@ -11,6 +11,7 @@ import { mutateFactoryState } from "./state";
 type InternalEvent =
   | { kind: "complete"; device: string; generation: number }
   | { kind: "arrive"; connection: string; transitId: string }
+  | { kind: "logistics-ready"; connection: string }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
 
@@ -48,7 +49,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const stats: SimulationStats = { durations: {}, wipArea: 0, congestionArea: 0, elapsedTicks: state.tick };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
   const dispatchCursors: Record<string, number> = {};
+  const nextDispatchTick: Record<string, number> = Object.fromEntries(Object.keys(project.connections).map((id) => [id, state.tick]));
+  const scheduledDispatchTick: Record<string, number | undefined> = {};
   const schedule = (tick: number, priority: number, value: InternalEvent) => queue.push({ tick, priority, sequence: sequence++, value });
+  const scheduleLogisticsReady = (connection: string, tick: number) => {
+    if (scheduledDispatchTick[connection] !== undefined && scheduledDispatchTick[connection]! <= tick) return;
+    scheduledDispatchTick[connection] = tick;
+    schedule(tick, 11, { kind: "logistics-ready", connection });
+  };
   const emit = (event: FactoryEvent) => { events.push(event); publicEventCount++; };
   const setStatus = (device: string, status: DeviceRuntimeState["status"]) => {
     const runtime = state.devices[device]!;
@@ -102,6 +110,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (!resource) continue;
       const targetCapacity = connection.toDevice.buffers[connection.toPort.buffer]!.capacity;
       if (quantity(targetBuffer) + incomingQuantity(connection.to.device, connection.toPort.buffer) >= targetCapacity) continue;
+      if (state.tick < nextDispatchTick[connection.id]!) {
+        scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
+        continue;
+      }
       mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -1 });
       const transit: ResourceTransit = {
         id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count: 1,
@@ -112,6 +124,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "transport.add", connection: connection.id, transit });
       emit({ type: "resource.depart", tick: state.tick, transit: { ...transit }, connection: connection.id });
       schedule(transit.arriveTick, 10, { kind: "arrive", connection: connection.id, transitId: transit.id });
+      nextDispatchTick[connection.id] = state.tick + connection.dispatchIntervalTicks;
+      scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
       moved = true;
       if ((connection.fromDevice.policy?.dispatch ?? project.blueprint.policies?.dispatch) === "round-robin") {
         const count = Object.values(project.connections).filter((item) => item.from.device === connection.from.device).length;
@@ -234,6 +248,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "transport.remove", connection: event.connection, transitId: transit.id });
       mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count });
       emit({ type: "resource.arrive", tick: state.tick, transit: { ...transit }, connection: event.connection });
+    } else if (event.kind === "logistics-ready") {
+      if (scheduledDispatchTick[event.connection] === state.tick) delete scheduledDispatchTick[event.connection];
     } else if (event.kind === "breakdown") {
       generations[event.device]!++;
       if (state.devices[event.device]!.activeJob) mutateFactoryState(state, { kind: "job.finish", device: event.device });

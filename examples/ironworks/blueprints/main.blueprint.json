@@ -10,12 +10,20 @@
         "port": "output"
       },
       "id": "ore-to-smelter",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "smelter-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -24,12 +32,20 @@
         "port": "output"
       },
       "id": "plate-to-assembler",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "assembler-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     },
     {
@@ -38,12 +54,20 @@
         "port": "output"
       },
       "id": "gear-to-output",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
       "to": {
         "device": "output-1",
         "port": "input"
-      },
-      "transport": {
-        "deviceAsset": "conveyor"
       }
     }
   ],

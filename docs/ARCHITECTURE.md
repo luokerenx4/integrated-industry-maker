@@ -63,13 +63,13 @@ JSON
 → bounds and overlap validation
 → Process category, speed, port, buffer, resource-contract, and device-config validation
 → power-distributor topology, coverage, and isolated-grid compilation
-→ transport-program resolution and integer travel time
+→ loader/line/unloader logistics-stage resolution, throughput, and integer travel time
 → canonical CompiledFactoryProject
 ```
 
-The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or overlapping footprints; non-transport connection assets; incompatible resource contracts; and input/output direction errors.
+The compiler rejects mismatched asset-directory identifiers; missing indexed files; unknown resources, device assets, device instances, buffers, and ports; duplicate identifiers; invalid asset-owned configuration; invalid rotations; out-of-bounds or overlapping footprints; logistics assets used in unsupported stages; incompatible resource contracts; and input/output direction errors.
 
-The chosen transport representation is a logical edge that references a transport-capable Device asset. The transport asset's `planTransport()` hook computes connection capacity and duration. Transport remains a Device capability rather than becoming a third asset class.
+Each resource connection is a compiled logistics pipeline with three explicit stages: loader, line, and unloader. Each stage references a transport-capable Device asset whose declared roles determine where it may be used. Its `planTransport()` hook computes stage capacity and duration. The compiler sums stage latency and derives a dispatch interval from the slowest stage, so a sorter can bottleneck a belt independently of line length. Logistics equipment remains a Device capability rather than becoming a shared asset class.
 
 Power is spatial rather than factory-global. A power-capable Device may declare distributor connection and consumer coverage ranges. Nearby distributors form deterministic connected components; every covered Device is assigned to the nearest component, and each resulting grid owns its generation, rated demand, active demand, and energy ledger. A consuming Device outside all coverage remains a valid blueprint entity but is explicitly unpowered at runtime and in static diagnostics.
 

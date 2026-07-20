@@ -60,6 +60,7 @@ export const deviceAssetSchema = z.object({
     speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
     inputBuffer: id, outputBuffer: id,
   }).strict().optional(),
+  logistics: z.object({ roles: z.array(z.enum(["loader", "line", "unloader"])).min(1) }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
   power: z.object({
     consumptionMilliWatts: nonNegativeInt,
@@ -82,7 +83,11 @@ export const blueprintSchema = z.object({
   }).strict()),
   connections: z.array(z.object({
     id, from: z.object({ device: id, port: id }).strict(), to: z.object({ device: id, port: id }).strict(),
-    transport: z.object({ deviceAsset: id }).strict(),
+    logistics: z.object({
+      loader: z.object({ deviceAsset: id }).strict(),
+      line: z.object({ deviceAsset: id }).strict(),
+      unloader: z.object({ deviceAsset: id }).strict(),
+    }).strict(),
   }).strict()),
   policies: z.object({ dispatch: z.enum(["fifo", "round-robin"]).optional() }).strict().optional(),
 }).strict();

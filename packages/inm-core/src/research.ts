@@ -128,7 +128,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
       const bufferOutput = bufferAsset.geometry.ports.find((port) => port.direction === "output")!;
       const newConnection = {
         id: `${bufferedConnection.id}-${id}-output`, from: { device: id, port: bufferOutput.id }, to: structuredClone(bufferedConnection.to),
-        transport: structuredClone(bufferedConnection.transport),
+        logistics: structuredClone(bufferedConnection.logistics),
       };
       return {
         hypothesis: `Insert buffer \`${id}\` after \`${original.id}\` to decouple processor output from downstream demand.`,
