@@ -1,0 +1,29 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "inter-zone-logistics-station",
+  "name": "Inter-zone Logistics Station",
+  "description": "A long-haul depot that exchanges declared resources between industrial zones.",
+  "tags": ["logistics", "station", "inter-zone"],
+  "capabilities": ["store", "station"],
+  "geometry": {
+    "footprint": { "width": 4, "height": 4 },
+    "rotatable": true,
+    "ports": [
+      { "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 1, "buffer": "storage" },
+      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 1, "buffer": "storage" }
+    ]
+  },
+  "buffers": [{ "id": "storage", "role": "internal", "capacity": 400, "accepts": ["*"] }],
+  "logisticsStation": {
+    "networkKinds": ["inter-zone"],
+    "buffer": "storage",
+    "slots": 5,
+    "energyCapacityMilliJoules": 12000000,
+    "maximumChargeMilliWatts": 300000
+  },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "idleMilliWatts": 700000, "activeMilliWatts": 1000000 },
+  "economics": { "buildCost": 6000 },
+  "files": { "visual": "visual.json" }
+}

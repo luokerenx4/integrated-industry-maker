@@ -2,7 +2,7 @@
 
 - Decision: **KEEP**
 - Score: **96.061**
-- Result hash: `024d8b38a8e8e4c269711715da0fb8d93e9a92b7dbb63452963ffa9565fd31c5`
+- Result hash: `46df8c06c6cc19bfd22c159a50b9bf5ab8c26d735657817545d43642d84fc229`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -13,6 +13,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 6
 - Powered transport energy: 1727.250 J
+- High-speed carrier missions: 0
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -42,7 +43,7 @@
 
 | Grid | Initial (MJ) | Final / capacity (MJ) | Charged (MJ) | Discharged (MJ) |
 | --- | ---: | ---: | ---: | ---: |
-| grid-forge-world-generator-1 | 0.000 | 3.600 / 3.600 | 3.600 | 0.000 |
+| grid-forge-zone-generator-1 | 0.000 | 3.600 / 3.600 | 3.600 | 0.000 |
 
 ## Station carrier energy
 

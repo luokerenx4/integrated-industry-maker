@@ -55,6 +55,7 @@
   },
   "finalScore": 119.73716316666668,
   "fuelConsumed": {},
+  "highSpeedMissions": 0,
   "idleTime": {
     "synth-chemical-basin-wind-turbine-1": 120000,
     "synth-chemical-basin-wind-turbine-2": 120000,

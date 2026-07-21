@@ -21,21 +21,21 @@ const blueprint: Blueprint = {
     ...decoyPositions.map((position, index) => ({
       id: `a-noncritical-load-${String(index + 1).padStart(2, "0")}`,
       asset: "splitter",
-      region: "assembly-world",
+      region: "assembly-zone",
       position,
       rotation: 0 as const,
     })),
     {
       id: "power-priority-wind",
       asset: "wind-turbine",
-      region: "assembly-world",
+      region: "assembly-zone",
       position: { x: 10, y: 2 },
       rotation: 0,
     },
     {
       id: "z-critical-assembler",
       asset: "assembler",
-      region: "assembly-world",
+      region: "assembly-zone",
       position: { x: 2, y: 10 },
       rotation: 0,
       recipe: {
@@ -53,7 +53,7 @@ const blueprint: Blueprint = {
     {
       id: "z-critical-sink",
       asset: "material-sink",
-      region: "assembly-world",
+      region: "assembly-zone",
       position: { x: 10, y: 10 },
       rotation: 0,
       bufferFilters: { input: ["gear"] },
@@ -61,7 +61,7 @@ const blueprint: Blueprint = {
     {
       id: "z-critical-link-loader",
       asset: "sorter",
-      region: "assembly-world",
+      region: "assembly-zone",
       position: { x: 4, y: 10 },
       rotation: 0,
       transportEndpoint: { connection: "z-critical-link", stage: "loader", distance: 1 },
@@ -69,7 +69,7 @@ const blueprint: Blueprint = {
     {
       id: "z-critical-link-unloader",
       asset: "sorter",
-      region: "assembly-world",
+      region: "assembly-zone",
       position: { x: 9, y: 10 },
       rotation: 0,
       transportEndpoint: { connection: "z-critical-link", stage: "unloader", distance: 1 },
@@ -102,7 +102,7 @@ const scenario: Scenario = {
     },
   },
   renewableProfiles: [{
-    region: "assembly-world",
+    region: "assembly-zone",
     asset: "wind-turbine",
     periodTicks: 20_000,
     points: [{ atTick: 0, outputPermille: 400 }],
@@ -114,7 +114,7 @@ const objective: Objective = {
   id: "power-priority",
   name: "Protect Critical Gear Delivery",
   targetResource: "gear",
-  targetRegion: "assembly-world",
+  targetRegion: "assembly-zone",
   targetRatePerMinute: 12,
   constraints: { maxBuildCost: 12_000, maxOccupiedArea: 80, minProduction: 4 },
   weights: { throughput: 10, onTimeDelivery: 10, energy: 0.01, buildCost: 0.2, occupiedArea: 0.1, wip: 0.1, blocked: 2 },
@@ -153,7 +153,7 @@ const satisfactionScenario: Scenario = {
   name: "Proportional Grid Satisfaction",
   durationTicks: 14_000,
   renewableProfiles: [{
-    region: "assembly-world",
+    region: "assembly-zone",
     asset: "wind-turbine",
     periodTicks: 14_000,
     points: [{ atTick: 0, outputPermille: 400 }],

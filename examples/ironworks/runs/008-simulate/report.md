@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **373.334**
-- Result hash: `68c3c5be2b3479b7ca7f0ef572597008f62fb2320a6ffb0af518eadc1719f54e`
+- Result hash: `cea9b2837fe08f9ee8c8465126575f30fdd64c0683af6193ec9225f216241e7c`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Target rate: 10.000 hydrogen/min (100.0% attained)
@@ -13,6 +13,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 5
 - Powered transport energy: 786.375 J
+- High-speed carrier missions: 0
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks

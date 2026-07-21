@@ -9,7 +9,7 @@
         "x": 6,
         "y": 11
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter",
@@ -38,7 +38,7 @@
         },
         "process": "smelt-iron"
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     }
   },
@@ -55,7 +55,7 @@
         "x": 7,
         "y": 11
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     }
   },
@@ -69,7 +69,7 @@
         "x": 11,
         "y": 11
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-original",
@@ -88,7 +88,7 @@
         "x": 8,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-original",
@@ -107,7 +107,7 @@
         "x": 8,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 270,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-parallel",
@@ -126,7 +126,7 @@
         "x": 8,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-parallel",
@@ -145,7 +145,7 @@
         "x": 11,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "plate-to-station-smelter-1-parallel",
@@ -164,7 +164,7 @@
         "x": 12,
         "y": 9
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "plate-to-station-smelter-1-parallel",

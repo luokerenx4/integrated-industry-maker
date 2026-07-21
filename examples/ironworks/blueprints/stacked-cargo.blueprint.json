@@ -4,7 +4,7 @@
     {
       "id": "stack-source",
       "asset": "buffer",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": {
         "x": 0,
         "y": 0
@@ -19,7 +19,7 @@
     {
       "id": "stack-target",
       "asset": "material-sink",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": {
         "x": 8,
         "y": 0
@@ -34,7 +34,7 @@
     {
       "id": "stack-power",
       "asset": "wind-turbine",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": {
         "x": 4,
         "y": 4
@@ -44,7 +44,7 @@
     {
       "id": "stacked-link-loader",
       "asset": "stack-sorter",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": {
         "x": 1,
         "y": 0
@@ -59,7 +59,7 @@
     {
       "id": "stacked-link-unloader",
       "asset": "stack-sorter",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": {
         "x": 7,
         "y": 0

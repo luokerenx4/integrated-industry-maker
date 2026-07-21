@@ -2,9 +2,9 @@
   "assetVersion": 1,
   "type": "device",
   "id": "logistics-station",
-  "name": "Planetary Logistics Station",
+  "name": "Local Logistics Station",
   "description": "A networked depot with project-configured supply, demand, and storage slots.",
-  "tags": ["logistics", "station", "planetary"],
+  "tags": ["logistics", "station", "local"],
   "capabilities": ["store", "station"],
   "geometry": {
     "footprint": { "width": 3, "height": 3 },
@@ -16,7 +16,7 @@
   },
   "buffers": [{ "id": "storage", "role": "internal", "capacity": 200, "accepts": ["*"] }],
   "logisticsStation": {
-    "networkKinds": ["planetary"],
+    "networkKinds": ["local"],
     "buffer": "storage",
     "slots": 4,
     "energyCapacityMilliJoules": 3000000,

@@ -7,7 +7,7 @@
   "id": "power-priority",
   "name": "Protect Critical Gear Delivery",
   "targetRatePerMinute": 12,
-  "targetRegion": "assembly-world",
+  "targetRegion": "assembly-zone",
   "targetResource": "gear",
   "weights": {
     "blocked": 2,

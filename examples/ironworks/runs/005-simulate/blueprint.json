@@ -70,7 +70,7 @@
         "x": 0,
         "y": 0
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -85,7 +85,7 @@
         "x": 8,
         "y": 0
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -95,7 +95,7 @@
         "x": 4,
         "y": 4
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -105,7 +105,7 @@
         "x": 1,
         "y": 0
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "stacked-link",
@@ -120,7 +120,7 @@
         "x": 7,
         "y": 0
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "stacked-link",

@@ -4,14 +4,18 @@
   "id": "logistics-drone",
   "name": "Logistics Drone",
   "description": "A reusable carrier assigned to a logistics network fleet.",
-  "tags": ["logistics", "carrier", "planetary"],
+  "tags": ["logistics", "carrier", "local"],
   "capabilities": ["transport"],
   "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },
   "buffers": [],
   "logistics": {
     "roles": ["carrier"],
-    "carrierKinds": ["planetary"],
-    "missionEnergy": { "baseMilliJoules": 100000, "milliJoulesPerDistance": 5000 }
+    "carrierKinds": ["local"],
+    "missionEnergy": { "baseMilliJoules": 100000, "milliJoulesPerDistance": 5000 },
+    "highSpeedMission": {
+      "durationMultiplier": { "numerator": 1, "denominator": 2 },
+      "energyMultiplier": { "numerator": 4, "denominator": 3 }
+    }
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "idleMilliWatts": 0, "activeMilliWatts": 0 },

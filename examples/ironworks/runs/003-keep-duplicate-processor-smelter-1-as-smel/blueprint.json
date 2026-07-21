@@ -581,7 +581,7 @@
         "x": 2,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "resourceNodes": [
         "iron-vein-1",
         "iron-vein-2",
@@ -606,7 +606,7 @@
         },
         "process": "smelt-iron"
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -627,7 +627,7 @@
         },
         "process": "forge-gear-pair"
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -642,7 +642,7 @@
         "x": 14,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -652,7 +652,7 @@
         "x": 8,
         "y": 3
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -662,11 +662,11 @@
         "x": 15,
         "y": 3
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
-      "asset": "interstellar-logistics-station",
+      "asset": "inter-zone-logistics-station",
       "bufferFilters": {
         "storage": [
           "iron-plate"
@@ -674,17 +674,21 @@
       },
       "id": "station-supply",
       "policy": {
+        "highSpeedTransport": {
+          "enabled": false,
+          "minimumDistance": 100
+        },
         "stationChargeMilliWatts": 300000
       },
       "position": {
         "x": 13,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
-      "asset": "interstellar-logistics-station",
+      "asset": "inter-zone-logistics-station",
       "bufferFilters": {
         "storage": [
           "iron-plate"
@@ -692,13 +696,17 @@
       },
       "id": "station-demand",
       "policy": {
+        "highSpeedTransport": {
+          "enabled": false,
+          "minimumDistance": 100
+        },
         "stationChargeMilliWatts": 300000
       },
       "position": {
         "x": 1,
         "y": 8
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -708,7 +716,7 @@
         "x": 8,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -718,7 +726,7 @@
         "x": 4,
         "y": 4
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -728,7 +736,7 @@
         "x": 12,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -738,7 +746,7 @@
         "x": 3,
         "y": 3
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "resourceNodes": [
         "coal-seam-forge"
       ],
@@ -751,7 +759,7 @@
         "x": 1,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "resourceNodes": [
         "coal-seam-assembly"
       ],
@@ -764,7 +772,7 @@
         "x": 6,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter",
@@ -779,7 +787,7 @@
         "x": 6,
         "y": 11
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter",
@@ -794,7 +802,7 @@
         "x": 11,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "plate-to-station",
@@ -809,7 +817,7 @@
         "x": 12,
         "y": 9
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "plate-to-station",
@@ -824,7 +832,7 @@
         "x": 5,
         "y": 9
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "station-to-assembler",
@@ -839,7 +847,7 @@
         "x": 6,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "station-to-assembler",
@@ -854,7 +862,7 @@
         "x": 9,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "gear-to-output",
@@ -869,7 +877,7 @@
         "x": 13,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "gear-to-output",
@@ -884,7 +892,7 @@
         "x": 5,
         "y": 3
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "coal-forge-to-generator",
@@ -899,7 +907,7 @@
         "x": 7,
         "y": 3
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "coal-forge-to-generator",
@@ -914,7 +922,7 @@
         "x": 3,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "coal-assembly-to-splitter",
@@ -929,7 +937,7 @@
         "x": 3,
         "y": 4
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "coal-assembly-to-splitter",
@@ -944,7 +952,7 @@
         "x": 5,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 270,
       "transportEndpoint": {
         "connection": "coal-splitter-to-generator",
@@ -959,7 +967,7 @@
         "x": 7,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "coal-splitter-to-generator",
@@ -974,7 +982,7 @@
         "x": 6,
         "y": 4
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "coal-splitter-to-assembler",
@@ -989,7 +997,7 @@
         "x": 8,
         "y": 9
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "coal-splitter-to-assembler",
@@ -1004,7 +1012,7 @@
         "x": 8,
         "y": 1
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -1024,7 +1032,7 @@
         },
         "process": "smelt-iron"
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -1037,7 +1045,7 @@
         "x": 7,
         "y": 11
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -1047,7 +1055,7 @@
         "x": 11,
         "y": 11
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-original",
@@ -1062,7 +1070,7 @@
         "x": 8,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-original",
@@ -1077,7 +1085,7 @@
         "x": 8,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 270,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-parallel",
@@ -1092,7 +1100,7 @@
         "x": 8,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "ore-to-smelter-smelter-1-split-parallel",
@@ -1107,7 +1115,7 @@
         "x": 11,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "plate-to-station-smelter-1-parallel",
@@ -1122,7 +1130,7 @@
         "x": 12,
         "y": 9
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "plate-to-station-smelter-1-parallel",
@@ -1136,10 +1144,10 @@
       "dispatch": "shortage-first",
       "fleet": {
         "count": 1,
-        "deviceAsset": "logistics-vessel"
+        "deviceAsset": "line-haul-carrier"
       },
-      "id": "interstellar-main",
-      "kind": "interstellar",
+      "id": "inter-zone-main",
+      "kind": "inter-zone",
       "stations": [
         {
           "device": "station-supply",
@@ -1174,6 +1182,6 @@
     "dispatch": "shortage-first",
     "powerAllocation": "proportional"
   },
-  "revision": "e1718b807da22b197f0a5a23e446193b99df2422352dd5b158bb9b36a106915d",
+  "revision": "d5a81c927c59fe7462e09732efc3f52052c69a8e593e92f256061fc7398bc7d2",
   "version": 1
 }

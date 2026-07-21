@@ -396,7 +396,7 @@
       "coal": 4
     },
     "grids": {
-      "grid-assembly-world-generator-2": {
+      "grid-assembly-zone-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 108262984,
@@ -405,7 +405,7 @@
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       },
-      "grid-forge-world-generator-1": {
+      "grid-forge-zone-generator-1": {
         "availableMilliWatts": 1400000,
         "chargedMilliJoules": 631024.5,
         "consumedMilliJoules": 119644875,
@@ -416,8 +416,9 @@
       }
     }
   },
+  "highSpeedMissions": 0,
   "logisticsTransports": {
-    "interstellar-main": []
+    "inter-zone-main": []
   },
   "materialTreatment": {
     "agentsConsumed": {},

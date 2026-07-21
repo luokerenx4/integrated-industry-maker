@@ -586,6 +586,38 @@ function stationChargeCandidates(input: ResearchInput): StrategyCandidate[] {
   return candidates;
 }
 
+function stationHighSpeedCandidates(input: ResearchInput): StrategyCandidate[] {
+  const candidates: StrategyCandidate[] = [];
+  const seenSources = new Set<string>();
+  for (const requirement of input.capacityPlan.stationNetworks.filter((item) => item.configuredItemsPerMinute + 1e-9 < item.requiredItemsPerMinute)) {
+    const network = input.project.logisticsNetworks[requirement.network];
+    if (!network) continue;
+    for (const route of network.routes.filter((item) => item.resource === requirement.resource && item.highSpeed && !item.highSpeed.enabled)) {
+      if (seenSources.has(route.from)) continue;
+      const source = input.project.devices[route.from]!;
+      const index = input.blueprint.devices.findIndex((item) => item.id === route.from);
+      if (index < 0 || !source.policy?.highSpeedTransport || source.policy.highSpeedTransport.enabled) continue;
+      const standardCarrierCapacity = route.capacity * 60_000 / route.standardTravelTicks;
+      const highSpeedCarrierCapacity = route.capacity * 60_000 / route.highSpeed!.travelTicks;
+      const charge = source.stationEnergyPlan!.chargeMilliWatts;
+      const standardEnergyCapacity = charge * 60 / route.standardMissionEnergyMilliJoules * route.capacity;
+      const highSpeedEnergyCapacity = charge * 60 / route.highSpeed!.missionEnergyMilliJoules * route.capacity;
+      const standardCapacity = Math.min(network.fleetSize * standardCarrierCapacity, standardEnergyCapacity);
+      const highSpeedCapacity = Math.min(network.fleetSize * highSpeedCarrierCapacity, highSpeedEnergyCapacity);
+      if (highSpeedCapacity <= standardCapacity + 1e-9) continue;
+      const key = `station-high-speed:${route.from}:${route.id}`;
+      candidates.push({ key, proposal: {
+        strategy: key,
+        hypothesis: `Enable high-speed line-haul dispatch at \`${route.from}\` for the ${route.distance}-unit \`${route.id}\` route because standard service is limited to ${standardCapacity.toFixed(3)} ${route.resource}/min while the target requires ${requirement.requiredItemsPerMinute.toFixed(3)}/min.`,
+        expectedEffect: `Trade mission energy for shorter carrier turnaround; the compiled capacity envelope rises to ${highSpeedCapacity.toFixed(3)} ${route.resource}/min if source-zone charging can sustain it.`,
+        patch: [{ op: "replace", path: `/devices/${index}/policy/highSpeedTransport`, value: { enabled: true, minimumDistance: route.distance } }],
+      } });
+      seenSources.add(route.from);
+    }
+  }
+  return candidates;
+}
+
 function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
   const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("store"));
   if (!bufferAsset) return [];
@@ -725,7 +757,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
-      ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input), ...stationChargeCandidates(input),
+      ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationHighSpeedCandidates(input), ...stationCandidates(input), ...stationChargeCandidates(input),
       ...recipeCandidates(input), ...plannedCapacityCandidates(input),
     ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));

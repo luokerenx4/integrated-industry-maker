@@ -23,6 +23,7 @@ export type FactoryStateMutation =
   | { kind: "treatment.agent"; resource: string; count: number }
   | { kind: "treatment.complete"; resource: string; level: number; count: number }
   | { kind: "orders"; count: number }
+  | { kind: "high-speed-mission" }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -135,6 +136,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       return;
     }
     case "orders": state.completedOrders += mutation.count; return;
+    case "high-speed-mission": state.highSpeedMissions += 1; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;
     case "job.power": {

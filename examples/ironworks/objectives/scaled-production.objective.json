@@ -2,7 +2,7 @@
   "id": "scaled-production",
   "name": "Scale Multi-Input Gear Production",
   "targetResource": "gear",
-  "targetRegion": "assembly-world",
+  "targetRegion": "assembly-zone",
   "targetRatePerMinute": 24,
   "constraints": { "maxBuildCost": 50000, "maxOccupiedArea": 270, "minProduction": 30 },
   "weights": { "throughput": 10, "onTimeDelivery": 10, "energy": 0.01, "buildCost": 0.5, "occupiedArea": 0.2, "wip": 0.1, "blocked": 2 }

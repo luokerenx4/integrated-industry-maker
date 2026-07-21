@@ -396,7 +396,7 @@
       "coal": 4
     },
     "grids": {
-      "grid-assembly-world-generator-2": {
+      "grid-assembly-zone-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 109262500,
@@ -405,7 +405,7 @@
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       },
-      "grid-forge-world-generator-1": {
+      "grid-forge-zone-generator-1": {
         "availableMilliWatts": 2000000,
         "chargedMilliJoules": 3600000,
         "consumedMilliJoules": 142659900,
@@ -416,8 +416,9 @@
       }
     }
   },
+  "highSpeedMissions": 0,
   "logisticsTransports": {
-    "interstellar-main": [
+    "inter-zone-main": [
       {
         "arriveTick": 124460,
         "count": 3,
@@ -425,7 +426,7 @@
         "from": "station-supply",
         "fromBuffer": "storage",
         "id": "transit-000188",
-        "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
+        "logisticsRoute": "inter-zone-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
         "toBuffer": "storage",

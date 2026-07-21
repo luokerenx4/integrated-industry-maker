@@ -184,7 +184,7 @@ export interface PowerGridAnalysis {
 
 export interface StationNetworkAnalysis {
   network: string;
-  kind: "planetary" | "interstellar";
+  kind: "local" | "inter-zone";
   dispatchPolicy: DispatchPolicy;
   fleetAsset: string;
   fleetSize: number;
@@ -207,8 +207,11 @@ export interface StationNetworkAnalysis {
     minimumBatch: number;
     carrierBatchCapacity: number;
     batchCapacity: number;
+    standardTravelTicks: number;
+    standardMissionEnergyMilliJoules: number;
     travelTicks: number;
     missionEnergyMilliJoules: number;
+    highSpeed: { enabled: boolean; travelTicks: number; missionEnergyMilliJoules: number } | null;
     capacityItemsPerMinute: number;
     energyLimitedItemsPerMinute: number;
     dispatchProfile: StationDispatchProfile;
@@ -556,8 +559,11 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       minimumBatch: route.minimumBatch,
       carrierBatchCapacity: route.carrierCapacity,
       batchCapacity: route.capacity,
+      standardTravelTicks: route.standardTravelTicks,
+      standardMissionEnergyMilliJoules: route.standardMissionEnergyMilliJoules,
       travelTicks: route.travelTicks,
       missionEnergyMilliJoules: route.missionEnergyMilliJoules,
+      highSpeed: route.highSpeed ? { ...route.highSpeed } : null,
       capacityItemsPerMinute: route.capacity * 60_000 / route.travelTicks,
       energyLimitedItemsPerMinute: project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts * 60 / route.missionEnergyMilliJoules * route.capacity,
       dispatchProfile: stationRouteDispatchProfile(project, route, criticalDepths),

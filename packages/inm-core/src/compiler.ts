@@ -219,6 +219,18 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     if (asset.logistics?.roles.includes("carrier") && !asset.logistics.missionEnergy) issues.push({ path: `assets/devices/${id}/asset.json/logistics/missionEnergy`, code: "logistics.carrier-energy-required", message: "Carrier role requires an explicit mission-energy model" });
     if (asset.logistics?.carrierKinds && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-role-required", message: "Carrier kinds require carrier role" });
     if (asset.logistics?.missionEnergy && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/missionEnergy`, code: "logistics.carrier-role-required", message: "Mission energy requires the carrier role" });
+    if (asset.logistics?.highSpeedMission && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/highSpeedMission`, code: "logistics.carrier-role-required", message: "High-speed mission capability requires the carrier role" });
+    if (asset.logistics?.highSpeedMission) {
+      const highSpeed = asset.logistics.highSpeedMission;
+      if (highSpeed.durationMultiplier.numerator >= highSpeed.durationMultiplier.denominator) issues.push({
+        path: `assets/devices/${id}/asset.json/logistics/highSpeedMission/durationMultiplier`, code: "logistics.high-speed-duration",
+        message: "High-speed mission duration multiplier must be below one",
+      });
+      if (highSpeed.energyMultiplier.numerator <= highSpeed.energyMultiplier.denominator) issues.push({
+        path: `assets/devices/${id}/asset.json/logistics/highSpeedMission/energyMultiplier`, code: "logistics.high-speed-energy",
+        message: "High-speed mission energy multiplier must be above one",
+      });
+    }
     const endpointRoles = asset.logistics?.roles.some((role) => role === "loader" || role === "unloader") ?? false;
     if (endpointRoles && !asset.logistics?.endpointRange) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-range-required", message: "Loader and unloader roles require an explicit physical endpoint range" });
     if (!endpointRoles && asset.logistics?.endpointRange) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-role-required", message: "Endpoint range requires a loader or unloader role" });
@@ -440,15 +452,15 @@ function compileLogisticsNetworks(
       validStations.push({ definition: station, device, buffer: spec.buffer });
     }
     const stationRegions = new Set(validStations.map((station) => station.device.region));
-    if (definition.kind === "planetary" && stationRegions.size > 1) issues.push({ path: `${path}/stations`, code: "station.planetary-cross-region", message: `Planetary network '${definition.id}' cannot cross regions` });
-    if (definition.kind === "interstellar" && stationRegions.size < 2) issues.push({ path: `${path}/stations`, code: "station.interstellar-single-region", message: `Interstellar network '${definition.id}' must include stations in at least two regions` });
+    if (definition.kind === "local" && stationRegions.size > 1) issues.push({ path: `${path}/stations`, code: "station.local-cross-region", message: `Local network '${definition.id}' cannot cross industrial zones` });
+    if (definition.kind === "inter-zone" && stationRegions.size < 2) issues.push({ path: `${path}/stations`, code: "station.inter-zone-single-region", message: `Inter-zone network '${definition.id}' must include stations in at least two industrial zones` });
     if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind) || !fleetAsset.logistics.missionEnergy) continue;
     const routes: CompiledLogisticsNetwork["routes"] = [];
     for (const supply of validStations) for (const supplySlot of supply.definition.slots.filter((slot) => slot.mode === "supply")) {
       for (const demand of validStations) for (const demandSlot of demand.definition.slots.filter((slot) => slot.mode === "demand" && slot.resource === supplySlot.resource)) {
         if (supply.device.id === demand.device.id) continue;
         const crossesRegions = supply.device.region !== demand.device.region;
-        if ((definition.kind === "planetary" && crossesRegions) || (definition.kind === "interstellar" && !crossesRegions)) continue;
+        if ((definition.kind === "local" && crossesRegions) || (definition.kind === "inter-zone" && !crossesRegions)) continue;
         const id = `${definition.id}:${supplySlot.resource}:${supply.device.id}->${demand.device.id}`;
         const supplyRegion = regions[supply.device.region]!;
         const demandRegion = regions[demand.device.region]!;
@@ -463,6 +475,20 @@ function compileLogisticsNetworks(
         const supplyReserve = supplySlot.supplyReserve ?? 0;
         const demandTarget = demandSlot.demandTarget ?? demandSlot.capacity;
         const capacity = Math.max(0, Math.min(plan.capacity, supplySlot.capacity - supplyReserve, demandTarget));
+        const standardMissionEnergyMilliJoules = fleetAsset.logistics.missionEnergy!.baseMilliJoules
+          + distance * fleetAsset.logistics.missionEnergy!.milliJoulesPerDistance;
+        const highSpeedSpec = fleetAsset.logistics.highSpeedMission;
+        const highSpeedPolicy = supply.device.policy?.highSpeedTransport;
+        const highSpeedEnabled = Boolean(highSpeedSpec && highSpeedPolicy?.enabled && distance >= highSpeedPolicy.minimumDistance);
+        if (highSpeedPolicy?.enabled && !highSpeedSpec) issues.push({
+          path, code: "station.high-speed-unsupported",
+          message: `Source station '${supply.device.id}' enables high-speed transport, but carrier '${fleetAsset.id}' has no high-speed mission envelope`,
+        });
+        const highSpeed = highSpeedSpec ? {
+          enabled: highSpeedEnabled,
+          travelTicks: Math.max(1, Math.ceil(plan.durationTicks * highSpeedSpec.durationMultiplier.numerator / highSpeedSpec.durationMultiplier.denominator)),
+          missionEnergyMilliJoules: Math.max(1, Math.ceil(standardMissionEnergyMilliJoules * highSpeedSpec.energyMultiplier.numerator / highSpeedSpec.energyMultiplier.denominator)),
+        } : undefined;
         routes.push({
           id, network: definition.id, resource: supplySlot.resource,
           from: supply.device.id, to: demand.device.id, fromRegion: supply.device.region, toRegion: demand.device.region,
@@ -470,9 +496,12 @@ function compileLogisticsNetworks(
           fromSlotCapacity: supplySlot.capacity, toSlotCapacity: demandSlot.capacity,
           supplyReserve, demandTarget,
           supplyPriority: supplySlot.priority ?? 0, demandPriority: demandSlot.priority ?? 0,
-          minimumBatch, distance, carrierCapacity: plan.capacity, capacity, travelTicks: plan.durationTicks,
-          missionEnergyMilliJoules: fleetAsset.logistics.missionEnergy!.baseMilliJoules
-            + distance * fleetAsset.logistics.missionEnergy!.milliJoulesPerDistance,
+          minimumBatch, distance, carrierCapacity: plan.capacity, capacity,
+          standardTravelTicks: plan.durationTicks,
+          standardMissionEnergyMilliJoules,
+          travelTicks: highSpeedEnabled ? highSpeed!.travelTicks : plan.durationTicks,
+          missionEnergyMilliJoules: highSpeedEnabled ? highSpeed!.missionEnergyMilliJoules : standardMissionEnergyMilliJoules,
+          ...(highSpeed ? { highSpeed } : {}),
         });
       }
     }
@@ -546,6 +575,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
     const stationSpec = asset.logisticsStation;
     const stationCharge = instance.policy?.stationChargeMilliWatts;
+    const highSpeedTransport = instance.policy?.highSpeedTransport;
     if (stationSpec && stationCharge === undefined) issues.push({
       path: `${path}/policy/stationChargeMilliWatts`, code: "station.charge-power-required",
       message: `Station '${instance.id}' requires an explicit Blueprint charge-power setting`,
@@ -557,6 +587,14 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (stationSpec && stationCharge !== undefined && stationCharge > stationSpec.maximumChargeMilliWatts) issues.push({
       path: `${path}/policy/stationChargeMilliWatts`, code: "station.charge-power-maximum",
       message: `Station charge ${stationCharge} mW exceeds '${asset.id}' maximum ${stationSpec.maximumChargeMilliWatts} mW`,
+    });
+    if (stationSpec && highSpeedTransport === undefined) issues.push({
+      path: `${path}/policy/highSpeedTransport`, code: "station.high-speed-policy-required",
+      message: `Station '${instance.id}' requires an explicit high-speed transport policy`,
+    });
+    if (!stationSpec && highSpeedTransport !== undefined) issues.push({
+      path: `${path}/policy/highSpeedTransport`, code: "station.high-speed-policy-device",
+      message: `Device '${instance.id}' is not a logistics station`,
     });
     if (instance.policy?.filter) {
       const port = asset.geometry.ports.find((item) => item.id === instance.policy!.filter!.outputPort);

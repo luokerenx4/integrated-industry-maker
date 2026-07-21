@@ -17,7 +17,7 @@
   },
   "energyConsumedMilliJoules": 7000,
   "energyStorage": {
-    "grid-forge-world-stack-power": {
+    "grid-forge-zone-stack-power": {
       "capacityMilliJoules": 0,
       "chargedMilliJoules": 0,
       "dischargedMilliJoules": 0,
@@ -38,6 +38,7 @@
   },
   "finalScore": 245.08993,
   "fuelConsumed": {},
+  "highSpeedMissions": 0,
   "idleTime": {
     "stack-power": 2000,
     "stack-source": 2000,
@@ -61,7 +62,7 @@
   "onTimeDelivery": 1,
   "peakBeltItems": 8,
   "powerGrids": {
-    "grid-forge-world-stack-power": {
+    "grid-forge-zone-stack-power": {
       "averageSatisfactionPpm": 1000000,
       "curtailedMilliJoules": 1193000,
       "demandMilliJoules": 7000,

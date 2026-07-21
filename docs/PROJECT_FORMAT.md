@@ -246,7 +246,7 @@ Station and carrier Devices remain ordinary project-local Device assets with exp
   "capabilities": ["store", "station"],
   "buffers": [{ "id": "storage", "role": "internal", "capacity": 200, "accepts": ["*"] }],
   "logisticsStation": {
-    "networkKinds": ["planetary"],
+    "networkKinds": ["local"],
     "buffer": "storage",
     "slots": 4,
     "energyCapacityMilliJoules": 3000000,
@@ -262,16 +262,31 @@ A reusable carrier declares the `carrier` logistics role and its supported netwo
   "capabilities": ["transport"],
   "logistics": {
     "roles": ["carrier"],
-    "carrierKinds": ["planetary"],
+    "carrierKinds": ["local"],
     "missionEnergy": {
       "baseMilliJoules": 100000,
       "milliJoulesPerDistance": 5000
+    },
+    "highSpeedMission": {
+      "durationMultiplier": { "numerator": 1, "denominator": 2 },
+      "energyMultiplier": { "numerator": 4, "denominator": 3 }
     }
   }
 }
 ```
 
-Its `planTransport()` result defines per-trip batch capacity and occupied travel time. `missionEnergy` defines the energy removed from the source station at departure. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
+Its `planTransport()` result defines per-trip batch capacity and standard occupied travel time. `missionEnergy` defines the standard energy removed from the source station at departure. An optional `highSpeedMission` declares a strictly shorter duration multiplier and strictly higher energy multiplier. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
+
+Every station instance explicitly chooses its operating policy; omission is invalid:
+
+```json
+"policy": {
+  "stationChargeMilliWatts": 200000,
+  "highSpeedTransport": { "enabled": true, "minimumDistance": 80 }
+}
+```
+
+High-speed transport represents an expedited line-haul service—priority loading, express routing, or dedicated vehicles—not a separate fantasy resource. The source station selects the mode for routes at or beyond `minimumDistance`, pays the complete high-speed mission energy, and retains the same cargo and fleet contracts.
 
 ## Explicit local transport paths
 
@@ -303,7 +318,7 @@ The loader and unloader are ordinary, explicit Blueprint Device instances. A sor
 {
   "id": "ore-to-smelter-loader",
   "asset": "sorter",
-  "region": "forge-world",
+  "region": "forge-zone",
   "position": { "x": 4, "y": 10 },
   "rotation": 0,
   "transportEndpoint": { "connection": "ore-to-smelter", "stage": "loader", "distance": 3 },
@@ -387,31 +402,31 @@ The filename must match `id`; every resource is compiler-resolved. Inputs and ou
 
 ## World
 
-`worlds/<id>.world.json` declares immutable benchmark input: one or more regions plus finite resource nodes. A region is a `site`, `planet`, or `orbit`, owns an independent 2D factory floor, and has integer world coordinates used for long-range route distance. A resource node names a project Resource, region, cell, and positive initial amount. World contents have their own run hash and are outside the research patch boundary.
+`worlds/<id>.world.json` declares immutable benchmark input: one or more `industrial-zone` regions plus finite resource nodes. Each industrial zone owns an independent 2D factory floor and has integer network coordinates used for long-range route distance. A resource node names a project Resource, region, cell, and positive initial amount. World contents have their own run hash and are outside the research patch boundary.
 
 ```json
 {
   "version": 1,
   "id": "main",
-  "name": "Twin Worlds",
+  "name": "Twin Industrial Zones",
   "regions": [
     {
-      "id": "forge-world",
-      "name": "Forge World",
-      "kind": "planet",
+      "id": "forge-zone",
+      "name": "Forge Industrial Zone",
+      "kind": "industrial-zone",
       "coordinates": { "x": 0, "y": 0, "z": 0 },
       "bounds": { "width": 20, "height": 24 }
     },
     {
-      "id": "assembly-world",
-      "name": "Assembly World",
-      "kind": "planet",
+      "id": "assembly-zone",
+      "name": "Assembly Industrial Zone",
+      "kind": "industrial-zone",
       "coordinates": { "x": 100, "y": 0, "z": 0 },
       "bounds": { "width": 20, "height": 24 }
     }
   ],
   "resourceNodes": [
-    { "id": "iron-vein-1", "region": "forge-world", "resource": "iron-ore", "position": { "x": 1, "y": 9 }, "amount": 30 }
+    { "id": "iron-vein-1", "region": "forge-zone", "resource": "iron-ore", "position": { "x": 1, "y": 9 }, "amount": 30 }
   ]
 }
 ```
@@ -429,7 +444,7 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
     {
       "id": "ore-source-1",
       "asset": "mining-machine",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": { "x": 2, "y": 10 },
       "rotation": 0,
       "resourceNodes": ["iron-vein-1"]
@@ -437,7 +452,7 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
     {
       "id": "smelter-1",
       "asset": "smelter",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": { "x": 10, "y": 10 },
       "rotation": 0,
       "recipe": {
@@ -450,7 +465,7 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
     {
       "id": "ore-to-smelter-loader",
       "asset": "sorter",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": { "x": 4, "y": 10 },
       "rotation": 0,
       "transportEndpoint": { "connection": "ore-to-smelter", "stage": "loader", "distance": 1 }
@@ -458,7 +473,7 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
     {
       "id": "ore-to-smelter-unloader",
       "asset": "sorter",
-      "region": "forge-world",
+      "region": "forge-zone",
       "position": { "x": 9, "y": 10 },
       "rotation": 0,
       "transportEndpoint": { "connection": "ore-to-smelter", "stage": "unloader", "distance": 1 }
@@ -507,7 +522,7 @@ Every Device instance—not only a recipe machine—may configure accepted Resou
 {
   "id": "gear-storage",
   "asset": "buffer",
-  "region": "assembly-world",
+  "region": "assembly-zone",
   "position": { "x": 12, "y": 8 },
   "rotation": 0,
   "bufferFilters": { "storage": ["gear"] }
@@ -518,15 +533,15 @@ Filters are strict narrowing contracts: they cannot add a Resource excluded by t
 
 A transport Device declares the stages it can fill. A sorter must declare its physical reach, for example `"logistics": { "roles": ["loader", "unloader"], "endpointRange": { "minimum": 1, "maximum": 3 } }`; a line uses only `"roles": ["line"]`. Its TypeScript `planTransport(context)` returns `{ capacity, durationTicks, stackCapacity? }`, and `context.distance` is the selected sorter span for endpoints or routed-cell count for a line. Capacity counts concurrent cargo entities, while `stackCapacity` (default 1) caps the number of Resource items carried by each entity. A blueprint connection may set `"stackSize": 4`; omitting it selects the maximum supported by all three stages and the Resource asset's `transport.stackSize`. The compiler rejects impossible explicit requests. One belt cell still contains at most one cargo entity, so stacking raises item throughput without bypassing cell occupancy, shared-lane arbitration, or backpressure. Static analysis reports each stage's distance/cargo/stack contract, per-Resource end-to-end items/min, and the complete stage chain. Projects may carry several speed/reach/stack tiers as independent local Device assets; research compares the combined items/min envelope and can replace every tied limiting stage while preserving the connection path and explicit endpoint distances.
 
-`logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances. A `planetary` network may route only between stations in the same region. An `interstellar` network must include at least two regions and routes only between different regions:
+`logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances. A `local` network may route only between stations in the same region. An `inter-zone` network must include at least two regions and routes only between different regions:
 
 ```json
 "logisticsNetworks": [
   {
-    "id": "interstellar-main",
-    "kind": "interstellar",
+    "id": "inter-zone-main",
+    "kind": "inter-zone",
     "dispatch": "shortage-first",
-    "fleet": { "deviceAsset": "logistics-vessel", "count": 4 },
+    "fleet": { "deviceAsset": "line-haul-carrier", "count": 4 },
     "stations": [
       {
         "device": "station-supply",
@@ -576,7 +591,7 @@ Initial quantities address device and buffer explicitly:
   },
   "renewableProfiles": [
     {
-      "region": "forge-world",
+      "region": "forge-zone",
       "asset": "wind-turbine",
       "periodTicks": 8000,
       "points": [
@@ -604,7 +619,7 @@ Capacity planning integrates these curves against the Objective-derived constant
   "id": "default",
   "name": "Sustain Gear Throughput",
   "targetResource": "gear",
-  "targetRegion": "assembly-world",
+  "targetRegion": "assembly-zone",
   "targetRatePerMinute": 12,
   "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": {

@@ -47,7 +47,7 @@ The capacity plan turns that solution into required Process machines, treatment 
 11. jointly selects a zero-unserved-energy generator/storage bundle under the Scenario curve, then synthesizes one connected spatial power component;
 12. compiles, plans, cold-start simulates, and atomically writes the Blueprint.
 
-The generated factory has no synthetic capacity: every port, backing buffer partition, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default and writes it onto every generated shared-fleet network, so local fan-out and planetary/interstellar contention respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
+The generated factory has no synthetic capacity: every port, backing buffer partition, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default and writes it onto every generated shared-fleet network, so local fan-out and local/inter-zone contention respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
 
 ## Research boundary
 

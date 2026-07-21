@@ -144,7 +144,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     }));
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
-    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
+    onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

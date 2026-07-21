@@ -1,0 +1,24 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "line-haul-carrier",
+  "name": "Line-haul Carrier",
+  "description": "A reusable long-range carrier assigned to an inter-zone station fleet.",
+  "tags": ["logistics", "carrier", "inter-zone"],
+  "capabilities": ["transport"],
+  "geometry": { "footprint": { "width": 1, "height": 2 }, "rotatable": true, "ports": [] },
+  "buffers": [],
+  "logistics": {
+    "roles": ["carrier"],
+    "carrierKinds": ["inter-zone"],
+    "missionEnergy": { "baseMilliJoules": 500000, "milliJoulesPerDistance": 20000 },
+    "highSpeedMission": {
+      "durationMultiplier": { "numerator": 1, "denominator": 4 },
+      "energyMultiplier": { "numerator": 3, "denominator": 2 }
+    }
+  },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "idleMilliWatts": 0, "activeMilliWatts": 0 },
+  "economics": { "buildCost": 2000 },
+  "files": { "visual": "visual.json" }
+}

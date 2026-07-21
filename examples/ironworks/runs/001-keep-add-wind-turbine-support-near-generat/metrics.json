@@ -42,14 +42,14 @@
   },
   "energyConsumedMilliJoules": 252898070,
   "energyStorage": {
-    "grid-assembly-world-generator-2": {
+    "grid-assembly-zone-generator-2": {
       "capacityMilliJoules": 0,
       "chargedMilliJoules": 0,
       "dischargedMilliJoules": 0,
       "initialMilliJoules": 0,
       "storedMilliJoules": 0
     },
-    "grid-forge-world-generator-1": {
+    "grid-forge-zone-generator-1": {
       "capacityMilliJoules": 3600000,
       "chargedMilliJoules": 3600000,
       "dischargedMilliJoules": 0,
@@ -97,6 +97,7 @@
   "fuelConsumed": {
     "coal": 4
   },
+  "highSpeedMissions": 0,
   "idleTime": {
     "assembler-1": 0,
     "coal-assembly-to-splitter-loader": 111750,
@@ -170,7 +171,7 @@
   "onTimeDelivery": 0.4583333333333333,
   "peakBeltItems": 4,
   "powerGrids": {
-    "grid-assembly-world-generator-2": {
+    "grid-assembly-zone-generator-2": {
       "averageSatisfactionPpm": 1000000,
       "curtailedMilliJoules": 81761830,
       "demandMilliJoules": 110238170,
@@ -184,7 +185,7 @@
       "servedMilliJoules": 110238170,
       "unservedMilliJoules": 0
     },
-    "grid-forge-world-generator-1": {
+    "grid-forge-zone-generator-1": {
       "averageSatisfactionPpm": 1000000,
       "curtailedMilliJoules": 45740100,
       "demandMilliJoules": 142659900,

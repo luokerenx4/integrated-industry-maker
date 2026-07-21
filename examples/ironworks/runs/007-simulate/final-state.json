@@ -207,6 +207,7 @@
       }
     }
   },
+  "highSpeedMissions": 0,
   "logisticsTransports": {},
   "materialTreatment": {
     "agentsConsumed": {},

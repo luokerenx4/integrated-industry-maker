@@ -21,14 +21,14 @@
   "lock": {
     "cases": {
       "constrained-grid": {
-        "blueprintHash": "f476dabcae46ea892507b143f0481af35c2f0a3a2d0730614148bacdd7b0bcec",
-        "deviceCatalogHash": "ffb90ef1b0a487958dd4d713856f27cfd9b474d57a5500da5b4f96cc784bfc2e",
-        "engineVersion": "inm-sim/0.44.0",
-        "objectiveHash": "ac40f2a1778652293f2c2fd6e30915d5936465779cd7cb962c5e5157160b9480",
+        "blueprintHash": "ef014d80202e92c1c289e613a98ae169eb01733da7906218940801dd827013a8",
+        "deviceCatalogHash": "975052655cf44c817353ca16db5d6f9a3d40b472a4835144950b99c4228cac17",
+        "engineVersion": "inm-sim/0.45.0",
+        "objectiveHash": "d04eb34ea20af17c8086bdd3d1e7a7ce6e5e8f3ca2bceb350c1fc87ec71738a5",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
-        "scenarioHash": "49e796d649a6d7f52ca33b856f8c2d512af3e818f12c14a52ed7521a5187850a",
-        "worldHash": "84faa3bff5fc242f00c3bb0dd43f60513425b2c9b3cff374da2a415a7110bb00"
+        "scenarioHash": "8c8c77abaaf05b0a2a37f606ae2afb7f803de9e57893b78c95b40ec00389417e",
+        "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       }
     },
     "contractHash": "ad60c5d9bff47ae205be0022abae7f5ccf069159d40c76f27528efcef91c849f"

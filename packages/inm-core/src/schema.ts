@@ -81,12 +81,16 @@ export const deviceAssetSchema = z.object({
   }).strict().optional(),
   logistics: z.object({
     roles: z.array(z.enum(["loader", "line", "unloader", "carrier"])).min(1),
-    carrierKinds: z.array(z.enum(["planetary", "interstellar"])).min(1).optional(),
+    carrierKinds: z.array(z.enum(["local", "inter-zone"])).min(1).optional(),
     missionEnergy: z.object({ baseMilliJoules: nonNegativeInt, milliJoulesPerDistance: nonNegativeInt }).strict().optional(),
+    highSpeedMission: z.object({
+      durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
+      energyMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
+    }).strict().optional(),
     endpointRange: z.object({ minimum: positiveInt, maximum: positiveInt }).strict().optional(),
   }).strict().optional(),
   logisticsStation: z.object({
-    networkKinds: z.array(z.enum(["planetary", "interstellar"])).min(1), buffer: id, slots: positiveInt,
+    networkKinds: z.array(z.enum(["local", "inter-zone"])).min(1), buffer: id, slots: positiveInt,
     energyCapacityMilliJoules: positiveInt, maximumChargeMilliWatts: positiveInt,
   }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
@@ -105,7 +109,7 @@ export const deviceAssetSchema = z.object({
 }).strict();
 
 const regionSchema = z.object({
-  id, name: z.string().min(1), kind: z.enum(["site", "planet", "orbit"]),
+  id, name: z.string().min(1), kind: z.literal("industrial-zone"),
   coordinates: z.object({ x: z.number().int(), y: z.number().int(), z: z.number().int() }).strict(),
   bounds: z.object({ width: positiveInt, height: positiveInt }).strict(),
 }).strict();
@@ -142,6 +146,7 @@ export const blueprintSchema = z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),
+      highSpeedTransport: z.object({ enabled: z.boolean(), minimumDistance: nonNegativeInt }).strict().optional(),
       inputPriority: id.optional(),
       outputPriority: id.optional(),
       filter: z.object({ resource: id, outputPort: id }).strict().optional(),
@@ -159,7 +164,7 @@ export const blueprintSchema = z.object({
     }).strict(),
   }).strict()),
   logisticsNetworks: z.array(z.object({
-    id, kind: z.enum(["planetary", "interstellar"]), dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
+    id, kind: z.enum(["local", "inter-zone"]), dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
     fleet: z.object({ deviceAsset: id, count: positiveInt }).strict(),
     stations: z.array(z.object({
       device: id,

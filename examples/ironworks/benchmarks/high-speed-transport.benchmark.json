@@ -1,0 +1,38 @@
+{
+  "acceptance": {
+    "maximumCaseScoreRegression": 0,
+    "minimumAggregateScoreDelta": 0.001,
+    "requireCandidateCapacityReady": false
+  },
+  "baselineBlueprint": "high-speed-transport-base",
+  "candidateBlueprint": "high-speed-transport-candidate",
+  "cases": [
+    {
+      "id": "small-batch-line-haul",
+      "name": "Small-batch inter-zone line haul",
+      "objective": "default",
+      "scenario": "baseline",
+      "seed": 42,
+      "weight": 1,
+      "world": "main"
+    }
+  ],
+  "id": "high-speed-transport",
+  "lock": {
+    "cases": {
+      "small-batch-line-haul": {
+        "blueprintHash": "37209a48eba2be2d2f4244d52a2fd87b9e24f7d60204308e946fd3d6ff497986",
+        "deviceCatalogHash": "975052655cf44c817353ca16db5d6f9a3d40b472a4835144950b99c4228cac17",
+        "engineVersion": "inm-sim/0.45.0",
+        "objectiveHash": "2b5ad26d5574e35c488b7eb65d419cd6fe5c6418b1cff09f2047b92dcb1ea561",
+        "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
+        "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
+        "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
+        "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
+      }
+    },
+    "contractHash": "3138153e7ad0a56e7c82aa69a36f6518706c1f32e81e077b8e8b59985999a125"
+  },
+  "name": "Expedited Inter-zone Line Haul",
+  "version": 1
+}

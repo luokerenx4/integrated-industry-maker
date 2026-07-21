@@ -101,6 +101,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Capacity plan: ${capacityPlan.ready ? "READY" : `${capacityPlan.gaps.length} GAP${capacityPlan.gaps.length === 1 ? "" : "S"}`}`,
     `- Belt utilization: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}%`, `- Average blocked belt items: ${result.metrics.averageBlockedBeltItems.toFixed(3)}`, `- Peak belt items: ${result.metrics.peakBeltItems}`,
     `- Powered transport energy: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J`,
+    `- High-speed carrier missions: ${result.metrics.highSpeedMissions}`,
     `- Material treated: ${treatedMaterials.join(" + ") || "none"}`,
     `- Treatment agents consumed: ${treatmentAgents.join(" + ") || "none"}`,
     `- Aggregate unpowered time: ${totalUnpoweredTicks} device-ticks`,

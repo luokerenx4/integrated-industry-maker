@@ -106,7 +106,7 @@ async function loadProjectIndex() {
   return { name, workspace: workspaceMode, projects: summaries };
 }
 
-function layoutRegions(regions: Array<{ id: string; name: string; kind: "site" | "planet" | "orbit"; coordinates: { x: number; y: number; z: number }; bounds: { width: number; height: number } }>) {
+function layoutRegions(regions: Array<{ id: string; name: string; kind: "industrial-zone"; coordinates: { x: number; y: number; z: number }; bounds: { width: number; height: number } }>) {
   let cursorX = 0;
   const layouts = regions.map((region) => {
     const layout = { ...region, offset: { x: cursorX, y: 0 } };

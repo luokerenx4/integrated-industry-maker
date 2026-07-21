@@ -60,7 +60,7 @@
         "x": 0,
         "y": 0
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -70,7 +70,7 @@
         "x": 2,
         "y": 0
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -80,7 +80,7 @@
         "x": 4,
         "y": 0
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -90,7 +90,7 @@
         "x": 6,
         "y": 0
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -100,7 +100,7 @@
         "x": 0,
         "y": 2
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -110,7 +110,7 @@
         "x": 2,
         "y": 2
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -120,7 +120,7 @@
         "x": 4,
         "y": 2
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -130,7 +130,7 @@
         "x": 6,
         "y": 2
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -140,7 +140,7 @@
         "x": 10,
         "y": 2
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -172,7 +172,7 @@
         },
         "process": "assemble-gear"
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -187,7 +187,7 @@
         "x": 10,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -197,7 +197,7 @@
         "x": 4,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "z-critical-link",
@@ -212,7 +212,7 @@
         "x": 9,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "z-critical-link",

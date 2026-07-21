@@ -257,8 +257,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const globalReserve = loaded.world.resourceNodes.filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
     return reserve > 0 ? [{ resource, region: region.id, capacityPerMinute: reserve / scenarioMinutes, cost: 1 + targetRate / globalReserve }] : [];
   }));
-  const canCrossRegions = Object.values(loaded.deviceAssets).some((asset) => asset.logisticsStation?.networkKinds.includes("interstellar"))
-    && Object.values(loaded.deviceAssets).some((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("interstellar"));
+  const canCrossRegions = Object.values(loaded.deviceAssets).some((asset) => asset.logisticsStation?.networkKinds.includes("inter-zone"))
+    && Object.values(loaded.deviceAssets).some((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("inter-zone"));
   const transportOptions = canCrossRegions ? Object.keys(loaded.resources).flatMap((resource) => loaded.world.regions.flatMap((from) => loaded.world.regions
     .filter((to) => to.id !== from.id).map((to) => ({
       resource, fromRegion: from.id, toRegion: to.id,
@@ -801,13 +801,13 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     reserveRoutes(plannedConnections.slice(plannedStart));
   };
 
-  const stationAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.logisticsStation?.networkKinds.includes("interstellar"))
+  const stationAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.logisticsStation?.networkKinds.includes("inter-zone"))
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const carrier = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("interstellar"))
+  const carrier = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("inter-zone"))
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   for (const transport of demandPlan.transports) {
     const { resource, fromRegion: sourceRegion, toRegion: targetRegion, requiredPerMinute: requiredRate } = transport;
-    if (!stationAsset?.logisticsStation || !carrier?.logistics?.missionEnergy) throw new Error(`Cross-region '${resource}' flow requires project-local interstellar station and carrier assets with mission energy`);
+    if (!stationAsset?.logisticsStation || !carrier?.logistics?.missionEnergy) throw new Error(`Cross-region '${resource}' flow requires project-local inter-zone station and carrier assets with mission energy`);
     const sourceRegionDef = loaded.world.regions.find((item) => item.id === sourceRegion)!;
     const targetRegionDef = loaded.world.regions.find((item) => item.id === targetRegion)!;
     const preferredY = (region: string, endpoints: Endpoint[]): number => {
@@ -832,12 +832,18 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const supply: BlueprintDevice = {
         id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply-${index + 1}`), asset: stationAsset.id, region: sourceRegion,
         position: { x: 0, y: 0 }, rotation: 0, bufferFilters: structuredClone(stationFilters),
-        policy: { stationChargeMilliWatts: stationAsset.logisticsStation.maximumChargeMilliWatts },
+        policy: {
+          stationChargeMilliWatts: stationAsset.logisticsStation.maximumChargeMilliWatts,
+          highSpeedTransport: { enabled: false, minimumDistance: 0 },
+        },
       };
       const demand: BlueprintDevice = {
         id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand-${index + 1}`), asset: stationAsset.id, region: targetRegion,
         position: { x: 0, y: 0 }, rotation: 0, bufferFilters: structuredClone(stationFilters),
-        policy: { stationChargeMilliWatts: stationAsset.logisticsStation.maximumChargeMilliWatts },
+        policy: {
+          stationChargeMilliWatts: stationAsset.logisticsStation.maximumChargeMilliWatts,
+          highSpeedTransport: { enabled: false, minimumDistance: 0 },
+        },
       };
       placeDevice(loaded, blueprint, supply, {
         x: sourceRegionDef.bounds.width - stationAsset.geometry.footprint.width - 1,
@@ -874,7 +880,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const carriers = Math.max(1, Math.ceil(laneRate / perCarrierRate - 1e-9));
       const slotCapacity = stationAsset.buffers.find((buffer) => buffer.id === stationAsset.logisticsStation!.buffer)!.capacity;
       const network: BlueprintLogisticsNetwork = {
-        id: networkId, kind: "interstellar", dispatch: "shortage-first", fleet: { deviceAsset: carrier.id, count: carriers },
+        id: networkId, kind: "inter-zone", dispatch: "shortage-first", fleet: { deviceAsset: carrier.id, count: carriers },
         stations: [
           { device: supply.id, slots: [{ resource, mode: "supply", capacity: slotCapacity, minimumBatch: 1, priority: 0, supplyReserve: 0 }] },
           { device: demand.id, slots: [{ resource, mode: "demand", capacity: slotCapacity, minimumBatch: 1, priority: 0, demandTarget: slotCapacity }] },

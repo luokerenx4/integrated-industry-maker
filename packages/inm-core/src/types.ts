@@ -146,14 +146,19 @@ export interface DeviceAssetManifest {
   };
   logistics?: {
     roles: LogisticsRole[];
-    carrierKinds?: Array<"planetary" | "interstellar">;
+    carrierKinds?: Array<"local" | "inter-zone">;
     /** Energy removed from the departing station for one carrier mission. */
     missionEnergy?: { baseMilliJoules: number; milliJoulesPerDistance: number };
+    /** Optional high-speed mission envelope: faster turnaround at a higher launch-energy cost. */
+    highSpeedMission?: {
+      durationMultiplier: { numerator: number; denominator: number };
+      energyMultiplier: { numerator: number; denominator: number };
+    };
     /** Physical grid span supported when this asset is used as a loader or unloader. */
     endpointRange?: { minimum: number; maximum: number };
   };
   logisticsStation?: {
-    networkKinds: Array<"planetary" | "interstellar">;
+    networkKinds: Array<"local" | "inter-zone">;
     buffer: BufferId;
     slots: number;
     energyCapacityMilliJoules: number;
@@ -263,7 +268,7 @@ export interface WorldPosition { x: number; y: number; z: number }
 export interface WorldRegion {
   id: string;
   name: string;
-  kind: "site" | "planet" | "orbit";
+  kind: "industrial-zone";
   coordinates: WorldPosition;
   bounds: { width: number; height: number };
 }
@@ -317,6 +322,8 @@ export interface BlueprintDevice {
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
     stationChargeMilliWatts?: number;
+    /** Station-only routing policy for energy-intensive high-speed carrier missions. */
+    highSpeedTransport?: { enabled: boolean; minimumDistance: number };
     inputPriority?: string;
     outputPriority?: string;
     filter?: { resource: ResourceId; outputPort: string };
@@ -358,7 +365,7 @@ export interface BlueprintLogisticsStation {
 }
 export interface BlueprintLogisticsNetwork {
   id: string;
-  kind: "planetary" | "interstellar";
+  kind: "local" | "inter-zone";
   /** Shared-fleet arbitration. Omit to inherit the Blueprint factory policy. */
   dispatch?: DispatchPolicy;
   fleet: { deviceAsset: DeviceAssetId; count: number };
@@ -539,12 +546,19 @@ export interface CompiledLogisticsRoute {
   carrierCapacity: number;
   /** Effective batch capacity after intersecting carrier and both station slots. */
   capacity: number;
+  standardTravelTicks: Tick;
+  standardMissionEnergyMilliJoules: number;
   travelTicks: Tick;
   missionEnergyMilliJoules: number;
+  highSpeed?: {
+    enabled: boolean;
+    travelTicks: Tick;
+    missionEnergyMilliJoules: number;
+  };
 }
 export interface CompiledLogisticsNetwork {
   id: string;
-  kind: "planetary" | "interstellar";
+  kind: "local" | "inter-zone";
   dispatchPolicy: DispatchPolicy;
   fleetAsset: DeviceAsset;
   fleetSize: number;
@@ -644,6 +658,7 @@ export interface ResourceTransit {
   departTick: Tick;
   arriveTick: Tick;
   logisticsRoute?: string;
+  highSpeed?: boolean;
 }
 export type BeltTransitPhase = "loading" | "belt" | "unloading";
 export interface BeltTransit extends ResourceTransit {
@@ -676,6 +691,7 @@ export interface FactoryState {
     fuelConsumed: Record<ResourceId, number>;
   };
   completedOrders: number;
+  highSpeedMissions: number;
   materialTreatment: {
     treated: Record<ResourceId, Record<string, number>>;
     agentsConsumed: Record<ResourceId, number>;
@@ -769,6 +785,7 @@ export interface FactoryMetrics {
     requiredStorageCapacityMilliJoules: number;
   }>;
   fuelConsumed: Record<ResourceId, number>;
+  highSpeedMissions: number;
   materialTreatment: {
     treated: Record<ResourceId, Record<string, number>>;
     agentsConsumed: Record<ResourceId, number>;

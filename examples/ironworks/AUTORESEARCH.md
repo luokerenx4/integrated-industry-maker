@@ -45,4 +45,6 @@ For a minimal power-control exercise, use `benchmarks/power-priority.benchmark.j
 
 For a DSP-style shared-grid exercise, use `benchmarks/power-satisfaction.benchmark.json`. Edit only `blueprints/power-satisfaction-candidate.blueprint.json`; it begins underpowered in `proportional` mode, so adding connected generation improves the satisfaction and speed of the assembler and both explicit sorter stages together.
 
-For a carrier-energy exercise, use `benchmarks/station-energy.benchmark.json`. Edit only `blueprints/station-energy-candidate.blueprint.json`; the source interstellar station begins with insufficient `policy.stationChargeMilliWatts`, so raising that explicit Blueprint policy removes the energy-limited route bottleneck without changing the fixed asset or benchmark harness.
+For a carrier-energy exercise, use `benchmarks/station-energy.benchmark.json`. Edit only `blueprints/station-energy-candidate.blueprint.json`; the source inter-zone station begins with insufficient `policy.stationChargeMilliWatts`, so raising that explicit Blueprint policy removes the energy-limited route bottleneck without changing the fixed asset or benchmark harness.
+
+For an expedited line-haul exercise, use `benchmarks/high-speed-transport.benchmark.json`. Edit only `blueprints/high-speed-transport-candidate.blueprint.json`; the route begins in standard service with a deliberately small effective batch. Enable the source station's `policy.highSpeedTransport` and let the benchmark decide whether the shorter turnaround justifies its higher source-zone energy cost.

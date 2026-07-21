@@ -476,19 +476,19 @@
     },
     {
       "from": {
-        "device": "synth-iron-plate-assembly-world-station-demand-1",
+        "device": "synth-iron-plate-assembly-zone-station-demand-1",
         "port": "output"
       },
-      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "device": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader"
+          "device": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader"
         },
         "unloader": {
-          "device": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader"
+          "device": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader"
         }
       },
       "path": [
@@ -587,16 +587,16 @@
         "device": "synth-smelt-iron-1",
         "port": "output"
       },
-      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1",
+      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "device": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1-loader"
+          "device": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-loader"
         },
         "unloader": {
-          "device": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1-unloader"
+          "device": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-unloader"
         }
       },
       "path": [
@@ -630,7 +630,7 @@
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-iron-plate-forge-world-station-supply-1",
+        "device": "synth-iron-plate-forge-zone-station-supply-1",
         "port": "input"
       }
     },
@@ -1005,7 +1005,7 @@
         },
         "process": "forge-gear-pair"
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -1025,7 +1025,7 @@
         },
         "process": "make-proliferator"
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -1045,7 +1045,7 @@
         },
         "process": "smelt-iron"
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
@@ -1060,7 +1060,7 @@
         "x": 11,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -1075,7 +1075,7 @@
         "x": 0,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "resourceNodes": [
         "coal-seam-assembly"
       ],
@@ -1093,7 +1093,7 @@
         "x": 1,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "resourceNodes": [
         "iron-vein-1",
         "iron-vein-2",
@@ -1119,7 +1119,7 @@
         "x": 2,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "treatment": {
         "mode": "mk2"
@@ -1143,46 +1143,54 @@
         "x": 1,
         "y": 8
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "treatment": {
         "mode": "mk2"
       }
     },
     {
-      "asset": "interstellar-logistics-station",
+      "asset": "inter-zone-logistics-station",
       "bufferFilters": {
         "storage": [
           "iron-plate"
         ]
       },
-      "id": "synth-iron-plate-forge-world-station-supply-1",
+      "id": "synth-iron-plate-forge-zone-station-supply-1",
       "policy": {
+        "highSpeedTransport": {
+          "enabled": false,
+          "minimumDistance": 0
+        },
         "stationChargeMilliWatts": 300000
       },
       "position": {
         "x": 15,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
-      "asset": "interstellar-logistics-station",
+      "asset": "inter-zone-logistics-station",
       "bufferFilters": {
         "storage": [
           "iron-plate"
         ]
       },
-      "id": "synth-iron-plate-assembly-world-station-demand-1",
+      "id": "synth-iron-plate-assembly-zone-station-demand-1",
       "policy": {
+        "highSpeedTransport": {
+          "enabled": false,
+          "minimumDistance": 0
+        },
         "stationChargeMilliWatts": 300000
       },
       "position": {
         "x": 1,
         "y": 12
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
@@ -1192,7 +1200,7 @@
         "x": 3,
         "y": 8
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
@@ -1207,7 +1215,7 @@
         "x": 8,
         "y": 6
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
@@ -1222,7 +1230,7 @@
         "x": 4,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
@@ -1237,7 +1245,7 @@
         "x": 6,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
@@ -1260,7 +1268,7 @@
         "x": 3,
         "y": 4
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90
     },
     {
@@ -1270,7 +1278,7 @@
         "x": 5,
         "y": 5
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-split-to-synth-make-proliferator-1",
@@ -1285,7 +1293,7 @@
         "x": 7,
         "y": 9
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-split-to-synth-make-proliferator-1",
@@ -1300,7 +1308,7 @@
         "x": 3,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
@@ -1315,7 +1323,7 @@
         "x": 0,
         "y": 8
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
@@ -1330,7 +1338,7 @@
         "x": 2,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-extractor-1-to-synth-coal-split",
@@ -1345,7 +1353,7 @@
         "x": 3,
         "y": 3
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "synth-coal-synth-coal-extractor-1-to-synth-coal-split",
@@ -1360,7 +1368,7 @@
         "x": 3,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1",
@@ -1375,7 +1383,7 @@
         "x": 7,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1",
@@ -1385,60 +1393,60 @@
     },
     {
       "asset": "sorter",
-      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader",
       "position": {
         "x": 5,
         "y": 13
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
-        "connection": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "connection": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
         "distance": 1,
         "stage": "loader"
       }
     },
     {
       "asset": "sorter",
-      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader",
       "position": {
         "x": 1,
         "y": 10
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
-        "connection": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "connection": "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
         "distance": 1,
         "stage": "unloader"
       }
     },
     {
       "asset": "sorter",
-      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1-loader",
+      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-loader",
       "position": {
         "x": 10,
         "y": 8
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
-        "connection": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1",
+        "connection": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1",
         "distance": 1,
         "stage": "loader"
       }
     },
     {
       "asset": "sorter",
-      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1-unloader",
+      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-unloader",
       "position": {
         "x": 14,
         "y": 9
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0,
       "transportEndpoint": {
-        "connection": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1",
+        "connection": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1",
         "distance": 1,
         "stage": "unloader"
       }
@@ -1458,7 +1466,7 @@
         "x": 6,
         "y": 12
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 180
     },
     {
@@ -1468,7 +1476,7 @@
         "x": 5,
         "y": 12
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 180,
       "transportEndpoint": {
         "connection": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
@@ -1483,7 +1491,7 @@
         "x": 3,
         "y": 9
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
@@ -1498,7 +1506,7 @@
         "x": 7,
         "y": 14
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
@@ -1513,7 +1521,7 @@
         "x": 2,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 90,
       "transportEndpoint": {
         "connection": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
@@ -1528,7 +1536,7 @@
         "x": 10,
         "y": 9
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split",
@@ -1543,7 +1551,7 @@
         "x": 8,
         "y": 12
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 180,
       "transportEndpoint": {
         "connection": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split",
@@ -1558,7 +1566,7 @@
         "x": 9,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink",
@@ -1573,7 +1581,7 @@
         "x": 9,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0,
       "transportEndpoint": {
         "connection": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink",
@@ -1583,72 +1591,72 @@
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-forge-world-wind-turbine-1",
+      "id": "synth-forge-zone-wind-turbine-1",
       "position": {
         "x": 1,
         "y": 12
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-forge-world-wind-turbine-2",
+      "id": "synth-forge-zone-wind-turbine-2",
       "position": {
         "x": 8,
         "y": 10
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-forge-world-wind-turbine-3",
+      "id": "synth-forge-zone-wind-turbine-3",
       "position": {
         "x": 6,
         "y": 9
       },
-      "region": "forge-world",
+      "region": "forge-zone",
       "rotation": 0
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-assembly-world-wind-turbine-1",
+      "id": "synth-assembly-zone-wind-turbine-1",
       "position": {
         "x": 0,
         "y": 5
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-assembly-world-wind-turbine-2",
+      "id": "synth-assembly-zone-wind-turbine-2",
       "position": {
         "x": 4,
         "y": 7
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-assembly-world-wind-turbine-3",
+      "id": "synth-assembly-zone-wind-turbine-3",
       "position": {
         "x": 5,
         "y": 9
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     },
     {
       "asset": "wind-turbine",
-      "id": "synth-assembly-world-wind-turbine-4",
+      "id": "synth-assembly-zone-wind-turbine-4",
       "position": {
         "x": 4,
         "y": 1
       },
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "rotation": 0
     }
   ],
@@ -1657,13 +1665,13 @@
       "dispatch": "shortage-first",
       "fleet": {
         "count": 1,
-        "deviceAsset": "logistics-vessel"
+        "deviceAsset": "line-haul-carrier"
       },
-      "id": "synth-iron-plate-forge-world-to-assembly-world-lane-1",
-      "kind": "interstellar",
+      "id": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
+      "kind": "inter-zone",
       "stations": [
         {
-          "device": "synth-iron-plate-forge-world-station-supply-1",
+          "device": "synth-iron-plate-forge-zone-station-supply-1",
           "slots": [
             {
               "capacity": 400,
@@ -1676,7 +1684,7 @@
           ]
         },
         {
-          "device": "synth-iron-plate-assembly-world-station-demand-1",
+          "device": "synth-iron-plate-assembly-zone-station-demand-1",
           "slots": [
             {
               "capacity": 400,

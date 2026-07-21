@@ -6,7 +6,7 @@
   "initialEnergyMilliJoules": {},
   "renewableProfiles": [
     {
-      "region": "assembly-world",
+      "region": "assembly-zone",
       "asset": "wind-turbine",
       "periodTicks": 120000,
       "points": [
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "region": "forge-world",
+      "region": "forge-zone",
       "asset": "wind-turbine",
       "periodTicks": 120000,
       "points": [

@@ -48,7 +48,7 @@
     "consumedMilliJoules": 7000,
     "fuelConsumed": {},
     "grids": {
-      "grid-forge-world-stack-power": {
+      "grid-forge-zone-stack-power": {
         "availableMilliWatts": 600000,
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 7000,
@@ -59,6 +59,7 @@
       }
     }
   },
+  "highSpeedMissions": 0,
   "logisticsTransports": {},
   "materialTreatment": {
     "agentsConsumed": {},

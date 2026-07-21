@@ -106,7 +106,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
   const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => [node.id, { remaining: node.amount, reserved: 0, extracted: 0 }]));
   return {
     tick: 0, devices, resourceNodes, transports, logisticsTransports, produced: {}, consumed: {},
-    energy: { availableMilliWatts, consumedMilliJoules: 0, grids, fuelConsumed: {} }, completedOrders: 0,
+    energy: { availableMilliWatts, consumedMilliJoules: 0, grids, fuelConsumed: {} }, completedOrders: 0, highSpeedMissions: 0,
     materialTreatment: { treated: {}, agentsConsumed: {} },
   };
 }
@@ -733,6 +733,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         stationDispatchCursors[network.id] = selected.nextCursor;
         const count = Math.min(route.capacity, available, free);
         mutateFactoryState(state, { kind: "station.energy", device: route.from, deltaMilliJoules: -route.missionEnergyMilliJoules, mode: "spend" });
+        if (route.highSpeed?.enabled) mutateFactoryState(state, { kind: "high-speed-mission" });
         emit({
           type: "logistics.energy-spent", tick: state.tick, device: route.from, network: network.id, route: route.id,
           energyMilliJoules: route.missionEnergyMilliJoules, storedMilliJoules: state.devices[route.from]!.stationEnergy!.storedMilliJoules,
@@ -750,6 +751,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           departTick: state.tick,
           arriveTick: state.tick + route.travelTicks,
           logisticsRoute: route.id,
+          ...(route.highSpeed?.enabled ? { highSpeed: true } : {}),
         };
         mutateFactoryState(state, { kind: "logistics.add", network: network.id, transit });
         emit({ type: "logistics.depart", tick: state.tick, transit: { ...transit }, network: network.id, route: route.id });
