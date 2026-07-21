@@ -1,28 +1,137 @@
 {
   "version": 1,
   "devices": [
-    { "id": "stack-source", "asset": "buffer", "region": "forge-world", "position": { "x": 0, "y": 0 }, "rotation": 0, "bufferFilters": { "storage": ["iron-ore"] } },
-    { "id": "stack-target", "asset": "material-sink", "region": "forge-world", "position": { "x": 8, "y": 0 }, "rotation": 0, "bufferFilters": { "input": ["iron-ore"] } },
-    { "id": "stack-power", "asset": "wind-turbine", "region": "forge-world", "position": { "x": 4, "y": 4 }, "rotation": 0 }
+    {
+      "id": "stack-source",
+      "asset": "buffer",
+      "region": "forge-world",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "storage": [
+          "iron-ore"
+        ]
+      }
+    },
+    {
+      "id": "stack-target",
+      "asset": "material-sink",
+      "region": "forge-world",
+      "position": {
+        "x": 8,
+        "y": 0
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "input": [
+          "iron-ore"
+        ]
+      }
+    },
+    {
+      "id": "stack-power",
+      "asset": "wind-turbine",
+      "region": "forge-world",
+      "position": {
+        "x": 4,
+        "y": 4
+      },
+      "rotation": 0
+    },
+    {
+      "id": "stacked-link-loader",
+      "asset": "stack-sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 1,
+        "y": 0
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "stacked-link",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "stacked-link-unloader",
+      "asset": "stack-sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 7,
+        "y": 0
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "stacked-link",
+        "stage": "unloader",
+        "distance": 1
+      }
+    }
   ],
   "connections": [
     {
       "id": "stacked-link",
-      "from": { "device": "stack-source", "port": "output" },
-      "to": { "device": "stack-target", "port": "input" },
-      "resources": ["iron-ore"],
+      "from": {
+        "device": "stack-source",
+        "port": "output"
+      },
+      "to": {
+        "device": "stack-target",
+        "port": "input"
+      },
+      "resources": [
+        "iron-ore"
+      ],
       "path": [
-        { "x": 1, "y": 0 }, { "x": 2, "y": 0 }, { "x": 3, "y": 0 }, { "x": 4, "y": 0 },
-        { "x": 5, "y": 0 }, { "x": 6, "y": 0 }, { "x": 7, "y": 0 }
+        {
+          "x": 1,
+          "y": 0
+        },
+        {
+          "x": 2,
+          "y": 0
+        },
+        {
+          "x": 3,
+          "y": 0
+        },
+        {
+          "x": 4,
+          "y": 0
+        },
+        {
+          "x": 5,
+          "y": 0
+        },
+        {
+          "x": 6,
+          "y": 0
+        },
+        {
+          "x": 7,
+          "y": 0
+        }
       ],
       "stackSize": 4,
       "logistics": {
-        "loader": { "deviceAsset": "stack-sorter", "distance": 1 },
-        "line": { "deviceAsset": "conveyor" },
-        "unloader": { "deviceAsset": "stack-sorter", "distance": 1 }
+        "loader": {
+          "device": "stacked-link-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "stacked-link-unloader"
+        }
       }
     }
   ],
   "logisticsNetworks": [],
-  "policies": { "dispatch": "fifo" }
+  "policies": {
+    "dispatch": "fifo"
+  }
 }

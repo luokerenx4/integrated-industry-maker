@@ -342,10 +342,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const hasPower = Boolean(grid) && (alreadyActive ? availablePower(grid!) >= activePower(grid!) : available >= required);
     const key = `${connection.id}:${stageName}`;
     if (!hasPower) {
-      if (!transportPowerBlocked[key]) emit({ type: "transport.power-shortage", tick: state.tick, connection: connection.id, stage: stageName, grid, requiredMilliWatts: required, availableMilliWatts: available });
+      if (!transportPowerBlocked[key]) emit({ type: "transport.power-shortage", tick: state.tick, device: stage.device!.id, connection: connection.id, stage: stageName, grid, requiredMilliWatts: required, availableMilliWatts: available });
       transportPowerBlocked[key] = true; return false;
     }
-    if (transportPowerBlocked[key]) emit({ type: "transport.power-restored", tick: state.tick, connection: connection.id, stage: stageName, grid: grid! });
+    if (transportPowerBlocked[key]) emit({ type: "transport.power-restored", tick: state.tick, device: stage.device!.id, connection: connection.id, stage: stageName, grid: grid! });
     delete transportPowerBlocked[key]; return true;
   };
   const occupiedCell = (cell: string): BeltTransit | undefined => {

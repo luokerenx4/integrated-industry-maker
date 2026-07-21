@@ -22,7 +22,7 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, production-mode/resource/physical-port/shared-buffer/job-capacity checks, per-region geometry/rotation checks, independent instance port-filter validation, exact connection Resource-allowlist checks, sorter endpoint-range/distance checks, explicit cardinal transport-path and shared-cell resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, production-mode/resource/physical-port/shared-buffer/job-capacity checks, per-region geometry/rotation checks, independent instance port-filter validation, exact connection Resource-allowlist checks, explicit sorter Device ownership/stage/position/rotation/range checks, explicit cardinal transport-path and shared-cell resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 

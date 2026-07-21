@@ -11,12 +11,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader"
         }
       },
       "path": [
@@ -89,12 +87,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader"
         }
       },
       "path": [
@@ -255,12 +251,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader"
         }
       },
       "path": [
@@ -325,12 +319,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader"
         }
       },
       "path": [
@@ -420,12 +412,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader"
         }
       },
       "path": [
@@ -544,6 +534,156 @@
         "oil-seep-2"
       ],
       "rotation": 0
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader",
+      "position": {
+        "x": 4,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader",
+      "position": {
+        "x": 13,
+        "y": 9
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader",
+      "position": {
+        "x": 15,
+        "y": 8
+      },
+      "region": "chemical-basin",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader",
+      "position": {
+        "x": 17,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader",
+      "position": {
+        "x": 17,
+        "y": 9
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader",
+      "position": {
+        "x": 13,
+        "y": 6
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader",
+      "position": {
+        "x": 15,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader",
+      "position": {
+        "x": 15,
+        "y": 5
+      },
+      "region": "chemical-basin",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader",
+      "position": {
+        "x": 17,
+        "y": 6
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader",
+      "position": {
+        "x": 17,
+        "y": 8
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink",
+        "distance": 1,
+        "stage": "unloader"
+      }
     },
     {
       "asset": "wind-turbine",

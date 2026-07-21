@@ -278,6 +278,12 @@ export interface BlueprintDevice {
   region: string;
   position: GridPosition;
   rotation: Rotation;
+  /** A sorter-like attachment owned by one physical connection endpoint. Its position is the belt-side anchor cell. */
+  transportEndpoint?: {
+    connection: ConnectionId;
+    stage: "loader" | "unloader";
+    distance: number;
+  };
   recipe?: {
     process: ProcessId;
     mode: string;
@@ -310,9 +316,11 @@ export interface BlueprintConnection {
   /** Requested items per cargo stack. Omit to use the maximum supported by every transport stage and Resource. */
   stackSize?: number;
   logistics: {
-    loader: { deviceAsset: DeviceAssetId; distance: number };
+    /** Explicit sorter Device instance attached to the source port and first path cell. */
+    loader: { device: DeviceInstanceId };
     line: { deviceAsset: DeviceAssetId };
-    unloader: { deviceAsset: DeviceAssetId; distance: number };
+    /** Explicit sorter Device instance attached to the last path cell and target port. */
+    unloader: { device: DeviceInstanceId };
   };
 }
 export interface BlueprintLogisticsSlot {
@@ -468,6 +476,8 @@ export interface CompiledConnection extends BlueprintConnection {
     region?: string;
     position?: GridPosition;
     powerGrid?: string;
+    /** Present for loader/unloader; the line is represented by transport cells. */
+    device?: CompiledDevice;
   }>;
   distance: number;
   transportCells: string[];
@@ -528,7 +538,7 @@ export interface CompiledPowerGrid {
   region: string;
   distributors: DeviceInstanceId[];
   members: DeviceInstanceId[];
-  transportStages: Array<{ connection: ConnectionId; stage: "loader" | "unloader" }>;
+  transportStages: Array<{ connection: ConnectionId; stage: "loader" | "unloader"; device: DeviceInstanceId }>;
   productionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
   storageDevices: DeviceInstanceId[];
@@ -658,8 +668,8 @@ export type FactoryEvent =
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number; remainingTicks?: Tick; workedTicks?: Tick }
-  | { type: "transport.power-shortage"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
-  | { type: "transport.power-restored"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string }
+  | { type: "transport.power-shortage"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
+  | { type: "transport.power-restored"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; grid: string }
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
   | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
   | { type: "power.generation-changed"; tick: Tick; device: DeviceInstanceId; grid: string; ratedMilliWatts: number; outputMilliWatts: number; outputPermille: number }

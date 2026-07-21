@@ -11,12 +11,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader"
         }
       },
       "path": [
@@ -81,12 +79,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader"
         }
       },
       "path": [
@@ -231,12 +227,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-split-to-synth-make-proliferator-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader"
         }
       },
       "path": [
@@ -346,12 +340,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 2
+          "device": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader"
         }
       },
       "path": [
@@ -401,12 +393,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader"
         }
       },
       "path": [
@@ -439,12 +429,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2-unloader"
         }
       },
       "path": [
@@ -493,12 +481,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1-unloader"
         }
       },
       "path": [
@@ -543,12 +529,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-unloader"
         }
       },
       "path": [
@@ -581,12 +565,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader"
         }
       },
       "path": [
@@ -691,12 +673,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 2
+          "device": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-unloader"
         }
       },
       "path": [
@@ -737,12 +717,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 2
+          "device": "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-unloader"
         }
       },
       "path": [
@@ -783,12 +761,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1-unloader"
         }
       },
       "path": [
@@ -821,12 +797,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader"
         }
       },
       "path": [
@@ -881,12 +855,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader"
         }
       },
       "path": [
@@ -1076,12 +1048,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader"
         }
       },
       "path": [
@@ -1146,12 +1116,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 2
+          "device": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader"
         }
       },
       "path": [
@@ -1384,6 +1352,66 @@
       "rotation": 0
     },
     {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader",
+      "position": {
+        "x": 3,
+        "y": 8
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader",
+      "position": {
+        "x": 8,
+        "y": 6
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader",
+      "position": {
+        "x": 4,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader",
+      "position": {
+        "x": 6,
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
       "asset": "splitter",
       "bufferFilters": {
         "storage": [
@@ -1400,6 +1428,96 @@
       },
       "region": "assembly-world",
       "rotation": 90
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-split-to-synth-make-proliferator-1-loader",
+      "position": {
+        "x": 5,
+        "y": 5
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-split-to-synth-make-proliferator-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader",
+      "position": {
+        "x": 7,
+        "y": 9
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-split-to-synth-make-proliferator-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader",
+      "position": {
+        "x": 3,
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
+        "distance": 2,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader",
+      "position": {
+        "x": 0,
+        "y": 8
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader",
+      "position": {
+        "x": 2,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-extractor-1-to-synth-coal-split",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader",
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-coal-synth-coal-extractor-1-to-synth-coal-split",
+        "distance": 1,
+        "stage": "unloader"
+      }
     },
     {
       "asset": "splitter",
@@ -1420,6 +1538,126 @@
       "rotation": 90
     },
     {
+      "asset": "sorter",
+      "id": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2-loader",
+      "position": {
+        "x": 4,
+        "y": 12
+      },
+      "region": "forge-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2-unloader",
+      "position": {
+        "x": 7,
+        "y": 14
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1-loader",
+      "position": {
+        "x": 6,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1-unloader",
+      "position": {
+        "x": 7,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-loader",
+      "position": {
+        "x": 3,
+        "y": 10
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-unloader",
+      "position": {
+        "x": 3,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader",
+      "position": {
+        "x": 5,
+        "y": 13
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader",
+      "position": {
+        "x": 1,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
       "asset": "splitter",
       "bufferFilters": {
         "storage": [
@@ -1433,6 +1671,96 @@
       },
       "region": "forge-world",
       "rotation": 0
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-loader",
+      "position": {
+        "x": 10,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-unloader",
+      "position": {
+        "x": 10,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge",
+        "distance": 2,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-loader",
+      "position": {
+        "x": 10,
+        "y": 14
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-unloader",
+      "position": {
+        "x": 13,
+        "y": 14
+      },
+      "region": "forge-world",
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge",
+        "distance": 2,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1-loader",
+      "position": {
+        "x": 14,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1-unloader",
+      "position": {
+        "x": 14,
+        "y": 12
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
     },
     {
       "asset": "splitter",
@@ -1451,6 +1779,126 @@
       },
       "region": "assembly-world",
       "rotation": 180
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader",
+      "position": {
+        "x": 5,
+        "y": 12
+      },
+      "region": "assembly-world",
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader",
+      "position": {
+        "x": 3,
+        "y": 9
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader",
+      "position": {
+        "x": 7,
+        "y": 14
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader",
+      "position": {
+        "x": 2,
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader",
+      "position": {
+        "x": 10,
+        "y": 9
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader",
+      "position": {
+        "x": 8,
+        "y": 12
+      },
+      "region": "assembly-world",
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader",
+      "position": {
+        "x": 9,
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader",
+      "position": {
+        "x": 9,
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink",
+        "distance": 2,
+        "stage": "unloader"
+      }
     },
     {
       "asset": "wind-turbine",

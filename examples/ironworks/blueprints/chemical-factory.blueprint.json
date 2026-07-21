@@ -11,12 +11,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader"
         }
       },
       "path": [
@@ -89,12 +87,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader"
         }
       },
       "path": [
@@ -199,12 +195,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader"
         }
       },
       "path": [
@@ -284,12 +278,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader"
         }
       },
       "path": [
@@ -388,6 +380,126 @@
         "oil-seep-2"
       ],
       "rotation": 0
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader",
+      "position": {
+        "x": 4,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader",
+      "position": {
+        "x": 15,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader",
+      "position": {
+        "x": 17,
+        "y": 13
+      },
+      "region": "chemical-basin",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader",
+      "position": {
+        "x": 15,
+        "y": 8
+      },
+      "region": "chemical-basin",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader",
+      "position": {
+        "x": 19,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader",
+      "position": {
+        "x": 13,
+        "y": 9
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader",
+      "position": {
+        "x": 17,
+        "y": 9
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader",
+      "position": {
+        "x": 17,
+        "y": 8
+      },
+      "region": "chemical-basin",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink",
+        "distance": 1,
+        "stage": "unloader"
+      }
     },
     {
       "asset": "wind-turbine",

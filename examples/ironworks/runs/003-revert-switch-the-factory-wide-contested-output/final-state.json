@@ -29,6 +29,26 @@
       },
       "status": "waiting-input"
     },
+    "coal-assembly-to-splitter-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-assembly-to-splitter-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-forge-to-generator-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-forge-to-generator-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
     "coal-miner-assembly": {
       "buffers": {
         "output": {
@@ -72,6 +92,36 @@
           }
         }
       },
+      "status": "idle"
+    },
+    "coal-splitter-to-assembler-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-splitter-to-assembler-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-splitter-to-generator-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-splitter-to-generator-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "gear-to-output-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "gear-to-output-unloader": {
+      "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "generator-1": {
@@ -147,6 +197,36 @@
       },
       "status": "waiting-input"
     },
+    "ore-to-smelter-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "ore-to-smelter-smelter-1-split-original-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "ore-to-smelter-smelter-1-split-original-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "ore-to-smelter-smelter-1-split-parallel-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "ore-to-smelter-smelter-1-split-parallel-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "ore-to-smelter-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
     "output-1": {
       "buffers": {
         "input": {}
@@ -155,6 +235,26 @@
         "input": {}
       },
       "status": "waiting-input"
+    },
+    "plate-to-station-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "plate-to-station-smelter-1-parallel-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "plate-to-station-smelter-1-parallel-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "plate-to-station-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
     },
     "smelter-1": {
       "buffers": {
@@ -215,6 +315,16 @@
       "materialBatches": {
         "storage": {}
       },
+      "status": "idle"
+    },
+    "station-to-assembler-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "station-to-assembler-unloader": {
+      "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "storage-forge": {

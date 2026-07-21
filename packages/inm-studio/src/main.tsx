@@ -50,6 +50,7 @@ interface Device {
   rotation: number;
   footprint: { width: number; height: number };
   visual: Visual;
+  transportEndpoint?: { connection: string; stage: "loader" | "unloader"; distance: number };
   recipe?: { process: string; mode: string; modeName: string; durationTicks: number; powerMilliWatts: number; inputs: Array<{ resource: string; buffer: string; count: number; minimumTreatmentLevel?: number }>; outputs: Array<{ resource: string; buffer: string; count: number; treatmentLevel?: number }> };
   treatment?: { mode: string; modeName: string; level: number; durationTicks: number; itemCount: number; inputBuffer: string; outputBuffer: string; agentBuffer: string; agentResource: string; agentCount: number };
   resourceContracts: Record<string, string[]>;
@@ -230,12 +231,12 @@ interface IndustrialAnalysis {
     dispatchPolicy: "fifo" | "round-robin" | "shortage-first";
     dispatchProfiles: Array<{ resource: string; targetKind: "objective" | "process" | "fuel" | "buffer"; coverageUnit: number; criticalDepth: number | null; minimumTreatmentLevel: number }>;
     capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
-    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
+    stages: Array<{ stage: "loader" | "line" | "unloader"; device?: string; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
   transportCells: Array<{ cell: string; region: string; position: { x: number; y: number; level?: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
   powerGrids: Array<{
     grid: string; region: string; distributors: string[]; members: string[];
-    transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>;
+    transportStages: Array<{ connection: string; stage: "loader" | "unloader"; device: string }>;
     generators: IndustrialAnalysis["generationDevices"]; storageDevices: IndustrialAnalysis["storageDevices"];
     productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number;
     storageCapacityMilliJoules: number; initialStoredMilliJoules: number; storageChargeMilliWatts: number; storageDischargeMilliWatts: number;
@@ -297,11 +298,12 @@ interface StudioData {
     id: string;
     fromDevice: string;
     toDevice: string;
+    endpointDevices: string[];
     resources: string[];
     from: { x: number; y: number; level: number };
     to: { x: number; y: number; level: number };
     points: Array<{ x: number; y: number; level: number }>;
-    endpoints: Array<{ stage: "loader" | "unloader"; asset: string; distance: number; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
+    endpoints: Array<{ stage: "loader" | "unloader"; device: string; asset: string; distance: number; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
   }>;
   logisticsRoutes: Array<{
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
@@ -383,8 +385,14 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
       devices[event.device] = { status: "failed", progress: 0 };
       jobs.delete(event.device);
     }
-    else if (event.type === "transport.power-shortage" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = false;
-    else if (event.type === "transport.power-restored" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = true;
+    else if (event.type === "transport.power-shortage" && event.connection && event.stage) {
+      endpointPower[`${event.connection}:${event.stage}`] = false;
+      if (event.device) devices[event.device] = { status: "unpowered", progress: 0 };
+    }
+    else if (event.type === "transport.power-restored" && event.connection && event.stage) {
+      endpointPower[`${event.connection}:${event.stage}`] = true;
+      if (event.device) devices[event.device] = { status: "idle", progress: 0 };
+    }
     else if (event.type === "resource.depart" && event.transit && event.connection) {
       const connection = data.connections.find((item) => item.id === event.connection)!;
       transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, count: event.transit.count, treatmentLevel: event.transit.treatmentLevel, progress: 0, path: event.connection, kind: "belt", position: connection.points[0] });
@@ -468,7 +476,7 @@ function DeviceBody({ projectId, device, height, color, processing }: { projectI
 function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelect }: {
   projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean; selected: boolean; onSelect: () => void;
 }) {
-  const height = device.visual.height ?? 1.25;
+  const height = device.transportEndpoint ? .34 : device.visual.height ?? 1.25;
   const baseColor = device.visual.color ?? "#475569";
   const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
   const position: [number, number, number] = [device.position.x + device.footprint.width / 2, height / 2, device.position.y + device.footprint.height / 2];
@@ -481,9 +489,11 @@ function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelec
   >
     {bottleneck && <mesh position={[0, .03 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .7, Math.max(device.footprint.width, device.footprint.height) * .88, 48]} /><meshBasicMaterial color="#ffcf5c" transparent opacity={.8} /></mesh>}
     {selected && <mesh position={[0, .025 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .58, Math.max(device.footprint.width, device.footprint.height) * .98, 64]} /><meshBasicMaterial color="#55f2c5" transparent opacity={.95} depthTest={false} /></mesh>}
-    <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />
+    {device.transportEndpoint
+      ? <><mesh castShadow><cylinderGeometry args={[.18, .24, .18, 16]} /><meshStandardMaterial color={color} metalness={.7} roughness={.25} emissive={frame.status === "unpowered" ? "#761424" : "#102a31"} /></mesh><mesh position={[0, .13, 0]}><boxGeometry args={[.48, .12, .18]} /><meshStandardMaterial color={color} metalness={.72} roughness={.22} /></mesh></>
+      : <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />}
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process} / {device.recipe.mode}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>
+    {(!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={device.transportEndpoint ? .16 : .28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{device.transportEndpoint ? `${device.transportEndpoint.stage.toUpperCase()} · ${STATUS_LABELS[frame.status]}` : STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process} / {device.recipe.mode}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>}
   </group>;
 }
 
@@ -627,6 +637,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>BUILD COST</small><b>{asset?.economics.buildCost.toLocaleString() ?? "—"}</b></span>
         <span><small>ACTIVE POWER</small><b>{(powerMilliWatts / 1000).toFixed(1)} W</b></span>
       </div>
+      {device.transportEndpoint && <div className="inspector-section"><div className="inspector-section-title"><span>TRANSPORT ATTACHMENT</span><b>{device.transportEndpoint.stage.toUpperCase()}</b></div><div className="inspector-inline"><strong>{device.transportEndpoint.connection}</strong><code>{device.transportEndpoint.distance} cell arm · belt-side anchor</code></div></div>}
       {device.recipe && <div className="inspector-section">
         <div className="inspector-section-title"><span>CONFIGURED PROCESS</span><b>{device.recipe.modeName}</b></div>
         <div className="inspector-recipe-head"><strong>{device.recipe.process}</strong><code>{device.recipe.durationTicks} ms / job · {production?.cyclesPerMinute.toFixed(2) ?? "—"} jobs/min</code></div>
@@ -695,7 +706,7 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
         <div className="inspector-stage-list">{analysis?.stages.map((stage) => {
           const endpointPowered = stage.stage === "line" ? true : frame.endpointPower[`${connection.id}:${stage.stage}`];
           const utilization = stage.stage === "loader" ? stageUtilization?.loader : stage.stage === "unloader" ? stageUtilization?.unloader : flow?.utilization;
-          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.asset}</b><code>{stage.distance} cell span · {stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`}{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
+          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.device ? `${stage.device} · ` : ""}{stage.asset}</b><code>{stage.distance} cell span · {stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`}{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
         })}</div>
       </div>
       <div className="inspector-section">
@@ -1116,7 +1127,7 @@ function App() {
       <div className="viewport">
         <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={() => setSelection(null)}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} REGIONS</b></div>
-        <div className="scene-stats"><span><b>{data.regions.length}</b> REGIONS</span><span><b>{data.devices.length}</b> MACHINES</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
+        <div className="scene-stats"><span><b>{data.regions.length}</b> REGIONS</span><span><b>{data.devices.filter((device) => !device.transportEndpoint).length}</b> MACHINES</span><span><b>{data.devices.filter((device) => device.transportEndpoint).length}</b> SORTERS</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
         {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={() => setSelection(null)} onSelection={chooseSceneObject} />}
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>

@@ -27,9 +27,8 @@ export interface SimulationStats {
 
 export function evaluateFactory(project: CompiledFactoryProject, state: FactoryState, stats: SimulationStats): FactoryMetrics {
   const duration = Math.max(1, state.tick);
-  const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + device.footprint.width * device.footprint.height, 0) + Object.keys(project.transportCells).length;
+  const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + (device.transportEndpoint ? 0 : device.footprint.width * device.footprint.height), 0) + Object.keys(project.transportCells).length;
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
-    + Object.values(project.connections).reduce((sum, connection) => sum + connection.logisticsStages.filter((stage) => stage.stage !== "line").reduce((stageSum, stage) => stageSum + stage.asset.economics.buildCost * stage.distance, 0), 0)
     + Object.values(project.transportCells).reduce((sum, cell) => sum + cell.asset.economics.buildCost, 0)
     + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleetAsset.economics.buildCost * network.fleetSize, 0);
   const targetProduced = stats.consumedByRegion[project.objective.targetRegion]?.[project.objective.targetResource] ?? 0;
@@ -66,7 +65,16 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     const active = stats.transportStageActiveArea[connection.id] ?? { loader: 0, unloader: 0 };
     const loader = connection.logisticsStages.find((stage) => stage.stage === "loader")!;
     const unloader = connection.logisticsStages.find((stage) => stage.stage === "unloader")!;
-    return [connection.id, { loader: active.loader / duration / loader.capacity, unloader: active.unloader / duration / unloader.capacity }];
+    const utilization = { loader: active.loader / duration / loader.capacity, unloader: active.unloader / duration / unloader.capacity };
+    if (loader.device) {
+      machineUtilization[loader.device.id] = utilization.loader;
+      idleTime[loader.device.id] = duration * (1 - utilization.loader);
+    }
+    if (unloader.device) {
+      machineUtilization[unloader.device.id] = utilization.unloader;
+      idleTime[unloader.device.id] = duration * (1 - utilization.unloader);
+    }
+    return [connection.id, utilization];
   }));
   const transportFlows = Object.fromEntries(Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id)).map((connection) => {
     const departedItems = stats.connectionDepartedItems[connection.id] ?? 0;

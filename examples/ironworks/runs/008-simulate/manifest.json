@@ -1,19 +1,19 @@
 {
-  "createdAt": "2026-07-21T10:48:31.812Z",
+  "createdAt": "2026-07-21T11:31:59.988Z",
   "decision": "BASELINE",
-  "engineVersion": "inm-sim/0.38.0",
+  "engineVersion": "inm-sim/0.39.0",
   "hashes": {
-    "blueprintHash": "07f340b2118d9c84837118a3175fad34f5dc22a9a6ecb418f542be68ccecbdd3",
+    "blueprintHash": "29af19f9385972244074f220399a4b4117e8b242dff1ea546a836d12ce5a40ac",
     "deviceCatalogHash": "c19e99219cec2681c0f229c2dc74c6bbf2d5a62ae32e7a92be23869bbc54b286",
-    "engineVersion": "inm-sim/0.38.0",
+    "engineVersion": "inm-sim/0.39.0",
     "objectiveHash": "b4e0a45404e39c90b99bd2c4ea2a8a9ba8b973b78449d500c2fb97e1c94ef6d7",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
     "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
     "scenarioHash": "d6f58333d455cc66e6f3746ed6c14f5fa841594ef9b5e6ff6ab7ca587b26068c",
     "worldHash": "32ac670f0f0e8e1031274a317e42760f25996135687b3d5374961a788df9b774"
   },
-  "resultHash": "b5eca6081193ce4038505b450e17816fcf409a97292d1322a922333ddabbad73",
-  "runKey": "6d5b387c7b3ebfec3bb2dc696ae0172778b12c1c9fee01e7b5b981e456b38bc0",
+  "resultHash": "939418a9346a6416bbffd36a0900335d29c47ef26641087d61bdb4c95f883fcf",
+  "runKey": "535837e04c6fbae949078659fe16fdababef8eeda394674c3f3387002896be00",
   "seed": 42,
   "selection": {
     "objective": "hydrogen-production",

@@ -141,7 +141,7 @@ export interface ConnectionRateLimit {
   maxLevel: number;
   stages: Array<{
     stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number;
-    powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
+    device?: string; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
   }>;
 }
 
@@ -161,7 +161,7 @@ export interface PowerGridAnalysis {
   region: string;
   distributors: string[];
   members: string[];
-  transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>;
+  transportStages: Array<{ connection: string; stage: "loader" | "unloader"; device: string }>;
   generators: DevicePowerGenerationRate[];
   storageDevices: DevicePowerStorageRate[];
   productionMilliWatts: number;
@@ -506,6 +506,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     stages: connection.logisticsStages.map((stage) => ({
       stage: stage.stage, asset: stage.asset.id, distance: stage.distance, capacity: stage.capacity, durationTicks: stage.durationTicks, stackCapacity: stage.stackCapacity,
       powerMilliWatts: stage.asset.power.consumptionMilliWatts,
+      ...(stage.device ? { device: stage.device.id } : {}),
       ...(stage.powerGrid ? { powerGrid: stage.powerGrid } : {}), ...(stage.position ? { position: { ...stage.position } } : {}),
     })),
   }));
@@ -644,7 +645,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }
 
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
-    if (device.assetDef.power.consumptionMilliWatts > 0 && !device.powerGrid) diagnostics.push({
+    if (!device.transportEndpoint && device.assetDef.power.consumptionMilliWatts > 0 && !device.powerGrid) diagnostics.push({
       code: "power-disconnected", severity: "warning", device: device.id,
       message: `${device.id} requires power but is outside every distribution grid`,
     });
@@ -653,7 +654,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     if (stage.stage === "line" || stage.asset.power.consumptionMilliWatts <= 0 || stage.powerGrid) continue;
     diagnostics.push({
       code: "power-transport-disconnected", severity: "warning", connection: connection.id,
-      message: `${connection.id}.${stage.stage} (${stage.asset.id}) requires power but its endpoint is outside every distribution grid`,
+      device: stage.device?.id,
+      message: `${stage.device?.id ?? `${connection.id}.${stage.stage}`} (${stage.asset.id}) requires power but its endpoint is outside every distribution grid`,
     });
   }
   for (const grid of powerGrids) if (grid.headroomMilliWatts < 0) diagnostics.push({

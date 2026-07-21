@@ -44,6 +44,26 @@
       "progressTicks": 0,
       "status": "processing"
     },
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
     "synth-make-plastic-1": {
       "activeJob": {
         "durationTicks": 4000,
@@ -90,6 +110,16 @@
       },
       "status": "waiting-input"
     },
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
     "synth-refine-crude-1": {
       "activeJob": {
         "durationTicks": 4000,
@@ -132,6 +162,16 @@
       },
       "progressTicks": 2300,
       "status": "processing"
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
     }
   },
   "energy": {

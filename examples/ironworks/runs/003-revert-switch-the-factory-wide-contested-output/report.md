@@ -1,8 +1,8 @@
 # INM Run 003-revert-switch-the-factory-wide-contested-output
 
 - Decision: **REVERT**
-- Score: **96.394**
-- Result hash: `546972291fef521d1c2018ad8a151a36155993ad0801b1f07ee1feb912d363fe`
+- Score: **96.514**
+- Result hash: `57a544d0c9215a3e3866be4bcd4ab3eb3cddbe4f28b5f8c6056d7c9948f3b761`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -47,7 +47,7 @@
 ```json
 {
   "blocked": -0.894,
-  "buildCost": -14.745,
+  "buildCost": -14.625,
   "constraintPenalty": 0,
   "energy": -2.2444300000000004,
   "occupiedArea": -31,

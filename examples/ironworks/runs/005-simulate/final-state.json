@@ -26,6 +26,16 @@
         "input": {}
       },
       "status": "waiting-input"
+    },
+    "stacked-link-loader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "stacked-link-unloader": {
+      "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
     }
   },
   "energy": {

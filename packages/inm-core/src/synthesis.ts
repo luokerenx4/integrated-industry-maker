@@ -3,7 +3,7 @@ import type {
 } from "./types";
 import type { LoadedFactoryProject } from "./loader";
 import { bindProcessPorts } from "./production-analysis";
-import { externalPortCell, findBlueprintConnectionPath, rotatedFootprint } from "./routing";
+import { externalPortCell, findBlueprintConnectionPath, rotatePortSide, rotatedFootprint, transportEndpointRotation } from "./routing";
 import { planDeviceTransport } from "./device-runtime";
 import { optimizeSpatialResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
@@ -88,7 +88,7 @@ function freePlacement(loaded: LoadedFactoryProject, blueprint: Blueprint, devic
   const candidatePortCells = asset.geometry.ports.map((port) => externalPortCell(candidate, asset, port.id)).filter((cell): cell is GridPosition => Boolean(cell));
   if (candidatePortCells.some((cell) => cell.x < 0 || cell.y < 0 || cell.x >= region.bounds.width || cell.y >= region.bounds.height
     || loaded.world.resourceNodes.some((node) => node.region === device.region && node.position.x === cell.x && node.position.y === cell.y))) return false;
-  for (const other of blueprint.devices.filter((item) => item.region === device.region)) {
+  for (const other of blueprint.devices.filter((item) => item.region === device.region && !item.transportEndpoint)) {
     const otherAsset = loaded.deviceAssets[other.asset]!; const otherFootprint = rotatedFootprint(otherAsset, other.rotation);
     if (position.x < other.position.x + otherFootprint.width && position.x + footprint.width > other.position.x
       && position.y < other.position.y + otherFootprint.height && position.y + footprint.height > other.position.y) return false;
@@ -449,17 +449,38 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     return selections[0];
   };
   const selectedPipelines = new Map<string, LogisticsPipelineSelection>();
-  const connectionFor = (planned: PlannedConnection, distance: number, loaderDistance: number, unloaderDistance: number) => {
-    const pipeline = pipelineFor(planned, distance, loaderDistance, unloaderDistance);
+  const routeDraft = (planned: PlannedConnection) => ({
+    from: { device: planned.from.device, port: planned.from.port },
+    to: { device: planned.to.device, port: planned.to.port },
+  });
+  const endpointRotation = (planned: PlannedConnection, stage: "loader" | "unloader"): BlueprintDevice["rotation"] => {
+    const endpoint = stage === "loader" ? planned.from : planned.to;
+    const machine = blueprint.devices.find((device) => device.id === endpoint.device)!;
+    const port = loaded.deviceAssets[machine.asset]!.geometry.ports.find((candidate) => candidate.id === endpoint.port)!;
+    return transportEndpointRotation(stage, rotatePortSide(port.side, machine.rotation));
+  };
+  const materializeConnection = (
+    planned: PlannedConnection,
+    candidate: { path: GridPosition[]; loaderDistance: number; unloaderDistance: number; pipeline: LogisticsPipelineSelection },
+  ): Blueprint["connections"][number] => {
+    const loaderId = uniqueId(blueprint, `${planned.id}-loader`);
+    const loader: BlueprintDevice = {
+      id: loaderId, asset: candidate.pipeline.loader.id, region: planned.from.region,
+      position: { x: candidate.path[0]!.x, y: candidate.path[0]!.y }, rotation: endpointRotation(planned, "loader"),
+      transportEndpoint: { connection: planned.id, stage: "loader", distance: candidate.loaderDistance },
+    };
+    blueprint.devices.push(loader);
+    const unloaderId = uniqueId(blueprint, `${planned.id}-unloader`);
+    const unloader: BlueprintDevice = {
+      id: unloaderId, asset: candidate.pipeline.unloader.id, region: planned.to.region,
+      position: { x: candidate.path.at(-1)!.x, y: candidate.path.at(-1)!.y }, rotation: endpointRotation(planned, "unloader"),
+      transportEndpoint: { connection: planned.id, stage: "unloader", distance: candidate.unloaderDistance },
+    };
+    blueprint.devices.push(unloader);
     return {
-      id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
-      resources: [planned.resource],
-      stackSize: pipeline.stackSize,
-      logistics: {
-        loader: { deviceAsset: pipeline.loader.id, distance: loaderDistance },
-        line: { deviceAsset: pipeline.line.id },
-        unloader: { deviceAsset: pipeline.unloader.id, distance: unloaderDistance },
-      },
+      id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port },
+      path: candidate.path.map((cell) => ({ ...cell })), resources: [planned.resource], stackSize: candidate.pipeline.stackSize,
+      logistics: { loader: { device: loader.id }, line: { deviceAsset: candidate.pipeline.line.id }, unloader: { device: unloader.id } },
     };
   };
   const reserveRoutes = (plans: PlannedConnection[]): void => {
@@ -470,12 +491,14 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         const hasCapacity = pipelineOptions(planned.resource, 1, planned.id, loaderDistance, unloaderDistance)
           .some((pipeline) => pipeline.capacityPerMinute + 1e-9 >= planned.requiredPerMinute);
         if (!hasCapacity) continue;
-        const connection = connectionFor(planned, 1, loaderDistance, unloaderDistance);
+        const connection = routeDraft(planned);
         for (const elevated of [false, true]) {
           const blockerKeys = new Set<string>([""]); const blockerQueue: GridPosition[][] = [[]]; let attempts = 0;
           while (blockerQueue.length && paths.length < 96 && attempts++ < 256) {
             const blockedCells = blockerQueue.shift()!;
-            const path = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, connection, { blockedCells, elevated });
+            const path = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, connection, {
+              blockedCells, elevated, endpointDistances: { loader: loaderDistance, unloader: unloaderDistance },
+            });
             if (!path) continue;
             const pathKey = `${loaderDistance}:${unloaderDistance}:` + path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";");
             if (!pathKeys.has(pathKey)) {
@@ -515,7 +538,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     for (const planned of plans) {
       const candidate = routed.get(planned.id)!;
       selectedPipelines.set(planned.id, candidate.pipeline);
-      blueprint.connections.push({ ...connectionFor(planned, candidate.path.length, candidate.loaderDistance, candidate.unloaderDistance), path: candidate.path });
+      blueprint.connections.push(materializeConnection(planned, candidate));
     }
   };
   const connectLocal = (resource: ResourceId, sourceEndpoints: Endpoint[], targetEndpoints: Endpoint[]): void => {
@@ -855,6 +878,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   blueprint.connections = plannedConnections.map((planned) => reservedConnections.get(planned.id)!);
 
   const devicePower = (device: BlueprintDevice): number => {
+    if (device.transportEndpoint) return 0;
     const asset = loaded.deviceAssets[device.asset]!;
     if (!device.recipe || !asset.production) return asset.power.consumptionMilliWatts;
     const mode = asset.production.modes.find((candidate) => candidate.id === device.recipe!.mode);
@@ -890,12 +914,12 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const physical = blueprint.connections.find((item) => item.id === connection.id)!;
       const pipeline = selectedPipelines.get(connection.id)!;
       if (pipeline.loader.power.consumptionMilliWatts > 0) {
-        const cell = physical.path[0]!;
-        targets.push({ id: `${connection.id}.loader`, point: { x: cell.x + .5, y: cell.y + .5 } });
+        const endpoint = blueprint.devices.find((device) => device.id === physical.logistics.loader.device)!;
+        targets.push({ id: endpoint.id, point: { x: endpoint.position.x + .5, y: endpoint.position.y + .5 } });
       }
       if (pipeline.unloader.power.consumptionMilliWatts > 0) {
-        const cell = physical.path.at(-1)!;
-        targets.push({ id: `${connection.id}.unloader`, point: { x: cell.x + .5, y: cell.y + .5 } });
+        const endpoint = blueprint.devices.find((device) => device.id === physical.logistics.unloader.device)!;
+        targets.push({ id: endpoint.id, point: { x: endpoint.position.x + .5, y: endpoint.position.y + .5 } });
       }
     }
     targets.sort((a, b) => a.point.x - b.point.x || a.point.y - b.point.y || a.id.localeCompare(b.id));

@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-07-21T10:48:27.260Z",
+  "createdAt": "2026-07-21T11:31:52.512Z",
   "decision": "KEEP",
-  "engineVersion": "inm-sim/0.38.0",
+  "engineVersion": "inm-sim/0.39.0",
   "hashes": {
-    "blueprintHash": "fab29e8f5c2eb44978b8436dfdda2ede47c167c7e2e3edba17afffca8b7a73fe",
+    "blueprintHash": "7ee284be6bc94878a03e8057b67e392c48901e329147dc0066e5d91d393e4452",
     "deviceCatalogHash": "c19e99219cec2681c0f229c2dc74c6bbf2d5a62ae32e7a92be23869bbc54b286",
-    "engineVersion": "inm-sim/0.38.0",
+    "engineVersion": "inm-sim/0.39.0",
     "objectiveHash": "5d8a5b20d9be8d398d33fe8ecea0ea7487f02e4dbdca25d114494382f6576331",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
     "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
@@ -13,8 +13,8 @@
     "worldHash": "84faa3bff5fc242f00c3bb0dd43f60513425b2c9b3cff374da2a415a7110bb00"
   },
   "parentRun": "001-keep-switch-assembler-1-from-assemble-gear",
-  "resultHash": "11407c24e270410d530d1d10fa7a6228adebd8a930032926bda32cbca9f40bc5",
-  "runKey": "34995fa3e30b0eed697917dc5d256d91751a1cd738f6d58b32095ab88f3153b4",
+  "resultHash": "b89dcc2d5a7c49a132adf0c822a94a854627641ccb710a57fd5ffa58d664c2e0",
+  "runKey": "6785b5e0fbe4370509e363cb58534b4dfcc82b5b6568d7081a61e07909b9fd34",
   "seed": 42,
   "selection": {
     "objective": "default",

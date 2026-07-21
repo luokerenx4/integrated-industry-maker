@@ -1,8 +1,8 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
-- Score: **16.232**
-- Result hash: `5aeb184937723fbc05dbb670f185ea8db4e9d7bc2980c3b265a725b764f2b463`
+- Score: **16.272**
+- Result hash: `ae16de2303e7c39b43867d2af40da88292a3418984f6dcfaae0940cc510f108c`
 - Bottleneck: smelter-1
 - Throughput/min: 5.500
 - Target rate: 12.000 gear/min (45.8% attained)
@@ -46,7 +46,7 @@
 ```json
 {
   "blocked": -1.992,
-  "buildCost": -12.76,
+  "buildCost": -12.72,
   "constraintPenalty": 0,
   "energy": -2.0592176,
   "occupiedArea": -21.200000000000003,

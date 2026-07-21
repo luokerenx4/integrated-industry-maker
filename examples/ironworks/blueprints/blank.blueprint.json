@@ -3,5 +3,7 @@
   "devices": [],
   "connections": [],
   "logisticsNetworks": [],
-  "policies": { "dispatch": "round-robin" }
+  "policies": {
+    "dispatch": "round-robin"
+  }
 }

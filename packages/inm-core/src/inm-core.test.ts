@@ -6,11 +6,57 @@ import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel,
   findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
+  rotatePortSide, transportEndpointRotation,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
 const ironworks = resolve(import.meta.dir, "../../../examples/ironworks");
 async function loaded(): Promise<LoadedFactoryProject> { return loadFactoryProject(ironworks); }
+type TestConnectionSpec = Omit<Blueprint["connections"][number], "logistics"> & {
+  logistics: {
+    loader: { deviceAsset: string; distance: number };
+    line: { deviceAsset: string };
+    unloader: { deviceAsset: string; distance: number };
+  };
+};
+function setTestConnections(source: LoadedFactoryProject, connections: TestConnectionSpec[]): void {
+  source.blueprint.devices = source.blueprint.devices.filter((device) => !device.transportEndpoint);
+  const uniqueEndpointId = (base: string): string => {
+    let id = base; let suffix = 1;
+    while (source.blueprint.devices.some((device) => device.id === id)) id = `${base}-${++suffix}`;
+    return id;
+  };
+  source.blueprint.connections = connections.map((connection) => {
+    const from = source.blueprint.devices.find((device) => device.id === connection.from.device)!;
+    const to = source.blueprint.devices.find((device) => device.id === connection.to.device)!;
+    const fromPort = source.deviceAssets[from.asset]!.geometry.ports.find((port) => port.id === connection.from.port)!;
+    const toPort = source.deviceAssets[to.asset]!.geometry.ports.find((port) => port.id === connection.to.port)!;
+    const first = connection.path[0]!; const last = connection.path.at(-1)!;
+    const loaderId = uniqueEndpointId(`${connection.id}-loader`);
+    source.blueprint.devices.push({
+      id: loaderId, asset: connection.logistics.loader.deviceAsset, region: from.region,
+      position: { x: first.x, y: first.y },
+      rotation: transportEndpointRotation("loader", rotatePortSide(fromPort.side, from.rotation)),
+      transportEndpoint: { connection: connection.id, stage: "loader", distance: connection.logistics.loader.distance },
+    });
+    const unloaderId = uniqueEndpointId(`${connection.id}-unloader`);
+    source.blueprint.devices.push({
+      id: unloaderId, asset: connection.logistics.unloader.deviceAsset, region: to.region,
+      position: { x: last.x, y: last.y },
+      rotation: transportEndpointRotation("unloader", rotatePortSide(toPort.side, to.rotation)),
+      transportEndpoint: { connection: connection.id, stage: "unloader", distance: connection.logistics.unloader.distance },
+    });
+    return {
+      ...connection,
+      logistics: { loader: { device: loaderId }, line: { ...connection.logistics.line }, unloader: { device: unloaderId } },
+    };
+  });
+}
+function removeTestConnections(source: LoadedFactoryProject, predicate: (connection: Blueprint["connections"][number]) => boolean): void {
+  const removed = new Set(source.blueprint.connections.filter(predicate).map((connection) => connection.id));
+  source.blueprint.connections = source.blueprint.connections.filter((connection) => !removed.has(connection.id));
+  source.blueprint.devices = source.blueprint.devices.filter((device) => !device.transportEndpoint || !removed.has(device.transportEndpoint.connection));
+}
 function issueCodes(fn: () => unknown): string[] {
   try { fn(); return []; } catch (error) {
     expect(error).toBeInstanceOf(InmValidationError);
@@ -264,9 +310,14 @@ describe("factory synthesis", () => {
       capacityPerMinute: 1_920, loader: "stack-sorter", line: "conveyor", unloader: "stack-sorter", stackSize: 4,
     }));
     expect(synthesis.localLogistics.every((connection) => connection.capacityPerMinute + 1e-9 >= connection.requiredPerMinute)).toBeTrue();
-    expect(synthesis.blueprint.connections.find((connection) => connection.id === trunk.connection)!.logistics).toEqual({
-      loader: { deviceAsset: "stack-sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter", distance: 1 },
-    });
+    const physicalTrunk = synthesis.blueprint.connections.find((connection) => connection.id === trunk.connection)!;
+    expect(physicalTrunk.logistics.line).toEqual({ deviceAsset: "conveyor" });
+    expect(synthesis.blueprint.devices.find((device) => device.id === physicalTrunk.logistics.loader.device)).toEqual(expect.objectContaining({
+      asset: "stack-sorter", transportEndpoint: { connection: trunk.connection, stage: "loader", distance: 1 },
+    }));
+    expect(synthesis.blueprint.devices.find((device) => device.id === physicalTrunk.logistics.unloader.device)).toEqual(expect.objectContaining({
+      asset: "stack-sorter", transportEndpoint: { connection: trunk.connection, stage: "unloader", distance: 1 },
+    }));
 
     const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
     expect(planProductionCapacity(project).ready).toBeTrue();
@@ -388,7 +439,8 @@ describe("factory synthesis", () => {
 describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
-    expect(Object.keys(project.devices)).toHaveLength(13);
+    expect(Object.keys(project.devices)).toHaveLength(29);
+    expect(Object.values(project.devices).filter((device) => device.transportEndpoint)).toHaveLength(16);
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
@@ -413,7 +465,7 @@ describe("blueprint compiler", () => {
     expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => stage.powerGrid ?? null)).toEqual([
       "grid-forge-world-generator-1", null, "grid-forge-world-generator-1",
     ]);
-    expect(project.powerGrids["grid-forge-world-generator-1"]!.transportStages).toContainEqual({ connection: "ore-to-smelter", stage: "loader" });
+    expect(project.powerGrids["grid-forge-world-generator-1"]!.transportStages).toContainEqual({ connection: "ore-to-smelter", stage: "loader", device: "ore-to-smelter-loader" });
     expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => stage.distance)).toEqual([3, 3, 1]);
     expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(750);
     expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_300);
@@ -494,8 +546,32 @@ describe("blueprint compiler", () => {
   });
 
   test("rejects logistics assets in unsupported connection stages", async () => {
-    const source = await loaded(); source.blueprint.connections[0]!.logistics.loader.deviceAsset = "conveyor";
+    const source = await loaded();
+    const loader = source.blueprint.devices.find((device) => device.id === source.blueprint.connections[0]!.logistics.loader.device)!;
+    loader.asset = "conveyor";
     expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.stage-role");
+  });
+
+  test("requires every explicit sorter Device to have one exact physical endpoint binding", async () => {
+    const orphan = await loaded();
+    const endpoint = orphan.blueprint.devices.find((device) => device.transportEndpoint)!;
+    orphan.blueprint.devices.push({ ...structuredClone(endpoint), id: `${endpoint.id}-orphan` });
+    expect(issueCodes(() => compileFactoryProject(orphan))).toContain("logistics.endpoint-reference-count");
+
+    const wrongBinding = await loaded();
+    wrongBinding.blueprint.devices.find((device) => device.id === wrongBinding.blueprint.connections[0]!.logistics.loader.device)!
+      .transportEndpoint!.stage = "unloader";
+    expect(issueCodes(() => compileFactoryProject(wrongBinding))).toContain("logistics.endpoint-binding");
+
+    const wrongPosition = await loaded();
+    wrongPosition.blueprint.devices.find((device) => device.id === wrongPosition.blueprint.connections[0]!.logistics.loader.device)!
+      .position.x += 1;
+    expect(issueCodes(() => compileFactoryProject(wrongPosition))).toContain("logistics.endpoint-position");
+
+    const wrongRotation = await loaded();
+    const loader = wrongRotation.blueprint.devices.find((device) => device.id === wrongRotation.blueprint.connections[0]!.logistics.loader.device)!;
+    loader.rotation = ((loader.rotation + 90) % 360) as typeof loader.rotation;
+    expect(issueCodes(() => compileFactoryProject(wrongRotation))).toContain("logistics.endpoint-rotation");
   });
 
   test("requires endpoint reach on sorter assets and enforces the selected connection distance", async () => {
@@ -503,7 +579,8 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(missing))).toContain("logistics.endpoint-range-required");
     const reversed = await loaded(); reversed.deviceAssets.sorter!.logistics!.endpointRange = { minimum: 3, maximum: 1 };
     expect(issueCodes(() => compileFactoryProject(reversed))).toContain("logistics.endpoint-range-order");
-    const outOfRange = await loaded(); outOfRange.blueprint.connections[0]!.logistics.loader.distance = 4;
+    const outOfRange = await loaded();
+    outOfRange.blueprint.devices.find((device) => device.id === outOfRange.blueprint.connections[0]!.logistics.loader.device)!.transportEndpoint!.distance = 4;
     expect(issueCodes(() => compileFactoryProject(outOfRange))).toContain("logistics.endpoint-distance");
   });
 
@@ -693,12 +770,12 @@ describe("blueprint compiler", () => {
       { id: "assembly-source", asset: "buffer", region: "assembly-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "assembly-target", asset: "buffer", region: "assembly-world", position: { x: 4, y: 0 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "assembly-belt", from: { device: "assembly-source", port: "output" }, to: { device: "assembly-target", port: "input" },
       resources: ["iron-ore"],
       path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     expect(findBlueprintConnectionPath(source.blueprint, source.world, source.deviceAssets, {
       from: { device: "forge-source", port: "output" }, to: { device: "forge-target", port: "input" },
     })).toEqual([{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }]);
@@ -976,19 +1053,19 @@ describe("deterministic discrete-event simulation", () => {
       { id: "wind", asset: "wind-turbine", region: "forge-world", position: { x: 0, y: 4 }, rotation: 0 },
       { id: "blocker", asset: "splitter", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "powered-belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
       resources: ["iron-ore"],
       path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
     source.scenario.failures = [{ device: "blocker", atTick: 500, durationTicks: 5_000 }];
     const project = compileFactoryProject(source);
     expect(project.powerGrids["grid-forge-world-wind"]!.transportStages).toEqual([
-      { connection: "powered-belt", stage: "loader" },
-      { connection: "powered-belt", stage: "unloader" },
+      { connection: "powered-belt", stage: "loader", device: "powered-belt-loader" },
+      { connection: "powered-belt", stage: "unloader", device: "powered-belt-unloader" },
     ]);
 
     const result = runUntil(project, undefined, { untilTick: 2_000 });
@@ -1013,12 +1090,12 @@ describe("deterministic discrete-event simulation", () => {
       { id: "source-buffer", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target-buffer", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "buffer-link", from: { device: "source-buffer", port: "output" }, to: { device: "target-buffer", port: "input" },
       resources: ["iron-ore"],
       path: Array.from({ length: 9 }, (_, index) => ({ x: index + 1, y: 0 })),
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "source-buffer": { storage: { "iron-ore": 4 } } };
     source.scenario.failures = [];
@@ -1035,12 +1112,12 @@ describe("deterministic discrete-event simulation", () => {
       { id: "span-source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "span-target", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "span-link", from: { device: "span-source", port: "output" }, to: { device: "span-target", port: "input" },
       resources: ["iron-ore"],
       path: Array.from({ length: 6 }, (_, index) => ({ x: index + 3, y: 0 })),
       logistics: { loader: { deviceAsset: "sorter", distance: 3 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 2 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "span-source": { storage: { "iron-ore": 4 } } };
     source.scenario.failures = [];
@@ -1064,12 +1141,12 @@ describe("deterministic discrete-event simulation", () => {
       { id: "stack-target", asset: "buffer", region: "forge-world", position: { x: 8, y: 0 }, rotation: 0 },
       { id: "stack-power", asset: "wind-turbine", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "stacked-link", from: { device: "stack-source", port: "output" }, to: { device: "stack-target", port: "input" },
       resources: ["iron-ore"],
       path: Array.from({ length: 7 }, (_, index) => ({ x: index + 1, y: 0 })), stackSize: 4,
       logistics: { loader: { deviceAsset: "stack-sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 2_000; source.scenario.initialBuffers = { "stack-source": { storage: { "iron-ore": 8 } } }; source.scenario.failures = [];
     const project = compileFactoryProject(source); const connection = project.connections["stacked-link"]!;
@@ -1097,10 +1174,10 @@ describe("deterministic discrete-event simulation", () => {
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 8, y: 1 }, rotation: 0 },
     ];
     const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
-    source.blueprint.connections = [
+    setTestConnections(source, [
       { id: "shared-a", from: { device: "source-a", port: "output" }, to: { device: "target", port: "input" }, resources: ["iron-ore"], path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 7, y: 1 }], logistics },
       { id: "shared-b", from: { device: "source-b", port: "output" }, to: { device: "target", port: "input" }, resources: ["iron-ore"], path: [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 7, y: 1 }], logistics },
-    ];
+    ]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "source-a": { storage: { "iron-ore": 10 } }, "source-b": { storage: { "iron-ore": 10 } } };
     source.scenario.failures = [];
@@ -1118,6 +1195,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.devices.push({ id: "target-b", asset: "buffer", region: "forge-world", position: { x: 8, y: 3 }, rotation: 0 });
     source.blueprint.connections[1]!.to = { device: "target-b", port: "input" };
     source.blueprint.connections[1]!.path = [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 4, y: 2 }, { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 3 }, { x: 7, y: 3 }];
+    source.blueprint.devices.find((device) => device.id === source.blueprint.connections[1]!.logistics.unloader.device)!.position = { x: 7, y: 3 };
     expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.shared-cell-direction");
   });
 
@@ -1133,12 +1211,12 @@ describe("deterministic discrete-event simulation", () => {
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
       resources: ["iron-ore"],
       path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "slow-unloader", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { source: { storage: { "iron-ore": 20 } } };
     source.scenario.failures = [];
@@ -1168,10 +1246,10 @@ describe("deterministic discrete-event simulation", () => {
       { id: "wind-1", asset: "wind-turbine", region: "forge-world", position: { x: 0, y: 4 }, rotation: 0 },
     ];
     const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
-    source.blueprint.connections = [
+    setTestConnections(source, [
       { id: "split-east", from: { device: "splitter-1", port: "output-east" }, to: { device: "target-east", port: "input" }, resources: ["coal", "iron-ore"], path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
       { id: "split-north", from: { device: "splitter-1", port: "output-north" }, to: { device: "target-north", port: "input" }, resources: ["coal", "iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
-    ];
+    ]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "splitter-1": { storage: { coal: 1, "iron-ore": 1 } } };
     source.scenario.failures = [];
@@ -1193,10 +1271,10 @@ describe("deterministic discrete-event simulation", () => {
       { id: "starved", asset: "buffer", region: "forge-world", position: { x: 7, y: 2 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
     ];
     const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
-    source.blueprint.connections = [
+    setTestConnections(source, [
       { id: "a-stocked", from: { device: "source", port: "output-east" }, to: { device: "stocked", port: "input" }, resources: ["iron-ore"], path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
       { id: "z-starved", from: { device: "source", port: "output-north" }, to: { device: "starved", port: "input" }, resources: ["iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
-    ];
+    ]);
     source.blueprint.logisticsNetworks = [];
     source.blueprint.policies = { dispatch: "shortage-first" };
     source.scenario.initialBuffers = {
@@ -1218,12 +1296,12 @@ describe("deterministic discrete-event simulation", () => {
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "mixed-lane", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
       resources: ["coal", "gear"],
       path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.blueprint.policies = { dispatch: "shortage-first" };
     source.scenario.initialBuffers = {
@@ -1244,10 +1322,10 @@ describe("deterministic discrete-event simulation", () => {
       { id: "starved", asset: "buffer", region: "forge-world", position: { x: 7, y: 2 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
     ];
     const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
-    source.blueprint.connections = [
+    setTestConnections(source, [
       { id: "preferred-lane", from: { device: "source", port: "output-east" }, to: { device: "preferred", port: "input" }, resources: ["iron-ore"], path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
       { id: "starved-lane", from: { device: "source", port: "output-north" }, to: { device: "starved", port: "input" }, resources: ["iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
-    ];
+    ]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = {
       source: { storage: { "iron-ore": 1 } },
@@ -1265,12 +1343,12 @@ describe("deterministic discrete-event simulation", () => {
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "gear-only", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
     ];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "filtered-belt", from: { device: "source", port: "output" }, to: { device: "gear-only", port: "input" },
       resources: ["gear"],
       path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { source: { storage: { coal: 1, gear: 1 } } };
     source.scenario.failures = [];
@@ -1416,12 +1494,12 @@ describe("deterministic discrete-event simulation", () => {
       resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, demandTarget: 10,
     };
     source.blueprint.devices.push({ id: "local-source", asset: "buffer", region: "forge-world", position: { x: 11, y: 11 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } });
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "local-to-station", from: { device: "local-source", port: "output" }, to: { device: "station-demand", port: "input" },
       resources: ["iron-ore"],
       path: [{ x: 12, y: 11 }, { x: 13, y: 11 }],
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     source.scenario.initialBuffers = {
       "station-supply": { storage: { "iron-ore": 25 } },
       "local-source": { storage: { "iron-ore": 20 } },
@@ -1446,7 +1524,7 @@ describe("deterministic discrete-event simulation", () => {
 
   test("power shortage produces an event and unpowered state", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1" && device.id !== "storage-forge");
-    source.blueprint.connections = source.blueprint.connections.filter((connection) => connection.to.device !== "generator-1" && connection.from.device !== "generator-1");
+    removeTestConnections(source, (connection) => connection.to.device === "generator-1" || connection.from.device === "generator-1");
     delete source.scenario.initialBuffers?.["generator-1"];
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42, untilTick: 10_000 });
     expect(result.events.some((event) => event.type === "power.shortage" && event.grid === null)).toBeTrue();
@@ -1526,12 +1604,12 @@ describe("deterministic discrete-event simulation", () => {
     const oreSource = source.blueprint.devices.find((device) => device.id === "ore-source-1")!;
     const generator = source.blueprint.devices.find((device) => device.id === "generator-1")!;
     source.blueprint.devices = [oreSource, generator, { id: "buffer-1", asset: "buffer", region: oreSource.region, position: { x: 10, y: 10 }, rotation: 0 }];
-    source.blueprint.connections = [{
+    setTestConnections(source, [{
       id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" },
       resources: ["iron-ore"],
       path: Array.from({ length: 6 }, (_, index) => ({ x: index + 4, y: 10 })),
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
-    }];
+    }]);
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "generator-1": { fuel: { coal: 1 } } };
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
@@ -1655,7 +1733,7 @@ describe("deterministic discrete-event simulation", () => {
       ],
       connections: [], logisticsNetworks: [], policies: { dispatch: "shortage-first" },
     };
-    const connection: Blueprint["connections"][number] = {
+    const connection: TestConnectionSpec = {
       id: "coated-plate-to-assembler",
       from: { device: "coater-1", port: "material-output" },
       to: { device: "assembler-1", port: "input-primary" },
@@ -1666,7 +1744,7 @@ describe("deterministic discrete-event simulation", () => {
       },
     };
     connection.path = findBlueprintConnectionPath(source.blueprint, source.world, source.deviceAssets, connection)!;
-    source.blueprint.connections.push(connection);
+    setTestConnections(source, [connection]);
     source.scenario.durationTicks = 5_000;
     source.scenario.initialBuffers = {
       "coater-1": { "material-input": { "iron-plate": 8 }, "agent-input": { proliferator: 1 } },
@@ -1771,11 +1849,16 @@ describe("research boundary and experiment decisions", () => {
       iteration: 1, strategy: first.strategy!, hypothesis: first.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
     }] });
     expect(second.strategy).toBe("capacity-plan:smelt-iron:1->2");
+    expect(second.patch.some((operation) => operation.path === "/devices" || operation.path === "/connections")).toBeFalse();
+    const candidate = compileFactoryProject({ ...await loaded(), blueprint: applyResearchPatch(project.blueprint, second.patch) });
+    expect(candidate.devices["smelter-1-parallel"]).toBeDefined();
+    expect(Object.values(candidate.devices).filter((device) => device.transportEndpoint).length)
+      .toBe(candidate.blueprint.connections.length * 2);
   });
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1" && device.id !== "storage-forge");
-    source.blueprint.connections = source.blueprint.connections.filter((connection) => connection.to.device !== "generator-1" && connection.from.device !== "generator-1");
+    removeTestConnections(source, (connection) => connection.to.device === "generator-1" || connection.from.device === "generator-1");
     delete source.scenario.initialBuffers?.["generator-1"];
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({
@@ -1915,7 +1998,13 @@ describe("research boundary and experiment decisions", () => {
   test("worse valid candidate is reverted", async () => {
     const agent: BlueprintResearchAgent = { async propose(input) {
       const index = input.blueprint.connections.findIndex((connection) => connection.id === "gear-to-output");
-      return { hypothesis: "Remove finished-goods delivery", patch: [{ op: "remove", path: `/connections/${index}` }] };
+      const endpointIndexes = input.blueprint.devices.map((device, deviceIndex) => ({ device, deviceIndex }))
+        .filter(({ device }) => device.transportEndpoint?.connection === "gear-to-output")
+        .map(({ deviceIndex }) => deviceIndex).sort((left, right) => right - left);
+      return { hypothesis: "Remove finished-goods delivery", patch: [
+        ...endpointIndexes.map((deviceIndex) => ({ op: "remove" as const, path: `/devices/${deviceIndex}` })),
+        { op: "remove", path: `/connections/${index}` },
+      ] };
     } };
     const dir = await projectCopy(); const result = await researchFactory(dir, { iterations: 1, seed: 42, agent });
     expect(result.iterations[0]!.decision).toBe("REVERT"); expect(result.bestScore).toBe(result.baseline.score);
@@ -1932,7 +2021,7 @@ describe("artifacts and renderer-independent projection", () => {
       const project = compileFactoryProject({ ...source, blueprint });
       expect(runUntil(project, undefined, { seed: run.manifest.seed }).resultHash).toBe(run.manifest.resultHash);
     }
-  });
+  }, 15_000);
 
   test("checked-in KEEP history closes the objective target-rate capacity plan", async () => {
     const source = await loaded(); const runs = await listRuns(ironworks);

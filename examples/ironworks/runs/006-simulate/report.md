@@ -1,8 +1,8 @@
 # INM Run 006-simulate
 
 - Decision: **BASELINE**
-- Score: **187.381**
-- Result hash: `15a7bf3acef0bb46f8a9c0b49e6c2eeb387946f79872d0852c7935e123cbe740`
+- Score: **187.461**
+- Result hash: `cd59f7c183e44b6f8923f0e32479285d29796bfb678ff0396f2719382a84e854`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 26.000
 - Target rate: 24.000 gear/min (100.0% attained)
@@ -50,7 +50,7 @@ No configured accumulators.
 ```json
 {
   "blocked": -3.19,
-  "buildCost": -17.365,
+  "buildCost": -17.285,
   "constraintPenalty": 0,
   "energy": -2.502145,
   "occupiedArea": -50.6,

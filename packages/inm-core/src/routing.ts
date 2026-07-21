@@ -10,6 +10,13 @@ export function rotatePortSide(side: DevicePort["side"], rotation: Rotation): De
   return sides[(sides.indexOf(side) + rotation / 90) % 4]!;
 }
 
+export function transportEndpointRotation(stage: "loader" | "unloader", machinePortSide: DevicePort["side"]): Rotation {
+  const flowSide: DevicePort["side"] = stage === "loader"
+    ? machinePortSide
+    : ({ north: "south", east: "west", south: "north", west: "east" } as const)[machinePortSide];
+  return ({ east: 0, south: 90, west: 180, north: 270 } as const)[flowSide];
+}
+
 export function externalPortCell(device: BlueprintDevice, asset: DeviceAsset, portId: string): GridPosition | null {
   return externalPortCellAtDistance(device, asset, portId, 1);
 }
@@ -34,7 +41,13 @@ export function findBlueprintConnectionPath(
   world: IndustrialWorld,
   assets: Record<string, DeviceAsset>,
   connection: Pick<BlueprintConnection, "from" | "to">,
-  options: { end?: GridPosition; allowEndTransportCell?: boolean; blockedCells?: GridPosition[]; elevated?: boolean } = {},
+  options: {
+    end?: GridPosition;
+    allowEndTransportCell?: boolean;
+    blockedCells?: GridPosition[];
+    elevated?: boolean;
+    endpointDistances?: { loader: number; unloader: number };
+  } = {},
 ): GridPosition[] | null {
   const devices = new Map(blueprint.devices.map((device) => [device.id, device]));
   const from = devices.get(connection.from.device); const to = devices.get(connection.to.device);
@@ -42,8 +55,12 @@ export function findBlueprintConnectionPath(
   const fromAsset = assets[from.asset]; const toAsset = assets[to.asset];
   if (!fromAsset || !toAsset) return null;
   const endpointLogistics = (connection as Partial<BlueprintConnection>).logistics;
-  const start = externalPortCellAtDistance(from, fromAsset, connection.from.port, endpointLogistics?.loader.distance ?? 1);
-  const end = options.end ?? externalPortCellAtDistance(to, toAsset, connection.to.port, endpointLogistics?.unloader.distance ?? 1);
+  const loaderDevice = endpointLogistics ? devices.get(endpointLogistics.loader.device) : undefined;
+  const unloaderDevice = endpointLogistics ? devices.get(endpointLogistics.unloader.device) : undefined;
+  const loaderDistance = options.endpointDistances?.loader ?? loaderDevice?.transportEndpoint?.distance ?? 1;
+  const unloaderDistance = options.endpointDistances?.unloader ?? unloaderDevice?.transportEndpoint?.distance ?? 1;
+  const start = externalPortCellAtDistance(from, fromAsset, connection.from.port, loaderDistance);
+  const end = options.end ?? externalPortCellAtDistance(to, toAsset, connection.to.port, unloaderDistance);
   const region = world.regions.find((item) => item.id === from.region);
   if (!start || !end || !region) return null;
   const inside = (position: GridPosition) => position.x >= 0 && position.y >= 0 && position.x < region.bounds.width && position.y < region.bounds.height;
@@ -54,7 +71,7 @@ export function findBlueprintConnectionPath(
   };
 
   const hardBlocked = new Set<string>(); const solidBlocked = new Set<string>();
-  for (const device of blueprint.devices.filter((item) => item.region === from.region)) {
+  for (const device of blueprint.devices.filter((item) => item.region === from.region && !item.transportEndpoint)) {
     const asset = assets[device.asset]; if (!asset) continue;
     const footprint = rotatedFootprint(asset, device.rotation);
     for (let y = device.position.y; y < device.position.y + footprint.height; y++) for (let x = device.position.x; x < device.position.x + footprint.width; x++) {

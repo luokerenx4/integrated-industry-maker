@@ -122,6 +122,9 @@ export const blueprintSchema = z.object({
   devices: z.array(z.object({
     id, asset: id, region: id, position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
     rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+    transportEndpoint: z.object({
+      connection: id, stage: z.enum(["loader", "unloader"]), distance: positiveInt,
+    }).strict().optional(),
     recipe: z.object({
       process: id, mode: id,
       inputs: z.record(id),
@@ -145,9 +148,9 @@ export const blueprintSchema = z.object({
     path: z.array(z.object({ x: nonNegativeInt, y: nonNegativeInt, level: nonNegativeInt.optional() }).strict()).min(1),
     stackSize: positiveInt.optional(),
     logistics: z.object({
-      loader: z.object({ deviceAsset: id, distance: positiveInt }).strict(),
+      loader: z.object({ device: id }).strict(),
       line: z.object({ deviceAsset: id }).strict(),
-      unloader: z.object({ deviceAsset: id, distance: positiveInt }).strict(),
+      unloader: z.object({ device: id }).strict(),
     }).strict(),
   }).strict()),
   logisticsNetworks: z.array(z.object({

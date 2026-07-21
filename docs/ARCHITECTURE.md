@@ -64,7 +64,7 @@ JSON
 → region identity, world coordinates, per-region bounds, resource-node range, and overlap validation
 → Process category, speed, port, buffer, resource-contract, and device-config validation
 → region-local power-distributor topology, coverage, and isolated-grid compilation
-→ exact connection Resource allowlist, sorter-span, and cardinal transport-path validation; shared-cell graph compilation; loader/line/unloader throughput; and integer travel time
+→ exact connection Resource allowlist, explicit sorter Device ownership/geometry, and cardinal transport-path validation; shared-cell graph compilation; loader/line/unloader throughput; and integer travel time
 → planetary/interstellar topology, supply/demand matching, carrier compatibility, world-distance route time, and finite fleet compilation
 → canonical CompiledFactoryProject
 → Objective target-rate expansion and capacity-gap plan

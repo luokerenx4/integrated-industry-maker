@@ -6,7 +6,9 @@
   "blockedOutputTime": {
     "stack-power": 0,
     "stack-source": 0,
-    "stack-target": 0
+    "stack-target": 0,
+    "stacked-link-loader": 0,
+    "stacked-link-unloader": 0
   },
   "bottleneckEntity": null,
   "completedOrders": 8,
@@ -32,13 +34,17 @@
   "idleTime": {
     "stack-power": 2000,
     "stack-source": 2000,
-    "stack-target": 0
+    "stack-target": 0,
+    "stacked-link-loader": 1750,
+    "stacked-link-unloader": 1750
   },
   "infeasibleReason": null,
   "machineUtilization": {
     "stack-power": 0,
     "stack-source": 0,
-    "stack-target": 0
+    "stack-target": 0,
+    "stacked-link-loader": 0.125,
+    "stacked-link-unloader": 0.125
   },
   "materialTreatment": {
     "agentsConsumed": {},
@@ -141,11 +147,15 @@
   "unpoweredTime": {
     "stack-power": 0,
     "stack-source": 0,
-    "stack-target": 0
+    "stack-target": 0,
+    "stacked-link-loader": 0,
+    "stacked-link-unloader": 0
   },
   "waitingInputTime": {
     "stack-power": 0,
     "stack-source": 0,
-    "stack-target": 2000
+    "stack-target": 2000,
+    "stacked-link-loader": 0,
+    "stacked-link-unloader": 0
   }
 }

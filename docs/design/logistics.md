@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics and treatment-aware dispatch implemented in `inm-sim/0.35.0`.
+Status: explicit sorter Devices, physical local logistics, and treatment-aware dispatch implemented in `inm-sim/0.39.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -10,7 +10,7 @@ This document owns local material movement, sorter/line stages, belt cells and l
 
 ## Local connection model
 
-Each Blueprint connection owns one source port, one target port, a non-empty exact Resource allowlist, an explicit ordered grid path, a requested stack size, and three project-local transport assets:
+Each Blueprint connection owns one source port, one target port, a non-empty exact Resource allowlist, an explicit ordered grid path, a requested stack size, references to one loader Device and one unloader Device, and one project-local line asset:
 
 ```text
 source buffer → loader → concrete belt cells → unloader → target buffer
@@ -18,20 +18,20 @@ source buffer → loader → concrete belt cells → unloader → target buffer
 
 The Resource allowlist is authored state, not a cache of endpoint compatibility. Compilation resolves every listed Resource against the project catalog and both effective endpoint buffer contracts, rejects duplicates or incompatible entries, and computes stack/capacity limits only for the declared set. Runtime dispatch considers source inventory only when its Resource appears in that list. Multiple listed Resources intentionally share the lane; independent single-Resource lanes remain explicit even when both ends are wildcard buffers.
 
-Loader and unloader distance is an explicit positive Blueprint value. A sorter asset that supports either endpoint role declares `logistics.endpointRange = { minimum, maximum }`; the compiler rejects a selected span outside that range. Line distance equals routed belt-cell count. Each stage's actual distance is passed to its TypeScript `planTransport()`, so a project-local sorter can lose trips/min with reach while a future tier can implement a different distance curve. The compiler intersects stage stack limits with the Resource asset's stack limit and computes independent stage clocks.
+Loader and unloader distance is an explicit positive value on each sorter's `transportEndpoint` binding. A sorter asset that supports either endpoint role declares `logistics.endpointRange = { minimum, maximum }`; the compiler rejects a selected span outside that range. Line distance equals routed belt-cell count. Each stage's actual distance is passed to its TypeScript `planTransport()`, so a project-local sorter can lose trips/min with reach while a future tier can implement a different distance curve. The compiler intersects stage stack limits with the Resource asset's stack limit and computes independent stage clocks.
 
-There is no implicit adjacent-sorter default in the file format. A connection edit that moves the belt away from a machine must update both `logistics.loader.distance` or `logistics.unloader.distance` and the first or last path cell. This makes the physical layout and its throughput consequence reviewable in the same JSON diff.
+There is no implicit or inline sorter in the file format. Each endpoint is a stable Blueprint Device with asset, region, belt-side position, cargo-flow rotation, owning connection, stage, and distance. It must be referenced exactly once by that same connection and stage. A topology edit that moves or splits a belt must create/rebind the endpoint Devices together with the connection path. This makes physical ownership, tier changes, power, layout, and throughput consequences reviewable in one JSON diff.
 
 ## Geometry and occupancy
 
 - Paths begin/end at the level-0 belt cells exactly the configured loader/unloader distance from real ports.
 - Steps are cardinal and change at most one transport level.
-- Device footprints, deposits, bounds, and same-level self-intersections are obstacles.
+- Machine footprints, deposits, bounds, and same-level self-intersections are obstacles; sorter attachments overlay their owned first/last belt cells.
 - One belt cell holds at most one cargo stack, regardless of item count in that stack.
 - Same-direction shared suffixes are legal and share bandwidth; divergence from a shared cell requires a junction Device.
 - Raised cells are separate occupancy from ground cells at the same `(x, y)`.
 
-The cells between a Device edge and a farther belt endpoint belong to the sorter arm, not the line, and therefore do not create hidden belt slots or line build cost. The Studio endpoint beam spans that exact geometry. Endpoint power is assigned at the selected belt cell, matching the place where the transport stage joins the regional grid.
+The cells between a machine edge and a farther belt endpoint belong to the sorter arm, not the line, and therefore do not create hidden belt slots or line build cost. The explicit sorter Device is anchored at that first or last belt cell and the Studio arm spans the exact geometry back to its machine port. Endpoint power is assigned to the sorter Device at the selected belt cell, matching the place where the transport stage joins the regional grid.
 
 Cargo progresses through `loading`, `belt`, and `unloading` phases. A busy cell or unloader produces explicit backpressure rather than an approximate throughput penalty.
 

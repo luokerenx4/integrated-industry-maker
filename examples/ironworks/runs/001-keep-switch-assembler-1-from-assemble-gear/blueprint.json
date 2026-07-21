@@ -11,12 +11,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 3
+          "device": "ore-to-smelter-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "ore-to-smelter-unloader"
         }
       },
       "path": [
@@ -52,12 +50,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "plate-to-station-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "plate-to-station-unloader"
         }
       },
       "path": [
@@ -93,12 +89,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "station-to-assembler-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "station-to-assembler-unloader"
         }
       },
       "path": [
@@ -134,12 +128,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "gear-to-output-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "gear-to-output-unloader"
         }
       },
       "path": [
@@ -183,12 +175,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-forge-to-generator-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-forge-to-generator-unloader"
         }
       },
       "path": [
@@ -224,12 +214,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-assembly-to-splitter-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-assembly-to-splitter-unloader"
         }
       },
       "path": [
@@ -261,12 +249,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-splitter-to-generator-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-splitter-to-generator-unloader"
         }
       },
       "path": [
@@ -302,12 +288,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-splitter-to-assembler-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "coal-splitter-to-assembler-unloader"
         }
       },
       "path": [
@@ -533,6 +517,246 @@
         "coal-seam-assembly"
       ],
       "rotation": 0
+    },
+    {
+      "asset": "sorter",
+      "id": "ore-to-smelter-loader",
+      "position": {
+        "x": 6,
+        "y": 10
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter",
+        "distance": 3,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "ore-to-smelter-unloader",
+      "position": {
+        "x": 8,
+        "y": 10
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "plate-to-station-loader",
+      "position": {
+        "x": 11,
+        "y": 10
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "plate-to-station",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "plate-to-station-unloader",
+      "position": {
+        "x": 12,
+        "y": 9
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "plate-to-station",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "station-to-assembler-loader",
+      "position": {
+        "x": 5,
+        "y": 9
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "station-to-assembler",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "station-to-assembler-unloader",
+      "position": {
+        "x": 6,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "station-to-assembler",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "gear-to-output-loader",
+      "position": {
+        "x": 9,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "gear-to-output",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "gear-to-output-unloader",
+      "position": {
+        "x": 13,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "gear-to-output",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-forge-to-generator-loader",
+      "position": {
+        "x": 5,
+        "y": 3
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-forge-to-generator",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-forge-to-generator-unloader",
+      "position": {
+        "x": 7,
+        "y": 3
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-forge-to-generator",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-assembly-to-splitter-loader",
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-assembly-to-splitter",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-assembly-to-splitter-unloader",
+      "position": {
+        "x": 3,
+        "y": 4
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-assembly-to-splitter",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-splitter-to-generator-loader",
+      "position": {
+        "x": 5,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-generator",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-splitter-to-generator-unloader",
+      "position": {
+        "x": 7,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-generator",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-splitter-to-assembler-loader",
+      "position": {
+        "x": 6,
+        "y": 4
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-assembler",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "sorter",
+      "id": "coal-splitter-to-assembler-unloader",
+      "position": {
+        "x": 8,
+        "y": 9
+      },
+      "region": "assembly-world",
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-assembler",
+        "distance": 1,
+        "stage": "unloader"
+      }
     }
   ],
   "logisticsNetworks": [
@@ -577,6 +801,6 @@
   "policies": {
     "dispatch": "shortage-first"
   },
-  "revision": "cda0ec9db27a322ca488e5bfe71dce741d64b34e9b5dc1c53e880807708a1742",
+  "revision": "e9fb992559239ef66b3dc576798cf59a7870063af561ff963ac8dbab74c7fde5",
   "version": 1
 }

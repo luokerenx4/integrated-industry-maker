@@ -1,6 +1,6 @@
 # Spatial power design
 
-Status: connected regional grids, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device jobs, temporal capacity planning, measured generation/storage research, and joint synthesis implemented in engine version `inm-sim/0.37.0`.
+Status: connected regional grids, explicit sorter Device loads, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device jobs, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.39.0`.
 
 Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
@@ -12,7 +12,7 @@ This document owns distributor topology, consumer coverage, generation, fuel bur
 
 Power is spatial and region-local. Distributor Devices within the minimum of their connection ranges form deterministic connected components. Components never cross regions. A consuming Device joins the nearest component whose distributor coverage contains its center.
 
-Loader and unloader stages are spatial consumers at the first and last belt cells, after applying their explicit sorter distances from the Device ports. Lines themselves do not draw endpoint power. A recipe Device contributes the active power of its selected production mode, while other Devices contribute their asset base consumption. Every compiled grid records distributors, Device members, transport stages, rated generation, rated consumption, storage members, energy capacity, and aggregate charge/discharge limits.
+Explicit loader and unloader Devices are spatial consumers at their authored first and last belt cells, after applying their sorter distances from the machine ports. They join the local grid by their stable Device ids and draw transient stage power while moving cargo; the line itself does not draw endpoint power. A recipe Device contributes the active power of its selected production mode, while other Devices contribute their asset base consumption. Every compiled grid records distributors, Device members (including connected sorters), transport stages, rated generation, rated consumption, storage members, energy capacity, and aggregate charge/discharge limits.
 
 ## Accumulator contract
 
@@ -74,7 +74,7 @@ Measured generation research handles that separate case. It evaluates project-lo
 
 Power synthesis runs after machinery and belt routing because endpoint cells are part of the load geometry.
 
-1. Enumerate consuming Device centers and powered loader/unloader cells per region.
+1. Enumerate consuming Device centers and explicit powered loader/unloader Device cells per region.
 2. Place the first renewable distributor within coverage of the first deterministic target.
 3. For each uncovered target, place connected bridge distributors that reduce target distance.
 4. Continue until every target is covered by one connected regional component.

@@ -6,6 +6,7 @@ import {
   analyzeProduction,
   blueprintSchema,
   compileFactoryProject,
+  ENGINE_VERSION,
   listRuns,
   listWorkspaceProjects,
   loadFactoryProject,
@@ -79,12 +80,13 @@ async function loadProjectIndex() {
     const manifest = manifestSchema.parse(await readJson(join(summary.path, "inm.json")));
     const blueprint = blueprintSchema.parse(await readJson(join(summary.path, "blueprints", `${manifest.defaultBlueprint}.blueprint.json`)));
     const world = worldSchema.parse(await readJson(join(summary.path, "worlds", `${manifest.defaultWorld}.world.json`)));
-    const [resourceAssets, deviceAssets, processes, runs] = await Promise.all([
+    const [resourceAssets, deviceAssets, processes, allRuns] = await Promise.all([
       countAssetDirectories(summary.path, "resources"),
       countAssetDirectories(summary.path, "devices"),
       countProcessFiles(summary.path),
       listRuns(summary.path),
     ]);
+    const runs = allRuns.filter((run) => run.manifest.engineVersion === ENGINE_VERSION);
     return {
       id: summary.id,
       name: summary.name,
@@ -123,7 +125,7 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "site" |
 
 async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
-  const runs = await listRuns(projectDir);
+  const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION);
   const selected = runs.find((run) => run.name === runName)
     ?? runs.findLast((run) => run.manifest.decision === "KEEP")
     ?? runs[0];
@@ -180,6 +182,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       rotation: device.rotation,
       footprint: device.footprint,
       visual: device.assetDef.visual,
+      ...(device.transportEndpoint ? { transportEndpoint: { ...device.transportEndpoint } } : {}),
       resourceContracts: Object.fromEntries(Object.entries(device.buffers)
         .filter(([, buffer]) => !buffer.accepts.includes("*"))
         .map(([bufferId, buffer]) => [bufferId, [...buffer.accepts]])),
@@ -222,7 +225,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         const belt = stageName === "loader" ? cells[0]! : cells.at(-1)!;
         const device = stageName === "loader" ? from : to;
         return {
-          stage: stageName, asset: stage.asset.id, distance: stage.distance, from: device, to: belt,
+          stage: stageName, device: stage.device!.id, asset: stage.asset.id, distance: stage.distance, from: device, to: belt,
           position: { x: (device.x + belt.x) / 2, y: (device.y + belt.y) / 2 },
           powerMilliWatts: stage.asset.power.consumptionMilliWatts, powerGrid: stage.powerGrid ?? null,
         };
@@ -231,6 +234,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         id: connection.id,
         fromDevice: connection.from.device,
         toDevice: connection.to.device,
+        endpointDevices: endpoints.map((endpoint) => endpoint.device),
         resources: [...connection.resources],
         from, to, points: [from, ...cells, to], endpoints,
       };

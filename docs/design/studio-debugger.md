@@ -32,7 +32,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 
 ## 3D replay
 
-Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Devices, deposits, powered endpoint arms, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Events drive state; opening or scrubbing never runs a hidden simulation.
+Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Machines, explicit selectable sorter Devices and arms, deposits, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Events drive state; opening or scrubbing never runs a hidden simulation.
 
 ## Factory-object inspection
 
@@ -48,7 +48,7 @@ The Device inspector joins compiled and measured semantics in one local view:
 - regional power-grid membership, generation, rated load, headroom, and storage envelope;
 - incoming/outgoing local connections and Device-scoped diagnostics.
 
-The connection inspector exposes source/target navigation, the exact authored Resource allowlist, effective dispatch policy, each Resource's target kind/coverage unit/Objective depth, physical path/level, explicit loader/line/unloader distances, dispatch and travel clocks, stack limit, live cargo at the selected replay tick, stage assets and power state, measured stage utilization, delivered Resource mix, average in-flight inventory, and blockage. Sorter beams extend from the Device to the actual configured belt endpoint, while each real belt cell owns a transparent picking volume matching its grid occupancy, so selection does not depend on a visually thin line's raycast tolerance.
+The connection inspector exposes source/target navigation, the exact authored Resource allowlist, effective dispatch policy, each Resource's target kind/coverage unit/Objective depth, physical path/level, explicit loader/line/unloader distances and endpoint Device ids, dispatch and travel clocks, stack limit, live cargo at the selected replay tick, stage assets and power state, measured stage utilization, delivered Resource mix, average in-flight inventory, and blockage. Sorter arms extend from the machine port to the explicit Device anchored at the configured belt endpoint. Both the sorter Device and each real belt cell have picking geometry, so selection does not depend on a visually thin line's raycast tolerance.
 
 Inspectors are navigation and debugging surfaces only. They contain no Blueprint mutation controls and do not change simulation or run state.
 

@@ -11,12 +11,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "stack-sorter",
-          "distance": 1
+          "device": "stacked-link-loader"
         },
         "unloader": {
-          "deviceAsset": "stack-sorter",
-          "distance": 1
+          "device": "stacked-link-unloader"
         }
       },
       "path": [
@@ -99,6 +97,36 @@
       },
       "region": "forge-world",
       "rotation": 0
+    },
+    {
+      "asset": "stack-sorter",
+      "id": "stacked-link-loader",
+      "position": {
+        "x": 1,
+        "y": 0
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "stacked-link",
+        "distance": 1,
+        "stage": "loader"
+      }
+    },
+    {
+      "asset": "stack-sorter",
+      "id": "stacked-link-unloader",
+      "position": {
+        "x": 7,
+        "y": 0
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "stacked-link",
+        "distance": 1,
+        "stage": "unloader"
+      }
     }
   ],
   "logisticsNetworks": [],

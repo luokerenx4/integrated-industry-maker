@@ -1,5 +1,24 @@
 [
   {
+    "op": "replace",
+    "path": "/devices/14",
+    "value": {
+      "asset": "sorter",
+      "id": "ore-to-smelter-unloader",
+      "position": {
+        "x": 6,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    }
+  },
+  {
     "op": "add",
     "path": "/devices/-",
     "value": {
@@ -41,6 +60,134 @@
     }
   },
   {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "wind-turbine",
+      "id": "wind-turbine-support",
+      "position": {
+        "x": 10,
+        "y": 13
+      },
+      "region": "forge-world",
+      "rotation": 0
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "sorter",
+      "id": "ore-to-smelter-smelter-1-split-original-loader",
+      "position": {
+        "x": 11,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter-smelter-1-split-original",
+        "distance": 3,
+        "stage": "loader"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "sorter",
+      "id": "ore-to-smelter-smelter-1-split-original-unloader",
+      "position": {
+        "x": 8,
+        "y": 10
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter-smelter-1-split-original",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "sorter",
+      "id": "ore-to-smelter-smelter-1-split-parallel-loader",
+      "position": {
+        "x": 8,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter-smelter-1-split-parallel",
+        "distance": 3,
+        "stage": "loader"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "sorter",
+      "id": "ore-to-smelter-smelter-1-split-parallel-unloader",
+      "position": {
+        "x": 8,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter-smelter-1-split-parallel",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "sorter",
+      "id": "plate-to-station-smelter-1-parallel-loader",
+      "position": {
+        "x": 11,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "plate-to-station-smelter-1-parallel",
+        "distance": 1,
+        "stage": "loader"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "sorter",
+      "id": "plate-to-station-smelter-1-parallel-unloader",
+      "position": {
+        "x": 12,
+        "y": 9
+      },
+      "region": "forge-world",
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "plate-to-station-smelter-1-parallel",
+        "distance": 1,
+        "stage": "unloader"
+      }
+    }
+  },
+  {
     "op": "replace",
     "path": "/connections/0",
     "value": {
@@ -54,12 +201,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 3
+          "device": "ore-to-smelter-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "ore-to-smelter-unloader"
         }
       },
       "path": [
@@ -95,12 +240,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 3
+          "device": "ore-to-smelter-smelter-1-split-original-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "ore-to-smelter-smelter-1-split-original-unloader"
         }
       },
       "path": [
@@ -268,12 +411,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 3
+          "device": "ore-to-smelter-smelter-1-split-parallel-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "ore-to-smelter-smelter-1-split-parallel-unloader"
         }
       },
       "path": [
@@ -305,12 +446,10 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "plate-to-station-smelter-1-parallel-loader"
         },
         "unloader": {
-          "deviceAsset": "sorter",
-          "distance": 1
+          "device": "plate-to-station-smelter-1-parallel-unloader"
         }
       },
       "path": [
@@ -334,20 +473,6 @@
         "device": "station-supply",
         "port": "input"
       }
-    }
-  },
-  {
-    "op": "add",
-    "path": "/devices/-",
-    "value": {
-      "asset": "wind-turbine",
-      "id": "wind-turbine-support",
-      "position": {
-        "x": 10,
-        "y": 13
-      },
-      "region": "forge-world",
-      "rotation": 0
     }
   }
 ]

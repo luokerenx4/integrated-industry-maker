@@ -12,7 +12,7 @@ import { runUntil } from "./simulator";
 import { analyzeProduction, type ProductionAnalysis } from "./production-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { atomicWriteJson, hashValue } from "./utils";
-import { findBlueprintConnectionPath, rotatedFootprint } from "./routing";
+import { findBlueprintConnectionPath, rotatePortSide, rotatedFootprint, transportEndpointRotation } from "./routing";
 import { evaluatePowerEnvelope, renewableProfileFor } from "./power-envelope";
 
 export interface ResearchInput {
@@ -114,7 +114,7 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
   const region = project.regions[device.region];
   if (!region || device.position.x + width > region.bounds.width || device.position.y + height > region.bounds.height) return true;
   const deviceOverlap = blueprint.devices.some((other) => {
-    if (other.region !== device.region) return false;
+    if (other.region !== device.region || other.transportEndpoint) return false;
     const otherAsset = project.deviceAssets[other.asset]!;
     const { width: ow, height: oh } = rotatedFootprint(otherAsset, other.rotation);
     return device.position.x < other.position.x + ow && device.position.x + width > other.position.x && device.position.y < other.position.y + oh && device.position.y + height > other.position.y;
@@ -124,6 +124,84 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
     const source = blueprint.devices.find((instance) => instance.id === connection.from.device);
     return source?.region === device.region && connection.path.some((cell) => cell.x >= device.position.x && cell.x < device.position.x + width && cell.y >= device.position.y && cell.y < device.position.y + height);
   });
+}
+
+/**
+ * Research strategies author topology before they know the final paths. Rebuild every
+ * sorter attachment after routing so each physical connection owns exactly one loader
+ * and one unloader Device at its actual belt endpoints.
+ */
+function rebuildTransportEndpoints(blueprint: Blueprint, project: CompiledFactoryProject): void {
+  const endpointSpecs = new Map(blueprint.devices.filter((device) => device.transportEndpoint).map((device) => [device.id, {
+    asset: device.asset,
+    distance: device.transportEndpoint!.distance,
+  }]));
+  const ordinaryDevices = blueprint.devices.filter((device) => !device.transportEndpoint);
+  const claimedIds = new Set(ordinaryDevices.map((device) => device.id));
+  const endpoints: Blueprint["devices"] = [];
+  const uniqueEndpointId = (base: string): string => {
+    let id = base; let suffix = 1;
+    while (claimedIds.has(id)) id = `${base}-${++suffix}`;
+    claimedIds.add(id);
+    return id;
+  };
+
+  for (const connection of blueprint.connections) {
+    const source = ordinaryDevices.find((device) => device.id === connection.from.device);
+    const target = ordinaryDevices.find((device) => device.id === connection.to.device);
+    const sourceAsset = source ? project.deviceAssets[source.asset] : undefined;
+    const targetAsset = target ? project.deviceAssets[target.asset] : undefined;
+    const sourcePort = sourceAsset?.geometry.ports.find((port) => port.id === connection.from.port);
+    const targetPort = targetAsset?.geometry.ports.find((port) => port.id === connection.to.port);
+    const first = connection.path[0]; const last = connection.path.at(-1);
+    const loaderSpec = endpointSpecs.get(connection.logistics.loader.device);
+    const unloaderSpec = endpointSpecs.get(connection.logistics.unloader.device);
+    if (!source || !target || !sourcePort || !targetPort || !first || !last || !loaderSpec || !unloaderSpec) {
+      throw new Error(`Cannot rebuild explicit transport endpoints for '${connection.id}'`);
+    }
+    const loaderId = uniqueEndpointId(`${connection.id}-loader`);
+    const unloaderId = uniqueEndpointId(`${connection.id}-unloader`);
+    endpoints.push({
+      id: loaderId, asset: loaderSpec.asset, region: source.region, position: structuredClone(first),
+      rotation: transportEndpointRotation("loader", rotatePortSide(sourcePort.side, source.rotation)),
+      transportEndpoint: { connection: connection.id, stage: "loader", distance: loaderSpec.distance },
+    }, {
+      id: unloaderId, asset: unloaderSpec.asset, region: target.region, position: structuredClone(last),
+      rotation: transportEndpointRotation("unloader", rotatePortSide(targetPort.side, target.rotation)),
+      transportEndpoint: { connection: connection.id, stage: "unloader", distance: unloaderSpec.distance },
+    });
+    connection.logistics.loader.device = loaderId;
+    connection.logistics.unloader.device = unloaderId;
+  }
+  blueprint.devices = [...ordinaryDevices, ...endpoints];
+}
+
+function topologyPatch(before: Blueprint, after: Blueprint): JsonPatchOperation[] {
+  const patch: JsonPatchOperation[] = [];
+  const afterDevices = new Map(after.devices.map((device) => [device.id, device]));
+  for (const [index, device] of before.devices.entries()) {
+    const next = afterDevices.get(device.id);
+    if (next && hashValue(device) !== hashValue(next)) patch.push({ op: "replace", path: `/devices/${index}`, value: next });
+  }
+  for (const index of before.devices.map((device, index) => ({ device, index }))
+    .filter(({ device }) => !afterDevices.has(device.id)).map(({ index }) => index).sort((a, b) => b - a)) {
+    patch.push({ op: "remove", path: `/devices/${index}` });
+  }
+  const beforeDeviceIds = new Set(before.devices.map((device) => device.id));
+  for (const device of after.devices.filter((item) => !beforeDeviceIds.has(item.id))) patch.push({ op: "add", path: "/devices/-", value: device });
+
+  const afterConnections = new Map(after.connections.map((connection) => [connection.id, connection]));
+  for (const [index, connection] of before.connections.entries()) {
+    const next = afterConnections.get(connection.id);
+    if (next && hashValue(connection) !== hashValue(next)) patch.push({ op: "replace", path: `/connections/${index}`, value: next });
+  }
+  for (const index of before.connections.map((connection, index) => ({ connection, index }))
+    .filter(({ connection }) => !afterConnections.has(connection.id)).map(({ index }) => index).sort((a, b) => b - a)) {
+    patch.push({ op: "remove", path: `/connections/${index}` });
+  }
+  const beforeConnectionIds = new Set(before.connections.map((connection) => connection.id));
+  for (const connection of after.connections.filter((item) => !beforeConnectionIds.has(item.id))) patch.push({ op: "add", path: "/connections/-", value: connection });
+  return patch;
 }
 
 interface StrategyCandidate { key: string; proposal: ResearchProposal }
@@ -256,6 +334,8 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
     candidateBlueprint.devices.push(powerSupport);
     patch.push({ op: "add", path: "/devices/-", value: powerSupport });
   }
+  rebuildTransportEndpoints(candidateBlueprint, input.project);
+  patch.splice(0, patch.length, ...topologyPatch(input.blueprint, candidateBlueprint));
   return {
     key: strategyKey,
     proposal: {
@@ -430,7 +510,12 @@ function logisticsUpgradeCandidate(input: ResearchInput, connectionId: string, r
     strategy: key,
     hypothesis: `Upgrade bottleneck stages on \`${compiled.id}\` (${upgrades.map((upgrade) => `${upgrade.stage.stage}: ${upgrade.stage.asset.id} → ${upgrade.replacement.asset.id}`).join(", ")}) because ${reason}.`,
     expectedEffect: `Increase the transport envelope from ${currentItemCapacity.toFixed(3)} to ${nextItemCapacity.toFixed(3)} items/min (dispatch ${currentInterval}→${nextInterval} ms, stack ${currentStackCapacity}→${nextStackCapacity}).`,
-    patch: upgrades.map((upgrade) => ({ op: "replace" as const, path: `/connections/${connectionIndex}/logistics/${upgrade.stage.stage}/deviceAsset`, value: upgrade.replacement.asset.id })),
+    patch: upgrades.map((upgrade) => {
+      if (upgrade.stage.stage === "line") return { op: "replace" as const, path: `/connections/${connectionIndex}/logistics/line/deviceAsset`, value: upgrade.replacement.asset.id };
+      const deviceIndex = input.blueprint.devices.findIndex((device) => device.id === upgrade.stage.device?.id);
+      if (deviceIndex < 0) throw new Error(`Missing explicit ${upgrade.stage.stage} Device for '${compiled.id}'`);
+      return { op: "replace" as const, path: `/devices/${deviceIndex}/asset`, value: upgrade.replacement.asset.id };
+    }),
   } };
 }
 
@@ -521,16 +606,13 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
       candidateBlueprint.devices.pop();
     }
     if (!inbound || !outbound) continue;
+    rebuildTransportEndpoints(candidateBlueprint, input.project);
     const key = `buffer:${connection.id}`;
     candidates.push({ key, proposal: {
       strategy: key,
       hypothesis: `Insert buffer \`${id}\` after \`${original.id}\` because it spent ${input.metrics.blockedOutputTime[original.id]} ticks blocked.`,
       expectedEffect: "Decouple producer completion from downstream demand and expose whether storage relieves the measured blockage.",
-      patch: [
-        { op: "add", path: "/devices/-", value: buffer },
-        { op: "replace", path: `/connections/${connectionIndex}`, value: inbound },
-        { op: "add", path: "/connections/-", value: outbound },
-      ],
+      patch: topologyPatch(input.blueprint, candidateBlueprint),
     } });
   }
   return candidates;

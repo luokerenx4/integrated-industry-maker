@@ -6,7 +6,7 @@ import type {
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
 import { ENGINE_VERSION, hashValue } from "./utils";
-import { externalPortCellAtDistance, rotatePortSide, rotatedFootprint, transportCellId } from "./routing";
+import { externalPortCellAtDistance, rotatePortSide, rotatedFootprint, transportCellId, transportEndpointRotation } from "./routing";
 import { compileProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 
 function acceptsResource(accepts: readonly string[], resource: ResourceId): boolean {
@@ -275,6 +275,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
   }).sort((a, b) => a.id.localeCompare(b.id));
 
   for (const device of Object.values(devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (device.transportEndpoint) continue;
     const candidates = gridDistributors.flatMap((grid) => {
       if (grids[grid.id]!.region !== device.region) return [];
       const distances = grid.members.map((distributor) => ({
@@ -496,6 +497,22 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (!region) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown region '${instance.region}'` });
     if (!asset.geometry.rotatable && instance.rotation !== 0) issues.push({ path: `${path}/rotation`, code: "geometry.rotation", message: `Device '${instance.asset}' is not rotatable` });
     const footprint = rotatedFootprint(asset, instance.rotation);
+    const endpointRoles = asset.logistics?.roles.filter((role): role is "loader" | "unloader" => role === "loader" || role === "unloader") ?? [];
+    const dedicatedEndpoint = endpointRoles.length > 0 && asset.geometry.ports.length === 0
+      && !asset.logistics?.roles.some((role) => role === "line" || role === "carrier");
+    if (instance.transportEndpoint) {
+      if (!asset.capabilities.includes("transport") || !endpointRoles.includes(instance.transportEndpoint.stage)) issues.push({
+        path: `${path}/transportEndpoint/stage`, code: "logistics.endpoint-role",
+        message: `Device asset '${asset.id}' cannot serve as logistics ${instance.transportEndpoint.stage}`,
+      });
+      if (instance.recipe || instance.treatment || instance.resourceNodes || instance.bufferFilters || instance.portFilters || instance.policy) issues.push({
+        path: `${path}/transportEndpoint`, code: "logistics.endpoint-exclusive",
+        message: "A transport endpoint attachment cannot also configure production, treatment, extraction, material filters, or dispatch policy",
+      });
+    } else if (dedicatedEndpoint) issues.push({
+      path: `${path}/transportEndpoint`, code: "logistics.endpoint-binding-required",
+      message: `Sorter-like Device '${instance.id}' requires an explicit connection endpoint binding`,
+    });
     if (region && (instance.position.x + footprint.width > region.bounds.width || instance.position.y + footprint.height > region.bounds.height)) {
       issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Footprint ${footprint.width}x${footprint.height} at (${instance.position.x},${instance.position.y}) exceeds region '${region.id}' ${region.bounds.width}x${region.bounds.height} bounds` });
     }
@@ -791,6 +808,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
   for (let a = 0; a < placed.length; a++) for (let b = a + 1; b < placed.length; b++) {
     const left = placed[a]!; const right = placed[b]!;
+    if (left.transportEndpoint || right.transportEndpoint) continue;
     const overlap = left.region === right.region && left.position.x < right.position.x + right.footprint.width && left.position.x + left.footprint.width > right.position.x
       && left.position.y < right.position.y + right.footprint.height && left.position.y + left.footprint.height > right.position.y;
     if (overlap) issues.push({ path: "blueprint/devices", code: "geometry.overlap", message: `Devices '${left.id}' and '${right.id}' overlap` });
@@ -802,6 +820,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
 
   const connections: Record<string, CompiledConnection> = {};
   const connectionIds = new Set<string>();
+  const endpointReferenceCounts = new Map<string, number>();
   for (const [index, connection] of loaded.blueprint.connections.entries()) {
     const path = `blueprint/connections/${index}`;
     if (connectionIds.has(connection.id)) issues.push({ path: `${path}/id`, code: "reference.duplicate", message: `Duplicate connection '${connection.id}'` });
@@ -809,21 +828,39 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const from = devices[connection.from.device]; const to = devices[connection.to.device];
     if (!from) issues.push({ path: `${path}/from/device`, code: "reference.device-instance", message: `Unknown device instance '${connection.from.device}'` });
     if (!to) issues.push({ path: `${path}/to/device`, code: "reference.device-instance", message: `Unknown device instance '${connection.to.device}'` });
-    const stageDefinitions = (["loader", "line", "unloader"] as const).map((stage) => ({ stage, deviceAsset: connection.logistics[stage].deviceAsset }));
-    const stageAssets = stageDefinitions.map(({ stage, deviceAsset }) => {
-      const asset = loaded.deviceAssets[deviceAsset];
-      if (!asset) issues.push({ path: `${path}/logistics/${stage}/deviceAsset`, code: "reference.device", message: `Unknown logistics asset '${deviceAsset}'` });
-      else if (!asset.capabilities.includes("transport") || !asset.logistics?.roles.includes(stage)) issues.push({ path: `${path}/logistics/${stage}/deviceAsset`, code: "logistics.stage-role", message: `Device '${asset.id}' cannot serve as logistics ${stage}` });
-      return asset;
-    });
-    if (!from || !to || stageAssets.some((asset, stageIndex) => !asset?.capabilities.includes("transport") || !asset.logistics?.roles.includes(stageDefinitions[stageIndex]!.stage))) continue;
-    for (const stage of ["loader", "unloader"] as const) {
-      const asset = loaded.deviceAssets[connection.logistics[stage].deviceAsset]!;
-      const distance = connection.logistics[stage].distance;
-      const range = asset.logistics?.endpointRange;
+    const loader = devices[connection.logistics.loader.device];
+    const unloader = devices[connection.logistics.unloader.device];
+    for (const [stage, endpoint] of [["loader", loader], ["unloader", unloader]] as const) {
+      const deviceId = connection.logistics[stage].device;
+      endpointReferenceCounts.set(deviceId, (endpointReferenceCounts.get(deviceId) ?? 0) + 1);
+      if (!endpoint) issues.push({ path: `${path}/logistics/${stage}/device`, code: "reference.device-instance", message: `Unknown transport endpoint Device '${deviceId}'` });
+      else {
+        const binding = endpoint.transportEndpoint;
+        if (!binding || binding.connection !== connection.id || binding.stage !== stage) issues.push({
+          path: `${path}/logistics/${stage}/device`, code: "logistics.endpoint-binding",
+          message: `Device '${deviceId}' must bind itself to '${connection.id}.${stage}'`,
+        });
+        if (!endpoint.assetDef.capabilities.includes("transport") || !endpoint.assetDef.logistics?.roles.includes(stage)) issues.push({
+          path: `${path}/logistics/${stage}/device`, code: "logistics.stage-role", message: `Device '${deviceId}' cannot serve as logistics ${stage}`,
+        });
+      }
+    }
+    const lineAsset = loaded.deviceAssets[connection.logistics.line.deviceAsset];
+    if (!lineAsset) issues.push({ path: `${path}/logistics/line/deviceAsset`, code: "reference.device", message: `Unknown logistics asset '${connection.logistics.line.deviceAsset}'` });
+    else if (!lineAsset.capabilities.includes("transport") || !lineAsset.logistics?.roles.includes("line")) issues.push({ path: `${path}/logistics/line/deviceAsset`, code: "logistics.stage-role", message: `Device '${lineAsset.id}' cannot serve as logistics line` });
+    if (!from || !to || !loader?.transportEndpoint || !unloader?.transportEndpoint || !lineAsset
+      || !loader.assetDef.logistics?.roles.includes("loader") || !unloader.assetDef.logistics?.roles.includes("unloader")
+      || !lineAsset.logistics?.roles.includes("line")) continue;
+    for (const [stage, endpoint] of [["loader", loader], ["unloader", unloader]] as const) {
+      const distance = endpoint.transportEndpoint!.distance;
+      const range = endpoint.assetDef.logistics?.endpointRange;
       if (range && (distance < range.minimum || distance > range.maximum)) issues.push({
-        path: `${path}/logistics/${stage}/distance`, code: "logistics.endpoint-distance",
-        message: `${stage} asset '${asset.id}' supports ${range.minimum}-${range.maximum} cells, not ${distance}`,
+        path: `${path}/logistics/${stage}/device`, code: "logistics.endpoint-distance",
+        message: `${stage} Device '${endpoint.id}' supports ${range.minimum}-${range.maximum} cells, not ${distance}`,
+      });
+      if (endpoint.region !== from.region) issues.push({
+        path: `${path}/logistics/${stage}/device`, code: "logistics.endpoint-region",
+        message: `${stage} Device '${endpoint.id}' must be in connection region '${from.region}'`,
       });
     }
     if (from.region !== to.region) { issues.push({ path, code: "connection.cross-region", message: `Physical connection '${connection.id}' cannot cross from '${from.region}' to '${to.region}'` }); continue; }
@@ -859,14 +896,26 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
     if (!connection.path?.length) { issues.push({ path: `${path}/path`, code: "logistics.path-required", message: `Connection '${connection.id}' requires at least one explicit transport cell` }); continue; }
     let pathValid = true;
-    const expectedStart = externalPortCellAtDistance(from, from.assetDef, connection.from.port, connection.logistics.loader.distance);
-    const expectedEnd = externalPortCellAtDistance(to, to.assetDef, connection.to.port, connection.logistics.unloader.distance);
+    const loaderDistance = loader.transportEndpoint.distance;
+    const unloaderDistance = unloader.transportEndpoint.distance;
+    const expectedStart = externalPortCellAtDistance(from, from.assetDef, connection.from.port, loaderDistance);
+    const expectedEnd = externalPortCellAtDistance(to, to.assetDef, connection.to.port, unloaderDistance);
     const first = connection.path[0]!; const last = connection.path.at(-1)!;
     if (!expectedStart || first.x !== expectedStart.x || first.y !== expectedStart.y || (first.level ?? 0) !== 0) {
-      issues.push({ path: `${path}/path/0`, code: "logistics.path-start", message: `Path must start ${connection.logistics.loader.distance} cell(s) from '${from.id}.${connection.from.port}'` }); pathValid = false;
+      issues.push({ path: `${path}/path/0`, code: "logistics.path-start", message: `Path must start ${loaderDistance} cell(s) from '${from.id}.${connection.from.port}'` }); pathValid = false;
     }
     if (!expectedEnd || last.x !== expectedEnd.x || last.y !== expectedEnd.y || (last.level ?? 0) !== 0) {
-      issues.push({ path: `${path}/path/${connection.path.length - 1}`, code: "logistics.path-end", message: `Path must end ${connection.logistics.unloader.distance} cell(s) from '${to.id}.${connection.to.port}'` }); pathValid = false;
+      issues.push({ path: `${path}/path/${connection.path.length - 1}`, code: "logistics.path-end", message: `Path must end ${unloaderDistance} cell(s) from '${to.id}.${connection.to.port}'` }); pathValid = false;
+    }
+    for (const [stage, endpoint, cell, port] of [["loader", loader, first, fromPort], ["unloader", unloader, last, toPort]] as const) {
+      if (endpoint.position.x !== cell.x || endpoint.position.y !== cell.y) {
+        issues.push({ path: `${path}/logistics/${stage}/device`, code: "logistics.endpoint-position", message: `${stage} Device '${endpoint.id}' must be anchored at belt cell (${cell.x},${cell.y})` }); pathValid = false;
+      }
+      const expectedRotation = transportEndpointRotation(stage, port.side);
+      if (endpoint.rotation !== expectedRotation) issues.push({
+        path: `${path}/logistics/${stage}/device`, code: "logistics.endpoint-rotation",
+        message: `${stage} Device '${endpoint.id}' rotation must follow cargo flow (${expectedRotation}°)`,
+      });
     }
     const seenPathCells = new Set<string>();
     const region = regions[from.region]!;
@@ -876,7 +925,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       if (seenPathCells.has(key)) { issues.push({ path: cellPath, code: "logistics.path-self-intersection", message: `Path visits cell (${position.x},${position.y}) more than once` }); pathValid = false; }
       seenPathCells.add(key);
       if (position.x >= region.bounds.width || position.y >= region.bounds.height) { issues.push({ path: cellPath, code: "logistics.path-out-of-bounds", message: `Path cell (${position.x},${position.y}) exceeds region '${region.id}' bounds` }); pathValid = false; }
-      const blockingDevice = Object.values(devices).find((device) => device.region === from.region && position.x >= device.position.x && position.x < device.position.x + device.footprint.width && position.y >= device.position.y && position.y < device.position.y + device.footprint.height);
+      const blockingDevice = Object.values(devices).find((device) => !device.transportEndpoint && device.region === from.region && position.x >= device.position.x && position.x < device.position.x + device.footprint.width && position.y >= device.position.y && position.y < device.position.y + device.footprint.height);
       if (blockingDevice) { issues.push({ path: cellPath, code: "logistics.path-device-collision", message: `Path cell (${position.x},${position.y}) intersects device '${blockingDevice.id}'` }); pathValid = false; }
       const blockingNode = (position.level ?? 0) === 0 ? Object.values(resourceNodes).find((node) => node.region === from.region && node.position.x === position.x && node.position.y === position.y) : undefined;
       if (blockingNode) { issues.push({ path: cellPath, code: "logistics.path-resource-collision", message: `Path cell (${position.x},${position.y}) intersects resource node '${blockingNode.id}'` }); pathValid = false; }
@@ -887,14 +936,15 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
     if (!pathValid) continue;
     const distance = connection.path.length;
-    const logisticsStages = stageDefinitions.map(({ stage }, stageIndex) => {
-      const asset = stageAssets[stageIndex]!;
-      const stageDistance = stage === "line" ? distance : connection.logistics[stage].distance;
+    const logisticsStages = (["loader", "line", "unloader"] as const).map((stage) => {
+      const endpoint = stage === "loader" ? loader : stage === "unloader" ? unloader : undefined;
+      const asset = endpoint?.assetDef ?? lineAsset;
+      const stageDistance = stage === "line" ? distance : endpoint!.transportEndpoint!.distance;
       const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: connection.id, stage, distance: stageDistance });
-      const position = stage === "loader" ? connection.path[0] : stage === "unloader" ? connection.path.at(-1) : undefined;
+      const position = endpoint?.position;
       return {
         stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks, stackCapacity: plan.stackCapacity,
-        ...(position ? { region: from.region, position: { ...position }, powerGrid: powerGridAtPosition(powerGrids, devices, from.region, position) } : {}),
+        ...(endpoint && position ? { device: endpoint, region: endpoint.region, position: { ...position }, powerGrid: powerGridAtPosition(powerGrids, devices, endpoint.region, position) } : {}),
       };
     });
     const travelTicks = logisticsStages.reduce((sum, stage) => sum + stage.durationTicks, 0);
@@ -934,10 +984,23 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       capacity, travelTicks, dispatchIntervalTicks,
     };
     for (const stage of logisticsStages.filter((item): item is typeof item & { stage: "loader" | "unloader" } => item.stage !== "line")) {
+      if (stage.powerGrid && stage.device) {
+        stage.device.powerGrid = stage.powerGrid;
+        if (!powerGrids[stage.powerGrid]!.members.includes(stage.device.id)) powerGrids[stage.powerGrid]!.members.push(stage.device.id);
+      }
       if (!stage.powerGrid || stage.asset.power.consumptionMilliWatts <= 0) continue;
-      powerGrids[stage.powerGrid]!.transportStages.push({ connection: connection.id, stage: stage.stage });
+      powerGrids[stage.powerGrid]!.transportStages.push({ connection: connection.id, stage: stage.stage, device: stage.device!.id });
       powerGrids[stage.powerGrid]!.ratedConsumptionMilliWatts += stage.asset.power.consumptionMilliWatts;
     }
+  }
+
+  for (const [index, endpoint] of loaded.blueprint.devices.entries()) {
+    if (!endpoint.transportEndpoint) continue;
+    const count = endpointReferenceCounts.get(endpoint.id) ?? 0;
+    if (count !== 1) issues.push({
+      path: `blueprints/${loaded.manifest.defaultBlueprint}/devices/${index}/transportEndpoint`, code: "logistics.endpoint-reference-count",
+      message: `Transport endpoint Device '${endpoint.id}' must be referenced by exactly one connection stage; found ${count}`,
+    });
   }
 
   const transportCells: Record<string, CompiledTransportCell> = {};

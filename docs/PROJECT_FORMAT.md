@@ -262,16 +262,31 @@ Every physical connection includes the exact ordered grid cells occupied by its 
     { "x": 7, "y": 10 }
   ],
   "logistics": {
-    "loader": { "deviceAsset": "sorter", "distance": 3 },
+    "loader": { "device": "ore-to-smelter-loader" },
     "line": { "deviceAsset": "conveyor" },
-    "unloader": { "deviceAsset": "sorter", "distance": 1 }
+    "unloader": { "device": "ore-to-smelter-unloader" }
   }
 }
 ```
 
-`resources` is required and non-empty. It is the exact material allowlist for the lane, not a derived endpoint intersection: every entry must name a project Resource accepted by both compiled endpoint buffers, duplicates are invalid, and runtime dispatch may not move an unlisted Resource. A list such as `["iron-ore", "coal"]` deliberately permits a mixed-material lane; `["iron-ore"]` keeps a dedicated lane explicit even if both ports use wildcard buffers. Changing transport intent therefore appears in the same Blueprint diff as path, tier, span, or stack edits.
+The loader and unloader are ordinary, explicit Blueprint Device instances. A sorter Device carries its physical ownership and reach, for example:
 
-The first and last cells must be level-0 cells exactly `loader.distance` and `unloader.distance` grid cells outward from the named ports. Consecutive cells must share a cardinal edge and may change by at most one `level`, representing a ramp along that step. Omitted `level` is ground level 0. Paths cannot leave region bounds, repeat the same `(x, y, level)`, cross placed Devices, or cover finite resource nodes on the ground. Same-coordinate cells at different levels are distinct, making explicit crossings possible without free overlap. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
+```json
+{
+  "id": "ore-to-smelter-loader",
+  "asset": "sorter",
+  "region": "forge-world",
+  "position": { "x": 4, "y": 10 },
+  "rotation": 0,
+  "transportEndpoint": { "connection": "ore-to-smelter", "stage": "loader", "distance": 3 }
+}
+```
+
+Every endpoint Device must be referenced by exactly one matching connection stage. Its region, first/last belt-cell position, cargo-flow rotation, asset role, and distance are compile-time invariants. Sorter attachments may overlap their owned belt endpoint because they are mounted infrastructure rather than an additional floor tile; they still have independent identity, asset tier, cost, power-grid membership, utilization, selection, and replay state. The line remains connection-owned because its ordered path is the physical belt instance.
+
+`resources` is required and non-empty. It is the exact material allowlist for the lane, not a derived endpoint intersection: every entry must name a project Resource accepted by both compiled machine-port buffers, duplicates are invalid, and runtime dispatch may not move an unlisted Resource. A list such as `["iron-ore", "coal"]` deliberately permits a mixed-material lane; `["iron-ore"]` keeps a dedicated lane explicit even if both ports use wildcard buffers. Changing transport intent therefore appears in the same Blueprint diff as path, tier, span, or stack edits.
+
+The first and last cells must be level-0 cells exactly the loader and unloader Devices' `transportEndpoint.distance` grid cells outward from the named ports. Consecutive cells must share a cardinal edge and may change by at most one `level`, representing a ramp along that step. Omitted `level` is ground level 0. Paths cannot leave region bounds, repeat the same `(x, y, level)`, cross placed machines, or cover finite resource nodes on the ground. Same-coordinate cells at different levels are distinct, making explicit crossings possible without free overlap. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
 
 Each compiled belt cell has one output direction and one item slot. Multiple connections may reuse cells only when they agree on that downstream direction, so branches may merge into a shared belt but cannot silently diverge without a placed transport junction. Every item moves through loading, exact belt-cell positions, and unloading. Occupied downstream cells stop movement, the blockage propagates upstream one cell at a time, and simultaneous merge contenders use deterministic round-robin arbitration. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
 
@@ -374,7 +389,7 @@ The filename must match `id`; every resource is compiler-resolved. Inputs and ou
 
 ## Blueprint
 
-Every Device instance belongs to exactly one region from the selected world. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region and explicitly select loader, line, and unloader Device assets. Extractors must explicitly bind reachable, same-region nodes supported by their asset.
+Every Device instance belongs to exactly one region from the selected world. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region, reference explicit loader and unloader Device instances, and select one line Device asset for the routed belt cells. Extractors must explicitly bind reachable, same-region nodes supported by their asset.
 
 Blueprint files are independently named candidate programs. `inm compare` can transform one complete file into another with an exact RFC 6902 patch while also reporting changes by stable entity id. Array positions are patch mechanics; Device, connection, and logistics-network ids are the semantic identity used in explanations. Comparison fixes catalogs, World, Scenario, Objective, and seed so its metric delta belongs to the Blueprint edit alone. See [[docs/design/blueprint-comparison]].
 
@@ -402,6 +417,22 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
         "inputs": { "iron-ore": "input" },
         "outputs": { "iron-plate": "output" }
       }
+    },
+    {
+      "id": "ore-to-smelter-loader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": { "x": 4, "y": 10 },
+      "rotation": 0,
+      "transportEndpoint": { "connection": "ore-to-smelter", "stage": "loader", "distance": 1 }
+    },
+    {
+      "id": "ore-to-smelter-unloader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": { "x": 9, "y": 10 },
+      "rotation": 0,
+      "transportEndpoint": { "connection": "ore-to-smelter", "stage": "unloader", "distance": 1 }
     }
   ],
   "connections": [
@@ -412,9 +443,9 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
       "resources": ["iron-ore"],
       "path": [{ "x": 4, "y": 10 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }, { "x": 9, "y": 10 }],
       "logistics": {
-        "loader": { "deviceAsset": "sorter", "distance": 1 },
+        "loader": { "device": "ore-to-smelter-loader" },
         "line": { "deviceAsset": "conveyor" },
-        "unloader": { "deviceAsset": "sorter", "distance": 1 }
+        "unloader": { "device": "ore-to-smelter-unloader" }
       }
     }
   ],

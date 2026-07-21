@@ -1,8 +1,8 @@
 # INM Run 001-keep-switch-assembler-1-from-assemble-gear
 
 - Decision: **KEEP**
-- Score: **43.220**
-- Result hash: `35ddaa239c89b0fb0f6f3e12f811d7d9025e5a5c504033abe70438dfa67acf74`
+- Score: **43.260**
+- Result hash: `623bf0186731e56b0b0a9533942ff42e0c7ca353819e3ea66c560748109f7b9d`
 - Bottleneck: smelter-1
 - Throughput/min: 8.000
 - Target rate: 12.000 gear/min (66.7% attained)
@@ -45,7 +45,7 @@
 ```json
 {
   "blocked": -2.138333333333333,
-  "buildCost": -12.76,
+  "buildCost": -12.72,
   "constraintPenalty": 0,
   "energy": -2.0488820000000003,
   "occupiedArea": -21.200000000000003,

@@ -7,9 +7,17 @@
     "synth-chemical-basin-wind-turbine-1": 0,
     "synth-chemical-basin-wind-turbine-2": 0,
     "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0,
     "synth-make-plastic-1": 0,
     "synth-plastic-sink": 0,
-    "synth-refine-crude-1": 0
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
   "bottleneckEntity": "synth-refine-crude-1",
   "completedOrders": 26,
@@ -35,18 +43,34 @@
     "synth-chemical-basin-wind-turbine-1": 120000,
     "synth-chemical-basin-wind-turbine-2": 120000,
     "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 105250,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 105250,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 113000,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 113200,
     "synth-make-plastic-1": 0,
     "synth-plastic-sink": 0,
-    "synth-refine-crude-1": 0
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 113500,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 113500,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 106000,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 106000
   },
   "infeasibleReason": null,
   "machineUtilization": {
     "synth-chemical-basin-wind-turbine-1": 0,
     "synth-chemical-basin-wind-turbine-2": 0,
     "synth-crude-oil-extractor-1": 1,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0.12291666666666666,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0.12291666666666666,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0.058333333333333334,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0.056666666666666664,
     "synth-make-plastic-1": 0.8983333333333333,
     "synth-plastic-sink": 0,
-    "synth-refine-crude-1": 0.9525
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 0.05416666666666667,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 0.05416666666666667,
+    "synth-refine-crude-1": 0.9525,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0.11666666666666667,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0.11666666666666667
   },
   "materialTreatment": {
     "agentsConsumed": {},
@@ -197,16 +221,32 @@
     "synth-chemical-basin-wind-turbine-1": 0,
     "synth-chemical-basin-wind-turbine-2": 0,
     "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0,
     "synth-make-plastic-1": 0,
     "synth-plastic-sink": 0,
-    "synth-refine-crude-1": 0
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
   "waitingInputTime": {
     "synth-chemical-basin-wind-turbine-1": 0,
     "synth-chemical-basin-wind-turbine-2": 0,
     "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0,
     "synth-make-plastic-1": 12200,
     "synth-plastic-sink": 120000,
-    "synth-refine-crude-1": 5700
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 0,
+    "synth-refine-crude-1": 5700,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   }
 }
