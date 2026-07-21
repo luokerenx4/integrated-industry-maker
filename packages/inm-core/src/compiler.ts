@@ -207,6 +207,28 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       const edgeLength = port.side === "north" || port.side === "south" ? asset.geometry.footprint.width : asset.geometry.footprint.height;
       if (port.offset >= edgeLength) issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/offset`, code: "geometry.port-offset", message: `Port offset ${port.offset} is outside edge length ${edgeLength}` });
     }
+    const service = asset.production?.maintenance?.service;
+    if (service) {
+      const seenInputs = new Set<string>();
+      for (const [inputIndex, input] of service.inputs.entries()) {
+        const path = `assets/devices/${id}/asset.json/production/maintenance/service/inputs/${inputIndex}`;
+        if (seenInputs.has(input.resource)) issues.push({ path, code: "maintenance.duplicate-input", message: `Maintenance service consumes '${input.resource}' more than once` });
+        seenInputs.add(input.resource);
+        if (!resources[input.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown maintenance consumable '${input.resource}'` });
+      }
+    }
+    if (asset.maintenanceProvider) {
+      const providerPath = `assets/devices/${id}/asset.json/maintenanceProvider`;
+      if (!asset.capabilities.includes("maintain")) issues.push({ path: providerPath, code: "capability.not-maintain", message: "Maintenance provider specification requires maintain capability" });
+      if (new Set(asset.maintenanceProvider.skills).size !== asset.maintenanceProvider.skills.length) issues.push({
+        path: `${providerPath}/skills`, code: "maintenance.duplicate-skill", message: `Maintenance provider '${id}' declares a skill more than once`,
+      });
+      const inventory = asset.buffers.find((buffer) => buffer.id === asset.maintenanceProvider!.inventoryBuffer);
+      if (!inventory) issues.push({ path: `${providerPath}/inventoryBuffer`, code: "reference.buffer", message: `Unknown maintenance inventory buffer '${asset.maintenanceProvider.inventoryBuffer}'` });
+      else if (inventory.role === "output") issues.push({ path: `${providerPath}/inventoryBuffer`, code: "maintenance.inventory-role", message: "Maintenance inventory cannot be output-only" });
+    } else if (asset.capabilities.includes("maintain")) issues.push({
+      path: `assets/devices/${id}/asset.json/capabilities`, code: "maintenance.provider-required", message: "Maintain capability requires a maintenanceProvider specification",
+    });
     if (asset.production) {
       if (!asset.capabilities.includes("process")) issues.push({ path: `assets/devices/${id}/asset.json/production`, code: "capability.not-process", message: "Production specification requires process capability" });
       const qualifiedProcesses = new Set<string>();
@@ -1202,11 +1224,37 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ...(generationPlan ? { generationPlan } : {}),
       ...(storagePlan ? { storagePlan } : {}),
       ...(stationEnergyPlan ? { stationEnergyPlan } : {}),
+      maintenanceProviders: [],
     };
     narrowDevicePortsToBuffers(devices[instance.id]!);
   }
 
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
+  for (const device of placed) {
+    const service = device.assetDef.production?.maintenance?.service;
+    if (!service) continue;
+    const centerX = device.position.x + device.footprint.width / 2;
+    const centerY = device.position.y + device.footprint.height / 2;
+    device.maintenanceProviders = placed.flatMap((provider) => {
+      const contract = provider.assetDef.maintenanceProvider;
+      const inventory = contract ? provider.buffers[contract.inventoryBuffer] : undefined;
+      if (!contract || provider.region !== device.region || contract.crews < service.crews || !contract.skills.includes(service.skill)
+        || !inventory || service.inputs.some((input) => !acceptsResource(inventory.accepts, input.resource)
+          || (inventory.resourceCapacities?.[input.resource] ?? inventory.capacity) < input.count)
+        || service.inputs.reduce((total, input) => total + input.count, 0) > inventory.capacity) return [];
+      const providerX = provider.position.x + provider.footprint.width / 2;
+      const providerY = provider.position.y + provider.footprint.height / 2;
+      const distance = Math.hypot(centerX - providerX, centerY - providerY);
+      return distance <= contract.serviceRadius ? [{ device: provider.id, distance }] : [];
+    }).sort((left, right) => left.distance - right.distance || left.device.localeCompare(right.device));
+    if (!device.maintenanceProviders.length) {
+      const index = loaded.blueprint.devices.findIndex((candidate) => candidate.id === device.id);
+      issues.push({
+        path: `blueprint/devices/${index}`, code: "maintenance.provider-uncovered",
+        message: `Device '${device.id}' has no in-range provider for ${service.crews} '${service.skill}' maintenance crew(s) and required consumables`,
+      });
+    }
+  }
   for (let a = 0; a < placed.length; a++) for (let b = a + 1; b < placed.length; b++) {
     const left = placed[a]!; const right = placed[b]!;
     if (left.transportEndpoint || right.transportEndpoint) continue;

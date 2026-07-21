@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "chamber-clean-kit",
+  "name": "Chamber Clean Kit",
+  "description": "Single-use chemistry and seals for one vacuum-process maintenance service.",
+  "tags": [
+    "semiconductor",
+    "maintenance",
+    "consumable"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "kit",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 8
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

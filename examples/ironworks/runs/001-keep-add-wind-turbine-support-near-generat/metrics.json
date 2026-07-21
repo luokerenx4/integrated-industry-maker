@@ -69,11 +69,21 @@
   },
   "equipmentMaintenance": {
     "devices": {},
+    "providers": {},
+    "serviceConsumables": {},
     "totalCancelled": 0,
     "totalCompleted": 0,
+    "totalCrewBlocks": 0,
+    "totalCrewWaitTicks": 0,
+    "totalDriftDefects": 0,
+    "totalDriftedJobs": 0,
+    "totalDriftedLots": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
     "totalMaintenanceTicks": 0,
     "totalMandatory": 0,
-    "totalOpportunistic": 0
+    "totalOpportunistic": 0,
+    "totalServiceCrewTicks": 0
   },
   "equipmentSetups": {
     "campaignMaximumHoldReleases": 0,

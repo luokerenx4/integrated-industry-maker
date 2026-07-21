@@ -178,6 +178,8 @@ async function loadStudioData(projectId: string, runName?: string) {
       ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),
       ...(device.assetDef.production?.maintenance ? { maintenance: { ...device.assetDef.production.maintenance } } : {}),
+      maintenanceProviders: device.maintenanceProviders.map((provider) => ({ ...provider })),
+      ...(device.assetDef.maintenanceProvider ? { maintenanceProvider: { ...device.assetDef.maintenanceProvider } } : {}),
       region: device.region,
       position: {
         x: device.position.x + regionLayout.offsets.get(device.region)!.x,
@@ -306,6 +308,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         geometry: asset.geometry,
         buffers: asset.buffers,
         production: asset.production,
+        maintenanceProvider: asset.maintenanceProvider,
         treatment: asset.treatment,
         extraction: asset.extraction,
         logistics: asset.logistics,

@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "metrology-calibration-kit",
+  "name": "Metrology Calibration Kit",
+  "description": "Traceable standards and consumables for one metrology maintenance service.",
+  "tags": [
+    "semiconductor",
+    "maintenance",
+    "consumable"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "kit",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 8
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -116,6 +116,16 @@
       "maximumJobs": 8,
       "durationTicks": 7000,
       "powerMilliWatts": 200000,
+      "service": {
+        "skill": "vacuum-process",
+        "crews": 1,
+        "inputs": [
+          {
+            "resource": "chamber-clean-kit",
+            "count": 1
+          }
+        ]
+      },
       "drift": [
         {
           "afterJobs": 6,

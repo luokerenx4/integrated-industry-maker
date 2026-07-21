@@ -44,6 +44,18 @@ for (const [id, name, description, color] of resources) {
   });
   await json(join(project, "assets", "resources", id, "visual.json"), { shape: "cylinder", texture: null, color, icon: null });
 }
+for (const [id, name, description, color] of [
+  ["chamber-clean-kit", "Chamber Clean Kit", "Single-use chemistry and seals for one vacuum-process maintenance service.", "#f0b45a"],
+  ["metrology-calibration-kit", "Metrology Calibration Kit", "Traceable standards and consumables for one metrology maintenance service.", "#66c6e3"],
+] as const) {
+  await json(join(project, "assets", "resources", id, "asset.json"), {
+    assetVersion: 1, type: "resource", id, name, description,
+    tags: ["semiconductor", "maintenance", "consumable"],
+    unit: { kind: "discrete", symbol: "kit", precision: 0 }, transport: { stackSize: 8 },
+    files: { visual: "visual.json" },
+  });
+  await json(join(project, "assets", "resources", id, "visual.json"), { shape: "box", texture: null, color, icon: null });
+}
 
 const processes = [
   ["pattern-cell-layer-1", "Pattern memory-cell layer 1", "lithography", "photo-mask-l1", 6_000, "blank-dram-wafer-lot", "patterned-cell-l1-lot"],
@@ -138,6 +150,7 @@ async function workCenter(
   changeoverTicks?: number,
   maintenance?: {
     maximumJobs: number; durationTicks: number; powerMilliWatts: number;
+    service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> };
     drift?: Array<{
       afterJobs: number; durationMultiplier: { numerator: number; denominator: number };
       powerMultiplier: { numerator: number; denominator: number }; defects: string[];
@@ -175,6 +188,7 @@ await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified litho
 ], ["release-input", "reentrant-input"], ["pattern-output"], 18_000, 4_000,
 {
   maximumJobs: 8, durationTicks: 9_000, powerMilliWatts: 220_000,
+  service: { skill: "vacuum-process", crews: 1, inputs: [{ resource: "chamber-clean-kit", count: 1 }] },
   drift: [{
     afterJobs: 6,
     durationMultiplier: { numerator: 5, denominator: 4 },
@@ -190,6 +204,7 @@ await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work cente
 ], ["pattern-input"], ["loop-output", "final-output"], 12_000, 3_000,
 {
   maximumJobs: 8, durationTicks: 7_000, powerMilliWatts: 200_000,
+  service: { skill: "vacuum-process", crews: 1, inputs: [{ resource: "chamber-clean-kit", count: 1 }] },
   drift: [{
     afterJobs: 6,
     durationMultiplier: { numerator: 6, denominator: 5 },
@@ -214,7 +229,10 @@ await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline pattern
   { id: "reject-output", direction: "output", side: "east", offset: 1, buffer: "reject-output" },
   { id: "scrap-output", direction: "output", side: "south", offset: 1, buffer: "scrap-output" },
 ], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 22_000, undefined,
-{ maximumJobs: 5, durationTicks: 6_000, powerMilliWatts: 150_000 });
+{
+  maximumJobs: 5, durationTicks: 6_000, powerMilliWatts: 150_000,
+  service: { skill: "metrology", crews: 1, inputs: [{ resource: "metrology-calibration-kit", count: 1 }] },
+});
 
 await workCenter("rapid-metrology-cell", "Rapid Optical Metrology Cell", "Compact high-throughput optical metrology qualified only for standard final-pattern screening.", "inspection", ["inspect-final-pattern-standard"], "#35c2c1", [
   { id: "wafer-input", direction: "input", side: "north", offset: 1, buffer: "wafer-input" },
@@ -222,7 +240,10 @@ await workCenter("rapid-metrology-cell", "Rapid Optical Metrology Cell", "Compac
   { id: "reject-output", direction: "output", side: "east", offset: 1, buffer: "reject-output" },
   { id: "scrap-output", direction: "output", side: "south", offset: 1, buffer: "scrap-output" },
 ], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 6_500, undefined,
-{ maximumJobs: 8, durationTicks: 4_000, powerMilliWatts: 90_000 },
+{
+  maximumJobs: 8, durationTicks: 4_000, powerMilliWatts: 90_000,
+  service: { skill: "metrology", crews: 1, inputs: [{ resource: "metrology-calibration-kit", count: 1 }] },
+},
 { footprint: { width: 3, height: 3 }, idleMilliWatts: 20_000, activeMilliWatts: 180_000 });
 
 await workCenter("pattern-rework-bay", "Pattern Rework Bay", "Qualified recovery cell for repairable final-pattern excursions.", "rework", ["rework-final-pattern"], "#f2a93b", [
@@ -243,6 +264,28 @@ await json(join(project, "assets", "devices", "scrap-bin", "asset.json"), {
 await json(join(project, "assets", "devices", "scrap-bin", "visual.json"), {
   shape: "box", height: 1.2, texture: null, model: null, color: "#8f3c45", label: "SCRAP",
 });
+
+await json(join(project, "assets", "devices", "maintenance-service-bay", "asset.json"), {
+  assetVersion: 1, type: "device", id: "maintenance-service-bay", name: "Maintenance Service Bay",
+  description: "A shared cleanroom service team with one physical crew and a project-local maintenance consumables store.",
+  tags: ["semiconductor", "maintenance", "utility"], capabilities: ["maintain"],
+  geometry: {
+    footprint: { width: 2, height: 2 }, rotatable: true,
+    ports: [{ id: "service-store-input", direction: "input", kind: "resource", side: "west", offset: 0, buffer: "service-store" }],
+  },
+  buffers: [{ id: "service-store", role: "input", capacity: 32, accepts: ["chamber-clean-kit", "metrology-calibration-kit"] }],
+  maintenanceProvider: {
+    skills: ["vacuum-process", "metrology"], crews: 1, serviceRadius: 35, inventoryBuffer: "service-store",
+  },
+  runtime: { apiVersion: 1, entry: "runtime.ts" },
+  power: { idleMilliWatts: 15_000, activeMilliWatts: 50_000 },
+  economics: { buildCost: 5_000 }, files: { visual: "visual.json" },
+});
+await json(join(project, "assets", "devices", "maintenance-service-bay", "visual.json"), {
+  shape: "box", height: 1.8, texture: null, model: null, color: "#e2a84a", label: "SERVICE",
+});
+await text(join(project, "assets", "devices", "maintenance-service-bay", "runtime.ts"),
+  `import type { DeviceProgram } from "../../runtime-api";\n\nexport default {\n  apiVersion: 1,\n  evaluate() { return { kind: "wait", reason: "idle" }; },\n} satisfies DeviceProgram;\n`);
 
 type Device = Record<string, unknown>;
 type Connection = Record<string, unknown>;
@@ -301,6 +344,7 @@ const devices: Device[] = [
   },
   { id: "wafer-sort-boundary", asset: "material-sink", region: "cleanroom", position: { x: 8, y: 20 }, rotation: 0, bufferFilters: { input: ["qualified-dram-wafer-lot"] } },
   { id: "quality-scrap", asset: "scrap-bin", region: "cleanroom", position: { x: 17, y: 27 }, rotation: 90, bufferFilters: { input: ["scrap-dram-wafer-lot"] } },
+  { id: "maintenance-service-1", asset: "maintenance-service-bay", region: "cleanroom", position: { x: 34, y: 26 }, rotation: 0 },
   { id: "cleanroom-power-a", asset: "wind-turbine", region: "cleanroom", position: { x: 4, y: 3 }, rotation: 0 },
   { id: "cleanroom-power-b", asset: "wind-turbine", region: "cleanroom", position: { x: 12, y: 3 }, rotation: 0 },
   { id: "cleanroom-power-c", asset: "wind-turbine", region: "cleanroom", position: { x: 20, y: 3 }, rotation: 0 },
@@ -402,7 +446,9 @@ async function scenario(
   failures: Array<{ device: string; atTick: number; durationTicks: number }> = [],
 ): Promise<void> {
   await json(join(project, "scenarios", `${id}.scenario.json`), {
-    id, name, durationTicks: 240_000, lotReleases, initialSetups, qualityExcursions, initialEnergyMilliJoules: {}, failures,
+    id, name, durationTicks: 240_000, lotReleases, initialSetups, qualityExcursions,
+    initialBuffers: { "maintenance-service-1": { "service-store": { "chamber-clean-kit": 16, "metrology-calibration-kit": 16 } } },
+    initialEnergyMilliJoules: {}, failures,
   });
 }
 
@@ -492,7 +538,7 @@ for (const request of [
   specializedProject = compileFactoryProject(specializedSource);
 }
 for (const device of specializedProject.blueprint.devices) {
-  const minimumJobs = /^etch-\d+$/.test(device.id) ? 6
+  const minimumJobs = /^(?:lithography|etch)-\d+$/.test(device.id) ? 6
     : device.id === "inspection-1" ? 3 : undefined;
   if (minimumJobs !== undefined) device.policy = {
     ...device.policy, preventiveMaintenance: { minimumJobs },
@@ -520,15 +566,15 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
-    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift: after six jobs, lithography and etch work becomes slower, consumes more power, and may introduce process defects until maintenance resets the counter. A fresh 27-policy sweep selected mandatory-only lithography, etch maintenance after six jobs, and inspection maintenance after three. Across the locked envelope the candidate raises aggregate score from `-0.522450` to `28.110498` (`+28.632949`), and every case improves; the minimum case delta is `+18.031765`. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift: after six jobs, lithography and etch work becomes slower, consumes more power, and may introduce process defects until maintenance resets the counter. Maintenance is physical factory work: vacuum tools consume chamber-clean kits, metrology consumes calibration kits, and all maintained tools compete for one placed service crew. A fresh 27-policy sweep selected maintenance after six jobs for both lithography and etch and after three jobs for inspection. The locked aggregate is `-13.763165`, while every workload remains at least `+18.502208` above its baseline. Continue from this candidate rather than resetting it.",
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Under deterministic process drift, the selected policy is lithography off / etch 6 / inspection 3. It scores `28.110498`, leaves four drifted jobs and two newly introduced drift defects in every case, and clears the per-case gate. That remaining exposure is deliberate: eliminating it costs more availability than the current objective returns.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures: deep-only, rapid-only, deep+deep, deep+rapid, and rapid+rapid variants across capital layouts, equipment-specific maintenance, and lot dispatch. Device assets own mandatory exact Process qualifications, so the project-local `rapid-metrology-cell` may execute the four-second standard optical screen but never the eight-second deep electrical inspection merely because both share the `inspection` category. Re-run this search after changing equipment physics; its prior 56-variant rejection remains historical evidence rather than a timeless result.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. The selected policy is lithography 6 / etch 6 / inspection 3. It scores `-13.763165`, remains at least `+18.502208` above the baseline in every case, and leaves two drifted jobs plus two newly introduced drift defects per case. The report also exposes consumable wait, crew wait, crew-time, and exact service-kit consumption, so a policy cannot hide maintenance behind a scalar downtime total.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures: deep-only, rapid-only, deep+deep, deep+rapid, and rapid+rapid variants across capital layouts, equipment-specific maintenance, and lot dispatch. Device assets own mandatory exact Process qualifications, so the project-local `rapid-metrology-cell` may execute the four-second standard optical screen but never the eight-second deep electrical inspection merely because both share the `inspection` category. Re-run this search after changing equipment physics; its prior 56-variant rejection remains historical evidence rather than a timeless result.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
-    "Coding Agents may next test a different project-local metrology equipment class, furnace duplication, maintenance-aware tool counts, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, mandatory/opportunistic/cancelled maintenance, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
+    "Coding Agents may next test a second service crew, service-bay placement, maintenance-kit inventory, a different project-local metrology equipment class, furnace duplication, maintenance-aware tool counts, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, mandatory/opportunistic/cancelled maintenance, service input/crew wait, crew work and consumed kits, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
@@ -544,11 +590,11 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
-    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools. Lithography, etch, and inspection assets own synthetic usage-based maintenance limits and fixed work; lithography and etch also become slower, draw more power, and introduce declared defects after six jobs until maintenance resets their usage state. The Blueprint may only choose an earlier idle-window threshold, never weaken this equipment physics.",
+    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools. Lithography, etch, and inspection assets own synthetic usage-based maintenance limits and fixed work; lithography and etch also become slower, draw more power, and introduce declared defects after six jobs until maintenance resets their usage state. Every maintenance contract requires a placed in-range provider: vacuum tools consume chamber-clean kits, metrology consumes calibration kits, and all maintained tools compete for one shared cleanroom crew. The Blueprint may choose an earlier idle-window threshold but cannot weaken equipment or service physics.",
   )
   .replace(
     "peak active lots, physical/controller blocked lot-time",
-    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes, mandatory/opportunistic/cancelled maintenance work",
+    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes, mandatory/opportunistic/cancelled maintenance work, consumable/crew wait, service crew-time and consumed kits",
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",

@@ -117,6 +117,14 @@
     "etch-1": "etch-recipe-l1"
   },
   "qualityExcursions": [],
+  "initialBuffers": {
+    "maintenance-service-1": {
+      "service-store": {
+        "chamber-clean-kit": 16,
+        "metrology-calibration-kit": 16
+      }
+    }
+  },
   "initialEnergyMilliJoules": {},
   "failures": []
 }

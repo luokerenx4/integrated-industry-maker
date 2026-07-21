@@ -1,0 +1,66 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "maintenance-service-bay",
+  "name": "Maintenance Service Bay",
+  "description": "A shared cleanroom service team with one physical crew and a project-local maintenance consumables store.",
+  "tags": [
+    "semiconductor",
+    "maintenance",
+    "utility"
+  ],
+  "capabilities": [
+    "maintain"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 2,
+      "height": 2
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "service-store-input",
+        "direction": "input",
+        "kind": "resource",
+        "side": "west",
+        "offset": 0,
+        "buffer": "service-store"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "service-store",
+      "role": "input",
+      "capacity": 32,
+      "accepts": [
+        "chamber-clean-kit",
+        "metrology-calibration-kit"
+      ]
+    }
+  ],
+  "maintenanceProvider": {
+    "skills": [
+      "vacuum-process",
+      "metrology"
+    ],
+    "crews": 1,
+    "serviceRadius": 35,
+    "inventoryBuffer": "service-store"
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 15000,
+    "activeMilliWatts": 50000
+  },
+  "economics": {
+    "buildCost": 5000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -1,4 +1,4 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, ProcessAmount, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
@@ -49,6 +49,9 @@ export type FactoryStateMutation =
   | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
   | { kind: "maintenance.finish"; device: string; cause: "mandatory" | "opportunistic"; durationTicks: Tick }
   | { kind: "maintenance.cancel"; device: string }
+  | { kind: "maintenance.wait"; device: string; reason: "consumable" | "crew" | null }
+  | { kind: "maintenance.service-start"; device: string; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
+  | { kind: "maintenance.service-release"; provider: string; crews: number; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -401,6 +404,50 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.cancelled++;
+      return;
+    }
+    case "maintenance.wait": {
+      const maintenance = state.devices[mutation.device]!.maintenance;
+      if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
+      if (maintenance.wait?.reason === mutation.reason) return;
+      if (maintenance.wait) {
+        const key = maintenance.wait.reason === "consumable" ? "inputWaitTicks" : "crewWaitTicks";
+        maintenance[key] += state.tick - maintenance.wait.sinceTick;
+      }
+      if (mutation.reason) {
+        const key = mutation.reason === "consumable" ? "inputBlocks" : "crewBlocks";
+        maintenance[key]++;
+        maintenance.wait = { reason: mutation.reason, sinceTick: state.tick };
+      } else delete maintenance.wait;
+      return;
+    }
+    case "maintenance.service-start": {
+      const client = state.devices[mutation.device]!.maintenance;
+      const provider = state.devices[mutation.provider]!.maintenanceProvider;
+      if (!client || !provider) throw new Error(`Invalid maintenance service allocation '${mutation.provider}' -> '${mutation.device}'`);
+      if (provider.crewsInUse + mutation.crews > provider.crews) throw new Error(`Maintenance provider '${mutation.provider}' has insufficient free crews`);
+      for (const input of mutation.inputs) {
+        if ((state.devices[mutation.provider]!.buffers[mutation.inventoryBuffer]?.[input.resource] ?? 0) < input.count) {
+          throw new Error(`Maintenance provider '${mutation.provider}' lacks '${input.resource}'`);
+        }
+      }
+      provider.crewsInUse += mutation.crews;
+      provider.peakCrewsInUse = Math.max(provider.peakCrewsInUse, provider.crewsInUse);
+      provider.assignments++;
+      for (const input of mutation.inputs) {
+        mutateBufferQuantity(state, mutation.provider, mutation.inventoryBuffer, input.resource, -input.count);
+        state.consumed[input.resource] = (state.consumed[input.resource] ?? 0) + input.count;
+        provider.consumables[input.resource] = (provider.consumables[input.resource] ?? 0) + input.count;
+        client.serviceConsumables[input.resource] = (client.serviceConsumables[input.resource] ?? 0) + input.count;
+      }
+      return;
+    }
+    case "maintenance.service-release": {
+      const provider = state.devices[mutation.provider]!.maintenanceProvider;
+      if (!provider || provider.crewsInUse < mutation.crews) throw new Error(`Invalid maintenance service release from '${mutation.provider}'`);
+      provider.crewsInUse -= mutation.crews;
+      provider[mutation.outcome]++;
+      provider.serviceCrewTicks += mutation.occupiedTicks * mutation.crews;
       return;
     }
     case "campaign.hold": {

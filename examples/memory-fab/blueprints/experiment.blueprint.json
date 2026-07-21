@@ -42,7 +42,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10
+        "powerPriority": 10,
+        "preventiveMaintenance": {
+          "minimumJobs": 6
+        }
       }
     },
     {
@@ -207,6 +210,16 @@
       }
     },
     {
+      "id": "maintenance-service-1",
+      "asset": "maintenance-service-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 34,
+        "y": 26
+      },
+      "rotation": 0
+    },
+    {
       "id": "cleanroom-power-a",
       "asset": "wind-turbine",
       "region": "cleanroom",
@@ -281,7 +294,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10
+        "powerPriority": 10,
+        "preventiveMaintenance": {
+          "minimumJobs": 6
+        }
       }
     },
     {

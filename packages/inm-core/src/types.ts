@@ -114,7 +114,7 @@ export interface ProductRoute extends ProductRouteManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "extract" | "process" | "treat" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
+export type DeviceCapability = "extract" | "process" | "treat" | "maintain" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -189,6 +189,8 @@ export interface DeviceAssetManifest {
       maximumJobs: number;
       durationTicks: Tick;
       powerMilliWatts: number;
+      /** Physical service resources acquired from one in-range maintenance provider. */
+      service: { skill: string; crews: number; inputs: ProcessAmount[] };
       /** Active stage is the greatest afterJobs threshold reached before a production job starts. */
       drift?: Array<{
         afterJobs: number;
@@ -197,6 +199,13 @@ export interface DeviceAssetManifest {
         defects: string[];
       }>;
     };
+  };
+  /** A placed provider contributes finite shared crew capacity and a physical consumable store. */
+  maintenanceProvider?: {
+    skills: string[];
+    crews: number;
+    serviceRadius: number;
+    inventoryBuffer: BufferId;
   };
   extraction?: {
     resources: ResourceId[];
@@ -635,6 +644,8 @@ export interface CompiledDevice extends BlueprintDevice {
     | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: Array<{ resource: ResourceId; energyMilliJoules: number; durationTicks: Tick }> };
   storagePlan?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
   stationEnergyPlan?: { capacityMilliJoules: number; chargeMilliWatts: number };
+  /** In-range providers capable of satisfying this Device's immutable maintenance service contract. */
+  maintenanceProviders: Array<{ device: DeviceInstanceId; distance: number }>;
   powerGrid?: string;
 }
 export interface CompiledConnection extends BlueprintConnection {
@@ -788,7 +799,13 @@ export interface ActiveDeviceJob {
   lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
   changeover?: { from: string | null; to: string };
   /** Marks evaluator-owned equipment maintenance rather than a material-processing job. */
-  maintenance?: { cause: "mandatory" | "opportunistic" };
+  maintenance?: {
+    cause: "mandatory" | "opportunistic";
+    provider: DeviceInstanceId;
+    skill: string;
+    crews: number;
+    inputs: ProcessAmount[];
+  };
   /** Only successfully completed jobs with this marker consume the maintenance usage budget. */
   production?: true;
   /** Evaluator-owned wear state captured when this production job started. */
@@ -883,6 +900,22 @@ export interface DeviceRuntimeState {
     driftedJobs: number;
     driftedLots: number;
     driftDefects: number;
+    inputWaitTicks: Tick;
+    crewWaitTicks: Tick;
+    inputBlocks: number;
+    crewBlocks: number;
+    serviceConsumables: Record<ResourceId, number>;
+    wait?: { reason: "consumable" | "crew"; sinceTick: Tick };
+  };
+  maintenanceProvider?: {
+    crews: number;
+    crewsInUse: number;
+    peakCrewsInUse: number;
+    assignments: number;
+    completed: number;
+    cancelled: number;
+    serviceCrewTicks: Tick;
+    consumables: Record<ResourceId, number>;
   };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
@@ -976,9 +1009,10 @@ export type FactoryEvent =
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
-  | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
-  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
-  | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; reason: "equipment-breakdown" }
+  | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
@@ -1216,6 +1250,12 @@ export interface FactoryMetrics {
     totalDriftedJobs: number;
     totalDriftedLots: number;
     totalDriftDefects: number;
+    totalInputWaitTicks: Tick;
+    totalCrewWaitTicks: Tick;
+    totalInputBlocks: number;
+    totalCrewBlocks: number;
+    totalServiceCrewTicks: Tick;
+    serviceConsumables: Record<ResourceId, number>;
     devices: Record<DeviceInstanceId, {
       jobsSinceMaintenance: number;
       completed: number;
@@ -1226,6 +1266,22 @@ export interface FactoryMetrics {
       driftedJobs: number;
       driftedLots: number;
       driftDefects: number;
+      inputWaitTicks: Tick;
+      crewWaitTicks: Tick;
+      inputBlocks: number;
+      crewBlocks: number;
+      serviceConsumables: Record<ResourceId, number>;
+      wait?: { reason: "consumable" | "crew"; sinceTick: Tick };
+    }>;
+    providers: Record<DeviceInstanceId, {
+      crews: number;
+      crewsInUse: number;
+      peakCrewsInUse: number;
+      assignments: number;
+      completed: number;
+      cancelled: number;
+      serviceCrewTicks: Tick;
+      consumables: Record<ResourceId, number>;
     }>;
   };
   totalBuildCost: number;

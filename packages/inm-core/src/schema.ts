@@ -70,7 +70,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["extract", "process", "treat", "store", "transport", "transport-junction", "station", "consume", "discard", "power"])).min(1),
+  capabilities: z.array(z.enum(["extract", "process", "treat", "maintain", "store", "transport", "transport-junction", "station", "consume", "discard", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -91,6 +91,10 @@ export const deviceAssetSchema = z.object({
     changeover: z.object({ durationTicks: positiveInt, powerMilliWatts: nonNegativeInt }).strict().optional(),
     maintenance: z.object({
       maximumJobs: positiveInt, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
+      service: z.object({
+        skill: id, crews: positiveInt,
+        inputs: z.array(z.object({ resource: id, count: positiveInt }).strict()),
+      }).strict(),
       drift: z.array(z.object({
         afterJobs: positiveInt,
         durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
@@ -98,6 +102,9 @@ export const deviceAssetSchema = z.object({
         defects: z.array(id),
       }).strict()).min(1).optional(),
     }).strict().optional(),
+  }).strict().optional(),
+  maintenanceProvider: z.object({
+    skills: z.array(id).min(1), crews: positiveInt, serviceRadius: positiveInt, inventoryBuffer: id,
   }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,

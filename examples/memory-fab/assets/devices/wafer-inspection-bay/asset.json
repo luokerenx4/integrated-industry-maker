@@ -128,7 +128,17 @@
     "maintenance": {
       "maximumJobs": 5,
       "durationTicks": 6000,
-      "powerMilliWatts": 150000
+      "powerMilliWatts": 150000,
+      "service": {
+        "skill": "metrology",
+        "crews": 1,
+        "inputs": [
+          {
+            "resource": "metrology-calibration-kit",
+            "count": 1
+          }
+        ]
+      }
     }
   },
   "runtime": {

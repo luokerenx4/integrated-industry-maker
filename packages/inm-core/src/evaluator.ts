@@ -250,7 +250,22 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     devices: setupDevices,
   };
   const maintenanceDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.maintenance)
-    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, { ...runtime.maintenance! }]));
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => {
+      const maintenance = { ...runtime.maintenance!, serviceConsumables: { ...runtime.maintenance!.serviceConsumables } };
+      if (maintenance.wait) {
+        const key = maintenance.wait.reason === "consumable" ? "inputWaitTicks" : "crewWaitTicks";
+        maintenance[key] += state.tick - maintenance.wait.sinceTick;
+      }
+      return [id, maintenance];
+    }));
+  const maintenanceProviders = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.maintenanceProvider)
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, {
+      ...runtime.maintenanceProvider!, consumables: { ...runtime.maintenanceProvider!.consumables },
+    }]));
+  const serviceConsumables = Object.values(maintenanceDevices).reduce<Record<string, number>>((totals, maintenance) => {
+    for (const [resource, count] of Object.entries(maintenance.serviceConsumables)) totals[resource] = (totals[resource] ?? 0) + count;
+    return totals;
+  }, {});
   const equipmentMaintenance: FactoryMetrics["equipmentMaintenance"] = {
     totalCompleted: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.completed, 0),
     totalMandatory: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.mandatory, 0),
@@ -260,7 +275,14 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     totalDriftedJobs: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftedJobs, 0),
     totalDriftedLots: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftedLots, 0),
     totalDriftDefects: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftDefects, 0),
+    totalInputWaitTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.inputWaitTicks, 0),
+    totalCrewWaitTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.crewWaitTicks, 0),
+    totalInputBlocks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.inputBlocks, 0),
+    totalCrewBlocks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.crewBlocks, 0),
+    totalServiceCrewTicks: Object.values(maintenanceProviders).reduce((sum, provider) => sum + provider.serviceCrewTicks, 0),
+    serviceConsumables,
     devices: maintenanceDevices,
+    providers: maintenanceProviders,
   };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
   const weights = project.objective.weights;
