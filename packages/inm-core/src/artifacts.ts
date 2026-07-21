@@ -28,6 +28,7 @@ export interface RunManifest {
   resultHash: string;
   engineVersion: string;
   hashes: CompiledFactoryProject["hashes"];
+  selection: { world: string; scenario: string; objective: string };
   seed: number;
   decision: "BASELINE" | "KEEP" | "REVERT";
   parentRun?: string;
@@ -100,6 +101,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const manifest: RunManifest = {
     version: 1, status: "completed", createdAt: new Date().toISOString(), runKey: result.runKey,
     resultHash: result.resultHash, engineVersion: project.hashes.engineVersion, hashes: project.hashes,
+    selection: { world: project.world.id, scenario: project.scenario.id, objective: project.objective.id },
     seed: options.seed, decision: options.decision ?? "BASELINE", ...(options.parentRun ? { parentRun: basename(options.parentRun) } : {}),
   };
   await atomicWriteJson(join(runDir, "manifest.json"), manifest);

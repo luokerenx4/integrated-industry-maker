@@ -16,10 +16,11 @@ Each planet has its own self-contained coal-to-power loop. A startup coal unit b
 ```bash
 bun run inm validate examples/ironworks
 bun run inm plan examples/ironworks
+bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output my-factory
 bun run inm simulate examples/ironworks --seed 42
 bun run inm test examples/ironworks
 bun run inm research examples/ironworks --iterations 3 --seed 42
 bun run inm studio examples/ironworks
 ```
 
-The checked-in `runs/` directory contains a full demonstration history with a baseline, a KEEP improvement, and REVERT candidates. The canonical `blueprints/main.blueprint.json` remains deliberately suboptimal so a fresh research run can reproduce the improvement.
+The checked-in `runs/` directory contains a full demonstration history with a baseline, a KEEP improvement, and REVERT candidates. The canonical `blueprints/main.blueprint.json` remains deliberately suboptimal so a fresh research run can reproduce the improvement. `blueprints/blank.blueprint.json` and the neutral `cold-start` Scenario exercise factory synthesis; the checked-in `synthesized` blueprint is the deterministic result and has its own throughput/area/cost fixture.

@@ -1,0 +1,7 @@
+{
+  "id": "cold-start",
+  "name": "Cold Start Synthesis Benchmark",
+  "durationTicks": 120000,
+  "initialBuffers": {},
+  "failures": []
+}

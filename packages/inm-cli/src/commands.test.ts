@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { listWorkspaceProjects, openFactoryProject, resolveProjectDirectory } from "@inm/core";
-import { projectCreateCommand, projectDefaultCommand, workspaceInitCommand } from "./commands";
+import { join, resolve } from "node:path";
+import { listWorkspaceProjects, openFactoryProject, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-workspace-")); const workspace = join(parent, "engine");
@@ -32,4 +32,13 @@ test("one workspace creates, selects, and isolates multiple self-contained proje
   await projectDefaultCommand(workspace, "beta-works", { json: false });
   expect(await resolveProjectDirectory(workspace)).toBe(betaDir);
   expect(await resolveProjectDirectory(betaDir)).toBe(betaDir);
+});
+
+test("synthesize command writes a new compileable blueprint and refuses overwrite", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-synthesize-")); const projectDir = join(parent, "ironworks");
+  await cp(resolve(import.meta.dir, "../../../examples/ironworks"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") });
+  await synthesizeCommand(projectDir, { blueprint: "blank", scenario: "cold-start" }, { output: "generated-test", json: false });
+  const project = await openFactoryProject(projectDir, { blueprint: "generated-test", scenario: "cold-start" });
+  expect(planProductionCapacity(project).ready).toBeTrue();
+  expect(synthesizeCommand(projectDir, { blueprint: "blank", scenario: "cold-start" }, { output: "generated-test", json: false })).rejects.toThrow("Blueprint already exists");
 });

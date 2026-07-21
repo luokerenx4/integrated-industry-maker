@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
   analyzeCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
-  researchCommand, runsCommand, simulateCommand, testCommand, validateCommand, workspaceInitCommand,
+  researchCommand, runsCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
 const HELP = `inm — Integrated Industry Maker
@@ -27,6 +27,7 @@ PROJECT COMMANDS
   inspect <path>              Show assets, topology, objective, hashes, and runs
   analyze <path>              Compile nominal process rates and material balance
   plan <path>                 Size the factory for the objective target rate
+  synthesize <path>           Generate a complete blueprint from the objective
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
@@ -96,6 +97,11 @@ async function main(): Promise<void> {
     if (subcommand === "inspect") return inspectCommand(projectDir, selectionOf(values), values);
     if (subcommand === "plan") return planCommand(projectDir, selectionOf(values), values);
     return analyzeCommand(projectDir, selectionOf(values), values);
+  }
+  if (subcommand === "synthesize") {
+    const { values, positionals } = parseArgs({ args, options: { ...common, output: { type: "string", default: "synthesized" } }, allowPositionals: true });
+    const projectDir = await selectedProject(positionals, "inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]", values.project);
+    return synthesizeCommand(projectDir, selectionOf(values), { output: values.output!, json: values.json });
   }
   if (subcommand === "simulate") {
     const { values, positionals } = parseArgs({ args, options: { ...common, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });

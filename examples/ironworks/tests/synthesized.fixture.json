@@ -1,0 +1,15 @@
+{
+  "name": "synthesized-cold-start-factory",
+  "blueprint": "synthesized",
+  "scenario": "cold-start",
+  "objective": "default",
+  "seed": 42,
+  "assertions": [
+    { "kind": "metric", "path": "throughputPerMinute", "min": 12 },
+    { "kind": "metric", "path": "occupiedArea", "max": 120 },
+    { "kind": "metric", "path": "totalBuildCost", "max": 30000 },
+    { "kind": "metric", "path": "infeasibleReason", "equals": null },
+    { "kind": "event", "type": "power.shortage", "present": false },
+    { "kind": "event", "type": "transport.power-shortage", "present": false }
+  ]
+}

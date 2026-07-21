@@ -40,6 +40,19 @@ Treats the Objective's required target rate as an industrial specification. The 
 inm plan examples/ironworks --json
 ```
 
+### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
+
+Creates a new complete blueprint from the selected Objective rather than editing the input blueprint. The deterministic synthesizer recursively chooses compatible project-local Processes and Devices, sizes machine and extractor counts, binds multi-input recipes and finite deposits, selects regions, inserts merge/split junctions and cross-region station fleets, provisions renewable power, places every Device, and routes explicit collision-free local belts. It compiles the result, runs the target-rate capacity plan, and performs a cold-start simulation before atomically writing `blueprints/<output>.blueprint.json`. Existing files are never overwritten.
+
+```bash
+inm synthesize examples/ironworks \
+  --blueprint blank \
+  --scenario cold-start \
+  --output synthesized
+```
+
+Use `--json` to receive the selected recipes, extraction bindings, station networks, regional power envelope, plan gaps, and measured throughput/area/cost. The verification run intentionally clears scenario buffers and failures tied to the input blueprint; subsequent `validate`, `plan`, `simulate`, and `test` commands can select any scenario compatible with the generated Device ids.
+
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
 Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes physical belt utilization, average blocked belt items, peak belt occupancy, transport-endpoint energy, and a measured row for every connection showing delivered/capacity items per minute, utilization, blocked item-ticks, and delivered Resource mix. JSON metrics retain per-cell transport measurements plus per-connection departure/delivery counts by Resource, actual rate, capacity, utilization, average in-flight items, blockage, and loader/unloader utilization.
@@ -105,4 +118,4 @@ Studio can replay semantic events, scrub time, change speed, inspect status and 
 
 ## Selection and output
 
-Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `analyze`, `plan`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.
+Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `analyze`, `plan`, `synthesize`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.

@@ -23,6 +23,9 @@ bun run inm simulate examples/ironworks --scenario baseline --seed 42
 # Let the deterministic research agent improve the blueprint
 bun run inm research examples/ironworks --iterations 3 --seed 42
 
+# Or synthesize a complete factory from a blank blueprint and the Objective
+bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output synthesized
+
 # Choose a project, inspect its local assets, and replay experiments in 3D
 bun run inm studio examples/ironworks
 ```
@@ -45,7 +48,7 @@ inm workspace init <workspace-dir>
 inm project create <workspace-dir> <project-id>
 inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
-inm validate|inspect|analyze|plan|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
+inm validate|inspect|analyze|plan|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
 inm studio <project-or-workspace-dir> [--project ID]
 ```
@@ -95,7 +98,7 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
 - A **process** declares a visible material transformation, category, and base cycle time; a blueprint binds it to a compatible Device.
 - A **world** declares regions, world coordinates, build bounds, and finite resource nodes; optimization cannot edit it.
-- A **blueprint** places Devices into world regions, binds extractors to reachable resource nodes, routes local connections through explicit grid cells, and declares planetary or interstellar station networks with finite carrier fleets.
+- A **blueprint** places Devices into world regions, binds extractors to reachable resource nodes, routes local connections through explicit grid cells, and declares planetary or interstellar station networks with finite carrier fleets. `inm synthesize` can construct that complete graph from an empty blueprint, the Objective rate, and only the project's own assets.
 - A **scenario** fixes initial state, failures, duration, and test conditions.
 - An **objective** defines hard constraints and a transparent weighted score.
 
@@ -118,7 +121,7 @@ Project files
   → read-only 3D replay
 ```
 
-The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. The Objective's required items/min is first compiled into an explicit machine, raw-material, transport, station-fleet, regional-power, and finite-reserve plan. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Every physical connection also produces deterministic runtime telemetry—Resource mix, delivered rate versus capacity, utilization, in-flight inventory, and blocked item-ticks—which the optimizer can turn into a targeted project-local logistics tier upgrade. Studio opens on a project launcher, gives every project a stable `/<project-id>` URL, and exposes that project's self-contained Device, Resource, and Process catalog plus target plan and compiled material, logistics, power, and diagnostic analysis. Visual files cannot affect simulation.
+The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. The Objective's required items/min is first compiled into an explicit machine, raw-material, transport, station-fleet, regional-power, and finite-reserve plan. The synthesis pass performs the inverse construction: it expands project-local recipes, chooses compatible Device assets, sizes and places processors/extractors/junctions/stations/power, binds every recipe and deposit, and collision-routes local belts before compiling and cold-start testing the result. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Every physical connection also produces deterministic runtime telemetry—Resource mix, delivered rate versus capacity, utilization, in-flight inventory, and blocked item-ticks—which the optimizer can turn into a targeted project-local logistics tier upgrade. Studio opens on a project launcher, gives every project a stable `/<project-id>` URL, and exposes that project's self-contained Device, Resource, and Process catalog plus target plan and compiled material, logistics, power, and diagnostic analysis. Visual files cannot affect simulation.
 
 Read [architecture](docs/ARCHITECTURE.md) for determinism, reliability, research permissions, and package boundaries.
 

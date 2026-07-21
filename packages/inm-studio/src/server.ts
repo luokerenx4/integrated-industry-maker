@@ -134,11 +134,11 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "site" |
 async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
   await ensureBaseline(projectDir);
-  const loaded = await loadFactoryProject(projectDir);
   const runs = await listRuns(projectDir);
   const selected = runs.find((run) => run.name === runName)
     ?? runs.findLast((run) => run.manifest.decision === "KEEP")
     ?? runs[0];
+  const loaded = await loadFactoryProject(projectDir, selected?.manifest.selection);
   const runBlueprint = selected
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
     : loaded.blueprint;

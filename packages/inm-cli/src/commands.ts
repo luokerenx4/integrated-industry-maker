@@ -2,9 +2,9 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, findCachedRun, listRuns, listWorkspaceProjects, loadWorkspace, openFactoryProject, pathExists,
+  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, compileFactoryProject, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, openFactoryProject, pathExists,
   planProductionCapacity,
-  researchFactory, runUntil, stableStringify, writeRunArtifact, ExternalCommandResearchAgent,
+  researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 
@@ -183,6 +183,37 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
     ...plan.power.map((power) => `  ${power.region.padEnd(24)} need ${(power.requiredMilliWatts / 1000).toFixed(3).padStart(9)} W  generation ${(power.configuredGenerationMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(power.headroomMilliWatts / 1000).toFixed(3)} W`),
     "", plan.gaps.length ? "Plan gaps" : "Plan gaps: none",
     ...plan.gaps.map((gap) => `  ! [${gap.kind}] ${gap.message}`), "",
+  ].join("\n"), false);
+}
+
+export async function synthesizeCommand(projectDir: string, selection: ProjectSelection, options: { output: string; json: boolean }): Promise<void> {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(options.output)) throw new Error("Output blueprint id must use lowercase kebab-case");
+  const loaded = await loadFactoryProject(projectDir, selection);
+  const synthesis = synthesizeFactoryBlueprint(loaded);
+  const outputPath = join(loaded.rootDir, "blueprints", `${options.output}.blueprint.json`);
+  if (await pathExists(outputPath)) throw new Error(`Blueprint already exists: ${outputPath}`);
+  const verificationScenario = { ...loaded.scenario, initialBuffers: {}, failures: [] };
+  const project = compileFactoryProject({ ...loaded, blueprint: synthesis.blueprint, scenario: verificationScenario });
+  const plan = planProductionCapacity(project); const simulation = runUntil(project);
+  await atomicWriteJson(outputPath, synthesis.blueprint);
+  const summary = {
+    command: "synthesize", output: options.output, outputPath, target: synthesis.target,
+    devices: synthesis.blueprint.devices.length, connections: synthesis.blueprint.connections.length,
+    pathCells: synthesis.blueprint.connections.reduce((sum, connection) => sum + connection.path.length, 0),
+    stationNetworks: synthesis.stationNetworks, selectedProcesses: synthesis.selectedProcesses, extraction: synthesis.extraction, power: synthesis.power,
+    planReady: plan.ready, planGaps: plan.gaps, measured: {
+      throughputPerMinute: simulation.metrics.throughputPerMinute, occupiedArea: simulation.metrics.occupiedArea,
+      totalBuildCost: simulation.metrics.totalBuildCost, finalScore: simulation.metrics.finalScore, infeasibleReason: simulation.metrics.infeasibleReason,
+    },
+  };
+  if (options.json) write(summary, true);
+  else write([
+    `Synthesized '${options.output}' from project-local recipes and assets`, `Blueprint: ${outputPath}`,
+    `Target: ${synthesis.target.ratePerMinute.toFixed(3)} ${synthesis.target.resource}/min`,
+    `Factory: ${summary.devices} devices · ${summary.connections} connections / ${summary.pathCells} belt cells · ${summary.stationNetworks.length} station network${summary.stationNetworks.length === 1 ? "" : "s"}`,
+    `Capacity plan: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`,
+    `Cold-start measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${synthesis.target.resource}/min · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,
+    ...(simulation.metrics.infeasibleReason ? [`Constraint: ${simulation.metrics.infeasibleReason}`] : []), "",
   ].join("\n"), false);
 }
 

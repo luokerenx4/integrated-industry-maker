@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
   findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
-  stableStringify, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
+  stableStringify, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
@@ -48,6 +48,27 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
   source.scenario.failures = [];
   return source;
 }
+
+describe("factory synthesis", () => {
+  test("builds a deterministic, target-ready factory from a blank blueprint", async () => {
+    const source = await loadFactoryProject(ironworks, { blueprint: "blank", scenario: "cold-start" });
+    const first = synthesizeFactoryBlueprint(source); const second = synthesizeFactoryBlueprint(source);
+    expect(stableStringify(first.blueprint)).toBe(stableStringify(second.blueprint));
+    expect(first.blueprint.devices.every((device) => Boolean(source.deviceAssets[device.asset]))).toBeTrue();
+    expect(first.blueprint.devices.filter((device) => source.deviceAssets[device.asset]!.production).every((device) => Boolean(device.recipe))).toBeTrue();
+    expect(first.blueprint.devices.find((device) => device.asset === "assembler")!.recipe!.inputs).toEqual({ coal: "input-secondary", "iron-plate": "input-primary" });
+    expect(first.stationNetworks).toHaveLength(1);
+
+    const project = compileFactoryProject({ ...source, blueprint: first.blueprint });
+    expect(planProductionCapacity(project).ready).toBeTrue();
+    const simulation = runUntil(project);
+    expect(simulation.metrics.throughputPerMinute).toBeGreaterThanOrEqual(source.objective.targetRatePerMinute);
+    expect(simulation.metrics.occupiedArea).toBeLessThanOrEqual(source.objective.constraints!.maxOccupiedArea!);
+    expect(simulation.metrics.totalBuildCost).toBeLessThanOrEqual(source.objective.constraints!.maxBuildCost!);
+    expect(simulation.metrics.infeasibleReason).toBeNull();
+    expect(simulation.events.some((event) => event.type === "power.shortage" || event.type === "transport.power-shortage")).toBeFalse();
+  });
+});
 
 describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
@@ -772,9 +793,10 @@ describe("research boundary and experiment decisions", () => {
 
 describe("artifacts and renderer-independent projection", () => {
   test("every checked-in demonstration run replays to its recorded result hash", async () => {
-    const source = await loaded(); const runs = await listRuns(ironworks);
+    const runs = await listRuns(ironworks);
     expect(runs.length).toBeGreaterThanOrEqual(4);
     for (const run of runs) {
+      const source = await loadFactoryProject(ironworks, run.manifest.selection);
       const blueprint = JSON.parse(await readFile(join(run.path, "blueprint.json"), "utf8"));
       const project = compileFactoryProject({ ...source, blueprint });
       expect(runUntil(project, undefined, { seed: run.manifest.seed }).resultHash).toBe(run.manifest.resultHash);
