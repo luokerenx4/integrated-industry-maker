@@ -52,6 +52,7 @@
       ],
       "policy": {
         "recipeDispatch": "authored-order",
+        "lotDispatch": "fifo",
         "powerPriority": 10
       }
     },
@@ -90,6 +91,7 @@
       ],
       "policy": {
         "recipeDispatch": "authored-order",
+        "lotDispatch": "fifo",
         "powerPriority": 9
       }
     },

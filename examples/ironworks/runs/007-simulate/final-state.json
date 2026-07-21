@@ -9,12 +9,14 @@
     "synth-chemical-basin-wind-turbine-1": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-chemical-basin-wind-turbine-2": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -44,6 +46,9 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {}
       },
@@ -53,24 +58,28 @@
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "processing"
     },
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "processing"
     },
@@ -101,6 +110,11 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "gas-input": {},
+        "liquid-input": {},
+        "output": {}
+      },
       "materialBatches": {
         "gas-input": {},
         "liquid-input": {
@@ -118,6 +132,9 @@
         "input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
       "materialBatches": {
         "input": {}
       },
@@ -126,12 +143,14 @@
     "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -168,6 +187,11 @@
         "liquid-output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "crude-input": {},
+        "gas-output": {},
+        "liquid-output": {}
+      },
       "materialBatches": {
         "crude-input": {
           "crude-oil": {
@@ -183,12 +207,14 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     }
@@ -212,6 +238,7 @@
   "highSpeedMissions": 0,
   "logisticsMissions": {},
   "logisticsTransports": {},
+  "lots": {},
   "materialTreatment": {
     "agentsConsumed": {},
     "treated": {}

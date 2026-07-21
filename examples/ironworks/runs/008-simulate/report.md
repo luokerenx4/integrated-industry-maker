@@ -2,9 +2,11 @@
 
 - Decision: **BASELINE**
 - Score: **373.334**
-- Result hash: `d182ee563438f59d78e02b39eb50a992351fa5e0ccf9f14945a89adf6a551328`
+- Result hash: `a2ba54277c8494b807ece54335763b773d7a2f7173abab2022fc68fbac7400f5`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
+- Tracked lots: 0 / 0 completed · 0 scrapped
+- Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Target rate: 10.000 hydrogen/min (100.0% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
@@ -49,9 +51,11 @@ No configured logistics stations.
   "blocked": 0,
   "buildCost": -5.1,
   "constraintPenalty": 0,
+  "cycleTime": 0,
   "energy": -0.75302875,
   "occupiedArea": -20.400000000000002,
   "onTimeDelivery": 10,
+  "tardiness": 0,
   "throughput": 390,
   "wip": -0.41258333333333336
 }

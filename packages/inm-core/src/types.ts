@@ -32,6 +32,8 @@ export interface ResourceAssetManifest {
   tags: string[];
   unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
   transport: { stackSize: number };
+  /** Makes every discrete unit an identity-preserving industrial work lot. */
+  tracking?: { kind: "lot"; family: string };
   fuel?: { energyMilliJoules: number };
   files: { visual: string };
 }
@@ -289,7 +291,8 @@ export interface IndustrialWorld {
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
-export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority";
+export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
+export type LotDispatchPolicy = "fifo" | "oldest-release" | "earliest-due-date" | "highest-priority";
 export interface BlueprintRecipe {
   process: ProcessId;
   mode: string;
@@ -326,6 +329,8 @@ export interface BlueprintDevice {
     dispatch?: DispatchPolicy;
     /** Deterministic selection among ready qualified operations. */
     recipeDispatch?: RecipeDispatchPolicy;
+    /** Deterministic selection of identity-preserving lots within a ready operation. */
+    lotDispatch?: LotDispatchPolicy;
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
@@ -404,6 +409,15 @@ export interface Scenario {
   name: string;
   durationTicks: Tick;
   initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
+  /** Explicit identity-preserving WIP released at tick zero. Tracked Resources may not appear in initialBuffers. */
+  initialLots?: Array<{
+    id: string;
+    device: DeviceInstanceId;
+    buffer: BufferId;
+    resource: ResourceId;
+    priority?: number;
+    dueTick?: Tick;
+  }>;
   /** Treated subsets of initialBuffers. Undeclared remainder is untreated level zero. */
   initialTreatments?: Array<{ device: DeviceInstanceId; buffer: BufferId; resource: ResourceId; level: number; count: number }>;
   initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
@@ -427,6 +441,10 @@ export interface Objective {
     occupiedArea: number;
     wip: number;
     blocked: number;
+    /** Penalty per minute of mean completed-lot cycle time. */
+    cycleTime?: number;
+    /** Penalty per minute of mean completed-lot tardiness. */
+    tardiness?: number;
   };
 }
 
@@ -475,6 +493,8 @@ export interface CompiledDevice extends BlueprintDevice {
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
     priority: number;
+    /** Identity-preserving input/output pairs. Counts are always equal. */
+    lotTransfers: Array<{ family: string; input: ResourceBufferQuantity; output: ResourceBufferQuantity }>;
   };
   /** One entry per qualified operation. A singleton also appears as processPlan. */
   processPlans: Array<NonNullable<CompiledDevice["processPlan"]>>;
@@ -642,6 +662,30 @@ export interface ActiveDeviceJob {
   generationMilliWatts?: number;
   fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
   treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
+  lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
+}
+export type WorkLotStatus = "queued" | "processing" | "transport" | "completed" | "scrapped";
+export interface WorkLot {
+  id: string;
+  family: string;
+  resource: ResourceId;
+  treatmentLevel: number;
+  priority: number;
+  releasedAtTick: Tick;
+  dueTick?: Tick;
+  routeStep: number;
+  status: WorkLotStatus;
+  statusSinceTick: Tick;
+  queueTicks: Tick;
+  processTicks: Tick;
+  transportTicks: Tick;
+  location:
+    | { kind: "buffer"; device: DeviceInstanceId; buffer: BufferId }
+    | { kind: "device"; device: DeviceInstanceId }
+    | { kind: "transit"; transit: string }
+    | { kind: "completed"; device: DeviceInstanceId }
+    | { kind: "scrapped"; device: DeviceInstanceId; reason: string };
+  completedAtTick?: Tick;
 }
 export interface DeviceRuntimeState {
   status: DeviceStatus;
@@ -650,6 +694,8 @@ export interface DeviceRuntimeState {
   buffers: Record<BufferId, Record<ResourceId, number>>;
   /** Authoritative lot breakdown; its per-Resource sum always equals buffers. */
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
+  /** FIFO-preserving identities for Resources whose tracking kind is lot. */
+  lotIds: Record<BufferId, Record<ResourceId, string[]>>;
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
@@ -667,6 +713,7 @@ export interface ResourceTransit {
   resource: ResourceId;
   count: number;
   treatmentLevel: number;
+  lotIds?: string[];
   from: DeviceInstanceId;
   fromBuffer: BufferId;
   to: DeviceInstanceId;
@@ -699,6 +746,7 @@ export interface BeltTransit extends ResourceTransit {
 export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
+  lots: Record<string, WorkLot>;
   resourceNodes: Record<string, { remaining: number; reserved: number; extracted: number }>;
   transports: Record<ConnectionId, BeltTransit[]>;
   logisticsTransports: Record<string, ResourceTransit[]>;
@@ -730,8 +778,8 @@ export interface FactoryState {
 }
 
 export type FactoryEvent =
-  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick }
-  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[] }
+  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
+  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
   | { type: "transport.stage-finish"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string }
   | { type: "resource.extracted"; tick: Tick; device: DeviceInstanceId; node: string; resource: ResourceId; count: number; remaining: number }
@@ -748,7 +796,9 @@ export type FactoryEvent =
   | { type: "logistics.energy-shortage"; tick: Tick; device: DeviceInstanceId; network: string; route: string; requiredMilliJoules: number; storedMilliJoules: number }
   | { type: "logistics.energy-spent"; tick: Tick; device: DeviceInstanceId; network: string; route: string; energyMilliJoules: number; storedMilliJoules: number }
   | { type: "logistics.energy-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
-  | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
+  | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; lotIds?: string[] }
+  | { type: "lot.completed"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; cycleTicks: Tick; tardinessTicks: Tick }
+  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" }
   | { type: "material.treated"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; fromLevel: number; toLevel: number; agentResource: ResourceId; agentCount: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
@@ -775,6 +825,8 @@ export interface ScoreBreakdown {
   occupiedArea: number;
   wip: number;
   blocked: number;
+  cycleTime: number;
+  tardiness: number;
   constraintPenalty: number;
 }
 export interface FactoryMetrics {
@@ -785,6 +837,22 @@ export interface FactoryMetrics {
   throughputPerMinute: number;
   completedOrders: number;
   onTimeDelivery: number;
+  lotFlow: {
+    family: string | null;
+    released: number;
+    completed: number;
+    scrapped: number;
+    onTimeCompleted: number;
+    inProgress: number;
+    meanCycleTimeTicks: number;
+    p95CycleTimeTicks: number;
+    maximumCycleTimeTicks: number;
+    meanQueueTimeTicks: number;
+    meanProcessTimeTicks: number;
+    meanTransportTimeTicks: number;
+    meanTardinessTicks: number;
+    maximumTardinessTicks: number;
+  };
   energyConsumedMilliJoules: number;
   energyStorage: Record<string, {
     initialMilliJoules: number;

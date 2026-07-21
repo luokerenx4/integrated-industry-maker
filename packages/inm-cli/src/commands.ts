@@ -265,6 +265,14 @@ export async function compareCommand(
     `  score              ${fromMetrics.score.toFixed(3).padStart(12)} → ${toMetrics.score.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.score)}`,
     `  throughput/min     ${fromMetrics.throughputPerMinute.toFixed(3).padStart(12)} → ${toMetrics.throughputPerMinute.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.throughputPerMinute)}`,
     `  target attainment  ${(fromMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}% → ${(toMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}%  Δ ${signed(comparison.delta.objectiveAttainment * 100, 1)}pp`,
+    ...(fromMetrics.completedLots || toMetrics.completedLots ? [
+      `  completed lots     ${fromMetrics.completedLots.toFixed(0).padStart(12)} → ${toMetrics.completedLots.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.completedLots, 0)}`,
+      `  on-time lots       ${fromMetrics.onTimeLots.toFixed(0).padStart(12)} → ${toMetrics.onTimeLots.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.onTimeLots, 0)}`,
+      `  mean cycle         ${(fromMetrics.meanCycleTimeTicks / 1000).toFixed(3).padStart(12)} → ${(toMetrics.meanCycleTimeTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanCycleTimeTicks / 1000)} s`,
+      `  p95 cycle          ${(fromMetrics.p95CycleTimeTicks / 1000).toFixed(3).padStart(12)} → ${(toMetrics.p95CycleTimeTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.p95CycleTimeTicks / 1000)} s`,
+      `  mean queue         ${(fromMetrics.meanQueueTimeTicks / 1000).toFixed(3).padStart(12)} → ${(toMetrics.meanQueueTimeTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanQueueTimeTicks / 1000)} s`,
+      `  mean tardiness     ${(fromMetrics.meanTardinessTicks / 1000).toFixed(3).padStart(12)} → ${(toMetrics.meanTardinessTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanTardinessTicks / 1000)} s`,
+    ] : []),
     `  energy             ${(fromMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.energyConsumedMilliJoules / 1e6)} MJ`,
     `  stored energy      ${(fromMetrics.storedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.storedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.storedMilliJoules / 1e6)} MJ`,
     `  unserved energy    ${(fromMetrics.unservedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.unservedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.unservedMilliJoules / 1e6)} MJ`,
@@ -285,7 +293,13 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
   const synthesis = synthesizeFactoryBlueprint(loaded);
   const outputPath = join(loaded.rootDir, "blueprints", `${options.output}.blueprint.json`);
   if (await pathExists(outputPath)) throw new Error(`Blueprint already exists: ${outputPath}`);
-  const verificationScenario = { ...loaded.scenario, initialBuffers: {}, initialEnergyMilliJoules: {}, failures: [] };
+  const verificationScenario = {
+    ...loaded.scenario,
+    initialBuffers: {},
+    initialLots: [],
+    initialEnergyMilliJoules: {},
+    failures: [],
+  };
   const project = compileFactoryProject({ ...loaded, blueprint: synthesis.blueprint, scenario: verificationScenario });
   const plan = planProductionCapacity(project); const simulation = runUntil(project);
   await atomicWriteJson(outputPath, synthesis.blueprint);
@@ -334,6 +348,10 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     write([
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
     `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
+    ...(result.metrics.lotFlow.family ? [
+      `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released} completed · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
+      `Lot time: ${(result.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(3)} s queue · ${(result.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(3)} s processing · ${(result.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(3)} s transport · ${(result.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(3)} s tardiness`,
+    ] : []),
     `Belts: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}% average occupancy · ${result.metrics.averageBlockedBeltItems.toFixed(2)} blocked items · ${result.metrics.peakBeltItems} peak items`,
     ...materialTreatmentSummary(result.metrics),
     "Measured transport flows:", ...flowLines,
@@ -409,7 +427,12 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     `${result.name} · coding-agent Blueprint benchmark`,
     `BASELINE ${result.baselineBlueprint} ${result.baselineBlueprintHash.slice(0, 12)} → CANDIDATE ${result.candidateBlueprint} ${result.candidateBlueprintHash.slice(0, 12)}`,
     `Fixed work: ${result.cases.length} cases · ${result.totalSimulationTicks} simulated ticks (baseline + candidate)`, "",
-    ...result.cases.map((item) => `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`),
+    ...result.cases.flatMap((item) => [
+      `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
+      ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
+        `    lots ${item.baselineMetrics.completedLots}/${item.baselineMetrics.onTimeLots} complete/on-time → ${item.candidateMetrics.completedLots}/${item.candidateMetrics.onTimeLots} · mean cycle ${(item.baselineMetrics.meanCycleTimeTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanCycleTimeTicks / 1000).toFixed(3)} s · tardiness ${(item.baselineMetrics.meanTardinessTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanTardinessTicks / 1000).toFixed(3)} s`,
+      ] : []),
+    ]),
     "",
     `baseline_score: ${result.baselineScore.toFixed(6)}`,
     `benchmark_score: ${result.candidateScore.toFixed(6)}`,

@@ -15,6 +15,11 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input-primary": {},
+        "input-secondary": {},
+        "output": {}
+      },
       "materialBatches": {
         "input-primary": {},
         "input-secondary": {
@@ -29,24 +34,28 @@
     "coal-assembly-to-splitter-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "coal-assembly-to-splitter-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "coal-forge-to-generator-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "coal-forge-to-generator-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -57,6 +66,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {
           "coal": {
@@ -73,6 +85,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {
           "coal": {
@@ -89,6 +104,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {
           "coal": {
@@ -101,36 +119,42 @@
     "coal-splitter-to-assembler-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "coal-splitter-to-assembler-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "coal-splitter-to-generator-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "coal-splitter-to-generator-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "gear-to-output-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "gear-to-output-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -158,6 +182,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "fuel": {}
+      },
       "materialBatches": {
         "fuel": {
           "coal": {
@@ -192,6 +219,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "fuel": {}
+      },
       "materialBatches": {
         "fuel": {
           "coal": {
@@ -207,6 +237,9 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {}
       },
@@ -215,36 +248,42 @@
     "ore-to-smelter-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-original-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-original-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-parallel-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-parallel-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -253,6 +292,9 @@
         "input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
       "materialBatches": {
         "input": {}
       },
@@ -261,24 +303,28 @@
     "plate-to-station-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "plate-to-station-smelter-1-parallel-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "plate-to-station-smelter-1-parallel-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "plate-to-station-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -290,6 +336,10 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {},
+        "output": {}
+      },
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -308,6 +358,10 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {},
+        "output": {}
+      },
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -323,6 +377,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -333,6 +390,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -351,6 +411,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -367,12 +430,14 @@
     "station-to-assembler-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "station-to-assembler-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -386,18 +451,21 @@
         "storedMilliJoules": 3600000
       },
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "wind-assembly-recipe-line": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "wind-turbine-support": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     }
@@ -462,6 +530,7 @@
       }
     ]
   },
+  "lots": {},
   "materialTreatment": {
     "agentsConsumed": {},
     "treated": {}

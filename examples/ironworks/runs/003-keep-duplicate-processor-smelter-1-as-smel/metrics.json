@@ -157,6 +157,22 @@
     "wind-turbine-support": 120000
   },
   "infeasibleReason": null,
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "released": 0,
+    "scrapped": 0
+  },
   "machineUtilization": {
     "assembler-1": 0.43333333333333335,
     "coal-assembly-to-splitter-loader": 0.07083333333333333,
@@ -281,9 +297,11 @@
     "blocked": -1.0946666666666667,
     "buildCost": -14.625,
     "constraintPenalty": 0,
+    "cycleTime": 0,
     "energy": -2.621512,
     "occupiedArea": -31,
     "onTimeDelivery": 10,
+    "tardiness": 0,
     "throughput": 130,
     "wip": -5.058775000000001
   },

@@ -16,6 +16,8 @@
     "buildCost": 0.05,
     "occupiedArea": 0.05,
     "wip": 1.5,
-    "blocked": 3
+    "blocked": 3,
+    "cycleTime": 2,
+    "tardiness": 4
   }
 }

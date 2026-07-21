@@ -28,6 +28,7 @@ export const resourceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("resource"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
   unit: z.object({ kind: z.enum(["discrete", "continuous"]), symbol: z.string().min(1), precision: nonNegativeInt }).strict(),
   transport: z.object({ stackSize: positiveInt }).strict(),
+  tracking: z.object({ kind: z.literal("lot"), family: id }).strict().optional(),
   fuel: z.object({ energyMilliJoules: positiveInt }).strict().optional(),
   files: z.object({ visual: relativeAssetFile }).strict(),
 }).strict();
@@ -151,7 +152,8 @@ export const blueprintSchema = z.object({
     config: z.record(z.unknown()).optional(),
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
-      recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority"]).optional(),
+      recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "oldest-lot", "earliest-due-date", "highest-lot-priority"]).optional(),
+      lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),
       highSpeedTransport: z.object({ enabled: z.boolean(), minimumDistance: nonNegativeInt }).strict().optional(),
@@ -191,6 +193,10 @@ export const blueprintSchema = z.object({
 export const scenarioSchema = z.object({
   id, name: z.string().min(1), durationTicks: positiveInt,
   initialBuffers: z.record(z.record(z.record(nonNegativeInt))).optional(),
+  initialLots: z.array(z.object({
+    id, device: id, buffer: id, resource: id,
+    priority: z.number().int().optional(), dueTick: nonNegativeInt.optional(),
+  }).strict()).optional(),
   initialTreatments: z.array(z.object({
     device: id, buffer: id, resource: id, level: positiveInt, count: positiveInt,
   }).strict()).optional(),
@@ -213,6 +219,7 @@ export const objectiveSchema = z.object({
   weights: z.object({
     throughput: z.number(), onTimeDelivery: z.number().optional(), energy: z.number(),
     buildCost: z.number(), occupiedArea: z.number(), wip: z.number(), blocked: z.number(),
+    cycleTime: z.number().optional(), tardiness: z.number().optional(),
   }).strict(),
 }).strict();
 

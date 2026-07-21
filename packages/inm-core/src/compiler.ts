@@ -65,6 +65,9 @@ function recipeBufferRequirements(
 
 function validateAssets(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  for (const [id, resource] of Object.entries(resources)) if (resource.tracking && resource.unit.kind !== "discrete") {
+    issues.push({ path: `assets/resources/${id}/asset.json/tracking`, code: "lot.discrete-required", message: `Tracked Resource '${id}' must use a discrete unit` });
+  }
   for (const [id, process] of Object.entries(processes)) {
     for (const side of ["inputs", "outputs"] as const) {
       const seen = new Set<string>();
@@ -74,6 +77,21 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         seen.add(amount.resource);
         if (!resources[amount.resource]) issues.push({ path, code: "reference.resource", message: `Unknown resource '${amount.resource}'` });
       }
+    }
+    const trackedInputs = process.inputs.filter((amount) => resources[amount.resource]?.tracking);
+    const trackedOutputs = process.outputs.filter((amount) => resources[amount.resource]?.tracking);
+    const families = new Set([...trackedInputs, ...trackedOutputs].map((amount) => resources[amount.resource]!.tracking!.family));
+    for (const family of [...families].sort()) {
+      const inputs = trackedInputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
+      const outputs = trackedOutputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
+      if (inputs.length !== 1 || outputs.length !== 1) issues.push({
+        path: `processes/${id}.process.json`, code: "lot.identity-flow",
+        message: `Process '${id}' must transform exactly one tracked '${family}' Resource input into exactly one tracked '${family}' Resource output`,
+      });
+      else if (inputs[0]!.count !== outputs[0]!.count) issues.push({
+        path: `processes/${id}.process.json`, code: "lot.identity-count",
+        message: `Process '${id}' cannot create or destroy '${family}' lot identities (${inputs[0]!.count} in, ${outputs[0]!.count} out)`,
+      });
     }
   }
   for (const [id, asset] of Object.entries(devices)) {
@@ -127,6 +145,7 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
           if (auxiliaryResources.has(input.resource)) issues.push({ path: inputPath, code: "production-mode.duplicate-input", message: `Production mode '${mode.id}' declares auxiliary Resource '${input.resource}' more than once` });
           auxiliaryResources.add(input.resource);
           if (!resources[input.resource]) issues.push({ path: `${inputPath}/resource`, code: "reference.resource", message: `Unknown auxiliary Resource '${input.resource}'` });
+          else if (resources[input.resource]!.tracking) issues.push({ path: `${inputPath}/resource`, code: "lot.auxiliary-input", message: `Tracked Resource '${input.resource}' cannot be a mode auxiliary input` });
           const port = asset.geometry.ports.find((item) => item.id === input.port);
           const buffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
           if (!port) issues.push({ path: `${inputPath}/port`, code: "reference.port", message: `Unknown auxiliary input port '${input.port}'` });
@@ -204,6 +223,7 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
           const resource = resources[fuel];
           if (!resource) issues.push({ path: fuelPath, code: "reference.resource", message: `Unknown fuel resource '${fuel}'` });
           else if (!resource.fuel) issues.push({ path: fuelPath, code: "power.resource-not-fuel", message: `Resource '${fuel}' has no fuel energy value` });
+          else if (resource.tracking) issues.push({ path: fuelPath, code: "lot.fuel", message: `Tracked Resource '${fuel}' cannot be consumed as fuel` });
           if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(fuel)) issues.push({ path: fuelPath, code: "power.fuel-contract", message: `Fuel buffer '${buffer.id}' does not accept '${fuel}'` });
         }
       }
@@ -541,6 +561,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (!region) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown region '${node.region}'` });
     else if (node.position.x >= region.bounds.width || node.position.y >= region.bounds.height) issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Resource node '${node.id}' is outside region '${node.region}' bounds` });
     if (!loaded.resources[node.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown resource '${node.resource}'` });
+    else if (loaded.resources[node.resource]!.tracking) issues.push({ path: `${path}/resource`, code: "lot.extraction", message: `Tracked Resource '${node.resource}' must enter through explicit Scenario lots, not a fungible resource node` });
   }
   const devices: Record<string, CompiledDevice> = {};
   const ids = new Set<string>();
@@ -717,6 +738,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         }
         const compiledInputs = [] as NonNullable<CompiledDevice["processPlan"]>["inputs"];
         const compiledOutputs = [] as NonNullable<CompiledDevice["processPlan"]>["outputs"];
+        const lotTransfers: NonNullable<CompiledDevice["processPlan"]>["lotTransfers"] = [];
         const compiledBindings = { inputs: {} as Record<ResourceId, string>, outputs: {} as Record<ResourceId, string> };
         for (const [side, amounts, bindings, allowedPorts, compiled, resolvedBindings] of [
           ["inputs", definition.inputs, recipe.inputs, asset.production.inputPorts, compiledInputs, compiledBindings.inputs],
@@ -772,6 +794,19 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             const amounts = compileProductionAmounts(definition, mode, compiledBindings);
             compiledInputs.splice(0, compiledInputs.length, ...amounts.inputs);
             compiledOutputs.splice(0, compiledOutputs.length, ...amounts.outputs);
+            const trackedInputs = compiledInputs.filter((amount) => loaded.resources[amount.resource]?.tracking);
+            const trackedOutputs = compiledOutputs.filter((amount) => loaded.resources[amount.resource]?.tracking);
+            for (const input of trackedInputs) {
+              const family = loaded.resources[input.resource]!.tracking!.family;
+              const outputs = trackedOutputs.filter((amount) => loaded.resources[amount.resource]!.tracking!.family === family);
+              if (outputs.length !== 1 || input.count !== outputs[0]!.count) {
+                issues.push({
+                  path: `${recipePath}/mode`, code: "lot.mode-identity-count",
+                  message: `Production mode '${mode.id}' must preserve each '${family}' lot identity one-for-one`,
+                });
+                bindingValid = false;
+              } else lotTransfers.push({ family, input: { ...input }, output: { ...outputs[0]! } });
+            }
             for (const bufferId of [...new Set([...compiledInputs, ...compiledOutputs].map((amount) => amount.buffer))]) {
               const amountsInBuffer = recipeBufferRequirements(bufferId, compiledInputs, compiledOutputs);
               const required = amountsInBuffer.reduce((sum, amount) => sum + amount.count, 0);
@@ -796,6 +831,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             inputs: compiledInputs,
             outputs: compiledOutputs,
             priority: recipe.priority ?? 0,
+            lotTransfers,
           };
           processPlans.push(compiledPlan);
           for (const [resource, portId] of [...Object.entries(recipe.inputs), ...Object.entries(recipe.outputs)]) {
@@ -1159,6 +1195,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       if (!buffer) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "reference.buffer", message: `Unknown buffer '${bufferId}'` });
       for (const resource of Object.keys(inventory)) {
         if (!loaded.resources[resource]) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
+        else if (loaded.resources[resource]!.tracking) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "lot.explicit-required", message: `Tracked Resource '${resource}' must be declared as explicit initialLots` });
         else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "buffer.resource-contract", message: `Buffer '${bufferId}' does not accept '${resource}'` });
         const resourceCapacity = buffer?.resourceCapacities?.[resource];
         if (resourceCapacity !== undefined && inventory[resource]! > resourceCapacity) issues.push({
@@ -1168,6 +1205,36 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
       if (buffer && Object.values(inventory).reduce((sum, count) => sum + count, 0) > buffer.capacity) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "buffer.capacity", message: `Initial quantity exceeds buffer capacity ${buffer.capacity}` });
     }
+  }
+  const lotIds = new Set<string>();
+  const lotsPerBuffer = new Map<string, number>();
+  const lotsPerResourceBuffer = new Map<string, number>();
+  for (const [index, lot] of (loaded.scenario.initialLots ?? []).entries()) {
+    const path = `scenario/initialLots/${index}`;
+    if (lotIds.has(lot.id)) issues.push({ path: `${path}/id`, code: "lot.duplicate-id", message: `Lot '${lot.id}' is declared more than once` });
+    lotIds.add(lot.id);
+    const device = devices[lot.device];
+    const buffer = device?.buffers[lot.buffer];
+    const resource = loaded.resources[lot.resource];
+    if (!device) issues.push({ path: `${path}/device`, code: "reference.device-instance", message: `Unknown device instance '${lot.device}'` });
+    else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${lot.buffer}'` });
+    if (!resource) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${lot.resource}'` });
+    else if (!resource.tracking) issues.push({ path: `${path}/resource`, code: "lot.tracking-required", message: `Resource '${lot.resource}' is not configured for lot tracking` });
+    if (buffer && resource && !buffer.accepts.includes("*") && !buffer.accepts.includes(lot.resource)) issues.push({
+      path: `${path}/resource`, code: "buffer.resource-contract", message: `Buffer '${lot.buffer}' does not accept '${lot.resource}'`,
+    });
+    const bufferKey = `${lot.device}\0${lot.buffer}`;
+    const resourceKey = `${bufferKey}\0${lot.resource}`;
+    lotsPerBuffer.set(bufferKey, (lotsPerBuffer.get(bufferKey) ?? 0) + 1);
+    lotsPerResourceBuffer.set(resourceKey, (lotsPerResourceBuffer.get(resourceKey) ?? 0) + 1);
+    const fungibleInitial = Object.values(loaded.scenario.initialBuffers?.[lot.device]?.[lot.buffer] ?? {}).reduce((sum, count) => sum + count, 0);
+    if (buffer && (lotsPerBuffer.get(bufferKey) ?? 0) + fungibleInitial > buffer.capacity) issues.push({
+      path, code: "buffer.capacity", message: `Initial lots exceed buffer '${lot.buffer}' capacity ${buffer.capacity}`,
+    });
+    const resourceCapacity = buffer?.resourceCapacities?.[lot.resource];
+    if (resourceCapacity !== undefined && (lotsPerResourceBuffer.get(resourceKey) ?? 0) > resourceCapacity) issues.push({
+      path, code: "buffer.resource-capacity", message: `Initial '${lot.resource}' lots exceed buffer quota ${resourceCapacity}`,
+    });
   }
   const treatedTotals = new Map<string, number>();
   for (const [index, treatment] of (loaded.scenario.initialTreatments ?? []).entries()) {

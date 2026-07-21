@@ -170,6 +170,22 @@
     "synth-smelt-iron-1": 0
   },
   "infeasibleReason": null,
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "released": 0,
+    "scrapped": 0
+  },
   "machineUtilization": {
     "synth-assembly-zone-wind-turbine-1": 0,
     "synth-assembly-zone-wind-turbine-2": 0,
@@ -309,9 +325,11 @@
     "blocked": -2.305,
     "buildCost": -17.275,
     "constraintPenalty": 0,
+    "cycleTime": 0,
     "energy": -2.4908099999999997,
     "occupiedArea": -47.800000000000004,
     "onTimeDelivery": 10,
+    "tardiness": 0,
     "throughput": 120,
     "wip": -7.618291666666668
   },

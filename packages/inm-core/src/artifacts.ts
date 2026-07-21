@@ -95,6 +95,8 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
     `- Score: **${result.metrics.finalScore.toFixed(3)}**`, `- Result hash: \`${result.resultHash}\``,
     `- Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`, `- Throughput/min: ${result.metrics.throughputPerMinute.toFixed(3)}`,
+    `- Tracked lots: ${result.metrics.lotFlow.completed} / ${result.metrics.lotFlow.released} completed · ${result.metrics.lotFlow.scrapped} scrapped${result.metrics.lotFlow.family ? ` in family \`${result.metrics.lotFlow.family}\`` : ""}`,
+    `- Lot service: ${(result.metrics.onTimeDelivery * 100).toFixed(1)}% on time · mean cycle ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s · p95 ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s · mean tardiness ${(result.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(3)} s`,
     `- Target rate: ${capacityPlan.targetRatePerMinute.toFixed(3)} ${capacityPlan.targetResource}/min (${(result.metrics.onTimeDelivery * 100).toFixed(1)}% attained)`,
     `- Power allocation: ${project.blueprint.policies.powerAllocation}`,
     `- Minimum grid satisfaction: ${Math.min(1_000_000, ...Object.values(result.metrics.powerGrids).map((grid) => grid.minimumSatisfactionPpm)) / 10_000}%`,

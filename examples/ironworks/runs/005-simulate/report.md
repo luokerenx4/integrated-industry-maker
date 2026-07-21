@@ -2,9 +2,11 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `317671c77366e75fe75c9d588846083a4e48187ecfd3f03d8b9d4634e3f4b997`
+- Result hash: `59cc40ea4c60b628c7fb3dfc6e711583c5d45c10a3a55799edb7e8ab1fd7b3d9`
 - Bottleneck: none
 - Throughput/min: 240.000
+- Tracked lots: 0 / 0 completed · 0 scrapped
+- Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Target rate: 240.000 iron-ore/min (100.0% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
@@ -45,9 +47,11 @@ No configured logistics stations.
   "blocked": 0,
   "buildCost": -1.205,
   "constraintPenalty": 0,
+  "cycleTime": 0,
   "energy": -0.00007000000000000001,
   "occupiedArea": -3.2,
   "onTimeDelivery": 10,
+  "tardiness": 0,
   "throughput": 240,
   "wip": -0.505
 }

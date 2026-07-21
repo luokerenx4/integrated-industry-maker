@@ -49,6 +49,22 @@
     "stacked-link-unloader": 1625
   },
   "infeasibleReason": null,
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "released": 0,
+    "scrapped": 0
+  },
   "machineUtilization": {
     "stack-power": 0,
     "stack-source": 0,
@@ -121,9 +137,11 @@
     "blocked": 0,
     "buildCost": -1.205,
     "constraintPenalty": 0,
+    "cycleTime": 0,
     "energy": -0.00007000000000000001,
     "occupiedArea": -3.2,
     "onTimeDelivery": 10,
+    "tardiness": 0,
     "throughput": 240,
     "wip": -0.505
   },

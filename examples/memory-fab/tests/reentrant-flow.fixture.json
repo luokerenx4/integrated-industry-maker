@@ -27,8 +27,28 @@
       "min": 0.2
     },
     {
+      "kind": "metric",
+      "path": "lotFlow.released",
+      "equals": 12
+    },
+    {
+      "kind": "metric",
+      "path": "lotFlow.completed",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "lotFlow.meanCycleTimeTicks",
+      "min": 1
+    },
+    {
       "kind": "event",
       "type": "device.start",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.completed",
       "present": true
     }
   ]

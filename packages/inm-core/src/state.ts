@@ -1,10 +1,15 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, ResourceTransit, Tick } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
   | { kind: "status"; device: string; status: DeviceStatus }
   | { kind: "idle-power"; device: string; powered: boolean }
   | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number }
+  | { kind: "lot.depart"; lotIds: string[]; device: string; buffer: string; nextStatus: "processing" | "transport"; nextLocation: { kind: "device"; device: string } | { kind: "transit"; transit: string } }
+  | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
+  | { kind: "lot.complete"; lotIds: string[]; device: string; buffer: string }
+  | { kind: "lot.scrap"; lotIds: string[]; device: string; reason: string }
+  | { kind: "lot.checkpoint"; lotIds: string[] }
   | { kind: "transport.add"; connection: string; transit: BeltTransit }
   | { kind: "transport.update"; connection: string; transitId: string; changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & { blockedBy?: string | null } }
   | { kind: "transport.remove"; connection: string; transitId: string }
@@ -35,6 +40,49 @@ export type FactoryStateMutation =
   | { kind: "power.satisfaction"; grid: string; satisfactionPpm: number }
   | { kind: "progress"; device: string; progressTicks: Tick };
 
+function mutateBufferQuantity(state: FactoryState, device: string, buffer: string, resource: string, delta: number, treatmentLevel = 0): void {
+  const runtime = state.devices[device]!;
+  const inventory = runtime.buffers[buffer];
+  if (!inventory) throw new Error(`Unknown buffer for ${device}/${buffer}`);
+  const materialInventory = runtime.materialBatches[buffer] ??= {};
+  const batches = materialInventory[resource] ??= {};
+  const level = String(treatmentLevel);
+  batches[level] = (batches[level] ?? 0) + delta;
+  if (batches[level] === 0) delete batches[level];
+  if ((batches[level] ?? 0) < 0) throw new Error(`Negative material batch for ${device}/${buffer}/${resource}@${level}`);
+  if (!Object.keys(batches).length) delete materialInventory[resource];
+  inventory[resource] = (inventory[resource] ?? 0) + delta;
+  if (inventory[resource] === 0) delete inventory[resource];
+  if ((inventory[resource] ?? 0) < 0) throw new Error(`Negative buffer quantity for ${device}/${buffer}/${resource}`);
+}
+
+function advanceLotClock(lot: WorkLot, tick: Tick): void {
+  const elapsed = tick - lot.statusSinceTick;
+  if (elapsed < 0) throw new Error(`Lot '${lot.id}' moved backwards in time`);
+  if (lot.status === "queued") lot.queueTicks += elapsed;
+  else if (lot.status === "processing") lot.processTicks += elapsed;
+  else if (lot.status === "transport") lot.transportTicks += elapsed;
+  lot.statusSinceTick = tick;
+}
+
+function setLotStatus(lot: WorkLot, tick: Tick, status: WorkLotStatus, location: WorkLot["location"]): void {
+  advanceLotClock(lot, tick);
+  lot.status = status;
+  lot.location = location;
+}
+
+function removeLotFromBuffer(state: FactoryState, lot: WorkLot, device: string, buffer: string): void {
+  if (lot.status !== "queued" || lot.location.kind !== "buffer" || lot.location.device !== device || lot.location.buffer !== buffer) {
+    throw new Error(`Lot '${lot.id}' is not queued in ${device}/${buffer}`);
+  }
+  const ids = state.devices[device]!.lotIds[buffer]?.[lot.resource];
+  const index = ids?.indexOf(lot.id) ?? -1;
+  if (index < 0) throw new Error(`Lot '${lot.id}' is missing from ${device}/${buffer}/${lot.resource}`);
+  ids!.splice(index, 1);
+  if (!ids!.length) delete state.devices[device]!.lotIds[buffer]![lot.resource];
+  mutateBufferQuantity(state, device, buffer, lot.resource, -1, lot.treatmentLevel);
+}
+
 /** The sole write path for runtime factory state. Asset scripts can return actions but cannot mutate this store. */
 export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMutation): void {
   switch (mutation.kind) {
@@ -42,19 +90,62 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "status": state.devices[mutation.device]!.status = mutation.status; return;
     case "idle-power": state.devices[mutation.device]!.idlePowered = mutation.powered; return;
     case "buffer": {
+      mutateBufferQuantity(state, mutation.device, mutation.buffer, mutation.resource, mutation.delta, mutation.treatmentLevel);
+      return;
+    }
+    case "lot.depart": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        removeLotFromBuffer(state, lot, mutation.device, mutation.buffer);
+        setLotStatus(lot, state.tick, mutation.nextStatus, mutation.nextLocation);
+      }
+      return;
+    }
+    case "lot.arrive": {
       const runtime = state.devices[mutation.device]!;
-      const inventory = runtime.buffers[mutation.buffer];
-      if (!inventory) throw new Error(`Unknown buffer for ${mutation.device}/${mutation.buffer}`);
-      const materialInventory = runtime.materialBatches[mutation.buffer] ??= {};
-      const batches = materialInventory[mutation.resource] ??= {};
-      const level = String(mutation.treatmentLevel ?? 0);
-      batches[level] = (batches[level] ?? 0) + mutation.delta;
-      if (batches[level] === 0) delete batches[level];
-      if ((batches[level] ?? 0) < 0) throw new Error(`Negative material batch for ${mutation.device}/${mutation.buffer}/${mutation.resource}@${level}`);
-      if (!Object.keys(batches).length) delete materialInventory[mutation.resource];
-      inventory[mutation.resource] = (inventory[mutation.resource] ?? 0) + mutation.delta;
-      if (inventory[mutation.resource] === 0) delete inventory[mutation.resource];
-      if ((inventory[mutation.resource] ?? 0) < 0) throw new Error(`Negative buffer quantity for ${mutation.device}/${mutation.buffer}/${mutation.resource}`);
+      if (!runtime.buffers[mutation.buffer]) throw new Error(`Unknown buffer for ${mutation.device}/${mutation.buffer}`);
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.status === "completed") throw new Error(`Completed lot '${id}' cannot re-enter production`);
+        if (lot.resource !== mutation.resource) lot.routeStep += 1;
+        lot.resource = mutation.resource;
+        lot.treatmentLevel = mutation.treatmentLevel ?? 0;
+        setLotStatus(lot, state.tick, "queued", { kind: "buffer", device: mutation.device, buffer: mutation.buffer });
+        const ids = runtime.lotIds[mutation.buffer] ??= {};
+        (ids[mutation.resource] ??= []).push(id);
+        mutateBufferQuantity(state, mutation.device, mutation.buffer, mutation.resource, 1, lot.treatmentLevel);
+      }
+      return;
+    }
+    case "lot.complete": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        removeLotFromBuffer(state, lot, mutation.device, mutation.buffer);
+        setLotStatus(lot, state.tick, "completed", { kind: "completed", device: mutation.device });
+        lot.completedAtTick = state.tick;
+      }
+      return;
+    }
+    case "lot.scrap": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.status !== "processing" || lot.location.kind !== "device" || lot.location.device !== mutation.device) {
+          throw new Error(`Lot '${id}' is not processing on ${mutation.device}`);
+        }
+        setLotStatus(lot, state.tick, "scrapped", { kind: "scrapped", device: mutation.device, reason: mutation.reason });
+      }
+      return;
+    }
+    case "lot.checkpoint": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        advanceLotClock(lot, state.tick);
+      }
       return;
     }
     case "transport.add": state.transports[mutation.connection]!.push(mutation.transit); return;

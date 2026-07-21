@@ -9,24 +9,28 @@
     "synth-assembly-zone-wind-turbine-1": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-assembly-zone-wind-turbine-2": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-assembly-zone-wind-turbine-3": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-assembly-zone-wind-turbine-4": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -35,6 +39,9 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {}
       },
@@ -45,6 +52,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -53,48 +63,56 @@
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -111,6 +129,11 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "agent-input": {},
+        "material-input": {},
+        "material-output": {}
+      },
       "materialBatches": {
         "agent-input": {
           "proliferator": {
@@ -141,6 +164,11 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input-primary": {},
+        "input-secondary": {},
+        "output": {}
+      },
       "materialBatches": {
         "input-primary": {
           "iron-plate": {
@@ -159,18 +187,21 @@
     "synth-forge-zone-wind-turbine-1": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-forge-zone-wind-turbine-2": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-forge-zone-wind-turbine-3": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -179,6 +210,9 @@
         "input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
       "materialBatches": {
         "input": {}
       },
@@ -187,12 +221,14 @@
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -224,6 +260,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {
           "iron-ore": {
@@ -237,12 +276,14 @@
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -251,6 +292,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -269,6 +313,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -293,6 +340,11 @@
         "material-output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "agent-input": {},
+        "material-input": {},
+        "material-output": {}
+      },
       "materialBatches": {
         "agent-input": {
           "proliferator": {
@@ -311,36 +363,42 @@
     "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -354,6 +412,10 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {},
+        "output": {}
+      },
       "materialBatches": {
         "input": {
           "coal": {
@@ -375,6 +437,9 @@
         }
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {
           "proliferator": {
@@ -387,36 +452,42 @@
     "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -446,6 +517,10 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {},
+        "output": {}
+      },
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -516,6 +591,7 @@
       }
     ]
   },
+  "lots": {},
   "materialTreatment": {
     "agentsConsumed": {
       "proliferator": 10

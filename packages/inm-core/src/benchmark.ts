@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import { z } from "zod";
-import { compareFactoryBlueprints, type BlueprintSemanticChange, type FactoryBlueprintComparison } from "./blueprint-comparison";
+import { compareFactoryBlueprints, type BlueprintMetricSnapshot, type BlueprintSemanticChange, type FactoryBlueprintComparison } from "./blueprint-comparison";
 import type { JsonPatchOperation } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
@@ -40,6 +40,8 @@ export interface BlueprintBenchmarkCaseResult {
   baselineScore: number;
   candidateScore: number;
   scoreDelta: number;
+  baselineMetrics: BlueprintMetricSnapshot;
+  candidateMetrics: BlueprintMetricSnapshot;
   baselineCapacityReady: boolean;
   candidateCapacityReady: boolean;
   candidateCapacityGaps: string[];
@@ -149,6 +151,7 @@ export async function evaluateBlueprintBenchmark(projectDir: string, benchmarkId
     cases.push({
       id: item.id, name: item.name, weight: item.weight, seed: item.seed, durationTicks: baseline.scenario.durationTicks,
       baselineScore: comparison.from.metrics.score, candidateScore: comparison.to.metrics.score, scoreDelta: comparison.delta.score,
+      baselineMetrics: comparison.from.metrics, candidateMetrics: comparison.to.metrics,
       baselineCapacityReady: comparison.from.capacityPlan.ready, candidateCapacityReady: comparison.to.capacityPlan.ready,
       candidateCapacityGaps: comparison.to.capacityPlan.gaps.map((gap) => `[${gap.kind}] ${gap.message}`),
     });

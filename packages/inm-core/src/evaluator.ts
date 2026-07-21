@@ -36,6 +36,29 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleets.reduce((fleetSum, fleet) => fleetSum + fleet.asset.economics.buildCost * fleet.count, 0), 0);
   const targetProduced = stats.consumedByRegion[project.objective.targetRegion]?.[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
+  const targetFamily = project.resources[project.objective.targetResource]?.tracking?.family ?? null;
+  const targetLots = targetFamily ? Object.values(state.lots).filter((lot) => lot.family === targetFamily) : [];
+  const completedTargetLots = targetLots.filter((lot) => lot.status === "completed" && lot.resource === project.objective.targetResource && lot.completedAtTick !== undefined);
+  const mean = (values: number[]): number => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  const elapsed = (lot: (typeof targetLots)[number], status: "queued" | "processing" | "transport" | "completed" | "scrapped"): number => lot.status === status ? state.tick - lot.statusSinceTick : 0;
+  const cycleTimes = completedTargetLots.map((lot) => lot.completedAtTick! - lot.releasedAtTick).sort((a, b) => a - b);
+  const tardiness = completedTargetLots.map((lot) => Math.max(0, lot.completedAtTick! - (lot.dueTick ?? lot.completedAtTick!))).sort((a, b) => a - b);
+  const lotFlow: FactoryMetrics["lotFlow"] = {
+    family: targetFamily,
+    released: targetLots.length,
+    completed: completedTargetLots.length,
+    scrapped: targetLots.filter((lot) => lot.status === "scrapped").length,
+    onTimeCompleted: completedTargetLots.filter((lot) => lot.dueTick === undefined || lot.completedAtTick! <= lot.dueTick).length,
+    inProgress: targetLots.filter((lot) => lot.status !== "completed" && lot.status !== "scrapped").length,
+    meanCycleTimeTicks: mean(cycleTimes),
+    p95CycleTimeTicks: cycleTimes.length ? cycleTimes[Math.max(0, Math.ceil(cycleTimes.length * .95) - 1)]! : 0,
+    maximumCycleTimeTicks: cycleTimes.at(-1) ?? 0,
+    meanQueueTimeTicks: mean(completedTargetLots.map((lot) => lot.queueTicks + elapsed(lot, "queued"))),
+    meanProcessTimeTicks: mean(completedTargetLots.map((lot) => lot.processTicks + elapsed(lot, "processing"))),
+    meanTransportTimeTicks: mean(completedTargetLots.map((lot) => lot.transportTicks + elapsed(lot, "transport"))),
+    meanTardinessTicks: mean(tardiness),
+    maximumTardinessTicks: tardiness.at(-1) ?? 0,
+  };
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
   const waitingInputTime: Record<string, Tick> = {};
@@ -102,7 +125,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   }));
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
   const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
-  const onTimeDelivery = Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
+  const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
     throughput: throughputPerMinute * weights.throughput,
@@ -112,6 +135,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     occupiedArea: -occupiedArea * weights.occupiedArea,
     wip: -averageWip * weights.wip,
     blocked: -(Object.values(blockedOutputTime).reduce((a, b) => a + b, 0) / duration) * weights.blocked,
+    cycleTime: -(lotFlow.meanCycleTimeTicks / 60_000) * (weights.cycleTime ?? 0),
+    tardiness: -(lotFlow.meanTardinessTicks / 60_000) * (weights.tardiness ?? 0),
     constraintPenalty: violations.length ? -1_000_000 : 0,
   };
   const finalScore = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0);
@@ -160,7 +185,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

@@ -1,6 +1,6 @@
 # Spatial power design
 
-Status: connected regional grids, proportional satisfaction and priority load shedding, explicit idle/active Device envelopes, sorter loads, station charging, high-speed carrier energy, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.46.0`.
+Status: connected regional grids, proportional satisfaction and priority load shedding, explicit idle/active Device envelopes, sorter loads, station charging, high-speed carrier energy, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.48.0`.
 
 Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 

@@ -1,14 +1,16 @@
 # Material, recipe, port, and buffer contracts
 
-Status: multi-input/multi-output Processes, physical recipe-port binding, multi-operation work centers, independent instance port filters, shared-buffer recipe partitions, and treatment-aware material contracts implemented through engine version `inm-sim/0.47.0`.
+Status: multi-input/multi-output Processes, physical recipe-port binding, multi-operation work centers, independent instance port filters, shared-buffer recipe partitions, treatment-aware contracts, and opt-in lot identity implemented through engine version `inm-sim/0.48.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
 ## Scope
 
 This document owns Resource identity, Process transformations, Device buffers and ports, per-instance accepted Resources, recipe bindings, extraction output contracts, fuel input contracts, and host validation of material actions.
 
 Treatment grade is lot state layered onto Resource identity rather than a new Resource kind. Buffer totals and exact `(Resource, treatment level)` batches remain conserved together; see [[docs/design/material-treatment]].
+
+An identity-preserving industrial lot is a different, opt-in layer. Resources in one tracked family represent successive route stages while a stable lot id survives transformation, transport, and delivery. Tracked quantities must enter through explicit Scenario lots and Processes must preserve their identities one-for-one; see [[docs/design/lot-tracking]].
 
 ## Layered contract model
 

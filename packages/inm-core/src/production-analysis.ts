@@ -640,7 +640,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
-      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} dispatch; per-operation rates are exclusive maxima`,
+      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch; per-operation rates are exclusive maxima`,
     });
   }
   const hasTreatmentSource = (device: string, buffer: string, resource: ResourceId, minimumLevel: number, visited = new Set<string>()): boolean => {

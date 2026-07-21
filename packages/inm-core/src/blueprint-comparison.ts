@@ -20,6 +20,12 @@ export interface BlueprintMetricSnapshot {
   score: number;
   throughputPerMinute: number;
   objectiveAttainment: number;
+  completedLots: number;
+  onTimeLots: number;
+  meanCycleTimeTicks: number;
+  p95CycleTimeTicks: number;
+  meanQueueTimeTicks: number;
+  meanTardinessTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -42,6 +48,12 @@ export interface BlueprintMetricDelta {
   score: number;
   throughputPerMinute: number;
   objectiveAttainment: number;
+  completedLots: number;
+  onTimeLots: number;
+  meanCycleTimeTicks: number;
+  p95CycleTimeTicks: number;
+  meanQueueTimeTicks: number;
+  meanTardinessTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -186,6 +198,12 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     score: metrics.finalScore,
     throughputPerMinute: metrics.throughputPerMinute,
     objectiveAttainment: metrics.onTimeDelivery,
+    completedLots: metrics.lotFlow.completed,
+    onTimeLots: metrics.lotFlow.onTimeCompleted,
+    meanCycleTimeTicks: metrics.lotFlow.meanCycleTimeTicks,
+    p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
+    meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,
+    meanTardinessTicks: metrics.lotFlow.meanTardinessTicks,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
@@ -210,6 +228,12 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     score: after.score - before.score,
     throughputPerMinute: after.throughputPerMinute - before.throughputPerMinute,
     objectiveAttainment: after.objectiveAttainment - before.objectiveAttainment,
+    completedLots: after.completedLots - before.completedLots,
+    onTimeLots: after.onTimeLots - before.onTimeLots,
+    meanCycleTimeTicks: after.meanCycleTimeTicks - before.meanCycleTimeTicks,
+    p95CycleTimeTicks: after.p95CycleTimeTicks - before.p95CycleTimeTicks,
+    meanQueueTimeTicks: after.meanQueueTimeTicks - before.meanQueueTimeTicks,
+    meanTardinessTicks: after.meanTardinessTicks - before.meanTardinessTicks,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,

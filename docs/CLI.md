@@ -85,7 +85,7 @@ Human output includes the optimized cycles/min, every selected cross-region Reso
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
-Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes treated quantities by `Resource@level`, treatment-agent consumption, physical belt utilization, transport-endpoint energy, accumulator final/capacity/charged/discharged energy, per-grid generated/requested/unserved/curtailed energy and deficit envelope, and measured connection flows. JSON metrics retain the treatment ledger, full power/storage ledgers, per-Device status time, and capacity-normalized sorter utilization. Active production/extraction/treatment jobs pause at a power boundary; explicit loader/unloader work also records stage start/finish and freezes its exact remaining time across a sorter failure.
+Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes tracked-lot completion/on-time service, mean/p95 cycle time, queue/process/transport time and tardiness when applicable; treated quantities by `Resource@level`; physical belt utilization; transport energy; storage; per-grid power; and measured connection flows. JSON metrics retain every lot-flow aggregate, treatment ledger, full power/storage ledgers, per-Device status time, and capacity-normalized sorter utilization. Active production/extraction/treatment jobs pause at a power boundary; explicit loader/unloader work also records stage start/finish and freezes its exact remaining time across a sorter failure.
 
 ```bash
 inm simulate examples/ironworks \

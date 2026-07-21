@@ -75,6 +75,22 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 106000
   },
   "infeasibleReason": null,
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "released": 0,
+    "scrapped": 0
+  },
   "machineUtilization": {
     "synth-chemical-basin-wind-turbine-1": 0,
     "synth-chemical-basin-wind-turbine-2": 0,
@@ -140,9 +156,11 @@
     "blocked": 0,
     "buildCost": -4.635,
     "constraintPenalty": 0,
+    "cycleTime": 0,
     "energy": -0.7060035000000001,
     "occupiedArea": -14.600000000000001,
     "onTimeDelivery": 10,
+    "tardiness": 0,
     "throughput": 130,
     "wip": -0.32183333333333336
   },

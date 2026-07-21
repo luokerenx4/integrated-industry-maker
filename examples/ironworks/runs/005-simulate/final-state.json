@@ -9,6 +9,7 @@
     "stack-power": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -17,6 +18,9 @@
         "storage": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
       "materialBatches": {
         "storage": {}
       },
@@ -27,6 +31,9 @@
         "input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
       "materialBatches": {
         "input": {}
       },
@@ -35,12 +42,14 @@
     "stacked-link-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "stacked-link-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     }
@@ -64,6 +73,7 @@
   "highSpeedMissions": 0,
   "logisticsMissions": {},
   "logisticsTransports": {},
+  "lots": {},
   "materialTreatment": {
     "agentsConsumed": {},
     "treated": {}

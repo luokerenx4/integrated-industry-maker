@@ -10,12 +10,14 @@
     "synth-chemical-basin-wind-turbine-1": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-chemical-basin-wind-turbine-2": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -45,6 +47,9 @@
         "output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
       "materialBatches": {
         "output": {}
       },
@@ -54,12 +59,14 @@
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "processing"
     },
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -68,6 +75,9 @@
         "input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
       "materialBatches": {
         "input": {}
       },
@@ -76,12 +86,14 @@
     "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -90,6 +102,9 @@
         "input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
       "materialBatches": {
         "input": {}
       },
@@ -98,24 +113,28 @@
     "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "processing"
     },
     "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -152,6 +171,11 @@
         "liquid-output": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "crude-input": {},
+        "gas-output": {},
+        "liquid-output": {}
+      },
       "materialBatches": {
         "crude-input": {
           "crude-oil": {
@@ -167,12 +191,14 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
     "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": {
       "buffers": {},
       "idlePowered": true,
+      "lotIds": {},
       "materialBatches": {},
       "status": "idle"
     },
@@ -208,6 +234,12 @@
         "oil-input": {}
       },
       "idlePowered": true,
+      "lotIds": {
+        "graphite-output": {},
+        "hydrogen-input": {},
+        "hydrogen-output": {},
+        "oil-input": {}
+      },
       "materialBatches": {
         "graphite-output": {},
         "hydrogen-input": {},
@@ -237,6 +269,7 @@
   "highSpeedMissions": 0,
   "logisticsMissions": {},
   "logisticsTransports": {},
+  "lots": {},
   "materialTreatment": {
     "agentsConsumed": {},
     "treated": {}

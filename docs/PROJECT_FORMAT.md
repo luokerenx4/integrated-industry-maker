@@ -92,6 +92,8 @@ Splitting presentation and execution from identity is intentional. Catalog tools
 
 A Resource asset describes a kind of flow. Runtime quantities are `(resource id, integer count)` values held in named device buffers or in transit. `unit.kind: continuous` and non-zero precision reserve the file contract for continuous resources; the current engine executes integer quantities only.
 
+An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family": "dram-wafer" }`. Every route-stage Resource for the same physical lot uses the same family. Tracked Resources must be discrete and must be transformed one-for-one by Processes; their ids, priorities, due dates, locations, and elapsed-state clocks survive Resource changes. See [[docs/design/lot-tracking]].
+
 A combustible Resource declares how much energy one unit contains. The value is an integer number of millijoules and is consumed only through a fuel generator's compiled generation job:
 
 ```json
@@ -527,11 +529,11 @@ A re-entrant work center uses `recipes` instead of `recipe`:
       "outputs": { "patterned-cell-l2-lot": "pattern-output" }
     }
   ],
-  "policy": { "recipeDispatch": "highest-priority" }
+  "policy": { "recipeDispatch": "earliest-due-date", "lotDispatch": "earliest-due-date" }
 }
 ```
 
-`recipe` and `recipes` are mutually exclusive. `recipeDispatch` is `authored-order`, `shortest-cycle`, or `highest-priority`; omission means `authored-order`. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties by authored array order. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]].
+`recipe` and `recipes` are mutually exclusive. `recipeDispatch` accepts static operation rules (`authored-order`, `shortest-cycle`, `highest-priority`) and tracked-WIP rules (`oldest-lot`, `earliest-due-date`, `highest-lot-priority`); omission means `authored-order`. `lotDispatch` is `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority` and chooses identities within the winning operation. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties deterministically. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]] and [[docs/design/lot-tracking]].
 
 Non-recipe Devices can configure ingress/egress independently:
 
@@ -616,6 +618,9 @@ Initial quantities address device and buffer explicitly:
   "initialBuffers": {
     "smelter-1": { "input": { "iron-ore": 4 } }
   },
+  "initialLots": [
+    { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "priority": 10, "dueTick": 90000 }
+  ],
   "initialTreatments": [
     { "device": "smelter-1", "buffer": "input", "resource": "iron-ore", "level": 1, "count": 2 }
   ],
@@ -648,6 +653,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 
+`initialLots` is the only startup path for tracked Resources. Each lot id is unique and names its initial Device/buffer/Resource plus optional integer priority and due tick. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `initialLots`, duplicate identities, incompatible buffers, and capacity/quota overflow.
+
 ```json
 {
   "id": "default",
@@ -663,12 +670,14 @@ Capacity planning integrates these curves against the Objective-derived constant
     "buildCost": 0.5,
     "occupiedArea": 0.2,
     "wip": 0.1,
-    "blocked": 2
+    "blocked": 2,
+    "cycleTime": 0,
+    "tardiness": 0
   }
 }
 ```
 
-`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. Runtime `onTimeDelivery` is the achieved regional delivery rate divided by this design rate, capped at one. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
+`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by released lots. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
 ## Coding Agent benchmark
 
@@ -701,7 +710,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.46.0",
+        "engineVersion": "inm-sim/0.48.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

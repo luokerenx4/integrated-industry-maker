@@ -2,9 +2,11 @@
 
 - Decision: **BASELINE**
 - Score: **119.737**
-- Result hash: `5922f1c47ab6b901648dbd6530faebb56708e6d26bacdfe603b07de43d6f6f59`
+- Result hash: `e75ae230adb92d0b49ccda0a15e37544191b93ce7b2f09fd767bd2e56a022243`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
+- Tracked lots: 0 / 0 completed · 0 scrapped
+- Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Target rate: 10.000 plastic/min (100.0% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
@@ -48,9 +50,11 @@ No configured logistics stations.
   "blocked": 0,
   "buildCost": -4.635,
   "constraintPenalty": 0,
+  "cycleTime": 0,
   "energy": -0.7060035000000001,
   "occupiedArea": -14.600000000000001,
   "onTimeDelivery": 10,
+  "tardiness": 0,
   "throughput": 130,
   "wip": -0.32183333333333336
 }

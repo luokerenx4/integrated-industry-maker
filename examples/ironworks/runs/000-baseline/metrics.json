@@ -130,6 +130,22 @@
     "wind-assembly-recipe-line": 120000
   },
   "infeasibleReason": null,
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "released": 0,
+    "scrapped": 0
+  },
   "machineUtilization": {
     "assembler-1": 0.225,
     "coal-assembly-to-splitter-loader": 0.0625,
@@ -245,9 +261,11 @@
     "blocked": -2.0474833333333335,
     "buildCost": -12.72,
     "constraintPenalty": 0,
+    "cycleTime": 0,
     "energy": -2.27679672,
     "occupiedArea": -21.200000000000003,
     "onTimeDelivery": 3.75,
+    "tardiness": 0,
     "throughput": 45,
     "wip": -5.368016666666667
   },

@@ -2,13 +2,104 @@
   "id": "production-window",
   "name": "Three-minute DRAM Production Window",
   "durationTicks": 180000,
-  "initialBuffers": {
-    "lot-release": {
-      "storage": {
-        "blank-dram-wafer-lot": 12
-      }
+  "initialLots": [
+    {
+      "id": "dram-lot-01",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 1,
+      "dueTick": 180000
+    },
+    {
+      "id": "dram-lot-02",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 1,
+      "dueTick": 170000
+    },
+    {
+      "id": "dram-lot-03",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 1,
+      "dueTick": 160000
+    },
+    {
+      "id": "dram-lot-04",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 1,
+      "dueTick": 150000
+    },
+    {
+      "id": "dram-lot-05",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 1,
+      "dueTick": 140000
+    },
+    {
+      "id": "dram-lot-06",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 1,
+      "dueTick": 130000
+    },
+    {
+      "id": "dram-lot-07",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 5,
+      "dueTick": 120000
+    },
+    {
+      "id": "dram-lot-08",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 5,
+      "dueTick": 110000
+    },
+    {
+      "id": "dram-lot-09",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 5,
+      "dueTick": 100000
+    },
+    {
+      "id": "dram-lot-10",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 10,
+      "dueTick": 90000
+    },
+    {
+      "id": "dram-lot-11",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 10,
+      "dueTick": 80000
+    },
+    {
+      "id": "dram-lot-12",
+      "device": "lot-release",
+      "buffer": "storage",
+      "resource": "blank-dram-wafer-lot",
+      "priority": 10,
+      "dueTick": 70000
     }
-  },
+  ],
   "initialEnergyMilliJoules": {},
   "failures": []
 }

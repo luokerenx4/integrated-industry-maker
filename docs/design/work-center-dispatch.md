@@ -1,8 +1,8 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification and deterministic ready-WIP dispatch implemented in engine version `inm-sim/0.47.0`.
+Status: multi-operation qualification plus operation- and lot-aware deterministic ready-WIP dispatch implemented in engine version `inm-sim/0.48.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
 ## Why this exists
 
@@ -24,6 +24,11 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 - `authored-order`: first ready operation in the `recipes` array;
 - `shortest-cycle`: shortest compiled duration among ready operations, with authored order as the tie-break;
 - `highest-priority`: largest recipe `priority` among ready operations, with authored order as the tie-break.
+- `oldest-lot`: operation containing the earliest-released tracked lot;
+- `earliest-due-date`: operation containing the tracked lot with the earliest finite due tick;
+- `highest-lot-priority`: operation containing the tracked lot with the greatest authored priority.
+
+`lotDispatch` independently chooses the exact identities consumed after an operation wins: `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority`. Operation dispatch and lot dispatch are separate because a shared work center first chooses a route step and then chooses WIP within that step. See [[docs/design/lot-tracking]].
 
 Selection occurs only while the Device is idle. A ready operation has every exact input batch available and enough reserved output capacity. Work is non-preemptive after start. When nothing is ready, the highest-ranked operation is still exposed to the Device program so the normal waiting-input or blocked-output state remains observable.
 
@@ -31,17 +36,17 @@ Selection occurs only while the Device is idle. A ready operation has every exac
 
 The engine selects one compiled plan before calling the project-local TypeScript program. `context.process` still contains one operation, keeping Device programs simple. The returned `start` action must exactly match that selected plan. Stable authored indices resolve every equal rank, so no decision depends on object iteration, wall clock, or browser state.
 
-The event stream records the selected Process id in `device.start` and `device.finish`. Existing utilization, waiting, blocking, power, WIP, and transport metrics automatically measure shared-equipment contention because one Device can own only one active job.
+The event stream records the selected Process id and tracked lot ids in `device.start` and `device.finish`. Existing utilization, waiting, blocking, power, WIP, and transport metrics measure shared-equipment contention because one Device can own only one active job; lot clocks additionally measure the scheduling consequences.
 
 ## Static analysis boundary
 
 `inm analyze` emits one row per qualified operation. Its cycles/min value is an exclusive maximum: the rate if that operation owned the work center continuously. A `shared-work-center` diagnostic names the dispatch policy and warns that those maxima cannot run simultaneously. Material-balance and capacity planning enumerate every qualified operation, but the first implementation does not yet solve a coupled allocation variable across all operations on one physical Device. Locked event simulation is therefore the score authority for re-entrant work-center optimization.
 
-The next industrial layers should make that coupling richer rather than hide it: sequence-dependent setup and chamber cleaning, minimum/maximum batch formation, equipment qualification state, preventive maintenance and breakdown repair, lot age/due dates, stochastic-but-seeded yield, inspection, scrap, and rework routes.
+The next industrial layers should make that coupling richer rather than hide it: sequence-dependent setup and chamber cleaning, minimum/maximum batch formation, equipment qualification state, preventive maintenance and breakdown repair, stochastic-but-seeded yield, inspection, scrap, and rework routes.
 
 ## Memory-fab reference project
 
-[[examples/memory-fab]] is the north-star executable example. A synthetic DRAM wafer lot travels through lithography → etch → deposition, returns to the same lithography bay, then returns to the same etch bay before delivery. Both shared bays begin with `authored-order`, which releases early-stage WIP before completing re-entrant lots. Its locked `dispatch-research` benchmark proves that changing the two work-center policies to `highest-priority` improves the same fixed three-minute production window without editing assets, Processes, Scenario, Objective, or evaluator.
+[[examples/memory-fab]] is the north-star executable example. Twelve named synthetic DRAM wafer lots with priorities and due dates travel through lithography → etch → deposition, return to the same lithography bay, then return to the same etch bay before delivery. Both shared bays begin with authored operation order and FIFO lot order. Its locked `dispatch-research` benchmark proves that changing both policies to earliest-due-date eliminates measured tardiness and improves cycle time in the same fixed three-minute window without editing assets, Processes, Scenario, Objective, or evaluator.
 
 ## Source of truth
 
@@ -55,11 +60,11 @@ The next industrial layers should make that coupling richer rather than hide it:
 ## Verification
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "shared work centers"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "shared work centers|identity-preserving wafer lots"
 bun run inm validate examples/memory-fab
 bun run inm analyze examples/memory-fab
 bun run inm test examples/memory-fab
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 ```
 
-The unchanged candidate must report `UNCHANGED`. A temporary candidate that changes both shared bays to `highest-priority` must report `KEEP`.
+The unchanged candidate must report `UNCHANGED`. A temporary candidate that changes both shared bays to `recipeDispatch: earliest-due-date` and `lotDispatch: earliest-due-date` must report `KEEP`.

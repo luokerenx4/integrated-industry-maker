@@ -60,11 +60,12 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     const materialBatches = Object.fromEntries(Object.entries(buffers).map(([buffer, inventory]) => [
       buffer, Object.fromEntries(Object.entries(inventory).filter(([, count]) => count > 0).map(([resource, count]) => [resource, { "0": count }])),
     ]));
+    const lotIds = Object.fromEntries(Object.keys(buffers).map((buffer) => [buffer, {}]));
     const storage = project.devices[id]!.storagePlan;
     const stationEnergy = project.devices[id]!.stationEnergyPlan;
     const initialMilliJoules = project.scenario.initialEnergyMilliJoules?.[id] ?? 0;
     devices[id] = {
-      status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches,
+      status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds,
       ...(storage ? { energyStorage: {
         capacityMilliJoules: storage.capacityMilliJoules,
         storedMilliJoules: initialMilliJoules,
@@ -88,6 +89,34 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     if (batches["0"] === 0) delete batches["0"];
     batches[String(treatment.level)] = (batches[String(treatment.level)] ?? 0) + treatment.count;
   }
+  const lots: FactoryState["lots"] = {};
+  for (const definition of project.scenario.initialLots ?? []) {
+    const resource = project.resources[definition.resource]!;
+    const runtime = devices[definition.device]!;
+    const inventory = runtime.buffers[definition.buffer]!;
+    const batches = runtime.materialBatches[definition.buffer] ??= {};
+    const levels = batches[definition.resource] ??= {};
+    const ids = runtime.lotIds[definition.buffer] ??= {};
+    (ids[definition.resource] ??= []).push(definition.id);
+    inventory[definition.resource] = (inventory[definition.resource] ?? 0) + 1;
+    levels["0"] = (levels["0"] ?? 0) + 1;
+    lots[definition.id] = {
+      id: definition.id,
+      family: resource.tracking!.family,
+      resource: definition.resource,
+      treatmentLevel: 0,
+      priority: definition.priority ?? 0,
+      releasedAtTick: 0,
+      ...(definition.dueTick === undefined ? {} : { dueTick: definition.dueTick }),
+      routeStep: 0,
+      status: "queued",
+      statusSinceTick: 0,
+      queueTicks: 0,
+      processTicks: 0,
+      transportTicks: 0,
+      location: { kind: "buffer", device: definition.device, buffer: definition.buffer },
+    };
+  }
   const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as BeltTransit[]]));
   const logisticsTransports = Object.fromEntries(Object.keys(project.logisticsNetworks).sort().map((id) => [id, [] as ResourceTransit[]]));
   const logisticsMissions = Object.fromEntries(Object.keys(project.logisticsNetworks).sort().map((id) => [id, [] as CarrierMission[]]));
@@ -108,7 +137,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
   const availableMilliWatts = Object.values(grids).reduce((sum, grid) => sum + grid.availableMilliWatts, 0);
   const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => [node.id, { remaining: node.amount, reserved: 0, extracted: 0 }]));
   return {
-    tick: 0, devices, resourceNodes, transports, logisticsTransports, logisticsMissions, produced: {}, consumed: {},
+    tick: 0, devices, lots, resourceNodes, transports, logisticsTransports, logisticsMissions, produced: {}, consumed: {},
     energy: { availableMilliWatts, consumedMilliJoules: 0, grids, fuelConsumed: {} }, completedOrders: 0, highSpeedMissions: 0,
     carrierMissions: 0, carrierReturns: 0,
     materialTreatment: { treated: {}, agentsConsumed: {} },
@@ -484,6 +513,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     .filter(([level]) => level >= minimumTreatmentLevel).reduce((sum, [, count]) => sum + count, 0);
   const sourceTreatmentLevel = (device: string, buffer: string, resource: string, minimumTreatmentLevel = 0): number | undefined => materialLevels(device, buffer, resource)
     .find(([level]) => level >= minimumTreatmentLevel)?.[0];
+  const isTracked = (resource: string): boolean => Boolean(project.resources[resource]?.tracking);
+  const rankedLotIds = (device: CompiledDevice, buffer: string, resource: string, treatmentLevel?: number): string[] => {
+    const ids = [...(state.devices[device.id]!.lotIds[buffer]?.[resource] ?? [])]
+      .filter((id) => treatmentLevel === undefined || state.lots[id]!.treatmentLevel === treatmentLevel);
+    const policy = device.policy?.lotDispatch ?? "fifo";
+    if (policy === "fifo") return ids;
+    return ids.sort((leftId, rightId) => {
+      const left = state.lots[leftId]!; const right = state.lots[rightId]!;
+      if (policy === "oldest-release") return left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id);
+      if (policy === "earliest-due-date") return (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER)
+        || left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id);
+      return right.priority - left.priority || left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id);
+    });
+  };
+  const takeLotIds = (device: CompiledDevice, buffer: string, resource: string, count: number, treatmentLevel?: number): string[] => {
+    const ids = rankedLotIds(device, buffer, resource, treatmentLevel).slice(0, count);
+    if (ids.length !== count) throw new Error(`Tracked Resource '${resource}' in ${device.id}/${buffer} has ${ids.length} identities for ${count} items`);
+    return ids;
+  };
   const incomingQuantity = (device: string, buffer: string, resource?: string, minimumTreatmentLevel = 0) => [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
     .filter((transit) => transit.to === device && transit.toBuffer === buffer && (resource === undefined || transit.resource === resource)
       && (resource === undefined || transit.treatmentLevel >= minimumTreatmentLevel))
@@ -617,9 +665,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const count = Math.min(materialLevels(connection.from.device, connection.fromPort.buffer, resource).find(([level]) => level === sourceLevel)?.[1] ?? 0,
         freeCapacity, connection.stackSizeByResource[resource] ?? 1);
       if (count <= 0) continue;
-      mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -count, treatmentLevel: sourceLevel });
+      const transitId = `transit-${String(transitSequence++).padStart(6, "0")}`;
+      const lotIds = isTracked(resource) ? takeLotIds(connection.fromDevice, connection.fromPort.buffer, resource, count, sourceLevel) : [];
+      if (lotIds.length) mutateFactoryState(state, {
+        kind: "lot.depart", lotIds, device: connection.from.device, buffer: connection.fromPort.buffer,
+        nextStatus: "transport", nextLocation: { kind: "transit", transit: transitId },
+      });
+      else mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -count, treatmentLevel: sourceLevel });
       const transit: BeltTransit = {
-        id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count, treatmentLevel: sourceLevel,
+        id: transitId, resource, count, treatmentLevel: sourceLevel, ...(lotIds.length ? { lotIds } : {}),
         from: connection.from.device, fromBuffer: connection.fromPort.buffer,
         to: connection.to.device, toBuffer: connection.toPort.buffer,
         departTick: state.tick, arriveTick: state.tick + connection.travelTicks,
@@ -754,12 +808,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           type: "logistics.energy-spent", tick: state.tick, device: route.from, network: network.id, route: route.id,
           energyMilliJoules: route.missionEnergyMilliJoules, storedMilliJoules: state.devices[route.from]!.stationEnergy!.storedMilliJoules,
         });
-        mutateFactoryState(state, { kind: "buffer", device: route.from, buffer: route.fromBuffer, resource: route.resource, delta: -count, treatmentLevel: sourceLevel });
+        const transitId = `transit-${String(transitSequence++).padStart(6, "0")}`;
+        const lotIds = isTracked(route.resource) ? takeLotIds(project.devices[route.from]!, route.fromBuffer, route.resource, count, sourceLevel) : [];
+        if (lotIds.length) mutateFactoryState(state, {
+          kind: "lot.depart", lotIds, device: route.from, buffer: route.fromBuffer,
+          nextStatus: "transport", nextLocation: { kind: "transit", transit: transitId },
+        });
+        else mutateFactoryState(state, { kind: "buffer", device: route.from, buffer: route.fromBuffer, resource: route.resource, delta: -count, treatmentLevel: sourceLevel });
         const transit: ResourceTransit = {
-          id: `transit-${String(transitSequence++).padStart(6, "0")}`,
+          id: transitId,
           resource: route.resource,
           count,
           treatmentLevel: sourceLevel,
+          ...(lotIds.length ? { lotIds } : {}),
           from: route.from,
           fromBuffer: route.fromBuffer,
           to: route.to,
@@ -821,8 +882,28 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const leftKeys = left.map(key).sort(); const rightKeys = right.map(key).sort();
     return leftKeys.length === rightKeys.length && leftKeys.every((value, index) => value === rightKeys[index]);
   };
-  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], delivered: boolean) => {
+  const amountKey = (amount: Pick<ResourceBufferQuantity, "buffer" | "resource">): string => `${amount.buffer}\0${amount.resource}`;
+  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], delivered: boolean): Record<string, string[]> => {
+    const consumedLots: Record<string, string[]> = {};
     for (const amount of amounts) {
+      if (isTracked(amount.resource)) {
+        const lotIds = rankedLotIds(device, amount.buffer, amount.resource)
+          .filter((id) => state.lots[id]!.treatmentLevel >= (amount.minimumTreatmentLevel ?? 0)).slice(0, amount.count);
+        if (lotIds.length !== amount.count) throw new Error(`Insufficient tracked lots for ${device.id}/${amount.buffer}/${amount.resource}`);
+        consumedLots[amountKey(amount)] = lotIds;
+        if (delivered) {
+          mutateFactoryState(state, { kind: "lot.complete", lotIds, device: device.id, buffer: amount.buffer });
+          for (const id of lotIds) {
+            const lot = state.lots[id]!;
+            const cycleTicks = state.tick - lot.releasedAtTick;
+            const tardinessTicks = Math.max(0, state.tick - (lot.dueTick ?? state.tick));
+            emit({ type: "lot.completed", tick: state.tick, device: device.id, lot: id, family: lot.family, resource: amount.resource, cycleTicks, tardinessTicks });
+          }
+        } else mutateFactoryState(state, {
+          kind: "lot.depart", lotIds, device: device.id, buffer: amount.buffer,
+          nextStatus: "processing", nextLocation: { kind: "device", device: device.id },
+        });
+      } else {
       let remaining = amount.count;
       for (const [level, count] of materialLevels(device.id, amount.buffer, amount.resource).filter(([level]) => level >= (amount.minimumTreatmentLevel ?? 0))) {
         const consumed = Math.min(remaining, count);
@@ -833,14 +914,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         if (remaining === 0) break;
       }
       if (remaining > 0) throw new Error(`Insufficient eligible material for ${device.id}/${amount.buffer}/${amount.resource}`);
+      }
       if (delivered) {
         mutateFactoryState(state, { kind: "consumed", resource: amount.resource, count: amount.count });
         mutateFactoryState(state, { kind: "orders", count: amount.count });
         const regional = stats.consumedByRegion[device.region] ??= {};
         regional[amount.resource] = (regional[amount.resource] ?? 0) + amount.count;
-        emit({ type: "resource.consumed", tick: state.tick, device: device.id, resource: amount.resource, count: amount.count });
+        emit({ type: "resource.consumed", tick: state.tick, device: device.id, resource: amount.resource, count: amount.count, ...(consumedLots[amountKey(amount)]?.length ? { lotIds: consumedLots[amountKey(amount)] } : {}) });
       }
     }
+    return consumedLots;
   };
   const tryDecision = (
     device: CompiledDevice,
@@ -931,7 +1014,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, availablePowerForJob) : 0 });
         setStatus(device.id, "unpowered"); return false;
       }
-      mutateFactoryState(state, {
+      const treatmentLotIds = isTracked(decision.resource)
+        ? takeLotIds(device, plan.inputBuffer, decision.resource, decision.count, decision.inputTreatmentLevel) : [];
+      if (treatmentLotIds.length) mutateFactoryState(state, {
+        kind: "lot.depart", lotIds: treatmentLotIds, device: device.id, buffer: plan.inputBuffer,
+        nextStatus: "processing", nextLocation: { kind: "device", device: device.id },
+      });
+      else mutateFactoryState(state, {
         kind: "buffer", device: device.id, buffer: plan.inputBuffer, resource: decision.resource,
         delta: -decision.count, treatmentLevel: decision.inputTreatmentLevel,
       });
@@ -945,9 +1034,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           resource: decision.resource, fromLevel: decision.inputTreatmentLevel, toLevel: plan.mode.level, count: decision.count,
           agentResource: agent.resource, agentCount: agent.count,
         },
+        ...(treatmentLotIds.length ? { lotTransfers: [{ lotIds: treatmentLotIds, output: produce[0]! }] } : {}),
       };
       setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
-      emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
+      emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks,
+        ...(treatmentLotIds.length ? { lotIds: treatmentLotIds } : {}) });
       schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
       return true;
     }
@@ -974,14 +1065,20 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, available) : 0 });
       setStatus(device.id, "unpowered"); return false;
     }
-    applyConsume(device, decision.consume, false);
+    const consumedLots = applyConsume(device, decision.consume, false);
+    const lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
+      lotIds: consumedLots[amountKey(transfer.input)] ?? [],
+      output: { ...transfer.output },
+    })).filter((transfer) => transfer.lotIds.length) ?? [];
     const job = {
       operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
       remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
       powerMilliWatts: required, produce: structuredClone(decision.produce),
+      ...(lotTransfers.length ? { lotTransfers } : {}),
     };
     setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
-    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
+    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks,
+      ...(lotTransfers.length ? { lotIds: lotTransfers.flatMap((transfer) => transfer.lotIds) } : {}) });
     schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
@@ -990,6 +1087,26 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const policy = device.policy?.recipeDispatch ?? "authored-order";
     if (policy === "shortest-cycle") ranked.sort((left, right) => left.plan.durationTicks - right.plan.durationTicks || left.index - right.index);
     else if (policy === "highest-priority") ranked.sort((left, right) => right.plan.priority - left.plan.priority || left.index - right.index);
+    else if (policy === "oldest-lot" || policy === "earliest-due-date" || policy === "highest-lot-priority") {
+      const candidateLot = (plan: CompiledDevice["processPlans"][number]) => {
+        const lots = plan.inputs.filter((amount) => isTracked(amount.resource))
+          .flatMap((amount) => rankedLotIds(device, amount.buffer, amount.resource)
+            .filter((id) => state.lots[id]!.treatmentLevel >= (amount.minimumTreatmentLevel ?? 0))).map((id) => state.lots[id]!);
+        lots.sort((left, right) => policy === "oldest-lot"
+          ? left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id)
+          : policy === "earliest-due-date"
+            ? (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id)
+            : right.priority - left.priority || left.id.localeCompare(right.id));
+        return lots[0];
+      };
+      ranked.sort((left, right) => {
+        const leftLot = candidateLot(left.plan); const rightLot = candidateLot(right.plan);
+        if (!leftLot || !rightLot) return Number(Boolean(rightLot)) - Number(Boolean(leftLot)) || left.index - right.index;
+        if (policy === "oldest-lot") return leftLot.releasedAtTick - rightLot.releasedAtTick || left.index - right.index;
+        if (policy === "earliest-due-date") return (leftLot.dueTick ?? Number.MAX_SAFE_INTEGER) - (rightLot.dueTick ?? Number.MAX_SAFE_INTEGER) || left.index - right.index;
+        return rightLot.priority - leftLot.priority || left.index - right.index;
+      });
+    }
     const ready = ranked.find(({ plan }) => plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device, plan.outputs));
     return (ready ?? ranked[0])?.plan;
   };
@@ -1307,7 +1424,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (event.generation !== generations[event.device] || state.devices[event.device]!.status !== "processing") continue;
       const runtime = state.devices[event.device]!; const job = runtime.activeJob!;
       for (const output of job.produce) {
-        mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count, treatmentLevel: output.treatmentLevel });
+        const transfer = job.lotTransfers?.find((candidate) => candidate.output.buffer === output.buffer && candidate.output.resource === output.resource);
+        if (isTracked(output.resource)) {
+          if (!transfer || transfer.lotIds.length !== output.count) throw new Error(`Tracked output '${output.resource}' from '${event.device}' has no identity-preserving lot transfer`);
+          mutateFactoryState(state, {
+            kind: "lot.arrive", lotIds: transfer.lotIds, device: event.device, buffer: output.buffer,
+            resource: output.resource, treatmentLevel: output.treatmentLevel,
+          });
+        } else mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count, treatmentLevel: output.treatmentLevel });
         mutateFactoryState(state, { kind: "produced", resource: output.resource, count: output.count });
       }
       if (job.extraction) {
@@ -1322,7 +1446,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         emit({ type: "material.treated", tick: state.tick, device: event.device, ...job.treatment });
       }
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
-      emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce) });
+      emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce),
+        ...(job.lotTransfers?.length ? { lotIds: job.lotTransfers.flatMap((transfer) => transfer.lotIds) } : {}) });
     } else if (event.kind === "belt-step") {
       const transit = state.transports[event.connection]?.find((item) => item.id === event.transitId);
       if (!transit || transit.readyTick !== state.tick || transit.phase === "unloading") continue;
@@ -1408,7 +1533,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
       delete proportionalTransportWork[transportWorkKey(event.connection, "unloader", transit.id)];
       mutateFactoryState(state, { kind: "transport.remove", connection: event.connection, transitId: transit.id });
-      mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count, treatmentLevel: transit.treatmentLevel });
+      if (transit.lotIds?.length) mutateFactoryState(state, {
+        kind: "lot.arrive", lotIds: transit.lotIds, device: transit.to, buffer: transit.toBuffer,
+        resource: transit.resource, treatmentLevel: transit.treatmentLevel,
+      });
+      else mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count, treatmentLevel: transit.treatmentLevel });
       stats.connectionDeliveredItems[event.connection] = (stats.connectionDeliveredItems[event.connection] ?? 0) + transit.count;
       const deliveredByResource = stats.connectionDeliveredByResource[event.connection] ??= {};
       deliveredByResource[transit.resource] = (deliveredByResource[transit.resource] ?? 0) + transit.count;
@@ -1421,7 +1550,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const transit = transits[index]!;
       mutateFactoryState(state, { kind: "logistics.remove", network: event.network, transitId: transit.id });
       mutateFactoryState(state, { kind: "logistics.mission-returning", network: event.network, missionId: `mission-${transit.id}` });
-      mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count, treatmentLevel: transit.treatmentLevel });
+      if (transit.lotIds?.length) mutateFactoryState(state, {
+        kind: "lot.arrive", lotIds: transit.lotIds, device: transit.to, buffer: transit.toBuffer,
+        resource: transit.resource, treatmentLevel: transit.treatmentLevel,
+      });
+      else mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count, treatmentLevel: transit.treatmentLevel });
       emit({ type: "logistics.arrive", tick: state.tick, transit: { ...transit }, network: event.network, route: event.route });
     } else if (event.kind === "carrier-return") {
       const mission = state.logisticsMissions[event.network]!.find((item) => item.id === event.missionId);
@@ -1448,6 +1581,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       generations[event.device]!++;
       const activeJob = state.devices[event.device]!.activeJob;
       if (activeJob?.extraction) mutateFactoryState(state, { kind: "resource.release", node: activeJob.extraction.node, count: activeJob.extraction.count });
+      const scrappedLots = activeJob?.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
+      if (scrappedLots.length) {
+        mutateFactoryState(state, { kind: "lot.scrap", lotIds: scrappedLots, device: event.device, reason: "equipment-breakdown" });
+        for (const id of scrappedLots) {
+          const lot = state.lots[id]!;
+          emit({ type: "lot.scrapped", tick: state.tick, device: event.device, lot: id, family: lot.family, resource: lot.resource, reason: "equipment-breakdown" });
+        }
+      }
       if (activeJob) mutateFactoryState(state, { kind: "job.finish", device: event.device });
       for (const connection of Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id))) {
         for (const stageName of ["loader", "unloader"] as const) {
@@ -1505,6 +1646,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "progress", device: id, progressTicks: runtime.activeJob.workedTicks + activeProgress });
     }
   }
+  mutateFactoryState(state, { kind: "lot.checkpoint", lotIds: Object.keys(state.lots).sort() });
   const reason = publicEventCount >= maxEvents ? "max-events" : "until-tick";
   emit({ type: "simulation.completed", tick: state.tick, reason });
   const metrics = evaluateFactory(project, state, stats);

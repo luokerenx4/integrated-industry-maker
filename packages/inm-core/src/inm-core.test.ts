@@ -11,6 +11,7 @@ import {
 } from "./index";
 
 const ironworks = resolve(import.meta.dir, "../../../examples/ironworks");
+const memoryFab = resolve(import.meta.dir, "../../../examples/memory-fab");
 async function loaded(): Promise<LoadedFactoryProject> { return loadFactoryProject(ironworks); }
 type TestConnectionSpec = Omit<Blueprint["connections"][number], "logistics"> & {
   logistics: {
@@ -684,6 +685,42 @@ describe("blueprint compiler", () => {
     expect(result.events.find((event) => event.type === "device.start" && event.device === "assembler-1")).toEqual(expect.objectContaining({ operation: "forge-gear-pair" }));
     expect(result.state.produced.gear).toBe(2);
     expect(analyzeProduction(project).devices.filter((device) => device.device === "assembler-1")).toHaveLength(2);
+  });
+
+  test("identity-preserving wafer lots survive re-entrant processing and expose schedulable cycle time", async () => {
+    const source = await loadFactoryProject(memoryFab);
+    const baseline = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
+    const lots = Object.values(baseline.state.lots).sort((left, right) => left.id.localeCompare(right.id));
+    expect(lots).toHaveLength(12);
+    expect(lots.every((lot) => lot.status === "completed" && lot.resource === "dram-wafer-lot" && lot.routeStep === 5)).toBeTrue();
+    expect(lots.every((lot) => lot.completedAtTick! - lot.releasedAtTick === lot.queueTicks + lot.processTicks + lot.transportTicks)).toBeTrue();
+    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", released: 12, completed: 12, onTimeCompleted: 6 }));
+    expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(12);
+    expect(baseline.events.filter((event) => event.type === "device.start" && event.lotIds?.length)).not.toHaveLength(0);
+    expect(baseline.events.filter((event) => event.type === "resource.depart" && event.transit.lotIds?.length)).not.toHaveLength(0);
+
+    const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
+    for (const id of ["lithography-1", "etch-1"]) {
+      const device = candidateSource.blueprint.devices.find((item) => item.id === id)!;
+      device.policy = { ...device.policy, recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
+    }
+    const candidate = runUntil(compileFactoryProject(candidateSource), undefined, { seed: 42 });
+    expect(candidate.metrics.lotFlow.onTimeCompleted).toBe(12);
+    expect(candidate.metrics.lotFlow.meanTardinessTicks).toBe(0);
+    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeLessThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
+    expect(candidate.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore + 10);
+
+    const invalid = { ...source, scenario: structuredClone(source.scenario) };
+    invalid.scenario.initialLots = [];
+    invalid.scenario.initialBuffers = { "lot-release": { storage: { "blank-dram-wafer-lot": 1 } } };
+    expect(issueCodes(() => compileFactoryProject(invalid))).toContain("lot.explicit-required");
+
+    const failureSource = { ...source, scenario: structuredClone(source.scenario) };
+    failureSource.scenario.failures = [{ device: "lithography-1", atTick: 3_000, durationTicks: 5_000 }];
+    const interrupted = runUntil(compileFactoryProject(failureSource), undefined, { seed: 42 });
+    expect(interrupted.metrics.lotFlow.scrapped).toBe(1);
+    expect(Object.values(interrupted.state.lots).filter((lot) => lot.status === "scrapped")).toHaveLength(1);
+    expect(interrupted.events.filter((event) => event.type === "lot.scrapped")).toHaveLength(1);
   });
 
   test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {

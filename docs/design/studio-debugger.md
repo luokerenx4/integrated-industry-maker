@@ -2,7 +2,7 @@
 
 Status: project launcher, stable project routes, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
@@ -14,7 +14,7 @@ The root route presents available projects. Selecting one establishes `/<project
 
 ## Project-local catalog
 
-The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, physical production ports, buffer maxima, production modes and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
+The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, physical production ports, buffer maxima, production modes and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, lot-tracking family, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
 
 ## Industrial analysis
 
@@ -33,6 +33,8 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 ## 3D replay
 
 Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Machines, explicit selectable sorter Devices and arms, deposits, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Sorter stage start/finish, power loss/restoration, breakdown, and recovery events drive the attachment's own visible status. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Opening or scrubbing never runs a hidden simulation.
+
+The Performance panel exposes tracked-lot completion, on-time service, mean/p95 cycle time, queue/process/transport decomposition, and tardiness when the Objective target belongs to a lot family. These values come only from the selected immutable run.
 
 ## Factory-object inspection
 

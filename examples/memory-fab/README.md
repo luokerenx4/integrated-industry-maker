@@ -1,6 +1,6 @@
 # Re-entrant DRAM memory fab
 
-This self-contained INM project is the industrial north-star example. A wafer lot passes lithography → etch → deposition, then returns to the same lithography and etch work centers before delivery. It demonstrates shared equipment qualification, deterministic WIP dispatch, physical transport, finite buffers, power, cycle time, and a file-edit/CLI-evaluate optimization loop.
+This self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before delivery. Their identities survive processing and physical transport, so the evaluator measures complete cycle, queue, processing, transport, on-time, and tardiness behavior instead of inferring it from fungible inventory.
 
 The model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe. Timing and capacity values are synthetic benchmark parameters.
 

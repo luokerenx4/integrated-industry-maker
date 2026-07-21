@@ -17,6 +17,10 @@
   "transport": {
     "stackSize": 1
   },
+  "tracking": {
+    "kind": "lot",
+    "family": "dram-wafer"
+  },
   "files": {
     "visual": "visual.json"
   }
