@@ -38,6 +38,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const waitingInputTime: Record<string, Tick> = {};
   const blockedOutputTime: Record<string, Tick> = {};
   const unpoweredTime: Record<string, Tick> = {};
+  const failedTime: Record<string, Tick> = {};
   let bottleneckEntity: string | null = null; let bottleneckValue = -1;
   for (const id of Object.keys(project.devices).sort()) {
     const times = stats.durations[id] ?? {};
@@ -46,6 +47,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     waitingInputTime[id] = times["waiting-input"] ?? 0;
     blockedOutputTime[id] = times["blocked-output"] ?? 0;
     unpoweredTime[id] = times.unpowered ?? 0;
+    failedTime[id] = times.failed ?? 0;
     const value = machineUtilization[id]! * duration + blockedOutputTime[id]! * 0.5;
     const processCapable = project.devices[id]!.assetDef.capabilities.includes("process");
     if (processCapable && value > bottleneckValue) {
@@ -68,11 +70,9 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     const utilization = { loader: active.loader / duration / loader.capacity, unloader: active.unloader / duration / unloader.capacity };
     if (loader.device) {
       machineUtilization[loader.device.id] = utilization.loader;
-      idleTime[loader.device.id] = duration * (1 - utilization.loader);
     }
     if (unloader.device) {
       machineUtilization[unloader.device.id] = utilization.unloader;
-      idleTime[unloader.device.id] = duration * (1 - utilization.unloader);
     }
     return [connection.id, utilization];
   }));
@@ -140,7 +140,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
     }])),
     materialTreatment: structuredClone(state.materialTreatment),
-    totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime,
+    totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,

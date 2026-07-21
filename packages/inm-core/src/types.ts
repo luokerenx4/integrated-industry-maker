@@ -653,6 +653,8 @@ export interface FactoryState {
 export type FactoryEvent =
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick }
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[] }
+  | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
+  | { type: "transport.stage-finish"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string }
   | { type: "resource.extracted"; tick: Tick; device: DeviceInstanceId; node: string; resource: ResourceId; count: number; remaining: number }
   | { type: "resource.depleted"; tick: Tick; node: string; resource: ResourceId }
   | { type: "resource.depart"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
@@ -731,6 +733,7 @@ export interface FactoryMetrics {
   waitingInputTime: Record<DeviceInstanceId, Tick>;
   blockedOutputTime: Record<DeviceInstanceId, Tick>;
   unpoweredTime: Record<DeviceInstanceId, Tick>;
+  failedTime: Record<DeviceInstanceId, Tick>;
   averageWip: number;
   averageBeltItems: number;
   averageBlockedBeltItems: number;

@@ -135,6 +135,7 @@ interface FactoryEvent {
   count?: number;
   remaining?: number;
   transit?: { id: string; resource: string; count: number; treatmentLevel: number; departTick: number; arriveTick: number };
+  transitId?: string;
   connection?: string;
   cell?: string | null;
   cellIndex?: number;
@@ -187,6 +188,7 @@ interface Metrics {
   waitingInputTime: Record<string, number>;
   blockedOutputTime: Record<string, number>;
   unpoweredTime: Record<string, number>;
+  failedTime: Record<string, number>;
   scoreBreakdown: Record<string, number>;
 }
 
@@ -361,6 +363,7 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
   const devices = Object.fromEntries(data.devices.map((device) => [device.id, { status: "idle" as Status, progress: 0 }]));
   const endpointPower = Object.fromEntries(data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => [`${connection.id}:${endpoint.stage}`, Boolean(endpoint.powerGrid)])));
   const jobs = new Map<string, { durationTicks: number; workedTicks: number; resumedAt?: number }>();
+  const transportJobs = new Map<string, Set<string>>();
   const transits = new Map<string, TransitFrame>();
   const visibleEvents: FactoryEvent[] = [];
   for (const event of data.events) {
@@ -370,8 +373,11 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
       devices[event.device] = { status: "processing", progress: 0 };
       jobs.set(event.device, { durationTicks: event.durationTicks ?? 1, workedTicks: 0, resumedAt: event.tick });
     } else if (event.device && (event.type === "device.finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
-      devices[event.device] = { status: "idle", progress: 0 };
+      devices[event.device] = { status: event.type === "device.recover" && transportJobs.get(event.device)?.size ? "processing" : "idle", progress: 0 };
       if (event.type === "device.finish" || event.type === "device.recover") jobs.delete(event.device);
+      if (event.type === "device.recover") for (const connection of data.connections) for (const endpoint of connection.endpoints) {
+        if (endpoint.device === event.device) endpointPower[`${connection.id}:${endpoint.stage}`] = Boolean(endpoint.powerGrid);
+      }
     } else if (event.device && event.type === "buffer.blocked") devices[event.device] = { status: "blocked-output", progress: 0 };
     else if (event.device && event.type === "power.shortage") {
       const job = jobs.get(event.device);
@@ -384,6 +390,9 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
     } else if (event.device && event.type === "device.breakdown") {
       devices[event.device] = { status: "failed", progress: 0 };
       jobs.delete(event.device);
+      for (const connection of data.connections) for (const endpoint of connection.endpoints) {
+        if (endpoint.device === event.device) endpointPower[`${connection.id}:${endpoint.stage}`] = false;
+      }
     }
     else if (event.type === "transport.power-shortage" && event.connection && event.stage) {
       endpointPower[`${event.connection}:${event.stage}`] = false;
@@ -391,7 +400,19 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
     }
     else if (event.type === "transport.power-restored" && event.connection && event.stage) {
       endpointPower[`${event.connection}:${event.stage}`] = true;
-      if (event.device) devices[event.device] = { status: "idle", progress: 0 };
+      if (event.device) devices[event.device] = { status: transportJobs.get(event.device)?.size ? "processing" : "idle", progress: 0 };
+    }
+    else if (event.type === "transport.stage-start" && event.device && event.transitId) {
+      const active = transportJobs.get(event.device) ?? new Set<string>();
+      active.add(event.transitId); transportJobs.set(event.device, active);
+      devices[event.device] = { status: "processing", progress: 0 };
+    }
+    else if (event.type === "transport.stage-finish" && event.device && event.transitId) {
+      const active = transportJobs.get(event.device) ?? new Set<string>();
+      active.delete(event.transitId); transportJobs.set(event.device, active);
+      if (devices[event.device]?.status !== "failed" && devices[event.device]?.status !== "unpowered") {
+        devices[event.device] = { status: active.size ? "processing" : "idle", progress: 0 };
+      }
     }
     else if (event.type === "resource.depart" && event.transit && event.connection) {
       const connection = data.connections.find((item) => item.id === event.connection)!;
@@ -623,6 +644,13 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const diagnostics = data.analysis.diagnostics.filter((diagnostic) => diagnostic.device === device.id);
   const powerMilliWatts = device.recipe?.powerMilliWatts ?? extraction?.powerMilliWatts ?? asset?.power.consumptionMilliWatts ?? 0;
   const utilization = data.metrics?.machineUtilization[device.id];
+  const statusTimes = data.metrics ? [
+    ["IDLE", data.metrics.idleTime[device.id] ?? 0],
+    ["WAIT", data.metrics.waitingInputTime[device.id] ?? 0],
+    ["BLOCKED", data.metrics.blockedOutputTime[device.id] ?? 0],
+    ["NO POWER", data.metrics.unpoweredTime[device.id] ?? 0],
+    ["FAILED", data.metrics.failedTime[device.id] ?? 0],
+  ] as const : [];
   return <section className="scene-inspector" aria-label={`Device inspector: ${device.id}`}>
     <InspectorHeader kind="DEVICE INSTANCE" id={device.id} title={device.name} subtitle={`${device.assetId} · ${device.region}`} onClose={onClose} />
     <div className="scene-inspector-scroll">
@@ -631,6 +659,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><b>{(runtime.progress * 100).toFixed(0)}%</b><small>JOB PROGRESS</small></span>
         <span><b>{utilization === undefined ? "—" : `${(utilization * 100).toFixed(1)}%`}</b><small>RUN UTILIZATION</small></span>
       </div>
+      {statusTimes.length > 0 && <div className="inspector-facts">{statusTimes.map(([label, ticks]) => <span key={label}><small>{label}</small><b>{formatTick(ticks)}</b></span>)}</div>}
       <div className="inspector-facts">
         <span><small>POSITION</small><b>{device.position.x.toFixed(0)}, {device.position.y.toFixed(0)} · {device.rotation}°</b></span>
         <span><small>FOOTPRINT</small><b>{device.footprint.width} × {device.footprint.height}</b></span>

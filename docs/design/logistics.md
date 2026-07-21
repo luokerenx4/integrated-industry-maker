@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: explicit sorter Devices, physical local logistics, and treatment-aware dispatch implemented in `inm-sim/0.39.0`.
+Status: explicit sorter Devices, physical local logistics, and treatment-aware dispatch implemented through `inm-sim/0.40.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -61,6 +61,10 @@ A physical port and local lane may not exceed the best project-local pipeline ca
 
 For each planned local flow, synthesis writes a one-Resource lane allowlist and selects `shortage-first` as the factory default, then enumerates every supported loader/unloader span together with ground and raised belt routes. It executes the candidate endpoint and line runtimes at their actual distances, rejects candidates below required items/min, scores project-local build and energy cost, and globally reserves a conflict-free set of belt cells. A longer sorter arm may remove belt cells and improve compactness, but its distance-dependent cycle can force a faster or stacked tier; the selected Resource, distances, and assets are written into the generated Blueprint and synthesis report.
 
+## Explicit sorter runtime
+
+Loader and unloader attachments are Device instances, not connection attributes. Their active cargo entities drive the Device's `processing` status and exact status-duration metrics; power loss drives `unpowered`; a Scenario failure drives `failed`. Every stage emits `transport.stage-start` and `transport.stage-finish` with the endpoint Device and transit identity, so replay and optimization do not have to infer ownership from a lane. If a sorter fails in the middle of loading or unloading, the runtime freezes the exact remaining stage time and resumes that same work after recovery. New work cannot enter a failed endpoint, and active power excludes failed or unserved stages while requested grid demand retains blocked work.
+
 ## Station logistics
 
 A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; shared-fleet dispatch policy is network-local and falls back to the Blueprint factory policy when omitted.
@@ -105,7 +109,7 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 
 ## Telemetry
 
-Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records the effective network dispatch policy and, for every matched route, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, effective carrier batch range, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's explicit Device id, physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Device metrics preserve sorter idle, processing, unpowered, and failed intervals independently from capacity-normalized stage utilization. Station analysis records the effective network dispatch policy and, for every matched route, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, effective carrier batch range, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 

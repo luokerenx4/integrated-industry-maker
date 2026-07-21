@@ -1078,6 +1078,44 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.metrics.transportEnergyConsumedMilliJoules).toBe(1_000);
   });
 
+  test("explicit sorter failures pause their own in-flight stage and resume exact remaining work", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.program = {
+      apiVersion: 1,
+      evaluate: () => ({ kind: "none" }),
+      planTransport: () => ({ capacity: 1, durationTicks: 1_000 }),
+    };
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target", asset: "buffer", region: "forge-world", position: { x: 4, y: 0 }, rotation: 0 },
+    ];
+    setTestConnections(source, [{
+      id: "failure-belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
+      resources: ["iron-ore"], path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
+    }]);
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
+    source.scenario.failures = [{ device: "failure-belt-loader", atTick: 400, durationTicks: 900 }];
+    const project = compileFactoryProject(source);
+    const result = runUntil(project, undefined, { untilTick: 4_000 });
+    const stageEvents = result.events.filter((event) => event.type === "transport.stage-start" || event.type === "transport.stage-finish");
+    expect(stageEvents.map((event) => [event.type, event.device, event.tick])).toEqual([
+      ["transport.stage-start", "failure-belt-loader", 0],
+      ["transport.stage-finish", "failure-belt-loader", 1_900],
+      ["transport.stage-start", "failure-belt-unloader", 2_200],
+      ["transport.stage-finish", "failure-belt-unloader", 3_200],
+    ]);
+    expect(result.events.find((event) => event.type === "resource.arrive")?.tick).toBe(3_200);
+    expect(result.metrics.machineUtilization["failure-belt-loader"]).toBe(0.25);
+    expect(result.metrics.idleTime["failure-belt-loader"]).toBe(2_100);
+    expect(result.metrics.failedTime["failure-belt-loader"]).toBe(900);
+    expect(replayFactoryEvents(project, result.events, 500).devices["failure-belt-loader"]!.runtimeStatus).toBe("failed");
+    expect(replayFactoryEvents(project, result.events, 1_500).devices["failure-belt-loader"]!.runtimeStatus).toBe("processing");
+    expect(replayFactoryEvents(project, result.events, 2_000).devices["failure-belt-loader"]!.runtimeStatus).toBe("idle");
+  });
+
   test("the slowest logistics stage gates connection dispatch", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = {

@@ -216,7 +216,7 @@
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-loader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-unloader": {
       "buffers": {},

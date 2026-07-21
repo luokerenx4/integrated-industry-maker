@@ -48,7 +48,7 @@
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
       "buffers": {},
@@ -96,7 +96,7 @@
     "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": {
       "buffers": {},

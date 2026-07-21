@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **373.342**
-- Result hash: `939418a9346a6416bbffd36a0900335d29c47ef26641087d61bdb4c95f883fcf`
+- Result hash: `6ec004cf81e334bfb7a4da5c09c9bacbedc6be8167d78669c2ebe13c691a996c`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Target rate: 10.000 hydrogen/min (100.0% attained)

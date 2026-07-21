@@ -47,7 +47,7 @@
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
       "buffers": {},
@@ -62,7 +62,7 @@
     "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "synth-make-plastic-1": {
       "activeJob": {

@@ -221,7 +221,7 @@
     "ore-to-smelter-loader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "ore-to-smelter-unloader": {
       "buffers": {},
@@ -245,7 +245,7 @@
     "plate-to-station-unloader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "smelter-1": {
       "activeJob": {

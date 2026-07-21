@@ -13,6 +13,8 @@ export interface FactorySceneModel {
   resourcesInTransit: Array<{
     id: string; resourceId: string; count: number; treatmentLevel: number; from: GridPosition; to: GridPosition; path: GridPosition[]; position: GridPosition; progress: number; blocked?: boolean; visual?: Record<string, unknown>;
   }>;
+  /** Active sorter work keyed by explicit endpoint Device; retained through failure/power pauses for deterministic replay. */
+  transportStageJobs: Record<string, string[]>;
   connections: Array<{ id: string; from: GridPosition; to: GridPosition; path: GridPosition[]; kind: "physical" | "station"; blocked?: boolean }>;
   metrics: FactoryMetrics | null;
 }
@@ -58,18 +60,33 @@ export function createFactorySceneModel(project: CompiledFactoryProject, metrics
     width: regions.reduce((max, region) => Math.max(max, region.offset.x + region.bounds.width), 0),
     height: regions.reduce((max, region) => Math.max(max, region.offset.y + region.bounds.height), 0),
   };
-  return { tick: 0, bounds, regions, devices, resourcesInTransit: [], connections, metrics };
+  const transportStageJobs = Object.fromEntries(Object.keys(devices).map((id) => [id, [] as string[]]));
+  return { tick: 0, bounds, regions, devices, resourcesInTransit: [], transportStageJobs, connections, metrics };
 }
 
 export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent, project: CompiledFactoryProject): FactorySceneModel {
   const next = structuredClone(model); next.tick = event.tick;
   if (event.type === "device.start") next.devices[event.device]!.runtimeStatus = "processing";
-  else if (event.type === "device.finish" || event.type === "device.recover") next.devices[event.device]!.runtimeStatus = "idle";
+  else if (event.type === "device.finish") next.devices[event.device]!.runtimeStatus = "idle";
+  else if (event.type === "device.recover") next.devices[event.device]!.runtimeStatus = next.transportStageJobs[event.device]?.length ? "processing" : "idle";
   else if (event.type === "buffer.blocked") next.devices[event.device]!.runtimeStatus = "blocked-output";
   else if (event.type === "buffer.unblocked") next.devices[event.device]!.runtimeStatus = "idle";
   else if (event.type === "power.shortage") next.devices[event.device]!.runtimeStatus = "unpowered";
   else if (event.type === "power.restored") next.devices[event.device]!.runtimeStatus = "processing";
   else if (event.type === "device.breakdown") next.devices[event.device]!.runtimeStatus = "failed";
+  else if (event.type === "transport.power-shortage") next.devices[event.device]!.runtimeStatus = "unpowered";
+  else if (event.type === "transport.power-restored") next.devices[event.device]!.runtimeStatus = next.transportStageJobs[event.device]?.length ? "processing" : "idle";
+  else if (event.type === "transport.stage-start") {
+    const jobs = next.transportStageJobs[event.device] ??= [];
+    if (!jobs.includes(event.transitId)) jobs.push(event.transitId);
+    next.devices[event.device]!.runtimeStatus = "processing";
+  } else if (event.type === "transport.stage-finish") {
+    const jobs = next.transportStageJobs[event.device] ??= [];
+    next.transportStageJobs[event.device] = jobs.filter((id) => id !== event.transitId);
+    if (next.devices[event.device]!.runtimeStatus !== "failed" && next.devices[event.device]!.runtimeStatus !== "unpowered") {
+      next.devices[event.device]!.runtimeStatus = next.transportStageJobs[event.device]!.length ? "processing" : "idle";
+    }
+  }
   else if (event.type === "resource.depart") {
     const connection = project.connections[event.connection]!;
     const from = next.devices[connection.from.device]!; const to = next.devices[connection.to.device]!;

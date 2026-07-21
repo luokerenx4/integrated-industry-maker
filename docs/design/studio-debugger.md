@@ -32,7 +32,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 
 ## 3D replay
 
-Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Machines, explicit selectable sorter Devices and arms, deposits, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Events drive state; opening or scrubbing never runs a hidden simulation.
+Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Machines, explicit selectable sorter Devices and arms, deposits, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Sorter stage start/finish, power loss/restoration, breakdown, and recovery events drive the attachment's own visible status. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Opening or scrubbing never runs a hidden simulation.
 
 ## Factory-object inspection
 

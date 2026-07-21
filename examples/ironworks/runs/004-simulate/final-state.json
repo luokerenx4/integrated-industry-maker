@@ -259,7 +259,7 @@
     "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
       "materialBatches": {},
-      "status": "idle"
+      "status": "processing"
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": {
       "buffers": {},

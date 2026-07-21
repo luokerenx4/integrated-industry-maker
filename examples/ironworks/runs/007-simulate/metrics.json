@@ -37,6 +37,22 @@
   "extracted": {
     "crude-oil": 60
   },
+  "failedTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0,
+    "synth-make-plastic-1": 0,
+    "synth-plastic-sink": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
+  },
   "finalScore": 119.74386066666668,
   "fuelConsumed": {},
   "idleTime": {
