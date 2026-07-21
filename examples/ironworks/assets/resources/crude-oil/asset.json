@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "crude-oil",
+  "name": "Crude Oil",
+  "description": "A finite raw hydrocarbon stream extracted from oil seeps.",
+  "tags": ["raw", "fluid", "hydrocarbon"],
+  "unit": { "kind": "continuous", "symbol": "m3", "precision": 2 },
+  "transport": { "stackSize": 50 },
+  "files": { "visual": "visual.json" }
+}

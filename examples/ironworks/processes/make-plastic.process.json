@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "make-plastic",
+  "name": "Synthesize Plastic",
+  "description": "Combines both refinery outputs into a stable polymer product.",
+  "category": "chemical",
+  "tags": ["chemical", "multi-input"],
+  "durationTicks": 4000,
+  "inputs": [{ "resource": "refined-oil", "count": 2 }, { "resource": "hydrogen", "count": 1 }],
+  "outputs": [{ "resource": "plastic", "count": 1 }]
+}

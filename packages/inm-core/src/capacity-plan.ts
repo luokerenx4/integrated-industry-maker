@@ -1,5 +1,6 @@
 import type { CompiledFactoryProject, ResourceId } from "./types";
 import { connectionCapacityPerMinute } from "./logistics-capacity";
+import { planResourceDemand } from "./production-demand";
 
 export interface ProcessCapacityRequirement {
   resource: ResourceId;
@@ -9,6 +10,7 @@ export interface ProcessCapacityRequirement {
   requiredOutputPerMinute: number;
   requiredCyclesPerMinute: number;
   inputsPerMinute: Record<ResourceId, number>;
+  outputsPerMinute: Record<ResourceId, number>;
   outputPerCycle: number;
   capacityPerMachine: number;
   configuredMachines: number;
@@ -84,60 +86,42 @@ function add(target: Record<string, number>, key: string, value: number): void {
 export function planProductionCapacity(project: CompiledFactoryProject): ProductionCapacityPlan {
   const targetRatePerMinute = project.objective.targetRatePerMinute;
   const scenarioMinutes = project.scenario.durationTicks / 60_000;
-  const processDemand = new Map<string, {
-    resource: ResourceId;
-    template: CompiledFactoryProject["devices"][string];
-    requiredOutputPerMinute: number;
-    requiredCyclesPerMinute: number;
-    inputsPerMinute: Record<ResourceId, number>;
-    outputPerCycle: number;
-  }>();
-  const rawProcessDemand: Record<ResourceId, number> = {};
-
-  const expand = (resource: ResourceId, requiredPerMinute: number, visiting: Set<ResourceId>): void => {
-    if (requiredPerMinute <= 0) return;
-    if (visiting.has(resource)) { add(rawProcessDemand, resource, requiredPerMinute); return; }
+  const demandPlan = planResourceDemand(project.objective.targetResource, targetRatePerMinute, (resource) => {
     const template = Object.values(project.devices).filter((device) => device.processPlan?.outputs.some((output) => output.resource === resource))
       .sort((a, b) => {
         const aOutput = a.processPlan!.outputs.find((output) => output.resource === resource)!.count * 60_000 / a.processPlan!.durationTicks;
         const bOutput = b.processPlan!.outputs.find((output) => output.resource === resource)!.count * 60_000 / b.processPlan!.durationTicks;
         return bOutput - aOutput || a.assetDef.economics.buildCost - b.assetDef.economics.buildCost || a.id.localeCompare(b.id);
       })[0];
-    const output = template?.processPlan?.outputs.find((amount) => amount.resource === resource);
-    if (!template?.processPlan || !output) { add(rawProcessDemand, resource, requiredPerMinute); return; }
-    const key = `${template.processPlan.definition.id}:${template.asset}:${resource}`;
-    const cycles = requiredPerMinute / output.count;
-    const row = processDemand.get(key) ?? {
-      resource, template, requiredOutputPerMinute: 0, requiredCyclesPerMinute: 0, inputsPerMinute: {}, outputPerCycle: output.count,
+    if (!template?.processPlan) return null;
+    return {
+      key: `${template.processPlan.definition.id}:${template.asset}`,
+      inputs: template.processPlan.definition.inputs,
+      outputs: template.processPlan.definition.outputs,
+      data: template,
     };
-    row.requiredOutputPerMinute += requiredPerMinute;
-    row.requiredCyclesPerMinute += cycles;
-    processDemand.set(key, row);
-    const next = new Set(visiting); next.add(resource);
-    for (const input of template.processPlan.inputs) {
-      const inputRate = input.count * cycles;
-      add(row.inputsPerMinute, input.resource, inputRate);
-      expand(input.resource, inputRate, next);
-    }
-  };
-  expand(project.objective.targetResource, targetRatePerMinute, new Set());
+  });
+  const rawProcessDemand = demandPlan.rawDemandPerMinute;
 
-  const processes: ProcessCapacityRequirement[] = [...processDemand.values()].map((row) => {
-    const plan = row.template.processPlan!;
-    const matching = Object.values(project.devices).filter((device) => device.asset === row.template.asset && device.processPlan?.definition.id === plan.definition.id);
+  const processes: ProcessCapacityRequirement[] = demandPlan.processes.map((row) => {
+    const template = row.candidate.data;
+    const primaryOutput = row.candidate.outputs.find((amount) => amount.resource === row.primaryResource)!;
+    const plan = template.processPlan!;
+    const matching = Object.values(project.devices).filter((device) => device.asset === template.asset && device.processPlan?.definition.id === plan.definition.id);
     const configuredCapacityPerMinute = matching.reduce((sum, device) => {
-      const output = device.processPlan!.outputs.find((amount) => amount.resource === row.resource)?.count ?? 0;
+      const output = device.processPlan!.outputs.find((amount) => amount.resource === row.primaryResource)?.count ?? 0;
       return sum + output * 60_000 / device.processPlan!.durationTicks;
     }, 0);
-    const capacityPerMachine = row.outputPerCycle * 60_000 / plan.durationTicks;
-    const requiredMachines = Math.ceil(row.requiredOutputPerMinute / capacityPerMachine - 1e-9);
-    const additionalMachines = Math.max(0, Math.ceil(Math.max(0, row.requiredOutputPerMinute - configuredCapacityPerMinute) / capacityPerMachine - 1e-9));
+    const capacityPerMachine = primaryOutput.count * 60_000 / plan.durationTicks;
+    const cyclesPerMachine = 60_000 / plan.durationTicks;
+    const requiredMachines = Math.ceil(row.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
+    const additionalMachines = Math.max(0, requiredMachines - matching.length);
     return {
-      resource: row.resource, process: plan.definition.id, asset: row.template.asset, templateDevice: row.template.id,
-      requiredOutputPerMinute: row.requiredOutputPerMinute, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
-      inputsPerMinute: Object.fromEntries(Object.entries(row.inputsPerMinute).sort(([a], [b]) => a.localeCompare(b))),
-      outputPerCycle: row.outputPerCycle, capacityPerMachine, configuredMachines: matching.length, configuredCapacityPerMinute,
-      requiredMachines, additionalMachines, region: row.template.region, powerMilliWattsPerMachine: row.template.assetDef.power.consumptionMilliWatts,
+      resource: row.primaryResource, process: plan.definition.id, asset: template.asset, templateDevice: template.id,
+      requiredOutputPerMinute: row.outputsPerMinute[row.primaryResource]!, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
+      inputsPerMinute: row.inputsPerMinute, outputsPerMinute: row.outputsPerMinute,
+      outputPerCycle: primaryOutput.count, capacityPerMachine, configuredMachines: matching.length, configuredCapacityPerMinute,
+      requiredMachines, additionalMachines, region: template.region, powerMilliWattsPerMachine: template.assetDef.power.consumptionMilliWatts,
     };
   }).sort((a, b) => a.process.localeCompare(b.process) || a.resource.localeCompare(b.resource));
 
@@ -177,14 +161,16 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
         requiredItemsPerMinute, configuredCapacityPerMinute, capacityDeficitPerMinute: Math.max(0, requiredItemsPerMinute - configuredCapacityPerMinute),
       });
     }
-    const links = Object.values(project.connections).filter((connection) => ids.has(connection.from.device)
-      && (connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes("*") || connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes(requirement.resource)));
-    const configuredCapacityPerMinute = links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, requirement.resource), 0);
-    rows.push({
-      direction: "output", process: requirement.process, resource: requirement.resource, devices: [...ids].sort(), connections: links.map((link) => link.id).sort(),
-      requiredItemsPerMinute: requirement.requiredOutputPerMinute, configuredCapacityPerMinute,
-      capacityDeficitPerMinute: Math.max(0, requirement.requiredOutputPerMinute - configuredCapacityPerMinute),
-    });
+    for (const [resource, requiredItemsPerMinute] of Object.entries(requirement.outputsPerMinute)) {
+      const links = Object.values(project.connections).filter((connection) => ids.has(connection.from.device)
+        && (connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes("*") || connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes(resource)));
+      const configuredCapacityPerMinute = links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, resource), 0);
+      rows.push({
+        direction: "output", process: requirement.process, resource, devices: [...ids].sort(), connections: links.map((link) => link.id).sort(),
+        requiredItemsPerMinute, configuredCapacityPerMinute,
+        capacityDeficitPerMinute: Math.max(0, requiredItemsPerMinute - configuredCapacityPerMinute),
+      });
+    }
     return rows;
   }).sort((a, b) => a.process.localeCompare(b.process) || a.direction.localeCompare(b.direction) || a.resource.localeCompare(b.resource));
 

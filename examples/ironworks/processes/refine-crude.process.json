@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "refine-crude",
+  "name": "Plasma Refine Crude",
+  "description": "Separates crude oil into a refined liquid stream and hydrogen coproduct.",
+  "category": "refining",
+  "tags": ["oil", "coproduct"],
+  "durationTicks": 4000,
+  "inputs": [{ "resource": "crude-oil", "count": 2 }],
+  "outputs": [{ "resource": "refined-oil", "count": 2 }, { "resource": "hydrogen", "count": 1 }]
+}

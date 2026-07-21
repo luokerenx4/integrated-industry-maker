@@ -1,0 +1,177 @@
+{
+  "averageBeltItems": 1.515,
+  "averageBlockedBeltItems": 0,
+  "averageWip": 3.1266666666666665,
+  "beltCellUtilization": 0.03523255813953488,
+  "blockedOutputTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-make-plastic-1": 0,
+    "synth-plastic-sink": 0,
+    "synth-refine-crude-1": 0
+  },
+  "bottleneckEntity": "synth-refine-crude-1",
+  "completedOrders": 26,
+  "consumed": {
+    "plastic": 26
+  },
+  "energyConsumedMilliJoules": 70039000,
+  "extracted": {
+    "crude-oil": 60
+  },
+  "finalScore": 120.16194333333333,
+  "fuelConsumed": {},
+  "idleTime": {
+    "synth-chemical-basin-wind-turbine-1": 120000,
+    "synth-chemical-basin-wind-turbine-2": 120000,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-make-plastic-1": 0,
+    "synth-plastic-sink": 0,
+    "synth-refine-crude-1": 0
+  },
+  "infeasibleReason": null,
+  "machineUtilization": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 1,
+    "synth-make-plastic-1": 0.9,
+    "synth-plastic-sink": 0,
+    "synth-refine-crude-1": 0.9541666666666667
+  },
+  "occupiedArea": 71,
+  "onTimeDelivery": 1,
+  "peakBeltItems": 4,
+  "produced": {
+    "crude-oil": 60,
+    "hydrogen": 28,
+    "plastic": 27,
+    "refined-oil": 56
+  },
+  "resourceNodes": {
+    "oil-seep-1": {
+      "depleted": false,
+      "extracted": 60,
+      "initial": 200,
+      "remaining": 139,
+      "reserved": 1
+    },
+    "oil-seep-2": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 200,
+      "remaining": 200,
+      "reserved": 0
+    }
+  },
+  "scoreBreakdown": {
+    "blocked": 0,
+    "buildCost": -4.625,
+    "constraintPenalty": 0,
+    "energy": -0.7003900000000001,
+    "occupiedArea": -14.200000000000001,
+    "onTimeDelivery": 10,
+    "throughput": 130,
+    "wip": -0.31266666666666665
+  },
+  "throughputPerMinute": 13,
+  "totalBuildCost": 9250,
+  "transportCongestion": 0.03523255813953464,
+  "transportEnergyConsumedMilliJoules": 169000,
+  "transportFlows": {
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": {
+      "averageInFlightItems": 0.7375,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "crude-oil": 59
+      },
+      "deliveredItems": 59,
+      "deliveredItemsPerMinute": 29.5,
+      "departedByResource": {
+        "crude-oil": 60
+      },
+      "departedItems": 60,
+      "departedItemsPerMinute": 30,
+      "utilization": 0.12291666666666666
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1": {
+      "averageInFlightItems": 0.5833333333333334,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "hydrogen": 28
+      },
+      "deliveredItems": 28,
+      "deliveredItemsPerMinute": 14,
+      "departedByResource": {
+        "hydrogen": 28
+      },
+      "departedItems": 28,
+      "departedItemsPerMinute": 14,
+      "utilization": 0.058333333333333334
+    },
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink": {
+      "averageInFlightItems": 0.15166666666666667,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "plastic": 26
+      },
+      "deliveredItems": 26,
+      "deliveredItemsPerMinute": 13,
+      "departedByResource": {
+        "plastic": 27
+      },
+      "departedItems": 27,
+      "departedItemsPerMinute": 13.5,
+      "utilization": 0.05416666666666667
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1": {
+      "averageInFlightItems": 0.7466666666666667,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "refined-oil": 56
+      },
+      "deliveredItems": 56,
+      "deliveredItemsPerMinute": 28,
+      "departedByResource": {
+        "refined-oil": 56
+      },
+      "departedItems": 56,
+      "departedItemsPerMinute": 28,
+      "utilization": 0.11666666666666667
+    }
+  },
+  "transportStageUtilization": {
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": {
+      "loader": 0.12291666666666666,
+      "unloader": 0.12291666666666666
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1": {
+      "loader": 0.058333333333333334,
+      "unloader": 0.058333333333333334
+    },
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink": {
+      "loader": 0.05416666666666667,
+      "unloader": 0.05416666666666667
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1": {
+      "loader": 0.11666666666666667,
+      "unloader": 0.11666666666666667
+    }
+  },
+  "waitingInputTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-make-plastic-1": 12000,
+    "synth-plastic-sink": 120000,
+    "synth-refine-crude-1": 5500
+  }
+}

@@ -170,7 +170,7 @@ interface IndustrialAnalysis {
     inputBindings: Record<string, string>; outputBindings: Record<string, string>; targetOutputPerMinute: number;
   }>;
   productionGraph: {
-    targetResource: string; rawInputsPerTarget: Record<string, number>;
+    targetResource: string; rawInputsPerTarget: Record<string, number>; coproductSurplusPerTarget: Record<string, number>;
     steps: Array<{ device: string; process: string; cyclesPerTarget: number }>;
     dependencies: Array<{ device: string; process: string; inputs: string[]; outputs: string[] }>;
   };
@@ -196,7 +196,7 @@ interface CapacityPlan {
   targetResource: string; targetRatePerMinute: number; scenarioMinutes: number; targetItemsForScenario: number; ready: boolean;
   processes: Array<{
     resource: string; process: string; asset: string; templateDevice: string; requiredOutputPerMinute: number; requiredCyclesPerMinute: number;
-    inputsPerMinute: Record<string, number>; capacityPerMachine: number; configuredMachines: number; configuredCapacityPerMinute: number;
+    inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>; capacityPerMachine: number; configuredMachines: number; configuredCapacityPerMinute: number;
     requiredMachines: number; additionalMachines: number; region: string; powerMilliWattsPerMachine: number;
   }>;
   rawResources: Array<{
@@ -577,7 +577,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>TARGET-RATE CAPACITY PLAN</span><b>{plan.ready ? "READY" : `${plan.gaps.length} GAPS`} · {plan.targetRatePerMinute.toFixed(2)} {plan.targetResource.toUpperCase()}/MIN</b></div>
           <div className="pipeline-list">{plan.processes.map((process) => <div className="pipeline-card" key={`${process.process}-${process.resource}`}>
-            <div className="pipeline-head"><span><strong>{process.process}</strong><small>{process.region} · {process.asset} · {Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")} → {process.requiredOutputPerMinute.toFixed(2)} {process.resource}/min</small></span><b>{process.configuredMachines} / {process.requiredMachines} MACHINES</b></div>
+            <div className="pipeline-head"><span><strong>{process.process}</strong><small>{process.region} · {process.asset} · {Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")} → {Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</small></span><b>{process.configuredMachines} / {process.requiredMachines} MACHINES</b></div>
             <footer><span>CAPACITY {process.configuredCapacityPerMinute.toFixed(2)} / {process.requiredOutputPerMinute.toFixed(2)}/MIN</span><span>{process.additionalMachines ? `ADD ${process.additionalMachines} ${process.asset.toUpperCase()}` : "CAPACITY READY"}</span><span>{(process.powerMilliWattsPerMachine / 1000).toFixed(0)} W / MACHINE</span></footer>
           </div>)}</div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACTION</span><span>RESERVE AFTER RUN</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>

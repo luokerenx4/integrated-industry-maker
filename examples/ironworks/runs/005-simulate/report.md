@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `1902ff403989c960606f6ff4fdc55e2f02214ab62c02862c28a7c9c165bdf955`
+- Result hash: `fcd296743db26aefbe515a6a01b43382f38b083393332119b8c092f801204c5f`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Target rate: 240.000 iron-ore/min (100.0% attained)

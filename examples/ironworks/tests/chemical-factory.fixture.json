@@ -1,0 +1,16 @@
+{
+  "name": "chemical-coproduct-factory",
+  "world": "chemical",
+  "blueprint": "chemical-factory",
+  "scenario": "chemical-cold-start",
+  "objective": "plastic-production",
+  "seed": 42,
+  "assertions": [
+    { "kind": "metric", "path": "throughputPerMinute", "min": 10 },
+    { "kind": "metric", "path": "produced.plastic", "min": 12 },
+    { "kind": "metric", "path": "occupiedArea", "max": 140 },
+    { "kind": "metric", "path": "totalBuildCost", "max": 30000 },
+    { "kind": "metric", "path": "infeasibleReason", "equals": null },
+    { "kind": "event", "type": "power.shortage", "present": false }
+  ]
+}

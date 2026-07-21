@@ -5,6 +5,7 @@ import type { LoadedFactoryProject } from "./loader";
 import { bindProcessRecipe } from "./production-analysis";
 import { externalPortCell, findBlueprintConnectionPath, rotatedFootprint } from "./routing";
 import { planDeviceTransport } from "./device-runtime";
+import { planResourceDemand } from "./production-demand";
 
 interface ProcessSelection {
   resource: ResourceId;
@@ -15,6 +16,7 @@ interface ProcessSelection {
   outputPerCycle: number;
   durationTicks: number;
   requiredPerMinute: number;
+  requiredCyclesPerMinute: number;
   region: string;
   machines: number;
   instances: BlueprintDevice[];
@@ -141,16 +143,14 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const blueprint: Blueprint = { version: 1, devices: [], connections: [], logisticsNetworks: [], policies: { dispatch: "round-robin" } };
   const targetResource = loaded.objective.targetResource;
   const targetRate = loaded.objective.targetRatePerMinute;
-  const boundaryAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("consume") && asset.geometry.ports.some((port) => {
+  const consumerAssetFor = (resource: ResourceId) => Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("consume") && asset.geometry.ports.some((port) => {
     const buffer = asset.buffers.find((item) => item.id === port.buffer);
-    return port.direction === "input" && Boolean(buffer && (buffer.accepts.includes("*") || buffer.accepts.includes(targetResource)));
+    return port.direction === "input" && Boolean(buffer && (buffer.accepts.includes("*") || buffer.accepts.includes(resource)));
   })).sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  const boundaryAsset = consumerAssetFor(targetResource);
   if (!boundaryAsset) throw new Error(`No project-local consumer Device accepts objective Resource '${targetResource}'`);
   const finalRegion = loaded.world.regions.at(-1)!.id;
-  const selections = new Map<string, ProcessSelection>();
-  const rawDemand: Record<ResourceId, number> = {};
-
-  const choose = (resource: ResourceId): Omit<ProcessSelection, "requiredPerMinute" | "region" | "machines" | "instances"> | null => {
+  const choose = (resource: ResourceId): Omit<ProcessSelection, "requiredPerMinute" | "requiredCyclesPerMinute" | "region" | "machines" | "instances"> | null => {
     const candidates = Object.values(loaded.processes).flatMap((process) => {
       const output = process.outputs.find((amount) => amount.resource === resource); if (!output) return [];
       return Object.values(loaded.deviceAssets).flatMap((asset) => {
@@ -163,31 +163,38 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     return candidates[0] ?? null;
   };
 
-  const expand = (resource: ResourceId, requiredPerMinute: number, visiting: Set<ResourceId>): void => {
-    if (visiting.has(resource)) { add(rawDemand, resource, requiredPerMinute); return; }
+  const demandPlan = planResourceDemand(targetResource, targetRate, (resource) => {
     const selected = choose(resource);
-    if (!selected) { add(rawDemand, resource, requiredPerMinute); return; }
-    const key = `${selected.process.id}:${selected.asset.id}:${resource}`;
-    const existing = selections.get(key);
-    if (existing) existing.requiredPerMinute += requiredPerMinute;
-    else selections.set(key, { ...selected, requiredPerMinute, region: finalRegion, machines: 0, instances: [] });
-    const cycles = requiredPerMinute / selected.outputPerCycle;
-    const next = new Set(visiting); next.add(resource);
-    for (const input of selected.process.inputs) expand(input.resource, input.count * cycles, next);
-  };
-  expand(targetResource, targetRate, new Set());
+    return selected ? {
+      key: `${selected.process.id}:${selected.asset.id}`,
+      inputs: selected.process.inputs,
+      outputs: selected.process.outputs,
+      data: selected,
+    } : null;
+  });
+  const selections = new Map(demandPlan.processes.map((row) => {
+    const selected = row.candidate.data;
+    const output = selected.process.outputs.find((amount) => amount.resource === row.primaryResource)!;
+    const selection: ProcessSelection = {
+      ...selected, resource: row.primaryResource, outputPerCycle: output.count,
+      requiredPerMinute: row.outputsPerMinute[row.primaryResource]!, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
+      region: finalRegion, machines: 0, instances: [],
+    };
+    return [row.candidate.key, selection] as const;
+  }));
+  const rawDemand = demandPlan.rawDemandPerMinute;
 
   const rawDescendants = (resource: ResourceId, visiting = new Set<ResourceId>()): Set<ResourceId> => {
     if (visiting.has(resource)) return new Set([resource]);
-    const selected = [...selections.values()].find((item) => item.resource === resource);
+    const selected = [...selections.values()].find((item) => item.process.outputs.some((output) => output.resource === resource));
     if (!selected) return new Set([resource]);
     const next = new Set(visiting); next.add(resource);
     return new Set(selected.process.inputs.flatMap((input) => [...rawDescendants(input.resource, next)]));
   };
   for (const selection of selections.values()) {
     selection.region = selection.resource === targetResource ? finalRegion : bestRegionForResources(loaded, rawDescendants(selection.resource), finalRegion);
-    const capacityPerMachine = selection.outputPerCycle * 60_000 / selection.durationTicks;
-    selection.machines = Math.ceil(selection.requiredPerMinute / capacityPerMachine - 1e-9);
+    const cyclesPerMachine = 60_000 / selection.durationTicks;
+    selection.machines = Math.ceil(selection.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
     const region = loaded.world.regions.find((item) => item.id === selection.region)!;
     for (let index = 0; index < selection.machines; index++) {
       const device: BlueprintDevice = {
@@ -202,9 +209,27 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     }
   }
 
-  const sink: BlueprintDevice = { id: uniqueId(blueprint, `synth-${targetResource}-sink`), asset: boundaryAsset.id, region: finalRegion, position: { x: 0, y: 0 }, rotation: 0 };
-  const targetInstance = [...selections.values()].find((selection) => selection.resource === targetResource)!.instances[0]!;
-  placeDevice(loaded, blueprint, sink, { x: targetInstance.position.x + 4, y: targetInstance.position.y });
+  const sinkEndpoints = new Map<ResourceId, Endpoint[]>();
+  const addSink = (resource: ResourceId, region: string, near: BlueprintDevice, suffix = "sink"): void => {
+    const asset = consumerAssetFor(resource);
+    if (!asset) throw new Error(`No project-local consumer Device accepts surplus Resource '${resource}'`);
+    const sink: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${suffix}`), asset: asset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+    placeDevice(loaded, blueprint, sink, { x: near.position.x + 4, y: near.position.y });
+    const port = asset.geometry.ports.find((item) => item.direction === "input" && (asset.buffers.find((buffer) => buffer.id === item.buffer)?.accepts.includes(resource)
+      || asset.buffers.find((buffer) => buffer.id === item.buffer)?.accepts.includes("*")))!;
+    (sinkEndpoints.get(resource) ?? sinkEndpoints.set(resource, []).get(resource)!).push({ device: sink.id, port: port.id, region });
+  };
+  const targetSelection = [...selections.values()].find((selection) => selection.process.outputs.some((output) => output.resource === targetResource));
+  const targetInstance = targetSelection?.instances[0];
+  if (!targetInstance) throw new Error(`Objective Resource '${targetResource}' must be produced by a project-local process`);
+  addSink(targetResource, finalRegion, targetInstance);
+  for (const resource of Object.keys(demandPlan.surplusPerMinute).filter((id) => id !== targetResource).sort()) {
+    const producing = [...selections.values()].filter((selection) => selection.process.outputs.some((output) => output.resource === resource));
+    for (const region of [...new Set(producing.map((selection) => selection.region))].sort()) {
+      const near = producing.find((selection) => selection.region === region)?.instances[0];
+      if (near) addSink(resource, region, near, "surplus-sink");
+    }
+  }
 
   const extractionSummary: BlueprintSynthesisResult["extraction"] = [];
   const extractorEndpoints = new Map<ResourceId, Endpoint[]>();
@@ -241,15 +266,19 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const producers = new Map<ResourceId, Endpoint[]>(); const consumers = new Map<ResourceId, Endpoint[]>();
   for (const [resource, endpoints] of extractorEndpoints) producers.set(resource, [...endpoints]);
   for (const selection of selections.values()) for (const instance of selection.instances) {
-    const outputBuffer = selection.outputs[selection.resource]!;
-    (producers.get(selection.resource) ?? producers.set(selection.resource, []).get(selection.resource)!).push({ device: instance.id, port: portForBuffer(selection.asset, "output", outputBuffer), region: instance.region });
+    for (const output of selection.process.outputs) {
+      const outputBuffer = selection.outputs[output.resource]!;
+      (producers.get(output.resource) ?? producers.set(output.resource, []).get(output.resource)!).push({ device: instance.id, port: portForBuffer(selection.asset, "output", outputBuffer), region: instance.region });
+    }
     for (const input of selection.process.inputs) {
       const buffer = selection.inputs[input.resource]!;
       (consumers.get(input.resource) ?? consumers.set(input.resource, []).get(input.resource)!).push({ device: instance.id, port: portForBuffer(selection.asset, "input", buffer), region: instance.region });
     }
   }
-  const sinkPort = boundaryAsset.geometry.ports.find((port) => port.direction === "input" && (boundaryAsset.buffers.find((buffer) => buffer.id === port.buffer)?.accepts.includes(targetResource) || boundaryAsset.buffers.find((buffer) => buffer.id === port.buffer)?.accepts.includes("*")))!;
-  (consumers.get(targetResource) ?? consumers.set(targetResource, []).get(targetResource)!).push({ device: sink.id, port: sinkPort.id, region: finalRegion });
+  for (const [resource, endpoints] of sinkEndpoints) {
+    const targets = consumers.get(resource) ?? [];
+    consumers.set(resource, [...targets, ...endpoints]);
+  }
 
   const plannedConnections: PlannedConnection[] = [];
   const stationSummary: BlueprintSynthesisResult["stationNetworks"] = [];

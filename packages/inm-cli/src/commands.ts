@@ -172,7 +172,7 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
     `Target: ${plan.targetRatePerMinute.toFixed(3)} ${plan.targetResource}/min · ${plan.targetItemsForScenario.toFixed(3)} items over ${plan.scenarioMinutes.toFixed(3)} min`,
     `Status: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`, "",
     "Process capacity",
-    ...plan.processes.map((process) => `  ${process.process.padEnd(22)} ${process.requiredOutputPerMinute.toFixed(3).padStart(8)} ${process.resource}/min  ${process.configuredMachines}/${process.requiredMachines} ${process.asset}  capacity ${process.configuredCapacityPerMinute.toFixed(3)}/min${process.additionalMachines ? `  ADD ${process.additionalMachines}` : ""}`),
+    ...plan.processes.map((process) => `  ${process.process.padEnd(22)} ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}/min`).join(" + ")}  ${process.configuredMachines}/${process.requiredMachines} ${process.asset}  primary capacity ${process.configuredCapacityPerMinute.toFixed(3)}/min${process.additionalMachines ? `  ADD ${process.additionalMachines}` : ""}`),
     "", "Raw resources",
     ...plan.rawResources.map((resource) => `  ${resource.resource.padEnd(18)} need ${resource.totalDemandPerMinute.toFixed(3).padStart(8)}/min  extraction ${resource.configuredExtractionPerMinute.toFixed(3).padStart(8)}/min  reserve ${resource.finiteReserve.toFixed(3)} (${resource.lifetimeMinutes?.toFixed(3) ?? "∞"} min)  after scenario ${resource.reserveAfterScenario.toFixed(3)}`),
     "", "Transport envelopes",

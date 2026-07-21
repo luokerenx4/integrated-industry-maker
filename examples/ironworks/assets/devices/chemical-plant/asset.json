@@ -1,0 +1,28 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "chemical-plant",
+  "name": "Chemical Plant",
+  "description": "A recipe-configurable reactor with independent liquid and gas input contracts.",
+  "tags": ["chemical", "multi-input"],
+  "capabilities": ["process"],
+  "geometry": {
+    "footprint": { "width": 3, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "liquid-input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "liquid-input" },
+      { "id": "gas-input", "direction": "input", "kind": "resource", "side": "north", "offset": 1, "buffer": "gas-input" },
+      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
+    ]
+  },
+  "buffers": [
+    { "id": "liquid-input", "role": "input", "capacity": 12, "accepts": ["refined-oil"] },
+    { "id": "gas-input", "role": "input", "capacity": 12, "accepts": ["hydrogen"] },
+    { "id": "output", "role": "output", "capacity": 12, "accepts": ["plastic"] }
+  ],
+  "production": { "categories": ["chemical"], "speed": { "numerator": 1, "denominator": 1 }, "inputBuffers": ["liquid-input", "gas-input"], "outputBuffers": ["output"] },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 240000 },
+  "economics": { "buildCost": 2000 },
+  "files": { "visual": "visual.json" }
+}

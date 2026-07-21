@@ -87,6 +87,48 @@ describe("factory synthesis", () => {
     expect(simulation.metrics.produced.gear).toBeGreaterThanOrEqual(30);
     expect(simulation.metrics.infeasibleReason).toBeNull();
   });
+
+  test("credits refinery coproducts once and routes both outputs into a configurable multi-input process", async () => {
+    const source = await loadFactoryProject(ironworks, {
+      world: "chemical", blueprint: "blank", scenario: "chemical-cold-start", objective: "plastic-production",
+    });
+    const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.selectedProcesses.map((selection) => selection.process)).toEqual(["make-plastic", "refine-crude"]);
+    expect(synthesis.extraction).toEqual([expect.objectContaining({ resource: "crude-oil", asset: "oil-extractor", machines: 1 })]);
+    const refinery = synthesis.blueprint.devices.find((device) => device.asset === "refinery")!;
+    expect(refinery.recipe).toEqual({
+      process: "refine-crude", inputs: { "crude-oil": "crude-input" },
+      outputs: { "refined-oil": "liquid-output", hydrogen: "gas-output" },
+    });
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    const plan = planProductionCapacity(project);
+    expect(plan.rawResources).toEqual([expect.objectContaining({ resource: "crude-oil", totalDemandPerMinute: 20 })]);
+    expect(plan.processes.find((process) => process.process === "refine-crude")).toEqual(expect.objectContaining({
+      requiredCyclesPerMinute: 10, outputsPerMinute: { hydrogen: 10, "refined-oil": 20 }, requiredMachines: 1,
+    }));
+    expect(analyzeProduction(project).productionGraph).toEqual(expect.objectContaining({
+      rawInputsPerTarget: { "crude-oil": 2 }, coproductSurplusPerTarget: {},
+    }));
+    const simulation = runUntil(project);
+    expect(simulation.metrics.produced.plastic).toBeGreaterThanOrEqual(12);
+    expect(simulation.metrics.infeasibleReason).toBeNull();
+  });
+
+  test("drains an unconsumed coproduct so its output buffer cannot stop the primary process", async () => {
+    const source = await loadFactoryProject(ironworks, {
+      world: "chemical", blueprint: "blank", scenario: "chemical-cold-start", objective: "plastic-production",
+    });
+    source.processes["make-plastic"]!.inputs = [{ resource: "refined-oil", count: 2 }];
+    const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.blueprint.devices.some((device) => device.id.startsWith("synth-hydrogen-surplus-sink") && device.asset === "material-sink")).toBeTrue();
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    expect(analyzeProduction(project).productionGraph.coproductSurplusPerTarget).toEqual({ hydrogen: 1 });
+    const simulation = runUntil(project);
+    expect(simulation.metrics.produced.plastic).toBeGreaterThanOrEqual(12);
+    expect(simulation.state.devices["synth-refine-crude-1"]!.status).not.toBe("blocked-output");
+  });
 });
 
 describe("blueprint compiler", () => {
@@ -96,8 +138,8 @@ describe("blueprint compiler", () => {
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
-    expect(Object.keys(project.resources)).toEqual(["coal", "gear", "iron-ore", "iron-plate"]);
-    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "forge-gear-pair", "smelt-iron"]);
+    expect(Object.keys(project.resources)).toEqual(["coal", "crude-oil", "gear", "hydrogen", "iron-ore", "iron-plate", "plastic", "refined-oil"]);
+    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "forge-gear-pair", "make-plastic", "refine-crude", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
     expect(project.devices["assembler-1"]!.processPlan?.inputs).toEqual([

@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "plastic",
+  "name": "Plastic",
+  "description": "A finished polymer made from balanced refinery coproducts.",
+  "tags": ["finished", "solid", "chemical"],
+  "unit": { "kind": "discrete", "symbol": "unit", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "files": { "visual": "visual.json" }
+}

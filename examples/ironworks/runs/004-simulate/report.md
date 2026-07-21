@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **105.936**
-- Result hash: `c6361ec58e9cb223cacbb411405f4026049d16d04266eee557242bac39676d52`
+- Result hash: `43706aceb24469152a2aabb333bd25ddd95477a16ea10be86a03545080ab25fe`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)

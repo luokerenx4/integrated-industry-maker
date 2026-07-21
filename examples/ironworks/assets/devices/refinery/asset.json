@@ -1,0 +1,28 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "refinery",
+  "name": "Plasma Refinery",
+  "description": "A configurable multi-output processor with physically separate liquid and gas outlets.",
+  "tags": ["refining", "coproduct"],
+  "capabilities": ["process"],
+  "geometry": {
+    "footprint": { "width": 3, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "crude-input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "crude-input" },
+      { "id": "liquid-output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "liquid-output" },
+      { "id": "gas-output", "direction": "output", "kind": "resource", "side": "south", "offset": 1, "buffer": "gas-output" }
+    ]
+  },
+  "buffers": [
+    { "id": "crude-input", "role": "input", "capacity": 12, "accepts": ["crude-oil"] },
+    { "id": "liquid-output", "role": "output", "capacity": 12, "accepts": ["refined-oil"] },
+    { "id": "gas-output", "role": "output", "capacity": 12, "accepts": ["hydrogen"] }
+  ],
+  "production": { "categories": ["refining"], "speed": { "numerator": 1, "denominator": 1 }, "inputBuffers": ["crude-input"], "outputBuffers": ["liquid-output", "gas-output"] },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 300000 },
+  "economics": { "buildCost": 2400 },
+  "files": { "visual": "visual.json" }
+}

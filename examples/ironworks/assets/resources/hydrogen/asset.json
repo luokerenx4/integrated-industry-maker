@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "hydrogen",
+  "name": "Hydrogen",
+  "description": "A gaseous coproduct of crude-oil refining.",
+  "tags": ["intermediate", "gas", "coproduct"],
+  "unit": { "kind": "continuous", "symbol": "m3", "precision": 2 },
+  "transport": { "stackSize": 50 },
+  "files": { "visual": "visual.json" }
+}

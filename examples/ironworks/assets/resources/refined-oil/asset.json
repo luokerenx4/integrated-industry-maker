@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "refined-oil",
+  "name": "Refined Oil",
+  "description": "A processed hydrocarbon feedstock used by chemical production.",
+  "tags": ["intermediate", "fluid", "hydrocarbon"],
+  "unit": { "kind": "continuous", "symbol": "m3", "precision": 2 },
+  "transport": { "stackSize": 50 },
+  "files": { "visual": "visual.json" }
+}

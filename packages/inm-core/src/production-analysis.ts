@@ -1,5 +1,6 @@
 import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
 import { connectionCapacityPerMinute, maximumConnectionCapacityPerMinute } from "./logistics-capacity";
+import { planResourceDemand } from "./production-demand";
 
 export interface DeviceProductionRate {
   device: string;
@@ -34,6 +35,7 @@ export interface RecipeOptionAnalysis {
 export interface ProductionDependencyGraph {
   targetResource: ResourceId;
   rawInputsPerTarget: Record<ResourceId, number>;
+  coproductSurplusPerTarget: Record<ResourceId, number>;
   steps: Array<{ device: string; process: string; cyclesPerTarget: number }>;
   dependencies: Array<{ device: string; process: string; inputs: ResourceId[]; outputs: ResourceId[] }>;
 }
@@ -202,26 +204,26 @@ export function bindProcessRecipe(
 }
 
 function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
-  const rawInputsPerTarget: Record<ResourceId, number> = {};
-  const stepCycles = new Map<string, number>();
-  const expand = (resource: ResourceId, amount: number, visiting: Set<ResourceId>) => {
-    if (visiting.has(resource)) { add(rawInputsPerTarget, resource, amount); return; }
+  const plan = planResourceDemand(project.objective.targetResource, 1, (resource) => {
     const producer = devices.filter((device) => (device.outputsPerMinute[resource] ?? 0) > 0)
       .sort((a, b) => (b.outputsPerMinute[resource] ?? 0) - (a.outputsPerMinute[resource] ?? 0) || a.device.localeCompare(b.device))[0];
-    const plan = producer ? project.devices[producer.device]?.processPlan : undefined;
-    const output = plan?.outputs.find((item) => item.resource === resource);
-    if (!producer || !plan || !output) { add(rawInputsPerTarget, resource, amount); return; }
-    const cycles = amount / output.count;
-    stepCycles.set(producer.device, (stepCycles.get(producer.device) ?? 0) + cycles);
-    const next = new Set(visiting); next.add(resource);
-    for (const input of plan.inputs) expand(input.resource, input.count * cycles, next);
-  };
-  expand(project.objective.targetResource, 1, new Set());
+    const processPlan = producer ? project.devices[producer.device]?.processPlan : undefined;
+    if (!producer || !processPlan) return null;
+    return {
+      key: producer.device,
+      inputs: processPlan.definition.inputs,
+      outputs: processPlan.definition.outputs,
+      data: { producer, processPlan },
+    };
+  });
   return {
     targetResource: project.objective.targetResource,
-    rawInputsPerTarget: Object.fromEntries(Object.entries(rawInputsPerTarget).sort(([a], [b]) => a.localeCompare(b))),
-    steps: [...stepCycles.entries()].map(([device, cyclesPerTarget]) => ({
-      device, process: project.devices[device]!.processPlan!.definition.id, cyclesPerTarget,
+    rawInputsPerTarget: plan.rawDemandPerMinute,
+    coproductSurplusPerTarget: plan.surplusPerMinute,
+    steps: plan.processes.map((row) => ({
+      device: row.candidate.data.producer.device,
+      process: row.candidate.data.processPlan.definition.id,
+      cyclesPerTarget: row.requiredCyclesPerMinute,
     })).sort((a, b) => a.device.localeCompare(b.device)),
     dependencies: devices.map((device) => ({
       device: device.device, process: device.process,
@@ -240,6 +242,9 @@ function declaredBoundaryResources(project: CompiledFactoryProject): Set<Resourc
     if (device.processPlan || !device.assetDef.capabilities.includes("consume")) continue;
     for (const port of device.ports.filter((item) => item.direction === "input")) {
       for (const resource of device.buffers[port.buffer]!.accepts) if (resource !== "*") resources.add(resource);
+    }
+    for (const connection of Object.values(project.connections).filter((item) => item.to.device === device.id)) {
+      for (const resource of Object.keys(connection.stackSizeByResource)) resources.add(resource);
     }
   }
   return resources;

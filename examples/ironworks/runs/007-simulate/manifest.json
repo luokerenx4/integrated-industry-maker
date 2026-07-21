@@ -1,0 +1,25 @@
+{
+  "createdAt": "2026-07-21T03:37:05.269Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.20.0",
+  "hashes": {
+    "blueprintHash": "e5de0f960deb7172894c13fe599374f88cf287bc240da4d7955e9df8d594dade",
+    "deviceCatalogHash": "bb566f6aa90efc6880a68498a5dc48642d09e957ce9afe014be268d3db877f04",
+    "engineVersion": "inm-sim/0.20.0",
+    "objectiveHash": "0a006e592e9d966f4acd728344ce2524b30cc5b2ac96f7cc9b53e7c705fd4995",
+    "processCatalogHash": "0d7a3c6c5b6f5c1381cc272b1c62ae7b5f80794803fdb29cb292a0e60ec807e0",
+    "resourceCatalogHash": "907ec4b28fd1c0e4d3ebca329abdea9290674324a27be7402ec84baa8f0026be",
+    "scenarioHash": "d6f58333d455cc66e6f3746ed6c14f5fa841594ef9b5e6ff6ab7ca587b26068c",
+    "worldHash": "db9d7d1336dd65499774478d57d711040eb2fb765534ad5f12f0bed00e078b19"
+  },
+  "resultHash": "9dba1beb54f4079dc6c15d939e487bfea94232c836e38c47eb4d8fa8ca37c29e",
+  "runKey": "0801f942c25724d42ff2e890c121ec0bead2479959019e4024a8e6a6d3dd5b5a",
+  "seed": 42,
+  "selection": {
+    "objective": "plastic-production",
+    "scenario": "chemical-cold-start",
+    "world": "chemical"
+  },
+  "status": "completed",
+  "version": 1
+}

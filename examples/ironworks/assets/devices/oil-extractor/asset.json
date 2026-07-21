@@ -1,0 +1,16 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "oil-extractor",
+  "name": "Oil Extractor",
+  "description": "A dedicated pump bound to finite crude-oil nodes.",
+  "tags": ["extraction", "oil"],
+  "capabilities": ["extract"],
+  "geometry": { "footprint": { "width": 2, "height": 2 }, "rotatable": true, "ports": [{ "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }] },
+  "buffers": [{ "id": "output", "role": "output", "capacity": 12, "accepts": ["crude-oil"] }],
+  "extraction": { "resources": ["crude-oil"], "radius": 4, "outputBuffer": "output", "cycleTicks": 2000, "itemsPerCycle": 1 },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 80000 },
+  "economics": { "buildCost": 900 },
+  "files": { "visual": "visual.json" }
+}

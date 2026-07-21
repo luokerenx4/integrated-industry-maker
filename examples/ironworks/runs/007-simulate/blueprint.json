@@ -1,0 +1,374 @@
+{
+  "connections": [
+    {
+      "from": {
+        "device": "synth-crude-oil-extractor-1",
+        "port": "output"
+      },
+      "id": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 4,
+          "y": 11
+        },
+        {
+          "x": 4,
+          "y": 10
+        },
+        {
+          "x": 4,
+          "y": 9
+        },
+        {
+          "x": 5,
+          "y": 9
+        },
+        {
+          "x": 6,
+          "y": 9
+        },
+        {
+          "x": 7,
+          "y": 9
+        },
+        {
+          "x": 8,
+          "y": 9
+        },
+        {
+          "x": 9,
+          "y": 9
+        },
+        {
+          "x": 10,
+          "y": 9
+        },
+        {
+          "x": 11,
+          "y": 9
+        }
+      ],
+      "to": {
+        "device": "synth-refine-crude-1",
+        "port": "crude-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-refine-crude-1",
+        "port": "gas-output"
+      },
+      "id": "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 13,
+          "y": 11
+        },
+        {
+          "x": 14,
+          "y": 11
+        },
+        {
+          "x": 15,
+          "y": 11
+        },
+        {
+          "x": 15,
+          "y": 10
+        },
+        {
+          "x": 16,
+          "y": 10
+        },
+        {
+          "x": 17,
+          "y": 10
+        },
+        {
+          "x": 18,
+          "y": 10
+        },
+        {
+          "x": 18,
+          "y": 9
+        },
+        {
+          "x": 18,
+          "y": 8
+        },
+        {
+          "x": 17,
+          "y": 8
+        },
+        {
+          "x": 17,
+          "y": 7
+        },
+        {
+          "x": 17,
+          "y": 6
+        },
+        {
+          "x": 16,
+          "y": 6
+        },
+        {
+          "x": 16,
+          "y": 5
+        },
+        {
+          "x": 15,
+          "y": 5
+        },
+        {
+          "x": 14,
+          "y": 5
+        },
+        {
+          "x": 13,
+          "y": 5
+        },
+        {
+          "x": 12,
+          "y": 5
+        },
+        {
+          "x": 11,
+          "y": 5
+        },
+        {
+          "x": 11,
+          "y": 6
+        }
+      ],
+      "to": {
+        "device": "synth-make-plastic-1",
+        "port": "gas-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-make-plastic-1",
+        "port": "output"
+      },
+      "id": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 13,
+          "y": 7
+        },
+        {
+          "x": 13,
+          "y": 6
+        }
+      ],
+      "to": {
+        "device": "synth-plastic-sink",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-refine-crude-1",
+        "port": "liquid-output"
+      },
+      "id": "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 15,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 15,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 6
+        },
+        {
+          "level": 0,
+          "x": 9,
+          "y": 7
+        }
+      ],
+      "to": {
+        "device": "synth-make-plastic-1",
+        "port": "liquid-input"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "asset": "chemical-plant",
+      "id": "synth-make-plastic-1",
+      "position": {
+        "x": 10,
+        "y": 7
+      },
+      "recipe": {
+        "inputs": {
+          "hydrogen": "gas-input",
+          "refined-oil": "liquid-input"
+        },
+        "outputs": {
+          "plastic": "output"
+        },
+        "process": "make-plastic"
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "refinery",
+      "id": "synth-refine-crude-1",
+      "position": {
+        "x": 12,
+        "y": 9
+      },
+      "recipe": {
+        "inputs": {
+          "crude-oil": "crude-input"
+        },
+        "outputs": {
+          "hydrogen": "gas-output",
+          "refined-oil": "liquid-output"
+        },
+        "process": "refine-crude"
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "id": "synth-plastic-sink",
+      "position": {
+        "x": 14,
+        "y": 6
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "oil-extractor",
+      "id": "synth-crude-oil-extractor-1",
+      "position": {
+        "x": 2,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "resourceNodes": [
+        "oil-seep-1",
+        "oil-seep-2"
+      ],
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "synth-chemical-basin-wind-turbine-1",
+      "position": {
+        "x": 15,
+        "y": 2
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "synth-chemical-basin-wind-turbine-2",
+      "position": {
+        "x": 18,
+        "y": 2
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    }
+  ],
+  "logisticsNetworks": [],
+  "policies": {
+    "dispatch": "round-robin"
+  },
+  "version": 1
+}
