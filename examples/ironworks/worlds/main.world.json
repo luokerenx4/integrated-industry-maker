@@ -23,6 +23,6 @@
     { "id": "iron-vein-2", "region": "forge-world", "resource": "iron-ore", "position": { "x": 2, "y": 9 }, "amount": 30 },
     { "id": "iron-vein-3", "region": "forge-world", "resource": "iron-ore", "position": { "x": 3, "y": 9 }, "amount": 30 },
     { "id": "coal-seam-forge", "region": "forge-world", "resource": "coal", "position": { "x": 3, "y": 2 }, "amount": 12 },
-    { "id": "coal-seam-assembly", "region": "assembly-world", "resource": "coal", "position": { "x": 1, "y": 2 }, "amount": 12 }
+    { "id": "coal-seam-assembly", "region": "assembly-world", "resource": "coal", "position": { "x": 1, "y": 2 }, "amount": 40 }
   ]
 }

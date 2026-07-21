@@ -116,7 +116,10 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     "",
     "Device rates",
     ...analysis.extractionDevices.map((device) => `  ${device.device.padEnd(24)} extract ${device.resource.padEnd(15)} ${device.itemsPerMinute.toFixed(3)} items/min from ${device.nodes.join(", ")}`),
-    ...analysis.devices.map((device) => `  ${device.device.padEnd(24)} ${device.process.padEnd(20)} ${device.cyclesPerMinute.toFixed(3)} cycles/min`),
+    ...analysis.devices.flatMap((device) => [
+      `  ${device.device.padEnd(24)} ${device.process.padEnd(20)} ${device.cyclesPerMinute.toFixed(3)} cycles/min`,
+      `    recipe  ${Object.entries(device.inputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")}  ⇒  ${Object.entries(device.outputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")}`,
+    ]),
     "",
     "Power generation",
     ...analysis.generationDevices.map((device) => `  ${device.device.padEnd(24)} ${device.kind.padEnd(10)} ${(device.outputMilliWatts / 1000).toFixed(3).padStart(9)} W${device.fuelResource ? `  burn ${device.fuelPerMinute!.toFixed(3)} ${device.fuelResource}/min · ${device.burnTicks} ms/unit` : ""}`),

@@ -117,7 +117,10 @@ function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], pr
     return device.position.x < other.position.x + ow && device.position.x + width > other.position.x && device.position.y < other.position.y + oh && device.position.y + height > other.position.y;
   });
   if (deviceOverlap) return true;
-  return blueprint.connections.some((connection) => connection.path.some((cell) => cell.x >= device.position.x && cell.x < device.position.x + width && cell.y >= device.position.y && cell.y < device.position.y + height));
+  return blueprint.connections.some((connection) => {
+    const source = blueprint.devices.find((instance) => instance.id === connection.from.device);
+    return source?.region === device.region && connection.path.some((cell) => cell.x >= device.position.x && cell.x < device.position.x + width && cell.y >= device.position.y && cell.y < device.position.y + height);
+  });
 }
 
 interface StrategyCandidate { key: string; proposal: ResearchProposal }

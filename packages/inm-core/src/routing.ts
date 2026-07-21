@@ -52,7 +52,11 @@ export function findBlueprintConnectionPath(
   }
   for (const node of world.resourceNodes.filter((item) => item.region === from.region)) hardBlocked.add(`${node.position.x},${node.position.y}`);
   const transportBlocked = new Set<string>();
-  for (const route of blueprint.connections) for (const cell of route.path ?? []) transportBlocked.add(`${cell.x},${cell.y}`);
+  for (const route of blueprint.connections) {
+    const routeSource = devices.get(route.from.device);
+    if (routeSource?.region !== from.region) continue;
+    for (const cell of route.path ?? []) transportBlocked.add(`${cell.x},${cell.y}`);
+  }
 
   const key = (position: GridPosition) => `${position.x},${position.y}`;
   const startKey = key(start); const endKey = key(end);

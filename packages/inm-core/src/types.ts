@@ -100,8 +100,8 @@ export interface DeviceAssetManifest {
   production?: {
     categories: string[];
     speed: { numerator: number; denominator: number };
-    inputBuffer: BufferId;
-    outputBuffer: BufferId;
+    inputBuffers: BufferId[];
+    outputBuffers: BufferId[];
   };
   extraction?: {
     resources: ResourceId[];
@@ -218,7 +218,11 @@ export interface BlueprintDevice {
   region: string;
   position: GridPosition;
   rotation: Rotation;
-  process?: ProcessId;
+  recipe?: {
+    process: ProcessId;
+    inputs: Record<ResourceId, BufferId>;
+    outputs: Record<ResourceId, BufferId>;
+  };
   resourceNodes?: string[];
   config?: Record<string, unknown>;
   policy?: {

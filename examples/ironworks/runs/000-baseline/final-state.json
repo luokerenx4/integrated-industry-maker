@@ -6,7 +6,10 @@
   "devices": {
     "assembler-1": {
       "buffers": {
-        "input": {},
+        "input-primary": {},
+        "input-secondary": {
+          "coal": 8
+        },
         "output": {}
       },
       "status": "waiting-input"
@@ -26,6 +29,14 @@
         }
       },
       "status": "waiting-input"
+    },
+    "coal-splitter-assembly": {
+      "buffers": {
+        "storage": {
+          "coal": 8
+        }
+      },
+      "status": "idle"
     },
     "generator-1": {
       "activeJob": {
@@ -139,18 +150,22 @@
         }
       },
       "status": "idle"
+    },
+    "wind-assembly-recipe-line": {
+      "buffers": {},
+      "status": "idle"
     }
   },
   "energy": {
-    "availableMilliWatts": 2000000,
-    "consumedMilliJoules": 202072500,
+    "availableMilliWatts": 2600000,
+    "consumedMilliJoules": 205925500,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
-        "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 92561000
+        "availableMilliWatts": 1600000,
+        "consumedMilliJoules": 96414000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1000000,
@@ -166,7 +181,7 @@
         "departTick": 112120,
         "from": "station-supply",
         "fromBuffer": "storage",
-        "id": "transit-000141",
+        "id": "transit-000190",
         "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
@@ -175,14 +190,14 @@
     ]
   },
   "produced": {
-    "coal": 24,
+    "coal": 52,
     "gear": 12,
     "iron-ore": 75,
     "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 12,
+      "extracted": 40,
       "remaining": 0,
       "reserved": 0
     },
@@ -209,8 +224,10 @@
   },
   "tick": 120000,
   "transports": {
-    "coal-assembly-to-generator": [],
+    "coal-assembly-to-splitter": [],
     "coal-forge-to-generator": [],
+    "coal-splitter-to-assembler": [],
+    "coal-splitter-to-generator": [],
     "gear-to-output": [],
     "ore-to-smelter": [
       {
@@ -220,7 +237,7 @@
         "departTick": 119250,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000151",
+        "id": "transit-000204",
         "phase": "unloading",
         "readyTick": 120250,
         "resource": "iron-ore",

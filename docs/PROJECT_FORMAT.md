@@ -122,8 +122,8 @@ A combustible Resource declares how much energy one unit contains. The value is 
   "production": {
     "categories": ["smelting"],
     "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffer": "input",
-    "outputBuffer": "output"
+    "inputBuffers": ["input"],
+    "outputBuffers": ["output"]
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 180000 },
@@ -132,7 +132,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
-Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device may declare compatible Process categories, an exact rational speed multiplier, and input/output bindings. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
+Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, and the set of physical input/output buffers that a recipe may configure. Asset-level `accepts` values are maximum capabilities; the selected blueprint recipe narrows each listed buffer to the Resources actually bound there. Unused recipe buffers accept nothing. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
 
 A transport junction is a placed Device with the `transport-junction` capability, an internal buffer, and multiple input/output ports. Its blueprint policy can select deterministic merge/split behavior without hiding topology in runtime code:
 
@@ -291,7 +291,7 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 }
 ```
 
-The filename must match `id`; every resource is compiler-resolved. The blueprint binds a Process to a Device, and the compiler checks the Device category, input/output buffer contracts, and exact speed ratio before producing a buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
+The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. The blueprint recipe selects one Process for a Device instance and explicitly maps every declared Resource to one of the Device's permitted input/output buffers. The compiler rejects missing, extra, incompatible, or unknown bindings before producing the exact buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
 
 ## World
 
@@ -346,7 +346,11 @@ Every Device instance belongs to exactly one region from the selected world. Rot
       "region": "forge-world",
       "position": { "x": 10, "y": 10 },
       "rotation": 0,
-      "process": "smelt-iron"
+      "recipe": {
+        "process": "smelt-iron",
+        "inputs": { "iron-ore": "input" },
+        "outputs": { "iron-plate": "output" }
+      }
     }
   ],
   "connections": [
@@ -354,6 +358,7 @@ Every Device instance belongs to exactly one region from the selected world. Rot
       "id": "ore-to-smelter",
       "from": { "device": "ore-source-1", "port": "output" },
       "to": { "device": "smelter-1", "port": "input" },
+      "path": [{ "x": 4, "y": 10 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }, { "x": 9, "y": 10 }],
       "logistics": {
         "loader": { "deviceAsset": "sorter" },
         "line": { "deviceAsset": "conveyor" },
@@ -366,7 +371,7 @@ Every Device instance belongs to exactly one region from the selected world. Rot
 }
 ```
 
-`process` is engine-visible industrial semantics. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
+`recipe.process` is engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
 
 A transport Device declares the stages it can fill, for example `"logistics": { "roles": ["loader", "unloader"] }` for a sorter and `"roles": ["line"]` for a belt. Each stage contributes its own capacity, duration, and build cost. Static analysis reports the resulting end-to-end items/min and complete stage chain.
 

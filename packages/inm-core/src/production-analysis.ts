@@ -9,6 +9,8 @@ export interface DeviceProductionRate {
   cyclesPerMinute: number;
   inputsPerMinute: Record<ResourceId, number>;
   outputsPerMinute: Record<ResourceId, number>;
+  inputBindings: Record<ResourceId, string>;
+  outputBindings: Record<ResourceId, string>;
   powerMilliWatts: number;
 }
 
@@ -181,6 +183,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       cyclesPerMinute,
       inputsPerMinute,
       outputsPerMinute,
+      inputBindings: Object.fromEntries(device.processPlan.inputs.map((amount) => [amount.resource, amount.buffer])),
+      outputBindings: Object.fromEntries(device.processPlan.outputs.map((amount) => [amount.resource, amount.buffer])),
       powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
     });
   }

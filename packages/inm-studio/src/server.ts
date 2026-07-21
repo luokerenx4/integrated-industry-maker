@@ -190,6 +190,11 @@ async function loadStudioData(projectId: string, runName?: string) {
       rotation: device.rotation,
       footprint: device.footprint,
       visual: device.assetDef.visual,
+      ...(device.processPlan ? { recipe: {
+        process: device.processPlan.definition.id,
+        inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
+        outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
+      } } : {}),
     })),
     connections: Object.values(project.connections).map((connection) => {
       const from = {

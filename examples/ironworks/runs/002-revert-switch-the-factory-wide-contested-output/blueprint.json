@@ -23,12 +23,8 @@
           "y": 10
         },
         {
-          "x": 4,
-          "y": 11
-        },
-        {
           "x": 5,
-          "y": 11
+          "y": 10
         }
       ],
       "to": {
@@ -105,7 +101,7 @@
       ],
       "to": {
         "device": "assembler-1",
-        "port": "input"
+        "port": "input-primary"
       }
     },
     {
@@ -193,7 +189,7 @@
         "device": "coal-miner-assembly",
         "port": "output"
       },
-      "id": "coal-assembly-to-generator",
+      "id": "coal-assembly-to-splitter",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -209,11 +205,107 @@
         {
           "x": 3,
           "y": 3
+        },
+        {
+          "x": 3,
+          "y": 4
+        }
+      ],
+      "to": {
+        "device": "coal-splitter-assembly",
+        "port": "input-west"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-splitter-assembly",
+        "port": "output-north"
+      },
+      "id": "coal-splitter-to-generator",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 5,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
         }
       ],
       "to": {
         "device": "generator-2",
         "port": "fuel-input"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-splitter-assembly",
+        "port": "output-east"
+      },
+      "id": "coal-splitter-to-assembler",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 6,
+          "y": 4
+        },
+        {
+          "x": 6,
+          "y": 5
+        },
+        {
+          "x": 7,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 6
+        },
+        {
+          "x": 8,
+          "y": 7
+        },
+        {
+          "x": 8,
+          "y": 8
+        },
+        {
+          "x": 8,
+          "y": 9
+        }
+      ],
+      "to": {
+        "device": "assembler-1",
+        "port": "input-secondary"
       }
     },
     {
@@ -234,10 +326,6 @@
         }
       },
       "path": [
-        {
-          "x": 8,
-          "y": 11
-        },
         {
           "x": 8,
           "y": 10
@@ -266,10 +354,6 @@
         }
       },
       "path": [
-        {
-          "x": 7,
-          "y": 10
-        },
         {
           "x": 7,
           "y": 9
@@ -359,7 +443,15 @@
         "x": 9,
         "y": 10
       },
-      "process": "smelt-iron",
+      "recipe": {
+        "inputs": {
+          "iron-ore": "input"
+        },
+        "outputs": {
+          "iron-plate": "output"
+        },
+        "process": "smelt-iron"
+      },
       "region": "forge-world",
       "rotation": 0
     },
@@ -370,7 +462,16 @@
         "x": 7,
         "y": 10
       },
-      "process": "assemble-gear",
+      "recipe": {
+        "inputs": {
+          "coal": "input-secondary",
+          "iron-plate": "input-primary"
+        },
+        "outputs": {
+          "gear": "output"
+        },
+        "process": "assemble-gear"
+      },
       "region": "assembly-world",
       "rotation": 0
     },
@@ -418,7 +519,27 @@
       "asset": "generator",
       "id": "generator-2",
       "position": {
+        "x": 8,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "splitter",
+      "id": "coal-splitter-assembly",
+      "position": {
         "x": 4,
+        "y": 4
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "wind-assembly-recipe-line",
+      "position": {
+        "x": 12,
         "y": 3
       },
       "region": "assembly-world",
@@ -457,7 +578,15 @@
         "x": 9,
         "y": 8
       },
-      "process": "smelt-iron",
+      "recipe": {
+        "inputs": {
+          "iron-ore": "input"
+        },
+        "outputs": {
+          "iron-plate": "output"
+        },
+        "process": "smelt-iron"
+      },
       "region": "forge-world",
       "rotation": 0
     },
@@ -469,7 +598,7 @@
       },
       "position": {
         "x": 6,
-        "y": 11
+        "y": 10
       },
       "region": "forge-world",
       "rotation": 0
@@ -520,6 +649,6 @@
   "policies": {
     "dispatch": "fifo"
   },
-  "revision": "fec3b429369412df41ab18bbd2f6bc692027aee0e1edb354d95062bba5f225e7",
+  "revision": "c7ca22c1d8b5529b5fca6cf34c0ac245593a199c57f1f2e0fdcfe8772bbbd36d",
   "version": 1
 }

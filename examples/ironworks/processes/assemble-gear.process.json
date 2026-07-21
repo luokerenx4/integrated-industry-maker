@@ -2,12 +2,13 @@
   "version": 1,
   "id": "assemble-gear",
   "name": "Assemble Gear",
-  "description": "Machine iron plate stock into a finished gear.",
+  "description": "Machine iron plate stock with a carbon additive into a finished industrial gear.",
   "category": "assembling",
   "tags": ["iron", "component"],
   "durationTicks": 3000,
   "inputs": [
-    { "resource": "iron-plate", "count": 2 }
+    { "resource": "iron-plate", "count": 2 },
+    { "resource": "coal", "count": 1 }
   ],
   "outputs": [
     { "resource": "gear", "count": 1 }

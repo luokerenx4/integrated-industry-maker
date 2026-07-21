@@ -1,12 +1,13 @@
 {
-  "averageBeltItems": 0.8058333333333333,
+  "averageBeltItems": 0.9241666666666667,
   "averageBlockedBeltItems": 0,
-  "averageWip": 31.150166666666667,
-  "beltCellUtilization": 0.03099358974358974,
+  "averageWip": 41.974,
+  "beltCellUtilization": 0.026404761904761907,
   "blockedOutputTime": {
     "assembler-1": 0,
-    "coal-miner-assembly": 0,
+    "coal-miner-assembly": 31000,
     "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 0,
@@ -16,6 +17,7 @@
     "smelter-1-split": 0,
     "station-demand": 0,
     "station-supply": 0,
+    "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   },
   "bottleneckEntity": "smelter-1",
@@ -23,12 +25,12 @@
   "consumed": {
     "gear": 21
   },
-  "energyConsumedMilliJoules": 221937000,
+  "energyConsumedMilliJoules": 225806000,
   "extracted": {
-    "coal": 24,
+    "coal": 52,
     "iron-ore": 90
   },
-  "finalScore": 75.82561333333334,
+  "finalScore": 69.66287333333334,
   "fuelConsumed": {
     "coal": 4
   },
@@ -36,6 +38,7 @@
     "assembler-1": 0,
     "coal-miner-assembly": 0,
     "coal-miner-forge": 0,
+    "coal-splitter-assembly": 120000,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 0,
@@ -45,13 +48,15 @@
     "smelter-1-split": 120000,
     "station-demand": 120000,
     "station-supply": 120000,
+    "wind-assembly-recipe-line": 120000,
     "wind-turbine-support": 120000
   },
   "infeasibleReason": null,
   "machineUtilization": {
     "assembler-1": 0.525,
-    "coal-miner-assembly": 0.1,
+    "coal-miner-assembly": 0.3333333333333333,
     "coal-miner-forge": 0.1,
+    "coal-splitter-assembly": 0,
     "generator-1": 1,
     "generator-2": 1,
     "ore-source-1": 0.75,
@@ -61,13 +66,14 @@
     "smelter-1-split": 0,
     "station-demand": 0,
     "station-supply": 0,
+    "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   },
-  "occupiedArea": 102,
+  "occupiedArea": 119,
   "onTimeDelivery": 1,
   "peakBeltItems": 5,
   "produced": {
-    "coal": 24,
+    "coal": 52,
     "gear": 21,
     "iron-ore": 90,
     "iron-plate": 44
@@ -75,8 +81,8 @@
   "resourceNodes": {
     "coal-seam-assembly": {
       "depleted": true,
-      "extracted": 12,
-      "initial": 12,
+      "extracted": 40,
+      "initial": 40,
       "remaining": 0,
       "reserved": 0
     },
@@ -110,25 +116,33 @@
     }
   },
   "scoreBreakdown": {
-    "blocked": 0,
-    "buildCost": -13.44,
+    "blocked": -0.5166666666666667,
+    "buildCost": -14.565,
     "constraintPenalty": 0,
-    "energy": -2.21937,
-    "occupiedArea": -20.400000000000002,
+    "energy": -2.25806,
+    "occupiedArea": -23.8,
     "onTimeDelivery": 10,
     "throughput": 105,
-    "wip": -3.115016666666667
+    "wip": -4.1974
   },
   "throughputPerMinute": 10.5,
-  "totalBuildCost": 26880,
-  "transportCongestion": 0.09812756410256442,
-  "transportEnergyConsumedMilliJoules": 297000,
+  "totalBuildCost": 29130,
+  "transportCongestion": 0.08273214285714255,
+  "transportEnergyConsumedMilliJoules": 366000,
   "transportStageUtilization": {
-    "coal-assembly-to-generator": {
+    "coal-assembly-to-splitter": {
+      "loader": 0.08333333333333333,
+      "unloader": 0.08333333333333333
+    },
+    "coal-forge-to-generator": {
       "loader": 0.010416666666666666,
       "unloader": 0.010416666666666666
     },
-    "coal-forge-to-generator": {
+    "coal-splitter-to-assembler": {
+      "loader": 0.06041666666666667,
+      "unloader": 0.06041666666666667
+    },
+    "coal-splitter-to-generator": {
       "loader": 0.010416666666666666,
       "unloader": 0.010416666666666666
     },
@@ -163,8 +177,9 @@
   },
   "waitingInputTime": {
     "assembler-1": 57000,
-    "coal-miner-assembly": 108000,
+    "coal-miner-assembly": 49000,
     "coal-miner-forge": 108000,
+    "coal-splitter-assembly": 0,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 30000,
@@ -174,6 +189,7 @@
     "smelter-1-split": 0,
     "station-demand": 0,
     "station-supply": 0,
+    "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   }
 }

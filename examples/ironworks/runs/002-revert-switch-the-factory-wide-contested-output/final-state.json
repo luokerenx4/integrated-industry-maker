@@ -6,16 +6,17 @@
   "devices": {
     "assembler-1": {
       "buffers": {
-        "input": {},
+        "input-primary": {},
+        "input-secondary": {
+          "coal": 8
+        },
         "output": {}
       },
       "status": "waiting-input"
     },
     "coal-miner-assembly": {
       "buffers": {
-        "output": {
-          "coal": 7
-        }
+        "output": {}
       },
       "status": "waiting-input"
     },
@@ -26,6 +27,14 @@
         }
       },
       "status": "waiting-input"
+    },
+    "coal-splitter-assembly": {
+      "buffers": {
+        "storage": {
+          "coal": 5
+        }
+      },
+      "status": "idle"
     },
     "generator-1": {
       "activeJob": {
@@ -119,21 +128,25 @@
       },
       "status": "idle"
     },
+    "wind-assembly-recipe-line": {
+      "buffers": {},
+      "status": "idle"
+    },
     "wind-turbine-support": {
       "buffers": {},
       "status": "idle"
     }
   },
   "energy": {
-    "availableMilliWatts": 2600000,
-    "consumedMilliJoules": 222599500,
+    "availableMilliWatts": 3200000,
+    "consumedMilliJoules": 226469560,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
-        "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 99190500
+        "availableMilliWatts": 1600000,
+        "consumedMilliJoules": 103060560
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1600000,
@@ -145,14 +158,14 @@
     "interstellar-main": []
   },
   "produced": {
-    "coal": 24,
+    "coal": 52,
     "gear": 22,
     "iron-ore": 90,
     "iron-plate": 44
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 12,
+      "extracted": 40,
       "remaining": 0,
       "reserved": 0
     },
@@ -179,19 +192,21 @@
   },
   "tick": 120000,
   "transports": {
-    "coal-assembly-to-generator": [],
+    "coal-assembly-to-splitter": [],
     "coal-forge-to-generator": [],
+    "coal-splitter-to-assembler": [],
+    "coal-splitter-to-generator": [],
     "gear-to-output": [
       {
-        "arriveTick": 120420,
-        "cellIndex": 3,
+        "arriveTick": 120220,
+        "cellIndex": -1,
         "count": 1,
-        "departTick": 119420,
+        "departTick": 119220,
         "from": "assembler-1",
         "fromBuffer": "output",
-        "id": "transit-000307",
-        "phase": "belt",
-        "readyTick": 120070,
+        "id": "transit-000377",
+        "phase": "unloading",
+        "readyTick": 120220,
         "resource": "gear",
         "to": "output-1",
         "toBuffer": "input"

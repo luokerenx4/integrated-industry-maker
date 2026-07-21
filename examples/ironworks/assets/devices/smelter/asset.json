@@ -21,8 +21,8 @@
   "production": {
     "categories": ["smelting"],
     "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffer": "input",
-    "outputBuffer": "output"
+    "inputBuffers": ["input"],
+    "outputBuffers": ["output"]
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 180000 },

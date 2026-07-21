@@ -3,26 +3,28 @@
   "type": "device",
   "id": "assembler",
   "name": "Assembler",
-  "description": "A programmable assembly cell that turns plate stock into gears.",
+  "description": "A programmable assembly cell whose recipe assigns each material to a physical input buffer.",
   "tags": ["assembly", "processing"],
   "capabilities": ["process"],
   "geometry": {
     "footprint": { "width": 2, "height": 2 },
     "rotatable": true,
     "ports": [
-      { "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input" },
+      { "id": "input-primary", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input-primary" },
+      { "id": "input-secondary", "direction": "input", "kind": "resource", "side": "north", "offset": 1, "buffer": "input-secondary" },
       { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
     ]
   },
   "buffers": [
-    { "id": "input", "role": "input", "capacity": 8, "accepts": ["iron-plate"] },
-    { "id": "output", "role": "output", "capacity": 8, "accepts": ["gear"] }
+    { "id": "input-primary", "role": "input", "capacity": 8, "accepts": ["*"] },
+    { "id": "input-secondary", "role": "input", "capacity": 8, "accepts": ["*"] },
+    { "id": "output", "role": "output", "capacity": 8, "accepts": ["*"] }
   ],
   "production": {
     "categories": ["assembling"],
     "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffer": "input",
-    "outputBuffer": "output"
+    "inputBuffers": ["input-primary", "input-secondary"],
+    "outputBuffers": ["output"]
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 220000 },

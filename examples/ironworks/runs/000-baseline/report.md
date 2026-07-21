@@ -1,27 +1,27 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
-- Score: **35.757**
-- Result hash: `bbf42bfb92bc5ca8816c6a31db5fb4d6bc6f58c54268afb54d1240033c41817a`
+- Score: **27.991**
+- Result hash: `d0b363f6738d080844aaf4c16dbea69b53ae09eed7c1eb14ab9acaf8ecd62353`
 - Bottleneck: smelter-1
 - Throughput/min: 6.000
-- Belt utilization: 2.4%
+- Belt utilization: 2.1%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
-- Powered transport energy: 142.500 J
+- Powered transport energy: 195.500 J
 - Feasible: yes
 
 ## Score breakdown
 
 ```json
 {
-  "blocked": -0.75,
-  "buildCost": -10.69,
+  "blocked": -1.982,
+  "buildCost": -11.83,
   "constraintPenalty": 0,
-  "energy": -2.020725,
-  "occupiedArea": -16.8,
+  "energy": -2.059255,
+  "occupiedArea": -20.8,
   "onTimeDelivery": 10,
   "throughput": 60,
-  "wip": -3.9824
+  "wip": -5.3373333333333335
 }
 ```

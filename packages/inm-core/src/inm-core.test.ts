@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
-  listRuns, loadFactoryProject, openFactoryProject, replayFactoryEvents, researchFactory, runUntil,
+  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
@@ -52,7 +52,7 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
 describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
-    expect(Object.keys(project.devices)).toHaveLength(10);
+    expect(Object.keys(project.devices)).toHaveLength(12);
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
@@ -60,11 +60,17 @@ describe("blueprint compiler", () => {
     expect(Object.keys(project.processes)).toEqual(["assemble-gear", "smelt-iron"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
+    expect(project.devices["assembler-1"]!.processPlan?.inputs).toEqual([
+      { buffer: "input-primary", resource: "iron-plate", count: 2 },
+      { buffer: "input-secondary", resource: "coal", count: 1 },
+    ]);
+    expect(project.devices["assembler-1"]!.buffers["input-primary"]!.accepts).toEqual(["iron-plate"]);
+    expect(project.devices["assembler-1"]!.buffers["input-secondary"]!.accepts).toEqual(["coal"]);
     expect(project.devices["smelter-1"]!.powerGrid).toBe("grid-forge-world-generator-1");
     expect(project.devices["assembler-1"]!.powerGrid).toBe("grid-assembly-world-generator-2");
     expect(project.powerGrids["grid-forge-world-generator-1"]!.members).not.toContain("assembler-1");
     expect(project.powerGrids["grid-forge-world-generator-1"]!.productionMilliWatts).toBe(1_000_000);
-    expect(project.powerGrids["grid-assembly-world-generator-2"]!.productionMilliWatts).toBe(1_000_000);
+    expect(project.powerGrids["grid-assembly-world-generator-2"]!.productionMilliWatts).toBe(1_600_000);
     expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => `${stage.stage}:${stage.asset.id}`)).toEqual([
       "loader:sorter", "line:conveyor", "unloader:sorter",
     ]);
@@ -143,10 +149,22 @@ describe("blueprint compiler", () => {
   });
 
   test("rejects missing and incompatible process bindings", async () => {
-    const missing = await loaded(); missing.blueprint.devices[1]!.process = "missing-process";
+    const missing = await loaded(); missing.blueprint.devices[1]!.recipe!.process = "missing-process";
     expect(issueCodes(() => compileFactoryProject(missing))).toContain("reference.process");
-    const incompatible = await loaded(); incompatible.blueprint.devices[1]!.process = "assemble-gear";
+    const incompatible = await loaded(); incompatible.blueprint.devices[1]!.recipe!.process = "assemble-gear";
     expect(issueCodes(() => compileFactoryProject(incompatible))).toContain("production.category");
+  });
+
+  test("recipe bindings configure each physical input buffer and must cover the selected process exactly", async () => {
+    const missing = await loaded(); delete missing.blueprint.devices[2]!.recipe!.inputs.coal;
+    expect(issueCodes(() => compileFactoryProject(missing))).toContain("recipe.binding-required");
+    const extra = await loaded(); extra.blueprint.devices[2]!.recipe!.inputs["iron-ore"] = "input-primary";
+    expect(issueCodes(() => compileFactoryProject(extra))).toContain("recipe.extra-binding");
+    const wrongRole = await loaded(); wrongRole.blueprint.devices[2]!.recipe!.inputs.coal = "output";
+    expect(issueCodes(() => compileFactoryProject(wrongRole))).toContain("recipe.buffer-role");
+    const project = compileFactoryProject(await loaded());
+    expect(project.connections["station-to-assembler"]!.toDevice.buffers["input-primary"]!.accepts).toEqual(["iron-plate"]);
+    expect(project.connections["coal-splitter-to-assembler"]!.toDevice.buffers["input-secondary"]!.accepts).toEqual(["coal"]);
   });
 
   test("validates process resource references", async () => {
@@ -205,6 +223,24 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(interstellar))).toContain("station.interstellar-single-region");
   });
 
+  test("automatic pathfinding ignores belts at the same local coordinates in another region", async () => {
+    const source = await loaded();
+    source.blueprint.devices = [
+      { id: "forge-source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "forge-target", asset: "buffer", region: "forge-world", position: { x: 4, y: 0 }, rotation: 0 },
+      { id: "assembly-source", asset: "buffer", region: "assembly-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "assembly-target", asset: "buffer", region: "assembly-world", position: { x: 4, y: 0 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "assembly-belt", from: { device: "assembly-source", port: "output" }, to: { device: "assembly-target", port: "input" },
+      path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+    }];
+    expect(findBlueprintConnectionPath(source.blueprint, source.world, source.deviceAssets, {
+      from: { device: "forge-source", port: "output" }, to: { device: "forge-target", port: "input" },
+    })).toEqual([{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }]);
+  });
+
   test("reports unknown device regions without crashing route compilation", async () => {
     const source = await loaded();
     source.blueprint.devices.find((device) => device.id === "station-supply")!.region = "missing-world";
@@ -240,7 +276,7 @@ describe("deterministic discrete-event simulation", () => {
   test("static production analysis exposes nominal material deficits before simulation", async () => {
     const analysis = analyzeProduction(await openFactoryProject(ironworks));
     const plate = analysis.resources.find((resource) => resource.resource === "iron-plate")!;
-    expect(analysis.declarativeDevices).toBe(7);
+    expect(analysis.declarativeDevices).toBe(8);
     expect(analysis.extractionDevices).toEqual(expect.arrayContaining([
       expect.objectContaining({ device: "ore-source-1", resource: "iron-ore", itemsPerMinute: 60 }),
       expect.objectContaining({ device: "coal-miner-forge", resource: "coal", itemsPerMinute: 60 }),
@@ -256,7 +292,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(plate.netPerMinute).toBe(-25);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
     expect(analysis.powerGrids).toEqual([
-      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 18_000 }),
+      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 590_000 }),
       expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 8_000 }),
     ]);
   });
@@ -562,7 +598,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.devices.find((device) => device.id === "assembler-1")!.position = { x: 10, y: 10 };
     source.blueprint.devices.find((device) => device.id === "generator-1")!.region = "assembly-world";
     source.blueprint.devices.find((device) => device.id === "generator-1")!.position = { x: 4, y: 3 };
-    delete source.blueprint.devices.find((device) => device.id === "assembler-1")!.process;
+    delete source.blueprint.devices.find((device) => device.id === "assembler-1")!.recipe;
     source.blueprint.connections = [];
     source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 1000;

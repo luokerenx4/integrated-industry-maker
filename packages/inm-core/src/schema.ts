@@ -59,7 +59,7 @@ export const deviceAssetSchema = z.object({
   production: z.object({
     categories: z.array(id).min(1),
     speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
-    inputBuffer: id, outputBuffer: id,
+    inputBuffers: z.array(id).min(1), outputBuffers: z.array(id).min(1),
   }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,
@@ -106,7 +106,11 @@ export const blueprintSchema = z.object({
   devices: z.array(z.object({
     id, asset: id, region: id, position: z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict(),
     rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
-    process: id.optional(),
+    recipe: z.object({
+      process: id,
+      inputs: z.record(id),
+      outputs: z.record(id),
+    }).strict().optional(),
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({

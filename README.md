@@ -30,13 +30,13 @@ bun run inm studio examples/ironworks
 The bundled experiment demonstrates the complete loop:
 
 ```text
-000 routed resource/fuel baseline score 32.158
-001 smelter + routed branches     score 78.805  KEEP
-002 another parallel smelter      score 70.466  REVERT
-003 assembler + routed branches   score 74.660  REVERT
+000 dual-input recipe baseline    score 27.991
+001 smelter + routed branches     score 70.331  KEEP
+002 switch arbitration to FIFO    score 70.331  REVERT
+003 add station carrier           score 69.663  REVERT
 ```
 
-The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates; Assembly World unloads it into a local assembler. Each planet also has a finite coal seam, coal miner, local fuel link, and thermal generator. A coal unit has a declared energy value, starts a time-bounded generation job, and can leave its regional grid dark when fuel logistics fail. Physical links, powered loader/unloader endpoints, and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint machinery and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
+The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates. On Assembly World, a recipe-configured assembler consumes iron plate and coal through two independently bound input buffers. A placed splitter sends locally mined coal toward both generation and the secondary recipe input, while a renewable generator supports the expanded line. Physical links, powered loader/unloader endpoints, and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint recipes, machinery, and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
 
 ## CLI
 
@@ -128,4 +128,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers isolated multi-project workspaces, immutable world hashing, finite resource conservation and depletion, extractor range/region contracts, fuel energy and time-bounded generation, asset package loading and hashing, TypeScript runtime contracts, multi-input/multi-output scripts, deterministic replay, multi-region geometry and reference failures, region-local physical links and power grids, powered transport endpoint shortage/recovery and energy, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.
+The suite covers isolated multi-project workspaces, immutable world hashing, finite resource conservation and depletion, extractor range/region contracts, fuel energy and time-bounded generation, asset package loading and hashing, TypeScript runtime contracts, exact recipe-to-buffer bindings, multi-input/multi-output scripts, deterministic replay, multi-region geometry and optimizer path isolation, region-local physical links and power grids, powered transport endpoint shortage/recovery and energy, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.

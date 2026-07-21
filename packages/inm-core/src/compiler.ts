@@ -43,12 +43,23 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     }
     if (asset.production) {
       if (!asset.capabilities.includes("process")) issues.push({ path: `assets/devices/${id}/asset.json/production`, code: "capability.not-process", message: "Production specification requires process capability" });
-      const input = asset.buffers.find((buffer) => buffer.id === asset.production!.inputBuffer);
-      const output = asset.buffers.find((buffer) => buffer.id === asset.production!.outputBuffer);
-      if (!input) issues.push({ path: `assets/devices/${id}/asset.json/production/inputBuffer`, code: "reference.buffer", message: `Unknown buffer '${asset.production.inputBuffer}'` });
-      else if (input.role === "output") issues.push({ path: `assets/devices/${id}/asset.json/production/inputBuffer`, code: "production.buffer-role", message: "Production input buffer cannot be output-only" });
-      if (!output) issues.push({ path: `assets/devices/${id}/asset.json/production/outputBuffer`, code: "reference.buffer", message: `Unknown buffer '${asset.production.outputBuffer}'` });
-      else if (output.role === "input") issues.push({ path: `assets/devices/${id}/asset.json/production/outputBuffer`, code: "production.buffer-role", message: "Production output buffer cannot be input-only" });
+      for (const [side, bufferIds, direction, forbiddenRole] of [
+        ["inputBuffers", asset.production.inputBuffers, "input", "output"],
+        ["outputBuffers", asset.production.outputBuffers, "output", "input"],
+      ] as const) {
+        const seen = new Set<string>();
+        for (const [bufferIndex, bufferId] of bufferIds.entries()) {
+          const path = `assets/devices/${id}/asset.json/production/${side}/${bufferIndex}`;
+          if (seen.has(bufferId)) issues.push({ path, code: "production.duplicate-buffer", message: `Production ${side} lists '${bufferId}' more than once` });
+          seen.add(bufferId);
+          const buffer = asset.buffers.find((item) => item.id === bufferId);
+          if (!buffer) issues.push({ path, code: "reference.buffer", message: `Unknown production buffer '${bufferId}'` });
+          else if (buffer.role === forbiddenRole) issues.push({ path, code: "production.buffer-role", message: `Production ${direction} buffer '${bufferId}' cannot be ${forbiddenRole}-only` });
+          if (!asset.geometry.ports.some((port) => port.direction === direction && port.buffer === bufferId)) {
+            issues.push({ path, code: "production.buffer-port", message: `Production ${direction} buffer '${bufferId}' requires a matching ${direction} port` });
+          }
+        }
+      }
     }
     if (asset.extraction) {
       if (!asset.capabilities.includes("extract")) issues.push({ path: `assets/devices/${id}/asset.json/extraction`, code: "capability.not-extract", message: "Extraction specification requires extract capability" });
@@ -293,36 +304,71 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       const buffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
       if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(instance.policy.filter.resource)) issues.push({ path: `${path}/policy/filter/resource`, code: "policy.filter-resource-contract", message: `Output port '${port!.id}' cannot carry '${instance.policy.filter.resource}'` });
     }
+    const effectiveBuffers = Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, { ...buffer, accepts: [...buffer.accepts] }]));
     let processPlan: CompiledDevice["processPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
-    if (instance.process) {
-      const definition = loaded.processes[instance.process];
-      if (!definition) issues.push({ path: `${path}/process`, code: "reference.process", message: `Unknown process '${instance.process}'` });
-      if (!asset.production) issues.push({ path: `${path}/process`, code: "production.unsupported", message: `Device asset '${asset.id}' does not support declarative processes` });
+    if (instance.recipe) {
+      const definition = loaded.processes[instance.recipe.process];
+      if (!definition) issues.push({ path: `${path}/recipe/process`, code: "reference.process", message: `Unknown process '${instance.recipe.process}'` });
+      if (!asset.production) issues.push({ path: `${path}/recipe`, code: "production.unsupported", message: `Device asset '${asset.id}' does not support declarative recipes` });
       if (definition && asset.production) {
+        let bindingValid = true;
         if (!asset.production.categories.includes(definition.category)) {
-          issues.push({ path: `${path}/process`, code: "production.category", message: `Device '${asset.id}' does not support process category '${definition.category}'` });
+          issues.push({ path: `${path}/recipe/process`, code: "production.category", message: `Device '${asset.id}' does not support process category '${definition.category}'` });
+          bindingValid = false;
         }
-        const inputBuffer = asset.buffers.find((buffer) => buffer.id === asset.production!.inputBuffer);
-        const outputBuffer = asset.buffers.find((buffer) => buffer.id === asset.production!.outputBuffer);
-        if (inputBuffer) for (const amount of definition.inputs) if (!inputBuffer.accepts.includes("*") && !inputBuffer.accepts.includes(amount.resource)) {
-          issues.push({ path: `${path}/process`, code: "production.input-contract", message: `Input buffer '${inputBuffer.id}' does not accept '${amount.resource}' required by '${definition.id}'` });
+        const compiledInputs = [] as NonNullable<CompiledDevice["processPlan"]>["inputs"];
+        const compiledOutputs = [] as NonNullable<CompiledDevice["processPlan"]>["outputs"];
+        for (const [side, amounts, bindings, allowedBuffers, compiled] of [
+          ["inputs", definition.inputs, instance.recipe.inputs, asset.production.inputBuffers, compiledInputs],
+          ["outputs", definition.outputs, instance.recipe.outputs, asset.production.outputBuffers, compiledOutputs],
+        ] as const) {
+          const expected = new Set(amounts.map((amount) => amount.resource));
+          for (const resource of Object.keys(bindings).sort()) if (!expected.has(resource)) {
+            issues.push({ path: `${path}/recipe/${side}/${resource}`, code: "recipe.extra-binding", message: `Recipe binds '${resource}' on ${side}, but process '${definition.id}' does not declare it` });
+            bindingValid = false;
+          }
+          for (const amount of amounts) {
+            const bindingPath = `${path}/recipe/${side}/${amount.resource}`;
+            const bufferId = bindings[amount.resource];
+            if (!bufferId) {
+              issues.push({ path: bindingPath, code: "recipe.binding-required", message: `Process '${definition.id}' requires a ${side} binding for '${amount.resource}'` });
+              bindingValid = false;
+              continue;
+            }
+            const buffer = asset.buffers.find((item) => item.id === bufferId);
+            if (!buffer) {
+              issues.push({ path: bindingPath, code: "reference.buffer", message: `Unknown recipe buffer '${bufferId}'` });
+              bindingValid = false;
+              continue;
+            }
+            if (!allowedBuffers.includes(bufferId)) {
+              issues.push({ path: bindingPath, code: "recipe.buffer-role", message: `Buffer '${bufferId}' is not declared as one of '${asset.id}' ${side}` });
+              bindingValid = false;
+            }
+            if (!buffer.accepts.includes("*") && !buffer.accepts.includes(amount.resource)) {
+              issues.push({ path: bindingPath, code: "recipe.resource-contract", message: `Buffer '${bufferId}' cannot accept '${amount.resource}' for process '${definition.id}'` });
+              bindingValid = false;
+            }
+            compiled.push({ buffer: bufferId, ...amount });
+          }
         }
-        if (outputBuffer) for (const amount of definition.outputs) if (!outputBuffer.accepts.includes("*") && !outputBuffer.accepts.includes(amount.resource)) {
-          issues.push({ path: `${path}/process`, code: "production.output-contract", message: `Output buffer '${outputBuffer.id}' does not accept '${amount.resource}' produced by '${definition.id}'` });
+        for (const bufferId of [...new Set([...asset.production.inputBuffers, ...asset.production.outputBuffers])]) {
+          const resources = [...compiledInputs, ...compiledOutputs].filter((amount) => amount.buffer === bufferId).map((amount) => amount.resource);
+          effectiveBuffers[bufferId] = { ...effectiveBuffers[bufferId]!, accepts: [...new Set(resources)].sort() };
         }
-        if (asset.production.categories.includes(definition.category) && inputBuffer && outputBuffer) {
+        if (bindingValid) {
           processPlan = {
             definition,
             durationTicks: Math.max(1, Math.ceil(definition.durationTicks * asset.production.speed.denominator / asset.production.speed.numerator)),
-            inputs: definition.inputs.map((amount) => ({ buffer: inputBuffer.id, ...amount })),
-            outputs: definition.outputs.map((amount) => ({ buffer: outputBuffer.id, ...amount })),
+            inputs: compiledInputs,
+            outputs: compiledOutputs,
           };
         }
       }
     } else if (asset.production) {
-      issues.push({ path: `${path}/process`, code: "production.process-required", message: `Device asset '${asset.id}' requires a blueprint process binding` });
+      issues.push({ path: `${path}/recipe`, code: "production.recipe-required", message: `Device asset '${asset.id}' requires a blueprint recipe with explicit resource-to-buffer bindings` });
     }
     if (asset.extraction) {
       if (!instance.resourceNodes?.length) issues.push({ path: `${path}/resourceNodes`, code: "extraction.nodes-required", message: `Extractor '${instance.id}' must bind at least one world resource node` });
@@ -360,7 +406,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
-      buffers: Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, buffer])),
+      buffers: effectiveBuffers,
       ...(processPlan ? { processPlan } : {}),
       ...(extractionPlan ? { extractionPlan } : {}),
       ...(generationPlan ? { generationPlan } : {}),

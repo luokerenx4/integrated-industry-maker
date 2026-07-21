@@ -9,7 +9,15 @@
         "x": 9,
         "y": 8
       },
-      "process": "smelt-iron",
+      "recipe": {
+        "inputs": {
+          "iron-ore": "input"
+        },
+        "outputs": {
+          "iron-plate": "output"
+        },
+        "process": "smelt-iron"
+      },
       "region": "forge-world",
       "rotation": 0
     }
@@ -25,7 +33,7 @@
       },
       "position": {
         "x": 6,
-        "y": 11
+        "y": 10
       },
       "region": "forge-world",
       "rotation": 0
@@ -57,12 +65,8 @@
           "y": 10
         },
         {
-          "x": 4,
-          "y": 11
-        },
-        {
           "x": 5,
-          "y": 11
+          "y": 10
         }
       ],
       "to": {
@@ -92,10 +96,6 @@
         }
       },
       "path": [
-        {
-          "x": 8,
-          "y": 11
-        },
         {
           "x": 8,
           "y": 10
@@ -128,10 +128,6 @@
         }
       },
       "path": [
-        {
-          "x": 7,
-          "y": 10
-        },
         {
           "x": 7,
           "y": 9
