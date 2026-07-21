@@ -223,6 +223,8 @@ export interface BlueprintDevice {
     inputs: Record<ResourceId, BufferId>;
     outputs: Record<ResourceId, BufferId>;
   };
+  /** Instance-level Resource contracts. Each entry narrows the corresponding asset buffer; an empty list disables that buffer. */
+  bufferFilters?: Record<BufferId, ResourceId[]>;
   resourceNodes?: string[];
   config?: Record<string, unknown>;
   policy?: {

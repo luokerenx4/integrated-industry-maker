@@ -50,6 +50,7 @@ interface Device {
   footprint: { width: number; height: number };
   visual: Visual;
   recipe?: { process: string; inputs: Array<{ resource: string; buffer: string; count: number }>; outputs: Array<{ resource: string; buffer: string; count: number }> };
+  resourceContracts: Record<string, string[]>;
 }
 
 interface DeviceCatalogAsset {
@@ -163,6 +164,10 @@ interface IndustrialAnalysis {
     device: string; asset: string; process: string; category: string; cycleTicks: number; cyclesPerMinute: number;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
     inputBindings: Record<string, string>; outputBindings: Record<string, string>; powerMilliWatts: number;
+  }>;
+  bufferContracts: Array<{
+    device: string; asset: string;
+    buffers: Array<{ buffer: string; role: string; capacity: number; accepts: string[] }>;
   }>;
   recipeOptions: Array<{
     device: string; asset: string; process: string; name: string; category: string; selected: boolean;
@@ -393,7 +398,7 @@ function FactoryDevice({ projectId, device, frame, bottleneck }: { projectId: st
     {bottleneck && <mesh position={[0, .03 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .7, Math.max(device.footprint.width, device.footprint.height) * .88, 48]} /><meshBasicMaterial color="#ffcf5c" transparent opacity={.8} /></mesh>}
     <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process}</Text>}</Billboard>
+    <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>
   </group>;
 }
 
@@ -605,6 +610,12 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(device.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ") || "none"}</strong><code>{Object.entries(device.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(device.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{Object.entries(device.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span></div>
             <footer><span>CYCLE {device.cycleTicks}ms</span><span>{(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
           </div>)}</div>
+        </section>
+        <section className="analysis-section material-analysis">
+          <div className="analysis-section-title"><span>INSTANCE BUFFER CONTRACTS</span><b>BLUEPRINT RESOURCE FILTERS</b></div>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>DEVICE / BUFFER</span><span>ROLE</span><span>CAPACITY</span><span>ACCEPTS</span></div>{analysis.bufferContracts.flatMap((device) => device.buffers.map((buffer) => <div key={`${device.device}-${buffer.buffer}`}>
+            <strong>{device.device}<small>{buffer.buffer}</small></strong><span>{buffer.role}</span><span>{buffer.capacity}</span><b>{buffer.accepts.join(" + ") || "CLOSED"}</b><small>{device.asset}</small>
+          </div>))}</div>
         </section>
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>PRODUCTION GRAPH</span><b>PER 1 {analysis.productionGraph.targetResource.toUpperCase()}</b></div>

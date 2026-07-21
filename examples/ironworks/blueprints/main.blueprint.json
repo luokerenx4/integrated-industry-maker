@@ -194,6 +194,9 @@
     },
     {
       "asset": "material-sink",
+      "bufferFilters": {
+        "input": ["gear"]
+      },
       "id": "output-1",
       "position": {
         "x": 14,
@@ -214,6 +217,9 @@
     },
     {
       "asset": "interstellar-logistics-station",
+      "bufferFilters": {
+        "storage": ["iron-plate"]
+      },
       "id": "station-supply",
       "position": {
         "x": 13,
@@ -224,6 +230,9 @@
     },
     {
       "asset": "interstellar-logistics-station",
+      "bufferFilters": {
+        "storage": ["iron-plate"]
+      },
       "id": "station-demand",
       "position": {
         "x": 1,

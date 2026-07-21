@@ -134,7 +134,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
-Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, and the set of physical input/output buffers that a recipe may configure. Asset-level `accepts` values are maximum capabilities; the selected blueprint recipe narrows each listed buffer to the Resources actually bound there. Unused recipe buffers accept nothing. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
+Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, and the set of physical input/output buffers that a recipe may configure. Asset-level `accepts` values are maximum capabilities. A blueprint instance may narrow any buffer with `bufferFilters`; an empty list closes that buffer. The selected recipe then narrows its listed buffers again to the Resources actually bound there, and unused recipe buffers accept nothing. Extractor output is narrowed to the Resource type of its bound deposits. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
 
 A transport junction is a placed Device with the `transport-junction` capability, an internal buffer, and multiple input/output ports. Its blueprint policy can select deterministic merge/split behavior without hiding topology in runtime code:
 
@@ -377,6 +377,21 @@ Every Device instance belongs to exactly one region from the selected world. Rot
 ```
 
 `recipe.process` is engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
+
+Every Device instance—not only a recipe machine—may configure accepted Resources without editing its asset package:
+
+```json
+{
+  "id": "gear-storage",
+  "asset": "buffer",
+  "region": "assembly-world",
+  "position": { "x": 12, "y": 8 },
+  "rotation": 0,
+  "bufferFilters": { "storage": ["gear"] }
+}
+```
+
+Filters are strict narrowing contracts: they cannot add a Resource excluded by the asset. The compiler applies them to physical connection compatibility, recipe bindings, extractor output, fuel selection, station slots, Scenario initial inventory, and runtime belt dispatch. Synthesis writes exact filters for extractors, junction trees, boundary consumers, surplus consumers, and station pairs, so generated blueprints do not rely on wildcard routing.
 
 A transport Device declares the stages it can fill, for example `"logistics": { "roles": ["loader", "unloader"] }` for a sorter and `"roles": ["line"]` for a belt. Its TypeScript `planTransport()` returns `{ capacity, durationTicks, stackCapacity? }`: capacity counts concurrent cargo entities, while `stackCapacity` (default 1) caps the number of Resource items carried by each entity. A blueprint connection may set `"stackSize": 4`; omitting it selects the maximum supported by all three stages and the Resource asset's `transport.stackSize`. The compiler rejects impossible explicit requests. One belt cell still contains at most one cargo entity, so stacking raises item throughput without bypassing cell occupancy, shared-lane arbitration, or backpressure. Static analysis reports stage cargo/stack contracts, per-Resource end-to-end items/min, and the complete stage chain. Projects may carry several speed/stack tiers as independent local Device assets; research compares the combined items/min envelope and can replace every tied limiting stage while preserving the connection path and endpoint contracts.
 

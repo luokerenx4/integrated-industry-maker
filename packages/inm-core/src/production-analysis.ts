@@ -159,6 +159,10 @@ export interface ProductionAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
   devices: DeviceProductionRate[];
+  bufferContracts: Array<{
+    device: string; asset: string;
+    buffers: Array<{ buffer: string; role: string; capacity: number; accepts: ResourceId[] | ["*"] }>;
+  }>;
   recipeOptions: RecipeOptionAnalysis[];
   productionGraph: ProductionDependencyGraph;
   extractionDevices: DeviceExtractionRate[];
@@ -172,15 +176,18 @@ export interface ProductionAnalysis {
   diagnostics: ProductionDiagnostic[];
 }
 
-function bufferSupports(asset: DeviceAsset, bufferId: string, resource: ResourceId): boolean {
+function bufferSupports(asset: DeviceAsset, bufferId: string, resource: ResourceId, filters?: BlueprintDevice["bufferFilters"]): boolean {
   const buffer = asset.buffers.find((item) => item.id === bufferId);
-  return Boolean(buffer && (buffer.accepts.includes("*") || buffer.accepts.includes(resource)));
+  if (!buffer || (!buffer.accepts.includes("*") && !buffer.accepts.includes(resource))) return false;
+  const configured = filters?.[bufferId];
+  return !configured || configured.includes(resource);
 }
 
 export function bindProcessRecipe(
   asset: DeviceAsset,
   process: IndustrialProcess,
   preferred?: BlueprintDevice["recipe"],
+  filters?: BlueprintDevice["bufferFilters"],
 ): { inputs: Record<ResourceId, string>; outputs: Record<ResourceId, string> } | null {
   const production = asset.production;
   if (!production || !production.categories.includes(process.category)) return null;
@@ -189,7 +196,7 @@ export function bindProcessRecipe(
     const used = new Set<string>();
     for (const amount of amounts) {
       const preferredBuffer = preferredBindings?.[amount.resource];
-      const candidates = allowed.filter((buffer) => bufferSupports(asset, buffer, amount.resource))
+      const candidates = allowed.filter((buffer) => bufferSupports(asset, buffer, amount.resource, filters))
         .sort((a, b) => Number(used.has(a)) - Number(used.has(b)) || a.localeCompare(b));
       const buffer = preferredBuffer && candidates.includes(preferredBuffer) ? preferredBuffer : candidates[0];
       if (!buffer) return null;
@@ -291,7 +298,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   const recipeOptions: RecipeOptionAnalysis[] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((device) => {
     if (!device.assetDef.production) return [];
     return Object.values(project.processes).sort((a, b) => a.id.localeCompare(b.id)).flatMap((process) => {
-      const bindings = bindProcessRecipe(device.assetDef, process, device.recipe);
+      const bindings = bindProcessRecipe(device.assetDef, process, device.recipe, device.bufferFilters);
       if (!bindings) return [];
       const cycleTicks = Math.max(1, Math.ceil(process.durationTicks * device.assetDef.production!.speed.denominator / device.assetDef.production!.speed.numerator));
       const cyclesPerMinute = 60_000 / cycleTicks;
@@ -306,6 +313,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     });
   });
   const productionGraph = buildProductionGraph(project, devices);
+  const bufferContracts: ProductionAnalysis["bufferContracts"] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).map((device) => ({
+    device: device.id, asset: device.asset,
+    buffers: Object.values(device.buffers).sort((a, b) => a.id.localeCompare(b.id)).map((buffer) => ({
+      buffer: buffer.id, role: buffer.role, capacity: buffer.capacity, accepts: [...buffer.accepts] as ResourceId[] | ["*"],
+    })),
+  }));
 
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
     const plan = device.generationPlan;
@@ -507,7 +520,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   return {
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, recipeOptions, productionGraph, extractionDevices, generationDevices, resourceNodes,
+    devices, bufferContracts, recipeOptions, productionGraph, extractionDevices, generationDevices, resourceNodes,
     resources,
     connections,
     transportCells,

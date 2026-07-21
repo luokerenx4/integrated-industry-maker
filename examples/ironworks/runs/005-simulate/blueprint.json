@@ -57,6 +57,11 @@
   "devices": [
     {
       "asset": "buffer",
+      "bufferFilters": {
+        "storage": [
+          "iron-ore"
+        ]
+      },
       "id": "stack-source",
       "position": {
         "x": 0,
@@ -67,6 +72,11 @@
     },
     {
       "asset": "material-sink",
+      "bufferFilters": {
+        "input": [
+          "iron-ore"
+        ]
+      },
       "id": "stack-target",
       "position": {
         "x": 8,

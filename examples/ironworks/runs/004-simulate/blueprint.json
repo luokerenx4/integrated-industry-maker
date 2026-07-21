@@ -194,10 +194,10 @@
     },
     {
       "from": {
-        "device": "synth-iron-plate-assembly-world-station-demand",
+        "device": "synth-iron-plate-assembly-world-station-demand-1",
         "port": "output"
       },
-      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -324,7 +324,7 @@
         "device": "synth-iron-plate-merge",
         "port": "output-east"
       },
-      "id": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply",
+      "id": "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -348,7 +348,7 @@
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-iron-plate-forge-world-station-supply",
+        "device": "synth-iron-plate-forge-world-station-supply-1",
         "port": "input"
       }
     },
@@ -447,6 +447,11 @@
     },
     {
       "asset": "material-sink",
+      "bufferFilters": {
+        "input": [
+          "gear"
+        ]
+      },
       "id": "synth-gear-sink",
       "position": {
         "x": 11,
@@ -457,6 +462,11 @@
     },
     {
       "asset": "mining-machine",
+      "bufferFilters": {
+        "output": [
+          "coal"
+        ]
+      },
       "id": "synth-coal-extractor-1",
       "position": {
         "x": 0,
@@ -470,6 +480,11 @@
     },
     {
       "asset": "mining-machine",
+      "bufferFilters": {
+        "output": [
+          "iron-ore"
+        ]
+      },
       "id": "synth-iron-ore-extractor-1",
       "position": {
         "x": 1,
@@ -485,7 +500,12 @@
     },
     {
       "asset": "interstellar-logistics-station",
-      "id": "synth-iron-plate-forge-world-station-supply",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
+      "id": "synth-iron-plate-forge-world-station-supply-1",
       "position": {
         "x": 15,
         "y": 11
@@ -495,7 +515,12 @@
     },
     {
       "asset": "interstellar-logistics-station",
-      "id": "synth-iron-plate-assembly-world-station-demand",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
+      "id": "synth-iron-plate-assembly-world-station-demand-1",
       "position": {
         "x": 1,
         "y": 7
@@ -505,6 +530,11 @@
     },
     {
       "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-ore"
+        ]
+      },
       "id": "synth-iron-ore-split",
       "policy": {
         "dispatch": "round-robin"
@@ -518,6 +548,11 @@
     },
     {
       "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
       "id": "synth-iron-plate-merge",
       "position": {
         "x": 12,
@@ -530,8 +565,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-1",
       "position": {
-        "x": 8,
-        "y": 6
+        "x": 1,
+        "y": 12
       },
       "region": "forge-world",
       "rotation": 0
@@ -540,8 +575,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-2",
       "position": {
-        "x": 11,
-        "y": 7
+        "x": 8,
+        "y": 11
       },
       "region": "forge-world",
       "rotation": 0
@@ -550,8 +585,8 @@
       "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-1",
       "position": {
-        "x": 3,
-        "y": 2
+        "x": 0,
+        "y": 5
       },
       "region": "assembly-world",
       "rotation": 0
@@ -560,8 +595,8 @@
       "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-2",
       "position": {
-        "x": 6,
-        "y": 2
+        "x": 5,
+        "y": 4
       },
       "region": "assembly-world",
       "rotation": 0
@@ -573,11 +608,11 @@
         "count": 1,
         "deviceAsset": "logistics-vessel"
       },
-      "id": "synth-iron-plate-forge-world-to-assembly-world",
+      "id": "synth-iron-plate-forge-world-to-assembly-world-lane-1",
       "kind": "interstellar",
       "stations": [
         {
-          "device": "synth-iron-plate-forge-world-station-supply",
+          "device": "synth-iron-plate-forge-world-station-supply-1",
           "slots": [
             {
               "minimumBatch": 1,
@@ -587,7 +622,7 @@
           ]
         },
         {
-          "device": "synth-iron-plate-assembly-world-station-demand",
+          "device": "synth-iron-plate-assembly-world-station-demand-1",
           "slots": [
             {
               "minimumBatch": 1,

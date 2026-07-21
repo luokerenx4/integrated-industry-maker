@@ -1,8 +1,8 @@
 {
   "version": 1,
   "devices": [
-    { "id": "stack-source", "asset": "buffer", "region": "forge-world", "position": { "x": 0, "y": 0 }, "rotation": 0 },
-    { "id": "stack-target", "asset": "material-sink", "region": "forge-world", "position": { "x": 8, "y": 0 }, "rotation": 0 },
+    { "id": "stack-source", "asset": "buffer", "region": "forge-world", "position": { "x": 0, "y": 0 }, "rotation": 0, "bufferFilters": { "storage": ["iron-ore"] } },
+    { "id": "stack-target", "asset": "material-sink", "region": "forge-world", "position": { "x": 8, "y": 0 }, "rotation": 0, "bufferFilters": { "input": ["iron-ore"] } },
     { "id": "stack-power", "asset": "wind-turbine", "region": "forge-world", "position": { "x": 4, "y": 4 }, "rotation": 0 }
   ],
   "connections": [

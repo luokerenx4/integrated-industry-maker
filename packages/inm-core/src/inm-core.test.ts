@@ -26,8 +26,8 @@ async function projectCopy(): Promise<string> {
 async function stationProjectSource(): Promise<LoadedFactoryProject> {
   const source = await loaded();
   source.blueprint.devices = [
-    { id: "station-supply", asset: "logistics-station", region: "forge-world", position: { x: 2, y: 10 }, rotation: 0 },
-    { id: "station-demand", asset: "logistics-station", region: "forge-world", position: { x: 14, y: 10 }, rotation: 0 },
+    { id: "station-supply", asset: "logistics-station", region: "forge-world", position: { x: 2, y: 10 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
+    { id: "station-demand", asset: "logistics-station", region: "forge-world", position: { x: 14, y: 10 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
     { id: "generator-1", asset: "generator", region: "forge-world", position: { x: 10, y: 3 }, rotation: 0 },
   ];
   source.blueprint.connections = [];
@@ -109,6 +109,11 @@ describe("factory synthesis", () => {
     expect(first.blueprint.devices.every((device) => Boolean(source.deviceAssets[device.asset]))).toBeTrue();
     expect(first.blueprint.devices.filter((device) => source.deviceAssets[device.asset]!.production).every((device) => Boolean(device.recipe))).toBeTrue();
     expect(first.blueprint.devices.find((device) => device.asset === "assembler")!.recipe!.inputs).toEqual({ coal: "input-secondary", "iron-plate": "input-primary" });
+    expect(first.blueprint.devices.find((device) => device.id === "synth-gear-sink")!.bufferFilters).toEqual({ input: ["gear"] });
+    expect(first.blueprint.devices.filter((device) => device.asset === "interstellar-logistics-station")
+      .every((device) => stableStringify(device.bufferFilters) === stableStringify({ storage: ["iron-plate"] }))).toBeTrue();
+    expect(first.blueprint.devices.filter((device) => device.asset === "mining-machine")
+      .every((device) => Object.values(device.bufferFilters ?? {}).flat().length === 1)).toBeTrue();
     expect(first.stationNetworks).toHaveLength(1);
     expect(first.selectedProcesses.map((process) => [process.process, process.region])).toEqual([
       ["forge-gear-pair", "assembly-world"], ["smelt-iron", "forge-world"],
@@ -426,6 +431,44 @@ describe("blueprint compiler", () => {
     expect(project.connections["coal-splitter-to-assembler"]!.toDevice.buffers["input-secondary"]!.accepts).toEqual(["coal"]);
     const alternative = await loaded(); alternative.blueprint.devices[2]!.recipe!.process = "forge-gear-pair";
     expect(analyzeProduction(compileFactoryProject(alternative)).productionGraph.rawInputsPerTarget).toEqual({ coal: .5, "iron-ore": 3 });
+  });
+
+  test("instance buffer filters narrow wildcard assets and constrain recipes, extraction, stations, and initial inventory", async () => {
+    const source = await loaded();
+    const sink = source.blueprint.devices.find((device) => device.id === "output-1")!;
+    sink.bufferFilters = { input: ["gear"] };
+    const project = compileFactoryProject(source);
+    expect(project.devices["output-1"]!.buffers.input!.accepts).toEqual(["gear"]);
+    expect(project.devices["ore-source-1"]!.buffers.output!.accepts).toEqual(["iron-ore"]);
+
+    const invalidInitial = await loaded();
+    invalidInitial.blueprint.devices.find((device) => device.id === "output-1")!.bufferFilters = { input: ["gear"] };
+    invalidInitial.scenario.initialBuffers = { "output-1": { input: { coal: 1 } } };
+    expect(issueCodes(() => compileFactoryProject(invalidInitial))).toContain("buffer.resource-contract");
+
+    const invalidRecipe = await loaded();
+    invalidRecipe.blueprint.devices.find((device) => device.id === "assembler-1")!.bufferFilters = { "input-primary": ["coal"] };
+    expect(issueCodes(() => compileFactoryProject(invalidRecipe))).toContain("recipe.resource-filter");
+
+    const invalidExtractor = await loaded();
+    invalidExtractor.blueprint.devices.find((device) => device.id === "ore-source-1")!.bufferFilters = { output: ["coal"] };
+    expect(issueCodes(() => compileFactoryProject(invalidExtractor))).toContain("extraction.resource-filter");
+
+    const invalidStation = await stationProjectSource();
+    invalidStation.blueprint.devices.find((device) => device.id === "station-demand")!.bufferFilters = { storage: ["coal"] };
+    expect(issueCodes(() => compileFactoryProject(invalidStation))).toContain("station.resource-contract");
+
+    const invalidJunctionPolicy = await loaded();
+    const filteredJunction = invalidJunctionPolicy.blueprint.devices.find((device) => device.id === "coal-splitter-assembly")!;
+    filteredJunction.bufferFilters = { storage: ["iron-ore"] };
+    filteredJunction.policy = { dispatch: "round-robin", filter: { resource: "coal", outputPort: "output-north" } };
+    expect(issueCodes(() => compileFactoryProject(invalidJunctionPolicy))).toContain("policy.filter-resource-filter");
+
+    const invalidAssetContract = await loaded();
+    invalidAssetContract.blueprint.devices.find((device) => device.id === "smelter-1")!.bufferFilters = { input: ["coal", "coal"] };
+    expect(issueCodes(() => compileFactoryProject(invalidAssetContract))).toEqual(expect.arrayContaining([
+      "buffer-filter.resource-contract", "buffer-filter.duplicate-resource", "recipe.resource-filter",
+    ]));
   });
 
   test("validates process resource references", async () => {
@@ -829,8 +872,33 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.state.devices["target-north"]!.buffers.storage!.coal).toBe(1);
   });
 
+  test("instance buffer filters admit only configured Resources on a mixed-material belt", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "gear-only", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0, bufferFilters: { storage: ["gear"] } },
+    ];
+    source.blueprint.connections = [{
+      id: "filtered-belt", from: { device: "source", port: "output" }, to: { device: "gear-only", port: "input" },
+      path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+    }];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { source: { storage: { coal: 1, gear: 1 } } };
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    expect(project.connections["filtered-belt"]!.stackSizeByResource).toEqual({ gear: 1 });
+    const result = runUntil(project, undefined, { untilTick: 2_000 });
+    expect(result.state.devices["gear-only"]!.buffers.storage).toEqual({ gear: 1 });
+    expect(result.state.devices.source!.buffers.storage).toEqual({ coal: 1 });
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.transit.resource)).toEqual(["gear"]);
+  });
+
   test("station networks batch resources and share a finite reusable fleet", async () => {
     const project = compileFactoryProject(await stationProjectSource());
+    expect(project.devices["station-supply"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
+    expect(project.devices["station-demand"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
     const result = runUntil(project, undefined, { untilTick: 7_000 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.count])).toEqual([[0, 10], [3_400, 10]]);
     expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([3_400, 6_800]);

@@ -160,6 +160,11 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const buffer = asset.buffers.find((item) => item.id === port.buffer);
     return port.direction === "input" && Boolean(buffer && (buffer.accepts.includes("*") || buffer.accepts.includes(resource)));
   })).sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  const filtersForResource = (asset: DeviceAsset, resource: ResourceId, bufferIds = asset.geometry.ports.map((port) => port.buffer)): NonNullable<BlueprintDevice["bufferFilters"]> =>
+    Object.fromEntries([...new Set(bufferIds)].filter((bufferId) => {
+      const buffer = asset.buffers.find((item) => item.id === bufferId);
+      return buffer?.accepts.includes("*") || buffer?.accepts.includes(resource);
+    }).map((bufferId) => [bufferId, [resource]]));
   const boundaryAsset = consumerAssetFor(targetResource);
   if (!boundaryAsset) throw new Error(`No project-local consumer Device accepts objective Resource '${targetResource}'`);
   const finalRegion = loaded.objective.targetRegion;
@@ -273,7 +278,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       || asset.buffers.find((buffer) => buffer.id === item.buffer)?.accepts.includes("*")))!;
     const sinkCount = Math.max(1, Math.ceil(ratePerMinute / maximumLocalCapacity(resource) - 1e-9));
     for (let index = 0; index < sinkCount; index++) {
-      const sink: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${suffix}${sinkCount > 1 ? `-${index + 1}` : ""}`), asset: asset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+      const sink: BlueprintDevice = {
+        id: uniqueId(blueprint, `synth-${resource}-${suffix}${sinkCount > 1 ? `-${index + 1}` : ""}`), asset: asset.id, region,
+        position: { x: 0, y: 0 }, rotation: 0, bufferFilters: filtersForResource(asset, resource, [port.buffer]),
+      };
       placeDevice(loaded, blueprint, sink, { x: near.position.x + 4, y: near.position.y + (suffix === "sink" ? 0 : 5) + index * 4 });
       (sinkEndpoints.get(resource) ?? sinkEndpoints.set(resource, []).get(resource)!).push({
         device: sink.id, port: port.id, region, ratePerMinute: ratePerMinute / sinkCount,
@@ -311,7 +319,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     for (let index = 0; index < machines; index++) {
       const device: BlueprintDevice = {
         id: uniqueId(blueprint, `synth-${resource}-extractor-${index + 1}`), asset: asset.id, region, position: { x: 0, y: 0 }, rotation: 0,
-        resourceNodes: nodes.map((node) => node.id),
+        resourceNodes: nodes.map((node) => node.id), bufferFilters: filtersForResource(asset, resource, [asset.extraction.outputBuffer]),
       };
       const footprint = asset.geometry.footprint;
       placeDevice(loaded, blueprint, device, { x: Math.round(centroid.x - footprint.width / 2), y: Math.round(centroid.y + 1) }, (position) => {
@@ -543,7 +551,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
           for (const group of chunks(level, inputs.length)) {
             if (group.length === 1) { next.push(group[0]!); continue; }
             const from = centroid(group);
-            const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+            const junction: BlueprintDevice = {
+              id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0,
+              bufferFilters: filtersForResource(junctionAsset, resource),
+            };
             const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), group, targetEndpoints);
             group.forEach((source, index) => connectOne(source, {
               device: junction.id, port: assigned.inputs[index]!, region, ratePerMinute: source.ratePerMinute,
@@ -572,7 +583,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         for (const group of chunks(level, outputs.length)) {
           if (group.length === 1) { next.push(group[0]!); continue; }
           const toward = centroid(group);
-          const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
+          const junction: BlueprintDevice = {
+            id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0,
+            bufferFilters: filtersForResource(junctionAsset, resource), policy: { dispatch: "round-robin" },
+          };
           const assigned = placeJunction(junction, { x: Math.round((from.x * 2 + toward.x) / 3), y: Math.round((from.y * 2 + toward.y) / 3) }, rotationForFlow(from, toward), [source], group);
           group.forEach((target, index) => connectOne({
             device: junction.id, port: assigned.outputs[index]!, region, ratePerMinute: target.ratePerMinute,
@@ -622,7 +636,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const groups = partitions(groupedLanes, inputPorts.length);
       const incomingHints = groups.map((group) => group[0]!.source);
       const from = centroid(incomingHints); const toward = endpointPosition(target);
-      const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+      const junction: BlueprintDevice = {
+        id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0,
+        bufferFilters: filtersForResource(junctionAsset, resource),
+      };
       const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), incomingHints, [target]);
       const ratePerMinute = groupedLanes.reduce((sum, lane) => sum + lane.ratePerMinute, 0);
       plannedConnections.push({
@@ -645,7 +662,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const groups = partitions(groupedLanes, outputPorts.length);
       const outgoingHints = groups.map((group) => group[0]!.targetLeaf!);
       const from = endpointPosition(source); const toward = centroid(outgoingHints);
-      const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
+      const junction: BlueprintDevice = {
+        id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0,
+        bufferFilters: filtersForResource(junctionAsset, resource), policy: { dispatch: "round-robin" },
+      };
       const assigned = placeJunction(junction, { x: Math.round((from.x * 2 + toward.x) / 3), y: Math.round((from.y * 2 + toward.y) / 3) }, rotationForFlow(from, toward), [source], outgoingHints);
       const ratePerMinute = groupedLanes.reduce((sum, lane) => sum + lane.ratePerMinute, 0);
       plannedConnections.push({
@@ -689,8 +709,15 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const stationPairs = Math.max(1, Math.ceil(requiredRate / maximumLocalCapacity(resource) - 1e-9));
     for (let index = 0; index < stationPairs; index++) {
       const laneRate = requiredRate / stationPairs;
-      const supply: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply-${index + 1}`), asset: stationAsset.id, region: sourceRegion, position: { x: 0, y: 0 }, rotation: 0 };
-      const demand: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand-${index + 1}`), asset: stationAsset.id, region: targetRegion, position: { x: 0, y: 0 }, rotation: 0 };
+      const stationFilters = filtersForResource(stationAsset, resource, [stationAsset.logisticsStation.buffer]);
+      const supply: BlueprintDevice = {
+        id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply-${index + 1}`), asset: stationAsset.id, region: sourceRegion,
+        position: { x: 0, y: 0 }, rotation: 0, bufferFilters: structuredClone(stationFilters),
+      };
+      const demand: BlueprintDevice = {
+        id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand-${index + 1}`), asset: stationAsset.id, region: targetRegion,
+        position: { x: 0, y: 0 }, rotation: 0, bufferFilters: structuredClone(stationFilters),
+      };
       placeDevice(loaded, blueprint, supply, {
         x: sourceRegionDef.bounds.width - stationAsset.geometry.footprint.width - 1,
         y: preferredY(sourceRegion, producers.get(resource) ?? []) + index * 4,

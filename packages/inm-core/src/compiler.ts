@@ -305,6 +305,40 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(instance.policy.filter.resource)) issues.push({ path: `${path}/policy/filter/resource`, code: "policy.filter-resource-contract", message: `Output port '${port!.id}' cannot carry '${instance.policy.filter.resource}'` });
     }
     const effectiveBuffers = Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, { ...buffer, accepts: [...buffer.accepts] }]));
+    for (const [bufferId, resources] of Object.entries(instance.bufferFilters ?? {}).sort(([left], [right]) => left.localeCompare(right))) {
+      const filterPath = `${path}/bufferFilters/${bufferId}`;
+      const buffer = asset.buffers.find((item) => item.id === bufferId);
+      if (!buffer) {
+        issues.push({ path: filterPath, code: "reference.buffer", message: `Unknown filtered buffer '${bufferId}' on Device '${asset.id}'` });
+        continue;
+      }
+      const accepted: string[] = []; const seen = new Set<string>();
+      for (const [resourceIndex, resource] of resources.entries()) {
+        const resourcePath = `${filterPath}/${resourceIndex}`;
+        if (seen.has(resource)) issues.push({ path: resourcePath, code: "buffer-filter.duplicate-resource", message: `Buffer filter '${bufferId}' lists '${resource}' more than once` });
+        seen.add(resource);
+        if (!loaded.resources[resource]) {
+          issues.push({ path: resourcePath, code: "reference.resource", message: `Unknown filtered Resource '${resource}'` });
+          continue;
+        }
+        if (!buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) {
+          issues.push({ path: resourcePath, code: "buffer-filter.resource-contract", message: `Buffer '${bufferId}' on '${asset.id}' cannot be configured to accept '${resource}'` });
+          continue;
+        }
+        accepted.push(resource);
+      }
+      effectiveBuffers[bufferId] = { ...effectiveBuffers[bufferId]!, accepts: [...new Set(accepted)].sort() };
+    }
+    if (instance.policy?.filter) {
+      const port = asset.geometry.ports.find((item) => item.id === instance.policy!.filter!.outputPort);
+      const buffer = port ? effectiveBuffers[port.buffer] : undefined;
+      const maximumBuffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
+      const resource = instance.policy.filter.resource;
+      const permittedByAsset = maximumBuffer?.accepts.includes("*") || maximumBuffer?.accepts.includes(resource);
+      if (buffer && permittedByAsset && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) {
+        issues.push({ path: `${path}/policy/filter/resource`, code: "policy.filter-resource-filter", message: `Output port '${port!.id}' instance filter excludes policy Resource '${resource}'` });
+      }
+    }
     let processPlan: CompiledDevice["processPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
@@ -350,6 +384,9 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             if (!buffer.accepts.includes("*") && !buffer.accepts.includes(amount.resource)) {
               issues.push({ path: bindingPath, code: "recipe.resource-contract", message: `Buffer '${bufferId}' cannot accept '${amount.resource}' for process '${definition.id}'` });
               bindingValid = false;
+            } else if (instance.bufferFilters?.[bufferId] && !effectiveBuffers[bufferId]!.accepts.includes(amount.resource)) {
+              issues.push({ path: bindingPath, code: "recipe.resource-filter", message: `Buffer filter '${bufferId}' excludes '${amount.resource}' required by process '${definition.id}'` });
+              bindingValid = false;
             }
             compiled.push({ buffer: bufferId, ...amount });
           }
@@ -389,20 +426,31 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         nodes.push(node);
       }
       if (new Set(nodes.map((node) => node.resource)).size > 1) issues.push({ path: `${path}/resourceNodes`, code: "extraction.mixed-resource", message: `Extractor '${instance.id}' may bind only one resource type at a time` });
+      const extractedResources = [...new Set(nodes.map((node) => node.resource))].sort();
+      const extractionBuffer = effectiveBuffers[asset.extraction.outputBuffer];
+      for (const resource of extractedResources) if (extractionBuffer && !extractionBuffer.accepts.includes("*") && !extractionBuffer.accepts.includes(resource)) {
+        issues.push({ path: `${path}/bufferFilters/${asset.extraction.outputBuffer}`, code: "extraction.resource-filter", message: `Extractor output filter '${asset.extraction.outputBuffer}' excludes bound Resource '${resource}'` });
+      }
+      if (extractionBuffer && extractedResources.length) effectiveBuffers[asset.extraction.outputBuffer] = { ...extractionBuffer, accepts: extractedResources };
       extractionPlan = { nodes, outputBuffer: asset.extraction.outputBuffer, cycleTicks: asset.extraction.cycleTicks, itemsPerCycle: asset.extraction.itemsPerCycle };
     } else if (instance.resourceNodes) {
       issues.push({ path: `${path}/resourceNodes`, code: "extraction.unsupported", message: `Device asset '${asset.id}' cannot bind world resource nodes` });
     }
     if (asset.power.generation?.kind === "renewable") generationPlan = { ...asset.power.generation };
-    else if (asset.power.generation?.kind === "fuel") generationPlan = {
-      kind: "fuel",
-      outputMilliWatts: asset.power.generation.outputMilliWatts,
-      fuelBuffer: asset.power.generation.fuelBuffer,
-      fuels: asset.power.generation.fuels.flatMap((resource) => {
+    else if (asset.power.generation?.kind === "fuel") {
+      const fuelBuffer = effectiveBuffers[asset.power.generation.fuelBuffer];
+      const configuredFuels = asset.power.generation.fuels.filter((resource) => fuelBuffer?.accepts.includes("*") || fuelBuffer?.accepts.includes(resource));
+      if (!configuredFuels.length) issues.push({ path: `${path}/bufferFilters/${asset.power.generation.fuelBuffer}`, code: "power.fuel-filter-empty", message: `Fuel buffer filter '${asset.power.generation.fuelBuffer}' excludes every fuel supported by '${asset.id}'` });
+      generationPlan = {
+        kind: "fuel",
+        outputMilliWatts: asset.power.generation.outputMilliWatts,
+        fuelBuffer: asset.power.generation.fuelBuffer,
+        fuels: configuredFuels.flatMap((resource) => {
         const energyMilliJoules = loaded.resources[resource]?.fuel?.energyMilliJoules;
         return energyMilliJoules === undefined ? [] : [{ resource, energyMilliJoules, durationTicks: Math.max(1, Math.floor(energyMilliJoules * 1000 / asset.power.generation!.outputMilliWatts)) }];
-      }),
-    };
+        }),
+      };
+    }
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),

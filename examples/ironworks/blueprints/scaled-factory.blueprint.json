@@ -67,10 +67,10 @@
     },
     {
       "from": {
-        "device": "synth-iron-ore-extractor-1",
-        "port": "output"
+        "device": "synth-iron-ore-merge",
+        "port": "output-east"
       },
-      "id": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-merge",
+      "id": "synth-iron-ore-synth-iron-ore-merge-to-synth-smelt-iron-2",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -84,34 +84,103 @@
       },
       "path": [
         {
-          "x": 3,
-          "y": 10
+          "x": 6,
+          "y": 14
         },
         {
-          "x": 3,
-          "y": 11
-        },
-        {
-          "x": 3,
-          "y": 12
-        },
-        {
-          "x": 3,
-          "y": 13
-        },
-        {
-          "x": 4,
-          "y": 13
-        },
-        {
-          "x": 5,
-          "y": 13
+          "x": 7,
+          "y": 14
         }
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-iron-ore-merge",
-        "port": "input-south"
+        "device": "synth-smelt-iron-2",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-iron-ore-extractor-1",
+        "port": "output"
+      },
+      "id": "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 3,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 3,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 13
+        },
+        {
+          "level": 0,
+          "x": 2,
+          "y": 12
+        }
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-iron-ore-split",
+        "port": "input-west"
       }
     },
     {
@@ -119,7 +188,7 @@
         "device": "synth-iron-ore-extractor-2",
         "port": "output"
       },
-      "id": "synth-iron-ore-synth-iron-ore-extractor-2-to-synth-iron-ore-merge",
+      "id": "synth-iron-ore-synth-iron-ore-extractor-2-to-synth-iron-ore-split-2",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -139,358 +208,64 @@
         {
           "x": 3,
           "y": 8
+        }
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-iron-ore-split-2",
+        "port": "input-west"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-iron-ore-split",
+        "port": "output-north"
+      },
+      "id": "synth-iron-ore-lane-1-synth-iron-ore-split-to-synth-smelt-iron-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 4,
+          "y": 11
         },
         {
+          "level": 1,
           "x": 4,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 6,
           "y": 8
         },
         {
-          "x": 4,
-          "y": 9
-        },
-        {
-          "x": 5,
-          "y": 9
-        },
-        {
-          "x": 6,
-          "y": 9
-        },
-        {
-          "x": 6,
-          "y": 10
-        },
-        {
-          "x": 6,
-          "y": 11
-        }
-      ],
-      "stackSize": 1,
-      "to": {
-        "device": "synth-iron-ore-merge",
-        "port": "input-west"
-      }
-    },
-    {
-      "from": {
-        "device": "synth-iron-ore-split",
-        "port": "output-east"
-      },
-      "id": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-3",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 7,
-          "y": 18
-        },
-        {
-          "x": 7,
-          "y": 19
-        },
-        {
-          "x": 7,
-          "y": 20
-        }
-      ],
-      "stackSize": 1,
-      "to": {
-        "device": "synth-smelt-iron-3",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "synth-iron-ore-split",
-        "port": "output-north"
-      },
-      "id": "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 9,
-          "y": 17
-        },
-        {
-          "x": 10,
-          "y": 17
-        },
-        {
-          "x": 10,
-          "y": 18
-        },
-        {
-          "x": 10,
-          "y": 19
-        },
-        {
-          "x": 11,
-          "y": 19
-        },
-        {
-          "x": 12,
-          "y": 19
-        },
-        {
-          "x": 13,
-          "y": 19
-        },
-        {
-          "x": 13,
-          "y": 20
-        },
-        {
-          "x": 13,
-          "y": 21
-        },
-        {
-          "x": 12,
-          "y": 21
-        },
-        {
-          "x": 11,
-          "y": 21
-        },
-        {
-          "x": 10,
-          "y": 21
-        },
-        {
-          "x": 10,
-          "y": 22
-        },
-        {
-          "x": 9,
-          "y": 22
-        },
-        {
-          "x": 8,
-          "y": 22
-        },
-        {
-          "x": 7,
-          "y": 22
-        },
-        {
-          "x": 7,
-          "y": 21
-        },
-        {
-          "x": 6,
-          "y": 21
-        },
-        {
-          "x": 5,
-          "y": 21
-        },
-        {
-          "x": 4,
-          "y": 21
-        },
-        {
-          "x": 4,
-          "y": 20
-        },
-        {
-          "x": 4,
-          "y": 19
-        },
-        {
-          "x": 4,
-          "y": 18
-        },
-        {
-          "x": 3,
-          "y": 18
-        },
-        {
-          "x": 3,
-          "y": 17
-        },
-        {
-          "x": 3,
-          "y": 16
-        },
-        {
-          "x": 3,
-          "y": 15
-        },
-        {
-          "x": 3,
-          "y": 14
-        },
-        {
-          "x": 4,
-          "y": 14
-        },
-        {
-          "x": 5,
-          "y": 14
-        },
-        {
-          "x": 6,
-          "y": 14
-        },
-        {
-          "x": 7,
-          "y": 14
-        }
-      ],
-      "stackSize": 1,
-      "to": {
-        "device": "synth-smelt-iron-2",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "synth-iron-ore-split-2",
-        "port": "output-east"
-      },
-      "id": "synth-iron-ore-synth-iron-ore-split-2-to-synth-iron-ore-split",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
           "level": 0,
-          "x": 10,
-          "y": 11
-        },
-        {
-          "level": 1,
-          "x": 10,
-          "y": 10
-        },
-        {
-          "level": 1,
-          "x": 9,
-          "y": 10
-        },
-        {
-          "level": 1,
-          "x": 8,
-          "y": 10
-        },
-        {
-          "level": 1,
-          "x": 7,
-          "y": 10
-        },
-        {
-          "level": 1,
-          "x": 6,
-          "y": 10
-        },
-        {
-          "level": 1,
-          "x": 5,
-          "y": 10
-        },
-        {
-          "level": 1,
-          "x": 5,
-          "y": 11
-        },
-        {
-          "level": 1,
-          "x": 5,
-          "y": 12
-        },
-        {
-          "level": 1,
-          "x": 5,
-          "y": 13
-        },
-        {
-          "level": 1,
-          "x": 5,
-          "y": 14
-        },
-        {
-          "level": 1,
-          "x": 5,
-          "y": 15
-        },
-        {
-          "level": 1,
-          "x": 6,
-          "y": 15
-        },
-        {
-          "level": 0,
-          "x": 7,
-          "y": 15
-        }
-      ],
-      "stackSize": 1,
-      "to": {
-        "device": "synth-iron-ore-split",
-        "port": "input-west"
-      }
-    },
-    {
-      "from": {
-        "device": "synth-iron-ore-split-2",
-        "port": "output-north"
-      },
-      "id": "synth-iron-ore-synth-iron-ore-split-2-to-synth-smelt-iron-1",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 9,
-          "y": 10
-        },
-        {
-          "x": 8,
-          "y": 10
-        },
-        {
-          "x": 7,
-          "y": 10
-        },
-        {
-          "x": 7,
-          "y": 9
-        },
-        {
           "x": 7,
           "y": 8
         }
@@ -503,10 +278,10 @@
     },
     {
       "from": {
-        "device": "synth-iron-ore-merge",
-        "port": "output-north"
+        "device": "synth-iron-ore-split",
+        "port": "output-east"
       },
-      "id": "synth-iron-ore-synth-iron-ore-merge-to-synth-iron-ore-split-2",
+      "id": "synth-iron-ore-lane-2-synth-iron-ore-split-to-synth-iron-ore-merge",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -520,26 +295,256 @@
       },
       "path": [
         {
-          "x": 8,
-          "y": 13
+          "x": 5,
+          "y": 12
         },
         {
-          "x": 9,
+          "x": 5,
           "y": 13
         }
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-iron-ore-split-2",
+        "device": "synth-iron-ore-merge",
         "port": "input-south"
       }
     },
     {
       "from": {
-        "device": "synth-iron-plate-assembly-world-station-demand",
+        "device": "synth-iron-ore-split-2",
+        "port": "output-north"
+      },
+      "id": "synth-iron-ore-lane-3-synth-iron-ore-split-2-to-synth-iron-ore-merge",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 5,
+          "y": 7
+        },
+        {
+          "x": 6,
+          "y": 7
+        },
+        {
+          "x": 7,
+          "y": 7
+        },
+        {
+          "x": 8,
+          "y": 7
+        },
+        {
+          "x": 9,
+          "y": 7
+        },
+        {
+          "x": 10,
+          "y": 7
+        },
+        {
+          "x": 11,
+          "y": 7
+        },
+        {
+          "x": 12,
+          "y": 7
+        },
+        {
+          "x": 13,
+          "y": 7
+        },
+        {
+          "x": 13,
+          "y": 8
+        },
+        {
+          "x": 13,
+          "y": 9
+        },
+        {
+          "x": 12,
+          "y": 9
+        },
+        {
+          "x": 11,
+          "y": 9
+        },
+        {
+          "x": 10,
+          "y": 9
+        },
+        {
+          "x": 10,
+          "y": 10
+        },
+        {
+          "x": 10,
+          "y": 11
+        },
+        {
+          "x": 9,
+          "y": 11
+        },
+        {
+          "x": 8,
+          "y": 11
+        },
+        {
+          "x": 7,
+          "y": 11
+        },
+        {
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-iron-ore-merge",
+        "port": "input-west"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-iron-ore-split-2",
+        "port": "output-east"
+      },
+      "id": "synth-iron-ore-lane-4-synth-iron-ore-split-2-to-synth-smelt-iron-3",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 15
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 17
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 17
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 17
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 17
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 18
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 19
+        },
+        {
+          "level": 0,
+          "x": 7,
+          "y": 20
+        }
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-smelt-iron-3",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-iron-plate-assembly-world-station-demand-1",
         "port": "output"
       },
-      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -601,18 +606,18 @@
         },
         {
           "level": 1,
-          "x": 11,
-          "y": 9
-        },
-        {
-          "level": 1,
-          "x": 11,
+          "x": 10,
           "y": 10
         },
         {
           "level": 1,
-          "x": 11,
+          "x": 10,
           "y": 11
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 12
         },
         {
           "level": 1,
@@ -765,32 +770,26 @@
       },
       "path": [
         {
-          "level": 0,
           "x": 10,
           "y": 20
         },
         {
-          "level": 1,
           "x": 10,
           "y": 19
         },
         {
-          "level": 1,
           "x": 10,
           "y": 18
         },
         {
-          "level": 1,
           "x": 10,
           "y": 17
         },
         {
-          "level": 1,
           "x": 10,
           "y": 16
         },
         {
-          "level": 0,
           "x": 11,
           "y": 16
         }
@@ -806,7 +805,7 @@
         "device": "synth-iron-plate-merge-2",
         "port": "output-north"
       },
-      "id": "synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-forge-world-station-supply",
+      "id": "synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-forge-world-station-supply-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -830,7 +829,7 @@
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-iron-plate-forge-world-station-supply",
+        "device": "synth-iron-plate-forge-world-station-supply-1",
         "port": "input"
       }
     },
@@ -948,6 +947,11 @@
     },
     {
       "asset": "material-sink",
+      "bufferFilters": {
+        "input": [
+          "gear"
+        ]
+      },
       "id": "synth-gear-sink",
       "position": {
         "x": 11,
@@ -958,6 +962,11 @@
     },
     {
       "asset": "mining-machine",
+      "bufferFilters": {
+        "output": [
+          "coal"
+        ]
+      },
       "id": "synth-coal-extractor-1",
       "position": {
         "x": 0,
@@ -971,6 +980,11 @@
     },
     {
       "asset": "mining-machine",
+      "bufferFilters": {
+        "output": [
+          "iron-ore"
+        ]
+      },
       "id": "synth-iron-ore-extractor-1",
       "position": {
         "x": 1,
@@ -986,6 +1000,11 @@
     },
     {
       "asset": "mining-machine",
+      "bufferFilters": {
+        "output": [
+          "iron-ore"
+        ]
+      },
       "id": "synth-iron-ore-extractor-2",
       "position": {
         "x": 1,
@@ -1001,7 +1020,12 @@
     },
     {
       "asset": "interstellar-logistics-station",
-      "id": "synth-iron-plate-forge-world-station-supply",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
+      "id": "synth-iron-plate-forge-world-station-supply-1",
       "position": {
         "x": 15,
         "y": 14
@@ -1011,7 +1035,12 @@
     },
     {
       "asset": "interstellar-logistics-station",
-      "id": "synth-iron-plate-assembly-world-station-demand",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
+      "id": "synth-iron-plate-assembly-world-station-demand-1",
       "position": {
         "x": 1,
         "y": 7
@@ -1021,6 +1050,11 @@
     },
     {
       "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-ore"
+        ]
+      },
       "id": "synth-iron-ore-merge",
       "position": {
         "x": 6,
@@ -1031,32 +1065,47 @@
     },
     {
       "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-ore"
+        ]
+      },
       "id": "synth-iron-ore-split",
       "policy": {
         "dispatch": "round-robin"
       },
       "position": {
-        "x": 7,
-        "y": 16
-      },
-      "region": "forge-world",
-      "rotation": 90
-    },
-    {
-      "asset": "splitter",
-      "id": "synth-iron-ore-split-2",
-      "policy": {
-        "dispatch": "round-robin"
-      },
-      "position": {
-        "x": 8,
-        "y": 11
+        "x": 3,
+        "y": 12
       },
       "region": "forge-world",
       "rotation": 0
     },
     {
       "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-ore"
+        ]
+      },
+      "id": "synth-iron-ore-split-2",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 4,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
       "id": "synth-iron-plate-merge",
       "position": {
         "x": 13,
@@ -1067,6 +1116,11 @@
     },
     {
       "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
       "id": "synth-iron-plate-merge-2",
       "position": {
         "x": 12,
@@ -1079,8 +1133,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-1",
       "position": {
-        "x": 8,
-        "y": 6
+        "x": 1,
+        "y": 5
       },
       "region": "forge-world",
       "rotation": 0
@@ -1089,8 +1143,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-2",
       "position": {
-        "x": 12,
-        "y": 9
+        "x": 6,
+        "y": 15
       },
       "region": "forge-world",
       "rotation": 0
@@ -1099,8 +1153,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-3",
       "position": {
-        "x": 14,
-        "y": 9
+        "x": 4,
+        "y": 15
       },
       "region": "forge-world",
       "rotation": 0
@@ -1109,8 +1163,8 @@
       "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-1",
       "position": {
-        "x": 3,
-        "y": 2
+        "x": 0,
+        "y": 5
       },
       "region": "assembly-world",
       "rotation": 0
@@ -1119,8 +1173,8 @@
       "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-2",
       "position": {
-        "x": 6,
-        "y": 2
+        "x": 5,
+        "y": 4
       },
       "region": "assembly-world",
       "rotation": 0
@@ -1132,11 +1186,11 @@
         "count": 1,
         "deviceAsset": "logistics-vessel"
       },
-      "id": "synth-iron-plate-forge-world-to-assembly-world",
+      "id": "synth-iron-plate-forge-world-to-assembly-world-lane-1",
       "kind": "interstellar",
       "stations": [
         {
-          "device": "synth-iron-plate-forge-world-station-supply",
+          "device": "synth-iron-plate-forge-world-station-supply-1",
           "slots": [
             {
               "minimumBatch": 1,
@@ -1146,7 +1200,7 @@
           ]
         },
         {
-          "device": "synth-iron-plate-assembly-world-station-demand",
+          "device": "synth-iron-plate-assembly-world-station-demand-1",
           "slots": [
             {
               "minimumBatch": 1,

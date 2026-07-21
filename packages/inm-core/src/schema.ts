@@ -111,6 +111,7 @@ export const blueprintSchema = z.object({
       inputs: z.record(id),
       outputs: z.record(id),
     }).strict().optional(),
+    bufferFilters: z.record(z.array(id)).optional(),
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({

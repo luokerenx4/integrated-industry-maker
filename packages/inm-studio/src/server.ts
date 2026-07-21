@@ -180,6 +180,9 @@ async function loadStudioData(projectId: string, runName?: string) {
       rotation: device.rotation,
       footprint: device.footprint,
       visual: device.assetDef.visual,
+      resourceContracts: Object.fromEntries(Object.entries(device.buffers)
+        .filter(([, buffer]) => !buffer.accepts.includes("*"))
+        .map(([bufferId, buffer]) => [bufferId, [...buffer.accepts]])),
       ...(device.processPlan ? { recipe: {
         process: device.processPlan.definition.id,
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
