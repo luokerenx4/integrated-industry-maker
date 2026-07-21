@@ -25,6 +25,9 @@ bun run inm simulate examples/ironworks --scenario baseline --seed 42
 # Let the deterministic research agent improve the blueprint
 bun run inm research examples/ironworks --iterations 3 --seed 42
 
+# Or give a Coding Agent one Blueprint file and a locked three-case score
+bun run inm benchmark examples/ironworks --benchmark autoresearch
+
 # Or synthesize a complete factory from a blank blueprint and the Objective
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output synthesized
 
@@ -50,12 +53,12 @@ inm workspace init <workspace-dir>
 inm project create <workspace-dir> <project-id>
 inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
-inm validate|inspect|analyze|plan|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
+inm validate|inspect|analyze|plan|compare|benchmark|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
 inm studio <project-or-workspace-dir> [--project ID]
 ```
 
-Every headless command supports explicit exit codes; inspection, validation, simulation, tests, runs, and research support `--json` where machine-readable output matters. See [CLI reference](docs/CLI.md).
+Every headless command supports explicit exit codes; inspection, validation, comparison, locked benchmarking, simulation, tests, runs, and research support `--json` where machine-readable output matters. See [CLI reference](docs/CLI.md).
 
 ## Workspace and project model
 
@@ -88,6 +91,8 @@ my-factory/
   blueprints/*.blueprint.json
   scenarios/*.scenario.json
   objectives/*.objective.json
+  benchmarks/*.benchmark.json
+  AUTORESEARCH.md           # optional project-local Coding Agent program
   tests/*.fixture.json
   runs/<immutable-run>/
   .inm/cache/               # disposable
@@ -103,6 +108,7 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - A **blueprint** places Devices into world regions, narrows each instance's accepted Resources, binds configurable multi-input/multi-output recipes and extractors, gives every local connection an exact Resource allowlist and explicit grid path, and declares planetary or interstellar station networks with finite carrier fleets. `inm synthesize` can construct that complete graph from an empty blueprint, the Objective rate, and only the project's own assets.
 - A **scenario** fixes initial state, failures, duration, and test conditions.
 - An **objective** defines hard constraints and a transparent weighted score.
+- A **benchmark** locks a baseline and several weighted World/Scenario/Objective/seed cases while leaving exactly one candidate Blueprint editable. Its aggregate score and per-case gates provide the keep/discard authority for a Coding Agent.
 
 See [project format](docs/PROJECT_FORMAT.md) and the complete [Ironworks example](examples/ironworks).
 

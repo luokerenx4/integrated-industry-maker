@@ -21,6 +21,8 @@ test("one workspace creates, selects, and isolates multiple self-contained proje
   const alpha = await openFactoryProject(alphaDir); const beta = await openFactoryProject(betaDir);
   expect(alpha.manifest.id).toBe("alpha-works"); expect(beta.manifest.id).toBe("beta-works");
   expect(alpha.hashes.deviceCatalogHash).toBe(beta.hashes.deviceCatalogHash);
+  expect(await readFile(join(alphaDir, "AUTORESEARCH.md"), "utf8")).toContain("blueprints/autoresearch.blueprint.json");
+  expect(JSON.parse(await readFile(join(alphaDir, "benchmarks/autoresearch.benchmark.json"), "utf8")).candidateBlueprint).toBe("autoresearch");
 
   const alphaVisual = join(alphaDir, "assets", "devices", "smelter", "visual.json");
   const betaVisual = join(betaDir, "assets", "devices", "smelter", "visual.json");

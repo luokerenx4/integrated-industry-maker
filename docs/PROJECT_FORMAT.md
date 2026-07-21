@@ -589,4 +589,53 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. Runtime `onTimeDelivery` is the achieved regional delivery rate divided by this design rate, capped at one. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
+## Coding Agent benchmark
+
+`benchmarks/<id>.benchmark.json` converts one candidate Blueprint file into a locked optimization program:
+
+```json
+{
+  "version": 1,
+  "id": "autoresearch",
+  "name": "Ironworks Autonomous Blueprint Research",
+  "baselineBlueprint": "main",
+  "candidateBlueprint": "autoresearch",
+  "cases": [
+    {
+      "id": "normal-production",
+      "name": "Normal production",
+      "world": "main",
+      "scenario": "baseline",
+      "objective": "default",
+      "seed": 42,
+      "weight": 1
+    }
+  ],
+  "acceptance": {
+    "minimumAggregateScoreDelta": 0.001,
+    "maximumCaseScoreRegression": 0,
+    "requireCandidateCapacityReady": false
+  },
+  "lock": {
+    "contractHash": "<sha256>",
+    "cases": {
+      "normal-production": {
+        "engineVersion": "inm-sim/0.39.0",
+        "resourceCatalogHash": "<sha256>",
+        "processCatalogHash": "<sha256>",
+        "deviceCatalogHash": "<sha256>",
+        "worldHash": "<sha256>",
+        "blueprintHash": "<sha256>",
+        "scenarioHash": "<sha256>",
+        "objectiveHash": "<sha256>"
+      }
+    }
+  }
+}
+```
+
+Ids use lowercase kebab-case. Cases must have unique ids, non-negative integer seeds, positive weights, and refer to project-local files. Acceptance defaults to positive aggregate improvement with zero allowed per-case regression; capacity readiness is optional because a baseline may intentionally begin with plan gaps.
+
+The `lock` is written only by an explicit `inm benchmark --lock`. `contractHash` covers every benchmark field except the lock itself, including the candidate filename but not its content. Each case lock captures the complete compiled baseline identity. Normal evaluation rejects missing locks, contract edits, case-set edits, engine changes, and any catalog/World/baseline/Scenario/Objective drift. The candidate Blueprint is the sole variable.
+
 The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks).

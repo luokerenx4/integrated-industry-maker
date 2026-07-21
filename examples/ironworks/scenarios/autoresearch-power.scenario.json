@@ -1,0 +1,35 @@
+{
+  "id": "autoresearch-power",
+  "name": "Autoresearch Variable Regional Power",
+  "durationTicks": 120000,
+  "initialBuffers": {
+    "generator-1": { "fuel": { "coal": 1 } },
+    "generator-2": { "fuel": { "coal": 1 } }
+  },
+  "initialEnergyMilliJoules": {
+    "storage-forge": 0
+  },
+  "renewableProfiles": [
+    {
+      "region": "assembly-world",
+      "asset": "wind-turbine",
+      "periodTicks": 120000,
+      "points": [
+        { "atTick": 0, "outputPermille": 1000 },
+        { "atTick": 40000, "outputPermille": 350 },
+        { "atTick": 80000, "outputPermille": 800 }
+      ]
+    },
+    {
+      "region": "forge-world",
+      "asset": "wind-turbine",
+      "periodTicks": 120000,
+      "points": [
+        { "atTick": 0, "outputPermille": 1000 },
+        { "atTick": 50000, "outputPermille": 250 },
+        { "atTick": 90000, "outputPermille": 900 }
+      ]
+    }
+  ],
+  "failures": []
+}

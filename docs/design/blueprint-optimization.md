@@ -2,7 +2,7 @@
 
 Status: target-rate planning, full blueprint synthesis, bounded research, explicit comparison, and CLI evaluation loop implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-comparison]], [[docs/CLI]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-comparison]], [[docs/design/coding-agent-optimization]], [[docs/CLI]].
 
 ## Product model
 
@@ -21,6 +21,8 @@ inspect files and compiled diagnostics
 AI edits project files and invokes the same CLI as a human. It does not manipulate the 3D scene or receive a permissive execution path.
 
 Before keeping an edit, `inm compare` can isolate two named Blueprint files under one World, Scenario, Objective, catalog set, and seed. It returns the exact file patch, industrial semantic changes, both capacity plans, and deterministic score/metric deltas without modifying either Blueprint or writing a run artifact. See [[docs/design/blueprint-comparison]] for the comparison contract.
+
+For autonomous Coding Agents, `inm benchmark` lifts the same controlled comparison into a locked, weighted multi-Scenario suite. One candidate Blueprint remains the only editable program; catalogs, baseline, case contract, seeds, horizons, simulator, and evaluator are hash-locked. It emits a single aggregate score plus per-case regression and capacity gates, turning the loop into a directly reviewable file-edit/CLI-evaluate task. See [[docs/design/coding-agent-optimization]].
 
 ## Capacity planning
 
@@ -60,6 +62,7 @@ Each candidate is applied to a copy, schema-validated, compiled, simulated, scor
 - Synthesis: `packages/inm-core/src/synthesis.ts`
 - Research/patch boundary: `packages/inm-core/src/research.ts`
 - Blueprint comparison: `packages/inm-core/src/blueprint-comparison.ts`
+- Coding Agent benchmark: `packages/inm-core/src/benchmark.ts`
 - Evaluation: `packages/inm-core/src/evaluator.ts`
 - CLI orchestration: `packages/inm-cli/src/commands.ts`
 
@@ -71,6 +74,7 @@ bun run inm validate examples/ironworks --blueprint scratch --scenario cold-star
 bun run inm plan examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm simulate examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm compare examples/ironworks --from-blueprint synthesized --to-blueprint scaled-factory --world scaled --scenario cold-start --objective scaled-production --seed 42
+bun run inm benchmark examples/ironworks --benchmark autoresearch
 bun run inm research examples/ironworks --iterations 3 --seed 42
 ```
 

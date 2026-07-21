@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { cp, mkdtemp, readFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel,
-  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
+  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
+  findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   rotatePortSide, transportEndpointRotation,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
@@ -2009,6 +2009,37 @@ describe("research boundary and experiment decisions", () => {
     const dir = await projectCopy(); const result = await researchFactory(dir, { iterations: 1, seed: 42, agent });
     expect(result.iterations[0]!.decision).toBe("REVERT"); expect(result.bestScore).toBe(result.baseline.score);
   });
+});
+
+describe("coding-agent Blueprint benchmarks", () => {
+  test("scores one editable file against locked fixed-case industrial inputs", async () => {
+    const runCount = (await listRuns(ironworks)).length;
+    const result = await evaluateBlueprintBenchmark(ironworks, "autoresearch");
+    expect(result.verdict).toBe("UNCHANGED");
+    expect(result.accepted).toBeFalse();
+    expect(result.cases.map((item) => item.id)).toEqual(["normal-production", "smelter-outage", "intermittent-power"]);
+    expect(result.totalSimulationTicks).toBe(720_000);
+    expect(result.patch).toEqual([]);
+    expect(result.reasons[0]).toContain("below required");
+    expect(await listRuns(ironworks)).toHaveLength(runCount);
+
+    const dir = await projectCopy();
+    await cp(join(ironworks, "runs/002-keep-duplicate-processor-smelter-1-as-smel/blueprint.json"), join(dir, "blueprints/autoresearch.blueprint.json"));
+    const improved = await evaluateBlueprintBenchmark(dir, "autoresearch");
+    expect(improved.verdict).toBe("KEEP");
+    expect(improved.scoreDelta).toBeGreaterThan(70);
+    expect(improved.cases.every((item) => item.scoreDelta > 0 && item.candidateCapacityReady)).toBeTrue();
+    expect(improved.patch.length).toBeGreaterThan(0);
+
+    const scenarioPath = join(dir, "scenarios/autoresearch-power.scenario.json");
+    const scenario = JSON.parse(await readFile(scenarioPath, "utf8"));
+    scenario.name = "Tampered benchmark input";
+    await writeFile(scenarioPath, `${stableStringify(scenario, 2)}\n`);
+    expect(evaluateBlueprintBenchmark(dir, "autoresearch")).rejects.toThrow("fixed input drifted");
+    const previousLock = (await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash;
+    await lockBlueprintBenchmark(dir, "autoresearch");
+    expect((await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash).not.toBe(previousLock);
+  }, 20_000);
 });
 
 describe("artifacts and renderer-independent projection", () => {

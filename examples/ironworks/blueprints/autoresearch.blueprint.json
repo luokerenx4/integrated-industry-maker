@@ -1,0 +1,805 @@
+{
+  "connections": [
+    {
+      "from": {
+        "device": "ore-source-1",
+        "port": "output"
+      },
+      "id": "ore-to-smelter",
+      "resources": [
+        "iron-ore"
+      ],
+      "path": [
+        {
+          "x": 6,
+          "y": 10
+        },
+        {
+          "x": 7,
+          "y": 10
+        },
+        {
+          "x": 8,
+          "y": 10
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "ore-to-smelter-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "ore-to-smelter-unloader"
+        }
+      },
+      "to": {
+        "device": "smelter-1",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1",
+        "port": "output"
+      },
+      "id": "plate-to-station",
+      "resources": [
+        "iron-plate"
+      ],
+      "path": [
+        {
+          "x": 11,
+          "y": 10
+        },
+        {
+          "x": 12,
+          "y": 10
+        },
+        {
+          "x": 12,
+          "y": 9
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "plate-to-station-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "plate-to-station-unloader"
+        }
+      },
+      "to": {
+        "device": "station-supply",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "station-demand",
+        "port": "output"
+      },
+      "id": "station-to-assembler",
+      "resources": [
+        "iron-plate"
+      ],
+      "path": [
+        {
+          "x": 5,
+          "y": 9
+        },
+        {
+          "x": 5,
+          "y": 10
+        },
+        {
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "station-to-assembler-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "station-to-assembler-unloader"
+        }
+      },
+      "to": {
+        "device": "assembler-1",
+        "port": "input-primary"
+      }
+    },
+    {
+      "from": {
+        "device": "assembler-1",
+        "port": "output"
+      },
+      "id": "gear-to-output",
+      "resources": [
+        "gear"
+      ],
+      "path": [
+        {
+          "x": 9,
+          "y": 10
+        },
+        {
+          "x": 10,
+          "y": 10
+        },
+        {
+          "x": 11,
+          "y": 10
+        },
+        {
+          "x": 12,
+          "y": 10
+        },
+        {
+          "x": 13,
+          "y": 10
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "gear-to-output-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "gear-to-output-unloader"
+        }
+      },
+      "to": {
+        "device": "output-1",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-miner-forge",
+        "port": "output"
+      },
+      "id": "coal-forge-to-generator",
+      "resources": [
+        "coal"
+      ],
+      "path": [
+        {
+          "x": 5,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "coal-forge-to-generator-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "coal-forge-to-generator-unloader"
+        }
+      },
+      "to": {
+        "device": "generator-1",
+        "port": "fuel-input"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-miner-assembly",
+        "port": "output"
+      },
+      "id": "coal-assembly-to-splitter",
+      "resources": [
+        "coal"
+      ],
+      "path": [
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 3,
+          "y": 4
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "coal-assembly-to-splitter-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "coal-assembly-to-splitter-unloader"
+        }
+      },
+      "to": {
+        "device": "coal-splitter-assembly",
+        "port": "input-west"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-splitter-assembly",
+        "port": "output-north"
+      },
+      "id": "coal-splitter-to-generator",
+      "resources": [
+        "coal"
+      ],
+      "path": [
+        {
+          "x": 5,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "coal-splitter-to-generator-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "coal-splitter-to-generator-unloader"
+        }
+      },
+      "to": {
+        "device": "generator-2",
+        "port": "fuel-input"
+      }
+    },
+    {
+      "from": {
+        "device": "coal-splitter-assembly",
+        "port": "output-east"
+      },
+      "id": "coal-splitter-to-assembler",
+      "resources": [
+        "coal"
+      ],
+      "path": [
+        {
+          "x": 6,
+          "y": 4
+        },
+        {
+          "x": 6,
+          "y": 5
+        },
+        {
+          "x": 7,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 6
+        },
+        {
+          "x": 8,
+          "y": 7
+        },
+        {
+          "x": 8,
+          "y": 8
+        },
+        {
+          "x": 8,
+          "y": 9
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "coal-splitter-to-assembler-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "coal-splitter-to-assembler-unloader"
+        }
+      },
+      "to": {
+        "device": "assembler-1",
+        "port": "input-secondary"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "asset": "mining-machine",
+      "id": "ore-source-1",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 2,
+        "y": 10
+      },
+      "region": "forge-world",
+      "resourceNodes": [
+        "iron-vein-1",
+        "iron-vein-2",
+        "iron-vein-3"
+      ],
+      "rotation": 0
+    },
+    {
+      "asset": "smelter",
+      "id": "smelter-1",
+      "position": {
+        "x": 9,
+        "y": 10
+      },
+      "recipe": {
+        "process": "smelt-iron",
+        "mode": "standard",
+        "inputs": {
+          "iron-ore": "input"
+        },
+        "outputs": {
+          "iron-plate": "output"
+        }
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "assembler",
+      "id": "assembler-1",
+      "position": {
+        "x": 7,
+        "y": 10
+      },
+      "recipe": {
+        "process": "assemble-gear",
+        "mode": "standard",
+        "inputs": {
+          "iron-plate": "input-primary",
+          "coal": "input-secondary"
+        },
+        "outputs": {
+          "gear": "output"
+        }
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "bufferFilters": {
+        "input": [
+          "gear"
+        ]
+      },
+      "id": "output-1",
+      "position": {
+        "x": 14,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "generator",
+      "id": "generator-1",
+      "position": {
+        "x": 8,
+        "y": 3
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "accumulator",
+      "id": "storage-forge",
+      "position": {
+        "x": 15,
+        "y": 3
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "interstellar-logistics-station",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
+      "id": "station-supply",
+      "position": {
+        "x": 13,
+        "y": 8
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "interstellar-logistics-station",
+      "bufferFilters": {
+        "storage": [
+          "iron-plate"
+        ]
+      },
+      "id": "station-demand",
+      "position": {
+        "x": 1,
+        "y": 8
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "generator",
+      "id": "generator-2",
+      "position": {
+        "x": 8,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "splitter",
+      "id": "coal-splitter-assembly",
+      "position": {
+        "x": 4,
+        "y": 4
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "wind-assembly-recipe-line",
+      "position": {
+        "x": 12,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "mining-machine",
+      "id": "coal-miner-forge",
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "region": "forge-world",
+      "resourceNodes": [
+        "coal-seam-forge"
+      ],
+      "rotation": 0
+    },
+    {
+      "asset": "mining-machine",
+      "id": "coal-miner-assembly",
+      "position": {
+        "x": 1,
+        "y": 3
+      },
+      "region": "assembly-world",
+      "resourceNodes": [
+        "coal-seam-assembly"
+      ],
+      "rotation": 0
+    },
+    {
+      "id": "ore-to-smelter-loader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 6,
+        "y": 10
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter",
+        "stage": "loader",
+        "distance": 3
+      }
+    },
+    {
+      "id": "ore-to-smelter-unloader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 8,
+        "y": 10
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "ore-to-smelter",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "plate-to-station-loader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 11,
+        "y": 10
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "plate-to-station",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "plate-to-station-unloader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 12,
+        "y": 9
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "plate-to-station",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "station-to-assembler-loader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 5,
+        "y": 9
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "station-to-assembler",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "station-to-assembler-unloader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 6,
+        "y": 10
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "station-to-assembler",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "gear-to-output-loader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 9,
+        "y": 10
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "gear-to-output",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "gear-to-output-unloader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 13,
+        "y": 10
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "gear-to-output",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-forge-to-generator-loader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 5,
+        "y": 3
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-forge-to-generator",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-forge-to-generator-unloader",
+      "asset": "sorter",
+      "region": "forge-world",
+      "position": {
+        "x": 7,
+        "y": 3
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-forge-to-generator",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-assembly-to-splitter-loader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-assembly-to-splitter",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-assembly-to-splitter-unloader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 3,
+        "y": 4
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-assembly-to-splitter",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-splitter-to-generator-loader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 5,
+        "y": 3
+      },
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-generator",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-splitter-to-generator-unloader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 7,
+        "y": 3
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-generator",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-splitter-to-assembler-loader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 6,
+        "y": 4
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-assembler",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "coal-splitter-to-assembler-unloader",
+      "asset": "sorter",
+      "region": "assembly-world",
+      "position": {
+        "x": 8,
+        "y": 9
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "coal-splitter-to-assembler",
+        "stage": "unloader",
+        "distance": 1
+      }
+    }
+  ],
+  "logisticsNetworks": [
+    {
+      "dispatch": "shortage-first",
+      "fleet": {
+        "count": 1,
+        "deviceAsset": "logistics-vessel"
+      },
+      "id": "interstellar-main",
+      "kind": "interstellar",
+      "stations": [
+        {
+          "device": "station-supply",
+          "slots": [
+            {
+              "capacity": 400,
+              "minimumBatch": 3,
+              "mode": "supply",
+              "priority": 0,
+              "supplyReserve": 0,
+              "resource": "iron-plate"
+            }
+          ]
+        },
+        {
+          "device": "station-demand",
+          "slots": [
+            {
+              "capacity": 400,
+              "demandTarget": 400,
+              "minimumBatch": 3,
+              "mode": "demand",
+              "priority": 0,
+              "resource": "iron-plate"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "policies": {
+    "dispatch": "shortage-first"
+  },
+  "version": 1
+}

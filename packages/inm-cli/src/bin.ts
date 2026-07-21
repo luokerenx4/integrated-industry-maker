@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, compareCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, compareCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
@@ -28,6 +28,7 @@ PROJECT COMMANDS
   analyze <path>              Compile nominal process rates and material balance
   plan <path>                 Size the factory for the objective target rate
   compare <path>              Diff and evaluate two Blueprint files
+  benchmark <path>            Score one editable Blueprint on a locked case suite
   synthesize <path>           Generate a complete blueprint from the objective
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
@@ -45,6 +46,7 @@ COMMON OPTIONS
   --objective <id>            Objective name (default from project inm.json)
   --seed <n>                  Deterministic seed (default 42)
   --agent-command <command>   External proposal process; receives JSON on stdin
+  --benchmark <id>            Locked Blueprint benchmark id (default autoresearch)
   --json                      Machine-readable JSON output
 `;
 
@@ -116,6 +118,13 @@ async function main(): Promise<void> {
     return compareCommand(projectDir, { world: values.world, scenario: values.scenario, objective: values.objective }, {
       fromBlueprint: values["from-blueprint"], toBlueprint: values["to-blueprint"], seed: Number(values.seed), json: values.json,
     });
+  }
+  if (subcommand === "benchmark") {
+    const { values, positionals } = parseArgs({ args, options: {
+      ...projectOption, benchmark: { type: "string", default: "autoresearch" }, lock: { type: "boolean", default: false }, json: common.json,
+    }, allowPositionals: true });
+    const projectDir = await selectedProject(positionals, "inm benchmark <project-or-workspace-dir> [--project ID] [--benchmark ID] [--lock]", values.project);
+    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock });
   }
   if (subcommand === "simulate") {
     const { values, positionals } = parseArgs({ args, options: { ...common, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });

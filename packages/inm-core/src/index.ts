@@ -21,6 +21,7 @@ export * from "./logistics-capacity";
 export * from "./production-demand";
 export * from "./blueprint-comparison";
 export * from "./power-envelope";
+export * from "./benchmark";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

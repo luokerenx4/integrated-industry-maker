@@ -18,6 +18,7 @@ Read the relevant linked document before changing a subsystem:
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]
+- Locked multi-case benchmarks and the Coding Agent keep/discard loop: [[docs/design/coding-agent-optimization]]
 - Exact Blueprint patches, semantic changes, and controlled before/after evaluation: [[docs/design/blueprint-comparison]]
 - Project launcher, stable routes, asset catalog, analysis, and 3D replay: [[docs/design/studio-debugger]]
 - Canonical on-disk schemas and examples: [[docs/PROJECT_FORMAT]]
@@ -31,5 +32,6 @@ Read the relevant linked document before changing a subsystem:
 4. Exercise the public loop: `inm validate`, `inm analyze` or `inm plan`, then `inm simulate`/`inm test` as appropriate.
 5. Run `bun run test`; it includes double-link validation, type checking, code tests, Studio tests, and project fixtures.
 6. If engine semantics or hashes changed, regenerate the checked-in immutable runs and verify replay before committing.
+7. If a locked Coding Agent benchmark input or contract changed, review and regenerate its `--lock`, then prove the unchanged candidate and a known improvement path.
 
 Tests prove executable behavior; design documents explain why the behavior exists and which invariants future changes must preserve. Neither substitutes for the other.

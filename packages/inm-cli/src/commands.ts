@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, openFactoryProject, pathExists,
+  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBlueprintBenchmark, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, openFactoryProject, pathExists,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
@@ -388,6 +388,31 @@ export async function runsCommand(projectDir: string, options: OutputOptions): P
   if (options.json) write(runs.map((run) => ({ name: run.name, path: run.path, score: run.score, decision: run.manifest.decision, resultHash: run.manifest.resultHash })), true);
   else if (!runs.length) write("No completed runs.\n", false);
   else write(`${runs.map((run) => `${run.name.padEnd(52)} ${run.manifest.decision.padEnd(8)} score ${run.score.toFixed(3)}`).join("\n")}\n`, false);
+}
+
+export async function benchmarkCommand(projectDir: string, benchmarkId: string, options: { json: boolean; lock: boolean }): Promise<void> {
+  if (options.lock) {
+    const benchmark = await lockBlueprintBenchmark(projectDir, benchmarkId);
+    if (options.json) write({ command: "benchmark", action: "lock", benchmark: benchmark.id, lock: benchmark.lock }, true);
+    else write(`Locked Blueprint benchmark '${benchmark.id}' across ${benchmark.cases.length} deterministic case(s).\n`, false);
+    return;
+  }
+  const result = await evaluateBlueprintBenchmark(projectDir, benchmarkId);
+  if (options.json) { write({ command: "benchmark", ...result }, true); return; }
+  write([
+    `${result.name} · coding-agent Blueprint benchmark`,
+    `BASELINE ${result.baselineBlueprint} ${result.baselineBlueprintHash.slice(0, 12)} → CANDIDATE ${result.candidateBlueprint} ${result.candidateBlueprintHash.slice(0, 12)}`,
+    `Fixed work: ${result.cases.length} cases · ${result.totalSimulationTicks} simulated ticks (baseline + candidate)`, "",
+    ...result.cases.map((item) => `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`),
+    "",
+    `baseline_score: ${result.baselineScore.toFixed(6)}`,
+    `benchmark_score: ${result.candidateScore.toFixed(6)}`,
+    `score_delta: ${signed(result.scoreDelta, 6)}`,
+    `patch_operations: ${result.patch.length}`,
+    `semantic_changes: ${result.changes.length}`,
+    `verdict: ${result.verdict}`,
+    ...result.reasons.map((reason) => `gate: ${reason}`), "",
+  ].join("\n"), false);
 }
 
 export async function researchCommand(projectDir: string, selection: ProjectSelection, options: { iterations: number; seed: number; json: boolean; agentCommand?: string }): Promise<void> {
