@@ -120,7 +120,12 @@
         "auxiliaryInputs": [],
         "minimumInputTreatmentLevel": 0
       }
-    ]
+    ],
+    "maintenance": {
+      "maximumJobs": 5,
+      "durationTicks": 6000,
+      "powerMilliWatts": 150000
+    }
   },
   "runtime": {
     "apiVersion": 1,

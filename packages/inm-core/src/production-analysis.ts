@@ -29,6 +29,10 @@ export interface DeviceProductionRate {
   setupGroup?: string;
   changeoverDurationTicks?: number;
   changeoverPowerMilliWatts?: number;
+  maintenanceMaximumJobs?: number;
+  maintenanceDurationTicks?: number;
+  maintenancePowerMilliWatts?: number;
+  preventiveMaintenanceMinimumJobs?: number;
 }
 
 export interface RecipeOptionAnalysis {
@@ -417,6 +421,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         ...(processPlan.setupGroup ? { setupGroup: processPlan.setupGroup } : {}),
         ...(processPlan.changeoverDurationTicks === undefined ? {} : { changeoverDurationTicks: processPlan.changeoverDurationTicks }),
         ...(processPlan.changeoverPowerMilliWatts === undefined ? {} : { changeoverPowerMilliWatts: processPlan.changeoverPowerMilliWatts }),
+        ...(device.assetDef.production?.maintenance ? {
+          maintenanceMaximumJobs: device.assetDef.production.maintenance.maximumJobs,
+          maintenanceDurationTicks: device.assetDef.production.maintenance.durationTicks,
+          maintenancePowerMilliWatts: device.assetDef.production.maintenance.powerMilliWatts,
+        } : {}),
+        ...(device.policy?.preventiveMaintenance ? {
+          preventiveMaintenanceMinimumJobs: device.policy.preventiveMaintenance.minimumJobs,
+        } : {}),
       });
     }
   }

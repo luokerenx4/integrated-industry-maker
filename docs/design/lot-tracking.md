@@ -56,7 +56,7 @@ Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean 
 
 ## Current boundary
 
-Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]]. Release controllers, partial/timeout batches, chamber cleaning, preventive maintenance, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
+Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]], and usage-based equipment maintenance is explicit in [[docs/design/usage-based-maintenance]]. Partial/timeout batches, chamber cleaning, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
 
 ## Verification
 

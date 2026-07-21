@@ -115,6 +115,7 @@ async function workCenter(
   outputPorts: string[],
   buildCost: number,
   changeoverTicks?: number,
+  maintenance?: { maximumJobs: number; durationTicks: number; powerMilliWatts: number },
 ): Promise<void> {
   const buffers = [...new Set(ports.map((port) => port.buffer))].map((buffer) => ({
     id: buffer,
@@ -130,6 +131,7 @@ async function workCenter(
     production: {
       categories: [category], speed: { numerator: 1, denominator: 1 }, inputPorts, outputPorts, modes: [standardMode],
       ...(changeoverTicks ? { changeover: { durationTicks: changeoverTicks, powerMilliWatts: 180_000 } } : {}),
+      ...(maintenance ? { maintenance } : {}),
     },
     runtime: { apiVersion: 1, entry: "runtime.ts" },
     power: { idleMilliWatts: 30_000, activeMilliWatts: 280_000 }, economics: { buildCost }, files: { visual: "visual.json" },
@@ -142,13 +144,15 @@ await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified litho
   { id: "release-input", direction: "input", side: "west", offset: 1, buffer: "release-input" },
   { id: "reentrant-input", direction: "input", side: "north", offset: 1, buffer: "reentrant-input" },
   { id: "pattern-output", direction: "output", side: "east", offset: 1, buffer: "pattern-output" },
-], ["release-input", "reentrant-input"], ["pattern-output"], 18_000, 4_000);
+], ["release-input", "reentrant-input"], ["pattern-output"], 18_000, 4_000,
+{ maximumJobs: 8, durationTicks: 9_000, powerMilliWatts: 220_000 });
 
 await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work center qualified for both memory-cell layers.", "etch", "#ed8b3a", [
   { id: "pattern-input", direction: "input", side: "west", offset: 1, buffer: "pattern-input" },
   { id: "loop-output", direction: "output", side: "east", offset: 1, buffer: "loop-output" },
   { id: "final-output", direction: "output", side: "south", offset: 1, buffer: "final-output" },
-], ["pattern-input"], ["loop-output", "final-output"], 12_000, 3_000);
+], ["pattern-input"], ["loop-output", "final-output"], 12_000, 3_000,
+{ maximumJobs: 8, durationTicks: 7_000, powerMilliWatts: 200_000 });
 
 await workCenter("ald-deposition-bay", "ALD Deposition Bay", "Atomic-layer deposition work center for the DRAM capacitor dielectric stack.", "deposition", "#2cb6a0", [
   { id: "etch-input", direction: "input", side: "west", offset: 1, buffer: "etch-input" },
@@ -165,7 +169,8 @@ await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline pattern
   { id: "pass-output", direction: "output", side: "west", offset: 1, buffer: "pass-output" },
   { id: "reject-output", direction: "output", side: "east", offset: 1, buffer: "reject-output" },
   { id: "scrap-output", direction: "output", side: "south", offset: 1, buffer: "scrap-output" },
-], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 22_000);
+], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 22_000, undefined,
+{ maximumJobs: 5, durationTicks: 6_000, powerMilliWatts: 150_000 });
 
 await workCenter("pattern-rework-bay", "Pattern Rework Bay", "Qualified recovery cell for repairable final-pattern excursions.", "rework", "#f2a93b", [
   { id: "reject-input", direction: "input", side: "west", offset: 1, buffer: "reject-input" },
@@ -386,6 +391,8 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "metric", path: "lotFlow.completed", min: 4 },
     { kind: "metric", path: "lotFlow.meanCycleTimeTicks", min: 1 },
     { kind: "metric", path: "equipmentSetups.totalChangeovers", min: 2 },
+    { kind: "metric", path: "equipmentMaintenance.totalMandatory", min: 1 },
+    { kind: "metric", path: "equipmentMaintenance.totalMaintenanceTicks", min: 1 },
     { kind: "metric", path: "qualityFlow.rejectedInspections", min: 2 },
     { kind: "metric", path: "qualityFlow.totalReworkCycles", min: 2 },
     { kind: "metric", path: "qualityFlow.scrapDispositions", min: 1 },
@@ -395,6 +402,7 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "event", type: "device.start", present: true },
     { kind: "event", type: "lot.released", present: true },
     { kind: "event", type: "device.changeover-finish", present: true },
+    { kind: "event", type: "device.maintenance-finish", present: true },
     { kind: "event", type: "lot.completed", present: true },
     { kind: "event", type: "lot.quality-excursion", present: true },
     { kind: "event", type: "lot.inspected", present: true },
@@ -426,8 +434,17 @@ for (const request of [
   specializedSource = { ...specializedSource, blueprint: result.blueprint };
   specializedProject = compileFactoryProject(specializedSource);
 }
+for (const device of specializedProject.blueprint.devices) {
+  const minimumJobs = /^lithography-\d+$/.test(device.id) || /^etch-\d+$/.test(device.id) ? 7
+    : device.id === "inspection-1" ? 4 : undefined;
+  if (minimumJobs !== undefined) device.policy = {
+    ...device.policy, preventiveMaintenance: { minimumJobs },
+  };
+}
+specializedSource = { ...specializedSource, blueprint: specializedProject.blueprint };
+specializedProject = compileFactoryProject(specializedSource);
 await json(join(project, "blueprints", "experiment.blueprint.json"), {
-  ...specializedProject.blueprint, revision: "memory-fab-specialized-tools-v1",
+  ...specializedProject.blueprint, revision: "memory-fab-preventive-maintenance-v1",
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
 
@@ -446,19 +463,19 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
-    "The checked-in candidate contains four kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, and dedicated layer-2 lithography/etch tools. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup state. Across the locked envelope it raises the aggregate score from `25.981013` to `36.313312` (`+10.332299`), and every case improves; the minimum case delta is `+2.024633`. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. The assets require lithography and etch maintenance no later than eight completed jobs and inspection maintenance no later than five; the Blueprint pulls those fixed jobs into idle windows after seven, seven, and four jobs respectively. Across the locked envelope it raises the aggregate score from `20.908422` to `34.062654` (`+13.154232`), and every case improves; the minimum case delta is `+7.467272`. Continue from this candidate rather than resetting it.",
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. It found that starting lithography and etch maintenance after seven completed jobs and inspection maintenance after four moves evaluator-owned work into otherwise idle windows. Against the same physical candidate with mandatory-only maintenance, this adds `+1.455168` aggregate score while clearing every case gate.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
-    "Coding Agents may next test parallel inspection, furnace duplication, preventive maintenance, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
+    "Coding Agents may next test parallel inspection, furnace duplication, maintenance-aware tool counts, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, mandatory/opportunistic/cancelled maintenance, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\n```",
+    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\n```",
   ));
 
 const projectReadmePath = join(project, "README.md");
@@ -466,15 +483,15 @@ const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
   .replace(
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
-    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools.",
+    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools. Lithography, etch, and inspection assets also own synthetic usage-based maintenance limits and fixed work; the Blueprint may only choose an earlier idle-window threshold, never shorten or skip the physical maintenance.",
   )
   .replace(
     "peak active lots, physical/controller blocked lot-time",
-    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes",
+    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes, mandatory/opportunistic/cancelled maintenance work",
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",
-    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, or `bun run inm studio",
+    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, or `bun run inm studio",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

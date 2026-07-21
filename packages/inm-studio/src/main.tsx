@@ -55,6 +55,8 @@ interface Device {
   region: string;
   powerPriority: number;
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
+  preventiveMaintenance?: { minimumJobs: number };
+  maintenance?: { maximumJobs: number; durationTicks: number; powerMilliWatts: number };
   capabilities: string[];
   position: { x: number; y: number };
   rotation: number;
@@ -89,6 +91,7 @@ interface DeviceCatalogAsset {
       minimumInputTreatmentLevel: number;
     }>;
     changeover?: { durationTicks: number; powerMilliWatts: number };
+    maintenance?: { maximumJobs: number; durationTicks: number; powerMilliWatts: number };
   };
   treatment?: {
     inputBuffer: string; outputBuffer: string; agentBuffer: string;
@@ -226,6 +229,10 @@ interface Metrics {
       campaignMinimumLotReleases: number; campaignMaximumHoldReleases: number;
       campaign?: { targetGroup: string; sinceTick: number; deadlineTick: number };
     }>;
+  };
+  equipmentMaintenance: {
+    totalCompleted: number; totalMandatory: number; totalOpportunistic: number; totalCancelled: number; totalMaintenanceTicks: number;
+    devices: Record<string, { jobsSinceMaintenance: number; completed: number; mandatory: number; opportunistic: number; cancelled: number; maintenanceTicks: number }>;
   };
   totalBuildCost: number;
   occupiedArea: number;
@@ -436,12 +443,12 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
   for (const event of data.events) {
     if (event.tick > tick) break;
     visibleEvents.push(event);
-    if (event.device && (event.type === "device.start" || event.type === "device.changeover-start")) {
+    if (event.device && (event.type === "device.start" || event.type === "device.changeover-start" || event.type === "device.maintenance-start")) {
       devices[event.device] = { status: "processing", progress: 0 };
       jobs.set(event.device, { durationTicks: event.durationTicks ?? 1, workedTicks: 0, resumedAt: event.tick });
-    } else if (event.device && (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
+    } else if (event.device && (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.maintenance-finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
       devices[event.device] = { status: event.type === "device.recover" && transportJobs.get(event.device)?.size ? "processing" : "idle", progress: 0 };
-      if (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.recover") jobs.delete(event.device);
+      if (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.maintenance-finish" || event.type === "device.recover") jobs.delete(event.device);
       if (event.type === "device.recover") for (const connection of data.connections) for (const endpoint of connection.endpoints) {
         if (endpoint.device === event.device) endpointPower[`${connection.id}:${endpoint.stage}`] = Boolean(endpoint.powerGrid);
       }
@@ -716,6 +723,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const powerMilliWatts = device.recipe?.powerMilliWatts ?? extraction?.powerMilliWatts ?? asset?.power.activeMilliWatts ?? 0;
   const utilization = data.metrics?.machineUtilization[device.id];
   const setup = data.metrics?.equipmentSetups.devices[device.id];
+  const maintenance = data.metrics?.equipmentMaintenance.devices[device.id];
   const statusTimes = data.metrics ? [
     ["IDLE", data.metrics.idleTime[device.id] ?? 0],
     ["WAIT", data.metrics.waitingInputTime[device.id] ?? 0],
@@ -742,6 +750,10 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         {setup && <span><small>CHANGEOVERS</small><b>{setup.changeovers} · {formatTick(setup.setupTicks)}</b></span>}
         {device.setupCampaign && <span><small>SETUP CAMPAIGN</small><b>{device.setupCampaign.minimumReadyLots} LOTS · {formatTick(device.setupCampaign.maximumHoldTicks)} MAX</b></span>}
         {setup && <span><small>CAMPAIGN HOLDS</small><b>{setup.campaignHolds} · {formatTick(setup.campaignHoldTicks)}</b></span>}
+        {device.maintenance && <span><small>MAINTENANCE LIMIT</small><b>{device.maintenance.maximumJobs} JOBS · {formatTick(device.maintenance.durationTicks)}</b></span>}
+        {device.preventiveMaintenance && <span><small>PREVENTIVE WINDOW</small><b>AFTER {device.preventiveMaintenance.minimumJobs} JOBS</b></span>}
+        {maintenance && <span><small>JOBS SINCE MAINTENANCE</small><b>{maintenance.jobsSinceMaintenance} / {device.maintenance?.maximumJobs ?? "—"}</b></span>}
+        {maintenance && <span><small>MAINTENANCE COMPLETED</small><b>{maintenance.completed} · {maintenance.mandatory} MANDATORY / {maintenance.opportunistic} EARLY</b></span>}
       </div>
       {device.transportEndpoint && <div className="inspector-section"><div className="inspector-section-title"><span>TRANSPORT ATTACHMENT</span><b>{device.transportEndpoint.stage.toUpperCase()}</b></div><div className="inspector-inline"><strong>{device.transportEndpoint.connection}</strong><code>{device.transportEndpoint.distance} cell arm · belt-side anchor</code></div></div>}
       {configuredRecipes.length > 0 && <div className="inspector-section">
@@ -1263,6 +1275,7 @@ function App() {
       <aside>
         <div className="panel run-panel"><label>SIMULATION RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision === "BASELINE" ? item.blueprint.toUpperCase() : `${item.decision} · ${item.blueprint.toUpperCase()}`} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.blueprint.toUpperCase()}</div>}</div>
         <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="COMPLETE / RELEASED / PLAN" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released} / ${data.metrics.lotFlow.scheduled}`} /><Metric label="RELEASE INTERVAL PLAN / ACTUAL" value={`${(data.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(1)} s`} /><Metric label="RELEASE DELAY / PENDING" value={`${(data.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(1)} s / ${data.metrics.releaseFlow.pending}`} /><Metric label="RELEASE CONTROL / PEAK" value={`${data.metrics.releaseFlow.control === "conwip" ? `CONWIP ${data.metrics.releaseFlow.maximumWip}↕${data.metrics.releaseFlow.reopenAtWip}` : "OPEN LOOP"} / ${data.metrics.releaseFlow.peakActiveLots}`} /><Metric label="MAX DELAY / SERVICE OPENS" value={`${data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks === null ? "—" : `${(data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks / 1000).toFixed(1)} s`} / ${data.metrics.releaseFlow.serviceLevelOpenings}`} /><Metric label="CONTROL BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.controlBlockedLots} / ${(data.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="CAPACITY BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.capacityBlockedLots} / ${(data.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /><Metric label="GOOD / FIRST-PASS YIELD" value={`${(data.metrics.qualityFlow.goodYield * 100).toFixed(1)} / ${(data.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}%`} /><Metric label="INSPECTIONS / REWORK" value={`${data.metrics.qualityFlow.totalInspections} / ${data.metrics.qualityFlow.totalReworkCycles}`} /><Metric label="SCRAP / QUALITY ESCAPES" value={`${data.metrics.qualityFlow.scrapDispositions} / ${data.metrics.qualityFlow.escapedDefects}`} />{data.metrics.batchFlow.batchOperations > 0 && <><Metric label="BATCH JOBS / LOTS" value={`${data.metrics.batchFlow.jobs} / ${data.metrics.batchFlow.lots}`} /><Metric label="LOTS / BATCH" value={data.metrics.batchFlow.averageLotsPerJob.toFixed(2)} /><Metric label="MEAN BATCH WAIT" value={`${(data.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(1)} s`} /></>}</>}<Metric label="CHANGEOVERS / SETUP" value={data.metrics ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN HOLDS / TIME" value={data.metrics ? `${data.metrics.equipmentSetups.totalCampaignHolds} / ${(data.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN LOT-READY / TIMEOUT" value={data.metrics ? `${data.metrics.equipmentSetups.campaignMinimumLotReleases} / ${data.metrics.equipmentSetups.campaignMaximumHoldReleases}` : "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        {data.metrics && Object.keys(data.metrics.equipmentMaintenance.devices).length > 0 && <div className="panel"><h2>Equipment maintenance</h2><div className="metrics"><Metric label="MANDATORY / EARLY" value={`${data.metrics.equipmentMaintenance.totalMandatory} / ${data.metrics.equipmentMaintenance.totalOpportunistic}`} /><Metric label="COMPLETED / CANCELLED" value={`${data.metrics.equipmentMaintenance.totalCompleted} / ${data.metrics.equipmentMaintenance.totalCancelled}`} /><Metric label="MAINTENANCE WORK" value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} s`} /></div></div>}
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>

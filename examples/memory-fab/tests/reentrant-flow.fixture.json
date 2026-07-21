@@ -78,6 +78,16 @@
     },
     {
       "kind": "metric",
+      "path": "equipmentMaintenance.totalMandatory",
+      "min": 1
+    },
+    {
+      "kind": "metric",
+      "path": "equipmentMaintenance.totalMaintenanceTicks",
+      "min": 1
+    },
+    {
+      "kind": "metric",
       "path": "qualityFlow.rejectedInspections",
       "min": 2
     },
@@ -119,6 +129,11 @@
     {
       "kind": "event",
       "type": "device.changeover-finish",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "device.maintenance-finish",
       "present": true
     },
     {

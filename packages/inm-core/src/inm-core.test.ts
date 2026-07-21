@@ -687,6 +687,75 @@ describe("blueprint compiler", () => {
     expect(analyzeProduction(project).devices.filter((device) => device.device === "assembler-1")).toHaveLength(2);
   });
 
+  test("usage-based maintenance is mandatory at the physical limit and may be pulled into an idle window", async () => {
+    const maintenanceSource = async (maximumJobs: number, minimumJobs?: number) => {
+      const source = await loaded();
+      source.deviceAssets.smelter!.production!.maintenance = {
+        maximumJobs, durationTicks: 1_000, powerMilliWatts: 100_000,
+      };
+      const smelter = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!);
+      if (minimumJobs !== undefined) smelter.policy = { preventiveMaintenance: { minimumJobs } };
+      source.blueprint.devices = [
+        smelter,
+        { id: "maintenance-wind", asset: "wind-turbine", region: smelter.region, position: { x: 4, y: 6 }, rotation: 0 },
+      ];
+      source.blueprint.connections = [];
+      source.blueprint.logisticsNetworks = [];
+      source.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 6 } } };
+      source.scenario.initialEnergyMilliJoules = {};
+      source.scenario.renewableProfiles = [];
+      source.scenario.failures = [];
+      return source;
+    };
+
+    const mandatory = runUntil(compileFactoryProject(await maintenanceSource(2)), undefined, { untilTick: 14_000 });
+    expect(mandatory.events.filter((event) => event.type === "device.maintenance-start")).toEqual([
+      expect.objectContaining({ tick: 8_000, device: "smelter-1", cause: "mandatory", jobsSinceMaintenance: 2 }),
+    ]);
+    expect(mandatory.events.filter((event) => event.type === "device.maintenance-finish")).toEqual([
+      expect.objectContaining({ tick: 9_000, device: "smelter-1", cause: "mandatory", jobsSinceMaintenance: 2 }),
+    ]);
+    expect(mandatory.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 8_000, 13_000]);
+    expect(mandatory.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
+      totalCompleted: 1, totalMandatory: 1, totalOpportunistic: 0, totalCancelled: 0, totalMaintenanceTicks: 1_000,
+    }));
+    expect(mandatory.metrics.equipmentMaintenance.devices["smelter-1"]).toEqual(expect.objectContaining({ jobsSinceMaintenance: 1 }));
+
+    const opportunisticSource = await maintenanceSource(3, 2);
+    opportunisticSource.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 4 } } };
+    const opportunistic = runUntil(compileFactoryProject(opportunisticSource), undefined, { untilTick: 10_000 });
+    expect(opportunistic.events.filter((event) => event.type === "device.maintenance-start")).toEqual([
+      expect.objectContaining({ tick: 8_000, cause: "opportunistic", jobsSinceMaintenance: 2 }),
+    ]);
+    expect(opportunistic.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
+      totalCompleted: 1, totalMandatory: 0, totalOpportunistic: 1,
+    }));
+
+    const interruptedSource = await maintenanceSource(1);
+    interruptedSource.deviceAssets.smelter!.production!.maintenance!.durationTicks = 3_000;
+    interruptedSource.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 4 } } };
+    interruptedSource.scenario.failures = [{ device: "smelter-1", atTick: 5_000, durationTicks: 1_000 }];
+    const interrupted = runUntil(compileFactoryProject(interruptedSource), undefined, { untilTick: 14_000 });
+    expect(interrupted.events.filter((event) => event.type === "device.maintenance-start").map((event) => [event.tick, event.cause])).toEqual([
+      [4_000, "mandatory"], [6_000, "mandatory"],
+    ]);
+    expect(interrupted.events).toContainEqual(expect.objectContaining({
+      type: "device.maintenance-cancelled", tick: 5_000, jobsSinceMaintenance: 1,
+    }));
+    expect(interrupted.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
+      totalCompleted: 1, totalMandatory: 1, totalCancelled: 1, totalMaintenanceTicks: 3_000,
+    }));
+
+    const invalidPolicy = await maintenanceSource(3, 4);
+    expect(issueCodes(() => compileFactoryProject(invalidPolicy))).toContain("production.maintenance-threshold");
+    const invalidPower = await maintenanceSource(3);
+    invalidPower.deviceAssets.smelter!.production!.maintenance!.powerMilliWatts = 9_999;
+    expect(issueCodes(() => compileFactoryProject(invalidPower))).toContain("production.maintenance-power");
+    const missingContract = await loaded();
+    missingContract.blueprint.devices.find((device) => device.id === "smelter-1")!.policy = { preventiveMaintenance: { minimumJobs: 1 } };
+    expect(issueCodes(() => compileFactoryProject(missingContract))).toContain("production.maintenance-required");
+  });
+
   test("identity-preserving wafer lots close re-entrant setup, inspection, rework, and scrap loops", async () => {
     const source = await loadFactoryProject(memoryFab);
     const baselineProject = compileFactoryProject(source);
@@ -700,7 +769,7 @@ describe("blueprint compiler", () => {
     expect(lots.filter((lot) => lot.status === "completed")).toHaveLength(11);
     expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.resource === "qualified-dram-wafer-lot" && lot.routeStep >= 6)).toBeTrue();
     expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.completedAtTick! - lot.releasedAtTick! === lot.queueTicks + lot.processTicks + lot.transportTicks)).toBeTrue();
-    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 11, scrapped: 1, onTimeCompleted: 9 }));
+    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 11, scrapped: 1, onTimeCompleted: 7 }));
     expect(baseline.metrics.releaseFlow).toEqual(expect.objectContaining({
       scheduled: 12, released: 12, pending: 0, plannedSpanTicks: 66_000, actualSpanTicks: 66_000,
       meanPlannedIntervalTicks: 6_000, meanActualIntervalTicks: 6_000, meanReleaseDelayTicks: 0, maximumReleaseDelayTicks: 0,
@@ -727,8 +796,12 @@ describe("blueprint compiler", () => {
     expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 2, totalSetupTicks: 7_000 }));
     expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(2);
     expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(2);
+    expect(baseline.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
+      totalCompleted: 6, totalMandatory: 6, totalOpportunistic: 0, totalMaintenanceTicks: 44_000,
+    }));
+    expect(baseline.events.filter((event) => event.type === "device.maintenance-start")).toHaveLength(6);
     expect(baseline.metrics.batchFlow).toEqual(expect.objectContaining({
-      batchOperations: 1, jobs: 4, lots: 12, averageLotsPerJob: 3, meanQueueWaitTicksPerLot: 7_000,
+      batchOperations: 1, jobs: 4, lots: 12, averageLotsPerJob: 3, meanQueueWaitTicksPerLot: 25_000 / 3,
     }));
     expect(baseline.metrics.batchFlow.operations["furnace-1:batch-anneal-dielectric-stack:qualified"]).toEqual(expect.objectContaining({
       expectedLotsPerJob: 3, jobs: 4, lots: 12, averageLotsPerJob: 3, maximumLotsPerJob: 3,
@@ -761,7 +834,7 @@ describe("blueprint compiler", () => {
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
       control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
       dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
-      controlBlockedLots: 7, controlBlockedTicks: 539_800, capacityBlockedLots: 0,
+      controlBlockedLots: 7, controlBlockedTicks: 579_800, capacityBlockedLots: 0,
     }));
     expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
     expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(3);
@@ -804,7 +877,7 @@ describe("blueprint compiler", () => {
     const setupAware = runUntil(compileFactoryProject(setupAwareSource), undefined, { seed: 42 });
     expect(setupAware.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(setupAware.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
+    expect(setupAware.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
 
     const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     for (const id of ["lithography-1", "etch-1"]) minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy = {
@@ -2726,7 +2799,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect((await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash).not.toBe(previousLock);
   }, 20_000);
 
-  test("keeps dispatch, inspection, rapid anneal, and dedicated tools across the locked memory-fab envelope", async () => {
+  test("keeps dispatch, inspection, rapid anneal, dedicated tools, and preventive maintenance across the locked memory-fab envelope", async () => {
     const result = await evaluateBlueprintBenchmark(memoryFab, "dispatch-research");
     expect(result.verdict).toBe("KEEP");
     expect(result.accepted).toBeTrue();
@@ -2740,6 +2813,8 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.scoreDelta).toBeGreaterThan(10);
     expect(result.minimumCaseScoreDelta).toBeGreaterThan(2);
     expect(result.cases.every((item) => item.candidateMetrics.qualityEscapes === 0)).toBeTrue();
+    expect(result.cases.every((item) => item.candidateMetrics.totalOpportunisticMaintenance > 0)).toBeTrue();
+    expect(result.cases.every((item) => item.candidateMetrics.totalMandatoryMaintenance < item.baselineMetrics.totalMandatoryMaintenance)).toBeTrue();
     expect(result.changes.map((change) => change.id)).toContain("lithography-2");
     expect(result.changes.map((change) => change.id)).toContain("etch-2");
     expect(result.changes.map((change) => change.id)).toContain("lithography-to-etch-lithography-2");

@@ -67,6 +67,8 @@ export function createFactorySceneModel(project: CompiledFactoryProject, metrics
 export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent, project: CompiledFactoryProject): FactorySceneModel {
   const next = structuredClone(model); next.tick = event.tick;
   if (event.type === "device.start") next.devices[event.device]!.runtimeStatus = "processing";
+  else if (event.type === "device.maintenance-start") next.devices[event.device]!.runtimeStatus = "processing";
+  else if (event.type === "device.maintenance-finish") next.devices[event.device]!.runtimeStatus = "idle";
   else if (event.type === "device.finish") next.devices[event.device]!.runtimeStatus = "idle";
   else if (event.type === "device.recover") next.devices[event.device]!.runtimeStatus = next.transportStageJobs[event.device]?.length ? "processing" : "idle";
   else if (event.type === "buffer.blocked") next.devices[event.device]!.runtimeStatus = "blocked-output";

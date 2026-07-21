@@ -131,6 +131,10 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       path: `assets/devices/${id}/asset.json/production/changeover/powerMilliWatts`, code: "production.changeover-power",
       message: `Changeover power ${asset.production.changeover.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
     });
+    if (asset.production?.maintenance && asset.production.maintenance.powerMilliWatts < asset.power.idleMilliWatts) issues.push({
+      path: `assets/devices/${id}/asset.json/production/maintenance/powerMilliWatts`, code: "production.maintenance-power",
+      message: `Maintenance power ${asset.production.maintenance.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
+    });
     const bufferIds = new Set<string>();
     for (const [index, buffer] of asset.buffers.entries()) {
       if (bufferIds.has(buffer.id)) issues.push({ path: `assets/devices/${id}/asset.json/buffers/${index}/id`, code: "asset.duplicate-buffer", message: `Duplicate buffer '${buffer.id}'` });
@@ -369,7 +373,8 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
     grid.ratedConsumptionMilliWatts += device.processPlans.length
-      ? Math.max(...device.processPlans.map((plan) => Math.max(plan.powerMilliWatts, plan.changeoverPowerMilliWatts ?? 0)))
+      ? Math.max(device.assetDef.production?.maintenance?.powerMilliWatts ?? 0,
+        ...device.processPlans.map((plan) => Math.max(plan.powerMilliWatts, plan.changeoverPowerMilliWatts ?? 0)))
       : device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);
@@ -1019,6 +1024,17 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       if (processPlans.some((plan) => plan.lotTransfers.length === 0)) issues.push({
         path: campaignPath, code: "production.campaign-lot-tracking-required",
         message: `Every operation on campaign-controlled Device '${instance.id}' must preserve tracked lot identities`,
+      });
+    }
+    if (instance.policy?.preventiveMaintenance) {
+      const maintenancePath = `${path}/policy/preventiveMaintenance`;
+      if (!asset.production?.maintenance) issues.push({
+        path: maintenancePath, code: "production.maintenance-required",
+        message: `Preventive maintenance policy on '${instance.id}' requires a maintenance-capable production Device`,
+      });
+      else if (instance.policy.preventiveMaintenance.minimumJobs > asset.production.maintenance.maximumJobs) issues.push({
+        path: `${maintenancePath}/minimumJobs`, code: "production.maintenance-threshold",
+        message: `Preventive maintenance threshold ${instance.policy.preventiveMaintenance.minimumJobs} exceeds the physical maximum of ${asset.production.maintenance.maximumJobs} jobs`,
       });
     }
     devices[instance.id] = {

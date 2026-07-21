@@ -66,6 +66,14 @@
       "storedMilliJoules": 581578
     }
   },
+  "equipmentMaintenance": {
+    "devices": {},
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalMaintenanceTicks": 0,
+    "totalMandatory": 0,
+    "totalOpportunistic": 0
+  },
   "equipmentSetups": {
     "campaignMaximumHoldReleases": 0,
     "campaignMinimumLotReleases": 0,

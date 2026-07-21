@@ -77,6 +77,7 @@ export const deviceAssetSchema = z.object({
       minimumInputTreatmentLevel: nonNegativeInt,
     }).strict()).min(1),
     changeover: z.object({ durationTicks: positiveInt, powerMilliWatts: nonNegativeInt }).strict().optional(),
+    maintenance: z.object({ maximumJobs: positiveInt, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt }).strict().optional(),
   }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,
@@ -164,6 +165,7 @@ export const blueprintSchema = z.object({
       recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "oldest-lot", "earliest-due-date", "highest-lot-priority"]).optional(),
       lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),
+      preventiveMaintenance: z.object({ minimumJobs: positiveInt }).strict().optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),
       highSpeedTransport: z.object({ enabled: z.boolean(), minimumDistance: nonNegativeInt }).strict().optional(),

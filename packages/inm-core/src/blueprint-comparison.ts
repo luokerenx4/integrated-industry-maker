@@ -53,6 +53,11 @@ export interface BlueprintMetricSnapshot {
   totalCampaignHoldTicks: number;
   campaignMinimumLotReleases: number;
   campaignMaximumHoldReleases: number;
+  totalMaintenanceCompleted: number;
+  totalMandatoryMaintenance: number;
+  totalOpportunisticMaintenance: number;
+  totalMaintenanceCancelled: number;
+  totalMaintenanceTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -108,6 +113,11 @@ export interface BlueprintMetricDelta {
   totalCampaignHoldTicks: number;
   campaignMinimumLotReleases: number;
   campaignMaximumHoldReleases: number;
+  totalMaintenanceCompleted: number;
+  totalMandatoryMaintenance: number;
+  totalOpportunisticMaintenance: number;
+  totalMaintenanceCancelled: number;
+  totalMaintenanceTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -285,6 +295,11 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalCampaignHoldTicks: metrics.equipmentSetups.totalCampaignHoldTicks,
     campaignMinimumLotReleases: metrics.equipmentSetups.campaignMinimumLotReleases,
     campaignMaximumHoldReleases: metrics.equipmentSetups.campaignMaximumHoldReleases,
+    totalMaintenanceCompleted: metrics.equipmentMaintenance.totalCompleted,
+    totalMandatoryMaintenance: metrics.equipmentMaintenance.totalMandatory,
+    totalOpportunisticMaintenance: metrics.equipmentMaintenance.totalOpportunistic,
+    totalMaintenanceCancelled: metrics.equipmentMaintenance.totalCancelled,
+    totalMaintenanceTicks: metrics.equipmentMaintenance.totalMaintenanceTicks,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
@@ -342,6 +357,11 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalCampaignHoldTicks: after.totalCampaignHoldTicks - before.totalCampaignHoldTicks,
     campaignMinimumLotReleases: after.campaignMinimumLotReleases - before.campaignMinimumLotReleases,
     campaignMaximumHoldReleases: after.campaignMaximumHoldReleases - before.campaignMaximumHoldReleases,
+    totalMaintenanceCompleted: after.totalMaintenanceCompleted - before.totalMaintenanceCompleted,
+    totalMandatoryMaintenance: after.totalMandatoryMaintenance - before.totalMandatoryMaintenance,
+    totalOpportunisticMaintenance: after.totalOpportunisticMaintenance - before.totalOpportunisticMaintenance,
+    totalMaintenanceCancelled: after.totalMaintenanceCancelled - before.totalMaintenanceCancelled,
+    totalMaintenanceTicks: after.totalMaintenanceTicks - before.totalMaintenanceTicks,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,

@@ -154,6 +154,8 @@ export interface DeviceAssetManifest {
     modes: ProductionModeDefinition[];
     /** Fixed equipment work required before executing a different Process setupGroup. */
     changeover?: { durationTicks: Tick; powerMilliWatts: number };
+    /** Evaluator-owned usage limit and fixed physical work for restoring this production Device. */
+    maintenance?: { maximumJobs: number; durationTicks: Tick; powerMilliWatts: number };
   };
   extraction?: {
     resources: ResourceId[];
@@ -372,6 +374,8 @@ export interface BlueprintDevice {
       /** Otherwise release the held changeover after this much equipment hold time. */
       maximumHoldTicks: Tick;
     };
+    /** Pull fixed maintenance into an idle window after this many completed production jobs. */
+    preventiveMaintenance?: { minimumJobs: number };
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
@@ -740,6 +744,10 @@ export interface ActiveDeviceJob {
   treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
   lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
   changeover?: { from: string | null; to: string };
+  /** Marks evaluator-owned equipment maintenance rather than a material-processing job. */
+  maintenance?: { cause: "mandatory" | "opportunistic" };
+  /** Only successfully completed jobs with this marker consume the maintenance usage budget. */
+  production?: true;
   quality?:
     | { kind: "inspection"; lotIds: string[]; detectedDefects: string[]; result: "pass" | "reject" | "scrap" }
     | { kind: "rework"; lotIds: string[]; repairs: string[] };
@@ -803,6 +811,14 @@ export interface DeviceRuntimeState {
     campaignMinimumLotReleases: number;
     campaignMaximumHoldReleases: number;
     campaign?: { targetGroup: string; sinceTick: Tick; deadlineTick: Tick };
+  };
+  maintenance?: {
+    jobsSinceMaintenance: number;
+    completed: number;
+    mandatory: number;
+    opportunistic: number;
+    cancelled: number;
+    maintenanceTicks: Tick;
   };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
@@ -894,6 +910,9 @@ export type FactoryEvent =
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
+  | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
+  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
+  | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; reason: "equipment-breakdown" }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
@@ -1099,6 +1118,21 @@ export interface FactoryMetrics {
       campaignMinimumLotReleases: number;
       campaignMaximumHoldReleases: number;
       campaign?: { targetGroup: string; sinceTick: Tick; deadlineTick: Tick };
+    }>;
+  };
+  equipmentMaintenance: {
+    totalCompleted: number;
+    totalMandatory: number;
+    totalOpportunistic: number;
+    totalCancelled: number;
+    totalMaintenanceTicks: Tick;
+    devices: Record<DeviceInstanceId, {
+      jobsSinceMaintenance: number;
+      completed: number;
+      mandatory: number;
+      opportunistic: number;
+      cancelled: number;
+      maintenanceTicks: Tick;
     }>;
   };
   totalBuildCost: number;

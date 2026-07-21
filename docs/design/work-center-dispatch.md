@@ -43,7 +43,7 @@ The event stream records the selected Process id and tracked lot ids in `device.
 
 `inm analyze` emits one row per qualified operation. Its cycles/min value is an exclusive maximum: the rate if that operation owned the work center continuously. A `shared-work-center` diagnostic names the dispatch policy and warns that those maxima cannot run simultaneously. Material-balance and capacity planning enumerate every qualified operation, but the first implementation does not yet solve a coupled allocation variable across all operations on one physical Device. Locked event simulation is therefore the score authority for re-entrant work-center optimization.
 
-Fixed full-batch formation, bounded setup campaigns, and physical work-center specialization are now executable; see [[docs/design/batch-processing]], [[docs/design/setup-campaign-control]], and [[docs/design/work-center-specialization]]. The next industrial layers should make that coupling richer rather than hide it: chamber cleaning consumables, qualification expiry, preventive maintenance and breakdown repair, and stochastic-but-seeded yield.
+Fixed full-batch formation, bounded setup campaigns, physical work-center specialization, and usage-based preventive maintenance are now executable; see [[docs/design/batch-processing]], [[docs/design/setup-campaign-control]], [[docs/design/work-center-specialization]], and [[docs/design/usage-based-maintenance]]. The next industrial layers should make that coupling richer rather than hide it: chamber cleaning consumables, qualification expiry, repair crew/spare capacity, and stochastic-but-seeded yield.
 
 ## Memory-fab reference project
 

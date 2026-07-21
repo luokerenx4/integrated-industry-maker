@@ -222,6 +222,16 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     campaignMaximumHoldReleases: Object.values(setupDevices).reduce((sum, setup) => sum + setup.campaignMaximumHoldReleases, 0),
     devices: setupDevices,
   };
+  const maintenanceDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.maintenance)
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, { ...runtime.maintenance! }]));
+  const equipmentMaintenance: FactoryMetrics["equipmentMaintenance"] = {
+    totalCompleted: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.completed, 0),
+    totalMandatory: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.mandatory, 0),
+    totalOpportunistic: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.opportunistic, 0),
+    totalCancelled: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.cancelled, 0),
+    totalMaintenanceTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.maintenanceTicks, 0),
+    devices: maintenanceDevices,
+  };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
@@ -295,7 +305,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       minimumSatisfactionPpm: power.minimumSatisfactionPpm,
       requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
     }])),
-    materialTreatment: structuredClone(state.materialTreatment), equipmentSetups,
+    materialTreatment: structuredClone(state.materialTreatment), equipmentSetups, equipmentMaintenance,
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,

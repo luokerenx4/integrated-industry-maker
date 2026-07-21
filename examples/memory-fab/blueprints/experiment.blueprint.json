@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": "memory-fab-specialized-tools-v1",
+  "revision": "memory-fab-preventive-maintenance-v1",
   "devices": [
     {
       "id": "lot-release",
@@ -42,7 +42,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10
+        "powerPriority": 10,
+        "preventiveMaintenance": {
+          "minimumJobs": 7
+        }
       }
     },
     {
@@ -70,7 +73,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 9
+        "powerPriority": 9,
+        "preventiveMaintenance": {
+          "minimumJobs": 7
+        }
       }
     },
     {
@@ -143,7 +149,10 @@
       },
       "policy": {
         "lotDispatch": "fifo",
-        "powerPriority": 7
+        "powerPriority": 7,
+        "preventiveMaintenance": {
+          "minimumJobs": 4
+        }
       }
     },
     {
@@ -275,7 +284,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10
+        "powerPriority": 10,
+        "preventiveMaintenance": {
+          "minimumJobs": 7
+        }
       }
     },
     {
@@ -303,7 +315,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 9
+        "powerPriority": 9,
+        "preventiveMaintenance": {
+          "minimumJobs": 7
+        }
       }
     },
     {

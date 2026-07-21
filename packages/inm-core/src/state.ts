@@ -44,6 +44,9 @@ export type FactoryStateMutation =
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
+  | { kind: "production.finish"; device: string }
+  | { kind: "maintenance.finish"; device: string; cause: "mandatory" | "opportunistic"; durationTicks: Tick }
+  | { kind: "maintenance.cancel"; device: string }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -337,6 +340,27 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       setup.group = mutation.group;
       setup.changeovers++;
       setup.setupTicks += mutation.durationTicks;
+      return;
+    }
+    case "production.finish": {
+      const maintenance = state.devices[mutation.device]!.maintenance;
+      if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
+      maintenance.jobsSinceMaintenance++;
+      return;
+    }
+    case "maintenance.finish": {
+      const maintenance = state.devices[mutation.device]!.maintenance;
+      if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
+      maintenance.jobsSinceMaintenance = 0;
+      maintenance.completed++;
+      maintenance[mutation.cause]++;
+      maintenance.maintenanceTicks += mutation.durationTicks;
+      return;
+    }
+    case "maintenance.cancel": {
+      const maintenance = state.devices[mutation.device]!.maintenance;
+      if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
+      maintenance.cancelled++;
       return;
     }
     case "campaign.hold": {

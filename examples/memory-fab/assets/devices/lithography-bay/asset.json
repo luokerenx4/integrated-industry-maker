@@ -107,6 +107,11 @@
     "changeover": {
       "durationTicks": 4000,
       "powerMilliWatts": 180000
+    },
+    "maintenance": {
+      "maximumJobs": 8,
+      "durationTicks": 9000,
+      "powerMilliWatts": 220000
     }
   },
   "runtime": {
