@@ -547,6 +547,19 @@ export interface FactoryMetrics {
   peakBeltItems: number;
   beltCellUtilization: number;
   transportStageUtilization: Record<ConnectionId, { loader: number; unloader: number }>;
+  transportFlows: Record<ConnectionId, {
+    departedItems: number;
+    deliveredItems: number;
+    departedByResource: Record<ResourceId, number>;
+    deliveredByResource: Record<ResourceId, number>;
+    departedItemsPerMinute: number;
+    deliveredItemsPerMinute: number;
+    capacityItemsPerMinute: number;
+    utilization: number;
+    averageInFlightItems: number;
+    blockedItemTicks: Tick;
+    blockedFraction: number;
+  }>;
   transportEnergyConsumedMilliJoules: number;
   transportCongestion: number;
   bottleneckEntity: DeviceInstanceId | null;

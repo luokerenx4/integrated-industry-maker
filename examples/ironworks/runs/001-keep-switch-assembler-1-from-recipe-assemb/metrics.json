@@ -120,6 +120,144 @@
   "totalBuildCost": 23660,
   "transportCongestion": 0.11488425925925926,
   "transportEnergyConsumedMilliJoules": 191500,
+  "transportFlows": {
+    "coal-assembly-to-splitter": {
+      "averageInFlightItems": 0.16916666666666666,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 29
+      },
+      "deliveredItems": 29,
+      "deliveredItemsPerMinute": 14.5,
+      "departedByResource": {
+        "coal": 29
+      },
+      "departedItems": 29,
+      "departedItemsPerMinute": 14.5,
+      "utilization": 0.06041666666666667
+    },
+    "coal-forge-to-generator": {
+      "averageInFlightItems": 0.03333333333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 5
+      },
+      "deliveredItems": 5,
+      "deliveredItemsPerMinute": 2.5,
+      "departedByResource": {
+        "coal": 5
+      },
+      "departedItems": 5,
+      "departedItemsPerMinute": 2.5,
+      "utilization": 0.010416666666666666
+    },
+    "coal-splitter-to-assembler": {
+      "averageInFlightItems": 0.17333333333333334,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 16
+      },
+      "deliveredItems": 16,
+      "deliveredItemsPerMinute": 8,
+      "departedByResource": {
+        "coal": 16
+      },
+      "departedItems": 16,
+      "departedItemsPerMinute": 8,
+      "utilization": 0.03333333333333333
+    },
+    "coal-splitter-to-generator": {
+      "averageInFlightItems": 0.03333333333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 5
+      },
+      "deliveredItems": 5,
+      "deliveredItemsPerMinute": 2.5,
+      "departedByResource": {
+        "coal": 5
+      },
+      "departedItems": 5,
+      "departedItemsPerMinute": 2.5,
+      "utilization": 0.010416666666666666
+    },
+    "gear-to-output": {
+      "averageInFlightItems": 0.13333333333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "gear": 16
+      },
+      "deliveredItems": 16,
+      "deliveredItemsPerMinute": 8,
+      "departedByResource": {
+        "gear": 16
+      },
+      "departedItems": 16,
+      "departedItemsPerMinute": 8,
+      "utilization": 0.03333333333333333
+    },
+    "ore-to-smelter": {
+      "averageInFlightItems": 0.5645833333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "iron-ore": 67
+      },
+      "deliveredItems": 67,
+      "deliveredItemsPerMinute": 33.5,
+      "departedByResource": {
+        "iron-ore": 68
+      },
+      "departedItems": 68,
+      "departedItemsPerMinute": 34,
+      "utilization": 0.13958333333333334
+    },
+    "plate-to-station": {
+      "averageInFlightItems": 0.19333333333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "iron-plate": 29
+      },
+      "deliveredItems": 29,
+      "deliveredItemsPerMinute": 14.5,
+      "departedByResource": {
+        "iron-plate": 29
+      },
+      "departedItems": 29,
+      "departedItemsPerMinute": 14.5,
+      "utilization": 0.06041666666666667
+    },
+    "station-to-assembler": {
+      "averageInFlightItems": 0.16,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "iron-plate": 24
+      },
+      "deliveredItems": 24,
+      "deliveredItemsPerMinute": 12,
+      "departedByResource": {
+        "iron-plate": 24
+      },
+      "departedItems": 24,
+      "departedItemsPerMinute": 12,
+      "utilization": 0.05
+    }
+  },
   "transportStageUtilization": {
     "coal-assembly-to-splitter": {
       "loader": 0.06041666666666667,

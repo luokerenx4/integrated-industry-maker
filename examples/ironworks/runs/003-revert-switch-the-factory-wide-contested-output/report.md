@@ -2,7 +2,7 @@
 
 - Decision: **REVERT**
 - Score: **104.981**
-- Result hash: `e6e6a9fa46e72322068cfd08e6f6ec4e584b5b2992c26d75fb76f814f216afb6`
+- Result hash: `6e28db9e7688c5d60e0cc9ba22384df278df1de1196e5391fa8b0343594cda03`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Belt utilization: 2.6%
@@ -10,6 +10,22 @@
 - Peak belt items: 4
 - Powered transport energy: 363.000 J
 - Feasible: yes
+
+## Measured transport flows
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
+| --- | ---: | ---: | ---: | --- |
+| ore-to-smelter | 45.000 / 240.000 | 18.8% | 0 | 90 iron-ore |
+| ore-to-smelter-smelter-1-split-original | 22.500 / 240.000 | 9.4% | 0 | 45 iron-ore |
+| ore-to-smelter-smelter-1-split-parallel | 22.500 / 240.000 | 9.4% | 0 | 45 iron-ore |
+| station-to-assembler | 22.000 / 240.000 | 9.2% | 0 | 44 iron-plate |
+| coal-assembly-to-splitter | 17.500 / 240.000 | 7.3% | 0 | 35 coal |
+| gear-to-output | 14.000 / 240.000 | 5.8% | 0 | 28 gear |
+| coal-splitter-to-assembler | 11.000 / 240.000 | 4.6% | 0 | 22 coal |
+| plate-to-station | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
+| plate-to-station-smelter-1-parallel | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
+| coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
+| coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 
 ## Score breakdown
 

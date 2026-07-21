@@ -166,13 +166,20 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
   const run = cached ?? await writeRunArtifact(project, result, { label: "simulate", seed: options.seed, decision: "BASELINE" });
   const summary = { command: "simulate", cached: Boolean(cached), run: run.path, resultHash: result.resultHash, runKey: result.runKey, metrics: result.metrics };
   if (options.json) write(summary, true);
-  else write([
+  else {
+    const flowLines = Object.entries(result.metrics.transportFlows).sort(([, a], [, b]) => b.utilization - a.utilization || b.blockedItemTicks - a.blockedItemTicks).map(([connection, flow]) => {
+      const resources = Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "no deliveries";
+      return `  ${connection.padEnd(32)} ${flow.deliveredItemsPerMinute.toFixed(3).padStart(8)}/${flow.capacityItemsPerMinute.toFixed(3)} items/min  ${(flow.utilization * 100).toFixed(1).padStart(5)}%  blocked ${flow.blockedItemTicks} item-ticks  ${resources}`;
+    });
+    write([
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
     `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
     `Belts: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}% average occupancy · ${result.metrics.averageBlockedBeltItems.toFixed(2)} blocked items · ${result.metrics.peakBeltItems} peak items`,
+    "Measured transport flows:", ...flowLines,
     `Transport endpoints: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J consumed`,
     `Result hash: ${result.resultHash}`, "",
-  ].join("\n"), false);
+    ].join("\n"), false);
+  }
 }
 
 interface MetricAssertion { kind: "metric"; path: string; min?: number; max?: number; equals?: unknown }

@@ -8,6 +8,12 @@ export interface SimulationStats {
   beltBlockedArea: number;
   peakBeltItems: number;
   transportStageActiveArea: Record<string, { loader: number; unloader: number }>;
+  connectionOccupancyArea: Record<string, number>;
+  connectionBlockedArea: Record<string, number>;
+  connectionDepartedItems: Record<string, number>;
+  connectionDeliveredItems: Record<string, number>;
+  connectionDepartedByResource: Record<string, Record<string, number>>;
+  connectionDeliveredByResource: Record<string, Record<string, number>>;
   transportEnergyConsumedMilliJoules: number;
   elapsedTicks: number;
 }
@@ -53,6 +59,24 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     const unloader = connection.logisticsStages.find((stage) => stage.stage === "unloader")!;
     return [connection.id, { loader: active.loader / duration / loader.capacity, unloader: active.unloader / duration / unloader.capacity }];
   }));
+  const transportFlows = Object.fromEntries(Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id)).map((connection) => {
+    const departedItems = stats.connectionDepartedItems[connection.id] ?? 0;
+    const deliveredItems = stats.connectionDeliveredItems[connection.id] ?? 0;
+    const departedByResource = { ...(stats.connectionDepartedByResource[connection.id] ?? {}) };
+    const deliveredByResource = { ...(stats.connectionDeliveredByResource[connection.id] ?? {}) };
+    const departedItemsPerMinute = departedItems * 60_000 / duration;
+    const deliveredItemsPerMinute = deliveredItems * 60_000 / duration;
+    const capacityItemsPerMinute = 60_000 / connection.dispatchIntervalTicks;
+    const occupancyArea = stats.connectionOccupancyArea[connection.id] ?? 0;
+    const blockedItemTicks = stats.connectionBlockedArea[connection.id] ?? 0;
+    return [connection.id, {
+      departedItems, deliveredItems, departedByResource, deliveredByResource, departedItemsPerMinute, deliveredItemsPerMinute, capacityItemsPerMinute,
+      utilization: deliveredItemsPerMinute / capacityItemsPerMinute,
+      averageInFlightItems: occupancyArea / duration,
+      blockedItemTicks,
+      blockedFraction: blockedItemTicks / Math.max(1, occupancyArea),
+    }];
+  }));
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
   const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
   const onTimeDelivery = constraints.minProduction ? Math.min(1, targetProduced / constraints.minProduction) : targetProduced > 0 ? 1 : 0;
@@ -79,7 +103,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, fuelConsumed: { ...state.energy.fuelConsumed },
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
-    transportStageUtilization, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
+    transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,
     scoreBreakdown, finalScore,
   };

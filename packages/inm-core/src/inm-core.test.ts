@@ -486,6 +486,11 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.metrics.averageBlockedBeltItems).toBeGreaterThan(0);
     expect(result.metrics.peakBeltItems).toBe(5);
     expect(result.metrics.beltCellUtilization).toBeGreaterThan(0.5);
+    expect(result.metrics.transportFlows.belt!.departedByResource["iron-ore"]).toBeGreaterThan(0);
+    expect(result.metrics.transportFlows.belt!.deliveredItems).toBe(0);
+    expect(result.metrics.transportFlows.belt!.averageInFlightItems).toBeGreaterThan(1);
+    expect(result.metrics.transportFlows.belt!.blockedItemTicks).toBeGreaterThan(0);
+    expect(result.metrics.transportFlows.belt!.blockedFraction).toBeGreaterThan(0);
   });
 
   test("splitter policies route filtered resources through explicit output ports", async () => {
@@ -698,6 +703,29 @@ describe("research boundary and experiment decisions", () => {
     expect(proposal.patch).toHaveLength(2);
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
     expect(candidate.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBeLessThan(project.connections["ore-to-smelter"]!.dispatchIntervalTicks);
+  });
+
+  test("heuristic logistics strategy can act on measured saturation without a static logistics diagnostic", async () => {
+    const source = await loaded();
+    const sorter = source.deviceAssets.sorter!;
+    sorter.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 5_000 }) };
+    const project = compileFactoryProject(source);
+    const result = runUntil(project, undefined, { seed: 42 });
+    const analysis = analyzeProduction(project);
+    const withoutStaticLogistics = {
+      ...analysis,
+      diagnostics: analysis.diagnostics.filter((diagnostic) => diagnostic.code !== "input-logistics" && diagnostic.code !== "output-logistics"),
+    };
+    expect(Object.values(result.metrics.transportFlows).some((flow) => flow.utilization >= 0.7)).toBeTrue();
+    const proposal = await new HeuristicResearchAgent().propose({
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: withoutStaticLogistics, history: [],
+    });
+    expect(proposal.strategy?.startsWith("logistics:")).toBeTrue();
+    expect(proposal.strategy).toContain("stack-sorter");
+    expect(proposal.hypothesis).toContain("simulation delivered");
+    const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
+    const connection = proposal.strategy!.split(":")[1]!;
+    expect(candidate.connections[connection]!.dispatchIntervalTicks).toBeLessThan(project.connections[connection]!.dispatchIntervalTicks);
   });
 
   test("heuristic station strategy expands a statically undersized shared fleet", async () => {

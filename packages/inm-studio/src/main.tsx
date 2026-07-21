@@ -143,6 +143,11 @@ interface Metrics {
   peakBeltItems: number;
   beltCellUtilization: number;
   transportStageUtilization: Record<string, { loader: number; unloader: number }>;
+  transportFlows: Record<string, {
+    departedItems: number; deliveredItems: number; departedByResource: Record<string, number>; deliveredByResource: Record<string, number>;
+    departedItemsPerMinute: number; deliveredItemsPerMinute: number; capacityItemsPerMinute: number; utilization: number;
+    averageInFlightItems: number; blockedItemTicks: number; blockedFraction: number;
+  }>;
   transportEnergyConsumedMilliJoules: number;
   bottleneckEntity: string | null;
   consumed: Record<string, number>;
@@ -528,7 +533,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
     <section className="analysis-browser" role="dialog" aria-modal="true" aria-label="Industrial analysis">
       <header className="analysis-header">
-        <div><span className="eyebrow">COMPILED INDUSTRIAL MODEL</span><h2>{data.name}</h2><p>Nominal rates before simulation · selected run blueprint</p></div>
+        <div><span className="eyebrow">COMPILED INDUSTRIAL MODEL</span><h2>{data.name}</h2><p>Nominal design envelope + measured selected-run flow</p></div>
         <button className="icon-button" onClick={onClose} aria-label="Close industrial analysis">×</button>
       </header>
       <div className="analysis-summary">
@@ -581,11 +586,15 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         </section>
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>LOGISTICS PIPELINES</span><b>LOADER → LINE → UNLOADER</b></div>
-          <div className="pipeline-list">{analysis.connections.map((connection) => <div className="pipeline-card" key={connection.connection}>
-            <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}</small></span><b>{connection.capacityItemsPerMinute.toFixed(1)} /min</b></div>
-            <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
-            <footer><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span><span>DISPATCH {connection.dispatchIntervalTicks}ms</span></footer>
-          </div>)}</div>
+          <div className="pipeline-list">{analysis.connections.map((connection) => {
+            const flow = data.metrics?.transportFlows[connection.connection];
+            const mix = flow ? Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") : "";
+            return <div className="pipeline-card" key={connection.connection}>
+              <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min</b></div>
+              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+              <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
+            </div>;
+          })}</div>
         </section>
         <section className="analysis-section station-analysis">
           <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>

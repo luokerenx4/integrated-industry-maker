@@ -288,39 +288,59 @@ function powerCandidates(input: ResearchInput): StrategyCandidate[] {
   return candidates;
 }
 
+function logisticsUpgradeCandidate(input: ResearchInput, connectionId: string, reason: string): StrategyCandidate | null {
+  const connectionIndex = input.blueprint.connections.findIndex((connection) => connection.id === connectionId);
+  const compiled = input.project.connections[connectionId];
+  if (connectionIndex < 0 || !compiled) return null;
+  const stageIntervals = compiled.logisticsStages.map((stage) => ({ stage, interval: Math.ceil(stage.durationTicks / stage.capacity) }));
+  const currentInterval = Math.max(...stageIntervals.map((item) => item.interval));
+  const bottlenecks = stageIntervals.filter((item) => item.interval === currentInterval);
+  const upgrades = bottlenecks.flatMap(({ stage }) => {
+    const alternatives = Object.values(input.project.deviceAssets).filter((asset) => asset.logistics?.roles.includes(stage.stage) && asset.id !== stage.asset.id).flatMap((asset) => {
+      const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: compiled.id, stage: stage.stage, distance: stage.distance });
+      if (stage.stage === "line" && plan.capacity !== stage.distance) return [];
+      const interval = Math.ceil(plan.durationTicks / plan.capacity);
+      return interval < currentInterval ? [{ asset, interval }] : [];
+    }).sort((a, b) => a.interval - b.interval || a.asset.economics.buildCost - b.asset.economics.buildCost || a.asset.id.localeCompare(b.asset.id));
+    return alternatives[0] ? [{ stage, replacement: alternatives[0] }] : [];
+  });
+  if (upgrades.length !== bottlenecks.length) return null;
+  const nextInterval = Math.max(
+    ...stageIntervals.filter((item) => item.interval < currentInterval).map((item) => item.interval),
+    ...upgrades.map((upgrade) => upgrade.replacement.interval),
+  );
+  const key = `logistics:${compiled.id}:${upgrades.map((upgrade) => `${upgrade.stage.stage}:${upgrade.replacement.asset.id}`).join("+")}`;
+  return { key, proposal: {
+    strategy: key,
+    hypothesis: `Upgrade bottleneck stages on \`${compiled.id}\` (${upgrades.map((upgrade) => `${upgrade.stage.stage}: ${upgrade.stage.asset.id} → ${upgrade.replacement.asset.id}`).join(", ")}) because ${reason}.`,
+    expectedEffect: `Reduce the end-to-end dispatch interval from ${currentInterval} ms to ${nextInterval} ms.`,
+    patch: upgrades.map((upgrade) => ({ op: "replace" as const, path: `/connections/${connectionIndex}/logistics/${upgrade.stage.stage}/deviceAsset`, value: upgrade.replacement.asset.id })),
+  } };
+}
+
 function logisticsCandidates(input: ResearchInput): StrategyCandidate[] {
   const candidates: StrategyCandidate[] = [];
   for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "input-logistics" || item.code === "output-logistics")) {
     const links = input.production.connections.filter((connection) => diagnostic.code === "input-logistics" ? connection.to === diagnostic.device : connection.from === diagnostic.device);
     for (const link of links) {
-      const connectionIndex = input.blueprint.connections.findIndex((connection) => connection.id === link.connection);
-      const compiled = input.project.connections[link.connection]; if (connectionIndex < 0 || !compiled) continue;
-      const stageIntervals = compiled.logisticsStages.map((stage) => ({ stage, interval: Math.ceil(stage.durationTicks / stage.capacity) }));
-      const currentInterval = Math.max(...stageIntervals.map((item) => item.interval));
-      const bottlenecks = stageIntervals.filter((item) => item.interval === currentInterval);
-      const upgrades = bottlenecks.flatMap(({ stage }) => {
-        const alternatives = Object.values(input.project.deviceAssets).filter((asset) => asset.logistics?.roles.includes(stage.stage) && asset.id !== stage.asset.id).flatMap((asset) => {
-          const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: compiled.id, stage: stage.stage, distance: stage.distance });
-          const interval = Math.ceil(plan.durationTicks / plan.capacity);
-          return interval < currentInterval ? [{ asset, interval }] : [];
-        }).sort((a, b) => a.interval - b.interval || a.asset.economics.buildCost - b.asset.economics.buildCost || a.asset.id.localeCompare(b.asset.id));
-        return alternatives[0] ? [{ stage, replacement: alternatives[0] }] : [];
-      });
-      if (upgrades.length !== bottlenecks.length) continue;
-      const nextInterval = Math.max(
-        ...stageIntervals.filter((item) => item.interval < currentInterval).map((item) => item.interval),
-        ...upgrades.map((upgrade) => upgrade.replacement.interval),
-      );
-      const key = `logistics:${compiled.id}:${upgrades.map((upgrade) => `${upgrade.stage.stage}:${upgrade.replacement.asset.id}`).join("+")}`;
-      candidates.push({ key, proposal: {
-        strategy: key,
-        hypothesis: `Upgrade bottleneck stages on \`${compiled.id}\` (${upgrades.map((upgrade) => `${upgrade.stage.stage}: ${upgrade.stage.asset.id} → ${upgrade.replacement.asset.id}`).join(", ")}) because ${diagnostic.message}.`,
-        expectedEffect: `Reduce the end-to-end dispatch interval from ${currentInterval} ms to ${nextInterval} ms.`,
-        patch: upgrades.map((upgrade) => ({ op: "replace" as const, path: `/connections/${connectionIndex}/logistics/${upgrade.stage.stage}/deviceAsset`, value: upgrade.replacement.asset.id })),
-      } });
+      const candidate = logisticsUpgradeCandidate(input, link.connection, diagnostic.message);
+      if (candidate) candidates.push(candidate);
     }
   }
   return candidates;
+}
+
+function measuredLogisticsCandidates(input: ResearchInput): StrategyCandidate[] {
+  return Object.entries(input.metrics.transportFlows)
+    .filter(([, flow]) => flow.deliveredItems >= 2 && flow.utilization >= 0.7)
+    .sort(([, a], [, b]) => b.utilization - a.utilization || b.blockedItemTicks - a.blockedItemTicks)
+    .flatMap(([connection, flow]) => {
+      const resourceMix = Object.entries(flow.deliveredByResource).sort(([a], [b]) => a.localeCompare(b))
+        .map(([resource, count]) => `${count} ${resource}`).join(" + ");
+      const candidate = logisticsUpgradeCandidate(input, connection,
+        `simulation delivered ${flow.deliveredItemsPerMinute.toFixed(3)}/${flow.capacityItemsPerMinute.toFixed(3)} items/min (${(flow.utilization * 100).toFixed(1)}% utilization${flow.blockedItemTicks ? `, ${flow.blockedItemTicks} blocked item-ticks` : ""}; ${resourceMix || "no delivered resources"})`);
+      return candidate ? [candidate] : [];
+    });
 }
 
 function stationCandidates(input: ResearchInput): StrategyCandidate[] {
@@ -453,7 +473,7 @@ function recipeCandidates(input: ResearchInput): StrategyCandidate[] {
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
-    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...stationCandidates(input), ...recipeCandidates(input)];
+    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input), ...recipeCandidates(input)];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;
     for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {

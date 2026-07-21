@@ -1,0 +1,16 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "stack-sorter",
+  "name": "Stack Sorter",
+  "description": "A higher-tier endpoint transfer with two concurrent item grips per cycle.",
+  "tags": ["logistics", "transfer", "sorter", "stacking"],
+  "capabilities": ["transport"],
+  "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },
+  "buffers": [],
+  "logistics": { "roles": ["loader", "unloader"] },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 5000 },
+  "economics": { "buildCost": 120 },
+  "files": { "visual": "visual.json" }
+}

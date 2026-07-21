@@ -75,13 +75,19 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   await atomicWrite(join(runDir, "events.ndjson"), `${result.events.map((event) => stableStringify(event)).join("\n")}\n`);
   if (options.hypothesis) await atomicWrite(join(runDir, "hypothesis.md"), `${options.hypothesis.trim()}\n`);
   if (options.patch) await atomicWriteJson(join(runDir, "patch.json"), options.patch);
+  const transportRows = Object.entries(result.metrics.transportFlows).sort(([, a], [, b]) => b.utilization - a.utilization || b.blockedItemTicks - a.blockedItemTicks).map(([connection, flow]) => {
+    const resources = Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "—";
+    return `| ${connection} | ${flow.deliveredItemsPerMinute.toFixed(3)} / ${flow.capacityItemsPerMinute.toFixed(3)} | ${(flow.utilization * 100).toFixed(1)}% | ${flow.blockedItemTicks} | ${resources} |`;
+  });
   const report = [
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
     `- Score: **${result.metrics.finalScore.toFixed(3)}**`, `- Result hash: \`${result.resultHash}\``,
     `- Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`, `- Throughput/min: ${result.metrics.throughputPerMinute.toFixed(3)}`,
     `- Belt utilization: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}%`, `- Average blocked belt items: ${result.metrics.averageBlockedBeltItems.toFixed(3)}`, `- Peak belt items: ${result.metrics.peakBeltItems}`,
     `- Powered transport energy: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J`,
-    result.metrics.infeasibleReason ? `- Infeasible: ${result.metrics.infeasibleReason}` : "- Feasible: yes", "", "## Score breakdown", "",
+    result.metrics.infeasibleReason ? `- Infeasible: ${result.metrics.infeasibleReason}` : "- Feasible: yes", "", "## Measured transport flows", "",
+    "| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |",
+    "| --- | ---: | ---: | ---: | --- |", ...transportRows, "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",
   ].join("\n");
   await atomicWrite(join(runDir, "report.md"), report);

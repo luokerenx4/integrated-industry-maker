@@ -52,7 +52,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
     durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
-    transportStageActiveArea: {}, transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
+    transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
+    connectionDepartedByResource: {}, connectionDeliveredByResource: {},
+    transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
   };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
   const dispatchCursors: Record<string, number> = {};
@@ -127,6 +129,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const active = stats.transportStageActiveArea[connectionId] ??= { loader: 0, unloader: 0 };
       active.loader += transits.filter((transit) => transit.phase === "loading").length * delta;
       active.unloader += transits.filter((transit) => transit.phase === "unloading").length * delta;
+      stats.connectionOccupancyArea[connectionId] = (stats.connectionOccupancyArea[connectionId] ?? 0)
+        + transits.reduce((sum, transit) => sum + transit.count, 0) * delta;
+      stats.connectionBlockedArea[connectionId] = (stats.connectionBlockedArea[connectionId] ?? 0)
+        + transits.filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0) * delta;
     }
     for (const grid of Object.keys(project.powerGrids).sort()) {
       const available = availablePower(grid); const transportLoad = activeTransportPower(grid); const nonTransportLoad = activePower(grid) - transportLoad;
@@ -242,6 +248,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         phase: "loading", cellIndex: -1, readyTick: state.tick + loader.durationTicks,
       };
       mutateFactoryState(state, { kind: "transport.add", connection: connection.id, transit });
+      stats.connectionDepartedItems[connection.id] = (stats.connectionDepartedItems[connection.id] ?? 0) + transit.count;
+      const departedByResource = stats.connectionDepartedByResource[connection.id] ??= {};
+      departedByResource[transit.resource] = (departedByResource[transit.resource] ?? 0) + transit.count;
       emit({ type: "resource.depart", tick: state.tick, transit: { ...transit }, connection: connection.id });
       schedule(transit.readyTick, 8, { kind: "belt-step", connection: connection.id, transitId: transit.id });
       nextDispatchTick[connection.id] = state.tick + connection.loaderDispatchIntervalTicks;
@@ -559,6 +568,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (transit.phase !== "unloading" || transit.readyTick !== state.tick) continue;
       mutateFactoryState(state, { kind: "transport.remove", connection: event.connection, transitId: transit.id });
       mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count });
+      stats.connectionDeliveredItems[event.connection] = (stats.connectionDeliveredItems[event.connection] ?? 0) + transit.count;
+      const deliveredByResource = stats.connectionDeliveredByResource[event.connection] ??= {};
+      deliveredByResource[transit.resource] = (deliveredByResource[transit.resource] ?? 0) + transit.count;
       emit({ type: "resource.arrive", tick: state.tick, transit: { ...transit }, connection: event.connection });
     } else if (event.kind === "station-arrive") {
       const transits = state.logisticsTransports[event.network]!; const index = transits.findIndex((transit) => transit.id === event.transitId);
