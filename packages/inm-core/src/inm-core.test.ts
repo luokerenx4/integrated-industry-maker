@@ -6,7 +6,7 @@ import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
-  rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
+  parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
@@ -2510,6 +2510,34 @@ describe("research boundary and experiment decisions", () => {
     expect(dedicatedLayerTwo?.path.some((cell) => (cell.level ?? 0) > 0)).toBeTrue();
     expect(etchCandidates[0]!.blueprint.devices.filter((device) => device.transportEndpoint)
       .every((device) => !("level" in device.position))).toBeTrue();
+  }, 20_000);
+
+  test("authors explicit parallel work-center topology and lets the Objective reject unaffordable capacity", async () => {
+    const source = await loadFactoryProject(memoryFab, {
+      blueprint: "experiment", world: "cleanroom", scenario: "quality-excursion", objective: "dram-output",
+    });
+    const project = compileFactoryProject(source);
+    const parallel = parallelizeWorkCenter(project, project.blueprint, { device: "inspection-1", cloneId: "inspection-2" });
+    expect(parallel).not.toBeNull();
+    expect(parallel).toEqual(expect.objectContaining({
+      originalDevice: "inspection-1", parallelDevice: "inspection-2", addedBuildCost: 22_600, addedArea: 13,
+    }));
+    expect(parallel!.junctionDevices).toHaveLength(1);
+    expect(stableStringify(applyResearchPatch(project.blueprint, parallel!.patch))).toBe(stableStringify(parallel!.blueprint));
+    const candidate = compileFactoryProject({ ...source, blueprint: parallel!.blueprint });
+    expect(candidate.devices["inspection-1"]!.processPlans[0]!.definition.id).toBe("inspect-final-pattern-deep");
+    expect(candidate.devices["inspection-2"]!.processPlans[0]!.definition.id).toBe("inspect-final-pattern-deep");
+    const dispatcher = parallel!.junctionDevices[0]!;
+    expect(Object.values(candidate.connections).filter((connection) => connection.from.device === dispatcher)).toHaveLength(2);
+    const endpointOwners = parallel!.blueprint.devices.filter((device) => device.transportEndpoint)
+      .map((device) => `${device.transportEndpoint!.connection}/${device.transportEndpoint!.stage}`);
+    expect(new Set(endpointOwners).size).toBe(endpointOwners.length);
+    const result = runUntil(candidate, undefined, { seed: 42 });
+    expect(result.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({
+      completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
+    }));
+    expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
+    expect(result.metrics.infeasibleReason).toBe("build cost 156260 exceeds 140000");
   }, 20_000);
 
   test("Blueprint comparison exposes an unfed treatment mode as a regression", async () => {

@@ -226,7 +226,9 @@ function placeDevice(blueprint: Blueprint, device: Blueprint["devices"][number],
   return false;
 }
 
-function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFactoryProject["devices"][string], reason: string, strategyKey = `capacity:${original.id}`): StrategyCandidate | null {
+type TopologyResearchInput = Pick<ResearchInput, "blueprint" | "project" | "production">;
+
+function duplicateProcessorCandidate(input: TopologyResearchInput, original: CompiledFactoryProject["devices"][string], reason: string, strategyKey = `capacity:${original.id}`): StrategyCandidate | null {
   const instance = input.blueprint.devices.find((device) => device.id === original.id);
   const junctionAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("transport-junction")
     && asset.geometry.ports.filter((port) => port.direction === "input").length >= 2
@@ -345,6 +347,161 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
       patch,
     },
   };
+}
+
+export interface WorkCenterParallelizationRequest {
+  device: string;
+  cloneId?: string;
+}
+
+export interface WorkCenterParallelizationResult {
+  blueprint: Blueprint;
+  patch: JsonPatchOperation[];
+  originalDevice: string;
+  parallelDevice: string;
+  junctionDevices: string[];
+  addedBuildCost: number;
+  addedArea: number;
+}
+
+function routeNewConnection(
+  blueprint: Blueprint,
+  project: CompiledFactoryProject,
+  connection: Blueprint["connections"][number],
+): boolean {
+  const paths = [
+    findBlueprintConnectionPath(blueprint, project.world, project.deviceAssets, connection, { allowEndTransportCell: true }),
+    findBlueprintConnectionPath(blueprint, project.world, project.deviceAssets, connection, { allowEndTransportCell: true, elevated: true }),
+  ].filter((path): path is NonNullable<typeof path> => path !== null)
+    .sort((left, right) => left.length - right.length || Number(left.some((cell) => (cell.level ?? 0) > 0)) - Number(right.some((cell) => (cell.level ?? 0) > 0)));
+  if (!paths[0]) return false;
+  connection.path = paths[0];
+  blueprint.connections.push(connection);
+  return true;
+}
+
+function parallelWorkCenterTopology(
+  project: CompiledFactoryProject,
+  blueprint: Blueprint,
+  originalDevice: string,
+  cloneId: string,
+  clonePlacement: { position: { x: number; y: number }; rotation: Blueprint["devices"][number]["rotation"] },
+  junctionPlacement: { position: { x: number; y: number }; rotation: Blueprint["devices"][number]["rotation"] },
+): Blueprint | null {
+  const original = blueprint.devices.find((device) => device.id === originalDevice);
+  const junctionAsset = Object.values(project.deviceAssets).find((asset) => asset.capabilities.includes("transport-junction")
+    && asset.geometry.ports.filter((port) => port.direction === "input").length >= 2
+    && asset.geometry.ports.filter((port) => port.direction === "output").length >= 2);
+  if (!original || !junctionAsset) return null;
+  const candidate = structuredClone(blueprint);
+  const clone = { ...structuredClone(original), id: cloneId, ...clonePlacement };
+  if (overlaps(candidate, clone, project)) return null;
+  candidate.devices.push(clone);
+  const junction: Blueprint["devices"][number] = {
+    id: uniqueDeviceId(candidate, `${originalDevice}-dispatcher`), asset: junctionAsset.id, region: original.region,
+    ...junctionPlacement, policy: { dispatch: "round-robin" },
+  };
+  if (overlaps(candidate, junction, project)) return null;
+  candidate.devices.push(junction);
+
+  const incoming = candidate.connections.filter((connection) => connection.to.device === originalDevice);
+  const outgoing = candidate.connections.filter((connection) => connection.from.device === originalDevice);
+  const inputPorts = junctionAsset.geometry.ports.filter((port) => port.direction === "input");
+  const outputPorts = junctionAsset.geometry.ports.filter((port) => port.direction === "output");
+  if (incoming.length < 1 || incoming.length > inputPorts.length || outputPorts.length < 2
+    || new Set(incoming.map((connection) => connection.to.port)).size !== 1) return null;
+  const inputResources = [...new Set(incoming.flatMap((connection) => connection.resources))].sort();
+  const incomingIds = new Set(incoming.map((connection) => connection.id));
+  candidate.connections = candidate.connections.filter((connection) => !incomingIds.has(connection.id));
+
+  for (const [index, connection] of incoming.entries()) {
+    const routed = {
+      ...structuredClone(connection), to: { device: junction.id, port: inputPorts[index]!.id }, path: [],
+    };
+    if (!routeNewConnection(candidate, project, routed)) return null;
+  }
+  const dispatchTemplate = incoming[0]!;
+  for (const [index, target] of [originalDevice, cloneId].entries()) {
+    const routed: Blueprint["connections"][number] = {
+      ...structuredClone(dispatchTemplate), id: uniqueConnectionId(candidate, `${originalDevice}-dispatch-${target}`),
+      from: { device: junction.id, port: outputPorts[index]!.id }, to: { device: target, port: dispatchTemplate.to.port },
+      resources: inputResources, path: [],
+    };
+    if (!routeNewConnection(candidate, project, routed)) return null;
+  }
+  for (const connection of outgoing) {
+    const routed: Blueprint["connections"][number] = {
+      ...structuredClone(connection), id: uniqueConnectionId(candidate, `${connection.id}-${cloneId}`),
+      from: { device: cloneId, port: connection.from.port }, path: [],
+    };
+    if (!routeNewConnection(candidate, project, routed)) return null;
+  }
+  try {
+    rebuildTransportEndpoints(candidate, project);
+    compileFactoryProject({ ...project, blueprint: candidate });
+  } catch { return null; }
+  return candidate;
+}
+
+/**
+ * Duplicate one complete physical work center and rebuild every adjacent material
+ * lane through explicit project-local junctions and sorter endpoints. The result
+ * is ordinary Blueprint code: the evaluator receives no implicit equipment pool
+ * and every extra tool, junction, belt cell, sorter, watt, and currency unit stays
+ * visible to simulation and scoring.
+ */
+export function parallelizeWorkCenter(
+  project: CompiledFactoryProject,
+  blueprint: Blueprint,
+  request: WorkCenterParallelizationRequest,
+): WorkCenterParallelizationResult | null {
+  const original = project.devices[request.device];
+  if (!original) return null;
+  const authored = blueprint.devices.find((device) => device.id === request.device);
+  const region = project.regions[original.region];
+  if (!authored || !region) return null;
+  const positions = Array.from({ length: region.bounds.width * region.bounds.height }, (_, index) => ({
+    x: index % region.bounds.width, y: Math.floor(index / region.bounds.width),
+  })).sort((left, right) => Math.hypot(left.x - original.position.x, left.y - original.position.y)
+    - Math.hypot(right.x - original.position.x, right.y - original.position.y) || left.y - right.y || left.x - right.x);
+  const rotations = ([authored.rotation, 0, 90, 180, 270] as const).filter((rotation, index, values) => values.indexOf(rotation) === index);
+  const cloneId = request.cloneId ?? uniqueDeviceId(blueprint, `${request.device}-parallel`);
+  if (blueprint.devices.some((device) => device.id === cloneId)) return null;
+  const junctionAsset = Object.values(project.deviceAssets).find((asset) => asset.capabilities.includes("transport-junction")
+    && asset.geometry.ports.filter((port) => port.direction === "input").length >= 2
+    && asset.geometry.ports.filter((port) => port.direction === "output").length >= 2);
+  if (!junctionAsset) return null;
+  const clonePlacements = positions.flatMap((position) => rotations.map((rotation) => ({ position, rotation })))
+    .filter((placement) => !overlaps(blueprint, { ...structuredClone(authored), id: cloneId, ...placement }, project))
+    .slice(0, 48);
+  const junctionPlacements = positions.flatMap((position) => ([0, 90, 180, 270] as const).map((rotation) => ({ position, rotation })))
+    .filter((placement) => !overlaps(blueprint, {
+      id: `${request.device}-dispatcher-probe`, asset: junctionAsset.id, region: authored.region, ...placement,
+    }, project)).slice(0, 64);
+  let next: Blueprint | null = null;
+  for (const clonePlacement of clonePlacements) {
+    for (const junctionPlacement of junctionPlacements) {
+      next = parallelWorkCenterTopology(project, blueprint, request.device, cloneId,
+        clonePlacement, junctionPlacement);
+      if (next) break;
+    }
+    if (next) break;
+  }
+  const selected = next as Blueprint | null;
+  if (!selected) return null;
+  const patch = topologyPatch(blueprint, selected);
+  const replayed = applyResearchPatch(blueprint, patch);
+  compileFactoryProject({ ...project, blueprint: replayed });
+  const added = replayed.devices.filter((device) => !blueprint.devices.some((current) => current.id === device.id) && !device.transportEndpoint);
+  const junctionDevices = added.filter((device) => project.deviceAssets[device.asset]?.capabilities.includes("transport-junction")).map((device) => device.id);
+  const addedBuildCost = added.reduce((sum, device) => sum + (project.deviceAssets[device.asset]?.economics.buildCost ?? 0), 0);
+  const addedArea = added.reduce((sum, device) => {
+    const asset = project.deviceAssets[device.asset];
+    if (!asset) return sum;
+    const footprint = rotatedFootprint(asset, device.rotation);
+    return sum + footprint.width * footprint.height;
+  }, 0);
+  return { blueprint: replayed, patch, originalDevice: request.device, parallelDevice: cloneId, junctionDevices, addedBuildCost, addedArea };
 }
 
 export interface WorkCenterSpecializationRequest {

@@ -18,7 +18,9 @@ The TypeScript commands `bun run memory-fab:research-release` and `bun run memor
 
 `bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Q-time changed its optimum: the previous 7/7/4 lithography/etch/inspection policy scores `30.467190`, while the new 7/off/3 policy scores `31.765837` (`+1.298647`) and clears every case gate. Against mandatory-only maintenance at `30.855063`, the selected policy adds `+0.910774`.
 
-Coding Agents may next test parallel inspection, furnace duplication, maintenance-aware tool counts, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, mandatory/opportunistic/cancelled maintenance, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.
+`bun run memory-fab:research-metrology` authors a complete second deep-inspection topology with a finite project-local dispatcher, independent lanes and explicit sorters, then jointly searches shared/dedicated lithography and etch capital allocation plus inspection maintenance and dispatch. The extra tool clears final-inspection Q-time loss, but the incumbent layout costs `156260` against the fixed `140000` limit. The best budget-feasible parallel layout scores `23.078411`, below the incumbent `31.765837`, and fails the interruption gate. This is retained negative evidence; the checked-in candidate does not buy the second bay.
+
+Coding Agents may next test a different project-local metrology equipment class, furnace duplication, maintenance-aware tool counts, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, mandatory/opportunistic/cancelled maintenance, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.
 
 Run:
 
@@ -32,6 +34,7 @@ bun run memory-fab:research-campaign
 bun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo
 bun run memory-fab:research-tools
 bun run memory-fab:research-maintenance
+bun run memory-fab:research-metrology
 bun run memory-fab:research-qtime
 ```
 

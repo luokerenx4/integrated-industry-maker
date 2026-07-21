@@ -1,0 +1,24 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "splitter",
+  "name": "Splitter",
+  "description": "A belt junction with a shared internal buffer, deterministic merge/split arbitration, priorities, and resource filtering.",
+  "tags": ["logistics", "junction", "routing"],
+  "capabilities": ["store", "transport-junction"],
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "input-west", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "storage" },
+      { "id": "input-south", "direction": "input", "kind": "resource", "side": "south", "offset": 1, "buffer": "storage" },
+      { "id": "output-east", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "storage" },
+      { "id": "output-north", "direction": "output", "kind": "resource", "side": "north", "offset": 1, "buffer": "storage" }
+    ]
+  },
+  "buffers": [{ "id": "storage", "role": "internal", "capacity": 8, "accepts": ["*"] }],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "idleMilliWatts": 20000, "activeMilliWatts": 20000 },
+  "economics": { "buildCost": 600 },
+  "files": { "visual": "visual.json" }
+}
