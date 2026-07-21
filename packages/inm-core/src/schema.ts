@@ -198,6 +198,7 @@ export const blueprintSchema = z.object({
     powerAllocation: z.enum(["proportional", "priority-load-shedding"]),
     lotRelease: z.object({
       kind: z.literal("conwip"), maximumWip: positiveInt, reopenAtWip: nonNegativeInt,
+      maximumReleaseDelayTicks: nonNegativeInt.optional(),
       dispatch: z.enum(["fifo", "earliest-due-date", "highest-priority"]),
     }).strict().optional(),
   }).strict(),

@@ -9,6 +9,7 @@ export interface SimulationStats {
   beltBlockedArea: number;
   peakBeltItems: number;
   peakActiveLots: number;
+  releaseControlServiceLevelOpenings: number;
   transportStageActiveArea: Record<string, { loader: number; unloader: number }>;
   connectionOccupancyArea: Record<string, number>;
   connectionBlockedArea: Record<string, number>;
@@ -91,12 +92,14 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     control: releasePolicy ? "conwip" : "open-loop",
     maximumWip: releasePolicy?.maximumWip ?? null,
     reopenAtWip: releasePolicy?.reopenAtWip ?? null,
+    maximumReleaseDelayPolicyTicks: releasePolicy?.maximumReleaseDelayTicks ?? null,
     dispatch: releasePolicy?.dispatch ?? null,
     peakActiveLots: stats.peakActiveLots,
     capacityBlockedLots: targetLots.filter((lot) => capacityReasons.some((reason) => lot.releaseWait.encountered.includes(reason))).length,
     capacityBlockedTicks: targetLots.reduce((sum, lot) => sum + capacityReasons.reduce((lotSum, reason) => lotSum + releaseBlockedTicks(lot, reason), 0), 0),
     controlBlockedLots: targetLots.filter((lot) => lot.releaseWait.encountered.includes("conwip-limit")).length,
     controlBlockedTicks: targetLots.reduce((sum, lot) => sum + releaseBlockedTicks(lot, "conwip-limit"), 0),
+    serviceLevelOpenings: stats.releaseControlServiceLevelOpenings,
   };
   const defectFreeCompleted = completedTargetLots.filter((lot) => lot.quality.defects.length === 0).length;
   const firstPassCompleted = completedTargetLots.filter((lot) => lot.quality.reworkCycles === 0 && lot.quality.defects.length === 0).length;

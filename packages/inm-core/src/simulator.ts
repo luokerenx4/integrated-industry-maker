@@ -169,6 +169,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
     durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
+    releaseControlServiceLevelOpenings: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {}, stationFleetBusyArea: {}, stationFleetCompletedReturns: {},
     lotProcessBatches: {},
@@ -226,11 +227,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (event.type === "power.shortage") unmetPowerDemand[event.device] = event.requiredMilliWatts;
     events.push(event); publicEventCount++;
   };
-  const setReleaseControlOpen = (open: boolean): boolean => {
+  const setReleaseControlOpen = (open: boolean, cause?: "reopen-threshold" | "maximum-release-delay"): boolean => {
     if (!releasePolicy || state.lotReleaseControl.open === open) return false;
     mutateFactoryState(state, { kind: "lot.release-control", open });
-    emit({
-      type: open ? "lot.release-control-opened" : "lot.release-control-closed", tick: state.tick,
+    if (open) {
+      if (!cause) throw new Error("Opening the lot release controller requires a cause");
+      if (cause === "maximum-release-delay") stats.releaseControlServiceLevelOpenings++;
+      emit({
+        type: "lot.release-control-opened", tick: state.tick, cause,
+        activeWip: activeLotWip(), reopenAtWip: releasePolicy.reopenAtWip, maximumWip: releasePolicy.maximumWip,
+      });
+    } else emit({
+      type: "lot.release-control-closed", tick: state.tick,
       activeWip: activeLotWip(), reopenAtWip: releasePolicy.reopenAtWip, maximumWip: releasePolicy.maximumWip,
     });
     return true;
@@ -1532,8 +1540,17 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     while (changed && guard++ < 100_000) {
       syncPowerAvailability();
       let releaseControlChanged = false;
-      if (releasePolicy && !state.lotReleaseControl.open && activeLotWip() <= releasePolicy.reopenAtWip) {
-        releaseControlChanged = setReleaseControlOpen(true);
+      if (releasePolicy && !state.lotReleaseControl.open) {
+        const activeWip = activeLotWip();
+        const reopenThresholdDue = activeWip <= releasePolicy.reopenAtWip;
+        const serviceLevelDue = releasePolicy.maximumReleaseDelayTicks !== undefined && activeWip < releasePolicy.maximumWip
+          && [...eligibleLotReleases].some((id) => {
+            const lot = state.lots[id];
+            return lot?.status === "scheduled" && state.tick - lot.plannedReleaseTick >= releasePolicy.maximumReleaseDelayTicks!;
+          });
+        if (reopenThresholdDue || serviceLevelDue) {
+          releaseControlChanged = setReleaseControlOpen(true, reopenThresholdDue ? "reopen-threshold" : "maximum-release-delay");
+        }
       }
       let lotsReleased = false;
       for (const id of [...eligibleLotReleases].sort(compareEligibleLots)) {

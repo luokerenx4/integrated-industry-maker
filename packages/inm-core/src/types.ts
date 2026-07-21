@@ -322,6 +322,8 @@ export interface ConwipReleasePolicy {
   maximumWip: number;
   /** A closed controller opens again only at or below this WIP, allowing deterministic replenishment waves. */
   reopenAtWip: number;
+  /** Optional service guard: a delayed eligible lot may reopen below the hard cap before the low watermark. */
+  maximumReleaseDelayTicks?: Tick;
   /** Deterministic arbitration when more eligible lots exist than open WIP slots. */
   dispatch: LotReleaseDispatchPolicy;
 }
@@ -871,7 +873,7 @@ export interface FactoryState {
 export type FactoryEvent =
   | { type: "lot.released"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; family: string; resource: ResourceId; plannedReleaseTick: Tick; releaseDelayTicks: Tick; releaseControl: "open-loop" | "conwip"; activeWipBeforeRelease: number }
   | { type: "lot.release-blocked"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; reason: LotReleaseBlockReason; activeWip: number; maximumWip: number | null }
-  | { type: "lot.release-control-opened"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
+  | { type: "lot.release-control-opened"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number; cause: "reopen-threshold" | "maximum-release-delay" }
   | { type: "lot.release-control-closed"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
@@ -972,12 +974,14 @@ export interface FactoryMetrics {
     control: "open-loop" | "conwip";
     maximumWip: number | null;
     reopenAtWip: number | null;
+    maximumReleaseDelayPolicyTicks: Tick | null;
     dispatch: LotReleaseDispatchPolicy | null;
     peakActiveLots: number;
     capacityBlockedLots: number;
     capacityBlockedTicks: Tick;
     controlBlockedLots: number;
     controlBlockedTicks: Tick;
+    serviceLevelOpenings: number;
   };
   qualityFlow: {
     inspectedLots: number;

@@ -672,7 +672,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     diagnostics.push({
       code: "lot-release-control", severity: "info",
       message: control
-        ? `Blueprint uses CONWIP admission with maximum ${control.maximumWip} active lots, reopening at ${control.reopenAtWip}, and ${control.dispatch} eligible-lot dispatch`
+        ? `Blueprint uses CONWIP admission with maximum ${control.maximumWip} active lots, reopening at ${control.reopenAtWip}${control.maximumReleaseDelayTicks === undefined ? "" : ` or after ${control.maximumReleaseDelayTicks} ms release delay`}, and ${control.dispatch} eligible-lot dispatch`
         : "Blueprint uses open-loop lot admission; every eligible lot enters as soon as the physical release boundary has capacity",
     });
   }

@@ -704,8 +704,9 @@ describe("blueprint compiler", () => {
     expect(baseline.metrics.releaseFlow).toEqual(expect.objectContaining({
       scheduled: 12, released: 12, pending: 0, plannedSpanTicks: 66_000, actualSpanTicks: 66_000,
       meanPlannedIntervalTicks: 6_000, meanActualIntervalTicks: 6_000, meanReleaseDelayTicks: 0, maximumReleaseDelayTicks: 0,
-      control: "open-loop", maximumWip: null, reopenAtWip: null, dispatch: null, peakActiveLots: 12,
+      control: "open-loop", maximumWip: null, reopenAtWip: null, maximumReleaseDelayPolicyTicks: null, dispatch: null, peakActiveLots: 12,
       capacityBlockedLots: 0, capacityBlockedTicks: 0, controlBlockedLots: 0, controlBlockedTicks: 0,
+      serviceLevelOpenings: 0,
     }));
     expect(baseline.metrics.qualityFlow).toEqual(expect.objectContaining({
       inspectedLots: 12, totalInspections: 14, passedInspections: 11, rejectedInspections: 2,
@@ -758,15 +759,28 @@ describe("blueprint compiler", () => {
     };
     const controlled = runUntil(compileFactoryProject(controlledSource), undefined, { seed: 42 });
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
-      control: "conwip", maximumWip: 5, reopenAtWip: 2, dispatch: "earliest-due-date", peakActiveLots: 5,
+      control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
+      dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
       controlBlockedLots: 7, controlBlockedTicks: 539_800, capacityBlockedLots: 0,
     }));
     expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
     expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(3);
+    expect(controlled.events.filter((event) => event.type === "lot.release-control-opened").every((event) => event.type === "lot.release-control-opened" && event.cause === "reopen-threshold")).toBeTrue();
     expect(controlled.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.releaseControl === "conwip" && event.activeWipBeforeRelease < 5)).toBeTrue();
     expect(controlled.events.filter((event) => event.type === "lot.released" && event.tick === 76_900).map((event) => event.type === "lot.released" ? event.lot : "")).toEqual([
       "dram-lot-12", "dram-lot-11", "dram-lot-10",
     ]);
+
+    const serviceProtectedSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    serviceProtectedSource.blueprint.policies.lotRelease = {
+      kind: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayTicks: 24_000, dispatch: "earliest-due-date",
+    };
+    const serviceProtected = runUntil(compileFactoryProject(serviceProtectedSource), undefined, { seed: 42 });
+    expect(serviceProtected.metrics.releaseFlow).toEqual(expect.objectContaining({
+      maximumWip: 5, maximumReleaseDelayPolicyTicks: 24_000, peakActiveLots: 5, serviceLevelOpenings: 7,
+    }));
+    expect(serviceProtected.events.filter((event) => event.type === "lot.release-control-opened" && event.cause === "maximum-release-delay")).toHaveLength(7);
+    expect(serviceProtected.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.activeWipBeforeRelease < 5)).toBeTrue();
 
     const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
