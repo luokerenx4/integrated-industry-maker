@@ -69,6 +69,9 @@
           "y": 11
         }
       ],
+      "resources": [
+        "crude-oil"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-refine-crude-1",
@@ -176,6 +179,9 @@
           "y": 8
         }
       ],
+      "resources": [
+        "hydrogen"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-make-plastic-1",
@@ -258,6 +264,9 @@
           "y": 9
         }
       ],
+      "resources": [
+        "refined-oil"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-make-plastic-1",
@@ -292,6 +301,9 @@
           "x": 17,
           "y": 8
         }
+      ],
+      "resources": [
+        "plastic"
       ],
       "stackSize": 1,
       "to": {

@@ -131,6 +131,7 @@ export const blueprintSchema = z.object({
   }).strict()),
   connections: z.array(z.object({
     id, from: z.object({ device: id, port: id }).strict(), to: z.object({ device: id, port: id }).strict(),
+    resources: z.array(id).min(1),
     path: z.array(z.object({ x: nonNegativeInt, y: nonNegativeInt, level: nonNegativeInt.optional() }).strict()).min(1),
     stackSize: positiveInt.optional(),
     logistics: z.object({

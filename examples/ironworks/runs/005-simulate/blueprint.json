@@ -49,6 +49,9 @@
           "y": 0
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "stackSize": 4,
       "to": {
         "device": "stack-target",

@@ -203,6 +203,7 @@ interface IndustrialAnalysis {
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number; maxLevel: number;
+    resources: string[];
     capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
@@ -260,6 +261,7 @@ interface StudioData {
     id: string;
     fromDevice: string;
     toDevice: string;
+    resources: string[];
     from: { x: number; y: number; level: number };
     to: { x: number; y: number; level: number };
     points: Array<{ x: number; y: number; level: number }>;
@@ -634,6 +636,10 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
       <div className="inspector-endpoints">
         <button onClick={() => onSelection({ kind: "device", id: connection.fromDevice })}><small>SOURCE</small><b>{connection.fromDevice}</b></button><i>→</i><button onClick={() => onSelection({ kind: "device", id: connection.toDevice })}><small>TARGET</small><b>{connection.toDevice}</b></button>
       </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>MATERIAL FILTER</span><b>EXACT ALLOWLIST</b></div>
+        <div className="inspector-chip-row">{connection.resources.map((resource) => <span key={resource}>{resource}</span>)}</div>
+      </div>
       <div className="inspector-facts">
         <span><small>TRAVEL</small><b>{analysis?.travelTicks ?? "—"} ms</b></span>
         <span><small>DISPATCH</small><b>{analysis?.dispatchIntervalTicks ?? "—"} ms</b></span>
@@ -849,7 +855,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             const flow = data.metrics?.transportFlows[connection.connection];
             const mix = flow ? Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") : "";
             return <div className="pipeline-card" key={connection.connection}>
-              <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
+              <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to} · FILTER {connection.resources.join(" + ")}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
               <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.distance} cells · {stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
               <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.maxLevel ? ` · LEVEL ${connection.maxLevel}` : ""}{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
             </div>;

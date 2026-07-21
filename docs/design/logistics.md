@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics, distance-aware sorter spans, stacking, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.31.0`.
+Status: physical local logistics, exact connection Resource filters, distance-aware sorter spans, stacking, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.32.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -10,11 +10,13 @@ This document owns local material movement, sorter/line stages, belt cells and l
 
 ## Local connection model
 
-Each Blueprint connection owns one source port, one target port, an explicit ordered grid path, a requested stack size, and three project-local transport assets:
+Each Blueprint connection owns one source port, one target port, a non-empty exact Resource allowlist, an explicit ordered grid path, a requested stack size, and three project-local transport assets:
 
 ```text
 source buffer → loader → concrete belt cells → unloader → target buffer
 ```
+
+The Resource allowlist is authored state, not a cache of endpoint compatibility. Compilation resolves every listed Resource against the project catalog and both effective endpoint buffer contracts, rejects duplicates or incompatible entries, and computes stack/capacity limits only for the declared set. Runtime dispatch considers source inventory only when its Resource appears in that list. Multiple listed Resources intentionally share the lane; independent single-Resource lanes remain explicit even when both ends are wildcard buffers.
 
 Loader and unloader distance is an explicit positive Blueprint value. A sorter asset that supports either endpoint role declares `logistics.endpointRange = { minimum, maximum }`; the compiler rejects a selected span outside that range. Line distance equals routed belt-cell count. Each stage's actual distance is passed to its TypeScript `planTransport()`, so a project-local sorter can lose trips/min with reach while a future tier can implement a different distance curve. The compiler intersects stage stack limits with the Resource asset's stack limit and computes independent stage clocks.
 
@@ -41,7 +43,7 @@ A transport-junction is a real powered Device with an internal buffer and multip
 
 A physical port and local lane may not exceed the best project-local pipeline capacity. When demand is higher, synthesis creates more processor/extractor/consumer endpoints, independently routed lanes, and parallel station pairs. It never reports one fictional over-capacity trunk.
 
-For each planned local flow, synthesis enumerates every supported loader/unloader span together with ground and raised belt routes. It executes the candidate endpoint and line runtimes at their actual distances, rejects candidates below required items/min, scores project-local build and energy cost, and globally reserves a conflict-free set of belt cells. A longer sorter arm may remove belt cells and improve compactness, but its distance-dependent cycle can force a faster or stacked tier; the selected distances are written into the generated Blueprint and synthesis report.
+For each planned local flow, synthesis writes a one-Resource lane allowlist, then enumerates every supported loader/unloader span together with ground and raised belt routes. It executes the candidate endpoint and line runtimes at their actual distances, rejects candidates below required items/min, scores project-local build and energy cost, and globally reserves a conflict-free set of belt cells. A longer sorter arm may remove belt cells and improve compactness, but its distance-dependent cycle can force a faster or stacked tier; the selected Resource, distances, and assets are written into the generated Blueprint and synthesis report.
 
 ## Station logistics
 
@@ -79,7 +81,7 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 
 ## Telemetry
 
-Every connection records each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection reports its authored Resource allowlist plus each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 
@@ -92,7 +94,7 @@ Every connection records each stage's physical distance and duration, departed/d
 ## Verification
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|sorter span|endpoint reach|stack|junction|station|parallel lanes"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|connection Resource filter|sorter span|endpoint reach|stack|junction|station|parallel lanes"
 bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --blueprint stacked-cargo --scenario stacked-cargo --objective stacked-cargo
 ```

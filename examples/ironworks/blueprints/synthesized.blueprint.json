@@ -61,6 +61,9 @@
           "y": 6
         }
       ],
+      "resources": [
+        "coal"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-forge-gear-pair-1",
@@ -116,6 +119,9 @@
           "y": 8
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-smelt-iron-1",
@@ -150,6 +156,9 @@
           "x": 5,
           "y": 7
         }
+      ],
+      "resources": [
+        "iron-plate"
       ],
       "stackSize": 1,
       "to": {
@@ -202,6 +211,9 @@
           "y": 9
         }
       ],
+      "resources": [
+        "iron-plate"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-iron-plate-forge-world-station-supply-1",
@@ -232,6 +244,9 @@
           "x": 9,
           "y": 7
         }
+      ],
+      "resources": [
+        "gear"
       ],
       "stackSize": 1,
       "to": {

@@ -1,7 +1,7 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
   BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, CompiledTransportCell, DeviceAsset,
-  IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue, WorldResourceNode,
+  IndustrialProcess, ProjectHashes, ResourceAsset, ResourceId, ValidationIssue, WorldResourceNode,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
@@ -669,8 +669,25 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (fromPort.kind !== toPort.kind) issues.push({ path, code: "port.kind", message: `Incompatible port kinds '${fromPort.kind}' and '${toPort.kind}'` });
     const sourceResources = from.buffers[fromPort.buffer]?.accepts ?? [];
     const targetResources = to.buffers[toPort.buffer]?.accepts ?? [];
-    if (!sourceResources.includes("*") && !targetResources.includes("*") && !sourceResources.some((resource) => targetResources.includes(resource))) {
-      issues.push({ path, code: "port.resource-contract", message: `Connection '${connection.id}' has no resource accepted by both endpoint buffers` });
+    const compatibleResources: ResourceId[] = [];
+    const seenConnectionResources = new Set<ResourceId>();
+    if (!connection.resources.length) issues.push({ path: `${path}/resources`, code: "connection.resources-required", message: `Connection '${connection.id}' must declare at least one transported Resource` });
+    for (const [resourceIndex, resource] of connection.resources.entries()) {
+      const resourcePath = `${path}/resources/${resourceIndex}`;
+      if (seenConnectionResources.has(resource)) {
+        issues.push({ path: resourcePath, code: "connection.resource-duplicate", message: `Connection '${connection.id}' declares Resource '${resource}' more than once` });
+        continue;
+      }
+      seenConnectionResources.add(resource);
+      if (!loaded.resources[resource]) {
+        issues.push({ path: resourcePath, code: "reference.resource", message: `Unknown connection Resource '${resource}'` });
+        continue;
+      }
+      const sourceAccepts = sourceResources.includes("*") || sourceResources.includes(resource);
+      const targetAccepts = targetResources.includes("*") || targetResources.includes(resource);
+      if (!sourceAccepts) issues.push({ path: resourcePath, code: "connection.source-resource-contract", message: `Source '${from.id}.${fromPort.id}' cannot provide '${resource}'` });
+      if (!targetAccepts) issues.push({ path: resourcePath, code: "connection.target-resource-contract", message: `Target '${to.id}.${toPort.id}' cannot accept '${resource}'` });
+      if (sourceAccepts && targetAccepts) compatibleResources.push(resource);
     }
     if (!connection.path?.length) { issues.push({ path: `${path}/path`, code: "logistics.path-required", message: `Connection '${connection.id}' requires at least one explicit transport cell` }); continue; }
     let pathValid = true;
@@ -730,8 +747,6 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       path: `${path}/stackSize`, code: "logistics.stack-capacity",
       message: `Connection '${connection.id}' requests stack size ${connection.stackSize}, but its transport stages support at most ${stageStackCapacity}`,
     });
-    const compatibleResources = Object.keys(loaded.resources).filter((resource) => (sourceResources.includes("*") || sourceResources.includes(resource))
-      && (targetResources.includes("*") || targetResources.includes(resource)));
     const requestedStackSize = Math.min(connection.stackSize ?? stageStackCapacity, stageStackCapacity);
     const stackSizeByResource = Object.fromEntries(compatibleResources.map((resource) => [resource, Math.min(requestedStackSize, loaded.resources[resource]!.transport.stackSize)]));
     if (connection.stackSize !== undefined) for (const resource of compatibleResources) {

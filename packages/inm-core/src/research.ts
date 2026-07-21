@@ -330,7 +330,8 @@ function logisticsUpgradeCandidate(input: ResearchInput, connectionId: string, r
 function logisticsCandidates(input: ResearchInput): StrategyCandidate[] {
   const candidates: StrategyCandidate[] = [];
   for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "input-logistics" || item.code === "output-logistics")) {
-    const links = input.production.connections.filter((connection) => diagnostic.code === "input-logistics" ? connection.to === diagnostic.device : connection.from === diagnostic.device);
+    const links = input.production.connections.filter((connection) => connection.resources.includes(diagnostic.resource!)
+      && (diagnostic.code === "input-logistics" ? connection.to === diagnostic.device : connection.from === diagnostic.device));
     for (const link of links) {
       const candidate = logisticsUpgradeCandidate(input, link.connection, diagnostic.message);
       if (candidate) candidates.push(candidate);

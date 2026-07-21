@@ -219,6 +219,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         id: connection.id,
         fromDevice: connection.from.device,
         toDevice: connection.to.device,
+        resources: [...connection.resources],
         from, to, points: [from, ...cells, to], endpoints,
       };
     }),

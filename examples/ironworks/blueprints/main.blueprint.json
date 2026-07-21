@@ -6,6 +6,7 @@
         "port": "output"
       },
       "id": "ore-to-smelter",
+      "resources": ["iron-ore"],
       "path": [{ "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }],
       "logistics": {
         "line": {
@@ -27,6 +28,7 @@
         "port": "output"
       },
       "id": "plate-to-station",
+      "resources": ["iron-plate"],
       "path": [{ "x": 11, "y": 10 }, { "x": 12, "y": 10 }, { "x": 12, "y": 9 }],
       "logistics": {
         "line": {
@@ -48,6 +50,7 @@
         "port": "output"
       },
       "id": "station-to-assembler",
+      "resources": ["iron-plate"],
       "path": [{ "x": 5, "y": 9 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }],
       "logistics": {
         "line": {
@@ -69,6 +72,7 @@
         "port": "output"
       },
       "id": "gear-to-output",
+      "resources": ["gear"],
       "path": [{ "x": 9, "y": 10 }, { "x": 10, "y": 10 }, { "x": 11, "y": 10 }, { "x": 12, "y": 10 }, { "x": 13, "y": 10 }],
       "logistics": {
         "line": {
@@ -90,6 +94,7 @@
         "port": "output"
       },
       "id": "coal-forge-to-generator",
+      "resources": ["coal"],
       "path": [{ "x": 5, "y": 3 }, { "x": 6, "y": 3 }, { "x": 7, "y": 3 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
@@ -104,6 +109,7 @@
     {
       "from": { "device": "coal-miner-assembly", "port": "output" },
       "id": "coal-assembly-to-splitter",
+      "resources": ["coal"],
       "path": [{ "x": 3, "y": 3 }, { "x": 3, "y": 4 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
@@ -115,6 +121,7 @@
     {
       "from": { "device": "coal-splitter-assembly", "port": "output-north" },
       "id": "coal-splitter-to-generator",
+      "resources": ["coal"],
       "path": [{ "x": 5, "y": 3 }, { "x": 6, "y": 3 }, { "x": 7, "y": 3 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
@@ -126,6 +133,7 @@
     {
       "from": { "device": "coal-splitter-assembly", "port": "output-east" },
       "id": "coal-splitter-to-assembler",
+      "resources": ["coal"],
       "path": [{ "x": 6, "y": 4 }, { "x": 6, "y": 5 }, { "x": 7, "y": 5 }, { "x": 8, "y": 5 }, { "x": 8, "y": 6 }, { "x": 8, "y": 7 }, { "x": 8, "y": 8 }, { "x": 8, "y": 9 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },

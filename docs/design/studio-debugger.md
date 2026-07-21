@@ -25,7 +25,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 - material balance and dependency graph;
 - configured Process/mode jobs and mode-aware alternatives;
 - every Device instance's effective buffer capacity and accepted Resources;
-- local pipeline stages, measured Resource mix, capacity, utilization, blockage, and power;
+- local pipeline Resource allowlists, stages, measured Resource mix, capacity, utilization, blockage, and power;
 - station routes/fleet load;
 - regional power generation, demand, members, headroom, accumulator capacity/rates, and selected-run stored energy;
 - compiler/static diagnostics.
@@ -48,7 +48,7 @@ The Device inspector joins compiled and measured semantics in one local view:
 - regional power-grid membership, generation, rated load, headroom, and storage envelope;
 - incoming/outgoing local connections and Device-scoped diagnostics.
 
-The connection inspector exposes source/target navigation, physical path/level, explicit loader/line/unloader distances, dispatch and travel clocks, stack limit, live cargo at the selected replay tick, stage assets and power state, measured stage utilization, delivered Resource mix, average in-flight inventory, and blockage. Sorter beams extend from the Device to the actual configured belt endpoint, while each real belt cell owns a transparent picking volume matching its grid occupancy, so selection does not depend on a visually thin line's raycast tolerance.
+The connection inspector exposes source/target navigation, the exact authored Resource allowlist, physical path/level, explicit loader/line/unloader distances, dispatch and travel clocks, stack limit, live cargo at the selected replay tick, stage assets and power state, measured stage utilization, delivered Resource mix, average in-flight inventory, and blockage. Sorter beams extend from the Device to the actual configured belt endpoint, while each real belt cell owns a transparent picking volume matching its grid occupancy, so selection does not depend on a visually thin line's raycast tolerance.
 
 Inspectors are navigation and debugging surfaces only. They contain no Blueprint mutation controls and do not change simulation or run state.
 

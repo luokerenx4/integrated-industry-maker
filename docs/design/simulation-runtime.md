@@ -22,7 +22,7 @@ The runtime may not depend on wall clock, frame rate, object insertion order, br
 
 `mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation, per-Device/per-grid stored energy, and metrics integrals.
 
-Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `extract`, `generate`, `consume`, `wait`, or `none`. For production, the context carries the selected mode and complete job plan; `start` must match its operation, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation.
+Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `extract`, `generate`, `consume`, `wait`, or `none`. For production, the context carries the selected mode and complete job plan; `start` must match its operation, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist, even when both endpoint buffers accept a wider set.
 
 ## Failures and blocking
 

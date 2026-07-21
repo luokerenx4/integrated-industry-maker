@@ -33,6 +33,9 @@
           "y": 10
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "to": {
         "device": "smelter-1",
         "port": "input"
@@ -71,6 +74,9 @@
           "y": 9
         }
       ],
+      "resources": [
+        "iron-plate"
+      ],
       "to": {
         "device": "station-supply",
         "port": "input"
@@ -108,6 +114,9 @@
           "x": 6,
           "y": 10
         }
+      ],
+      "resources": [
+        "iron-plate"
       ],
       "to": {
         "device": "assembler-1",
@@ -155,6 +164,9 @@
           "y": 10
         }
       ],
+      "resources": [
+        "gear"
+      ],
       "to": {
         "device": "output-1",
         "port": "input"
@@ -193,6 +205,9 @@
           "y": 3
         }
       ],
+      "resources": [
+        "coal"
+      ],
       "to": {
         "device": "generator-1",
         "port": "fuel-input"
@@ -226,6 +241,9 @@
           "x": 3,
           "y": 4
         }
+      ],
+      "resources": [
+        "coal"
       ],
       "to": {
         "device": "coal-splitter-assembly",
@@ -264,6 +282,9 @@
           "x": 7,
           "y": 3
         }
+      ],
+      "resources": [
+        "coal"
       ],
       "to": {
         "device": "generator-2",
@@ -322,6 +343,9 @@
           "x": 8,
           "y": 9
         }
+      ],
+      "resources": [
+        "coal"
       ],
       "to": {
         "device": "assembler-1",

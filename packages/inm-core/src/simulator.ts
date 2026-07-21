@@ -325,7 +325,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (state.transports[connection.id]!.filter((transit) => transit.phase === "loading").length >= loader.capacity) continue;
       const filter = connection.fromDevice.policy?.filter;
       const resource = Object.keys(sourceBuffer).sort().find((id) => {
-        if ((sourceBuffer[id] ?? 0) <= 0 || !accepts(connection.toDevice, connection.toPort.buffer, id)) return false;
+        if (!connection.resources.includes(id) || (sourceBuffer[id] ?? 0) <= 0 || !accepts(connection.toDevice, connection.toPort.buffer, id)) return false;
         if (!filter) return true;
         return connection.from.port === filter.outputPort ? id === filter.resource : id !== filter.resource;
       });

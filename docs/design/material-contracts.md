@@ -1,6 +1,6 @@
 # Material, recipe, and buffer contracts
 
-Status: implemented through engine version `inm-sim/0.29.0`.
+Status: implemented through engine version `inm-sim/0.32.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
@@ -18,7 +18,8 @@ Resource catalog
   → Blueprint Device bufferFilters (instance configuration)
   → recipe binding / bound extractor Resource / configured fuels / station Resource slots
   → compiled effective buffer contract
-  → connections, station slots, initial inventory, and runtime actions
+  → Blueprint connection resources (exact lane allowlist)
+  → station slots, initial inventory, and runtime actions
 ```
 
 Omitting `bufferFilters[buffer]` preserves the asset maximum. An explicit list narrows it. An empty list closes the buffer. `*` is legal only in the asset maximum; an instance filter names concrete project Resources.
@@ -38,8 +39,10 @@ The same instance filter applies to storage, consumers, junctions, stations, min
 - a fuel generator exposes only supported fuels admitted by its effective fuel buffer;
 - Scenario initial inventory must satisfy the effective contract, total buffer capacity, and any per-Resource quota;
 - a splitter policy filter must be admitted by its internal buffer;
-- a belt connection compiles only the intersection of source and target contracts;
-- runtime dispatch skips mixed cargo not accepted by the target and reserves both total and per-Resource destination capacity.
+- every belt connection declares a non-empty exact Resource allowlist; each entry must exist and satisfy both endpoint buffer contracts;
+- runtime dispatch intersects mixed source inventory with that immutable connection allowlist and reserves both total and per-Resource destination capacity.
+
+The connection list is never inferred from endpoint compatibility. A wildcard storage buffer can feed several lanes with different intent, and the intent remains visible in the Blueprint diff. Listing several Resources deliberately creates a mixed-material lane; listing one produces a dedicated lane. The compiler rejects duplicates, unknown Resources, and entries excluded by either endpoint.
 
 ## Capacity contracts
 
@@ -60,11 +63,11 @@ Device TypeScript receives frozen buffer snapshots and a compiled Process/extrac
 
 ## Synthesis behavior
 
-Blueprint synthesis writes exact filters for extractors, single-Resource junction trees, boundary/surplus consumers, and station pairs. Recipe devices rely on their exact recipe binding. Generated material edges therefore have machine-readable intent even when their asset buffers use `*`.
+Blueprint synthesis writes exact filters for extractors, single-Resource junction trees, boundary/surplus consumers, and station pairs. Recipe devices rely on their exact recipe binding. Every generated local connection also writes its planned Resource as a one-item `resources` allowlist. Generated material edges therefore have machine-readable intent even when their asset buffers use `*`.
 
 ## Observability
 
-`inm analyze` exposes `bufferContracts` for every compiled Device. Human output lists buffer role, total capacity, accepted Resources, and `Resource≤quota` where present. Station routes expose source and destination slot capacities. Studio renders the same contracts and labels 3D Devices with compiled material names.
+`inm analyze` exposes `bufferContracts` for every compiled Device and the exact Resource allowlist for every local connection. Human output lists buffer role, total capacity, accepted Resources, `Resource≤quota` where present, and lane filters next to transport capacity. Station routes expose source and destination slot capacities. Studio renders the same Device contracts, labels 3D Devices with compiled material names, and shows the connection filter in both Analysis and the connection inspector.
 
 ## Source of truth
 
@@ -76,10 +79,10 @@ Blueprint synthesis writes exact filters for extractors, single-Resource junctio
 
 ## Verification
 
-Compiler tests cover invalid filters across recipes, extraction, station slots, policies, and initial inventory. Runtime tests put coal and gear on one source buffer and prove that a gear-only target receives only gear. Synthesis tests require exact filters on miners, stations, junctions, and sinks.
+Compiler tests cover invalid filters across recipes, extraction, station slots, policies, initial inventory, and connection allowlists. Runtime tests put coal and gear on one wildcard source and target pair and prove that a `gear`-only connection leaves coal behind. Synthesis tests require exact filters on miners, stations, junctions, sinks, and every generated lane.
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "buffer filter|multi-input|coproduct"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "buffer filter|connection Resource filter|multi-input|coproduct"
 bun run inm analyze examples/ironworks
 bun run inm test examples/ironworks
 ```

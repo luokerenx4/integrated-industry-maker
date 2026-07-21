@@ -167,6 +167,7 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const rows: TransportCapacityRequirement[] = [];
     for (const [resource, requiredItemsPerMinute] of Object.entries(requirement.inputsPerMinute)) {
       const links = Object.values(project.connections).filter((connection) => ids.has(connection.to.device)
+        && connection.resources.includes(resource)
         && (connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes("*") || connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes(resource)));
       const configuredCapacityPerMinute = links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, resource), 0);
       rows.push({
@@ -176,6 +177,7 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     }
     for (const [resource, requiredItemsPerMinute] of Object.entries(requirement.outputsPerMinute)) {
       const links = Object.values(project.connections).filter((connection) => ids.has(connection.from.device)
+        && connection.resources.includes(resource)
         && (connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes("*") || connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes(resource)));
       const configuredCapacityPerMinute = links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, resource), 0);
       rows.push({

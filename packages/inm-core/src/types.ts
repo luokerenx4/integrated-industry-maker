@@ -263,6 +263,8 @@ export interface BlueprintConnection {
   id: ConnectionId;
   from: { device: DeviceInstanceId; port: string };
   to: { device: DeviceInstanceId; port: string };
+  /** Exact Resource allowlist for this physical lane. Runtime transport may never infer or expand it. */
+  resources: ResourceId[];
   path: GridPosition[];
   /** Requested items per cargo stack. Omit to use the maximum supported by every transport stage and Resource. */
   stackSize?: number;

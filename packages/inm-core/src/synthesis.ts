@@ -403,6 +403,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const pipeline = pipelineFor(planned, distance, loaderDistance, unloaderDistance);
     return {
       id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
+      resources: [planned.resource],
       stackSize: pipeline.stackSize,
       logistics: {
         loader: { deviceAsset: pipeline.loader.id, distance: loaderDistance },

@@ -29,6 +29,9 @@
           "y": 11
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "to": {
         "device": "smelter-1-split",
         "port": "input-west"
@@ -67,6 +70,9 @@
           "y": 9
         }
       ],
+      "resources": [
+        "iron-plate"
+      ],
       "to": {
         "device": "station-supply",
         "port": "input"
@@ -104,6 +110,9 @@
           "x": 6,
           "y": 10
         }
+      ],
+      "resources": [
+        "iron-plate"
       ],
       "to": {
         "device": "assembler-1",
@@ -151,6 +160,9 @@
           "y": 10
         }
       ],
+      "resources": [
+        "gear"
+      ],
       "to": {
         "device": "output-1",
         "port": "input"
@@ -189,6 +201,9 @@
           "y": 3
         }
       ],
+      "resources": [
+        "coal"
+      ],
       "to": {
         "device": "generator-1",
         "port": "fuel-input"
@@ -222,6 +237,9 @@
           "x": 3,
           "y": 4
         }
+      ],
+      "resources": [
+        "coal"
       ],
       "to": {
         "device": "coal-splitter-assembly",
@@ -260,6 +278,9 @@
           "x": 7,
           "y": 3
         }
+      ],
+      "resources": [
+        "coal"
       ],
       "to": {
         "device": "generator-2",
@@ -318,6 +339,9 @@
           "x": 8,
           "y": 9
         }
+      ],
+      "resources": [
+        "coal"
       ],
       "to": {
         "device": "assembler-1",
@@ -485,6 +509,9 @@
           "y": 10
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "to": {
         "device": "smelter-1",
         "port": "input"
@@ -514,6 +541,9 @@
           "x": 8,
           "y": 8
         }
+      ],
+      "resources": [
+        "iron-ore"
       ],
       "to": {
         "device": "smelter-1-parallel",
@@ -552,6 +582,9 @@
           "x": 12,
           "y": 9
         }
+      ],
+      "resources": [
+        "iron-plate"
       ],
       "to": {
         "device": "station-supply",
@@ -825,6 +858,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "f925c2f24027feca25aa30bdf8a761c572e134c9fc5139da713c2a23206a08bb",
+  "revision": "1e091523d9b69e9541d2790477712f8609cf89841ccd60057605d6c264787a39",
   "version": 1
 }

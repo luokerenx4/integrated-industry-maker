@@ -72,6 +72,9 @@
           "y": 11
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "to": {
         "device": "smelter-1-split",
         "port": "input-west"
@@ -242,6 +245,9 @@
           "y": 10
         }
       ],
+      "resources": [
+        "iron-ore"
+      ],
       "to": {
         "device": "smelter-1",
         "port": "input"
@@ -275,6 +281,9 @@
           "x": 8,
           "y": 8
         }
+      ],
+      "resources": [
+        "iron-ore"
       ],
       "to": {
         "device": "smelter-1-parallel",
@@ -317,6 +326,9 @@
           "x": 12,
           "y": 9
         }
+      ],
+      "resources": [
+        "iron-plate"
       ],
       "to": {
         "device": "station-supply",

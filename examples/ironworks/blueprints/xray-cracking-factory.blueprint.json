@@ -69,6 +69,9 @@
           "y": 9
         }
       ],
+      "resources": [
+        "crude-oil"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-refine-crude-1",
@@ -232,6 +235,9 @@
           "y": 11
         }
       ],
+      "resources": [
+        "graphite"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-graphite-surplus-sink",
@@ -298,6 +304,9 @@
           "x": 13,
           "y": 6
         }
+      ],
+      "resources": [
+        "refined-oil"
       ],
       "stackSize": 1,
       "to": {
@@ -391,6 +400,9 @@
           "y": 5
         }
       ],
+      "resources": [
+        "hydrogen"
+      ],
       "stackSize": 1,
       "to": {
         "device": "synth-xray-crack-oil-1",
@@ -429,6 +441,9 @@
           "x": 17,
           "y": 8
         }
+      ],
+      "resources": [
+        "hydrogen"
       ],
       "stackSize": 1,
       "to": {
