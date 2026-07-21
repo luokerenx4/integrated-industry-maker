@@ -44,6 +44,8 @@ export type FactoryStateMutation =
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
+  | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
+  | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
   | { kind: "power.satisfaction"; grid: string; satisfactionPpm: number }
   | { kind: "progress"; device: string; progressTicks: Tick };
@@ -335,6 +337,22 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       setup.group = mutation.group;
       setup.changeovers++;
       setup.setupTicks += mutation.durationTicks;
+      return;
+    }
+    case "campaign.hold": {
+      const setup = state.devices[mutation.device]!.setup;
+      if (!setup) throw new Error(`Device '${mutation.device}' does not track equipment setup`);
+      setup.campaign = { targetGroup: mutation.targetGroup, sinceTick: state.tick, deadlineTick: mutation.deadlineTick };
+      setup.campaignHolds++;
+      return;
+    }
+    case "campaign.release": {
+      const setup = state.devices[mutation.device]!.setup;
+      if (!setup?.campaign) throw new Error(`Device '${mutation.device}' has no held setup campaign`);
+      setup.campaignHoldTicks += state.tick - setup.campaign.sinceTick;
+      if (mutation.cause === "minimum-ready-lots") setup.campaignMinimumLotReleases++;
+      else setup.campaignMaximumHoldReleases++;
+      delete setup.campaign;
       return;
     }
     case "job.power": {

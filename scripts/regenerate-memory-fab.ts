@@ -422,20 +422,37 @@ await text(autoresearchPath, generatedAutoresearch
     "`reopenAtWip` controls replenishment-wave hysteresis, optional `maximumReleaseDelayTicks` protects admission service without exceeding the cap, and `dispatch` chooses among eligible identities.",
   )
   .replace(
+    "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.",
+    "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power. Optional `policy.setupCampaign` may hold that switch until `minimumReadyLots` are resident, with `maximumHoldTicks` as the starvation guard.",
+  )
+  .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. Add `--joint` to cross a selected release range with lithography and etch recipe/lot dispatch, and `--maximum-delay <ticks>` to test the service guard. The initial 225-policy and focused joint sweeps found settings that improved aggregate score through lower WIP and completed-lot cycle time, but the best active setting raised steady-production setup changes from two to six and lost one on-time lot. Service protection did not repair that locked per-case regression. This negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, campaign, dispatch, or control change satisfies both conditions.",
+    "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. Add `--joint` to cross a selected release range with lithography and etch recipe/lot dispatch, and `--maximum-delay <ticks>` to test the service guard. The initial 225-policy and focused joint sweeps found settings that improved aggregate score through lower WIP and completed-lot cycle time, but the best active setting raised steady-production setup changes from two to six and lost one on-time lot. Service protection did not repair that locked per-case regression.\n\n`bun run memory-fab:research-campaign` independently searches setup-campaign scope, minimum resident lots, and maximum hold. Its first 120-policy open-loop sweep found no aggregate improvement. Crossing campaigns with CONWIP `10/4/fifo` raised aggregate score to `32.949405` but missed the locked case gate; the gentler `11/6/fifo` combination stayed inside the case gate but scored below the incumbent. These negative results are intentional evidence, so the checked-in candidate uses neither CONWIP nor setup campaigns until another physical layout or equipment change satisfies both conditions.",
+  )
+  .replace(
+    "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
+    "Coding Agents may next test tool duplication, setup-group-specialized tools, parallel inspection, furnace duplication, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\n```",
+    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\n```",
   ));
 
 const projectReadmePath = join(project, "README.md");
 const generatedReadme = await readFile(projectReadmePath, "utf8");
-await text(projectReadmePath, generatedReadme.replace(
-  "peak active lots, physical/controller blocked lot-time",
-  "peak active lots, maximum-delay service openings, physical/controller blocked lot-time",
-));
+await text(projectReadmePath, generatedReadme
+  .replace(
+    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
+    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires.",
+  )
+  .replace(
+    "peak active lots, physical/controller blocked lot-time",
+    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes",
+  )
+  .replace(
+    "`bun run memory-fab:research-release`, or `bun run inm studio",
+    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, or `bun run inm studio",
+  ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");
 

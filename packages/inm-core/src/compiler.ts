@@ -1006,6 +1006,21 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       capacityMilliJoules: asset.logisticsStation.energyCapacityMilliJoules,
       chargeMilliWatts: instance.policy.stationChargeMilliWatts,
     };
+    if (instance.policy?.setupCampaign) {
+      const campaignPath = `${path}/policy/setupCampaign`;
+      if (!asset.production?.changeover) issues.push({
+        path: campaignPath, code: "production.campaign-changeover-required",
+        message: `Setup campaign policy on '${instance.id}' requires a changeover-capable production Device`,
+      });
+      if (new Set(processPlans.map((plan) => plan.setupGroup).filter(Boolean)).size < 2) issues.push({
+        path: campaignPath, code: "production.campaign-setup-groups",
+        message: `Setup campaign policy on '${instance.id}' requires at least two qualified setup groups`,
+      });
+      if (processPlans.some((plan) => plan.lotTransfers.length === 0)) issues.push({
+        path: campaignPath, code: "production.campaign-lot-tracking-required",
+        message: `Every operation on campaign-controlled Device '${instance.id}' must preserve tracked lot identities`,
+      });
+    }
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: effectivePorts.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),

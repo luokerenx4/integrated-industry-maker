@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **5.138**
-- Result hash: `642337a57f2bf078233b2197c69bc2c86525ad7bd8cca2c6afccbe7b47a15f5e`
+- Result hash: `41762e664ab66bcc686ae3198d95289e349cb06eb51cdc12a601170514343cb9`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
@@ -12,7 +12,7 @@
 - Lot service: 37.5% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
-- Equipment setup: 0 changeovers · 0.000 s work
+- Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Target rate: 12.000 gear/min (37.5% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 77.6699%

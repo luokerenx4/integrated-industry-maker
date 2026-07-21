@@ -657,7 +657,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
-      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}; per-operation rates are exclusive maxima`,
+      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}${device.policy?.setupCampaign ? ` and setup campaigns of ${device.policy.setupCampaign.minimumReadyLots} ready lots / ${(device.policy.setupCampaign.maximumHoldTicks / 1000).toFixed(3)} s maximum hold` : ""}; per-operation rates are exclusive maxima`,
     });
   }
   const releaseTicks = (project.scenario.lotReleases ?? []).map((lot) => lot.releaseTick).sort((a, b) => a - b);

@@ -76,7 +76,11 @@
     }
   },
   "equipmentSetups": {
+    "campaignMaximumHoldReleases": 0,
+    "campaignMinimumLotReleases": 0,
     "devices": {},
+    "totalCampaignHolds": 0,
+    "totalCampaignHoldTicks": 0,
     "totalChangeovers": 0,
     "totalSetupTicks": 0
   },

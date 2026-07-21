@@ -208,10 +208,18 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
   const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
   const setupDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.setup)
-    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, { ...runtime.setup! }]));
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, {
+      ...runtime.setup!,
+      campaignHoldTicks: runtime.setup!.campaignHoldTicks
+        + (runtime.setup!.campaign ? state.tick - runtime.setup!.campaign.sinceTick : 0),
+    }]));
   const equipmentSetups: FactoryMetrics["equipmentSetups"] = {
     totalChangeovers: Object.values(setupDevices).reduce((sum, setup) => sum + setup.changeovers, 0),
     totalSetupTicks: Object.values(setupDevices).reduce((sum, setup) => sum + setup.setupTicks, 0),
+    totalCampaignHolds: Object.values(setupDevices).reduce((sum, setup) => sum + setup.campaignHolds, 0),
+    totalCampaignHoldTicks: Object.values(setupDevices).reduce((sum, setup) => sum + setup.campaignHoldTicks, 0),
+    campaignMinimumLotReleases: Object.values(setupDevices).reduce((sum, setup) => sum + setup.campaignMinimumLotReleases, 0),
+    campaignMaximumHoldReleases: Object.values(setupDevices).reduce((sum, setup) => sum + setup.campaignMaximumHoldReleases, 0),
     devices: setupDevices,
   };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);

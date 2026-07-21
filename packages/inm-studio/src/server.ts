@@ -175,6 +175,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       name: device.assetDef.name,
       capabilities: device.assetDef.capabilities,
       powerPriority: device.policy?.powerPriority ?? 0,
+      ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
       region: device.region,
       position: {
         x: device.position.x + regionLayout.offsets.get(device.region)!.x,

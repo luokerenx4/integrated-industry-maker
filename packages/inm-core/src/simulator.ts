@@ -4,7 +4,7 @@ import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
   ActiveDeviceJob, BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
-  ResourceBufferQuantity, ResourceTransit, SimulationResult,
+  ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
@@ -19,6 +19,7 @@ type InternalEvent =
   | { kind: "logistics-ready"; connection: string }
   | { kind: "power-boundary"; grid: string; generation: number }
   | { kind: "generation-boundary"; device: string }
+  | { kind: "campaign-timeout"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
 
@@ -71,6 +72,10 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         group: project.scenario.initialSetups?.[id] ?? null,
         changeovers: 0,
         setupTicks: 0,
+        campaignHolds: 0,
+        campaignHoldTicks: 0,
+        campaignMinimumLotReleases: 0,
+        campaignMaximumHoldReleases: 0,
       } } : {}),
       ...(storage ? { energyStorage: {
         capacityMilliJoules: storage.capacityMilliJoules,
@@ -1191,8 +1196,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device,
       plan.quality?.kind === "inspection" ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput] : plan.outputs);
-  const selectProcessPlan = (device: CompiledDevice): CompiledDevice["processPlans"][number] | undefined => {
-    const ranked = device.processPlans.map((plan, index) => ({ plan, index }));
+  const rankProcessPlans = (
+    device: CompiledDevice,
+    candidates: CompiledDevice["processPlans"] = device.processPlans,
+  ): Array<{ plan: CompiledDevice["processPlans"][number]; index: number }> => {
+    const ranked = candidates.map((plan) => ({ plan, index: device.processPlans.indexOf(plan) }));
     const policy = device.policy?.recipeDispatch ?? "authored-order";
     if (policy === "shortest-cycle") ranked.sort((left, right) => left.plan.durationTicks - right.plan.durationTicks || left.index - right.index);
     else if (policy === "highest-priority") ranked.sort((left, right) => right.plan.priority - left.plan.priority || left.index - right.index);
@@ -1220,8 +1228,76 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         return rightLot.priority - leftLot.priority || left.index - right.index;
       });
     }
+    return ranked;
+  };
+  const selectProcessPlan = (
+    device: CompiledDevice,
+    candidates: CompiledDevice["processPlans"] = device.processPlans,
+    fallback = true,
+  ): CompiledDevice["processPlans"][number] | undefined => {
+    const ranked = rankProcessPlans(device, candidates);
     const ready = ranked.find(({ plan }) => processPlanReady(device, plan));
-    return (ready ?? ranked[0])?.plan;
+    return (ready ?? (fallback ? ranked[0] : undefined))?.plan;
+  };
+  const readyLotsForSetupGroup = (device: CompiledDevice, setupGroup: string): number => {
+    const ids = new Set<string>();
+    for (const plan of device.processPlans.filter((candidate) => candidate.setupGroup === setupGroup)) {
+      for (const transfer of plan.lotTransfers) {
+        for (const id of rankedLotIds(device, transfer.input.buffer, transfer.input.resource)) {
+          if (state.lots[id]!.treatmentLevel >= (transfer.input.minimumTreatmentLevel ?? 0)) ids.add(id);
+        }
+      }
+    }
+    return ids.size;
+  };
+  const selectCampaignProcessPlan = (device: CompiledDevice): {
+    plan?: CompiledDevice["processPlans"][number];
+    held: boolean;
+    changed: boolean;
+  } => {
+    const policy = device.policy?.setupCampaign;
+    const setup = state.devices[device.id]!.setup;
+    if (!policy || !setup || setup.group === null) return { plan: selectProcessPlan(device), held: false, changed: false };
+    const readyPlans = device.processPlans.filter((plan) => processPlanReady(device, plan));
+    const currentPlans = readyPlans.filter((plan) => plan.setupGroup === setup.group);
+    const currentPlan = selectProcessPlan(device, currentPlans, false);
+    if (setup.campaign) {
+      const hold = setup.campaign;
+      const targetPlans = readyPlans.filter((plan) => plan.setupGroup === hold.targetGroup);
+      const targetPlan = selectProcessPlan(device, targetPlans, false);
+      if (targetPlan) {
+        const readyLots = readyLotsForSetupGroup(device, hold.targetGroup);
+        const cause = readyLots >= policy.minimumReadyLots ? "minimum-ready-lots"
+          : state.tick >= hold.deadlineTick ? "maximum-hold" : null;
+        if (cause) {
+          emit({
+            type: "device.campaign-released", tick: state.tick, device: device.id, from: setup.group, to: hold.targetGroup,
+            readyLots, heldTicks: state.tick - hold.sinceTick, cause,
+          });
+          mutateFactoryState(state, { kind: "campaign.release", device: device.id, cause });
+          return { plan: targetPlan, held: false, changed: true };
+        }
+      }
+      if (currentPlan) return { plan: currentPlan, held: false, changed: false };
+      return { held: true, changed: false };
+    }
+    if (currentPlan) return { plan: currentPlan, held: false, changed: false };
+    const selected = selectProcessPlan(device);
+    if (!selected || !processPlanReady(device, selected) || !selected.setupGroup || selected.setupGroup === setup.group) {
+      return { plan: selected, held: false, changed: false };
+    }
+    const readyLots = readyLotsForSetupGroup(device, selected.setupGroup);
+    if (readyLots >= policy.minimumReadyLots || policy.maximumHoldTicks === 0) {
+      return { plan: selected, held: false, changed: false };
+    }
+    const deadlineTick = state.tick + policy.maximumHoldTicks;
+    mutateFactoryState(state, { kind: "campaign.hold", device: device.id, targetGroup: selected.setupGroup, deadlineTick });
+    emit({
+      type: "device.campaign-held", tick: state.tick, device: device.id, from: setup.group, to: selected.setupGroup,
+      readyLots, minimumReadyLots: policy.minimumReadyLots, deadlineTick,
+    });
+    schedule(deadlineTick, 3, { kind: "campaign-timeout", device: device.id, targetGroup: selected.setupGroup, deadlineTick });
+    return { held: true, changed: true };
   };
   const requiresChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
     const setup = state.devices[device.id]!.setup;
@@ -1267,7 +1343,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const runtime = state.devices[device.id]!;
     if (runtime.status === "failed" || runtime.activeJob || device.transportEndpoint || device.assetDef.capabilities.includes("station")
       || (!runtime.idlePowered && device.assetDef.power.idleMilliWatts > 0)) return false;
-    const selectedProcessPlan = selectProcessPlan(device);
+    const campaignSelection = selectCampaignProcessPlan(device);
+    const selectedProcessPlan = campaignSelection.plan;
+    if (campaignSelection.held) {
+      const previousStatus = runtime.status;
+      setStatus(device.id, "waiting-input");
+      return campaignSelection.changed || previousStatus !== runtime.status;
+    }
     if (selectedProcessPlan && requiresChangeover(device, selectedProcessPlan)) return tryStartChangeover(device, selectedProcessPlan);
     const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
       apiVersion: 1, tick: state.tick,
@@ -1614,6 +1696,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     releaseGroups.set(lot.releaseTick, group);
   }
   for (const [releaseTick, lotIds] of [...releaseGroups].sort(([left], [right]) => left - right)) schedule(releaseTick, 2, { kind: "lot-release", lotIds: lotIds.sort() });
+  for (const [device, runtime] of Object.entries(state.devices).sort(([left], [right]) => left.localeCompare(right))) {
+    const campaign = runtime.setup?.campaign;
+    if (campaign) schedule(Math.max(state.tick, campaign.deadlineTick), 3, {
+      kind: "campaign-timeout", device, targetGroup: campaign.targetGroup, deadlineTick: campaign.deadlineTick,
+    });
+  }
   for (const deviceId of Object.values(project.devices).filter((device) => device.generationPlan?.kind === "renewable" && renewableProfileFor(project, device.id)).map((device) => device.id).sort()) {
     const device = project.devices[deviceId]!; const output = generatorOutputAt(project, deviceId, state.tick);
     emit({
@@ -1826,6 +1914,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       });
       const next = nextGeneratorBoundary(project, event.device, state.tick);
       if (next !== undefined) schedule(next, 1, { kind: "generation-boundary", device: event.device });
+    } else if (event.kind === "campaign-timeout") {
+      const campaign = state.devices[event.device]?.setup?.campaign;
+      if (!campaign || campaign.targetGroup !== event.targetGroup || campaign.deadlineTick !== event.deadlineTick) continue;
     } else if (event.kind === "breakdown") {
       generations[event.device]!++;
       const activeJob = state.devices[event.device]!.activeJob;

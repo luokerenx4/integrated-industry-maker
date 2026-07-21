@@ -49,6 +49,10 @@ export interface BlueprintMetricSnapshot {
   meanTardinessTicks: number;
   totalChangeovers: number;
   totalSetupTicks: number;
+  totalCampaignHolds: number;
+  totalCampaignHoldTicks: number;
+  campaignMinimumLotReleases: number;
+  campaignMaximumHoldReleases: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -100,6 +104,10 @@ export interface BlueprintMetricDelta {
   meanTardinessTicks: number;
   totalChangeovers: number;
   totalSetupTicks: number;
+  totalCampaignHolds: number;
+  totalCampaignHoldTicks: number;
+  campaignMinimumLotReleases: number;
+  campaignMaximumHoldReleases: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -273,6 +281,10 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     meanTardinessTicks: metrics.lotFlow.meanTardinessTicks,
     totalChangeovers: metrics.equipmentSetups.totalChangeovers,
     totalSetupTicks: metrics.equipmentSetups.totalSetupTicks,
+    totalCampaignHolds: metrics.equipmentSetups.totalCampaignHolds,
+    totalCampaignHoldTicks: metrics.equipmentSetups.totalCampaignHoldTicks,
+    campaignMinimumLotReleases: metrics.equipmentSetups.campaignMinimumLotReleases,
+    campaignMaximumHoldReleases: metrics.equipmentSetups.campaignMaximumHoldReleases,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
@@ -326,6 +338,10 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     meanTardinessTicks: after.meanTardinessTicks - before.meanTardinessTicks,
     totalChangeovers: after.totalChangeovers - before.totalChangeovers,
     totalSetupTicks: after.totalSetupTicks - before.totalSetupTicks,
+    totalCampaignHolds: after.totalCampaignHolds - before.totalCampaignHolds,
+    totalCampaignHoldTicks: after.totalCampaignHoldTicks - before.totalCampaignHoldTicks,
+    campaignMinimumLotReleases: after.campaignMinimumLotReleases - before.campaignMinimumLotReleases,
+    campaignMaximumHoldReleases: after.campaignMaximumHoldReleases - before.campaignMaximumHoldReleases,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,

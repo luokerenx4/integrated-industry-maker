@@ -365,6 +365,13 @@ export interface BlueprintDevice {
     recipeDispatch?: RecipeDispatchPolicy;
     /** Deterministic selection of identity-preserving lots within a ready operation. */
     lotDispatch?: LotDispatchPolicy;
+    /** Setup-sensitive work-center campaign formation before switching to another recipe family. */
+    setupCampaign?: {
+      /** Change over early once this many identity-preserving lots are resident for the target setup group. */
+      minimumReadyLots: number;
+      /** Otherwise release the held changeover after this much equipment hold time. */
+      maximumHoldTicks: Tick;
+    };
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
@@ -787,7 +794,16 @@ export interface DeviceRuntimeState {
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   /** FIFO-preserving identities for Resources whose tracking kind is lot. */
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
-  setup?: { group: string | null; changeovers: number; setupTicks: Tick };
+  setup?: {
+    group: string | null;
+    changeovers: number;
+    setupTicks: Tick;
+    campaignHolds: number;
+    campaignHoldTicks: Tick;
+    campaignMinimumLotReleases: number;
+    campaignMaximumHoldReleases: number;
+    campaign?: { targetGroup: string; sinceTick: Tick; deadlineTick: Tick };
+  };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
@@ -878,6 +894,8 @@ export type FactoryEvent =
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
+  | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
+  | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
@@ -1068,7 +1086,20 @@ export interface FactoryMetrics {
   equipmentSetups: {
     totalChangeovers: number;
     totalSetupTicks: Tick;
-    devices: Record<DeviceInstanceId, { group: string | null; changeovers: number; setupTicks: Tick }>;
+    totalCampaignHolds: number;
+    totalCampaignHoldTicks: Tick;
+    campaignMinimumLotReleases: number;
+    campaignMaximumHoldReleases: number;
+    devices: Record<DeviceInstanceId, {
+      group: string | null;
+      changeovers: number;
+      setupTicks: Tick;
+      campaignHolds: number;
+      campaignHoldTicks: Tick;
+      campaignMinimumLotReleases: number;
+      campaignMaximumHoldReleases: number;
+      campaign?: { targetGroup: string; sinceTick: Tick; deadlineTick: Tick };
+    }>;
   };
   totalBuildCost: number;
   occupiedArea: number;

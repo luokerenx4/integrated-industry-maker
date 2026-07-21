@@ -1,19 +1,19 @@
 {
-  "createdAt": "2026-07-21T18:46:15.199Z",
+  "createdAt": "2026-07-21T19:06:35.497Z",
   "decision": "BASELINE",
-  "engineVersion": "inm-sim/0.54.0",
+  "engineVersion": "inm-sim/0.55.0",
   "hashes": {
     "blueprintHash": "9c0a990d4fff0e4aacf8d5edc43ce6f5bcb74dd4c6761e4941f995be53befddf",
     "deviceCatalogHash": "975052655cf44c817353ca16db5d6f9a3d40b472a4835144950b99c4228cac17",
-    "engineVersion": "inm-sim/0.54.0",
+    "engineVersion": "inm-sim/0.55.0",
     "objectiveHash": "6d119a9e4040c6a10925503df674454e3086ee7051e4015366c76e3d251159e6",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
     "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
     "scenarioHash": "d6f58333d455cc66e6f3746ed6c14f5fa841594ef9b5e6ff6ab7ca587b26068c",
     "worldHash": "3b82ed811e2e21ccffb4c39fb89fba85cd9c3c7f1ecdfadab40d89f27e3711d6"
   },
-  "resultHash": "3156be59dad59f6c286722a7f657d96e3a9aa5180bd896cf2d37a222ac3ec6ed",
-  "runKey": "8feb594b400edb1d932c538601f4b8b471335aefca56d998c7478ad77c55c16d",
+  "resultHash": "52e486fdccea0a5550ef24e6856f98d4af191e5f6f52f69418f566f748e676c5",
+  "runKey": "106942d9589ec10baaaa28dd1f5e6c839631859ae60cc5d26a11497172e3afa3",
   "seed": 42,
   "selection": {
     "blueprint": "chemical-factory",

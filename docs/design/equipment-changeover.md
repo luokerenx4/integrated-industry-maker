@@ -1,8 +1,8 @@
 # Sequence-dependent equipment changeover
 
-Status: explicit setup groups, powered changeover jobs, setup-aware dispatch, failure cancellation, metrics, and replay implemented in engine version `inm-sim/0.49.0`.
+Status: explicit setup groups, powered changeover jobs, bounded setup campaigns, setup-aware dispatch, failure cancellation, metrics, and replay implemented in engine version `inm-sim/0.55.0`.
 
-Related: [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/quality-flow]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/work-center-dispatch]], [[docs/design/setup-campaign-control]], [[docs/design/lot-tracking]], [[docs/design/quality-flow]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why setup is a first-class industrial job
 
@@ -38,13 +38,13 @@ An equipment breakdown cancels an active changeover without changing setup state
 
 ## Setup-aware dispatch
 
-`recipeDispatch: minimize-changeover` ranks ready operations already matching the current Device setup group before authored order. It does not override readiness and it does not preempt active work. `lotDispatch` remains independent, so an optimizer can keep a chamber on one recipe while applying earliest-due-date or highest-priority ordering within that recipe's WIP.
+`recipeDispatch: minimize-changeover` ranks ready operations already matching the current Device setup group before authored order. It does not override readiness and it does not preempt active work. `lotDispatch` remains independent, so an optimizer can keep a chamber on one recipe while applying earliest-due-date or highest-priority ordering within that recipe's WIP. Optional `policy.setupCampaign` adds bounded formation before a setup switch; see [[docs/design/setup-campaign-control]].
 
 This separation exposes a real scheduling tradeoff. An urgency-first operation policy may improve service while increasing changeovers; a setup-minimizing operation policy may improve capacity while delaying another route step. The locked event simulation, not a static rate, decides which trade is better for the Objective.
 
 ## Metrics and evaluation
 
-`FactoryState.devices[*].setup` records current group, completed changeover count, and configured setup work ticks. `FactoryMetrics.equipmentSetups` exposes per-Device and factory totals. Changeover work contributes to ordinary machine utilization and energy, while queued lots naturally reflect the added residence time.
+`FactoryState.devices[*].setup` records current group, completed changeover count, configured setup work ticks, and any active campaign target/deadline. `FactoryMetrics.equipmentSetups` exposes per-Device and factory changeovers, campaign holds, held ticks, lot-threshold releases, and timeout releases. Changeover work contributes to ordinary machine utilization and energy, while queued lots naturally reflect the added residence time.
 
 An optional Objective `weights.changeovers` penalty applies once per completed changeover. Throughput, on-time delivery, cycle time, tardiness, WIP, power, cost, and area remain simultaneous terms. `inm simulate`, `inm compare`, immutable reports, and Studio expose count and setup work directly.
 

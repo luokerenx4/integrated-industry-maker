@@ -806,6 +806,36 @@ describe("blueprint compiler", () => {
     expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
     expect(setupAware.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
+    const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    for (const id of ["lithography-1", "etch-1"]) minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy = {
+      ...minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy,
+      setupCampaign: { minimumReadyLots: 2, maximumHoldTicks: 12_000 },
+    };
+    const minimumLotCampaign = runUntil(compileFactoryProject(minimumLotCampaignSource), undefined, { seed: 42 });
+    expect(minimumLotCampaign.metrics.equipmentSetups).toEqual(expect.objectContaining({
+      totalChangeovers: 2, totalCampaignHolds: 1, totalCampaignHoldTicks: 6_000,
+      campaignMinimumLotReleases: 1, campaignMaximumHoldReleases: 0,
+    }));
+    expect(minimumLotCampaign.events.filter((event) => event.type === "device.campaign-held")).toEqual([
+      expect.objectContaining({ device: "etch-1", from: "etch-recipe-l1", to: "etch-recipe-l2", readyLots: 1, minimumReadyLots: 2 }),
+    ]);
+    expect(minimumLotCampaign.events.filter((event) => event.type === "device.campaign-released")).toEqual([
+      expect.objectContaining({ device: "etch-1", readyLots: 2, heldTicks: 6_000, cause: "minimum-ready-lots" }),
+    ]);
+
+    const timeoutCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    for (const id of ["lithography-1", "etch-1"]) timeoutCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy!.setupCampaign = {
+      minimumReadyLots: 3, maximumHoldTicks: 12_000,
+    };
+    const timeoutCampaign = runUntil(compileFactoryProject(timeoutCampaignSource), undefined, { seed: 42 });
+    expect(timeoutCampaign.metrics.equipmentSetups).toEqual(expect.objectContaining({
+      totalCampaignHolds: 1, totalCampaignHoldTicks: 12_000,
+      campaignMinimumLotReleases: 0, campaignMaximumHoldReleases: 1,
+    }));
+    expect(timeoutCampaign.events.filter((event) => event.type === "device.campaign-released")).toEqual([
+      expect.objectContaining({ device: "etch-1", readyLots: 2, heldTicks: 12_000, cause: "maximum-hold" }),
+    ]);
+
     const deepInspectionSource = { ...source, blueprint: structuredClone(source.blueprint) };
     deepInspectionSource.blueprint.devices.find((device) => device.id === "inspection-1")!.recipe!.process = "inspect-final-pattern-deep";
     const deepInspection = runUntil(compileFactoryProject(deepInspectionSource), undefined, { seed: 42 });
@@ -838,6 +868,12 @@ describe("blueprint compiler", () => {
     const missingSetupGroup = { ...source, processes: structuredClone(source.processes) };
     delete missingSetupGroup.processes["pattern-cell-layer-1"]!.setupGroup;
     expect(issueCodes(() => compileFactoryProject(missingSetupGroup))).toContain("production.setup-group-required");
+
+    const invalidCampaign = { ...source, blueprint: structuredClone(source.blueprint) };
+    invalidCampaign.blueprint.devices.find((device) => device.id === "inspection-1")!.policy = {
+      setupCampaign: { minimumReadyLots: 2, maximumHoldTicks: 12_000 },
+    };
+    expect(issueCodes(() => compileFactoryProject(invalidCampaign))).toContain("production.campaign-changeover-required");
 
     const missingDispositionBinding = { ...source, blueprint: structuredClone(source.blueprint) };
     delete missingDispositionBinding.blueprint.devices.find((device) => device.id === "inspection-1")!.recipe!.outputs["scrap-dram-wafer-lot"];
