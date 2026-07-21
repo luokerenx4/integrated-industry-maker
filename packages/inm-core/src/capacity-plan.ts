@@ -1,6 +1,6 @@
 import type { CompiledFactoryProject, ResourceId } from "./types";
 import { connectionCapacityPerMinute } from "./logistics-capacity";
-import { planResourceDemand } from "./production-demand";
+import { optimizeResourceDemand } from "./production-demand";
 
 export interface ProcessCapacityRequirement {
   resource: ResourceId;
@@ -86,20 +86,28 @@ function add(target: Record<string, number>, key: string, value: number): void {
 export function planProductionCapacity(project: CompiledFactoryProject): ProductionCapacityPlan {
   const targetRatePerMinute = project.objective.targetRatePerMinute;
   const scenarioMinutes = project.scenario.durationTicks / 60_000;
-  const demandPlan = planResourceDemand(project.objective.targetResource, targetRatePerMinute, (resource) => {
-    const template = Object.values(project.devices).filter((device) => device.processPlan?.outputs.some((output) => output.resource === resource))
-      .sort((a, b) => {
-        const aOutput = a.processPlan!.outputs.find((output) => output.resource === resource)!.count * 60_000 / a.processPlan!.durationTicks;
-        const bOutput = b.processPlan!.outputs.find((output) => output.resource === resource)!.count * 60_000 / b.processPlan!.durationTicks;
-        return bOutput - aOutput || a.assetDef.economics.buildCost - b.assetDef.economics.buildCost || a.id.localeCompare(b.id);
-      })[0];
-    if (!template?.processPlan) return null;
-    return {
-      key: `${template.processPlan.definition.id}:${template.asset}`,
-      inputs: template.processPlan.definition.inputs,
-      outputs: template.processPlan.definition.outputs,
+  const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => {
+    const processPlan = template.processPlan;
+    if (!processPlan) return [];
+    const candidate = {
+      key: `${processPlan.definition.id}:${template.asset}`,
+      inputs: processPlan.definition.inputs,
+      outputs: processPlan.definition.outputs,
       data: template,
     };
+    return [[candidate.key, candidate] as const];
+  })).values()];
+  const producedResources = new Set(processCandidates.flatMap((candidate) => candidate.outputs.map((output) => output.resource)));
+  const inputResources = new Set(processCandidates.flatMap((candidate) => candidate.inputs.map((input) => input.resource)));
+  const rawResourceIds = Object.keys(project.resources).filter((resource) => Object.values(project.resourceNodes).some((node) => node.resource === resource)
+    || (inputResources.has(resource) && !producedResources.has(resource)));
+  const demandPlan = optimizeResourceDemand({
+    targetResource: project.objective.targetResource, targetRatePerMinute, candidates: processCandidates, rawResources: rawResourceIds,
+    candidateCost: (candidate) => candidate.data.assetDef.economics.buildCost * candidate.data.processPlan!.durationTicks / 60_000,
+    rawResourceCost: (resource) => {
+      const reserve = Object.values(project.resourceNodes).filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
+      return reserve > 0 ? 1 + targetRatePerMinute / reserve : 1;
+    },
   });
   const rawProcessDemand = demandPlan.rawDemandPerMinute;
 

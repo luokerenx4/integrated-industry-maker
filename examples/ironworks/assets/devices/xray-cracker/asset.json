@@ -1,0 +1,30 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "xray-cracker",
+  "name": "X-Ray Cracker",
+  "description": "A configurable recycle reactor with separate hydrogen feed and discharge buffers.",
+  "tags": ["chemical", "cracking", "recycle"],
+  "capabilities": ["process"],
+  "geometry": {
+    "footprint": { "width": 3, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "oil-input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "oil-input" },
+      { "id": "hydrogen-input", "direction": "input", "kind": "resource", "side": "north", "offset": 1, "buffer": "hydrogen-input" },
+      { "id": "hydrogen-output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "hydrogen-output" },
+      { "id": "graphite-output", "direction": "output", "kind": "resource", "side": "south", "offset": 1, "buffer": "graphite-output" }
+    ]
+  },
+  "buffers": [
+    { "id": "oil-input", "role": "input", "capacity": 12, "accepts": ["refined-oil"] },
+    { "id": "hydrogen-input", "role": "input", "capacity": 12, "accepts": ["hydrogen"] },
+    { "id": "hydrogen-output", "role": "output", "capacity": 12, "accepts": ["hydrogen"] },
+    { "id": "graphite-output", "role": "output", "capacity": 12, "accepts": ["graphite"] }
+  ],
+  "production": { "categories": ["cracking"], "speed": { "numerator": 1, "denominator": 1 }, "inputBuffers": ["oil-input", "hydrogen-input"], "outputBuffers": ["hydrogen-output", "graphite-output"] },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 280000 },
+  "economics": { "buildCost": 2200 },
+  "files": { "visual": "visual.json" }
+}

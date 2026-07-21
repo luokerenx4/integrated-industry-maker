@@ -210,6 +210,8 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
   else write([
     `Synthesized '${options.output}' from project-local recipes and assets`, `Blueprint: ${outputPath}`,
     `Target: ${synthesis.target.ratePerMinute.toFixed(3)} ${synthesis.target.resource}/min`,
+    "Optimized process mix:",
+    ...synthesis.selectedProcesses.map((process) => `  ${process.process.padEnd(22)} ${process.requiredCyclesPerMinute.toFixed(3)} cycles/min · ${Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ") || "no inputs"} → ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ")}`),
     `Factory: ${summary.devices} devices · ${summary.connections} connections / ${summary.pathCells} belt cells · ${summary.stationNetworks.length} station network${summary.stationNetworks.length === 1 ? "" : "s"}`,
     `Capacity plan: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`,
     `Cold-start measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${synthesis.target.resource}/min · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,

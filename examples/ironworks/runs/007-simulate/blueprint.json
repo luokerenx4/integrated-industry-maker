@@ -23,40 +23,48 @@
           "y": 11
         },
         {
-          "x": 4,
-          "y": 10
-        },
-        {
-          "x": 4,
-          "y": 9
-        },
-        {
           "x": 5,
-          "y": 9
+          "y": 11
         },
         {
           "x": 6,
-          "y": 9
+          "y": 11
         },
         {
           "x": 7,
-          "y": 9
+          "y": 11
         },
         {
           "x": 8,
-          "y": 9
+          "y": 11
         },
         {
           "x": 9,
-          "y": 9
+          "y": 11
         },
         {
           "x": 10,
-          "y": 9
+          "y": 11
         },
         {
           "x": 11,
-          "y": 9
+          "y": 11
+        },
+        {
+          "x": 12,
+          "y": 11
+        },
+        {
+          "x": 13,
+          "y": 11
+        },
+        {
+          "x": 14,
+          "y": 11
+        },
+        {
+          "x": 15,
+          "y": 11
         }
       ],
       "to": {
@@ -83,121 +91,89 @@
       },
       "path": [
         {
-          "x": 13,
-          "y": 11
-        },
-        {
-          "x": 14,
-          "y": 11
-        },
-        {
-          "x": 15,
-          "y": 11
-        },
-        {
-          "x": 15,
-          "y": 10
-        },
-        {
-          "x": 16,
-          "y": 10
-        },
-        {
           "x": 17,
-          "y": 10
+          "y": 13
         },
         {
           "x": 18,
+          "y": 13
+        },
+        {
+          "x": 19,
+          "y": 13
+        },
+        {
+          "x": 19,
+          "y": 12
+        },
+        {
+          "x": 20,
+          "y": 12
+        },
+        {
+          "x": 21,
+          "y": 12
+        },
+        {
+          "x": 22,
+          "y": 12
+        },
+        {
+          "x": 22,
+          "y": 11
+        },
+        {
+          "x": 22,
           "y": 10
         },
         {
-          "x": 18,
+          "x": 21,
+          "y": 10
+        },
+        {
+          "x": 21,
           "y": 9
         },
         {
-          "x": 18,
+          "x": 21,
           "y": 8
         },
         {
-          "x": 17,
+          "x": 20,
           "y": 8
+        },
+        {
+          "x": 20,
+          "y": 7
+        },
+        {
+          "x": 19,
+          "y": 7
+        },
+        {
+          "x": 18,
+          "y": 7
         },
         {
           "x": 17,
           "y": 7
         },
         {
-          "x": 17,
-          "y": 6
-        },
-        {
           "x": 16,
-          "y": 6
-        },
-        {
-          "x": 16,
-          "y": 5
+          "y": 7
         },
         {
           "x": 15,
-          "y": 5
+          "y": 7
         },
         {
-          "x": 14,
-          "y": 5
-        },
-        {
-          "x": 13,
-          "y": 5
-        },
-        {
-          "x": 12,
-          "y": 5
-        },
-        {
-          "x": 11,
-          "y": 5
-        },
-        {
-          "x": 11,
-          "y": 6
+          "x": 15,
+          "y": 8
         }
       ],
       "to": {
         "device": "synth-make-plastic-1",
         "port": "gas-input"
-      }
-    },
-    {
-      "from": {
-        "device": "synth-make-plastic-1",
-        "port": "output"
-      },
-      "id": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 13,
-          "y": 7
-        },
-        {
-          "x": 13,
-          "y": 6
-        }
-      ],
-      "to": {
-        "device": "synth-plastic-sink",
-        "port": "input"
       }
     },
     {
@@ -220,8 +196,38 @@
       "path": [
         {
           "level": 0,
-          "x": 15,
+          "x": 19,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 19,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 18,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 17,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 17,
           "y": 9
+        },
+        {
+          "level": 1,
+          "x": 17,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 16,
+          "y": 8
         },
         {
           "level": 1,
@@ -239,44 +245,46 @@
           "y": 8
         },
         {
-          "level": 1,
-          "x": 13,
-          "y": 7
-        },
-        {
-          "level": 1,
-          "x": 13,
-          "y": 6
-        },
-        {
-          "level": 1,
-          "x": 12,
-          "y": 6
-        },
-        {
-          "level": 1,
-          "x": 11,
-          "y": 6
-        },
-        {
-          "level": 1,
-          "x": 10,
-          "y": 6
-        },
-        {
-          "level": 1,
-          "x": 9,
-          "y": 6
-        },
-        {
           "level": 0,
-          "x": 9,
-          "y": 7
+          "x": 13,
+          "y": 9
         }
       ],
       "to": {
         "device": "synth-make-plastic-1",
         "port": "liquid-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-make-plastic-1",
+        "port": "output"
+      },
+      "id": "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 17,
+          "y": 9
+        },
+        {
+          "x": 17,
+          "y": 8
+        }
+      ],
+      "to": {
+        "device": "synth-plastic-sink",
+        "port": "input"
       }
     }
   ],
@@ -285,8 +293,8 @@
       "asset": "chemical-plant",
       "id": "synth-make-plastic-1",
       "position": {
-        "x": 10,
-        "y": 7
+        "x": 14,
+        "y": 9
       },
       "recipe": {
         "inputs": {
@@ -305,8 +313,8 @@
       "asset": "refinery",
       "id": "synth-refine-crude-1",
       "position": {
-        "x": 12,
-        "y": 9
+        "x": 16,
+        "y": 11
       },
       "recipe": {
         "inputs": {
@@ -325,8 +333,8 @@
       "asset": "material-sink",
       "id": "synth-plastic-sink",
       "position": {
-        "x": 14,
-        "y": 6
+        "x": 18,
+        "y": 8
       },
       "region": "chemical-basin",
       "rotation": 0
@@ -349,8 +357,8 @@
       "asset": "wind-turbine",
       "id": "synth-chemical-basin-wind-turbine-1",
       "position": {
-        "x": 15,
-        "y": 2
+        "x": 11,
+        "y": 6
       },
       "region": "chemical-basin",
       "rotation": 0
@@ -359,8 +367,8 @@
       "asset": "wind-turbine",
       "id": "synth-chemical-basin-wind-turbine-2",
       "position": {
-        "x": 18,
-        "y": 2
+        "x": 14,
+        "y": 5
       },
       "region": "chemical-basin",
       "rotation": 0

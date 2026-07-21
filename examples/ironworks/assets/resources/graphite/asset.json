@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "graphite",
+  "name": "Energetic Graphite",
+  "description": "A solid carbon coproduct recovered from hydrogen cracking.",
+  "tags": ["intermediate", "solid", "coproduct"],
+  "unit": { "kind": "discrete", "symbol": "unit", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "files": { "visual": "visual.json" }
+}

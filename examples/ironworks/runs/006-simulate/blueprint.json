@@ -66,38 +66,6 @@
     },
     {
       "from": {
-        "device": "synth-forge-gear-pair-1",
-        "port": "output"
-      },
-      "id": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 9,
-          "y": 7
-        },
-        {
-          "x": 10,
-          "y": 7
-        }
-      ],
-      "to": {
-        "device": "synth-gear-sink",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
         "device": "synth-iron-ore-extractor-1",
         "port": "output"
       },
@@ -851,6 +819,38 @@
         "device": "synth-forge-gear-pair-1",
         "port": "input-primary"
       }
+    },
+    {
+      "from": {
+        "device": "synth-forge-gear-pair-1",
+        "port": "output"
+      },
+      "id": "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 9,
+          "y": 7
+        },
+        {
+          "x": 10,
+          "y": 7
+        }
+      ],
+      "to": {
+        "device": "synth-gear-sink",
+        "port": "input"
+      }
     }
   ],
   "devices": [
@@ -1064,8 +1064,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-1",
       "position": {
-        "x": 10,
-        "y": 2
+        "x": 8,
+        "y": 6
       },
       "region": "forge-world",
       "rotation": 0
@@ -1074,8 +1074,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-2",
       "position": {
-        "x": 13,
-        "y": 2
+        "x": 12,
+        "y": 9
       },
       "region": "forge-world",
       "rotation": 0
@@ -1084,8 +1084,8 @@
       "asset": "wind-turbine",
       "id": "synth-forge-world-wind-turbine-3",
       "position": {
-        "x": 16,
-        "y": 2
+        "x": 14,
+        "y": 9
       },
       "region": "forge-world",
       "rotation": 0
@@ -1094,7 +1094,7 @@
       "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-1",
       "position": {
-        "x": 10,
+        "x": 3,
         "y": 2
       },
       "region": "assembly-world",
@@ -1104,7 +1104,7 @@
       "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-2",
       "position": {
-        "x": 13,
+        "x": 6,
         "y": 2
       },
       "region": "assembly-world",

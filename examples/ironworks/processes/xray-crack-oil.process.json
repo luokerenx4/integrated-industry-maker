@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "xray-crack-oil",
+  "name": "X-Ray Crack Refined Oil",
+  "description": "Feeds part of the hydrogen stream back through refined-oil cracking to amplify hydrogen and recover graphite.",
+  "category": "cracking",
+  "tags": ["oil", "cyclic", "coproduct"],
+  "durationTicks": 4000,
+  "inputs": [{ "resource": "refined-oil", "count": 2 }, { "resource": "hydrogen", "count": 1 }],
+  "outputs": [{ "resource": "hydrogen", "count": 3 }, { "resource": "graphite", "count": 1 }]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "closed-loop-xray-cracking-factory",
+  "world": "chemical",
+  "blueprint": "xray-cracking-factory",
+  "scenario": "chemical-cold-start",
+  "objective": "hydrogen-production",
+  "seed": 42,
+  "assertions": [
+    { "kind": "metric", "path": "throughputPerMinute", "min": 10 },
+    { "kind": "metric", "path": "produced.graphite", "min": 1 },
+    { "kind": "metric", "path": "occupiedArea", "max": 180 },
+    { "kind": "metric", "path": "totalBuildCost", "max": 40000 },
+    { "kind": "metric", "path": "infeasibleReason", "equals": null },
+    { "kind": "event", "type": "power.shortage", "present": false }
+  ]
+}

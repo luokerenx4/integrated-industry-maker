@@ -63,11 +63,14 @@ export function findBlueprintConnectionPath(
   for (const node of world.resourceNodes.filter((item) => item.region === from.region)) {
     hardBlocked.add(`${node.position.x},${node.position.y}`); solidBlocked.add(`${node.position.x},${node.position.y}`);
   }
-  const transportBlocked = new Set<string>();
+  const transportBlocked = new Set<string>(); const groundTransportBlocked = new Set<string>();
   for (const route of blueprint.connections) {
     const routeSource = devices.get(route.from.device);
     if (routeSource?.region !== from.region) continue;
-    for (const cell of route.path ?? []) if ((cell.level ?? 0) === (options.elevated ? 1 : 0)) transportBlocked.add(`${cell.x},${cell.y}`);
+    for (const cell of route.path ?? []) {
+      if ((cell.level ?? 0) === 0) groundTransportBlocked.add(`${cell.x},${cell.y}`);
+      if ((cell.level ?? 0) === (options.elevated ? 1 : 0)) transportBlocked.add(`${cell.x},${cell.y}`);
+    }
   }
 
   const key = (position: GridPosition) => `${position.x},${position.y}`;
@@ -77,7 +80,8 @@ export function findBlueprintConnectionPath(
   for (const clearance of portLead(start, rotatePortSide(fromPort.side, from.rotation))) hardBlocked.delete(key(clearance));
   for (const clearance of portLead(end, rotatePortSide(toPort.side, to.rotation))) hardBlocked.delete(key(clearance));
   for (const cell of solidBlocked) hardBlocked.add(cell);
-  if (hardBlocked.has(startKey) || hardBlocked.has(endKey) || transportBlocked.has(startKey) || (transportBlocked.has(endKey) && !options.allowEndTransportCell)) return null;
+  if (hardBlocked.has(startKey) || hardBlocked.has(endKey) || groundTransportBlocked.has(startKey)
+    || (groundTransportBlocked.has(endKey) && !options.allowEndTransportCell)) return null;
   const blocked = new Set([...hardBlocked, ...transportBlocked]);
   for (const cell of options.blockedCells ?? []) blocked.add(key(cell));
   blocked.delete(startKey); blocked.delete(endKey);

@@ -48,14 +48,16 @@
             "resource": "plastic"
           }
         ],
-        "startedAt": 120000
+        "startedAt": 116200
       },
       "buffers": {
         "gas-input": {},
-        "liquid-input": {},
+        "liquid-input": {
+          "refined-oil": 2
+        },
         "output": {}
       },
-      "progressTicks": 0,
+      "progressTicks": 3800,
       "status": "processing"
     },
     "synth-plastic-sink": {
@@ -81,7 +83,7 @@
             "resource": "hydrogen"
           }
         ],
-        "startedAt": 117500
+        "startedAt": 117700
       },
       "buffers": {
         "crude-input": {
@@ -90,18 +92,18 @@
         "gas-output": {},
         "liquid-output": {}
       },
-      "progressTicks": 2500,
+      "progressTicks": 2300,
       "status": "processing"
     }
   },
   "energy": {
     "availableMilliWatts": 1200000,
-    "consumedMilliJoules": 70039000,
+    "consumedMilliJoules": 69930600,
     "fuelConsumed": {},
     "grids": {
       "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
         "availableMilliWatts": 1200000,
-        "consumedMilliJoules": 70039000
+        "consumedMilliJoules": 69930600
       }
     }
   },
@@ -109,7 +111,7 @@
   "produced": {
     "crude-oil": 60,
     "hydrogen": 28,
-    "plastic": 27,
+    "plastic": 26,
     "refined-oil": 56
   },
   "resourceNodes": {
@@ -128,13 +130,13 @@
   "transports": {
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": [
       {
-        "arriveTick": 121500,
+        "arriveTick": 121700,
         "cellIndex": -1,
         "count": 1,
         "departTick": 120000,
         "from": "synth-crude-oil-extractor-1",
         "fromBuffer": "output",
-        "id": "transit-000170",
+        "id": "transit-000169",
         "phase": "loading",
         "readyTick": 120250,
         "resource": "crude-oil",
@@ -142,23 +144,23 @@
         "toBuffer": "crude-input"
       }
     ],
-    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1": [],
-    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink": [
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1": [
       {
-        "arriveTick": 120700,
+        "arriveTick": 120200,
         "cellIndex": -1,
         "count": 1,
-        "departTick": 120000,
-        "from": "synth-make-plastic-1",
-        "fromBuffer": "output",
-        "id": "transit-000169",
-        "phase": "loading",
-        "readyTick": 120250,
-        "resource": "plastic",
-        "to": "synth-plastic-sink",
-        "toBuffer": "input"
+        "departTick": 117700,
+        "from": "synth-refine-crude-1",
+        "fromBuffer": "gas-output",
+        "id": "transit-000166",
+        "phase": "unloading",
+        "readyTick": 120200,
+        "resource": "hydrogen",
+        "to": "synth-make-plastic-1",
+        "toBuffer": "gas-input"
       }
     ],
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink": [],
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1": []
   }
 }

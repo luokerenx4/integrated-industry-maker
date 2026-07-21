@@ -1,0 +1,527 @@
+{
+  "connections": [
+    {
+      "from": {
+        "device": "synth-crude-oil-extractor-1",
+        "port": "output"
+      },
+      "id": "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 4,
+          "y": 11
+        },
+        {
+          "x": 4,
+          "y": 10
+        },
+        {
+          "x": 4,
+          "y": 9
+        },
+        {
+          "x": 5,
+          "y": 9
+        },
+        {
+          "x": 6,
+          "y": 9
+        },
+        {
+          "x": 7,
+          "y": 9
+        },
+        {
+          "x": 8,
+          "y": 9
+        },
+        {
+          "x": 9,
+          "y": 9
+        },
+        {
+          "x": 10,
+          "y": 9
+        },
+        {
+          "x": 11,
+          "y": 9
+        },
+        {
+          "x": 12,
+          "y": 9
+        },
+        {
+          "x": 13,
+          "y": 9
+        }
+      ],
+      "to": {
+        "device": "synth-refine-crude-1",
+        "port": "crude-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-xray-crack-oil-1",
+        "port": "graphite-output"
+      },
+      "id": "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 15,
+          "y": 8
+        },
+        {
+          "x": 14,
+          "y": 8
+        },
+        {
+          "x": 13,
+          "y": 8
+        },
+        {
+          "x": 12,
+          "y": 8
+        },
+        {
+          "x": 11,
+          "y": 8
+        },
+        {
+          "x": 10,
+          "y": 8
+        },
+        {
+          "x": 10,
+          "y": 7
+        },
+        {
+          "x": 10,
+          "y": 6
+        },
+        {
+          "x": 10,
+          "y": 5
+        },
+        {
+          "x": 11,
+          "y": 5
+        },
+        {
+          "x": 12,
+          "y": 5
+        },
+        {
+          "x": 13,
+          "y": 5
+        },
+        {
+          "x": 14,
+          "y": 5
+        },
+        {
+          "x": 14,
+          "y": 4
+        },
+        {
+          "x": 14,
+          "y": 3
+        },
+        {
+          "x": 14,
+          "y": 2
+        },
+        {
+          "x": 15,
+          "y": 2
+        },
+        {
+          "x": 16,
+          "y": 2
+        },
+        {
+          "x": 17,
+          "y": 2
+        },
+        {
+          "x": 17,
+          "y": 3
+        },
+        {
+          "x": 17,
+          "y": 4
+        },
+        {
+          "x": 17,
+          "y": 5
+        },
+        {
+          "x": 18,
+          "y": 5
+        },
+        {
+          "x": 19,
+          "y": 5
+        },
+        {
+          "x": 20,
+          "y": 5
+        },
+        {
+          "x": 20,
+          "y": 6
+        },
+        {
+          "x": 20,
+          "y": 7
+        },
+        {
+          "x": 20,
+          "y": 8
+        },
+        {
+          "x": 20,
+          "y": 9
+        },
+        {
+          "x": 20,
+          "y": 10
+        },
+        {
+          "x": 19,
+          "y": 10
+        },
+        {
+          "x": 18,
+          "y": 10
+        },
+        {
+          "x": 17,
+          "y": 10
+        },
+        {
+          "x": 17,
+          "y": 11
+        }
+      ],
+      "to": {
+        "device": "synth-graphite-surplus-sink",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-refine-crude-1",
+        "port": "liquid-output"
+      },
+      "id": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 17,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 17,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 16,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 15,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 7
+        },
+        {
+          "level": 0,
+          "x": 13,
+          "y": 6
+        }
+      ],
+      "to": {
+        "device": "synth-xray-crack-oil-1",
+        "port": "oil-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-refine-crude-1",
+        "port": "gas-output"
+      },
+      "id": "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 15,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 5
+        },
+        {
+          "level": 0,
+          "x": 15,
+          "y": 5
+        }
+      ],
+      "to": {
+        "device": "synth-xray-crack-oil-1",
+        "port": "hydrogen-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-xray-crack-oil-1",
+        "port": "hydrogen-output"
+      },
+      "id": "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 17,
+          "y": 6
+        },
+        {
+          "x": 17,
+          "y": 7
+        },
+        {
+          "x": 17,
+          "y": 8
+        }
+      ],
+      "to": {
+        "device": "synth-hydrogen-sink",
+        "port": "input"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "asset": "refinery",
+      "id": "synth-refine-crude-1",
+      "position": {
+        "x": 14,
+        "y": 9
+      },
+      "recipe": {
+        "inputs": {
+          "crude-oil": "crude-input"
+        },
+        "outputs": {
+          "hydrogen": "gas-output",
+          "refined-oil": "liquid-output"
+        },
+        "process": "refine-crude"
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "xray-cracker",
+      "id": "synth-xray-crack-oil-1",
+      "position": {
+        "x": 14,
+        "y": 6
+      },
+      "recipe": {
+        "inputs": {
+          "hydrogen": "hydrogen-input",
+          "refined-oil": "oil-input"
+        },
+        "outputs": {
+          "graphite": "graphite-output",
+          "hydrogen": "hydrogen-output"
+        },
+        "process": "xray-crack-oil"
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "id": "synth-hydrogen-sink",
+      "position": {
+        "x": 18,
+        "y": 8
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "id": "synth-graphite-surplus-sink",
+      "position": {
+        "x": 18,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "oil-extractor",
+      "id": "synth-crude-oil-extractor-1",
+      "position": {
+        "x": 2,
+        "y": 11
+      },
+      "region": "chemical-basin",
+      "resourceNodes": [
+        "oil-seep-1",
+        "oil-seep-2"
+      ],
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "synth-chemical-basin-wind-turbine-1",
+      "position": {
+        "x": 10,
+        "y": 3
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "synth-chemical-basin-wind-turbine-2",
+      "position": {
+        "x": 12,
+        "y": 3
+      },
+      "region": "chemical-basin",
+      "rotation": 0
+    }
+  ],
+  "logisticsNetworks": [],
+  "policies": {
+    "dispatch": "round-robin"
+  },
+  "version": 1
+}

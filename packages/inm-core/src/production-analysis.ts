@@ -1,6 +1,6 @@
 import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
 import { connectionCapacityPerMinute, maximumConnectionCapacityPerMinute } from "./logistics-capacity";
-import { planResourceDemand } from "./production-demand";
+import { optimizeResourceDemand } from "./production-demand";
 
 export interface DeviceProductionRate {
   device: string;
@@ -204,17 +204,22 @@ export function bindProcessRecipe(
 }
 
 function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
-  const plan = planResourceDemand(project.objective.targetResource, 1, (resource) => {
-    const producer = devices.filter((device) => (device.outputsPerMinute[resource] ?? 0) > 0)
-      .sort((a, b) => (b.outputsPerMinute[resource] ?? 0) - (a.outputsPerMinute[resource] ?? 0) || a.device.localeCompare(b.device))[0];
-    const processPlan = producer ? project.devices[producer.device]?.processPlan : undefined;
-    if (!producer || !processPlan) return null;
-    return {
+  const candidates = devices.flatMap((producer) => {
+    const processPlan = project.devices[producer.device]?.processPlan;
+    return processPlan ? [{
       key: producer.device,
       inputs: processPlan.definition.inputs,
       outputs: processPlan.definition.outputs,
       data: { producer, processPlan },
-    };
+    }] : [];
+  });
+  const producedResources = new Set(candidates.flatMap((candidate) => candidate.outputs.map((output) => output.resource)));
+  const inputResources = new Set(candidates.flatMap((candidate) => candidate.inputs.map((input) => input.resource)));
+  const rawResources = Object.keys(project.resources).filter((resource) => Object.values(project.resourceNodes).some((node) => node.resource === resource)
+    || (inputResources.has(resource) && !producedResources.has(resource)));
+  const plan = optimizeResourceDemand({
+    targetResource: project.objective.targetResource, targetRatePerMinute: 1, candidates, rawResources,
+    candidateCost: (candidate) => candidate.data.processPlan.durationTicks,
   });
   return {
     targetResource: project.objective.targetResource,

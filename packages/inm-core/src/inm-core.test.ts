@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
-  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
+  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
@@ -48,6 +48,37 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
   source.scenario.failures = [];
   return source;
 }
+
+describe("production mix optimization", () => {
+  test("jointly solves a cyclic refinery and cracking chain instead of greedily overproducing", () => {
+    const plan = optimizeResourceDemand({
+      targetResource: "hydrogen", targetRatePerMinute: 10, rawResources: ["crude-oil"],
+      candidates: [
+        { key: "refine", inputs: [{ resource: "crude-oil", count: 2 }], outputs: [{ resource: "refined-oil", count: 2 }, { resource: "hydrogen", count: 1 }], data: null },
+        { key: "crack", inputs: [{ resource: "refined-oil", count: 2 }, { resource: "hydrogen", count: 1 }], outputs: [{ resource: "hydrogen", count: 3 }, { resource: "graphite", count: 1 }], data: null },
+      ],
+    });
+    expect(plan.processes.map((row) => [row.candidate.key, row.requiredCyclesPerMinute])).toEqual([
+      ["crack", expect.closeTo(10 / 3, 8)], ["refine", expect.closeTo(10 / 3, 8)],
+    ]);
+    expect(plan.rawDemandPerMinute["crude-oil"]).toBeCloseTo(20 / 3, 8);
+    expect(plan.surplusPerMinute.graphite).toBeCloseTo(10 / 3, 8);
+    expect(plan.surplusPerMinute.hydrogen ?? 0).toBeCloseTo(0, 8);
+  });
+
+  test("prefers a raw-efficient alternative before minimizing process capacity cost", () => {
+    const plan = optimizeResourceDemand({
+      targetResource: "product", targetRatePerMinute: 10, rawResources: ["ore"],
+      candidates: [
+        { key: "fast-wasteful", inputs: [{ resource: "ore", count: 4 }], outputs: [{ resource: "product", count: 2 }], data: null },
+        { key: "slow-efficient", inputs: [{ resource: "ore", count: 1 }], outputs: [{ resource: "product", count: 1 }], data: null },
+      ],
+      candidateCost: (candidate) => candidate.key === "slow-efficient" ? 10 : 1,
+    });
+    expect(plan.processes.map((row) => row.candidate.key)).toEqual(["slow-efficient"]);
+    expect(plan.rawDemandPerMinute.ore).toBeCloseTo(10, 8);
+  });
+});
 
 describe("factory synthesis", () => {
   test("builds a deterministic, target-ready factory from a blank blueprint", async () => {
@@ -129,6 +160,30 @@ describe("factory synthesis", () => {
     expect(simulation.metrics.produced.plastic).toBeGreaterThanOrEqual(12);
     expect(simulation.state.devices["synth-refine-crude-1"]!.status).not.toBe("blocked-output");
   });
+
+  test("synthesizes a closed-loop cracking network from a globally solved process mix", async () => {
+    const source = await loadFactoryProject(ironworks, {
+      world: "chemical", blueprint: "blank", scenario: "chemical-cold-start", objective: "hydrogen-production",
+    });
+    const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.selectedProcesses.map((process) => [process.process, process.requiredCyclesPerMinute])).toEqual([
+      ["refine-crude", expect.closeTo(10 / 3, 8)], ["xray-crack-oil", expect.closeTo(10 / 3, 8)],
+    ]);
+    expect(synthesis.blueprint.devices.some((device) => device.id.startsWith("synth-graphite-surplus-sink"))).toBeTrue();
+    expect(synthesis.blueprint.connections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: { device: "synth-refine-crude-1", port: "gas-output" }, to: { device: "synth-xray-crack-oil-1", port: "hydrogen-input" } }),
+      expect.objectContaining({ from: { device: "synth-xray-crack-oil-1", port: "hydrogen-output" }, to: { device: "synth-hydrogen-sink", port: "input" } }),
+    ]));
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    const plan = planProductionCapacity(project);
+    expect(plan.rawResources).toEqual([expect.objectContaining({ resource: "crude-oil", totalDemandPerMinute: expect.closeTo(20 / 3, 8) })]);
+    expect(plan.ready).toBeTrue();
+    const simulation = runUntil(project);
+    expect(simulation.metrics.throughputPerMinute).toBeGreaterThanOrEqual(10);
+    expect(simulation.metrics.produced.graphite).toBeGreaterThan(0);
+    expect(simulation.metrics.infeasibleReason).toBeNull();
+  });
 });
 
 describe("blueprint compiler", () => {
@@ -138,8 +193,8 @@ describe("blueprint compiler", () => {
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
-    expect(Object.keys(project.resources)).toEqual(["coal", "crude-oil", "gear", "hydrogen", "iron-ore", "iron-plate", "plastic", "refined-oil"]);
-    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "forge-gear-pair", "make-plastic", "refine-crude", "smelt-iron"]);
+    expect(Object.keys(project.resources)).toEqual(["coal", "crude-oil", "gear", "graphite", "hydrogen", "iron-ore", "iron-plate", "plastic", "refined-oil"]);
+    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "forge-gear-pair", "make-plastic", "refine-crude", "smelt-iron", "xray-crack-oil"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
     expect(project.devices["assembler-1"]!.processPlan?.inputs).toEqual([
