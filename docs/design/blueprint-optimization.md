@@ -2,7 +2,7 @@
 
 Status: target-rate planning, full blueprint synthesis, bounded research, explicit comparison, and CLI evaluation loop implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-comparison]], [[docs/design/coding-agent-optimization]], [[docs/CLI]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-specialization]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-comparison]], [[docs/design/coding-agent-optimization]], [[docs/CLI]].
 
 ## Product model
 
@@ -53,7 +53,7 @@ The generated factory has no synthetic capacity: every port, backing buffer part
 
 Research proposals are RFC 6902 patches limited to Blueprint `devices`, `connections`, `logisticsNetworks`, and `policies`. Worlds, deposits, assets, Processes, Scenarios, Objectives, simulator, and evaluator are benchmark inputs and cannot be patched.
 
-Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, static power repair, measured profiled-generation expansion, measured intermittent-power storage sizing, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch. Any strategy that splits, duplicates, replaces, or reroutes a physical connection rebuilds its explicit endpoint Devices so ownership, stage, position, rotation, asset tier, and distance remain one-to-one compile-time facts. Storage candidates require sufficient measured total energy and size ordinary project-local accumulator Devices against the observed contiguous deficit and peak discharge envelopes; generation candidates handle total-energy shortages and inherit the same regional Scenario profile.
+Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, work-center specialization, logistics tier upgrades, station fleet expansion, static power repair, measured profiled-generation expansion, measured intermittent-power storage sizing, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch. Work-center specialization extracts one qualified operation into a copied project-local tool, partitions exact Resource lanes, and ranks position/rotation with ground and elevated routes; see [[docs/design/work-center-specialization]]. Any strategy that splits, duplicates, replaces, or reroutes a physical connection rebuilds its explicit endpoint Devices so ownership, stage, position, rotation, asset tier, and distance remain one-to-one compile-time facts. Storage candidates require sufficient measured total energy and size ordinary project-local accumulator Devices against the observed contiguous deficit and peak discharge envelopes; generation candidates handle total-energy shortages and inherit the same regional Scenario profile.
 
 ## Source of truth
 
@@ -83,4 +83,4 @@ Tests must prove both static readiness and executable material delivery. A plan 
 ## Known next gaps
 
 - Richer search beyond deterministic heuristics and continuous process placement.
-- Joint placement/routing/power optimization instead of staged deterministic construction.
+- Broader joint placement/routing/power optimization beyond the bounded work-center specialization search.

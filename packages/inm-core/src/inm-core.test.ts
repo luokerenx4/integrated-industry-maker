@@ -6,7 +6,7 @@ import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
-  rotatePortSide, transportEndpointRotation,
+  rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
@@ -753,7 +753,7 @@ describe("blueprint compiler", () => {
     }));
     expect(blockedRelease.events.filter((event) => event.type === "lot.release-blocked" && event.reason === "buffer-capacity")).toHaveLength(11);
 
-    const controlledSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    const controlledSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     controlledSource.blueprint.policies.lotRelease = {
       kind: "conwip", maximumWip: 5, reopenAtWip: 2, dispatch: "earliest-due-date",
     };
@@ -771,7 +771,7 @@ describe("blueprint compiler", () => {
       "dram-lot-12", "dram-lot-11", "dram-lot-10",
     ]);
 
-    const serviceProtectedSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    const serviceProtectedSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     serviceProtectedSource.blueprint.policies.lotRelease = {
       kind: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayTicks: 24_000, dispatch: "earliest-due-date",
     };
@@ -806,7 +806,7 @@ describe("blueprint compiler", () => {
     expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
     expect(setupAware.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
-    const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     for (const id of ["lithography-1", "etch-1"]) minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy = {
       ...minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy,
       setupCampaign: { minimumReadyLots: 2, maximumHoldTicks: 12_000 },
@@ -823,7 +823,7 @@ describe("blueprint compiler", () => {
       expect.objectContaining({ device: "etch-1", readyLots: 2, heldTicks: 6_000, cause: "minimum-ready-lots" }),
     ]);
 
-    const timeoutCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    const timeoutCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     for (const id of ["lithography-1", "etch-1"]) timeoutCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy!.setupCampaign = {
       minimumReadyLots: 3, maximumHoldTicks: 12_000,
     };
@@ -2381,6 +2381,39 @@ describe("deterministic discrete-event simulation", () => {
 });
 
 describe("research boundary and experiment decisions", () => {
+  test("authors ranked dedicated-tool Blueprints from a shared work center", async () => {
+    const source = await loadFactoryProject(memoryFab, {
+      blueprint: "tool-search-seed", world: "cleanroom", scenario: "steady-production", objective: "dram-output",
+    });
+    const project = compileFactoryProject(source);
+    const candidates = specializeSharedWorkCenterCandidates(project, project.blueprint, {
+      device: "lithography-1", process: "pattern-cell-layer-2", cloneId: "lithography-2",
+    }, 2);
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0]!.transportCells).toBeLessThanOrEqual(candidates[1]!.transportCells);
+    expect(candidates[0]!.patch.length).toBeGreaterThan(0);
+    const patched = applyResearchPatch(project.blueprint, candidates[0]!.patch);
+    const specialized = compileFactoryProject({ ...source, blueprint: patched });
+    expect(specialized.devices["lithography-1"]!.processPlans.map((plan) => plan.definition.id)).toEqual(["pattern-cell-layer-1"]);
+    expect(specialized.devices["lithography-2"]!.processPlans.map((plan) => plan.definition.id)).toEqual(["pattern-cell-layer-2"]);
+    expect(specialized.connections["batch-furnace-to-lithography"]!.to.device).toBe("lithography-2");
+    expect(specialized.connections["lithography-to-etch"]!.resources).toEqual(["patterned-cell-l1-lot"]);
+    const layerTwo = Object.values(specialized.connections).find((connection) => connection.resources.includes("patterned-cell-l2-lot"));
+    expect(layerTwo?.from.device).toBe("lithography-2");
+    expect(layerTwo?.path.length).toBeGreaterThan(0);
+    const endpointOwners = patched.devices.filter((device) => device.transportEndpoint)
+      .map((device) => `${device.transportEndpoint!.connection}/${device.transportEndpoint!.stage}`);
+    expect(new Set(endpointOwners).size).toBe(endpointOwners.length);
+    const etchCandidates = specializeSharedWorkCenterCandidates(specialized, specialized.blueprint, {
+      device: "etch-1", process: "etch-cell-layer-2", cloneId: "etch-2",
+    }, 1);
+    expect(etchCandidates).toHaveLength(1);
+    const dedicatedLayerTwo = etchCandidates[0]!.blueprint.connections.find((connection) => connection.resources.includes("patterned-cell-l2-lot"));
+    expect(dedicatedLayerTwo?.path.some((cell) => (cell.level ?? 0) > 0)).toBeTrue();
+    expect(etchCandidates[0]!.blueprint.devices.filter((device) => device.transportEndpoint)
+      .every((device) => !("level" in device.position))).toBeTrue();
+  }, 20_000);
+
   test("Blueprint comparison exposes an unfed treatment mode as a regression", async () => {
     const source = await loaded(); const before = compileFactoryProject(source);
     const candidate = structuredClone(source.blueprint); const assembler = candidate.devices.find((device) => device.id === "assembler-1");
@@ -2693,7 +2726,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect((await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash).not.toBe(previousLock);
   }, 20_000);
 
-  test("keeps dispatch, inspection, and rapid-anneal improvements across the locked memory-fab envelope", async () => {
+  test("keeps dispatch, inspection, rapid anneal, and dedicated tools across the locked memory-fab envelope", async () => {
     const result = await evaluateBlueprintBenchmark(memoryFab, "dispatch-research");
     expect(result.verdict).toBe("KEEP");
     expect(result.accepted).toBeTrue();
@@ -2701,14 +2734,15 @@ describe("coding-agent Blueprint benchmarks", () => {
       "steady-production", "mixed-quality", "quality-excursion", "lithography-interruption",
     ]);
     expect(result.totalSimulationTicks).toBe(1_920_000);
-    expect(result.cases.some((item) => item.scoreDelta < 0)).toBeTrue();
-    expect(result.cases.filter((item) => item.id !== "steady-production").every((item) => item.scoreDelta > 0)).toBeTrue();
+    expect(result.cases.every((item) => item.scoreDelta > 0)).toBeTrue();
     expect(result.minimumCaseScoreDelta).toBeCloseTo(Math.min(...result.cases.map((item) => item.scoreDelta)), 8);
     expect(result.worstCaseCandidateScore).toBeGreaterThan(result.worstCaseBaselineScore);
-    expect(result.scoreDelta).toBeGreaterThan(5);
-    expect(result.minimumCaseScoreDelta).toBeGreaterThan(-2);
+    expect(result.scoreDelta).toBeGreaterThan(10);
+    expect(result.minimumCaseScoreDelta).toBeGreaterThan(2);
     expect(result.cases.every((item) => item.candidateMetrics.qualityEscapes === 0)).toBeTrue();
-    expect(result.changes).toHaveLength(4);
+    expect(result.changes.map((change) => change.id)).toContain("lithography-2");
+    expect(result.changes.map((change) => change.id)).toContain("etch-2");
+    expect(result.changes.map((change) => change.id)).toContain("lithography-to-etch-lithography-2");
   });
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {

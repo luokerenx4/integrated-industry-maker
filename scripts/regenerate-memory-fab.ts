@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { lockBlueprintBenchmark } from "../packages/inm-core/src/index";
+import { compileFactoryProject, loadFactoryProject, lockBlueprintBenchmark, specializeSharedWorkCenter } from "../packages/inm-core/src/index";
 
 const root = resolve(import.meta.dir, "..");
 const project = join(root, "examples", "memory-fab");
@@ -316,6 +316,9 @@ if (experimentFurnace?.recipe && typeof experimentFurnace.recipe === "object") {
   (experimentFurnace.recipe as Record<string, unknown>).process = "rapid-anneal-dielectric-stack";
 }
 await json(join(project, "blueprints", "baseline.blueprint.json"), blueprint);
+await json(join(project, "blueprints", "tool-search-seed.blueprint.json"), {
+  ...experimentBlueprint, revision: "memory-fab-tool-search-seed-v1",
+});
 await json(join(project, "blueprints", "experiment.blueprint.json"), experimentBlueprint);
 await json(join(project, "inm.json"), { version: 1, id: "memory-fab", name: "Re-entrant DRAM Memory Fab", defaultWorld: "cleanroom", defaultBlueprint: "baseline", defaultScenario: "production-window", defaultObjective: "dram-output" });
 await json(join(project, "worlds", "cleanroom.world.json"), { version: 1, id: "cleanroom", name: "DRAM Front-End Cleanroom", regions: [{ id: "cleanroom", name: "Memory Fab Cleanroom", kind: "industrial-zone", coordinates: { x: 0, y: 0, z: 0 }, bounds: { width: 40, height: 30 } }], resourceNodes: [] });
@@ -410,6 +413,22 @@ await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
   ],
   acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 2, requireCandidateCapacityReady: false },
 });
+let specializedSource = await loadFactoryProject(project, {
+  blueprint: "experiment", world: "cleanroom", scenario: "steady-production", objective: "dram-output",
+});
+let specializedProject = compileFactoryProject(specializedSource);
+for (const request of [
+  { device: "lithography-1", process: "pattern-cell-layer-2", cloneId: "lithography-2" },
+  { device: "etch-1", process: "etch-cell-layer-2", cloneId: "etch-2" },
+]) {
+  const result = specializeSharedWorkCenter(specializedProject, specializedProject.blueprint, request);
+  if (!result) throw new Error(`Could not regenerate dedicated memory-fab work center '${request.device}'`);
+  specializedSource = { ...specializedSource, blueprint: result.blueprint };
+  specializedProject = compileFactoryProject(specializedSource);
+}
+await json(join(project, "blueprints", "experiment.blueprint.json"), {
+  ...specializedProject.blueprint, revision: "memory-fab-specialized-tools-v1",
+});
 await lockBlueprintBenchmark(project, "dispatch-research");
 
 await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nTwelve named wafer lots become available six seconds apart. Before each Scenario-owned \`releaseTick\` a lot is scheduled outside the fab; admission into \`lot-release\` is capacity-gated and records actual release delay. Planned starts, due dates, quality excursions, and failures are fixed test workload, so a candidate cannot improve its score by deleting or postponing work. A candidate may add \`policies.lotRelease\` as explicit CONWIP code: \`maximumWip\` is the hard card count, \`reopenAtWip\` controls replenishment-wave hysteresis, and \`dispatch\` chooses among eligible identities.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses identity-preserving wafer lots within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nBetween deposition and the second lithography pass, the baseline furnace requires three dielectric-stack lots before one fixed twelve-second anneal job may start. The same three lot identities leave together, and the evaluator owns actual lots/job plus pre-start batch queue wait. A six-second single-lot rapid-anneal Process is qualified on the same physical furnace, so batch policy is a visible Blueprint recipe choice instead of scheduler magic.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses fixed-batch anneal, standard inspection, authored operation order, FIFO lots, and open-loop admission.\n\nThe checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.\n\nThe TypeScript command \`bun run memory-fab:research-release\` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or \`policies.lotRelease\` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
@@ -426,16 +445,20 @@ await text(autoresearchPath, generatedAutoresearch
     "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power. Optional `policy.setupCampaign` may hold that switch until `minimumReadyLots` are resident, with `maximumHoldTicks` as the starvation guard.",
   )
   .replace(
+    "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains four kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, and dedicated layer-2 lithography/etch tools. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup state. Across the locked envelope it raises the aggregate score from `25.981013` to `36.313312` (`+10.332299`), and every case improves; the minimum case delta is `+2.024633`. Continue from this candidate rather than resetting it.",
+  )
+  .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. Add `--joint` to cross a selected release range with lithography and etch recipe/lot dispatch, and `--maximum-delay <ticks>` to test the service guard. The initial 225-policy and focused joint sweeps found settings that improved aggregate score through lower WIP and completed-lot cycle time, but the best active setting raised steady-production setup changes from two to six and lost one on-time lot. Service protection did not repair that locked per-case regression.\n\n`bun run memory-fab:research-campaign` independently searches setup-campaign scope, minimum resident lots, and maximum hold. Its first 120-policy open-loop sweep found no aggregate improvement. Crossing campaigns with CONWIP `10/4/fifo` raised aggregate score to `32.949405` but missed the locked case gate; the gentler `11/6/fifo` combination stayed inside the case gate but scored below the incumbent. These negative results are intentional evidence, so the checked-in candidate uses neither CONWIP nor setup campaigns until another physical layout or equipment change satisfies both conditions.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
-    "Coding Agents may next test tool duplication, setup-group-specialized tools, parallel inspection, furnace duplication, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
+    "Coding Agents may next test parallel inspection, furnace duplication, preventive maintenance, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, campaign holds, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\n```",
+    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\n```",
   ));
 
 const projectReadmePath = join(project, "README.md");
@@ -443,7 +466,7 @@ const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
   .replace(
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
-    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires.",
+    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools.",
   )
   .replace(
     "peak active lots, physical/controller blocked lot-time",
@@ -451,7 +474,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",
-    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, or `bun run inm studio",
+    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, or `bun run inm studio",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

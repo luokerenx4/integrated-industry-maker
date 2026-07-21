@@ -12,7 +12,7 @@ import { runUntil } from "./simulator";
 import { analyzeProduction, type ProductionAnalysis } from "./production-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { atomicWriteJson, hashValue } from "./utils";
-import { findBlueprintConnectionPath, rotatePortSide, rotatedFootprint, transportEndpointRotation } from "./routing";
+import { findBlueprintConnectionPath, rotatePortSide, rotatedFootprint, transportCellId, transportEndpointRotation } from "./routing";
 import { evaluatePowerEnvelope, renewableProfileFor } from "./power-envelope";
 
 export interface ResearchInput {
@@ -162,11 +162,11 @@ function rebuildTransportEndpoints(blueprint: Blueprint, project: CompiledFactor
     const loaderId = uniqueEndpointId(`${connection.id}-loader`);
     const unloaderId = uniqueEndpointId(`${connection.id}-unloader`);
     endpoints.push({
-      id: loaderId, asset: loaderSpec.asset, region: source.region, position: structuredClone(first),
+      id: loaderId, asset: loaderSpec.asset, region: source.region, position: { x: first.x, y: first.y },
       rotation: transportEndpointRotation("loader", rotatePortSide(sourcePort.side, source.rotation)),
       transportEndpoint: { connection: connection.id, stage: "loader", distance: loaderSpec.distance },
     }, {
-      id: unloaderId, asset: unloaderSpec.asset, region: target.region, position: structuredClone(last),
+      id: unloaderId, asset: unloaderSpec.asset, region: target.region, position: { x: last.x, y: last.y },
       rotation: transportEndpointRotation("unloader", rotatePortSide(targetPort.side, target.rotation)),
       transportEndpoint: { connection: connection.id, stage: "unloader", distance: unloaderSpec.distance },
     });
@@ -345,6 +345,150 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
       patch,
     },
   };
+}
+
+export interface WorkCenterSpecializationRequest {
+  device: string;
+  process: string;
+  mode?: string;
+  cloneId?: string;
+}
+
+export interface WorkCenterSpecializationResult {
+  blueprint: Blueprint;
+  patch: JsonPatchOperation[];
+  originalDevice: string;
+  specializedDevice: string;
+  process: string;
+  mode: string;
+  transportCells: number;
+  routeLength: number;
+}
+
+function uniqueConnectionId(blueprint: Blueprint, base: string): string {
+  let suffix = 1; let id = base;
+  while (blueprint.connections.some((connection) => connection.id === id)) id = `${base}-${++suffix}`;
+  return id;
+}
+
+function removeSetupCampaign(device: Blueprint["devices"][number]): void {
+  if (!device.policy?.setupCampaign) return;
+  const { setupCampaign: _setupCampaign, ...policy } = device.policy;
+  device.policy = policy;
+}
+
+/**
+ * Extract one qualified operation from a shared work center into a separately placed
+ * copy of the same project-local Device asset. Every affected material lane is
+ * retargeted or split, routed again, and given newly owned physical endpoints.
+ * The result is an ordinary complete Blueprint and an RFC 6902 patch; no scheduler
+ * shortcut or implicit equipment pool is introduced.
+ */
+export function specializeSharedWorkCenterCandidates(
+  project: CompiledFactoryProject,
+  blueprint: Blueprint,
+  request: WorkCenterSpecializationRequest,
+  limit = 16,
+): WorkCenterSpecializationResult[] {
+  if (!Number.isInteger(limit) || limit < 1) throw new Error("Specialization candidate limit must be a positive integer");
+  const compiled = project.devices[request.device];
+  const authored = blueprint.devices.find((device) => device.id === request.device);
+  if (!compiled || !authored?.recipes || authored.recipes.length < 2) return [];
+  const selectedIndex = authored.recipes.findIndex((recipe) => recipe.process === request.process
+    && (request.mode === undefined || recipe.mode === request.mode));
+  if (selectedIndex < 0) return [];
+  const selected = authored.recipes[selectedIndex]!;
+  const base = structuredClone(blueprint);
+  const original = base.devices.find((device) => device.id === request.device)!;
+  const cloneTemplate = structuredClone(original);
+  cloneTemplate.id = request.cloneId && !base.devices.some((device) => device.id === request.cloneId)
+    ? request.cloneId : uniqueDeviceId(base, `${request.device}-${request.process}`);
+  original.recipes = original.recipes!.filter((_, index) => index !== selectedIndex);
+  cloneTemplate.recipes = [structuredClone(selected)];
+  const remainingSetupGroups = new Set(compiled.processPlans.filter((_, index) => index !== selectedIndex).map((plan) => plan.setupGroup).filter(Boolean));
+  if (remainingSetupGroups.size < 2) removeSetupCampaign(original);
+  removeSetupCampaign(cloneTemplate);
+
+  const selectedInputs = new Set(Object.keys(selected.inputs));
+  const selectedOutputs = new Set(Object.keys(selected.outputs));
+  const bounds = project.regions[compiled.region]?.bounds;
+  if (!bounds) return [];
+  const positions = Array.from({ length: bounds.width * bounds.height }, (_, index) => ({
+    x: index % bounds.width, y: Math.floor(index / bounds.width),
+  })).sort((left, right) => Math.hypot(left.x - compiled.position.x, left.y - compiled.position.y)
+    - Math.hypot(right.x - compiled.position.x, right.y - compiled.position.y) || left.y - right.y || left.x - right.x);
+  const rotations = ([authored.rotation, 0, 90, 180, 270] as const).filter((rotation, index, values) => values.indexOf(rotation) === index);
+  const best: Array<{ candidate: Blueprint; clone: Blueprint["devices"][number]; transportCells: number; routeLength: number }> = [];
+  const compare = (left: typeof best[number], right: typeof best[number]): number => left.transportCells - right.transportCells
+    || left.routeLength - right.routeLength
+    || Math.hypot(left.clone.position.x - compiled.position.x, left.clone.position.y - compiled.position.y)
+      - Math.hypot(right.clone.position.x - compiled.position.x, right.clone.position.y - compiled.position.y)
+    || left.clone.position.y - right.clone.position.y || left.clone.position.x - right.clone.position.x || left.clone.rotation - right.clone.rotation;
+  for (const position of positions) for (const rotation of rotations) {
+    const candidate = structuredClone(base);
+    const clone = { ...structuredClone(cloneTemplate), position, rotation };
+    if (overlaps(candidate, clone, project)) continue;
+    candidate.devices.push(clone);
+    const adjacent = candidate.connections.filter((connection) => connection.to.device === request.device || connection.from.device === request.device)
+      .map((connection) => connection.id);
+    let routeFailed = false;
+    for (const connectionId of adjacent) {
+      const connectionIndex = candidate.connections.findIndex((connection) => connection.id === connectionId);
+      if (connectionIndex < 0) { routeFailed = true; break; }
+      const connection = candidate.connections[connectionIndex]!;
+      const incoming = connection.to.device === request.device;
+      const resources = incoming ? selectedInputs : selectedOutputs;
+      const moved = connection.resources.filter((resource) => resources.has(resource));
+      if (!moved.length) continue;
+      const retained = connection.resources.filter((resource) => !resources.has(resource));
+      const routed: Blueprint["connections"][number] = {
+        ...structuredClone(connection),
+        id: retained.length ? uniqueConnectionId(candidate, `${connection.id}-${clone.id}`) : connection.id,
+        ...(incoming ? { to: { device: clone.id, port: connection.to.port } } : { from: { device: clone.id, port: connection.from.port } }),
+        resources: moved,
+        path: [],
+      };
+      if (retained.length) connection.resources = retained;
+      else candidate.connections.splice(connectionIndex, 1);
+      const paths = [
+        findBlueprintConnectionPath(candidate, project.world, project.deviceAssets, routed, { allowEndTransportCell: true }),
+        findBlueprintConnectionPath(candidate, project.world, project.deviceAssets, routed, { allowEndTransportCell: true, elevated: true }),
+      ].filter((path): path is NonNullable<typeof path> => path !== null)
+        .sort((left, right) => left.length - right.length || Number(left.some((cell) => (cell.level ?? 0) > 0)) - Number(right.some((cell) => (cell.level ?? 0) > 0)));
+      if (!paths[0]) { routeFailed = true; break; }
+      routed.path = paths[0];
+      candidate.connections.push(routed);
+    }
+    if (routeFailed) continue;
+    const transportCells = new Set(candidate.connections.flatMap((connection) => connection.path.map((cell) => transportCellId(candidate.devices.find((device) => device.id === connection.from.device)!.region, cell)))).size;
+    const routeLength = candidate.connections.reduce((sum, connection) => sum + connection.path.length, 0);
+    const candidateRank = { candidate, clone, transportCells, routeLength };
+    if (best.length >= limit && compare(candidateRank, best.at(-1)!) >= 0) continue;
+    try {
+      rebuildTransportEndpoints(candidate, project);
+      compileFactoryProject({ ...project, blueprint: candidate });
+      best.push(candidateRank); best.sort(compare);
+      if (best.length > limit) best.pop();
+    } catch { /* Try another physical placement and orientation. */ }
+  }
+  return best.map((item) => ({
+    blueprint: item.candidate,
+    patch: topologyPatch(blueprint, item.candidate),
+    originalDevice: request.device,
+    specializedDevice: item.clone.id,
+    process: selected.process,
+    mode: selected.mode,
+    transportCells: item.transportCells,
+    routeLength: item.routeLength,
+  }));
+}
+
+export function specializeSharedWorkCenter(
+  project: CompiledFactoryProject,
+  blueprint: Blueprint,
+  request: WorkCenterSpecializationRequest,
+): WorkCenterSpecializationResult | null {
+  return specializeSharedWorkCenterCandidates(project, blueprint, request, 1)[0] ?? null;
 }
 
 function powerCandidates(input: ResearchInput): StrategyCandidate[] {
@@ -757,12 +901,32 @@ function plannedCapacityCandidates(input: ResearchInput): StrategyCandidate[] {
   });
 }
 
+function workCenterSpecializationCandidates(input: ResearchInput): StrategyCandidate[] {
+  return input.blueprint.devices.filter((device) => (device.recipes?.length ?? 0) > 1).flatMap((device) => {
+    const compiled = input.project.devices[device.id];
+    if (!compiled) return [];
+    return device.recipes!.flatMap((recipe) => {
+      const result = specializeSharedWorkCenter(input.project, input.blueprint, {
+        device: device.id, process: recipe.process, mode: recipe.mode,
+      });
+      if (!result) return [];
+      const key = `specialize:${device.id}:${recipe.process}:${recipe.mode}`;
+      return [{ key, proposal: {
+        strategy: key,
+        hypothesis: `Extract \`${recipe.process}/${recipe.mode}\` from shared work center \`${device.id}\` into dedicated \`${result.specializedDevice}\` using the same project-local ${compiled.asset} equipment class.`,
+        expectedEffect: `Trade ${compiled.assetDef.economics.buildCost} build cost and a separate physical footprint for parallel capacity, isolated setup state, and removal of changeovers between this operation and the remaining qualifications.`,
+        patch: result.patch,
+      } }];
+    });
+  });
+}
+
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
       ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationHighSpeedCandidates(input), ...stationCandidates(input), ...stationChargeCandidates(input),
-      ...recipeCandidates(input), ...plannedCapacityCandidates(input),
+      ...recipeCandidates(input), ...plannedCapacityCandidates(input), ...workCenterSpecializationCandidates(input),
     ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;
