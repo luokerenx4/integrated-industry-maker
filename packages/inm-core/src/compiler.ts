@@ -187,6 +187,55 @@ function powerGridAtPosition(
   })).sort((a, b) => a.distance - b.distance || a.distributor.localeCompare(b.distributor) || a.grid.localeCompare(b.grid))[0]?.grid;
 }
 
+function compileStationSlotContracts(
+  definitions: BlueprintLogisticsNetwork[], devices: Record<string, CompiledDevice>, resources: Record<string, ResourceAsset>, issues: ValidationIssue[],
+): void {
+  const configured = new Map<string, {
+    device: CompiledDevice;
+    buffer: string;
+    resources: Map<string, { capacity: number; path: string }>;
+  }>();
+  for (const [networkIndex, network] of definitions.entries()) for (const [stationIndex, station] of network.stations.entries()) {
+    const device = devices[station.device];
+    const spec = device?.assetDef.logisticsStation;
+    if (!device || !spec?.networkKinds.includes(network.kind)) continue;
+    const stationPath = `blueprint/logisticsNetworks/${networkIndex}/stations/${stationIndex}`;
+    const buffer = device.buffers[spec.buffer];
+    if (!buffer) continue;
+    const contract = configured.get(device.id) ?? { device, buffer: spec.buffer, resources: new Map() };
+    configured.set(device.id, contract);
+    for (const [slotIndex, slot] of station.slots.entries()) {
+      const path = `${stationPath}/slots/${slotIndex}`;
+      if (!resources[slot.resource]) continue;
+      if (!buffer.accepts.includes("*") && !buffer.accepts.includes(slot.resource)) continue;
+      const existing = contract.resources.get(slot.resource);
+      if (existing && existing.capacity !== slot.capacity) {
+        issues.push({
+          path: `${path}/capacity`, code: "station.slot-capacity-conflict",
+          message: `Station '${device.id}' configures '${slot.resource}' with conflicting capacities ${existing.capacity} and ${slot.capacity}`,
+        });
+        continue;
+      }
+      if (!existing) contract.resources.set(slot.resource, { capacity: slot.capacity, path });
+    }
+  }
+  for (const contract of [...configured.values()].sort((left, right) => left.device.id.localeCompare(right.device.id))) {
+    const spec = contract.device.assetDef.logisticsStation!;
+    const buffer = contract.device.buffers[contract.buffer]!;
+    if (contract.resources.size > spec.slots) issues.push({
+      path: `blueprint/devices/${contract.device.id}`, code: "station.slot-count",
+      message: `Station '${contract.device.id}' exposes ${spec.slots} slots but configures ${contract.resources.size} unique Resources across logistics networks`,
+    });
+    const allocated = [...contract.resources.values()].reduce((sum, slot) => sum + slot.capacity, 0);
+    if (allocated > buffer.capacity) issues.push({
+      path: `blueprint/devices/${contract.device.id}`, code: "station.buffer-capacity",
+      message: `Station '${contract.device.id}' allocates ${allocated} items across Resource slots, exceeding buffer '${buffer.id}' capacity ${buffer.capacity}`,
+    });
+    buffer.accepts = [...contract.resources.keys()].sort();
+    buffer.resourceCapacities = Object.fromEntries([...contract.resources.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([resource, slot]) => [resource, slot.capacity]));
+  }
+}
+
 function compileLogisticsNetworks(
   definitions: BlueprintLogisticsNetwork[], devices: Record<string, CompiledDevice>, assets: Record<string, DeviceAsset>,
   resources: Record<string, ResourceAsset>, regions: Record<string, WorldRegion>, issues: ValidationIssue[],
@@ -222,6 +271,10 @@ function compileLogisticsNetworks(
         if (!resources[slot.resource]) issues.push({ path: `${slotPath}/resource`, code: "reference.resource", message: `Unknown resource '${slot.resource}'` });
         const buffer = device.buffers[spec.buffer];
         if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(slot.resource)) issues.push({ path: `${slotPath}/resource`, code: "station.resource-contract", message: `Station buffer '${spec.buffer}' does not accept '${slot.resource}'` });
+        if (slot.minimumBatch !== undefined && slot.minimumBatch > slot.capacity) issues.push({
+          path: `${slotPath}/minimumBatch`, code: "station.minimum-batch-slot",
+          message: `Station '${station.device}' minimum batch ${slot.minimumBatch} exceeds '${slot.resource}' slot capacity ${slot.capacity}`,
+        });
       }
       validStations.push({ definition: station, device, buffer: spec.buffer });
     }
@@ -246,7 +299,14 @@ function compileLogisticsNetworks(
         const plan = planDeviceTransport(fleetAsset.id, fleetAsset.program, { apiVersion: 1, connection: id, stage: "carrier", distance });
         const minimumBatch = Math.max(supplySlot.minimumBatch ?? 1, demandSlot.minimumBatch ?? 1);
         if (minimumBatch > plan.capacity) issues.push({ path, code: "station.minimum-batch", message: `Route '${id}' minimum batch ${minimumBatch} exceeds carrier capacity ${plan.capacity}` });
-        routes.push({ id, network: definition.id, resource: supplySlot.resource, from: supply.device.id, to: demand.device.id, fromRegion: supply.device.region, toRegion: demand.device.region, fromBuffer: supply.buffer, toBuffer: demand.buffer, minimumBatch, distance, capacity: plan.capacity, travelTicks: plan.durationTicks });
+        const capacity = Math.min(plan.capacity, supplySlot.capacity, demandSlot.capacity);
+        routes.push({
+          id, network: definition.id, resource: supplySlot.resource,
+          from: supply.device.id, to: demand.device.id, fromRegion: supply.device.region, toRegion: demand.device.region,
+          fromBuffer: supply.buffer, toBuffer: demand.buffer,
+          fromSlotCapacity: supplySlot.capacity, toSlotCapacity: demandSlot.capacity,
+          minimumBatch, distance, carrierCapacity: plan.capacity, capacity, travelTicks: plan.durationTicks,
+        });
       }
     }
     networks[definition.id] = { id: definition.id, kind: definition.kind, fleetAsset, fleetSize: definition.fleet.count, stations: structuredClone(definition.stations), routes };
@@ -469,6 +529,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (overlap) issues.push({ path: "blueprint/devices", code: "geometry.overlap", message: `Devices '${left.id}' and '${right.id}' overlap` });
   }
 
+  compileStationSlotContracts(loaded.blueprint.logisticsNetworks, devices, loaded.resources, issues);
   const powerGrids = compilePowerGrids(devices);
 
   const connections: Record<string, CompiledConnection> = {};
@@ -632,6 +693,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       for (const resource of Object.keys(inventory)) {
         if (!loaded.resources[resource]) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
         else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "buffer.resource-contract", message: `Buffer '${bufferId}' does not accept '${resource}'` });
+        const resourceCapacity = buffer?.resourceCapacities?.[resource];
+        if (resourceCapacity !== undefined && inventory[resource]! > resourceCapacity) issues.push({
+          path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "buffer.resource-capacity",
+          message: `Initial quantity ${inventory[resource]} exceeds '${resource}' capacity ${resourceCapacity} in buffer '${bufferId}'`,
+        });
       }
       if (buffer && Object.values(inventory).reduce((sum, count) => sum + count, 0) > buffer.capacity) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "buffer.capacity", message: `Initial quantity exceeds buffer capacity ${buffer.capacity}` });
     }

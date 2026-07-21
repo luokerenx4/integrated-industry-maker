@@ -786,6 +786,7 @@
           "device": "station-supply",
           "slots": [
             {
+              "capacity": 400,
               "minimumBatch": 3,
               "mode": "supply",
               "resource": "iron-plate"
@@ -796,6 +797,7 @@
           "device": "station-demand",
           "slots": [
             {
+              "capacity": 400,
               "minimumBatch": 3,
               "mode": "demand",
               "resource": "iron-plate"
@@ -808,6 +810,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "93385b23b792a8aa01c51b8f5db824f2315e06c0c80293c5ade50ae5a3fe6136",
+  "revision": "2671b18ca06e9d0a1a6875f0ba757c3dc42a798a3ef008678a550f80e24085fa",
   "version": 1
 }

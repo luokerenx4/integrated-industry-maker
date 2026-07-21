@@ -733,11 +733,12 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: networkId, stage: "carrier", distance });
       const perCarrierRate = plan.capacity * 60_000 / plan.durationTicks;
       const carriers = Math.max(1, Math.ceil(laneRate / perCarrierRate - 1e-9));
+      const slotCapacity = stationAsset.buffers.find((buffer) => buffer.id === stationAsset.logisticsStation!.buffer)!.capacity;
       const network: BlueprintLogisticsNetwork = {
         id: networkId, kind: "interstellar", fleet: { deviceAsset: carrier.id, count: carriers },
         stations: [
-          { device: supply.id, slots: [{ resource, mode: "supply", minimumBatch: 1 }] },
-          { device: demand.id, slots: [{ resource, mode: "demand", minimumBatch: 1 }] },
+          { device: supply.id, slots: [{ resource, mode: "supply", capacity: slotCapacity, minimumBatch: 1 }] },
+          { device: demand.id, slots: [{ resource, mode: "demand", capacity: slotCapacity, minimumBatch: 1 }] },
         ],
       };
       blueprint.logisticsNetworks.push(network);

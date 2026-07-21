@@ -36,8 +36,8 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
     kind: "planetary",
     fleet: { deviceAsset: "logistics-drone", count: 1 },
     stations: [
-      { device: "station-supply", slots: [{ resource: "iron-ore", mode: "supply", minimumBatch: 10 }] },
-      { device: "station-demand", slots: [{ resource: "iron-ore", mode: "demand", minimumBatch: 10 }] },
+      { device: "station-supply", slots: [{ resource: "iron-ore", mode: "supply", capacity: 25, minimumBatch: 10 }] },
+      { device: "station-demand", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] },
     ],
   }];
   source.scenario.durationTicks = 7_000;
@@ -557,17 +557,54 @@ describe("blueprint compiler", () => {
     expect(network.fleetAsset.id).toBe("logistics-drone");
     expect(network.fleetSize).toBe(1);
     expect(network.routes).toEqual([expect.objectContaining({
-      resource: "iron-ore", from: "station-supply", to: "station-demand", capacity: 10, minimumBatch: 10, travelTicks: 3_400,
+      resource: "iron-ore", from: "station-supply", to: "station-demand", fromSlotCapacity: 25, toSlotCapacity: 20,
+      capacity: 10, minimumBatch: 10, travelTicks: 3_400,
     })]);
+    expect(project.devices["station-supply"]!.buffers.storage!.resourceCapacities).toEqual({ "iron-ore": 25 });
+    expect(project.devices["station-demand"]!.buffers.storage!.resourceCapacities).toEqual({ "iron-ore": 20 });
   });
 
   test("rejects incompatible station carriers and duplicate resource slots", async () => {
     const source = await stationProjectSource();
     source.blueprint.logisticsNetworks[0]!.fleet.deviceAsset = "conveyor";
-    source.blueprint.logisticsNetworks[0]!.stations[0]!.slots.push({ resource: "iron-ore", mode: "storage" });
+    source.blueprint.logisticsNetworks[0]!.stations[0]!.slots.push({ resource: "iron-ore", mode: "storage", capacity: 25 });
     const codes = issueCodes(() => compileFactoryProject(source));
     expect(codes).toContain("logistics.carrier-kind");
     expect(codes).toContain("station.duplicate-resource");
+  });
+
+  test("rejects station slot allocations that conflict or exceed the backing buffer", async () => {
+    const oversized = await stationProjectSource();
+    oversized.blueprint.devices.find((device) => device.id === "station-supply")!.bufferFilters = { storage: ["iron-ore", "gear"] };
+    oversized.blueprint.logisticsNetworks[0]!.stations[0]!.slots.push({ resource: "gear", mode: "storage", capacity: 180 });
+    oversized.deviceAssets["logistics-station"]!.logisticsStation!.slots = 1;
+    const oversizedCodes = issueCodes(() => compileFactoryProject(oversized));
+    expect(oversizedCodes).toContain("station.buffer-capacity");
+    expect(oversizedCodes).toContain("station.slot-count");
+
+    const conflicting = await stationProjectSource();
+    const second = structuredClone(conflicting.blueprint.logisticsNetworks[0]!);
+    second.id = "planetary-secondary";
+    second.stations[0]!.slots[0]!.capacity = 24;
+    conflicting.blueprint.logisticsNetworks.push(second);
+    expect(issueCodes(() => compileFactoryProject(conflicting))).toContain("station.slot-capacity-conflict");
+
+    const invalidBatch = await stationProjectSource();
+    invalidBatch.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.capacity = 5;
+    expect(issueCodes(() => compileFactoryProject(invalidBatch))).toContain("station.minimum-batch-slot");
+
+    const initialOverflow = await stationProjectSource();
+    initialOverflow.scenario.initialBuffers!["station-demand"] = { storage: { "iron-ore": 21 } };
+    expect(issueCodes(() => compileFactoryProject(initialOverflow))).toContain("buffer.resource-capacity");
+
+    const slotLimited = await stationProjectSource();
+    for (const station of slotLimited.blueprint.logisticsNetworks[0]!.stations) station.slots[0] = {
+      ...station.slots[0]!, capacity: 5, minimumBatch: 1,
+    };
+    slotLimited.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 5;
+    expect(compileFactoryProject(slotLimited).logisticsNetworks["planetary-main"]!.routes[0]).toEqual(expect.objectContaining({
+      carrierCapacity: 10, capacity: 5,
+    }));
   });
 });
 
@@ -906,6 +943,34 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.state.devices["station-supply"]!.buffers.storage!["iron-ore"]).toBe(5);
     expect(result.state.logisticsTransports["planetary-main"]).toHaveLength(0);
     expect(result.metrics.totalBuildCost).toBe(6_500);
+  });
+
+  test("station demand slot capacity reserves inbound cargo and stops partial batches", async () => {
+    const source = await stationProjectSource();
+    source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.capacity = 15;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.count])).toEqual([[0, 10]]);
+    expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 10 });
+    expect(result.state.devices["station-supply"]!.buffers.storage).toEqual({ "iron-ore": 15 });
+  });
+
+  test("local belts obey the same per-Resource station slot quota", async () => {
+    const source = await stationProjectSource();
+    source.blueprint.logisticsNetworks[0]!.stations[0]!.slots[0]!.minimumBatch = 1;
+    source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0] = { resource: "iron-ore", mode: "storage", capacity: 5 };
+    source.blueprint.devices.push({ id: "local-source", asset: "buffer", region: "forge-world", position: { x: 11, y: 11 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } });
+    source.blueprint.connections = [{
+      id: "local-to-station", from: { device: "local-source", port: "output" }, to: { device: "station-demand", port: "input" },
+      path: [{ x: 12, y: 11 }, { x: 13, y: 11 }],
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+    }];
+    source.scenario.initialBuffers = {
+      "local-source": { storage: { "iron-ore": 20 } },
+      "generator-1": { fuel: { coal: 1 } },
+    };
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 10_000 });
+    expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 5 });
+    expect(result.state.devices["local-source"]!.buffers.storage).toEqual({ "iron-ore": 15 });
   });
 
   test("station infrastructure reports spatial power loss before cargo is available", async () => {

@@ -138,7 +138,10 @@ export interface StationNetworkAnalysis {
     to: string;
     fromRegion: string;
     toRegion: string;
+    fromSlotCapacity: number;
+    toSlotCapacity: number;
     minimumBatch: number;
+    carrierBatchCapacity: number;
     batchCapacity: number;
     travelTicks: number;
     capacityItemsPerMinute: number;
@@ -161,7 +164,7 @@ export interface ProductionAnalysis {
   devices: DeviceProductionRate[];
   bufferContracts: Array<{
     device: string; asset: string;
-    buffers: Array<{ buffer: string; role: string; capacity: number; accepts: ResourceId[] | ["*"] }>;
+    buffers: Array<{ buffer: string; role: string; capacity: number; accepts: ResourceId[] | ["*"]; resourceCapacities?: Record<ResourceId, number> }>;
   }>;
   recipeOptions: RecipeOptionAnalysis[];
   productionGraph: ProductionDependencyGraph;
@@ -317,6 +320,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     device: device.id, asset: device.asset,
     buffers: Object.values(device.buffers).sort((a, b) => a.id.localeCompare(b.id)).map((buffer) => ({
       buffer: buffer.id, role: buffer.role, capacity: buffer.capacity, accepts: [...buffer.accepts] as ResourceId[] | ["*"],
+      ...(buffer.resourceCapacities ? { resourceCapacities: { ...buffer.resourceCapacities } } : {}),
     })),
   }));
 
@@ -397,7 +401,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       to: route.to,
       fromRegion: route.fromRegion,
       toRegion: route.toRegion,
+      fromSlotCapacity: route.fromSlotCapacity,
+      toSlotCapacity: route.toSlotCapacity,
       minimumBatch: route.minimumBatch,
+      carrierBatchCapacity: route.carrierCapacity,
       batchCapacity: route.capacity,
       travelTicks: route.travelTicks,
       capacityItemsPerMinute: route.capacity * 60_000 / route.travelTicks,

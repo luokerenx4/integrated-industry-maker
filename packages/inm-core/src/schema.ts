@@ -137,7 +137,7 @@ export const blueprintSchema = z.object({
     stations: z.array(z.object({
       device: id,
       slots: z.array(z.object({
-        resource: id, mode: z.enum(["supply", "demand", "storage"]), minimumBatch: positiveInt.optional(),
+        resource: id, mode: z.enum(["supply", "demand", "storage"]), capacity: positiveInt, minimumBatch: positiveInt.optional(),
       }).strict()),
     }).strict()).min(2),
   }).strict()),

@@ -407,13 +407,13 @@ A transport Device declares the stages it can fill, for example `"logistics": { 
       {
         "device": "station-supply",
         "slots": [
-          { "resource": "iron-plate", "mode": "supply", "minimumBatch": 3 }
+          { "resource": "iron-plate", "mode": "supply", "capacity": 200, "minimumBatch": 3 }
         ]
       },
       {
         "device": "station-demand",
         "slots": [
-          { "resource": "iron-plate", "mode": "demand", "minimumBatch": 3 }
+          { "resource": "iron-plate", "mode": "demand", "capacity": 120, "minimumBatch": 3 }
         ]
       }
     ]
@@ -421,7 +421,9 @@ A transport Device declares the stages it can fill, for example `"logistics": { 
 ]
 ```
 
-The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and capacity. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination capacity includes cargo already in flight. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
+`capacity` is required and allocates an independent quantity limit for that Resource in the station's backing buffer. A station may appear in several networks, but a repeated Resource must keep the same capacity; unique Resources across all networks consume the asset's finite slot count, and their capacities may not sum beyond the backing buffer's total capacity. The compiler narrows the station buffer to exactly those Resources.
+
+The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, slot and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and raw cargo capacity. Effective route batch capacity is the minimum of carrier capacity, supply slot capacity, and demand slot capacity, and static fleet planning uses that same bounded rate. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination free space counts both total buffer occupancy and the Resource slot's resident plus in-flight quantity, including cargo arriving by local belt. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
 
 ## Scenario and objective
 

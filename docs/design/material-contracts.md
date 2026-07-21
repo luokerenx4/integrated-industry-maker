@@ -1,6 +1,6 @@
 # Material, recipe, and buffer contracts
 
-Status: implemented through engine version `inm-sim/0.26.0`.
+Status: implemented through engine version `inm-sim/0.27.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
@@ -16,7 +16,7 @@ Material acceptance is narrowed in layers; later layers may never expand earlier
 Resource catalog
   → Device asset buffer accepts (maximum capability)
   → Blueprint Device bufferFilters (instance configuration)
-  → recipe binding / bound extractor Resource / configured fuels
+  → recipe binding / bound extractor Resource / configured fuels / station Resource slots
   → compiled effective buffer contract
   → connections, station slots, initial inventory, and runtime actions
 ```
@@ -34,12 +34,25 @@ Compilation rejects missing, extra, unknown, wrong-role, asset-incompatible, or 
 The same instance filter applies to storage, consumers, junctions, stations, miners, and fuel generators:
 
 - a miner is narrowed to the single Resource type of its bound deposits;
-- station slots must be accepted by the station's effective buffer;
+- station slots must be accepted by the station's effective buffer and compile into independent per-Resource quotas;
 - a fuel generator exposes only supported fuels admitted by its effective fuel buffer;
-- Scenario initial inventory must satisfy the effective contract;
+- Scenario initial inventory must satisfy the effective contract, total buffer capacity, and any per-Resource quota;
 - a splitter policy filter must be admitted by its internal buffer;
 - a belt connection compiles only the intersection of source and target contracts;
-- runtime dispatch skips mixed cargo not accepted by the target.
+- runtime dispatch skips mixed cargo not accepted by the target and reserves both total and per-Resource destination capacity.
+
+## Capacity contracts
+
+Every compiled buffer has one total capacity inherited from its Device asset. Some industrial semantics add stricter per-Resource capacities without changing the asset package. Station slots are the first such semantic: `{ resource, mode, capacity }` compiles into `resourceCapacities[resource]` on the station's backing buffer.
+
+For a Resource `r`, writable capacity is the minimum of:
+
+```text
+total buffer capacity − all resident items − all inbound items
+slot capacity[r] − resident r − inbound r
+```
+
+If no Resource quota exists, only the total limit applies. Inbound reservations include physical belt cargo and station-carrier cargo together. Production uses the same per-Resource check before accepting a Device action. This compiled representation deliberately generalizes beyond stations so later container partitions or fluid tanks can reuse the same runtime invariant.
 
 ## Runtime authority
 
@@ -51,7 +64,7 @@ Blueprint synthesis writes exact filters for extractors, single-Resource junctio
 
 ## Observability
 
-`inm analyze` exposes `bufferContracts` for every compiled Device. Human output lists buffer role, capacity, and accepted Resources. Studio shows the same table and labels 3D Devices with compiled material names.
+`inm analyze` exposes `bufferContracts` for every compiled Device. Human output lists buffer role, total capacity, accepted Resources, and `Resource≤quota` where present. Station routes expose source and destination slot capacities. Studio renders the same contracts and labels 3D Devices with compiled material names.
 
 ## Source of truth
 

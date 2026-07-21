@@ -1193,6 +1193,7 @@
           "device": "synth-iron-plate-forge-world-station-supply-1",
           "slots": [
             {
+              "capacity": 400,
               "minimumBatch": 1,
               "mode": "supply",
               "resource": "iron-plate"
@@ -1203,6 +1204,7 @@
           "device": "synth-iron-plate-assembly-world-station-demand-1",
           "slots": [
             {
+              "capacity": 400,
               "minimumBatch": 1,
               "mode": "demand",
               "resource": "iron-plate"

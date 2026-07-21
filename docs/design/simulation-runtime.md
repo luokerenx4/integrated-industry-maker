@@ -28,6 +28,8 @@ Device TypeScript is trusted project code but not state authority. Programs rece
 
 Scenario failures are explicit timed events. Failed extraction releases reservations. Failed or unpowered infrastructure stops new work while already-departed station cargo remains in flight. Full output buffers, occupied belt cells, target capacity, and unpowered unloaders become visible blocking rather than disappearing into averaged rates.
 
+Destination capacity is reservation-based. Every local or station transit counts as inbound from departure until arrival. Before dispatch, the runtime computes free space against both the buffer's total capacity and any compiled per-Resource quota; it subtracts resident inventory, all inbound inventory, resident inventory of the chosen Resource, and inbound inventory of that Resource. Device production applies the same two limits before a job may complete. This makes concurrent belt and carrier arrivals deterministic and prevents transient overfill without adding a second mutable reservation ledger.
+
 ## Events and metrics
 
 Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Metrics are derived from deterministic state/event integration and include throughput, delivery, energy/fuel, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.

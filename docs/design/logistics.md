@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics, stacking, junctions, and finite station fleets implemented.
+Status: physical local logistics, stacking, junctions, finite station fleets, and per-Resource station slots implemented.
 
 Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -39,19 +39,32 @@ A physical port and local lane may not exceed the best project-local pipeline ca
 
 ## Station logistics
 
-A station asset declares supported network kinds, one internal buffer, and slot count. A Blueprint network configures station Resource slots as supply, demand, or storage and owns a finite fleet of compatible carrier Devices.
+A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. The slot contract is instance state even when the same station participates in several networks.
+
+The compiler collects slots globally by station instance before compiling local connections. For each station:
+
+- one Resource occupies one logical slot across all networks;
+- repeated declarations of that Resource must use the same capacity;
+- the unique Resource count may not exceed the asset's slot count;
+- the sum of unique slot capacities may not exceed the backing buffer's total capacity;
+- configured Resources must satisfy the asset maximum and explicit instance `bufferFilters`;
+- the compiled backing buffer accepts exactly the configured slot Resources and stores a quota for each one;
+- a minimum batch may not exceed its slot capacity or carrier cargo capacity.
+
+The backing buffer therefore has two simultaneous limits: the asset-level total capacity and the slot-level capacity for the particular Resource. Resident inventory plus all inbound local and station cargo counts against both. Local belt dispatch, station dispatch, Scenario initial inventory, and Device-produced output reserve the same quota. This prevents a full or in-flight Resource from borrowing another slot's capacity and prevents local belts from overfilling a station while a carrier is in transit.
 
 - Planetary routes remain within one region.
 - Interstellar routes cross regions.
 - World plus local coordinates determine route distance.
 - Carrier `planTransport()` determines batch capacity and travel time.
-- A departing batch reserves a fleet member until arrival.
+- Effective route batch capacity is the minimum of carrier capacity, source slot capacity, and destination slot capacity; planning and analysis use this effective value.
+- A departing batch reserves a fleet member and destination Resource quota until arrival.
 - All routes in a network share that fleet.
 - Power/failure gates departures; in-flight cargo remains explicit.
 
 ## Telemetry
 
-Every connection records departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, batch range, carrier load, and deficits.
+Every connection records departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 
@@ -74,5 +87,5 @@ Any logistics change must test nominal capacity and event-level physical movemen
 ## Known next gaps
 
 - Dedicated vertical lift/elevator semantics beyond level-changing routed cells.
-- More DSP-like station slot capacities and local/remote demand priorities.
+- Local/remote demand priorities and per-slot reserve thresholds.
 - Explicit sorter reach geometry and distance-dependent endpoint placement.

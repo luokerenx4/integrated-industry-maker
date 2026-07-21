@@ -150,8 +150,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const contract = device.buffers[buffer]!.accepts;
     return contract.includes("*") || contract.includes(resource);
   };
-  const incomingQuantity = (device: string, buffer: string) => [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
-    .filter((transit) => transit.to === device && transit.toBuffer === buffer).reduce((sum, transit) => sum + transit.count, 0);
+  const incomingQuantity = (device: string, buffer: string, resource?: string) => [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
+    .filter((transit) => transit.to === device && transit.toBuffer === buffer && (resource === undefined || transit.resource === resource))
+    .reduce((sum, transit) => sum + transit.count, 0);
+  const freeBufferCapacity = (deviceId: string, bufferId: string, resource: string): number => {
+    const device = project.devices[deviceId]!;
+    const definition = device.buffers[bufferId]!;
+    const inventory = state.devices[deviceId]!.buffers[bufferId]!;
+    const totalFree = definition.capacity - quantity(inventory) - incomingQuantity(deviceId, bufferId);
+    const resourceCapacity = definition.resourceCapacities?.[resource];
+    if (resourceCapacity === undefined) return Math.max(0, totalFree);
+    const resourceFree = resourceCapacity - (inventory[resource] ?? 0) - incomingQuantity(deviceId, bufferId, resource);
+    return Math.max(0, Math.min(totalFree, resourceFree));
+  };
   const transportStagePowered = (connection: CompiledFactoryProject["connections"][string], stageName: "loader" | "unloader"): boolean => {
     const stage = transportStage(connection, stageName); const required = stage.asset.power.consumptionMilliWatts;
     if (required <= 0) return true;
@@ -225,7 +236,6 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const sourceBuffer = sourceState.buffers[connection.fromPort.buffer]!;
       const targetState = state.devices[connection.to.device]!;
       if ((usesPersistentPower(connection.fromDevice) && sourceState.status === "unpowered") || (usesPersistentPower(connection.toDevice) && targetState.status === "unpowered")) continue;
-      const targetBuffer = targetState.buffers[connection.toPort.buffer]!;
       const loader = transportStage(connection, "loader");
       if (state.transports[connection.id]!.filter((transit) => transit.phase === "loading").length >= loader.capacity) continue;
       const filter = connection.fromDevice.policy?.filter;
@@ -235,15 +245,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         return connection.from.port === filter.outputPort ? id === filter.resource : id !== filter.resource;
       });
       if (!resource) continue;
-      const targetCapacity = connection.toDevice.buffers[connection.toPort.buffer]!.capacity;
-      if (quantity(targetBuffer) + incomingQuantity(connection.to.device, connection.toPort.buffer) >= targetCapacity) continue;
       const readyTick = nextDispatchTick[connection.id]!;
       if (state.tick < readyTick) {
         scheduleLogisticsReady(connection.id, readyTick);
         continue;
       }
       if (!transportStagePowered(connection, "loader")) continue;
-      const freeCapacity = targetCapacity - quantity(targetBuffer) - incomingQuantity(connection.to.device, connection.toPort.buffer);
+      const freeCapacity = freeBufferCapacity(connection.to.device, connection.toPort.buffer, resource);
       const count = Math.min(sourceBuffer[resource] ?? 0, freeCapacity, connection.stackSizeByResource[resource] ?? 1);
       if (count <= 0) continue;
       mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -count });
@@ -314,9 +322,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         const sourceState = state.devices[route.from]!;
         const targetState = state.devices[route.to]!;
         const available = sourceState.buffers[route.fromBuffer]![route.resource] ?? 0;
-        const free = targetDevice.buffers[route.toBuffer]!.capacity
-          - quantity(targetState.buffers[route.toBuffer]!)
-          - incomingQuantity(route.to, route.toBuffer);
+        const free = freeBufferCapacity(route.to, route.toBuffer, route.resource);
         if (sourceState.status === "failed" || targetState.status === "failed" || available < route.minimumBatch || free < route.minimumBatch
           || !infrastructurePowered(sourceDevice) || !infrastructurePowered(targetDevice)) {
           scannedWithoutDispatch++;
@@ -352,12 +358,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const outputFits = (device: CompiledDevice, produce: ResourceBufferQuantity[]): boolean => {
     const additions: Record<string, number> = {};
+    const resourceAdditions: Record<string, Record<string, number>> = {};
     for (const amount of produce) {
       const buffer = device.buffers[amount.buffer];
       if (!buffer || !project.resources[amount.resource] || !(buffer.accepts.includes("*") || buffer.accepts.includes(amount.resource))) return false;
       additions[amount.buffer] = (additions[amount.buffer] ?? 0) + amount.count;
+      const byResource = resourceAdditions[amount.buffer] ??= {};
+      byResource[amount.resource] = (byResource[amount.resource] ?? 0) + amount.count;
     }
-    return Object.entries(additions).every(([buffer, count]) => quantity(state.devices[device.id]!.buffers[buffer]!) + count <= device.buffers[buffer]!.capacity);
+    return Object.entries(additions).every(([buffer, count]) => {
+      const inventory = state.devices[device.id]!.buffers[buffer]!;
+      if (quantity(inventory) + incomingQuantity(device.id, buffer) + count > device.buffers[buffer]!.capacity) return false;
+      return Object.entries(resourceAdditions[buffer]!).every(([resource, resourceCount]) => {
+        const capacity = device.buffers[buffer]!.resourceCapacities?.[resource];
+        return capacity === undefined || (inventory[resource] ?? 0) + incomingQuantity(device.id, buffer, resource) + resourceCount <= capacity;
+      });
+    });
   };
   const allAmountsKnown = (device: CompiledDevice, amounts: ResourceBufferQuantity[]) => amounts.every((amount) => device.buffers[amount.buffer] && project.resources[amount.resource]);
   const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], delivered: boolean) => {

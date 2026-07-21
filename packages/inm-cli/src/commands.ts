@@ -123,7 +123,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ]),
     "",
     "Instance buffer contracts",
-    ...analysis.bufferContracts.flatMap((device) => device.buffers.map((buffer) => `  ${device.device.padEnd(24)} ${buffer.buffer.padEnd(18)} ${buffer.role.padEnd(8)} cap ${buffer.capacity.toString().padStart(4)}  accepts ${buffer.accepts.join(", ") || "nothing"}`)),
+    ...analysis.bufferContracts.flatMap((device) => device.buffers.map((buffer) => `  ${device.device.padEnd(24)} ${buffer.buffer.padEnd(18)} ${buffer.role.padEnd(8)} cap ${buffer.capacity.toString().padStart(4)}  accepts ${buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource}≤${buffer.resourceCapacities[resource]}`).join(", ") || "nothing"}`)),
     "",
     `Production graph · 1 ${analysis.productionGraph.targetResource}`,
     `  raw inputs  ${Object.entries(analysis.productionGraph.rawInputsPerTarget).map(([resource, amount]) => `${amount.toFixed(3)} ${resource}`).join(" + ") || "none"}`,
@@ -152,7 +152,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     "Station networks",
     ...analysis.stationNetworks.flatMap((network) => [
       `  ${network.network}  ${network.kind}  fleet ${network.fleetSize}× ${network.fleetAsset}  ${network.stations} stations  estimated load ${network.estimatedCarrierLoad.toFixed(3)}`,
-      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from}@${route.fromRegion} → ${route.to}@${route.toRegion}  batch ${route.minimumBatch}-${route.batchCapacity}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
+      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from}@${route.fromRegion} [${route.fromSlotCapacity}] → ${route.to}@${route.toRegion} [${route.toSlotCapacity}]  batch ${route.minimumBatch}-${route.batchCapacity}${route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
     ]),
     ...(analysis.stationNetworks.length ? [] : ["  none"]),
     "",

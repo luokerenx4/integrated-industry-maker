@@ -250,6 +250,8 @@ export interface BlueprintConnection {
 export interface BlueprintLogisticsSlot {
   resource: ResourceId;
   mode: "supply" | "demand" | "storage";
+  /** Maximum resident plus inbound quantity for this Resource in the station buffer. */
+  capacity: number;
   minimumBatch?: number;
 }
 export interface BlueprintLogisticsStation {
@@ -322,11 +324,15 @@ export interface WorkspaceProjectSummary {
   isDefault: boolean;
 }
 
+export interface CompiledDeviceBuffer extends DeviceBufferDefinition {
+  /** Optional Resource-specific quotas, compiled from semantics such as station slots. */
+  resourceCapacities?: Record<ResourceId, number>;
+}
 export interface CompiledDevice extends BlueprintDevice {
   assetDef: DeviceAsset;
   footprint: { width: number; height: number };
   ports: DevicePort[];
-  buffers: Record<BufferId, DeviceBufferDefinition>;
+  buffers: Record<BufferId, CompiledDeviceBuffer>;
   processPlan?: {
     definition: IndustrialProcess;
     durationTicks: Tick;
@@ -392,8 +398,12 @@ export interface CompiledLogisticsRoute {
   toRegion: string;
   fromBuffer: BufferId;
   toBuffer: BufferId;
+  fromSlotCapacity: number;
+  toSlotCapacity: number;
   minimumBatch: number;
   distance: number;
+  carrierCapacity: number;
+  /** Effective batch capacity after intersecting carrier and both station slots. */
   capacity: number;
   travelTicks: Tick;
 }

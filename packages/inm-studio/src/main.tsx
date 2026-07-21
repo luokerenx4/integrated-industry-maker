@@ -167,7 +167,7 @@ interface IndustrialAnalysis {
   }>;
   bufferContracts: Array<{
     device: string; asset: string;
-    buffers: Array<{ buffer: string; role: string; capacity: number; accepts: string[] }>;
+    buffers: Array<{ buffer: string; role: string; capacity: number; accepts: string[]; resourceCapacities?: Record<string, number> }>;
   }>;
   recipeOptions: Array<{
     device: string; asset: string; process: string; name: string; category: string; selected: boolean;
@@ -192,7 +192,7 @@ interface IndustrialAnalysis {
   powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
-    routes: Array<{ route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string; minimumBatch: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
+    routes: Array<{ route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string; fromSlotCapacity: number; toSlotCapacity: number; minimumBatch: number; carrierBatchCapacity: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
   }>;
   diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; connection?: string; message: string }>;
 }
@@ -614,7 +614,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <section className="analysis-section material-analysis">
           <div className="analysis-section-title"><span>INSTANCE BUFFER CONTRACTS</span><b>BLUEPRINT RESOURCE FILTERS</b></div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>DEVICE / BUFFER</span><span>ROLE</span><span>CAPACITY</span><span>ACCEPTS</span></div>{analysis.bufferContracts.flatMap((device) => device.buffers.map((buffer) => <div key={`${device.device}-${buffer.buffer}`}>
-            <strong>{device.device}<small>{buffer.buffer}</small></strong><span>{buffer.role}</span><span>{buffer.capacity}</span><b>{buffer.accepts.join(" + ") || "CLOSED"}</b><small>{device.asset}</small>
+            <strong>{device.device}<small>{buffer.buffer}</small></strong><span>{buffer.role}</span><span>{buffer.capacity}</span><b>{buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource} ≤ ${buffer.resourceCapacities[resource]}`).join(" + ") || "CLOSED"}</b><small>{device.asset}</small>
           </div>))}</div>
         </section>
         <section className="analysis-section logistics-analysis">
@@ -651,7 +651,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>
           <div className="station-network-list">{analysis.stationNetworks.length ? analysis.stationNetworks.map((network) => <div className="station-network-card" key={network.network}>
             <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.fleetSize}× {network.fleetAsset}</b></div>
-            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} → {route.to}@{route.toRegion}</small></span><code>{route.minimumBatch}-{route.batchCapacity} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
+            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}]</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
         </section>
         <section className="analysis-section power-analysis">
