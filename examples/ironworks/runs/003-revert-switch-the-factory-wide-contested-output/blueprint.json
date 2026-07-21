@@ -789,7 +789,9 @@
               "capacity": 400,
               "minimumBatch": 3,
               "mode": "supply",
-              "resource": "iron-plate"
+              "priority": 0,
+              "resource": "iron-plate",
+              "supplyReserve": 0
             }
           ]
         },
@@ -798,8 +800,10 @@
           "slots": [
             {
               "capacity": 400,
+              "demandTarget": 400,
               "minimumBatch": 3,
               "mode": "demand",
+              "priority": 0,
               "resource": "iron-plate"
             }
           ]
@@ -810,6 +814,6 @@
   "policies": {
     "dispatch": "fifo"
   },
-  "revision": "cc50f766b48fe9dffd666afab3c9d6e024c41d752287ba17d390ead4a1ff124f",
+  "revision": "3cfb1391bd46a444c6b699ec44e47d45713b9990362373b535555bc7c466b3a4",
   "version": 1
 }

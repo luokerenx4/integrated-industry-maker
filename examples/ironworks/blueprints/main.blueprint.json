@@ -298,6 +298,8 @@
               "capacity": 400,
               "minimumBatch": 3,
               "mode": "supply",
+              "priority": 0,
+              "supplyReserve": 0,
               "resource": "iron-plate"
             }
           ]
@@ -307,8 +309,10 @@
           "slots": [
             {
               "capacity": 400,
+              "demandTarget": 400,
               "minimumBatch": 3,
               "mode": "demand",
+              "priority": 0,
               "resource": "iron-plate"
             }
           ]

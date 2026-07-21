@@ -558,6 +558,7 @@ describe("blueprint compiler", () => {
     expect(network.fleetSize).toBe(1);
     expect(network.routes).toEqual([expect.objectContaining({
       resource: "iron-ore", from: "station-supply", to: "station-demand", fromSlotCapacity: 25, toSlotCapacity: 20,
+      supplyReserve: 0, demandTarget: 20, supplyPriority: 0, demandPriority: 0,
       capacity: 10, minimumBatch: 10, travelTicks: 3_400,
     })]);
     expect(project.devices["station-supply"]!.buffers.storage!.resourceCapacities).toEqual({ "iron-ore": 25 });
@@ -593,17 +594,37 @@ describe("blueprint compiler", () => {
     invalidBatch.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.capacity = 5;
     expect(issueCodes(() => compileFactoryProject(invalidBatch))).toContain("station.minimum-batch-slot");
 
+    const invalidPolicy = await stationProjectSource();
+    invalidPolicy.blueprint.logisticsNetworks[0]!.stations[0]!.slots[0]!.supplyReserve = 25;
+    invalidPolicy.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.demandTarget = 21;
+    const invalidPolicyCodes = issueCodes(() => compileFactoryProject(invalidPolicy));
+    expect(invalidPolicyCodes).toContain("station.supply-reserve");
+    expect(invalidPolicyCodes).toContain("station.demand-target");
+
+    const wrongMode = await stationProjectSource();
+    wrongMode.blueprint.logisticsNetworks[0]!.stations[0]!.slots[0]!.demandTarget = 1;
+    wrongMode.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.supplyReserve = 1;
+    const wrongModeCodes = issueCodes(() => compileFactoryProject(wrongMode));
+    expect(wrongModeCodes).toContain("station.supply-reserve-mode");
+    expect(wrongModeCodes).toContain("station.demand-target-mode");
+
+    const storagePolicy = await stationProjectSource();
+    storagePolicy.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0] = { resource: "iron-ore", mode: "storage", capacity: 20, priority: 1 };
+    expect(issueCodes(() => compileFactoryProject(storagePolicy))).toContain("station.storage-policy");
+
     const initialOverflow = await stationProjectSource();
     initialOverflow.scenario.initialBuffers!["station-demand"] = { storage: { "iron-ore": 21 } };
     expect(issueCodes(() => compileFactoryProject(initialOverflow))).toContain("buffer.resource-capacity");
 
     const slotLimited = await stationProjectSource();
-    for (const station of slotLimited.blueprint.logisticsNetworks[0]!.stations) station.slots[0] = {
-      ...station.slots[0]!, capacity: 5, minimumBatch: 1,
+    slotLimited.blueprint.logisticsNetworks[0]!.stations[0]!.slots[0] = {
+      resource: "iron-ore", mode: "supply", capacity: 25, minimumBatch: 1, supplyReserve: 20,
     };
-    slotLimited.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 5;
+    slotLimited.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0] = {
+      resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 1, demandTarget: 4,
+    };
     expect(compileFactoryProject(slotLimited).logisticsNetworks["planetary-main"]!.routes[0]).toEqual(expect.objectContaining({
-      carrierCapacity: 10, capacity: 5,
+      carrierCapacity: 10, supplyReserve: 20, demandTarget: 4, capacity: 4,
     }));
   });
 });
@@ -945,19 +966,65 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.metrics.totalBuildCost).toBe(6_500);
   });
 
-  test("station demand slot capacity reserves inbound cargo and stops partial batches", async () => {
+  test("station demand targets reserve inbound cargo and stop partial batches below minimum", async () => {
     const source = await stationProjectSource();
-    source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.capacity = 15;
+    source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.demandTarget = 15;
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.count])).toEqual([[0, 10]]);
     expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 10 });
     expect(result.state.devices["station-supply"]!.buffers.storage).toEqual({ "iron-ore": 15 });
   });
 
-  test("local belts obey the same per-Resource station slot quota", async () => {
+  test("station supply reserves retain inventory for local consumers", async () => {
     const source = await stationProjectSource();
-    source.blueprint.logisticsNetworks[0]!.stations[0]!.slots[0]!.minimumBatch = 1;
-    source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0] = { resource: "iron-ore", mode: "storage", capacity: 5 };
+    source.blueprint.logisticsNetworks[0]!.stations[0]!.slots[0]!.supplyReserve = 15;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.transit.count)).toEqual([10]);
+    expect(result.state.devices["station-supply"]!.buffers.storage).toEqual({ "iron-ore": 15 });
+    expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 10 });
+  });
+
+  test("station demand priority wins finite fleet capacity and falls back when its target is full", async () => {
+    const source = await stationProjectSource();
+    source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
+    source.blueprint.devices.push({
+      id: "station-priority", asset: "logistics-station", region: "forge-world", position: { x: 8, y: 10 }, rotation: 0,
+      bufferFilters: { storage: ["iron-ore"] },
+    });
+    const network = source.blueprint.logisticsNetworks[0]!;
+    network.stations[0]!.slots[0]!.capacity = 30;
+    network.stations[1]!.slots[0] = { resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 0, demandTarget: 20 };
+    network.stations.push({ device: "station-priority", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 10, demandTarget: 20 }] });
+    source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 30;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 8_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.to])).toEqual([
+      [0, "station-priority"], [2_200, "station-priority"], [4_400, "station-demand"],
+    ]);
+  });
+
+  test("equal station priorities remain deterministic round-robin", async () => {
+    const source = await stationProjectSource();
+    source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
+    source.blueprint.devices.push({
+      id: "station-peer", asset: "logistics-station", region: "forge-world", position: { x: 8, y: 10 }, rotation: 0,
+      bufferFilters: { storage: ["iron-ore"] },
+    });
+    const network = source.blueprint.logisticsNetworks[0]!;
+    network.stations[0]!.slots[0]!.capacity = 20;
+    network.stations[1]!.slots[0]!.priority = 5;
+    network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 5 }] });
+    source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 20;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 6_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.transit.to)).toEqual([
+      "station-demand", "station-peer",
+    ]);
+  });
+
+  test("local belts take replenishment headroom first and may fill beyond the remote demand target", async () => {
+    const source = await stationProjectSource();
+    source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0] = {
+      resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, demandTarget: 10,
+    };
     source.blueprint.devices.push({ id: "local-source", asset: "buffer", region: "forge-world", position: { x: 11, y: 11 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } });
     source.blueprint.connections = [{
       id: "local-to-station", from: { device: "local-source", port: "output" }, to: { device: "station-demand", port: "input" },
@@ -965,12 +1032,15 @@ describe("deterministic discrete-event simulation", () => {
       logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
     }];
     source.scenario.initialBuffers = {
+      "station-supply": { storage: { "iron-ore": 25 } },
       "local-source": { storage: { "iron-ore": 20 } },
       "generator-1": { fuel: { coal: 1 } },
     };
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 10_000 });
-    expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 5 });
-    expect(result.state.devices["local-source"]!.buffers.storage).toEqual({ "iron-ore": 15 });
+    expect(result.events.filter((event) => event.type === "logistics.depart")).toHaveLength(0);
+    expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 20 });
+    expect(result.state.devices["local-source"]!.buffers.storage).toEqual({});
+    expect(result.state.devices["station-supply"]!.buffers.storage).toEqual({ "iron-ore": 25 });
   });
 
   test("station infrastructure reports spatial power loss before cargo is available", async () => {

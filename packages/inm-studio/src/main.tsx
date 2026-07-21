@@ -192,7 +192,11 @@ interface IndustrialAnalysis {
   powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
-    routes: Array<{ route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string; fromSlotCapacity: number; toSlotCapacity: number; minimumBatch: number; carrierBatchCapacity: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
+    routes: Array<{
+      route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string;
+      fromSlotCapacity: number; toSlotCapacity: number; supplyReserve: number; demandTarget: number; supplyPriority: number; demandPriority: number;
+      minimumBatch: number; carrierBatchCapacity: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number;
+    }>;
   }>;
   diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; connection?: string; message: string }>;
 }
@@ -651,7 +655,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>
           <div className="station-network-list">{analysis.stationNetworks.length ? analysis.stationNetworks.map((network) => <div className="station-network-card" key={network.network}>
             <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.fleetSize}× {network.fleetAsset}</b></div>
-            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}]</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
+            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}, keep {route.supplyReserve}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}, target {route.demandTarget}] · P{route.demandPriority}/{route.supplyPriority}</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
         </section>
         <section className="analysis-section power-analysis">

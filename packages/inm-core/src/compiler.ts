@@ -271,9 +271,31 @@ function compileLogisticsNetworks(
         if (!resources[slot.resource]) issues.push({ path: `${slotPath}/resource`, code: "reference.resource", message: `Unknown resource '${slot.resource}'` });
         const buffer = device.buffers[spec.buffer];
         if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(slot.resource)) issues.push({ path: `${slotPath}/resource`, code: "station.resource-contract", message: `Station buffer '${spec.buffer}' does not accept '${slot.resource}'` });
-        if (slot.minimumBatch !== undefined && slot.minimumBatch > slot.capacity) issues.push({
+        if (slot.mode === "storage" && (slot.minimumBatch !== undefined || slot.priority !== undefined || slot.supplyReserve !== undefined || slot.demandTarget !== undefined)) issues.push({
+          path: slotPath, code: "station.storage-policy",
+          message: `Storage slot '${slot.resource}' on '${station.device}' cannot configure dispatch policy`,
+        });
+        if (slot.supplyReserve !== undefined && slot.mode !== "supply") issues.push({
+          path: `${slotPath}/supplyReserve`, code: "station.supply-reserve-mode",
+          message: `supplyReserve is valid only for a supply slot`,
+        });
+        if (slot.demandTarget !== undefined && slot.mode !== "demand") issues.push({
+          path: `${slotPath}/demandTarget`, code: "station.demand-target-mode",
+          message: `demandTarget is valid only for a demand slot`,
+        });
+        if (slot.mode === "supply" && (slot.supplyReserve ?? 0) >= slot.capacity) issues.push({
+          path: `${slotPath}/supplyReserve`, code: "station.supply-reserve",
+          message: `Supply reserve ${slot.supplyReserve ?? 0} must be below '${slot.resource}' slot capacity ${slot.capacity}`,
+        });
+        if (slot.mode === "demand" && (slot.demandTarget ?? slot.capacity) > slot.capacity) issues.push({
+          path: `${slotPath}/demandTarget`, code: "station.demand-target",
+          message: `Demand target ${slot.demandTarget} exceeds '${slot.resource}' slot capacity ${slot.capacity}`,
+        });
+        const policyCapacity = slot.mode === "supply" ? slot.capacity - (slot.supplyReserve ?? 0)
+          : slot.mode === "demand" ? (slot.demandTarget ?? slot.capacity) : 0;
+        if (slot.mode !== "storage" && slot.minimumBatch !== undefined && slot.minimumBatch > policyCapacity) issues.push({
           path: `${slotPath}/minimumBatch`, code: "station.minimum-batch-slot",
-          message: `Station '${station.device}' minimum batch ${slot.minimumBatch} exceeds '${slot.resource}' slot capacity ${slot.capacity}`,
+          message: `Station '${station.device}' minimum batch ${slot.minimumBatch} exceeds '${slot.resource}' dispatchable capacity ${policyCapacity}`,
         });
       }
       validStations.push({ definition: station, device, buffer: spec.buffer });
@@ -299,12 +321,16 @@ function compileLogisticsNetworks(
         const plan = planDeviceTransport(fleetAsset.id, fleetAsset.program, { apiVersion: 1, connection: id, stage: "carrier", distance });
         const minimumBatch = Math.max(supplySlot.minimumBatch ?? 1, demandSlot.minimumBatch ?? 1);
         if (minimumBatch > plan.capacity) issues.push({ path, code: "station.minimum-batch", message: `Route '${id}' minimum batch ${minimumBatch} exceeds carrier capacity ${plan.capacity}` });
-        const capacity = Math.min(plan.capacity, supplySlot.capacity, demandSlot.capacity);
+        const supplyReserve = supplySlot.supplyReserve ?? 0;
+        const demandTarget = demandSlot.demandTarget ?? demandSlot.capacity;
+        const capacity = Math.max(0, Math.min(plan.capacity, supplySlot.capacity - supplyReserve, demandTarget));
         routes.push({
           id, network: definition.id, resource: supplySlot.resource,
           from: supply.device.id, to: demand.device.id, fromRegion: supply.device.region, toRegion: demand.device.region,
           fromBuffer: supply.buffer, toBuffer: demand.buffer,
           fromSlotCapacity: supplySlot.capacity, toSlotCapacity: demandSlot.capacity,
+          supplyReserve, demandTarget,
+          supplyPriority: supplySlot.priority ?? 0, demandPriority: demandSlot.priority ?? 0,
           minimumBatch, distance, carrierCapacity: plan.capacity, capacity, travelTicks: plan.durationTicks,
         });
       }

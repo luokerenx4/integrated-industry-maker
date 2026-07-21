@@ -1,6 +1,6 @@
 # Material, recipe, and buffer contracts
 
-Status: implemented through engine version `inm-sim/0.27.0`.
+Status: implemented through engine version `inm-sim/0.28.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 

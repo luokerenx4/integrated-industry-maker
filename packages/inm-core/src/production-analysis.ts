@@ -140,6 +140,10 @@ export interface StationNetworkAnalysis {
     toRegion: string;
     fromSlotCapacity: number;
     toSlotCapacity: number;
+    supplyReserve: number;
+    demandTarget: number;
+    supplyPriority: number;
+    demandPriority: number;
     minimumBatch: number;
     carrierBatchCapacity: number;
     batchCapacity: number;
@@ -403,6 +407,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       toRegion: route.toRegion,
       fromSlotCapacity: route.fromSlotCapacity,
       toSlotCapacity: route.toSlotCapacity,
+      supplyReserve: route.supplyReserve,
+      demandTarget: route.demandTarget,
+      supplyPriority: route.supplyPriority,
+      demandPriority: route.demandPriority,
       minimumBatch: route.minimumBatch,
       carrierBatchCapacity: route.carrierCapacity,
       batchCapacity: route.capacity,

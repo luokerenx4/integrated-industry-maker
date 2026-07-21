@@ -253,6 +253,12 @@ export interface BlueprintLogisticsSlot {
   /** Maximum resident plus inbound quantity for this Resource in the station buffer. */
   capacity: number;
   minimumBatch?: number;
+  /** Higher demand priority wins finite fleet capacity; equal priorities remain round-robin. */
+  priority?: number;
+  /** Supply mode only: inventory at or below this quantity is retained for local use. */
+  supplyReserve?: number;
+  /** Demand mode only: remote carriers replenish only up to this quantity. */
+  demandTarget?: number;
 }
 export interface BlueprintLogisticsStation {
   device: DeviceInstanceId;
@@ -400,6 +406,10 @@ export interface CompiledLogisticsRoute {
   toBuffer: BufferId;
   fromSlotCapacity: number;
   toSlotCapacity: number;
+  supplyReserve: number;
+  demandTarget: number;
+  supplyPriority: number;
+  demandPriority: number;
   minimumBatch: number;
   distance: number;
   carrierCapacity: number;

@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics, stacking, junctions, finite station fleets, and per-Resource station slots implemented.
+Status: physical local logistics, stacking, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented.
 
 Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -39,7 +39,7 @@ A physical port and local lane may not exceed the best project-local pipeline ca
 
 ## Station logistics
 
-A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. The slot contract is instance state even when the same station participates in several networks.
+A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; dispatch policy is network-local.
 
 The compiler collects slots globally by station instance before compiling local connections. For each station:
 
@@ -51,20 +51,29 @@ The compiler collects slots globally by station instance before compiling local 
 - the compiled backing buffer accepts exactly the configured slot Resources and stores a quota for each one;
 - a minimum batch may not exceed its slot capacity or carrier cargo capacity.
 
+Supply and demand inventory policies deliberately distinguish local belt traffic from station traffic:
+
+- `supplyReserve` is the stock floor retained at a supply station. Carriers may remove only resident inventory above that floor, while local output belts may continue consuming it.
+- `demandTarget` is the remote replenishment ceiling. Remote dispatch treats resident and all already-inbound cargo as occupying that target, while local input belts themselves may still fill the slot to its full capacity.
+- `priority` is non-negative. Finite fleet dispatch chooses the highest demand priority first, then the highest supply priority. Routes tied on both remain deterministic round-robin.
+- Storage slots have no dispatch policy. They hold inventory without advertising supply or demand.
+
+The effective route batch capacity is the minimum of carrier capacity, `slot capacity − supplyReserve`, and `demandTarget`. Static capacity planning uses the same value, so a small replenishment target cannot masquerade as full carrier throughput.
+
 The backing buffer therefore has two simultaneous limits: the asset-level total capacity and the slot-level capacity for the particular Resource. Resident inventory plus all inbound local and station cargo counts against both. Local belt dispatch, station dispatch, Scenario initial inventory, and Device-produced output reserve the same quota. This prevents a full or in-flight Resource from borrowing another slot's capacity and prevents local belts from overfilling a station while a carrier is in transit.
 
 - Planetary routes remain within one region.
 - Interstellar routes cross regions.
 - World plus local coordinates determine route distance.
 - Carrier `planTransport()` determines batch capacity and travel time.
-- Effective route batch capacity is the minimum of carrier capacity, source slot capacity, and destination slot capacity; planning and analysis use this effective value.
+- Effective route batch capacity includes the source reserve and destination target; planning and analysis use this effective value.
 - A departing batch reserves a fleet member and destination Resource quota until arrival.
 - All routes in a network share that fleet.
 - Power/failure gates departures; in-flight cargo remains explicit.
 
 ## Telemetry
 
-Every connection records departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection records departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 
@@ -87,5 +96,5 @@ Any logistics change must test nominal capacity and event-level physical movemen
 ## Known next gaps
 
 - Dedicated vertical lift/elevator semantics beyond level-changing routed cells.
-- Local/remote demand priorities and per-slot reserve thresholds.
+- Dynamic priorities driven by downstream shortage and production criticality.
 - Explicit sorter reach geometry and distance-dependent endpoint placement.

@@ -407,13 +407,13 @@ A transport Device declares the stages it can fill, for example `"logistics": { 
       {
         "device": "station-supply",
         "slots": [
-          { "resource": "iron-plate", "mode": "supply", "capacity": 200, "minimumBatch": 3 }
+          { "resource": "iron-plate", "mode": "supply", "capacity": 200, "minimumBatch": 3, "priority": 2, "supplyReserve": 40 }
         ]
       },
       {
         "device": "station-demand",
         "slots": [
-          { "resource": "iron-plate", "mode": "demand", "capacity": 120, "minimumBatch": 3 }
+          { "resource": "iron-plate", "mode": "demand", "capacity": 120, "minimumBatch": 3, "priority": 10, "demandTarget": 90 }
         ]
       }
     ]
@@ -423,7 +423,9 @@ A transport Device declares the stages it can fill, for example `"logistics": { 
 
 `capacity` is required and allocates an independent quantity limit for that Resource in the station's backing buffer. A station may appear in several networks, but a repeated Resource must keep the same capacity; unique Resources across all networks consume the asset's finite slot count, and their capacities may not sum beyond the backing buffer's total capacity. The compiler narrows the station buffer to exactly those Resources.
 
-The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, slot and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and raw cargo capacity. Effective route batch capacity is the minimum of carrier capacity, supply slot capacity, and demand slot capacity, and static fleet planning uses that same bounded rate. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination free space counts both total buffer occupancy and the Resource slot's resident plus in-flight quantity, including cargo arriving by local belt. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
+Dispatch policy is optional and network-local. `supplyReserve` is valid only on `supply` and prevents carriers from taking the retained inventory; local output belts may still consume it. `demandTarget` is valid only on `demand` and stops remote replenishment when resident plus all already-inbound cargo reaches the target; local input belts may continue toward `capacity`. `priority` is a non-negative integer. A finite fleet serves higher demand priority first, then higher supply priority, with deterministic round-robin among exact ties. `storage` slots cannot declare dispatch fields. Defaults are priority `0`, supply reserve `0`, and demand target equal to `capacity`.
+
+The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, slot and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and raw cargo capacity. Effective route batch capacity is the minimum of carrier capacity, supply capacity after reserve, and demand target, and static fleet planning uses that same bounded rate. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination free space counts both total buffer occupancy and the Resource slot's resident plus in-flight quantity, including cargo arriving by local belt. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
 
 ## Scenario and objective
 

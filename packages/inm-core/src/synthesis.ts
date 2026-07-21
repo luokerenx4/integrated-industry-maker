@@ -737,8 +737,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const network: BlueprintLogisticsNetwork = {
         id: networkId, kind: "interstellar", fleet: { deviceAsset: carrier.id, count: carriers },
         stations: [
-          { device: supply.id, slots: [{ resource, mode: "supply", capacity: slotCapacity, minimumBatch: 1 }] },
-          { device: demand.id, slots: [{ resource, mode: "demand", capacity: slotCapacity, minimumBatch: 1 }] },
+          { device: supply.id, slots: [{ resource, mode: "supply", capacity: slotCapacity, minimumBatch: 1, priority: 0, supplyReserve: 0 }] },
+          { device: demand.id, slots: [{ resource, mode: "demand", capacity: slotCapacity, minimumBatch: 1, priority: 0, demandTarget: slotCapacity }] },
         ],
       };
       blueprint.logisticsNetworks.push(network);

@@ -312,22 +312,30 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     for (const network of Object.values(project.logisticsNetworks).sort((a, b) => a.id.localeCompare(b.id))) {
       if (!network.routes.length) continue;
       const active = state.logisticsTransports[network.id]!;
-      let scannedWithoutDispatch = 0;
-      while (active.length < network.fleetSize && scannedWithoutDispatch < network.routes.length) {
-        const routeIndex = (stationDispatchCursors[network.id] ?? 0) % network.routes.length;
-        const route = network.routes[routeIndex]!;
-        stationDispatchCursors[network.id] = (routeIndex + 1) % network.routes.length;
-        const sourceDevice = project.devices[route.from]!;
-        const targetDevice = project.devices[route.to]!;
-        const sourceState = state.devices[route.from]!;
-        const targetState = state.devices[route.to]!;
-        const available = sourceState.buffers[route.fromBuffer]![route.resource] ?? 0;
-        const free = freeBufferCapacity(route.to, route.toBuffer, route.resource);
-        if (sourceState.status === "failed" || targetState.status === "failed" || available < route.minimumBatch || free < route.minimumBatch
-          || !infrastructurePowered(sourceDevice) || !infrastructurePowered(targetDevice)) {
-          scannedWithoutDispatch++;
-          continue;
+      while (active.length < network.fleetSize) {
+        const cursor = (stationDispatchCursors[network.id] ?? 0) % network.routes.length;
+        let selected: { route: (typeof network.routes)[number]; routeIndex: number; available: number; free: number } | undefined;
+        for (let offset = 0; offset < network.routes.length; offset++) {
+          const routeIndex = (cursor + offset) % network.routes.length;
+          const route = network.routes[routeIndex]!;
+          const sourceDevice = project.devices[route.from]!;
+          const targetDevice = project.devices[route.to]!;
+          const sourceState = state.devices[route.from]!;
+          const targetState = state.devices[route.to]!;
+          const residentTarget = targetState.buffers[route.toBuffer]![route.resource] ?? 0;
+          const available = Math.max(0, (sourceState.buffers[route.fromBuffer]![route.resource] ?? 0) - route.supplyReserve);
+          const targetFree = route.demandTarget - residentTarget - incomingQuantity(route.to, route.toBuffer, route.resource);
+          const free = Math.max(0, Math.min(freeBufferCapacity(route.to, route.toBuffer, route.resource), targetFree));
+          if (sourceState.status === "failed" || targetState.status === "failed" || available < route.minimumBatch || free < route.minimumBatch
+            || !infrastructurePowered(sourceDevice) || !infrastructurePowered(targetDevice)) continue;
+          if (!selected || route.demandPriority > selected.route.demandPriority
+            || (route.demandPriority === selected.route.demandPriority && route.supplyPriority > selected.route.supplyPriority)) {
+            selected = { route, routeIndex, available, free };
+          }
         }
+        if (!selected) break;
+        const { route, routeIndex, available, free } = selected;
+        stationDispatchCursors[network.id] = (routeIndex + 1) % network.routes.length;
         const count = Math.min(route.capacity, available, free);
         mutateFactoryState(state, { kind: "buffer", device: route.from, buffer: route.fromBuffer, resource: route.resource, delta: -count });
         const transit: ResourceTransit = {
@@ -346,7 +354,6 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         emit({ type: "logistics.depart", tick: state.tick, transit: { ...transit }, network: network.id, route: route.id });
         schedule(transit.arriveTick, 10, { kind: "station-arrive", network: network.id, route: route.id, transitId: transit.id });
         moved = true;
-        scannedWithoutDispatch = 0;
       }
     }
     return moved;
