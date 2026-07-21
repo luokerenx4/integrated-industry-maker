@@ -15,6 +15,7 @@ import {
   worldSchema,
   openFactoryProject,
   pathExists,
+  planProductionCapacity,
   readJson,
   resolveProjectDirectory,
   runUntil,
@@ -240,6 +241,7 @@ async function loadStudioData(projectId: string, runName?: string) {
     }))),
     resources: Object.fromEntries(Object.entries(project.resources).map(([id, resource]) => [id, { visual: resource.visual }])),
     analysis: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
     assets: {
       devices: Object.values(project.deviceAssets).map((asset) => ({
         type: "device" as const,

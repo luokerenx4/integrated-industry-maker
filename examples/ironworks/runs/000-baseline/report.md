@@ -1,15 +1,23 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
-- Score: **27.991**
-- Result hash: `af4a525d962e4bbb3f2cbce2b6f1d40b23bd9f390c2518fe61a2425ae0050238`
+- Score: **22.991**
+- Result hash: `e26e9aa43d36bbd8b76d3522ea76e0163cd24e7c1d96a2590944710a5b4ee486`
 - Bottleneck: smelter-1
 - Throughput/min: 6.000
+- Target rate: 12.000 gear/min (50.0% attained)
+- Capacity plan: 3 GAPS
 - Belt utilization: 2.1%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
 - Powered transport energy: 195.500 J
 - Feasible: yes
+
+## Capacity-plan gaps
+
+- **process** `smelt-iron`: smelt-iron needs 2 smelter but configures 1; add 1
+- **reserve** `iron-ore`: iron-ore reserve is short by 6.000 items over the scenario
+- **power** `forge-world`: forge-world needs 122.000 W additional generation
 
 ## Measured transport flows
 
@@ -33,7 +41,7 @@
   "constraintPenalty": 0,
   "energy": -2.059255,
   "occupiedArea": -20.8,
-  "onTimeDelivery": 10,
+  "onTimeDelivery": 5,
   "throughput": 60,
   "wip": -5.3373333333333335
 }

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
-  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, replayFactoryEvents, researchFactory, runUntil,
+  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
@@ -308,6 +308,22 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 590_000 }),
       expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 8_000 }),
     ]);
+  });
+  test("target-rate planning sizes recipes, extraction, logistics, station fleets, power, and finite reserves", async () => {
+    const project = await openFactoryProject(ironworks);
+    const plan = planProductionCapacity(project);
+    expect(plan).toEqual(expect.objectContaining({ targetResource: "gear", targetRatePerMinute: 12, scenarioMinutes: 2, targetItemsForScenario: 24, ready: false }));
+    expect(plan.processes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ process: "assemble-gear", requiredOutputPerMinute: 12, configuredMachines: 1, requiredMachines: 1, additionalMachines: 0 }),
+      expect.objectContaining({ process: "smelt-iron", requiredOutputPerMinute: 24, configuredMachines: 1, requiredMachines: 2, additionalMachines: 1 }),
+    ]));
+    expect(plan.rawResources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resource: "iron-ore", totalDemandPerMinute: 48, configuredExtractionPerMinute: 60, finiteReserve: 90, scenarioDemand: 96, reserveAfterScenario: -6 }),
+    ]));
+    expect(plan.transport.find((flow) => flow.process === "smelt-iron" && flow.direction === "input")).toEqual(expect.objectContaining({ resource: "iron-ore", requiredItemsPerMinute: 48, configuredCapacityPerMinute: 240 }));
+    expect(plan.stationNetworks).toContainEqual(expect.objectContaining({ network: "interstellar-main", resource: "iron-plate", requiredItemsPerMinute: 24, requiredCarriers: 1, configuredCarriers: 1 }));
+    expect(plan.power).toContainEqual(expect.objectContaining({ region: "forge-world", headroomMilliWatts: -122_000 }));
+    expect(plan.gaps.map((gap) => gap.kind)).toEqual(["process", "reserve", "power"]);
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
@@ -653,7 +669,7 @@ describe("research boundary and experiment decisions", () => {
   test("external command adapter accepts vendor-neutral proposal JSON", async () => {
     const command = `cat >/dev/null; printf '%s' '{"hypothesis":"Use FIFO","patch":[{"op":"replace","path":"/policies","value":{"dispatch":"fifo"}}]}'`;
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
-    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), history: [] });
+    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.hypothesis).toBe("Use FIFO"); expect(proposal.patch[0]!.path).toBe("/policies");
   });
 
@@ -665,13 +681,13 @@ describe("research boundary and experiment decisions", () => {
   test("heuristic strategies read diagnostics and do not immediately repeat experiment history", async () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
     const agent = new HeuristicResearchAgent();
-    const base = { project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project) };
+    const base = { project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project) };
     const first = await agent.propose({ iteration: 1, ...base, history: [] });
     expect(first.strategy).toBe("recipe:assembler-1:forge-gear-pair");
     const second = await agent.propose({ iteration: 2, ...base, history: [{
       iteration: 1, strategy: first.strategy!, hypothesis: first.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
     }] });
-    expect(second.strategy).toBe("capacity:smelter-1");
+    expect(second.strategy).toBe("capacity-plan:smelt-iron:1->2");
   });
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {
@@ -680,7 +696,7 @@ describe("research boundary and experiment decisions", () => {
     delete source.scenario.initialBuffers?.["generator-1"];
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), history: [],
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy?.startsWith("power:power-disconnected:")).toBeTrue();
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
@@ -698,7 +714,7 @@ describe("research boundary and experiment decisions", () => {
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const analysis = analyzeProduction(project);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "input-logistics")).toBeTrue();
-    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, history: [] });
+    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.strategy?.startsWith("logistics:ore-to-smelter:")).toBeTrue();
     expect(proposal.patch).toHaveLength(2);
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
@@ -718,7 +734,7 @@ describe("research boundary and experiment decisions", () => {
     };
     expect(Object.values(result.metrics.transportFlows).some((flow) => flow.utilization >= 0.7)).toBeTrue();
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: withoutStaticLogistics, history: [],
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: withoutStaticLogistics, capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy?.startsWith("logistics:")).toBeTrue();
     expect(proposal.strategy).toContain("stack-sorter");
@@ -739,7 +755,7 @@ describe("research boundary and experiment decisions", () => {
     const analysis = analyzeProduction(project);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "station-fleet-deficit")).toBeTrue();
     const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
-    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, history: [] });
+    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.strategy).toBe("station-fleet:interstellar-main:40");
     expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 40 }]);
   });
@@ -763,6 +779,20 @@ describe("artifacts and renderer-independent projection", () => {
       const project = compileFactoryProject({ ...source, blueprint });
       expect(runUntil(project, undefined, { seed: run.manifest.seed }).resultHash).toBe(run.manifest.resultHash);
     }
+  });
+
+  test("checked-in KEEP history closes the objective target-rate capacity plan", async () => {
+    const source = await loaded(); const runs = await listRuns(ironworks);
+    const baseline = runs.find((run) => run.manifest.decision === "BASELINE")!;
+    const finalKeep = runs.filter((run) => run.manifest.decision === "KEEP").at(-1)!;
+    const baselineBlueprint = JSON.parse(await readFile(join(baseline.path, "blueprint.json"), "utf8"));
+    const finalBlueprint = JSON.parse(await readFile(join(finalKeep.path, "blueprint.json"), "utf8"));
+    const baselinePlan = planProductionCapacity(compileFactoryProject({ ...source, blueprint: baselineBlueprint }));
+    const finalPlan = planProductionCapacity(compileFactoryProject({ ...source, blueprint: finalBlueprint }));
+    expect(baselinePlan.ready).toBeFalse();
+    expect(baselinePlan.gaps.map((gap) => gap.kind)).toEqual(["process", "reserve", "power"]);
+    expect(finalPlan.ready).toBeTrue();
+    expect(finalPlan.gaps).toEqual([]);
   });
 
   test("completed run can be replayed exactly", async () => {

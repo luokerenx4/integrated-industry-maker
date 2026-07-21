@@ -10,6 +10,7 @@ import type { LoadedFactoryProject } from "./loader";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { runUntil } from "./simulator";
 import { analyzeProduction, type ProductionAnalysis } from "./production-analysis";
+import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { atomicWriteJson, hashValue } from "./utils";
 import { findBlueprintConnectionPath, rotatedFootprint } from "./routing";
 
@@ -19,6 +20,7 @@ export interface ResearchInput {
   blueprint: Blueprint;
   metrics: FactoryMetrics;
   production: ProductionAnalysis;
+  capacityPlan: ProductionCapacityPlan;
   history: ResearchHistoryEntry[];
 }
 export interface ResearchHistoryEntry {
@@ -39,7 +41,7 @@ export class ProviderResearchAgent implements BlueprintResearchAgent {
   constructor(private readonly provider: LlmResearchProvider) {}
   propose(input: ResearchInput): Promise<ResearchProposal> {
     return this.provider.complete({
-      system: "Return a hypothesis and an RFC 6902 patch. Read static production diagnostics and experiment history, address a concrete material/logistics/power bottleneck, and do not repeat a reverted strategy. You may modify only blueprint devices, connections, logisticsNetworks, and policies. Never modify assets, scenarios, objectives, simulator, or evaluator.",
+      system: "Return a hypothesis and an RFC 6902 patch. Read the target-rate capacity plan, static production diagnostics, measured runtime metrics, and experiment history; address a concrete process, resource, logistics, station, or power gap and do not repeat a reverted strategy. You may modify only blueprint devices, connections, logisticsNetworks, and policies. Never modify assets, worlds, scenarios, objectives, simulator, or evaluator.",
       project: input,
     });
   }
@@ -145,7 +147,7 @@ function placeDevice(blueprint: Blueprint, device: Blueprint["devices"][number],
   return false;
 }
 
-function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFactoryProject["devices"][string], reason: string): StrategyCandidate | null {
+function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFactoryProject["devices"][string], reason: string, strategyKey = `capacity:${original.id}`): StrategyCandidate | null {
   const instance = input.blueprint.devices.find((device) => device.id === original.id);
   const junctionAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("transport-junction")
     && asset.geometry.ports.filter((port) => port.direction === "input").length >= 2
@@ -254,9 +256,9 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
     patch.push({ op: "add", path: "/devices/-", value: powerSupport });
   }
   return {
-    key: `capacity:${original.id}`,
+    key: strategyKey,
     proposal: {
-      strategy: `capacity:${original.id}`,
+      strategy: strategyKey,
       hypothesis: `Duplicate processor \`${original.id}\` as \`${id}\`${powerSupport ? ` with regional power support \`${powerSupport.id}\`` : ""} because ${reason}.`,
       expectedEffect: "Increase process capacity while preserving the existing resource, regional power, and logistics contracts.",
       patch,
@@ -470,10 +472,24 @@ function recipeCandidates(input: ResearchInput): StrategyCandidate[] {
   });
 }
 
+function plannedCapacityCandidates(input: ResearchInput): StrategyCandidate[] {
+  return input.capacityPlan.processes.filter((requirement) => requirement.additionalMachines > 0).flatMap((requirement) => {
+    const original = input.project.devices[requirement.templateDevice];
+    if (!original) return [];
+    const strategy = `capacity-plan:${requirement.process}:${requirement.configuredMachines}->${requirement.configuredMachines + 1}`;
+    const candidate = duplicateProcessorCandidate(input, original,
+      `the ${input.capacityPlan.targetRatePerMinute.toFixed(3)} ${input.capacityPlan.targetResource}/min plan requires ${requirement.requiredMachines} ${requirement.asset} running ${requirement.process}, but only ${requirement.configuredMachines} are configured`, strategy);
+    return candidate ? [candidate] : [];
+  });
+}
+
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
-    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input), ...recipeCandidates(input)];
+    const candidates: StrategyCandidate[] = [
+      ...powerCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input),
+      ...recipeCandidates(input), ...plannedCapacityCandidates(input),
+    ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;
     for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {
@@ -523,7 +539,10 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
       score: entry.score,
       scoreDelta: entry.score - entry.previousScore,
     }));
-    const proposal = await agent.propose({ iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics, production: analyzeProduction(project), history });
+    const proposal = await agent.propose({
+      iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics,
+      production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history,
+    });
     const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
     candidateBlueprint.revision = hashValue(bestBlueprint);
     let candidateProject: CompiledFactoryProject; let candidateResult: ReturnType<typeof runUntil>;

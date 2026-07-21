@@ -280,6 +280,7 @@ export interface Objective {
   id: string;
   name: string;
   targetResource: ResourceId;
+  targetRatePerMinute: number;
   constraints?: { maxBuildCost?: number; maxOccupiedArea?: number; minProduction?: number };
   weights: {
     throughput: number;

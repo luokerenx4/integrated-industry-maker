@@ -2,14 +2,20 @@
 
 - Decision: **REVERT**
 - Score: **104.981**
-- Result hash: `6e28db9e7688c5d60e0cc9ba22384df278df1de1196e5391fa8b0343594cda03`
+- Result hash: `8521aaa69cf6177af55d731258ba7a446be96f62d8cbcb197165e0317d1999d0`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
+- Target rate: 12.000 gear/min (100.0% attained)
+- Capacity plan: READY
 - Belt utilization: 2.6%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
 - Powered transport energy: 363.000 J
 - Feasible: yes
+
+## Capacity-plan gaps
+
+- None; the selected blueprint provisions the complete target-rate plan.
 
 ## Measured transport flows
 

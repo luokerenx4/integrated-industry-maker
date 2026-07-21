@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, formatCliError, inspectCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, simulateCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
@@ -26,6 +26,7 @@ PROJECT COMMANDS
   validate <path>             Parse, resolve, and compile a blueprint
   inspect <path>              Show assets, topology, objective, hashes, and runs
   analyze <path>              Compile nominal process rates and material balance
+  plan <path>                 Size the factory for the objective target rate
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
@@ -88,11 +89,12 @@ async function main(): Promise<void> {
     }
     throw new Error("Usage: inm project <create|list|default> ...");
   }
-  if (subcommand === "validate" || subcommand === "inspect" || subcommand === "analyze") {
+  if (subcommand === "validate" || subcommand === "inspect" || subcommand === "analyze" || subcommand === "plan") {
     const { values, positionals } = parseArgs({ args, options: common, allowPositionals: true });
     const projectDir = await selectedProject(positionals, `inm ${subcommand} <project-or-workspace-dir> [--project ID]`, values.project);
     if (subcommand === "validate") return validateCommand(projectDir, selectionOf(values), values);
     if (subcommand === "inspect") return inspectCommand(projectDir, selectionOf(values), values);
+    if (subcommand === "plan") return planCommand(projectDir, selectionOf(values), values);
     return analyzeCommand(projectDir, selectionOf(values), values);
   }
   if (subcommand === "simulate") {

@@ -13,6 +13,7 @@ export * from "./state";
 export * from "./device-runtime";
 export * from "./workspace";
 export * from "./production-analysis";
+export * from "./capacity-plan";
 export * from "./routing";
 
 import { compileFactoryProject } from "./compiler";

@@ -191,6 +191,24 @@ interface IndustrialAnalysis {
   diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; connection?: string; message: string }>;
 }
 
+interface CapacityPlan {
+  targetResource: string; targetRatePerMinute: number; scenarioMinutes: number; targetItemsForScenario: number; ready: boolean;
+  processes: Array<{
+    resource: string; process: string; asset: string; templateDevice: string; requiredOutputPerMinute: number; requiredCyclesPerMinute: number;
+    inputsPerMinute: Record<string, number>; capacityPerMachine: number; configuredMachines: number; configuredCapacityPerMinute: number;
+    requiredMachines: number; additionalMachines: number; region: string; powerMilliWattsPerMachine: number;
+  }>;
+  rawResources: Array<{
+    resource: string; processDemandPerMinute: number; infrastructureDemandPerMinute: number; totalDemandPerMinute: number;
+    configuredExtractors: number; configuredExtractionPerMinute: number; extractionDeficitPerMinute: number; additionalExtractors: number;
+    finiteReserve: number; lifetimeMinutes: number | null; scenarioDemand: number; reserveAfterScenario: number;
+  }>;
+  transport: Array<{ direction: "input" | "output"; process: string; resource: string; devices: string[]; connections: string[]; requiredItemsPerMinute: number; configuredCapacityPerMinute: number; capacityDeficitPerMinute: number }>;
+  stationNetworks: Array<{ network: string; resource: string; routes: string[]; requiredItemsPerMinute: number; perCarrierItemsPerMinute: number; requiredCarriers: number; configuredCarriers: number; additionalCarriers: number }>;
+  power: Array<{ region: string; requiredMilliWatts: number; configuredGenerationMilliWatts: number; headroomMilliWatts: number }>;
+  gaps: Array<{ kind: string; entity: string; message: string }>;
+}
+
 interface StudioData {
   projectId: string;
   name: string;
@@ -219,6 +237,7 @@ interface StudioData {
   }>;
   resources: Record<string, { visual?: Visual }>;
   analysis: IndustrialAnalysis;
+  capacityPlan: CapacityPlan;
   assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[] };
   events: FactoryEvent[];
   metrics: Metrics | null;
@@ -524,6 +543,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
 
 function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
   const analysis = data.analysis;
+  const plan = data.capacityPlan;
   const warningCount = analysis.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
   useEffect(() => {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -545,6 +565,17 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <Metric label="WARNINGS" value={String(warningCount)} />
       </div>
       <div className="analysis-body">
+        <section className="analysis-section logistics-analysis">
+          <div className="analysis-section-title"><span>TARGET-RATE CAPACITY PLAN</span><b>{plan.ready ? "READY" : `${plan.gaps.length} GAPS`} · {plan.targetRatePerMinute.toFixed(2)} {plan.targetResource.toUpperCase()}/MIN</b></div>
+          <div className="pipeline-list">{plan.processes.map((process) => <div className="pipeline-card" key={`${process.process}-${process.resource}`}>
+            <div className="pipeline-head"><span><strong>{process.process}</strong><small>{process.region} · {process.asset} · {Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")} → {process.requiredOutputPerMinute.toFixed(2)} {process.resource}/min</small></span><b>{process.configuredMachines} / {process.requiredMachines} MACHINES</b></div>
+            <footer><span>CAPACITY {process.configuredCapacityPerMinute.toFixed(2)} / {process.requiredOutputPerMinute.toFixed(2)}/MIN</span><span>{process.additionalMachines ? `ADD ${process.additionalMachines} ${process.asset.toUpperCase()}` : "CAPACITY READY"}</span><span>{(process.powerMilliWattsPerMachine / 1000).toFixed(0)} W / MACHINE</span></footer>
+          </div>)}</div>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACTION</span><span>RESERVE AFTER RUN</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>
+            <strong>{resource.resource}</strong><span>{resource.totalDemandPerMinute.toFixed(3)}</span><span>{resource.configuredExtractionPerMinute.toFixed(3)}</span><b className={resource.reserveAfterScenario < 0 ? "negative" : "positive"}>{resource.reserveAfterScenario.toFixed(3)}</b><small>{resource.lifetimeMinutes === null ? "∞" : `${resource.lifetimeMinutes.toFixed(2)} min lifetime`}</small>
+          </div>)}</div>
+          <div className="diagnostic-list">{plan.gaps.length ? plan.gaps.map((gap) => <div className="warning" key={`${gap.kind}-${gap.entity}`}><i>!</i><span><code>{gap.kind}</code><p>{gap.message}</p></span></div>) : <div className="diagnostics-clear"><i>✓</i><span>TARGET RATE IS FULLY PROVISIONED</span></div>}</div>
+        </section>
         <section className="analysis-section material-analysis">
           <div className="analysis-section-title"><span>FINITE RESOURCE NODES</span><b>WORLD INPUT</b></div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>NODE</span><span>AMOUNT</span><span>MINERS</span><span>DEPLETION</span></div>{analysis.resourceNodes.map((node) => <div key={node.node}>

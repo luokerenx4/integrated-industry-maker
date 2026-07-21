@@ -27,7 +27,7 @@
     "coal": 49,
     "iron-ore": 75
   },
-  "finalScore": 47.891318333333345,
+  "finalScore": 44.557985000000016,
   "fuelConsumed": {
     "coal": 4
   },
@@ -61,7 +61,7 @@
     "wind-assembly-recipe-line": 0
   },
   "occupiedArea": 104,
-  "onTimeDelivery": 1,
+  "onTimeDelivery": 0.6666666666666666,
   "peakBeltItems": 4,
   "produced": {
     "coal": 49,
@@ -112,7 +112,7 @@
     "constraintPenalty": 0,
     "energy": -2.048915,
     "occupiedArea": -20.8,
-    "onTimeDelivery": 10,
+    "onTimeDelivery": 6.666666666666666,
     "throughput": 80,
     "wip": -5.296433333333334
   },

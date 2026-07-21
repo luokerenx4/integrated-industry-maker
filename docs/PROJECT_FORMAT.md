@@ -426,8 +426,9 @@ Initial quantities address device and buffer explicitly:
 ```json
 {
   "id": "default",
-  "name": "Maximize Gear Throughput",
+  "name": "Sustain Gear Throughput",
   "targetResource": "gear",
+  "targetRatePerMinute": 12,
   "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": {
     "throughput": 10,
@@ -440,5 +441,7 @@ Initial quantities address device and buffer explicitly:
   }
 }
 ```
+
+`targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` recursively expands that rate through the selected recipes, sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. Runtime `onTimeDelivery` is the achieved target-Resource rate divided by this design rate, capped at one. `constraints.minProduction` remains a separate hard minimum item count over the complete Scenario.
 
 The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks).

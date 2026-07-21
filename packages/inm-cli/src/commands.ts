@@ -3,6 +3,7 @@ import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
   InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, findCachedRun, listRuns, listWorkspaceProjects, loadWorkspace, openFactoryProject, pathExists,
+  planProductionCapacity,
   researchFactory, runUntil, stableStringify, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
@@ -99,7 +100,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `${summary.name}`, `Project: ${summary.rootDir}`, `World: ${summary.world.name} [${summary.world.id}] · ${summary.regions.length} ${summary.regions.length === 1 ? "region" : "regions"} · ${summary.resourceNodes.length} finite resource ${summary.resourceNodes.length === 1 ? "node" : "nodes"}`, `Blueprint: ${summary.deviceInstances} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"}`,
     `Regions: ${summary.regions.map((region) => `${region.name} [${region.id}] ${region.kind} @ (${region.coordinates.x},${region.coordinates.y},${region.coordinates.z}) ${region.bounds.width}×${region.bounds.height}`).join("; ")}`,
     `Resources: ${summary.resources.join(", ")}`, `Processes: ${summary.processes.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
-    `Objective: ${summary.objective.name} → ${summary.objective.targetResource}`, `Runs: ${summary.runs.length}`, "",
+    `Objective: ${summary.objective.name} → ${summary.objective.targetRatePerMinute} ${summary.objective.targetResource}/min`, `Runs: ${summary.runs.length}`, "",
   ].join("\n"), false);
 }
 
@@ -157,6 +158,32 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     "",
   ];
   write(lines.join("\n"), false);
+}
+
+export async function planCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
+  const project = await openFactoryProject(projectDir, selection);
+  const plan = planProductionCapacity(project);
+  if (options.json) {
+    write({ command: "plan", project: project.manifest.name, blueprintHash: project.hashes.blueprintHash, objective: project.objective.id, ...plan }, true);
+    return;
+  }
+  write([
+    `${project.manifest.name} · target-rate capacity plan`,
+    `Target: ${plan.targetRatePerMinute.toFixed(3)} ${plan.targetResource}/min · ${plan.targetItemsForScenario.toFixed(3)} items over ${plan.scenarioMinutes.toFixed(3)} min`,
+    `Status: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`, "",
+    "Process capacity",
+    ...plan.processes.map((process) => `  ${process.process.padEnd(22)} ${process.requiredOutputPerMinute.toFixed(3).padStart(8)} ${process.resource}/min  ${process.configuredMachines}/${process.requiredMachines} ${process.asset}  capacity ${process.configuredCapacityPerMinute.toFixed(3)}/min${process.additionalMachines ? `  ADD ${process.additionalMachines}` : ""}`),
+    "", "Raw resources",
+    ...plan.rawResources.map((resource) => `  ${resource.resource.padEnd(18)} need ${resource.totalDemandPerMinute.toFixed(3).padStart(8)}/min  extraction ${resource.configuredExtractionPerMinute.toFixed(3).padStart(8)}/min  reserve ${resource.finiteReserve.toFixed(3)} (${resource.lifetimeMinutes?.toFixed(3) ?? "∞"} min)  after scenario ${resource.reserveAfterScenario.toFixed(3)}`),
+    "", "Transport envelopes",
+    ...plan.transport.map((flow) => `  ${flow.process.padEnd(22)} ${flow.direction.padEnd(6)} ${flow.resource.padEnd(16)} ${flow.requiredItemsPerMinute.toFixed(3).padStart(8)}/${flow.configuredCapacityPerMinute.toFixed(3)} items/min  ${flow.connections.join(", ") || "NO CONNECTION"}`),
+    "", "Station fleets",
+    ...(plan.stationNetworks.length ? plan.stationNetworks.map((network) => `  ${network.network.padEnd(24)} ${network.resource.padEnd(16)} ${network.requiredCarriers}/${network.configuredCarriers} carriers  ${network.requiredItemsPerMinute.toFixed(3)}/${network.perCarrierItemsPerMinute.toFixed(3)} items/min/carrier`) : ["  none"]),
+    "", "Regional power",
+    ...plan.power.map((power) => `  ${power.region.padEnd(24)} need ${(power.requiredMilliWatts / 1000).toFixed(3).padStart(9)} W  generation ${(power.configuredGenerationMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(power.headroomMilliWatts / 1000).toFixed(3)} W`),
+    "", plan.gaps.length ? "Plan gaps" : "Plan gaps: none",
+    ...plan.gaps.map((gap) => `  ! [${gap.kind}] ${gap.message}`), "",
+  ].join("\n"), false);
 }
 
 export async function simulateCommand(projectDir: string, selection: ProjectSelection, options: { seed: number; untilTick?: number; maxEvents?: number; json: boolean }): Promise<void> {

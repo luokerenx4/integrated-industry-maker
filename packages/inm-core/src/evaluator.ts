@@ -79,7 +79,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   }));
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
   const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
-  const onTimeDelivery = constraints.minProduction ? Math.min(1, targetProduced / constraints.minProduction) : targetProduced > 0 ? 1 : 0;
+  const onTimeDelivery = Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
     throughput: throughputPerMinute * weights.throughput,

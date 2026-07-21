@@ -149,7 +149,7 @@ export const scenarioSchema = z.object({
 }).strict();
 
 export const objectiveSchema = z.object({
-  id, name: z.string().min(1), targetResource: id,
+  id, name: z.string().min(1), targetResource: id, targetRatePerMinute: z.number().positive(),
   constraints: z.object({ maxBuildCost: nonNegativeInt.optional(), maxOccupiedArea: nonNegativeInt.optional(), minProduction: nonNegativeInt.optional() }).strict().optional(),
   weights: z.object({
     throughput: z.number(), onTimeDelivery: z.number().optional(), energy: z.number(),

@@ -15,6 +15,7 @@ Each planet has its own self-contained coal-to-power loop. A startup coal unit b
 
 ```bash
 bun run inm validate examples/ironworks
+bun run inm plan examples/ironworks
 bun run inm simulate examples/ironworks --seed 42
 bun run inm test examples/ironworks
 bun run inm research examples/ironworks --iterations 3 --seed 42

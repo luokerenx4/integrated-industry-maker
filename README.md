@@ -30,13 +30,13 @@ bun run inm studio examples/ironworks
 The bundled experiment demonstrates the complete loop:
 
 ```text
-000 dual-input recipe baseline    score 27.991
-001 efficient gear-pair recipe    score 47.891  KEEP
+000 dual-input recipe baseline    score 22.991
+001 efficient gear-pair recipe    score 44.558  KEEP
 002 smelter + routed branches     score 104.981 KEEP
 003 switch arbitration to FIFO    score 104.981 REVERT
 ```
 
-The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates. On Assembly World, a recipe-configured assembler consumes iron plate and coal through two independently bound input buffers. A placed splitter sends locally mined coal toward both generation and the secondary recipe input, while a renewable generator supports the expanded line. Static analysis expands one gear through the selected production graph into `4 iron-ore + 1 coal`, discovers a compatible gear-pair recipe with a generated binding object, and exposes both to the optimizer. The research loop first changes the recipe and then adds routed smelting capacity, accepting each edit only after deterministic simulation improves the objective. Physical links, powered loader/unloader endpoints, and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint recipes, machinery, and logistics but cannot manufacture deposits or alter world geometry.
+The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates. On Assembly World, a recipe-configured assembler consumes iron plate and coal through two independently bound input buffers. A placed splitter sends locally mined coal toward both generation and the secondary recipe input, while a renewable generator supports the expanded line. The 12 gear/min Objective expands through the active recipes into an executable capacity plan. On the baseline it finds one missing smelter, six missing iron ore over the two-minute Scenario, and 122 W of planned Forge World power deficit. The research loop first selects the efficient gear-pair recipe, which removes the immutable reserve gap, then follows the recomputed plan by adding a routed smelter and local wind support; that second KEEP makes the target plan fully provisioned. Physical links, powered loader/unloader endpoints, and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint recipes, machinery, and logistics but cannot manufacture deposits or alter world geometry.
 
 ## CLI
 
@@ -45,7 +45,7 @@ inm workspace init <workspace-dir>
 inm project create <workspace-dir> <project-id>
 inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
-inm validate|inspect|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
+inm validate|inspect|analyze|plan|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
 inm studio <project-or-workspace-dir> [--project ID]
 ```
@@ -109,6 +109,7 @@ Project files
   → process/resource/device compatibility and nominal-rate analysis
   → world resource-node, region, geometry, extraction, port, staged-logistics, station-network, and regional power-grid compilation
   → canonical factory project + content hashes
+  → objective target-rate capacity plan
   → deterministic discrete-event simulation
   → semantic event stream + final state
   → metrics, bottleneck, and score breakdown
@@ -117,7 +118,7 @@ Project files
   → read-only 3D replay
 ```
 
-The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Every physical connection also produces deterministic runtime telemetry—Resource mix, delivered rate versus capacity, utilization, in-flight inventory, and blocked item-ticks—which the optimizer can turn into a targeted project-local logistics tier upgrade. Studio opens on a project launcher, gives every project a stable `/<project-id>` URL, and exposes that project's self-contained Device, Resource, and Process catalog plus compiled material, logistics, power, and diagnostic analysis. Visual files cannot affect simulation.
+The simulator is independent of React and Three.js. Runtime state has one reducer-owned mutation path; asset scripts cannot mutate it directly. The Objective's required items/min is first compiled into an explicit machine, raw-material, transport, station-fleet, regional-power, and finite-reserve plan. Events are the shared debugging protocol for CLI output, fixtures, evaluation, research diagnosis, and 3D replay. Every physical connection also produces deterministic runtime telemetry—Resource mix, delivered rate versus capacity, utilization, in-flight inventory, and blocked item-ticks—which the optimizer can turn into a targeted project-local logistics tier upgrade. Studio opens on a project launcher, gives every project a stable `/<project-id>` URL, and exposes that project's self-contained Device, Resource, and Process catalog plus target plan and compiled material, logistics, power, and diagnostic analysis. Visual files cannot affect simulation.
 
 Read [architecture](docs/ARCHITECTURE.md) for determinism, reliability, research permissions, and package boundaries.
 
@@ -128,4 +129,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers isolated multi-project workspaces, immutable world hashing, finite resource conservation and depletion, extractor range/region contracts, fuel energy and time-bounded generation, asset package loading and hashing, TypeScript runtime contracts, exact recipe-to-buffer bindings, multi-input/multi-output scripts, deterministic replay, multi-region geometry and optimizer path isolation, region-local physical links and power grids, powered transport endpoint shortage/recovery and energy, per-connection flow/resource/blockage telemetry, measured logistics-tier optimization, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.
+The suite covers isolated multi-project workspaces, immutable world hashing, target-rate recipe/machine/extraction/transport/fleet/power/reserve planning, finite resource conservation and depletion, extractor range/region contracts, fuel energy and time-bounded generation, asset package loading and hashing, TypeScript runtime contracts, exact recipe-to-buffer bindings, multi-input/multi-output scripts, deterministic replay, multi-region geometry and optimizer path isolation, region-local physical links and power grids, powered transport endpoint shortage/recovery and energy, per-connection flow/resource/blockage telemetry, measured logistics-tier optimization, planetary/interstellar routing invariants, batched station routing, finite shared fleets, fleet optimization, spatial power shortage, blocking, device failure/recovery, visual independence, research permissions, KEEP/REVERT, immutable run replay, and renderer-independent scene projection.

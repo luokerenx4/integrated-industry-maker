@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { Blueprint, CompiledFactoryProject, FactoryEvent, SimulationResult } from "./types";
 import { atomicWrite, atomicWriteJson, hashValue, pathExists, stableStringify } from "./utils";
+import { planProductionCapacity } from "./capacity-plan";
 
 export interface RunArtifactOptions {
   label: string;
@@ -79,13 +80,18 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     const resources = Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "—";
     return `| ${connection} | ${flow.deliveredItemsPerMinute.toFixed(3)} / ${flow.capacityItemsPerMinute.toFixed(3)} | ${(flow.utilization * 100).toFixed(1)}% | ${flow.blockedItemTicks} | ${resources} |`;
   });
+  const capacityPlan = planProductionCapacity(project);
   const report = [
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
     `- Score: **${result.metrics.finalScore.toFixed(3)}**`, `- Result hash: \`${result.resultHash}\``,
     `- Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`, `- Throughput/min: ${result.metrics.throughputPerMinute.toFixed(3)}`,
+    `- Target rate: ${capacityPlan.targetRatePerMinute.toFixed(3)} ${capacityPlan.targetResource}/min (${(result.metrics.onTimeDelivery * 100).toFixed(1)}% attained)`,
+    `- Capacity plan: ${capacityPlan.ready ? "READY" : `${capacityPlan.gaps.length} GAP${capacityPlan.gaps.length === 1 ? "" : "S"}`}`,
     `- Belt utilization: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}%`, `- Average blocked belt items: ${result.metrics.averageBlockedBeltItems.toFixed(3)}`, `- Peak belt items: ${result.metrics.peakBeltItems}`,
     `- Powered transport energy: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J`,
-    result.metrics.infeasibleReason ? `- Infeasible: ${result.metrics.infeasibleReason}` : "- Feasible: yes", "", "## Measured transport flows", "",
+    result.metrics.infeasibleReason ? `- Infeasible: ${result.metrics.infeasibleReason}` : "- Feasible: yes", "", "## Capacity-plan gaps", "",
+    ...(capacityPlan.gaps.length ? capacityPlan.gaps.map((gap) => `- **${gap.kind}** \`${gap.entity}\`: ${gap.message}`) : ["- None; the selected blueprint provisions the complete target-rate plan."]),
+    "", "## Measured transport flows", "",
     "| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |",
     "| --- | ---: | ---: | ---: | --- |", ...transportRows, "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",

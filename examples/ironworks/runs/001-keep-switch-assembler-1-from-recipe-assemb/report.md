@@ -1,15 +1,22 @@
 # INM Run 001-keep-switch-assembler-1-from-recipe-assemb
 
 - Decision: **KEEP**
-- Score: **47.891**
-- Result hash: `d7e5937f70a2f1b19400605dbbd529cc651b3fb414e149acf08ce0ccc921e76d`
+- Score: **44.558**
+- Result hash: `4b561a3703067410ae16e9918122a5c6277cb007c38d837d3bf98e762e6d54c8`
 - Bottleneck: smelter-1
 - Throughput/min: 8.000
+- Target rate: 12.000 gear/min (66.7% attained)
+- Capacity plan: 2 GAPS
 - Belt utilization: 2.1%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
 - Powered transport energy: 191.500 J
 - Feasible: yes
+
+## Capacity-plan gaps
+
+- **process** `smelt-iron`: smelt-iron needs 2 smelter but configures 1; add 1
+- **power** `forge-world`: forge-world needs 122.000 W additional generation
 
 ## Measured transport flows
 
@@ -33,7 +40,7 @@
   "constraintPenalty": 0,
   "energy": -2.048915,
   "occupiedArea": -20.8,
-  "onTimeDelivery": 10,
+  "onTimeDelivery": 6.666666666666666,
   "throughput": 80,
   "wip": -5.296433333333334
 }
