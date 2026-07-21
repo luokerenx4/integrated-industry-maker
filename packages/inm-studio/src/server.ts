@@ -179,6 +179,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),
       ...(device.assetDef.production?.maintenance ? { maintenance: { ...device.assetDef.production.maintenance } } : {}),
       maintenanceProviders: device.maintenanceProviders.map((provider) => ({ ...provider })),
+      qualificationProviders: device.qualificationProviders.map((provider) => ({ ...provider })),
       ...(device.assetDef.maintenanceProvider ? { maintenanceProvider: { ...device.assetDef.maintenanceProvider } } : {}),
       region: device.region,
       position: {

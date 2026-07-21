@@ -47,11 +47,12 @@ export type FactoryStateMutation =
   | { kind: "job.finish"; device: string }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
   | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
-  | { kind: "maintenance.finish"; device: string; cause: "mandatory" | "opportunistic"; durationTicks: Tick }
-  | { kind: "maintenance.cancel"; device: string }
-  | { kind: "maintenance.wait"; device: string; reason: "consumable" | "crew" | null }
-  | { kind: "maintenance.service-start"; device: string; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
-  | { kind: "maintenance.service-release"; provider: string; crews: number; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
+  | { kind: "maintenance.service-finish"; device: string; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
+  | { kind: "maintenance.qualification-finish"; device: string; cause: "mandatory" | "opportunistic"; durationTicks: Tick }
+  | { kind: "maintenance.cancel"; device: string; phase: "service" | "qualification" }
+  | { kind: "maintenance.wait"; device: string; phase: "service" | "qualification"; reason: "consumable" | "crew" | null }
+  | { kind: "maintenance.service-start"; device: string; phase: "service" | "qualification"; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
+  | { kind: "maintenance.service-release"; phase: "service" | "qualification"; provider: string; crews: number; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -391,25 +392,36 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       }
       return;
     }
-    case "maintenance.finish": {
+    case "maintenance.service-finish": {
+      const maintenance = state.devices[mutation.device]!.maintenance;
+      if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
+      maintenance.maintenanceTicks += mutation.durationTicks;
+      maintenance.qualificationPending = { cause: mutation.cause, jobsSinceMaintenance: mutation.jobsSinceMaintenance };
+      return;
+    }
+    case "maintenance.qualification-finish": {
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.jobsSinceMaintenance = 0;
       maintenance.completed++;
       maintenance[mutation.cause]++;
       maintenance.maintenanceTicks += mutation.durationTicks;
+      maintenance.qualificationCompleted++;
+      maintenance.qualificationTicks += mutation.durationTicks;
+      delete maintenance.qualificationPending;
       return;
     }
     case "maintenance.cancel": {
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.cancelled++;
+      if (mutation.phase === "qualification") maintenance.qualificationCancelled++;
       return;
     }
     case "maintenance.wait": {
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
-      if (maintenance.wait?.reason === mutation.reason) return;
+      if (maintenance.wait?.reason === mutation.reason && maintenance.wait.phase === mutation.phase) return;
       if (maintenance.wait) {
         const key = maintenance.wait.reason === "consumable" ? "inputWaitTicks" : "crewWaitTicks";
         maintenance[key] += state.tick - maintenance.wait.sinceTick;
@@ -417,7 +429,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (mutation.reason) {
         const key = mutation.reason === "consumable" ? "inputBlocks" : "crewBlocks";
         maintenance[key]++;
-        maintenance.wait = { reason: mutation.reason, sinceTick: state.tick };
+        maintenance.wait = { phase: mutation.phase, reason: mutation.reason, sinceTick: state.tick };
       } else delete maintenance.wait;
       return;
     }
@@ -434,11 +446,13 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       provider.crewsInUse += mutation.crews;
       provider.peakCrewsInUse = Math.max(provider.peakCrewsInUse, provider.crewsInUse);
       provider.assignments++;
+      if (mutation.phase === "qualification") provider.qualificationAssignments++;
       for (const input of mutation.inputs) {
         mutateBufferQuantity(state, mutation.provider, mutation.inventoryBuffer, input.resource, -input.count);
         state.consumed[input.resource] = (state.consumed[input.resource] ?? 0) + input.count;
         provider.consumables[input.resource] = (provider.consumables[input.resource] ?? 0) + input.count;
-        client.serviceConsumables[input.resource] = (client.serviceConsumables[input.resource] ?? 0) + input.count;
+        const consumables = mutation.phase === "qualification" ? client.qualificationConsumables : client.serviceConsumables;
+        consumables[input.resource] = (consumables[input.resource] ?? 0) + input.count;
       }
       return;
     }
@@ -448,6 +462,10 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       provider.crewsInUse -= mutation.crews;
       provider[mutation.outcome]++;
       provider.serviceCrewTicks += mutation.occupiedTicks * mutation.crews;
+      if (mutation.phase === "qualification") {
+        provider[mutation.outcome === "completed" ? "qualificationCompleted" : "qualificationCancelled"]++;
+        provider.qualificationCrewTicks += mutation.occupiedTicks * mutation.crews;
+      }
       return;
     }
     case "campaign.hold": {

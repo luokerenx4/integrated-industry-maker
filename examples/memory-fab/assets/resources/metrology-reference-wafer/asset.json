@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "metrology-reference-wafer",
+  "name": "Metrology Reference Wafer",
+  "description": "A traceable reference wafer consumed to release inspection equipment after maintenance.",
+  "tags": [
+    "semiconductor",
+    "maintenance",
+    "consumable"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "kit",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 8
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

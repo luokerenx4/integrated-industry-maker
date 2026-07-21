@@ -140,6 +140,10 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       path: `assets/devices/${id}/asset.json/production/maintenance/powerMilliWatts`, code: "production.maintenance-power",
       message: `Maintenance power ${asset.production.maintenance.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
     });
+    if (asset.production?.maintenance && asset.production.maintenance.qualification.powerMilliWatts < asset.power.idleMilliWatts) issues.push({
+      path: `assets/devices/${id}/asset.json/production/maintenance/qualification/powerMilliWatts`, code: "production.qualification-power",
+      message: `Qualification power ${asset.production.maintenance.qualification.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
+    });
     const driftStages = asset.production?.maintenance?.drift ?? [];
     let previousDriftThreshold = 0;
     let previousDurationMultiplier = { numerator: 1, denominator: 1 };
@@ -207,14 +211,16 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       const edgeLength = port.side === "north" || port.side === "south" ? asset.geometry.footprint.width : asset.geometry.footprint.height;
       if (port.offset >= edgeLength) issues.push({ path: `assets/devices/${id}/asset.json/geometry/ports/${index}/offset`, code: "geometry.port-offset", message: `Port offset ${port.offset} is outside edge length ${edgeLength}` });
     }
-    const service = asset.production?.maintenance?.service;
-    if (service) {
+    for (const [phase, service] of asset.production?.maintenance ? [
+      ["service", asset.production.maintenance.service],
+      ["qualification/service", asset.production.maintenance.qualification.service],
+    ] as const : []) {
       const seenInputs = new Set<string>();
       for (const [inputIndex, input] of service.inputs.entries()) {
-        const path = `assets/devices/${id}/asset.json/production/maintenance/service/inputs/${inputIndex}`;
-        if (seenInputs.has(input.resource)) issues.push({ path, code: "maintenance.duplicate-input", message: `Maintenance service consumes '${input.resource}' more than once` });
+        const path = `assets/devices/${id}/asset.json/production/maintenance/${phase}/inputs/${inputIndex}`;
+        if (seenInputs.has(input.resource)) issues.push({ path, code: "maintenance.duplicate-input", message: `Maintenance ${phase} consumes '${input.resource}' more than once` });
         seenInputs.add(input.resource);
-        if (!resources[input.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown maintenance consumable '${input.resource}'` });
+        if (!resources[input.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown maintenance ${phase} consumable '${input.resource}'` });
       }
     }
     if (asset.maintenanceProvider) {
@@ -543,6 +549,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
     grid.ratedConsumptionMilliWatts += device.processPlans.length
       ? Math.max(device.assetDef.production?.maintenance?.powerMilliWatts ?? 0,
+        device.assetDef.production?.maintenance?.qualification.powerMilliWatts ?? 0,
         ...device.processPlans.map((plan) => Math.max(maximumDriftPower(device.assetDef, plan.powerMilliWatts), plan.changeoverPowerMilliWatts ?? 0)))
       : device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
@@ -1225,17 +1232,16 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ...(storagePlan ? { storagePlan } : {}),
       ...(stationEnergyPlan ? { stationEnergyPlan } : {}),
       maintenanceProviders: [],
+      qualificationProviders: [],
     };
     narrowDevicePortsToBuffers(devices[instance.id]!);
   }
 
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
-  for (const device of placed) {
-    const service = device.assetDef.production?.maintenance?.service;
-    if (!service) continue;
+  const providersFor = (device: CompiledDevice, service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> }) => {
     const centerX = device.position.x + device.footprint.width / 2;
     const centerY = device.position.y + device.footprint.height / 2;
-    device.maintenanceProviders = placed.flatMap((provider) => {
+    return placed.flatMap((provider) => {
       const contract = provider.assetDef.maintenanceProvider;
       const inventory = contract ? provider.buffers[contract.inventoryBuffer] : undefined;
       if (!contract || provider.region !== device.region || contract.crews < service.crews || !contract.skills.includes(service.skill)
@@ -1247,11 +1253,20 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       const distance = Math.hypot(centerX - providerX, centerY - providerY);
       return distance <= contract.serviceRadius ? [{ device: provider.id, distance }] : [];
     }).sort((left, right) => left.distance - right.distance || left.device.localeCompare(right.device));
-    if (!device.maintenanceProviders.length) {
+  };
+  for (const device of placed) {
+    const maintenance = device.assetDef.production?.maintenance;
+    if (!maintenance) continue;
+    device.maintenanceProviders = providersFor(device, maintenance.service);
+    device.qualificationProviders = providersFor(device, maintenance.qualification.service);
+    for (const [phase, service, providers] of [
+      ["maintenance", maintenance.service, device.maintenanceProviders],
+      ["qualification", maintenance.qualification.service, device.qualificationProviders],
+    ] as const) if (!providers.length) {
       const index = loaded.blueprint.devices.findIndex((candidate) => candidate.id === device.id);
       issues.push({
-        path: `blueprint/devices/${index}`, code: "maintenance.provider-uncovered",
-        message: `Device '${device.id}' has no in-range provider for ${service.crews} '${service.skill}' maintenance crew(s) and required consumables`,
+        path: `blueprint/devices/${index}`, code: `${phase}.provider-uncovered`,
+        message: `Device '${device.id}' has no in-range provider for ${service.crews} '${service.skill}' ${phase} crew(s) and required consumables`,
       });
     }
   }

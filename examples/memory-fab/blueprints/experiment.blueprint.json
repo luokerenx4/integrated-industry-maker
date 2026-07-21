@@ -42,10 +42,7 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10,
-        "preventiveMaintenance": {
-          "minimumJobs": 6
-        }
+        "powerPriority": 10
       }
     },
     {
@@ -73,10 +70,7 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 9,
-        "preventiveMaintenance": {
-          "minimumJobs": 6
-        }
+        "powerPriority": 9
       }
     },
     {
@@ -151,7 +145,7 @@
         "lotDispatch": "fifo",
         "powerPriority": 7,
         "preventiveMaintenance": {
-          "minimumJobs": 3
+          "minimumJobs": 4
         }
       }
     },
@@ -294,10 +288,7 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10,
-        "preventiveMaintenance": {
-          "minimumJobs": 6
-        }
+        "powerPriority": 10
       }
     },
     {
@@ -325,10 +316,7 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 9,
-        "preventiveMaintenance": {
-          "minimumJobs": 6
-        }
+        "powerPriority": 9
       }
     },
     {

@@ -35,10 +35,15 @@ interface SearchRow {
   opportunistic: number[];
   cancelled: number[];
   maintenanceTicks: number[];
+  qualificationCompleted: number[];
+  qualificationCancelled: number[];
+  qualificationTicks: number[];
   inputWaitTicks: number[];
   crewWaitTicks: number[];
   serviceCrewTicks: number[];
+  qualificationCrewTicks: number[];
   serviceConsumables: string[];
+  qualificationConsumables: string[];
   driftedJobs: number[];
   driftedLots: number[];
   driftDefects: number[];
@@ -112,10 +117,16 @@ for (const lithography of [null, 6, 7] as const) {
         opportunistic: metrics.map((item) => item.equipmentMaintenance.totalOpportunistic),
         cancelled: metrics.map((item) => item.equipmentMaintenance.totalCancelled),
         maintenanceTicks: metrics.map((item) => item.equipmentMaintenance.totalMaintenanceTicks),
+        qualificationCompleted: metrics.map((item) => item.equipmentMaintenance.totalQualificationCompleted),
+        qualificationCancelled: metrics.map((item) => item.equipmentMaintenance.totalQualificationCancelled),
+        qualificationTicks: metrics.map((item) => item.equipmentMaintenance.totalQualificationTicks),
         inputWaitTicks: metrics.map((item) => item.equipmentMaintenance.totalInputWaitTicks),
         crewWaitTicks: metrics.map((item) => item.equipmentMaintenance.totalCrewWaitTicks),
         serviceCrewTicks: metrics.map((item) => item.equipmentMaintenance.totalServiceCrewTicks),
+        qualificationCrewTicks: metrics.map((item) => item.equipmentMaintenance.totalQualificationCrewTicks),
         serviceConsumables: metrics.map((item) => Object.entries(item.equipmentMaintenance.serviceConsumables)
+          .sort(([left], [right]) => left.localeCompare(right)).map(([resource, count]) => `${count}x${resource}`).join("+") || "none"),
+        qualificationConsumables: metrics.map((item) => Object.entries(item.equipmentMaintenance.qualificationConsumables)
           .sort(([left], [right]) => left.localeCompare(right)).map(([resource, count]) => `${count}x${resource}`).join("+") || "none"),
         driftedJobs: metrics.map((item) => item.equipmentMaintenance.totalDriftedJobs),
         driftedLots: metrics.map((item) => item.equipmentMaintenance.totalDriftedLots),
@@ -132,14 +143,16 @@ rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || (left.inspection ?? 99) - (right.inspection ?? 99));
 
 console.log(`# incumbent aggregate=${incumbentAggregate.toFixed(6)} · 27 maintenance policies · case gate=${definition.acceptance.maximumCaseScoreRegression.toFixed(3)}`);
-console.log("verdict\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tlithography\tetch\tinspection\tcase-scores\tcompleted\ton-time\tmandatory\topportunistic\tcancelled\tmaintenance-ticks\tinput-wait\tcrew-wait\tcrew-work\tconsumables\tdrifted-jobs\tdrifted-lots\tdrift-defects");
+console.log("verdict\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tlithography\tetch\tinspection\tcase-scores\tcompleted\ton-time\tmandatory\topportunistic\tcancelled\tmaintenance-ticks\tqualification-completed\tqualification-cancelled\tqualification-ticks\tinput-wait\tcrew-wait\tservice-crew-work\tqualification-crew-work\tservice-consumables\tqualification-consumables\tdrifted-jobs\tdrifted-lots\tdrift-defects");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : row.aggregateDelta === 0 ? "INCUMBENT" : "REJECT",
   row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
   row.lithography ?? "off", row.etch ?? "off", row.inspection ?? "off",
   row.scores.map((value) => value.toFixed(3)).join(","), row.completedLots.join(","), row.onTimeLots.join(","),
   row.mandatory.join(","), row.opportunistic.join(","), row.cancelled.join(","), row.maintenanceTicks.join(","),
-  row.inputWaitTicks.join(","), row.crewWaitTicks.join(","), row.serviceCrewTicks.join(","), row.serviceConsumables.join(","),
+  row.qualificationCompleted.join(","), row.qualificationCancelled.join(","), row.qualificationTicks.join(","),
+  row.inputWaitTicks.join(","), row.crewWaitTicks.join(","), row.serviceCrewTicks.join(","), row.qualificationCrewTicks.join(","),
+  row.serviceConsumables.join(","), row.qualificationConsumables.join(","),
   row.driftedJobs.join(","), row.driftedLots.join(","), row.driftDefects.join(","),
 ].join("\t"));
 

@@ -86,6 +86,9 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         opportunistic: 0,
         cancelled: 0,
         maintenanceTicks: 0,
+        qualificationCompleted: 0,
+        qualificationCancelled: 0,
+        qualificationTicks: 0,
         driftedJobs: 0,
         driftedLots: 0,
         driftDefects: 0,
@@ -94,6 +97,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         inputBlocks: 0,
         crewBlocks: 0,
         serviceConsumables: {},
+        qualificationConsumables: {},
       } } : {}),
       ...(project.devices[id]!.assetDef.maintenanceProvider ? { maintenanceProvider: {
         crews: project.devices[id]!.assetDef.maintenanceProvider!.crews,
@@ -103,6 +107,10 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         completed: 0,
         cancelled: 0,
         serviceCrewTicks: 0,
+        qualificationAssignments: 0,
+        qualificationCompleted: 0,
+        qualificationCancelled: 0,
+        qualificationCrewTicks: 0,
         consumables: {},
       } } : {}),
       ...(storage ? { energyStorage: {
@@ -1440,13 +1448,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return opportunistic && minimumJobs !== undefined && runtime.jobsSinceMaintenance >= minimumJobs ? "opportunistic" : null;
   };
-  const tryStartMaintenance = (device: CompiledDevice, cause: "mandatory" | "opportunistic"): boolean => {
+  const tryStartMaintenancePhase = (
+    device: CompiledDevice,
+    cause: "mandatory" | "opportunistic",
+    phase: "service" | "qualification",
+    jobsSinceMaintenance: number,
+  ): boolean => {
     const runtime = state.devices[device.id]!;
     const maintenance = runtime.maintenance;
     const contract = device.assetDef.production?.maintenance;
     if (!maintenance || !contract) return false;
-    const service = contract.service;
-    const candidates = device.maintenanceProviders.map((candidate) => {
+    const phaseContract = phase === "service"
+      ? { durationTicks: contract.durationTicks, powerMilliWatts: contract.powerMilliWatts, service: contract.service }
+      : contract.qualification;
+    const service = phaseContract.service;
+    const candidates = (phase === "service" ? device.maintenanceProviders : device.qualificationProviders).map((candidate) => {
       const providerDevice = project.devices[candidate.device]!;
       const providerContract = providerDevice.assetDef.maintenanceProvider!;
       const providerRuntime = state.devices[candidate.device]!.maintenanceProvider!;
@@ -1457,17 +1473,17 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const provider = stocked.find((candidate) => candidate.providerRuntime.crews - candidate.providerRuntime.crewsInUse >= service.crews);
     if (!provider) {
       const reason = stocked.length ? "crew" as const : "consumable" as const;
-      const changed = maintenance.wait?.reason !== reason;
-      mutateFactoryState(state, { kind: "maintenance.wait", device: device.id, reason });
+      const changed = maintenance.wait?.reason !== reason || maintenance.wait?.phase !== phase;
+      mutateFactoryState(state, { kind: "maintenance.wait", device: device.id, phase, reason });
       setStatus(device.id, "waiting-input");
       if (changed) emit({
-        type: "device.maintenance-blocked", tick: state.tick, device: device.id, cause, reason,
+        type: "device.maintenance-blocked", tick: state.tick, device: device.id, phase, cause, reason,
         skill: service.skill, crews: service.crews, inputs: structuredClone(service.inputs),
       });
       return false;
     }
-    mutateFactoryState(state, { kind: "maintenance.wait", device: device.id, reason: null });
-    const required = contract.powerMilliWatts;
+    mutateFactoryState(state, { kind: "maintenance.wait", device: device.id, phase, reason: null });
+    const required = phaseContract.powerMilliWatts;
     const grid = device.powerGrid ?? null;
     const available = grid ? availablePower(grid) - activePower(grid) : 0;
     if (!canStartPoweredWork(device, required)) {
@@ -1480,38 +1496,49 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       return false;
     }
     mutateFactoryState(state, {
-      kind: "maintenance.service-start", device: device.id, provider: provider.device,
+      kind: "maintenance.service-start", device: device.id, phase, provider: provider.device,
       inventoryBuffer: provider.providerContract.inventoryBuffer, crews: service.crews, inputs: service.inputs,
     });
     const job = {
-      operation: "equipment-maintenance",
+      operation: phase === "service" ? "equipment-maintenance" : "equipment-qualification",
       startedAt: state.tick,
-      durationTicks: contract.durationTicks,
-      remainingTicks: contract.durationTicks,
+      durationTicks: phaseContract.durationTicks,
+      remainingTicks: phaseContract.durationTicks,
       workedTicks: 0,
       resumedAt: state.tick,
       powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
       powerMilliWatts: required,
       produce: [],
       maintenance: {
-        cause, provider: provider.device, skill: service.skill, crews: service.crews,
+        phase, cause, provider: provider.device, skill: service.skill, crews: service.crews,
         inputs: structuredClone(service.inputs),
       },
     };
     setStatus(device.id, "processing");
     mutateFactoryState(state, { kind: "job.start", device: device.id, job });
-    emit({
+    if (phase === "service") emit({
       type: "device.maintenance-start", tick: state.tick, device: device.id, cause,
-      jobsSinceMaintenance: maintenance.jobsSinceMaintenance, durationTicks: contract.durationTicks,
+      jobsSinceMaintenance, durationTicks: phaseContract.durationTicks,
+      provider: provider.device, skill: service.skill, crews: service.crews, inputs: structuredClone(service.inputs),
+    }); else emit({
+      type: "device.qualification-start", tick: state.tick, device: device.id, cause,
+      jobsSinceMaintenance, durationTicks: phaseContract.durationTicks,
       provider: provider.device, skill: service.skill, crews: service.crews, inputs: structuredClone(service.inputs),
     });
-    schedule(state.tick + contract.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+    schedule(state.tick + phaseContract.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
+  };
+  const tryStartMaintenance = (device: CompiledDevice, cause: "mandatory" | "opportunistic"): boolean =>
+    tryStartMaintenancePhase(device, cause, "service", state.devices[device.id]!.maintenance!.jobsSinceMaintenance);
+  const tryStartQualification = (device: CompiledDevice): boolean => {
+    const pending = state.devices[device.id]!.maintenance?.qualificationPending;
+    return pending ? tryStartMaintenancePhase(device, pending.cause, "qualification", pending.jobsSinceMaintenance) : false;
   };
   const tryEvaluate = (device: CompiledDevice): boolean => {
     const runtime = state.devices[device.id]!;
     if (runtime.status === "failed" || runtime.activeJob || device.transportEndpoint || device.assetDef.capabilities.includes("station") || device.assetDef.maintenanceProvider
       || (!runtime.idlePowered && device.assetDef.power.idleMilliWatts > 0)) return false;
+    if (runtime.maintenance?.qualificationPending) return tryStartQualification(device);
     const campaignSelection = selectCampaignProcessPlan(device);
     const selectedProcessPlan = campaignSelection.plan;
     const productionReady = Boolean(selectedProcessPlan && processPlanReady(device, selectedProcessPlan));
@@ -1520,7 +1547,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const opportunisticMaintenance = maintenanceCause(device,
       campaignSelection.held || !productionReady);
     if (opportunisticMaintenance) return tryStartMaintenance(device, opportunisticMaintenance);
-    if (runtime.maintenance?.wait) mutateFactoryState(state, { kind: "maintenance.wait", device: device.id, reason: null });
+    if (runtime.maintenance?.wait) mutateFactoryState(state, {
+      kind: "maintenance.wait", device: device.id, phase: runtime.maintenance.wait.phase, reason: null,
+    });
     if (campaignSelection.held) {
       const previousStatus = runtime.status;
       setStatus(device.id, "waiting-input");
@@ -1901,16 +1930,41 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (job.maintenance) {
         const jobsSinceMaintenance = runtime.maintenance!.jobsSinceMaintenance;
         mutateFactoryState(state, {
-          kind: "maintenance.service-release", provider: job.maintenance.provider, crews: job.maintenance.crews,
+          kind: "maintenance.service-release", phase: job.maintenance.phase,
+          provider: job.maintenance.provider, crews: job.maintenance.crews,
           occupiedTicks: state.tick - job.startedAt, outcome: "completed",
         });
-        mutateFactoryState(state, { kind: "maintenance.finish", device: event.device, cause: job.maintenance.cause, durationTicks: job.durationTicks });
         setStatus(event.device, "idle");
         mutateFactoryState(state, { kind: "job.finish", device: event.device });
-        emit({
-          type: "device.maintenance-finish", tick: state.tick, device: event.device,
-          ...job.maintenance, jobsSinceMaintenance, durationTicks: job.durationTicks,
-        });
+        if (job.maintenance.phase === "service") {
+          mutateFactoryState(state, {
+            kind: "maintenance.service-finish", device: event.device, cause: job.maintenance.cause,
+            jobsSinceMaintenance, durationTicks: job.durationTicks,
+          });
+          emit({
+            type: "device.maintenance-service-finish", tick: state.tick, device: event.device,
+            cause: job.maintenance.cause, provider: job.maintenance.provider, skill: job.maintenance.skill,
+            crews: job.maintenance.crews, inputs: structuredClone(job.maintenance.inputs),
+            jobsSinceMaintenance, durationTicks: job.durationTicks,
+          });
+        } else {
+          mutateFactoryState(state, {
+            kind: "maintenance.qualification-finish", device: event.device,
+            cause: job.maintenance.cause, durationTicks: job.durationTicks,
+          });
+          emit({
+            type: "device.qualification-finish", tick: state.tick, device: event.device,
+            cause: job.maintenance.cause, provider: job.maintenance.provider, skill: job.maintenance.skill,
+            crews: job.maintenance.crews, inputs: structuredClone(job.maintenance.inputs),
+            jobsSinceMaintenance, durationTicks: job.durationTicks,
+          });
+          emit({
+            type: "device.maintenance-finish", tick: state.tick, device: event.device,
+            cause: job.maintenance.cause, jobsSinceMaintenance,
+            serviceDurationTicks: project.devices[event.device]!.assetDef.production!.maintenance!.durationTicks,
+            qualificationDurationTicks: job.durationTicks,
+          });
+        }
       } else if (job.changeover) {
         mutateFactoryState(state, { kind: "setup.finish", device: event.device, group: job.changeover.to, durationTicks: job.durationTicks });
         setStatus(event.device, "idle");
@@ -2154,18 +2208,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       });
       if (activeJob?.maintenance) {
         mutateFactoryState(state, {
-          kind: "maintenance.service-release", provider: activeJob.maintenance.provider, crews: activeJob.maintenance.crews,
+          kind: "maintenance.service-release", phase: activeJob.maintenance.phase,
+          provider: activeJob.maintenance.provider, crews: activeJob.maintenance.crews,
           occupiedTicks: state.tick - activeJob.startedAt, outcome: "cancelled",
         });
-        emit({
-          type: "device.maintenance-cancelled", tick: state.tick, device: event.device,
-          ...activeJob.maintenance,
+        const cancellation = {
+          tick: state.tick, device: event.device, cause: activeJob.maintenance.cause,
+          provider: activeJob.maintenance.provider, skill: activeJob.maintenance.skill,
+          crews: activeJob.maintenance.crews, inputs: structuredClone(activeJob.maintenance.inputs),
           jobsSinceMaintenance: state.devices[event.device]!.maintenance!.jobsSinceMaintenance,
-          reason: "equipment-breakdown",
-        });
-        mutateFactoryState(state, { kind: "maintenance.cancel", device: event.device });
+          reason: "equipment-breakdown" as const,
+        };
+        if (activeJob.maintenance.phase === "service") emit({ type: "device.maintenance-cancelled", ...cancellation });
+        else emit({ type: "device.qualification-cancelled", ...cancellation });
+        mutateFactoryState(state, { kind: "maintenance.cancel", device: event.device, phase: activeJob.maintenance.phase });
       }
-      if (state.devices[event.device]!.maintenance?.wait) mutateFactoryState(state, { kind: "maintenance.wait", device: event.device, reason: null });
+      const maintenanceWait = state.devices[event.device]!.maintenance?.wait;
+      if (maintenanceWait) mutateFactoryState(state, {
+        kind: "maintenance.wait", device: event.device, phase: maintenanceWait.phase, reason: null,
+      });
       if (activeJob?.extraction) mutateFactoryState(state, { kind: "resource.release", node: activeJob.extraction.node, count: activeJob.extraction.count });
       const scrappedLots = activeJob?.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
       if (scrappedLots.length) {

@@ -191,6 +191,12 @@ export interface DeviceAssetManifest {
       powerMilliWatts: number;
       /** Physical service resources acquired from one in-range maintenance provider. */
       service: { skill: string; crews: number; inputs: ProcessAmount[] };
+      /** Required post-service equipment run and independent provider release gate. */
+      qualification: {
+        durationTicks: Tick;
+        powerMilliWatts: number;
+        service: { skill: string; crews: number; inputs: ProcessAmount[] };
+      };
       /** Active stage is the greatest afterJobs threshold reached before a production job starts. */
       drift?: Array<{
         afterJobs: number;
@@ -646,6 +652,8 @@ export interface CompiledDevice extends BlueprintDevice {
   stationEnergyPlan?: { capacityMilliJoules: number; chargeMilliWatts: number };
   /** In-range providers capable of satisfying this Device's immutable maintenance service contract. */
   maintenanceProviders: Array<{ device: DeviceInstanceId; distance: number }>;
+  /** In-range providers capable of releasing this Device after maintenance. */
+  qualificationProviders: Array<{ device: DeviceInstanceId; distance: number }>;
   powerGrid?: string;
 }
 export interface CompiledConnection extends BlueprintConnection {
@@ -800,6 +808,7 @@ export interface ActiveDeviceJob {
   changeover?: { from: string | null; to: string };
   /** Marks evaluator-owned equipment maintenance rather than a material-processing job. */
   maintenance?: {
+    phase: "service" | "qualification";
     cause: "mandatory" | "opportunistic";
     provider: DeviceInstanceId;
     skill: string;
@@ -897,6 +906,9 @@ export interface DeviceRuntimeState {
     opportunistic: number;
     cancelled: number;
     maintenanceTicks: Tick;
+    qualificationCompleted: number;
+    qualificationCancelled: number;
+    qualificationTicks: Tick;
     driftedJobs: number;
     driftedLots: number;
     driftDefects: number;
@@ -905,7 +917,9 @@ export interface DeviceRuntimeState {
     inputBlocks: number;
     crewBlocks: number;
     serviceConsumables: Record<ResourceId, number>;
-    wait?: { reason: "consumable" | "crew"; sinceTick: Tick };
+    qualificationConsumables: Record<ResourceId, number>;
+    qualificationPending?: { cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number };
+    wait?: { phase: "service" | "qualification"; reason: "consumable" | "crew"; sinceTick: Tick };
   };
   maintenanceProvider?: {
     crews: number;
@@ -915,6 +929,10 @@ export interface DeviceRuntimeState {
     completed: number;
     cancelled: number;
     serviceCrewTicks: Tick;
+    qualificationAssignments: number;
+    qualificationCompleted: number;
+    qualificationCancelled: number;
+    qualificationCrewTicks: Tick;
     consumables: Record<ResourceId, number>;
   };
   progressTicks?: number;
@@ -1009,10 +1027,14 @@ export type FactoryEvent =
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
-  | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; phase: "service" | "qualification"; cause: "mandatory" | "opportunistic"; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
   | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
-  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-service-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.qualification-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.qualification-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; serviceDurationTicks: Tick; qualificationDurationTicks: Tick }
   | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
+  | { type: "device.qualification-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
@@ -1247,6 +1269,9 @@ export interface FactoryMetrics {
     totalOpportunistic: number;
     totalCancelled: number;
     totalMaintenanceTicks: Tick;
+    totalQualificationCompleted: number;
+    totalQualificationCancelled: number;
+    totalQualificationTicks: Tick;
     totalDriftedJobs: number;
     totalDriftedLots: number;
     totalDriftDefects: number;
@@ -1255,7 +1280,9 @@ export interface FactoryMetrics {
     totalInputBlocks: number;
     totalCrewBlocks: number;
     totalServiceCrewTicks: Tick;
+    totalQualificationCrewTicks: Tick;
     serviceConsumables: Record<ResourceId, number>;
+    qualificationConsumables: Record<ResourceId, number>;
     devices: Record<DeviceInstanceId, {
       jobsSinceMaintenance: number;
       completed: number;
@@ -1263,6 +1290,9 @@ export interface FactoryMetrics {
       opportunistic: number;
       cancelled: number;
       maintenanceTicks: Tick;
+      qualificationCompleted: number;
+      qualificationCancelled: number;
+      qualificationTicks: Tick;
       driftedJobs: number;
       driftedLots: number;
       driftDefects: number;
@@ -1271,7 +1301,9 @@ export interface FactoryMetrics {
       inputBlocks: number;
       crewBlocks: number;
       serviceConsumables: Record<ResourceId, number>;
-      wait?: { reason: "consumable" | "crew"; sinceTick: Tick };
+      qualificationConsumables: Record<ResourceId, number>;
+      qualificationPending?: { cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number };
+      wait?: { phase: "service" | "qualification"; reason: "consumable" | "crew"; sinceTick: Tick };
     }>;
     providers: Record<DeviceInstanceId, {
       crews: number;
@@ -1281,6 +1313,10 @@ export interface FactoryMetrics {
       completed: number;
       cancelled: number;
       serviceCrewTicks: Tick;
+      qualificationAssignments: number;
+      qualificationCompleted: number;
+      qualificationCancelled: number;
+      qualificationCrewTicks: Tick;
       consumables: Record<ResourceId, number>;
     }>;
   };

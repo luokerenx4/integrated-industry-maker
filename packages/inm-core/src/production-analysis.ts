@@ -36,6 +36,12 @@ export interface DeviceProductionRate {
   maintenanceServiceCrews?: number;
   maintenanceServiceInputs?: ProcessAmount[];
   maintenanceProviders?: Array<{ device: string; distance: number }>;
+  qualificationDurationTicks?: number;
+  qualificationPowerMilliWatts?: number;
+  qualificationServiceSkill?: string;
+  qualificationServiceCrews?: number;
+  qualificationServiceInputs?: ProcessAmount[];
+  qualificationProviders?: Array<{ device: string; distance: number }>;
   preventiveMaintenanceMinimumJobs?: number;
 }
 
@@ -433,6 +439,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
           maintenanceServiceCrews: device.assetDef.production.maintenance.service.crews,
           maintenanceServiceInputs: device.assetDef.production.maintenance.service.inputs.map((input) => ({ ...input })),
           maintenanceProviders: device.maintenanceProviders.map((provider) => ({ ...provider })),
+          qualificationDurationTicks: device.assetDef.production.maintenance.qualification.durationTicks,
+          qualificationPowerMilliWatts: device.assetDef.production.maintenance.qualification.powerMilliWatts,
+          qualificationServiceSkill: device.assetDef.production.maintenance.qualification.service.skill,
+          qualificationServiceCrews: device.assetDef.production.maintenance.qualification.service.crews,
+          qualificationServiceInputs: device.assetDef.production.maintenance.qualification.service.inputs.map((input) => ({ ...input })),
+          qualificationProviders: device.qualificationProviders.map((provider) => ({ ...provider })),
         } : {}),
         ...(device.policy?.preventiveMaintenance ? {
           preventiveMaintenanceMinimumJobs: device.policy.preventiveMaintenance.minimumJobs,

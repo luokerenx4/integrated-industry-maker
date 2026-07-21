@@ -121,7 +121,9 @@
     "maintenance-service-1": {
       "service-store": {
         "chamber-clean-kit": 16,
-        "metrology-calibration-kit": 16
+        "metrology-calibration-kit": 16,
+        "tool-qualification-wafer": 16,
+        "metrology-reference-wafer": 16
       }
     }
   },

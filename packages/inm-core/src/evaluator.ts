@@ -251,7 +251,13 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   };
   const maintenanceDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.maintenance)
     .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => {
-      const maintenance = { ...runtime.maintenance!, serviceConsumables: { ...runtime.maintenance!.serviceConsumables } };
+      const maintenance = {
+        ...runtime.maintenance!,
+        serviceConsumables: { ...runtime.maintenance!.serviceConsumables },
+        qualificationConsumables: { ...runtime.maintenance!.qualificationConsumables },
+        ...(runtime.maintenance!.qualificationPending ? { qualificationPending: { ...runtime.maintenance!.qualificationPending } } : {}),
+        ...(runtime.maintenance!.wait ? { wait: { ...runtime.maintenance!.wait } } : {}),
+      };
       if (maintenance.wait) {
         const key = maintenance.wait.reason === "consumable" ? "inputWaitTicks" : "crewWaitTicks";
         maintenance[key] += state.tick - maintenance.wait.sinceTick;
@@ -262,8 +268,21 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, {
       ...runtime.maintenanceProvider!, consumables: { ...runtime.maintenanceProvider!.consumables },
     }]));
+  for (const runtime of Object.values(state.devices)) {
+    const job = runtime.activeJob?.maintenance;
+    if (!job) continue;
+    const provider = maintenanceProviders[job.provider];
+    if (!provider) continue;
+    const activeCrewTicks = Math.max(0, state.tick - runtime.activeJob!.startedAt) * job.crews;
+    provider.serviceCrewTicks += activeCrewTicks;
+    if (job.phase === "qualification") provider.qualificationCrewTicks += activeCrewTicks;
+  }
   const serviceConsumables = Object.values(maintenanceDevices).reduce<Record<string, number>>((totals, maintenance) => {
     for (const [resource, count] of Object.entries(maintenance.serviceConsumables)) totals[resource] = (totals[resource] ?? 0) + count;
+    return totals;
+  }, {});
+  const qualificationConsumables = Object.values(maintenanceDevices).reduce<Record<string, number>>((totals, maintenance) => {
+    for (const [resource, count] of Object.entries(maintenance.qualificationConsumables)) totals[resource] = (totals[resource] ?? 0) + count;
     return totals;
   }, {});
   const equipmentMaintenance: FactoryMetrics["equipmentMaintenance"] = {
@@ -272,6 +291,9 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     totalOpportunistic: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.opportunistic, 0),
     totalCancelled: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.cancelled, 0),
     totalMaintenanceTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.maintenanceTicks, 0),
+    totalQualificationCompleted: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.qualificationCompleted, 0),
+    totalQualificationCancelled: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.qualificationCancelled, 0),
+    totalQualificationTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.qualificationTicks, 0),
     totalDriftedJobs: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftedJobs, 0),
     totalDriftedLots: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftedLots, 0),
     totalDriftDefects: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftDefects, 0),
@@ -280,7 +302,9 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     totalInputBlocks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.inputBlocks, 0),
     totalCrewBlocks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.crewBlocks, 0),
     totalServiceCrewTicks: Object.values(maintenanceProviders).reduce((sum, provider) => sum + provider.serviceCrewTicks, 0),
+    totalQualificationCrewTicks: Object.values(maintenanceProviders).reduce((sum, provider) => sum + provider.qualificationCrewTicks, 0),
     serviceConsumables,
+    qualificationConsumables,
     devices: maintenanceDevices,
     providers: maintenanceProviders,
   };

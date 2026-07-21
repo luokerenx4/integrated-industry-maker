@@ -33,17 +33,21 @@
     {
       "id": "service-store",
       "role": "input",
-      "capacity": 32,
+      "capacity": 64,
       "accepts": [
         "chamber-clean-kit",
-        "metrology-calibration-kit"
+        "metrology-calibration-kit",
+        "tool-qualification-wafer",
+        "metrology-reference-wafer"
       ]
     }
   ],
   "maintenanceProvider": {
     "skills": [
       "vacuum-process",
-      "metrology"
+      "metrology",
+      "equipment-qualification",
+      "metrology-qualification"
     ],
     "crews": 1,
     "serviceRadius": 35,

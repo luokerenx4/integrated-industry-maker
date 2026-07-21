@@ -137,6 +137,20 @@
             "count": 1
           }
         ]
+      },
+      "qualification": {
+        "durationTicks": 2000,
+        "powerMilliWatts": 110000,
+        "service": {
+          "skill": "metrology-qualification",
+          "crews": 1,
+          "inputs": [
+            {
+              "resource": "metrology-reference-wafer",
+              "count": 1
+            }
+          ]
+        }
       }
     }
   },

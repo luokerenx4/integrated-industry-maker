@@ -126,6 +126,20 @@
           }
         ]
       },
+      "qualification": {
+        "durationTicks": 3500,
+        "powerMilliWatts": 220000,
+        "service": {
+          "skill": "equipment-qualification",
+          "crews": 1,
+          "inputs": [
+            {
+              "resource": "tool-qualification-wafer",
+              "count": 1
+            }
+          ]
+        }
+      },
       "drift": [
         {
           "afterJobs": 6,

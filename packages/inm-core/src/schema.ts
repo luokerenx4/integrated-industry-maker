@@ -95,6 +95,13 @@ export const deviceAssetSchema = z.object({
         skill: id, crews: positiveInt,
         inputs: z.array(z.object({ resource: id, count: positiveInt }).strict()),
       }).strict(),
+      qualification: z.object({
+        durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
+        service: z.object({
+          skill: id, crews: positiveInt,
+          inputs: z.array(z.object({ resource: id, count: positiveInt }).strict()),
+        }).strict(),
+      }).strict(),
       drift: z.array(z.object({
         afterJobs: positiveInt,
         durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),

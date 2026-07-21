@@ -83,6 +83,7 @@
   "equipmentMaintenance": {
     "devices": {},
     "providers": {},
+    "qualificationConsumables": {},
     "serviceConsumables": {},
     "totalCancelled": 0,
     "totalCompleted": 0,
@@ -96,6 +97,10 @@
     "totalMaintenanceTicks": 0,
     "totalMandatory": 0,
     "totalOpportunistic": 0,
+    "totalQualificationCancelled": 0,
+    "totalQualificationCompleted": 0,
+    "totalQualificationCrewTicks": 0,
+    "totalQualificationTicks": 0,
     "totalServiceCrewTicks": 0
   },
   "equipmentSetups": {

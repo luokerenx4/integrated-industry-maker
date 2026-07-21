@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "tool-qualification-wafer",
+  "name": "Tool Qualification Wafer",
+  "description": "A sacrificial monitor wafer consumed to requalify a vacuum process tool after maintenance.",
+  "tags": [
+    "semiconductor",
+    "maintenance",
+    "consumable"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "kit",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 8
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}
