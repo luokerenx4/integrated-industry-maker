@@ -27,7 +27,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 - every Device instance's effective buffer capacity and accepted Resources;
 - local pipeline Resource allowlists, effective dispatch policy, per-Resource destination coverage profiles, stages, measured Resource mix, capacity, utilization, blockage, and power;
 - station routes/fleet load, effective network policy, authored priority tier, downstream coverage batch, and Objective depth;
-- regional power generation, demand, members, headroom, accumulator capacity/rates, and selected-run stored energy;
+- regional rated generation/demand/members/headroom, accumulator capacity/rates, and selected-run generated, requested, unserved, stored, and contiguous-deficit energy;
 - compiler/static diagnostics.
 
 ## 3D replay

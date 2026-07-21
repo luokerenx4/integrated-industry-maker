@@ -170,6 +170,15 @@ export const scenarioSchema = z.object({
     device: id, buffer: id, resource: id, level: positiveInt, count: positiveInt,
   }).strict()).optional(),
   initialEnergyMilliJoules: z.record(nonNegativeInt).optional(),
+  renewableProfiles: z.array(z.object({
+    region: id,
+    asset: id.optional(),
+    periodTicks: positiveInt,
+    points: z.array(z.object({
+      atTick: nonNegativeInt,
+      outputPermille: z.number().int().min(0).max(1000),
+    }).strict()).min(1),
+  }).strict()).optional(),
   failures: z.array(z.object({ device: id, atTick: nonNegativeInt, durationTicks: positiveInt }).strict()).optional(),
 }).strict();
 

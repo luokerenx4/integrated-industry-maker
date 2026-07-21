@@ -261,6 +261,8 @@ export async function compareCommand(
     `  target attainment  ${(fromMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}% → ${(toMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}%  Δ ${signed(comparison.delta.objectiveAttainment * 100, 1)}pp`,
     `  energy             ${(fromMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.energyConsumedMilliJoules / 1e6)} MJ`,
     `  stored energy      ${(fromMetrics.storedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.storedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.storedMilliJoules / 1e6)} MJ`,
+    `  unserved energy    ${(fromMetrics.unservedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.unservedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.unservedMilliJoules / 1e6)} MJ`,
+    `  curtailed energy   ${(fromMetrics.curtailedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.curtailedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.curtailedMilliJoules / 1e6)} MJ`,
     `  unpowered time     ${fromMetrics.unpoweredTicks.toFixed(0).padStart(12)} → ${toMetrics.unpoweredTicks.toFixed(0).padStart(12)} ticks  Δ ${signed(comparison.delta.unpoweredTicks, 0)}`,
     `  build cost         ${fromMetrics.totalBuildCost.toFixed(0).padStart(12)} → ${toMetrics.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
     `  occupied area      ${fromMetrics.occupiedArea.toFixed(0).padStart(12)} → ${toMetrics.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
@@ -330,6 +332,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     ...materialTreatmentSummary(result.metrics),
     "Measured transport flows:", ...flowLines,
     `Transport endpoints: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J consumed`,
+    ...Object.entries(result.metrics.powerGrids).map(([grid, power]) => `Power ${grid}: generated ${(power.generatedMilliJoules / 1e6).toFixed(3)} MJ · demand ${(power.demandMilliJoules / 1e6).toFixed(3)} MJ · unserved ${(power.unservedMilliJoules / 1e6).toFixed(3)} MJ · curtailed ${(power.curtailedMilliJoules / 1e6).toFixed(3)} MJ · peak deficit ${(power.peakDeficitMilliWatts / 1000).toFixed(3)} W · storage envelope ${(power.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ`),
     ...Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0).map(([grid, storage]) => `Storage ${grid}: ${(storage.storedMilliJoules / 1e6).toFixed(3)}/${(storage.capacityMilliJoules / 1e6).toFixed(3)} MJ · charged ${(storage.chargedMilliJoules / 1e6).toFixed(3)} MJ · discharged ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} MJ`),
     `Result hash: ${result.resultHash}`, "",
     ].join("\n"), false);

@@ -1,0 +1,12 @@
+{
+  "name": "regional renewable curves expose temporal grid deficits",
+  "blueprint": "scaled-factory",
+  "scenario": "intermittent-wind",
+  "objective": "scaled-production",
+  "seed": 42,
+  "assertions": [
+    { "kind": "event", "type": "power.generation-changed", "present": true },
+    { "kind": "metric", "path": "powerGrids.grid-assembly-world-synth-assembly-world-wind-turbine-1.unservedMilliJoules", "min": 1 },
+    { "kind": "metric", "path": "powerGrids.grid-assembly-world-synth-assembly-world-wind-turbine-1.requiredStorageCapacityMilliJoules", "min": 1 }
+  ]
+}

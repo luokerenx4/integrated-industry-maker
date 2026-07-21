@@ -499,6 +499,17 @@ Initial quantities address device and buffer explicitly:
   "initialEnergyMilliJoules": {
     "accumulator-1": 1800000
   },
+  "renewableProfiles": [
+    {
+      "region": "forge-world",
+      "asset": "wind-turbine",
+      "periodTicks": 8000,
+      "points": [
+        { "atTick": 0, "outputPermille": 1000 },
+        { "atTick": 4000, "outputPermille": 0 }
+      ]
+    }
+  ],
   "failures": [
     { "device": "smelter-1", "atTick": 40000, "durationTicks": 15000 }
   ]
@@ -506,6 +517,8 @@ Initial quantities address device and buffer explicitly:
 ```
 
 `initialEnergyMilliJoules` is keyed by placed storage Device id. Each value must be an integer from zero through that Device's compiled capacity. It is part of the Scenario hash and therefore of run identity. Omitted accumulators start empty.
+
+`renewableProfiles` are periodic, piecewise-constant environmental curves. Each profile applies to every renewable Device in its `region`, optionally narrowed to one Device `asset`; this includes Devices later added to a candidate Blueprint. The first point must start at zero, later `atTick` values are strictly increasing and below `periodTicks`, and integer `outputPermille` is limited to 0–1000 of asset-rated output. Overlapping profiles for one Device are invalid. Omitted matches run at rated output.
 
 `initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 

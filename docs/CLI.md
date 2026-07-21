@@ -44,7 +44,7 @@ inm plan examples/ironworks --json
 
 Compares two named Blueprint files as one controlled experiment. Both files are compiled against the same selected Resource, Process, and Device catalogs, World, Scenario, Objective, and deterministic seed; the command rejects a changed benchmark input instead of blending it into the Blueprint result.
 
-Human output groups stable-id changes by Device, local connection, logistics network, factory policy, and Blueprint metadata. It also prints an exact replayable RFC 6902 file patch, both capacity-plan states, and objective score, throughput, attainment, consumed/stored energy, unpowered time, cost, area, and congestion deltas. `--json` returns the complete controlled-evaluation contract.
+Human output groups stable-id changes by Device, local connection, logistics network, factory policy, and Blueprint metadata. It also prints an exact replayable RFC 6902 file patch, both capacity-plan states, and objective score, throughput, attainment, consumed/stored/unserved/curtailed energy, unpowered time, cost, area, and congestion deltas. `--json` returns the complete controlled-evaluation contract.
 
 ```bash
 inm compare examples/ironworks \
@@ -73,7 +73,7 @@ Human output includes the optimized cycles/min, every selected cross-region Reso
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
-Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes treated quantities by `Resource@level`, treatment-agent consumption, physical belt utilization, transport-endpoint energy, accumulator final/capacity/charged/discharged energy, and measured connection flows. JSON metrics retain the treatment ledger, per-grid storage ledgers, and per-Device unpowered time. Active production/extraction/treatment jobs pause at a power boundary and resume their remaining work when service returns.
+Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes treated quantities by `Resource@level`, treatment-agent consumption, physical belt utilization, transport-endpoint energy, accumulator final/capacity/charged/discharged energy, per-grid generated/requested/unserved/curtailed energy and deficit envelope, and measured connection flows. JSON metrics retain the treatment ledger, full power/storage ledgers, and per-Device unpowered time. Active production/extraction/treatment jobs pause at an accumulator or Scenario renewable-profile boundary and resume their remaining work when service returns.
 
 ```bash
 inm simulate examples/ironworks \
@@ -103,7 +103,9 @@ Lists only completed immutable runs. Partial or interrupted directories without 
 inm research examples/ironworks --iterations 5 --seed 42
 ```
 
-Each iteration proposes a restricted JSON Patch over blueprint devices, local connections, station networks, or policies; compiles and simulates a candidate; compares its score; and writes a `KEEP` or `REVERT` artifact. A KEEP atomically updates the selected blueprint with a revision hash. Built-in strategies consume the target-rate capacity plan, material/local-logistics/station/power diagnostics, and measured per-connection flow. A missing Process Device is therefore tied to a concrete required machine count, while a line operating near its compiled capacity can trigger a project-local sorter/belt tier upgrade even when nominal static analysis alone did not diagnose it. Contended multi-route networks can independently cycle their fleet policy without changing unrelated local dispatch. The plan is recomputed after every KEEP, so a recipe edit changes all downstream requirements before the next proposal. Every later iteration also receives earlier strategy keys, hypotheses, decisions, and score deltas so it can avoid repeating a reverted experiment.
+Each iteration proposes a restricted JSON Patch over blueprint devices, local connections, station networks, or policies; compiles and simulates a candidate; compares its score; and writes a `KEEP` or `REVERT` artifact. A KEEP atomically updates the selected blueprint with a revision hash. Built-in strategies consume the target-rate capacity plan, material/local-logistics/station/power diagnostics, measured per-connection flow, and measured power time envelopes. A missing Process Device is therefore tied to a concrete required machine count, a line near capacity can trigger a project-local transport-tier upgrade, and an intermittent grid with sufficient total energy can receive a project-local accumulator bundle sized for observed capacity/charge/discharge deficits. Storage is never proposed when the Scenario lacks total generated energy. Contended multi-route networks can independently cycle their fleet policy without changing unrelated local dispatch. The plan is recomputed after every KEEP, so a recipe edit changes all downstream requirements before the next proposal. Every later iteration also receives earlier strategy keys, hypotheses, decisions, and score deltas so it can avoid repeating a reverted experiment.
+
+When `--blueprint ID` is supplied, KEEP writes that exact candidate file; the project default is never used as an implicit write target.
 
 Use an external model or agent without binding INM to a provider:
 

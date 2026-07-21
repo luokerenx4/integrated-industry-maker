@@ -144,6 +144,9 @@ interface FactoryEvent {
   availableMilliWatts?: number;
   remainingTicks?: number;
   workedTicks?: number;
+  ratedMilliWatts?: number;
+  outputMilliWatts?: number;
+  outputPermille?: number;
   network?: string;
   route?: string;
 }
@@ -153,6 +156,11 @@ interface Metrics {
   throughputPerMinute: number;
   energyConsumedMilliJoules: number;
   energyStorage: Record<string, { initialMilliJoules: number; storedMilliJoules: number; capacityMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number }>;
+  powerGrids: Record<string, {
+    generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
+    peakGenerationMilliWatts: number; peakDemandMilliWatts: number; peakDeficitMilliWatts: number; peakSurplusMilliWatts: number;
+    requiredStorageCapacityMilliJoules: number;
+  }>;
   fuelConsumed: Record<string, number>;
   materialTreatment: { treated: Record<string, Record<string, number>>; agentsConsumed: Record<string, number> };
   totalBuildCost: number;
@@ -760,7 +768,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               {selected.logistics?.endpointRange && <section className="asset-section"><h4>Endpoint reach</h4><div className="asset-table"><div><b>{selected.logistics.endpointRange.minimum}–{selected.logistics.endpointRange.maximum} cells</b><strong>distance-aware transfer</strong><span>loader / unloader</span><code>throughput comes from runtime.ts</code></div></div></section>}
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
               {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
-              {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "continuous"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "renewable"}</code></div></div></section>}
+              {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "Scenario-profiled environment"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "rated renewable"}</code></div></div></section>}
               {selected.power.storage && <section className="asset-section"><h4>Power storage</h4><div className="asset-table"><div><b>{(selected.power.storage.capacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>+{(selected.power.storage.chargeMilliWatts / 1000).toFixed(0)} / −{(selected.power.storage.dischargeMilliWatts / 1000).toFixed(0)} W</strong><span>charge / discharge</span><code>deterministic grid buffer</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
@@ -907,7 +915,8 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
             const measuredStorage = data.metrics?.energyStorage[grid.grid];
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
+            const measuredPower = data.metrics?.powerGrids[grid.grid];
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={(measuredPower?.unservedMilliJoules ?? 0) > 0 || grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{measuredPower ? `${(measuredPower.unservedMilliJoules / 1e6).toFixed(2)} MJ` : `${(grid.headroomMilliWatts / 1000).toFixed(0)} W`}</b><small>{measuredPower ? "UNSERVED" : "HEADROOM"}</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{measuredPower ? `MEASURED ${(measuredPower.generatedMilliJoules / 1e6).toFixed(2)} MJ GENERATED · ${(measuredPower.demandMilliJoules / 1e6).toFixed(2)} MJ DEMAND · ${(measuredPower.requiredStorageCapacityMilliJoules / 1e6).toFixed(2)} MJ STORAGE ENVELOPE · ` : ""}{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>

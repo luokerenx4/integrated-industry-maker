@@ -47,6 +47,20 @@
   "occupiedArea": 16,
   "onTimeDelivery": 1,
   "peakBeltItems": 8,
+  "powerGrids": {
+    "grid-forge-world-stack-power": {
+      "curtailedMilliJoules": 1196250,
+      "demandMilliJoules": 3750,
+      "generatedMilliJoules": 1200000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 5000,
+      "peakGenerationMilliWatts": 600000,
+      "peakSurplusMilliWatts": 600000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 3750,
+      "unservedMilliJoules": 0
+    }
+  },
   "produced": {},
   "resourceNodes": {
     "coal-seam-assembly": {

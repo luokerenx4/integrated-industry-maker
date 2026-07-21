@@ -913,6 +913,33 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     else if (!device.storagePlan) issues.push({ path, code: "power.storage-required", message: `Device '${deviceId}' does not declare power storage` });
     else if (initialEnergy > device.storagePlan.capacityMilliJoules) issues.push({ path, code: "power.storage-capacity", message: `Initial energy ${initialEnergy} mJ exceeds storage capacity ${device.storagePlan.capacityMilliJoules} mJ` });
   }
+  for (const [profileIndex, profile] of (loaded.scenario.renewableProfiles ?? []).entries()) {
+    const path = `scenario/renewableProfiles/${profileIndex}`;
+    if (!regions[profile.region]) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown region '${profile.region}'` });
+    if (profile.asset) {
+      const asset = loaded.deviceAssets[profile.asset];
+      if (!asset) issues.push({ path: `${path}/asset`, code: "reference.device", message: `Unknown Device asset '${profile.asset}'` });
+      else if (asset.power.generation?.kind !== "renewable") issues.push({ path: `${path}/asset`, code: "power.renewable-profile-required", message: `Device asset '${profile.asset}' is not a renewable generator` });
+    }
+    if (profile.points[0]?.atTick !== 0) issues.push({
+      path: `${path}/points/0/atTick`, code: "power.generator-profile-origin", message: "Generator profile must start at tick 0",
+    });
+    for (const [index, point] of profile.points.entries()) {
+      if (point.atTick >= profile.periodTicks) issues.push({
+        path: `${path}/points/${index}/atTick`, code: "power.generator-profile-period", message: `Profile point ${point.atTick} must be before period ${profile.periodTicks}`,
+      });
+      if (index > 0 && point.atTick <= profile.points[index - 1]!.atTick) issues.push({
+        path: `${path}/points/${index}/atTick`, code: "power.generator-profile-order", message: "Generator profile points must be strictly increasing",
+      });
+    }
+  }
+  for (const device of Object.values(devices).filter((item) => item.generationPlan?.kind === "renewable")) {
+    const matches = (loaded.scenario.renewableProfiles ?? []).filter((profile) => profile.region === device.region && (!profile.asset || profile.asset === device.asset));
+    if (matches.length > 1) issues.push({
+      path: "scenario/renewableProfiles", code: "power.generator-profile-overlap",
+      message: `Renewable Device '${device.id}' matches ${matches.length} Scenario profiles; environmental scopes must be unambiguous`,
+    });
+  }
   for (const [index, failure] of (loaded.scenario.failures ?? []).entries()) if (!devices[failure.device]) issues.push({ path: `scenario/failures/${index}/device`, code: "reference.device-instance", message: `Unknown device instance '${failure.device}'` });
   if (issues.length) throw new InmValidationError(issues);
 

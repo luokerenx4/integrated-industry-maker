@@ -290,6 +290,58 @@ function powerCandidates(input: ResearchInput): StrategyCandidate[] {
   return candidates;
 }
 
+function measuredStorageCandidates(input: ResearchInput): StrategyCandidate[] {
+  const storageAssets = Object.values(input.project.deviceAssets).filter((asset) => asset.power.storage && asset.power.distribution)
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id));
+  if (!storageAssets.length) return [];
+  return Object.entries(input.metrics.powerGrids).sort(([a], [b]) => a.localeCompare(b)).flatMap(([gridId, measured]) => {
+    if (measured.unservedMilliJoules <= 1e-6) return [];
+    const grid = input.project.powerGrids[gridId];
+    if (!grid) return [];
+    const initialStoredMilliJoules = input.metrics.energyStorage[gridId]?.initialMilliJoules ?? 0;
+    if (measured.generatedMilliJoules + initialStoredMilliJoules + 1e-6 < measured.demandMilliJoules) return [];
+    const anchor = input.project.devices[grid.distributors[0]!];
+    if (!anchor) return [];
+    const successfulPlans = storageAssets.flatMap((asset) => {
+      const storage = asset.power.storage!;
+      const capacityCount = Math.ceil(Math.max(0, measured.requiredStorageCapacityMilliJoules - grid.storageCapacityMilliJoules) / storage.capacityMilliJoules);
+      const dischargeCount = Math.ceil(Math.max(0, measured.peakDeficitMilliWatts - grid.storageDischargeMilliWatts) / storage.dischargeMilliWatts);
+      const estimatedCount = Math.max(1, capacityCount, dischargeCount);
+      const candidateBlueprint = structuredClone(input.blueprint); const devices: Blueprint["devices"] = [];
+      for (let count = 1; count <= estimatedCount + 8; count++) {
+        const device: Blueprint["devices"][number] = {
+          id: uniqueDeviceId(candidateBlueprint, `${asset.id}-${grid.region}-reserve`), asset: asset.id,
+          region: grid.region, position: { x: 0, y: 0 }, rotation: 0,
+        };
+        if (!placeDevice(candidateBlueprint, device, input.project, anchor.position)) return [];
+        candidateBlueprint.devices.push(device); devices.push(device);
+        if (count < estimatedCount) continue;
+        try {
+          const candidateProject = compileFactoryProject({ ...input.project, blueprint: candidateBlueprint });
+          const candidateGrid = candidateProject.devices[anchor.id]?.powerGrid;
+          const candidatePower = candidateGrid ? runUntil(candidateProject).metrics.powerGrids[candidateGrid] : undefined;
+          if (candidatePower && candidatePower.unservedMilliJoules <= 1e-6) return [{
+            asset, devices: structuredClone(devices), count,
+            cost: count * asset.economics.buildCost,
+            area: count * asset.geometry.footprint.width * asset.geometry.footprint.height,
+          }];
+        } catch { /* This asset/count is not a compileable measured repair; continue the bounded search. */ }
+      }
+      return [];
+    }).sort((a, b) => a.cost - b.cost || a.area - b.area || a.asset.id.localeCompare(b.asset.id));
+    const selected = successfulPlans[0];
+    if (!selected) return [];
+    const devices = selected.devices;
+    const key = `storage:${gridId}:${grid.storageDevices.length}->${grid.storageDevices.length + devices.length}`;
+    return [{ key, proposal: {
+      strategy: key,
+      hypothesis: `Add ${devices.length} ${selected.asset.id} Device${devices.length === 1 ? "" : "s"} to \`${gridId}\` because simulation left ${(measured.unservedMilliJoules / 1e6).toFixed(3)} MJ of demand unserved during intermittent generation.`,
+      expectedEffect: `Raise grid storage toward the measured ${(measured.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ contiguous-deficit envelope and ${(measured.peakDeficitMilliWatts / 1000).toFixed(3)} W peak discharge requirement; KEEP only if the same Scenario score improves.`,
+      patch: devices.map((device) => ({ op: "add" as const, path: "/devices/-", value: device })),
+    } }];
+  });
+}
+
 function logisticsUpgradeCandidate(input: ResearchInput, connectionId: string, reason: string): StrategyCandidate | null {
   const connectionIndex = input.blueprint.connections.findIndex((connection) => connection.id === connectionId);
   const compiled = input.project.connections[connectionId];
@@ -515,7 +567,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
-      ...powerCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input),
+      ...powerCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input),
       ...recipeCandidates(input), ...plannedCapacityCandidates(input),
     ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
@@ -552,6 +604,7 @@ export interface ResearchResult { baseline: RunSummary; iterations: ResearchIter
 function withBlueprint(loaded: LoadedFactoryProject, blueprint: Blueprint): LoadedFactoryProject { return { ...loaded, blueprint }; }
 
 export async function researchFactory(projectDir: string, options: ResearchOptions): Promise<ResearchResult> {
+  const selectedBlueprintId = options.blueprint;
   let loaded = await loadFactoryProject(projectDir, options);
   let project = compileFactoryProject(loaded);
   let bestBlueprint = project.blueprint;
@@ -589,7 +642,7 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
     });
     iterations.push({ iteration, decision, score: candidateResult.metrics.finalScore, previousScore: bestResult.metrics.finalScore, run, proposal });
     if (decision === "KEEP") {
-      const blueprintPath = join(loaded.rootDir, "blueprints", `${loaded.manifest.defaultBlueprint}.blueprint.json`);
+      const blueprintPath = join(loaded.rootDir, "blueprints", `${selectedBlueprintId ?? loaded.manifest.defaultBlueprint}.blueprint.json`);
       const currentBlueprint = JSON.parse(await readFile(blueprintPath, "utf8")) as Blueprint;
       if (hashValue(currentBlueprint) !== hashValue(bestBlueprint)) throw new Error(`Blueprint changed during research; refusing to overwrite ${blueprintPath}`);
       bestBlueprint = candidateBlueprint; bestResult = candidateResult; project = candidateProject;

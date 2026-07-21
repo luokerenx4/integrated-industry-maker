@@ -25,6 +25,8 @@ export interface BlueprintMetricSnapshot {
   storedMilliJoules: number;
   chargedMilliJoules: number;
   dischargedMilliJoules: number;
+  unservedMilliJoules: number;
+  curtailedMilliJoules: number;
   unpoweredTicks: number;
   totalBuildCost: number;
   occupiedArea: number;
@@ -45,6 +47,8 @@ export interface BlueprintMetricDelta {
   storedMilliJoules: number;
   chargedMilliJoules: number;
   dischargedMilliJoules: number;
+  unservedMilliJoules: number;
+  curtailedMilliJoules: number;
   unpoweredTicks: number;
   totalBuildCost: number;
   occupiedArea: number;
@@ -177,6 +181,7 @@ export function compareBlueprintSemantics(before: Blueprint, after: Blueprint): 
 
 function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
   const storage = Object.values(metrics.energyStorage);
+  const power = Object.values(metrics.powerGrids);
   return {
     score: metrics.finalScore,
     throughputPerMinute: metrics.throughputPerMinute,
@@ -186,6 +191,8 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
     chargedMilliJoules: storage.reduce((sum, grid) => sum + grid.chargedMilliJoules, 0),
     dischargedMilliJoules: storage.reduce((sum, grid) => sum + grid.dischargedMilliJoules, 0),
+    unservedMilliJoules: power.reduce((sum, grid) => sum + grid.unservedMilliJoules, 0),
+    curtailedMilliJoules: power.reduce((sum, grid) => sum + grid.curtailedMilliJoules, 0),
     unpoweredTicks: Object.values(metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0),
     totalBuildCost: metrics.totalBuildCost,
     occupiedArea: metrics.occupiedArea,
@@ -208,6 +215,8 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,
     chargedMilliJoules: after.chargedMilliJoules - before.chargedMilliJoules,
     dischargedMilliJoules: after.dischargedMilliJoules - before.dischargedMilliJoules,
+    unservedMilliJoules: after.unservedMilliJoules - before.unservedMilliJoules,
+    curtailedMilliJoules: after.curtailedMilliJoules - before.curtailedMilliJoules,
     unpoweredTicks: after.unpoweredTicks - before.unpoweredTicks,
     totalBuildCost: after.totalBuildCost - before.totalBuildCost,
     occupiedArea: after.occupiedArea - before.occupiedArea,

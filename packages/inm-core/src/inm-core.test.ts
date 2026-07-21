@@ -414,6 +414,22 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(hybrid))).toContain("power.storage-generation-exclusive");
   });
 
+  test("validates periodic renewable generator profiles against the compiled Blueprint", async () => {
+    const source = await accumulatorProjectSource({ wind: true });
+    source.scenario.renewableProfiles = [{ region: "forge-world", asset: "wind-turbine", periodTicks: 8_000, points: [{ atTick: 0, outputPermille: 1000 }, { atTick: 4_000, outputPermille: 0 }] }];
+    expect(() => compileFactoryProject(source)).not.toThrow();
+
+    const wrongKind = await accumulatorProjectSource({ wind: true });
+    wrongKind.scenario.renewableProfiles = [{ region: "forge-world", asset: "smelter", periodTicks: 8_000, points: [{ atTick: 0, outputPermille: 1000 }] }];
+    expect(issueCodes(() => compileFactoryProject(wrongKind))).toContain("power.renewable-profile-required");
+
+    const malformed = await accumulatorProjectSource({ wind: true });
+    malformed.scenario.renewableProfiles = [{ region: "forge-world", asset: "wind-turbine", periodTicks: 8_000, points: [{ atTick: 1_000, outputPermille: 1000 }, { atTick: 8_000, outputPermille: 0 }] }];
+    const codes = issueCodes(() => compileFactoryProject(malformed));
+    expect(codes).toContain("power.generator-profile-origin");
+    expect(codes).toContain("power.generator-profile-period");
+  });
+
   test("fuel generators require resources with declared energy values", async () => {
     const source = await loaded(); source.resources.coal!.fuel = undefined;
     expect(issueCodes(() => compileFactoryProject(source))).toContain("power.resource-not-fuel");
@@ -1377,6 +1393,21 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.state.devices["accumulator-1"]!.energyStorage!.storedMilliJoules).toBe(800_000);
   });
 
+  test("periodic renewable output wakes the event loop and records exact grid deficit envelopes", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.scenario.durationTicks = 12_000;
+    source.scenario.renewableProfiles = [{ region: "forge-world", asset: "wind-turbine", periodTicks: 8_000, points: [{ atTick: 0, outputPermille: 1000 }, { atTick: 4_000, outputPermille: 0 }] }];
+    const result = runUntil(compileFactoryProject(source));
+    expect(result.events.filter((event) => event.type === "power.generation-changed").map((event) => [event.tick, event.outputMilliWatts])).toEqual([
+      [0, 600_000], [4_000, 0], [8_000, 600_000], [12_000, 0],
+    ]);
+    const grid = result.metrics.powerGrids["grid-forge-world-accumulator-1"]!;
+    expect(grid.generatedMilliJoules).toBe(4_800_000);
+    expect(grid.peakDeficitMilliWatts).toBe(180_000);
+    expect(grid.requiredStorageCapacityMilliJoules).toBe(720_000);
+    expect(grid.unservedMilliJoules).toBe(0);
+  });
+
   test("storage depletion pauses an active Device job without refunding its inputs", async () => {
     const result = runUntil(compileFactoryProject(await accumulatorProjectSource()), undefined, { untilTick: 10_000 });
     const smelter = result.state.devices["smelter-1"]!;
@@ -1644,6 +1675,19 @@ describe("research boundary and experiment decisions", () => {
     expect(result.iterations[0]!.decision).toBe("KEEP"); expect(result.bestScore).toBeGreaterThan(result.baseline.score);
   });
 
+  test("research writes the explicitly selected Blueprint instead of the project default", async () => {
+    const dir = await projectCopy();
+    const defaultPath = join(dir, "blueprints/main.blueprint.json");
+    const selectedPath = join(dir, "blueprints/experiment.blueprint.json");
+    await cp(defaultPath, selectedPath);
+    const defaultBefore = await readFile(defaultPath, "utf8");
+    const selectedBefore = await readFile(selectedPath, "utf8");
+    const result = await researchFactory(dir, { blueprint: "experiment", iterations: 1, seed: 42, agent: new HeuristicResearchAgent() });
+    expect(result.iterations[0]!.decision).toBe("KEEP");
+    expect(await readFile(defaultPath, "utf8")).toBe(defaultBefore);
+    expect(await readFile(selectedPath, "utf8")).not.toBe(selectedBefore);
+  });
+
   test("heuristic strategies read diagnostics and do not immediately repeat experiment history", async () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
     const agent = new HeuristicResearchAgent();
@@ -1667,6 +1711,26 @@ describe("research boundary and experiment decisions", () => {
     expect(proposal.strategy?.startsWith("power:power-disconnected:")).toBeTrue();
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
     expect(analyzeProduction(candidate).diagnostics.filter((diagnostic) => diagnostic.code === "power-disconnected")).toHaveLength(0);
+  });
+
+  test("heuristic research sizes project-local storage from measured intermittent-power deficits", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.scenario.durationTicks = 8_000;
+    source.scenario.renewableProfiles = [{ region: "forge-world", asset: "wind-turbine", periodTicks: 8_000, points: [{ atTick: 0, outputPermille: 1000 }, { atTick: 4_000, outputPermille: 0 }] }];
+    source.objective.targetResource = "iron-plate"; source.objective.targetRegion = "forge-world"; source.objective.targetRatePerMinute = 1;
+    source.deviceAssets.accumulator!.power.storage = { capacityMilliJoules: 200_000, chargeMilliWatts: 100_000, dischargeMilliWatts: 100_000 };
+    const project = compileFactoryProject(source); const result = runUntil(project);
+    const measured = result.metrics.powerGrids["grid-forge-world-accumulator-1"]!;
+    expect(measured.unservedMilliJoules).toBeGreaterThan(0);
+    const proposal = await new HeuristicResearchAgent().propose({
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics,
+      production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
+    });
+    expect(proposal.strategy).toBe("storage:grid-forge-world-accumulator-1:1->4");
+    expect(proposal.patch).toHaveLength(3);
+    const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
+    expect(Object.values(candidate.devices).filter((device) => device.storagePlan)).toHaveLength(4);
+    expect(runUntil(candidate).metrics.powerGrids["grid-forge-world-accumulator-1"]!.unservedMilliJoules).toBe(0);
   });
 
   test("heuristic logistics strategy upgrades every tied bottleneck stage together", async () => {

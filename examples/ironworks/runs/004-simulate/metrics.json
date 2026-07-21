@@ -105,6 +105,32 @@
   "occupiedArea": 231,
   "onTimeDelivery": 1,
   "peakBeltItems": 15,
+  "powerGrids": {
+    "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
+      "curtailedMilliJoules": 114809900,
+      "demandMilliJoules": 101190100,
+      "generatedMilliJoules": 216000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 1196000,
+      "peakGenerationMilliWatts": 1800000,
+      "peakSurplusMilliWatts": 1060000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 101190100,
+      "unservedMilliJoules": 0
+    },
+    "grid-forge-world-synth-forge-world-wind-turbine-1": {
+      "curtailedMilliJoules": 35140500,
+      "demandMilliJoules": 108859500,
+      "generatedMilliJoules": 144000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 936000,
+      "peakGenerationMilliWatts": 1200000,
+      "peakSurplusMilliWatts": 450000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 108859500,
+      "unservedMilliJoules": 0
+    }
+  },
   "produced": {
     "coal": 60,
     "gear": 24,

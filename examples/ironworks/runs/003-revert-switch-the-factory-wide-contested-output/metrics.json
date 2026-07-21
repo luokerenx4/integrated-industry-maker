@@ -95,6 +95,32 @@
   "occupiedArea": 155,
   "onTimeDelivery": 1,
   "peakBeltItems": 6,
+  "powerGrids": {
+    "grid-assembly-world-generator-2": {
+      "curtailedMilliJoules": 91146000,
+      "demandMilliJoules": 100854000,
+      "generatedMilliJoules": 192000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 998000,
+      "peakGenerationMilliWatts": 1600000,
+      "peakSurplusMilliWatts": 880000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 100854000,
+      "unservedMilliJoules": 0
+    },
+    "grid-forge-world-generator-1": {
+      "curtailedMilliJoules": 64811000,
+      "demandMilliJoules": 123589000,
+      "generatedMilliJoules": 192000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 1188000,
+      "peakGenerationMilliWatts": 1600000,
+      "peakSurplusMilliWatts": 880000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 123589000,
+      "unservedMilliJoules": 0
+    }
+  },
   "produced": {
     "coal": 52,
     "gear": 28,

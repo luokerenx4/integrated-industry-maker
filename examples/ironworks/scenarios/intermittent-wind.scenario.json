@@ -1,0 +1,28 @@
+{
+  "id": "intermittent-wind",
+  "name": "Intermittent Regional Wind",
+  "durationTicks": 120000,
+  "initialBuffers": {},
+  "initialEnergyMilliJoules": {},
+  "renewableProfiles": [
+    {
+      "region": "assembly-world",
+      "asset": "wind-turbine",
+      "periodTicks": 120000,
+      "points": [
+        { "atTick": 0, "outputPermille": 1000 },
+        { "atTick": 60000, "outputPermille": 750 }
+      ]
+    },
+    {
+      "region": "forge-world",
+      "asset": "wind-turbine",
+      "periodTicks": 120000,
+      "points": [
+        { "atTick": 0, "outputPermille": 1000 },
+        { "atTick": 60000, "outputPermille": 960 }
+      ]
+    }
+  ],
+  "failures": []
+}

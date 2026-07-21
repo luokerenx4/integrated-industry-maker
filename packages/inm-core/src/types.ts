@@ -345,6 +345,15 @@ export interface Blueprint {
 }
 
 export interface ScenarioFailure { device: DeviceInstanceId; atTick: Tick; durationTicks: Tick }
+export interface ScenarioGeneratorProfile {
+  /** Environmental scope. Every matching renewable Device, including later Blueprint additions, uses this curve. */
+  region: string;
+  asset?: DeviceAssetId;
+  /** The piecewise-constant curve repeats after this many ticks. */
+  periodTicks: Tick;
+  /** Integer output fraction of the Device's rated renewable output. The first point must start at tick zero. */
+  points: Array<{ atTick: Tick; outputPermille: number }>;
+}
 export interface Scenario {
   id: string;
   name: string;
@@ -353,6 +362,8 @@ export interface Scenario {
   /** Treated subsets of initialBuffers. Undeclared remainder is untreated level zero. */
   initialTreatments?: Array<{ device: DeviceInstanceId; buffer: BufferId; resource: ResourceId; level: number; count: number }>;
   initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
+  /** Scenario-owned intermittent output curves for renewable generators. */
+  renewableProfiles?: ScenarioGeneratorProfile[];
   failures?: ScenarioFailure[];
 }
 
@@ -642,6 +653,7 @@ export type FactoryEvent =
   | { type: "transport.power-restored"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string }
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
   | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
+  | { type: "power.generation-changed"; tick: Tick; device: DeviceInstanceId; grid: string; ratedMilliWatts: number; outputMilliWatts: number; outputPermille: number }
   | { type: "power.storage-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
   | { type: "power.storage-depleted"; tick: Tick; device: DeviceInstanceId; grid: string }
   | { type: "power.restored"; tick: Tick; device: DeviceInstanceId; grid: string; remainingTicks: Tick }
@@ -674,6 +686,19 @@ export interface FactoryMetrics {
     capacityMilliJoules: number;
     chargedMilliJoules: number;
     dischargedMilliJoules: number;
+  }>;
+  powerGrids: Record<string, {
+    generatedMilliJoules: number;
+    demandMilliJoules: number;
+    servedMilliJoules: number;
+    unservedMilliJoules: number;
+    curtailedMilliJoules: number;
+    peakGenerationMilliWatts: number;
+    peakDemandMilliWatts: number;
+    peakDeficitMilliWatts: number;
+    peakSurplusMilliWatts: number;
+    /** Largest contiguous raw energy deficit observed between renewable-surplus intervals. */
+    requiredStorageCapacityMilliJoules: number;
   }>;
   fuelConsumed: Record<ResourceId, number>;
   materialTreatment: {

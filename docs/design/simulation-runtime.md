@@ -38,7 +38,7 @@ Power interruption is also blocking, not cancellation. A production or extractio
 
 ## Events and metrics
 
-Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Material treatment emits exact source/target levels and agent consumption; power boundary events record accumulator full/depleted transitions; shortage/restoration events preserve paused-job progress for replay. Metrics are derived from deterministic state/event integration and include treated quantities by `Resource@level`, treatment agents, throughput, delivery, energy/fuel/storage, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
+Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Material treatment emits exact source/target levels and agent consumption; power boundary events record renewable output changes and accumulator full/depleted transitions; shortage/restoration events preserve paused-job progress for replay. Metrics are derived from deterministic state/event integration and include treated quantities by `Resource@level`, treatment agents, throughput, delivery, generated/requested/served/unserved/curtailed grid energy, peak power and contiguous deficit envelopes, fuel/storage, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
 
 ## Immutable runs
 

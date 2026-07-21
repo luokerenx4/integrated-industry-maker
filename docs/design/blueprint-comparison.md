@@ -30,7 +30,7 @@ One comparison contains five coordinated views:
 1. `patch` is a deterministic RFC 6902 `add`/`remove`/`replace` sequence that exactly transforms the complete source Blueprint into the complete candidate Blueprint. It is a general file transformation and is not limited by the narrower Research patch permission boundary.
 2. `changes` compares stable ids and groups additions, removals, and field changes under `device`, `connection`, `logistics-network`, `policy`, or `metadata`. Field paths such as `recipe.mode` are independent of an entity's array position.
 3. `from.capacityPlan` and `to.capacityPlan` expose target-rate readiness and exact industrial gaps before simulation.
-4. Both metric snapshots come from the ordinary deterministic simulator and evaluator. The delta is always `to - from` for score, throughput, attainment, consumed energy, stored/charged/discharged energy, unpowered Device time, transport energy, build cost, area, WIP, belt blockage/utilization, and congestion.
+4. Both metric snapshots come from the ordinary deterministic simulator and evaluator. The delta is always `to - from` for score, throughput, attainment, consumed energy, stored/charged/discharged/unserved/curtailed energy, unpowered Device time, transport energy, build cost, area, WIP, belt blockage/utilization, and congestion.
 5. `verdict` is `IMPROVED`, `REGRESSED`, or `UNCHANGED` from the Objective score delta with a fixed numerical tolerance. Individual metric signs are not interpreted independently because their value depends on Objective weights and hard constraints.
 
 Patch generation walks object keys in lexical order and arrays in index order. Applying the patch to the source and comparing canonical serialization with the candidate is a required test invariant.

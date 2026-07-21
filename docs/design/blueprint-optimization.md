@@ -51,7 +51,7 @@ The generated factory has no synthetic capacity: every port, belt cell, stage, s
 
 Research proposals are RFC 6902 patches limited to Blueprint `devices`, `connections`, `logisticsNetworks`, and `policies`. Worlds, deposits, assets, Processes, Scenarios, Objectives, simulator, and evaluator are benchmark inputs and cannot be patched.
 
-Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, power repair, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch.
+Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, static power repair, measured intermittent-power storage sizing, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch. Storage candidates require sufficient measured total energy and size ordinary project-local accumulator Devices against the observed contiguous deficit, peak discharge, and surplus-capture envelopes; they never treat storage as generation.
 
 ## Source of truth
 

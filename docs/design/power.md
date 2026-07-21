@@ -1,6 +1,6 @@
 # Spatial power design
 
-Status: connected regional grids, renewable/fuel generation, deterministic accumulators, interruption-safe Device jobs, endpoint load, and synthesized coverage implemented.
+Status: connected regional grids, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device jobs, measured storage sizing, endpoint load, and synthesized coverage implemented in engine version `inm-sim/0.36.0`.
 
 Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
@@ -32,9 +32,15 @@ A power-capable Device may declare one storage envelope:
 
 Storage requires `power` capability and distribution, so a placed accumulator is both a spatial grid member and a topology node. One asset cannot combine generation and storage; these remain separate physical roles that optimizers can add, remove, and cost independently. Capacity, charge, and discharge are positive integers. The selected Scenario may assign startup energy by Device id through `initialEnergyMilliJoules`; the compiler rejects unknown Devices, non-storage Devices, and values above physical capacity. Omitted startup energy is zero.
 
+## Environmental renewable profiles
+
+Rated renewable output belongs to the Device asset; temporal availability belongs to the Scenario. A Scenario may declare piecewise-constant periodic `renewableProfiles`, each scoped to one region and optionally one Device asset. Points use integer `outputPermille` from 0 through 1000, begin at phase tick zero, remain strictly ordered before `periodTicks`, and repeat exactly.
+
+The scope is environmental rather than instance-specific. Every matching renewable Device in the Blueprint—including a Device later added by research—receives the same curve, so optimization cannot evade wind or solar conditions by inventing an unprofiled instance. Overlapping scopes for one compiled Device are rejected. Profile boundaries are scheduled events, and `power.generation-changed` records rated and current output for replay.
+
 ## Runtime generation and allocation
 
-Renewable output is continuously available while its Device is healthy. Fuel generation exists only during a host-validated burn job. Fuel energy and generator output deterministically derive burn duration; loading and spending are semantic events.
+Renewable output follows its selected Scenario profile while its Device is healthy; without a matching profile it remains at rated output. Fuel generation exists only during a host-validated burn job. Fuel energy and generator output deterministically derive burn duration; loading and spending are semantic events.
 
 For every interval between scheduled events, the runtime measures a constant generation/load state. A grid deficit draws energy from healthy non-empty storage in stable Device-id order, bounded independently by each accumulator's stored energy and discharge rate. A surplus charges healthy non-full storage in the same order, bounded by headroom and charge rate. The simulator schedules an internal event at the first exact integer-tick full/depleted boundary; it therefore rebalances power when the envelope changes rather than discovering a shortage only at the next unrelated production event. Energy moves only once through `energy.storage` state mutations and is conserved in per-Device and per-grid initial, final, charged, and discharged ledgers.
 
@@ -46,7 +52,19 @@ A disconnected or underpowered loader cannot advance cargo and propagates belt b
 
 Storage shifts energy across time; it is not steady-state generation. `productionMilliWatts` and capacity-plan headroom therefore exclude discharge capacity. A grid with negative rated headroom remains a sustained-power warning even if a large accumulator can mask it temporarily. Static analysis separately exposes each storage Device, startup energy, capacity, charge/discharge rates, and grid aggregates.
 
-Runtime metrics expose final/capacity energy plus cumulative charged/discharged energy per grid and `unpoweredTime` per Device. `power.storage-full` and `power.storage-depleted` identify physical boundaries. `power.shortage` optionally carries worked/remaining job ticks when it pauses active work, and `power.restored` carries the remaining duration used for replay. CLI simulation, immutable reports, Blueprint comparison, and Studio consume these same values.
+Runtime metrics expose final/capacity energy plus cumulative charged/discharged energy per grid and `unpoweredTime` per Device. They also integrate generated, requested, served, unserved, and curtailed energy, peak generation/demand/deficit/surplus power, and the largest contiguous raw deficit-energy episode. Requested demand retains a Device's rejected power request while it is unpowered, so load shedding cannot disappear from the measurement merely because the job was unable to start.
+
+`power.storage-full` and `power.storage-depleted` identify physical boundaries. `power.shortage` optionally carries worked/remaining job ticks when it pauses active work, `power.restored` carries the remaining duration used for replay, and `power.generation-changed` exposes environmental boundaries. CLI simulation, immutable reports, Blueprint comparison, research, and Studio consume these same values.
+
+## Measured storage research
+
+The bounded research agent distinguishes energy creation from time shifting. It proposes storage only when the measured Scenario generated enough total energy (including Scenario startup storage) but temporal charge capacity, energy capacity, or discharge power still left demand unserved. It evaluates every project-local storage asset and sizes a connected bundle against:
+
+- the largest contiguous deficit-energy envelope;
+- peak deficit power;
+- project-local charge-rate limits, verified by bounded re-simulation of increasing Device counts.
+
+The proposal adds ordinary spatial Device instances near the affected grid and still passes through compile, simulation, score, and KEEP/REVERT. If total generated energy is insufficient, storage is not presented as a false repair; generation expansion remains a separate strategy.
 
 ## Synthesis
 
@@ -77,11 +95,9 @@ bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --seed 42
 ```
 
-The accumulator tests prove continuous surplus charging, exact depletion boundaries, retained input consumption, paused progress, and exact remaining-work resumption after a timed generator failure. High-throughput synthesis uses default 20-cell connection/coverage ranges on an 80×80 world and must compile one connected grid per active region, power every consuming Device and endpoint, and emit no shortage event.
+The accumulator tests prove continuous surplus charging, exact depletion boundaries, retained input consumption, paused progress, exact remaining-work resumption after a timed generator failure, periodic renewable boundary wakeups, integrated deficit envelopes, and a storage research bundle that removes measured unserved energy. High-throughput synthesis uses default 20-cell connection/coverage ranges on an 80×80 world and must compile one connected grid per active region, power every consuming Device and endpoint, and emit no shortage event.
 
 ## Known next gaps
 
-- Time-varying renewable curves and Scenario-controlled generator output.
 - Grid priority tiers and deliberate brownout policies.
-- Optimizer/synthesizer strategies that size accumulators from measured temporal deficits.
 - Non-renewable generator selection during synthesis when fuel economics are favorable.

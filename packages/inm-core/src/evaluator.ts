@@ -16,6 +16,11 @@ export interface SimulationStats {
   connectionDepartedByResource: Record<string, Record<string, number>>;
   connectionDeliveredByResource: Record<string, Record<string, number>>;
   consumedByRegion: Record<string, Record<string, number>>;
+  powerGrids: Record<string, {
+    generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
+    peakGenerationMilliWatts: number; peakDemandMilliWatts: number; peakDeficitMilliWatts: number; peakSurplusMilliWatts: number;
+    currentDeficitEpisodeMilliJoules: number; requiredStorageCapacityMilliJoules: number;
+  }>;
   transportEnergyConsumedMilliJoules: number;
   elapsedTicks: number;
 }
@@ -119,6 +124,13 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, fuelConsumed: { ...state.energy.fuelConsumed },
+    powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
+      generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
+      servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,
+      peakGenerationMilliWatts: power.peakGenerationMilliWatts, peakDemandMilliWatts: power.peakDemandMilliWatts,
+      peakDeficitMilliWatts: power.peakDeficitMilliWatts, peakSurplusMilliWatts: power.peakSurplusMilliWatts,
+      requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
+    }])),
     materialTreatment: structuredClone(state.materialTreatment),
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,

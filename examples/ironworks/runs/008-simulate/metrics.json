@@ -59,6 +59,20 @@
   "occupiedArea": 102,
   "onTimeDelivery": 1,
   "peakBeltItems": 5,
+  "powerGrids": {
+    "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
+      "curtailedMilliJoules": 69481500,
+      "demandMilliJoules": 74518500,
+      "generatedMilliJoules": 144000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 666000,
+      "peakGenerationMilliWatts": 1200000,
+      "peakSurplusMilliWatts": 1120000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 74518500,
+      "unservedMilliJoules": 0
+    }
+  },
   "produced": {
     "crude-oil": 60,
     "graphite": 27,

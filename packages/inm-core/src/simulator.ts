@@ -16,6 +16,7 @@ type InternalEvent =
   | { kind: "station-arrive"; network: string; route: string; transitId: string }
   | { kind: "logistics-ready"; connection: string }
   | { kind: "power-boundary"; grid: string; generation: number }
+  | { kind: "generation-boundary"; device: string }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
 
@@ -23,6 +24,28 @@ export interface RunOptions { untilTick?: number; maxEvents?: number; seed?: num
 
 function quantity(inventory: Record<string, number>): number { return Object.values(inventory).reduce((sum, count) => sum + count, 0); }
 function deviceQuantity(state: DeviceRuntimeState): number { return Object.values(state.buffers).reduce((sum, inventory) => sum + quantity(inventory), 0); }
+
+function renewableProfileFor(project: CompiledFactoryProject, deviceId: string) {
+  const device = project.devices[deviceId]!;
+  return project.scenario.renewableProfiles?.find((profile) => profile.region === device.region && (!profile.asset || profile.asset === device.asset));
+}
+
+function generatorOutputAt(project: CompiledFactoryProject, deviceId: string, tick: number): { outputMilliWatts: number; outputPermille: number } {
+  const rated = project.devices[deviceId]!.generationPlan?.kind === "renewable" ? project.devices[deviceId]!.generationPlan.outputMilliWatts : 0;
+  const profile = renewableProfileFor(project, deviceId);
+  if (!profile) return { outputMilliWatts: rated, outputPermille: 1000 };
+  const phase = tick % profile.periodTicks;
+  const point = [...profile.points].reverse().find((candidate) => candidate.atTick <= phase)!;
+  return { outputMilliWatts: Math.floor(rated * point.outputPermille / 1000), outputPermille: point.outputPermille };
+}
+
+function nextGeneratorBoundary(project: CompiledFactoryProject, deviceId: string, tick: number): number | undefined {
+  const profile = renewableProfileFor(project, deviceId);
+  if (!profile) return undefined;
+  const cycleStart = tick - tick % profile.periodTicks;
+  const nextPoint = profile.points.find((point) => cycleStart + point.atTick > tick);
+  return nextPoint ? cycleStart + nextPoint.atTick : cycleStart + profile.periodTicks;
+}
 
 export function createInitialFactoryState(project: CompiledFactoryProject): FactoryState {
   const devices: Record<string, DeviceRuntimeState> = {};
@@ -55,7 +78,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
   const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as BeltTransit[]]));
   const logisticsTransports = Object.fromEntries(Object.keys(project.logisticsNetworks).sort().map((id) => [id, [] as ResourceTransit[]]));
   const grids = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => {
-    const renewable = grid.members.reduce((sum, id) => sum + (project.devices[id]!.generationPlan?.kind === "renewable" ? project.devices[id]!.generationPlan.outputMilliWatts : 0), 0);
+    const renewable = grid.members.reduce((sum, id) => sum + generatorOutputAt(project, id, 0).outputMilliWatts, 0);
     const storedMilliJoules = grid.storageDevices.reduce((sum, id) => sum + (devices[id]!.energyStorage?.storedMilliJoules ?? 0), 0);
     const discharge = grid.storageDevices.reduce((sum, id) => sum + ((devices[id]!.energyStorage?.storedMilliJoules ?? 0) > 0 ? project.devices[id]!.storagePlan!.dischargeMilliWatts : 0), 0);
     return [grid.id, {
@@ -97,9 +120,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {},
     consumedByRegion: {},
+    powerGrids: Object.fromEntries(Object.keys(project.powerGrids).sort().map((grid) => [grid, {
+      generatedMilliJoules: 0, demandMilliJoules: 0, servedMilliJoules: 0, unservedMilliJoules: 0, curtailedMilliJoules: 0,
+      peakGenerationMilliWatts: 0, peakDemandMilliWatts: 0, peakDeficitMilliWatts: 0, peakSurplusMilliWatts: 0,
+      currentDeficitEpisodeMilliJoules: 0, requiredStorageCapacityMilliJoules: 0,
+    }])),
     transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
   };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
+  const unmetPowerDemand: Record<string, number> = {};
   const dispatchCursors: Record<string, number> = {};
   const transportCellCursors: Record<string, number> = {};
   const transportPowerBlocked: Record<string, boolean> = {};
@@ -114,9 +143,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     scheduledDispatchTick[connection] = tick;
     schedule(tick, 11, { kind: "logistics-ready", connection });
   };
-  const emit = (event: FactoryEvent) => { events.push(event); publicEventCount++; };
+  const emit = (event: FactoryEvent) => {
+    if (event.type === "power.shortage") unmetPowerDemand[event.device] = event.requiredMilliWatts;
+    events.push(event); publicEventCount++;
+  };
   const setStatus = (device: string, status: DeviceRuntimeState["status"]) => {
     const runtime = state.devices[device]!;
+    if (status === "unpowered") unmetPowerDemand[device] ??= runtime.activeJob?.powerMilliWatts
+      ?? project.devices[device]!.processPlan?.powerMilliWatts
+      ?? project.devices[device]!.assetDef.power.consumptionMilliWatts;
+    else delete unmetPowerDemand[device];
     if (runtime.status === status) return;
     const durations = stats.durations[device] ??= {};
     durations[runtime.status] = (durations[runtime.status] ?? 0) + state.tick - statusSince[device]!;
@@ -145,10 +181,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
     return sum + (runtime.status === "processing" ? runtime.activeJob?.powerMilliWatts ?? 0 : 0);
   }, 0) + activeTransportPower(grid);
+  const requestedPower = (grid?: string) => infrastructureBasePower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
+    if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
+    if (runtime.status === "failed" || runtime.activeJob?.generationMilliWatts) return sum;
+    return sum + (runtime.activeJob?.powerMilliWatts ?? (!usesPersistentPower(project.devices[id]!) && runtime.status === "unpowered" ? unmetPowerDemand[id] ?? 0 : 0));
+  }, 0) + activeTransportPower(grid);
   const generationPower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
     if (grid !== undefined && device.powerGrid !== grid) return sum;
     if (state.devices[device.id]!.status === "failed") return sum;
-    if (device.generationPlan?.kind === "renewable") return sum + device.generationPlan.outputMilliWatts;
+    if (device.generationPlan?.kind === "renewable") return sum + generatorOutputAt(project, device.id, state.tick).outputMilliWatts;
     return sum + (state.devices[device.id]!.activeJob?.generationMilliWatts ?? 0);
   }, 0);
   const storageDischargePower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
@@ -188,10 +229,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         + transits.filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0) * delta;
     }
     for (const grid of Object.keys(project.powerGrids).sort()) {
-      const generated = generationPower(grid); const load = activePower(grid);
+      const generated = generationPower(grid); const load = activePower(grid); const requestedLoad = requestedPower(grid);
+      const powerStats = stats.powerGrids[grid]!;
+      powerStats.generatedMilliJoules += generated * delta / 1000;
+      powerStats.demandMilliJoules += requestedLoad * delta / 1000;
+      powerStats.peakGenerationMilliWatts = Math.max(powerStats.peakGenerationMilliWatts, generated);
+      powerStats.peakDemandMilliWatts = Math.max(powerStats.peakDemandMilliWatts, requestedLoad);
+      powerStats.peakDeficitMilliWatts = Math.max(powerStats.peakDeficitMilliWatts, requestedLoad - generated);
+      powerStats.peakSurplusMilliWatts = Math.max(powerStats.peakSurplusMilliWatts, generated - requestedLoad);
+      if (requestedLoad > generated) {
+        powerStats.currentDeficitEpisodeMilliJoules += (requestedLoad - generated) * delta / 1000;
+        powerStats.requiredStorageCapacityMilliJoules = Math.max(powerStats.requiredStorageCapacityMilliJoules, powerStats.currentDeficitEpisodeMilliJoules);
+      } else powerStats.currentDeficitEpisodeMilliJoules = 0;
       const storageDevices = project.powerGrids[grid]!.storageDevices.map((id) => project.devices[id]!)
         .filter((device) => state.devices[device.id]!.status !== "failed").sort((a, b) => a.id.localeCompare(b.id));
-      let transferredMilliJoules = 0;
+      let transferredMilliJoules = 0; let chargedMilliJoules = 0;
       const deficitMilliJoules = Math.max(0, load - generated) * delta / 1000;
       const surplusMilliJoules = Math.max(0, generated - load) * delta / 1000;
       if (deficitMilliJoules > 0) {
@@ -212,13 +264,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           const amount = Math.min(remaining, headroom, device.storagePlan!.chargeMilliWatts * delta / 1000);
           if (amount <= 0) continue;
           mutateFactoryState(state, { kind: "energy.storage", grid, device: device.id, deltaMilliJoules: amount, mode: "charge" });
-          remaining -= amount;
+          chargedMilliJoules += amount; remaining -= amount;
           if (before < storage.capacityMilliJoules - 1e-9 && storage.storedMilliJoules >= storage.capacityMilliJoules - 1e-9) emit({ type: "power.storage-full", tick, device: device.id, grid, storedMilliJoules: storage.storedMilliJoules });
         }
       }
       const deliveredPower = Math.min(load, generated + transferredMilliJoules * 1000 / delta);
       const transportLoad = activeTransportPower(grid); const nonTransportLoad = load - transportLoad;
       const consumedMilliJoules = deliveredPower * delta / 1000;
+      powerStats.servedMilliJoules += consumedMilliJoules;
+      powerStats.unservedMilliJoules += Math.max(0, requestedLoad * delta / 1000 - consumedMilliJoules);
+      powerStats.curtailedMilliJoules += Math.max(0, surplusMilliJoules - chargedMilliJoules);
       stats.transportEnergyConsumedMilliJoules += Math.min(transportLoad, Math.max(0, deliveredPower - nonTransportLoad)) * delta / 1000;
       if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
     }
@@ -816,6 +871,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(failure.atTick, 0, { kind: "breakdown", device: failure.device });
     schedule(failure.atTick + failure.durationTicks, 1, { kind: "recover", device: failure.device });
   }
+  for (const deviceId of Object.values(project.devices).filter((device) => device.generationPlan?.kind === "renewable" && renewableProfileFor(project, device.id)).map((device) => device.id).sort()) {
+    const device = project.devices[deviceId]!; const output = generatorOutputAt(project, deviceId, state.tick);
+    emit({
+      type: "power.generation-changed", tick: state.tick, device: deviceId, grid: device.powerGrid!,
+      ratedMilliWatts: device.generationPlan!.outputMilliWatts, ...output,
+    });
+    const next = nextGeneratorBoundary(project, deviceId, state.tick);
+    if (next !== undefined) schedule(next, 1, { kind: "generation-boundary", device: deviceId });
+  }
   settle();
   while (queue.size && publicEventCount < maxEvents) {
     const item = queue.peek()!;
@@ -914,6 +978,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     } else if (event.kind === "power-boundary") {
       if (event.generation !== powerBoundaryGenerations[event.grid] || scheduledPowerBoundaryTick[event.grid] !== state.tick) continue;
       delete scheduledPowerBoundaryTick[event.grid];
+    } else if (event.kind === "generation-boundary") {
+      const device = project.devices[event.device]!; const output = generatorOutputAt(project, event.device, state.tick);
+      emit({
+        type: "power.generation-changed", tick: state.tick, device: event.device, grid: device.powerGrid!,
+        ratedMilliWatts: device.generationPlan!.outputMilliWatts, ...output,
+      });
+      const next = nextGeneratorBoundary(project, event.device, state.tick);
+      if (next !== undefined) schedule(next, 1, { kind: "generation-boundary", device: event.device });
     } else if (event.kind === "breakdown") {
       generations[event.device]!++;
       const activeJob = state.devices[event.device]!.activeJob;
