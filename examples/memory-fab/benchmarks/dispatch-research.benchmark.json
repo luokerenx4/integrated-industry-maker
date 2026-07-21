@@ -49,46 +49,46 @@
     "cases": {
       "lithography-interruption": {
         "blueprintHash": "da360acafbb7c91c05165080159976fe59b0321dbf59c0af2f7917a95bb459b4",
-        "deviceCatalogHash": "fe78aead3c32ddfdf723270f2f954bb92a24615881ee4822d51cbdc11f053dfc",
-        "engineVersion": "inm-sim/0.61.0",
+        "deviceCatalogHash": "ae084600e4a5e47935501bf32d75b1764f950f4cf37b3ce95c03836105bc5947",
+        "engineVersion": "inm-sim/0.62.0",
         "objectiveHash": "5120cc595ba12daf26549f8d192aa043efbefb7bb5697172a7436a54f88ad6ca",
         "processCatalogHash": "29db6181c9231a2d40cb75cee8c8252b33ddee349e8b617528984beebfdb37c2",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
         "routeCatalogHash": "4fe333788b1f6c4e3753da9d5fe606f72105c7163dfd1f4fd1dbbb1447b03cf3",
-        "scenarioHash": "2b5bbf88ae103fcc12408328abef9ea4e6f3e3bac6500080f814ab450b0f4ac7",
+        "scenarioHash": "6efb401277541f1a0cf54a703a74bd9ad009daa8927ab16eac73a48f6abe03fa",
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       },
       "mixed-quality": {
         "blueprintHash": "da360acafbb7c91c05165080159976fe59b0321dbf59c0af2f7917a95bb459b4",
-        "deviceCatalogHash": "fe78aead3c32ddfdf723270f2f954bb92a24615881ee4822d51cbdc11f053dfc",
-        "engineVersion": "inm-sim/0.61.0",
+        "deviceCatalogHash": "ae084600e4a5e47935501bf32d75b1764f950f4cf37b3ce95c03836105bc5947",
+        "engineVersion": "inm-sim/0.62.0",
         "objectiveHash": "5120cc595ba12daf26549f8d192aa043efbefb7bb5697172a7436a54f88ad6ca",
         "processCatalogHash": "29db6181c9231a2d40cb75cee8c8252b33ddee349e8b617528984beebfdb37c2",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
         "routeCatalogHash": "4fe333788b1f6c4e3753da9d5fe606f72105c7163dfd1f4fd1dbbb1447b03cf3",
-        "scenarioHash": "5a1054cc76a9ecb8b3dabb22872c5836b2755f7a8ab96c71900b19549b14463d",
+        "scenarioHash": "6c8d9bcb6a9f56ab56068dfe8b5ff46308579a0cef1d76a1c1112d85219bc7b3",
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       },
       "quality-excursion": {
         "blueprintHash": "da360acafbb7c91c05165080159976fe59b0321dbf59c0af2f7917a95bb459b4",
-        "deviceCatalogHash": "fe78aead3c32ddfdf723270f2f954bb92a24615881ee4822d51cbdc11f053dfc",
-        "engineVersion": "inm-sim/0.61.0",
+        "deviceCatalogHash": "ae084600e4a5e47935501bf32d75b1764f950f4cf37b3ce95c03836105bc5947",
+        "engineVersion": "inm-sim/0.62.0",
         "objectiveHash": "5120cc595ba12daf26549f8d192aa043efbefb7bb5697172a7436a54f88ad6ca",
         "processCatalogHash": "29db6181c9231a2d40cb75cee8c8252b33ddee349e8b617528984beebfdb37c2",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
         "routeCatalogHash": "4fe333788b1f6c4e3753da9d5fe606f72105c7163dfd1f4fd1dbbb1447b03cf3",
-        "scenarioHash": "c0f8dcefb64f13e2e5b32ca644d4e28122384c59f6175ca68dc039f52be9071f",
+        "scenarioHash": "321bc0167da207dc055b5af39c4b5a56f3ac558f64b81007215b421dab22717d",
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       },
       "steady-production": {
         "blueprintHash": "da360acafbb7c91c05165080159976fe59b0321dbf59c0af2f7917a95bb459b4",
-        "deviceCatalogHash": "fe78aead3c32ddfdf723270f2f954bb92a24615881ee4822d51cbdc11f053dfc",
-        "engineVersion": "inm-sim/0.61.0",
+        "deviceCatalogHash": "ae084600e4a5e47935501bf32d75b1764f950f4cf37b3ce95c03836105bc5947",
+        "engineVersion": "inm-sim/0.62.0",
         "objectiveHash": "5120cc595ba12daf26549f8d192aa043efbefb7bb5697172a7436a54f88ad6ca",
         "processCatalogHash": "29db6181c9231a2d40cb75cee8c8252b33ddee349e8b617528984beebfdb37c2",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
         "routeCatalogHash": "4fe333788b1f6c4e3753da9d5fe606f72105c7163dfd1f4fd1dbbb1447b03cf3",
-        "scenarioHash": "4af64022958299aaa8be46cb41a1ccdaaa3d843bf8dc865ba7e5501359f59e45",
+        "scenarioHash": "66a167ddd1b0f821e2bc2239faf6a354302c63a60578ff720d383e5d91abcc88",
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       }
     },

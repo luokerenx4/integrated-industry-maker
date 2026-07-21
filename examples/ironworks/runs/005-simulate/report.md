@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.090**
-- Result hash: `2f26d63072bd308f552653ea1162cdc34099ad3d3e836e0ca3a26176984b7003`
+- Result hash: `8bf1f654af8720d2d479f6dfc8ee9bfab3026b404c7475c2937b69602782f838`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped

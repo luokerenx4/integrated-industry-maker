@@ -252,6 +252,20 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       const inventory = asset.buffers.find((buffer) => buffer.id === asset.toolingProvider!.inventoryBuffer);
       if (!inventory) issues.push({ path: `${providerPath}/inventoryBuffer`, code: "reference.buffer", message: `Unknown tooling inventory buffer '${asset.toolingProvider.inventoryBuffer}'` });
       else if (inventory.role !== "input") issues.push({ path: `${providerPath}/inventoryBuffer`, code: "tooling.inventory-role", message: "Tooling inventory must use a dedicated input-only buffer" });
+      const seenStock = new Set<string>();
+      for (const [stockIndex, amount] of asset.toolingProvider.stock.entries()) {
+        const stockPath = `${providerPath}/stock/${stockIndex}`;
+        const resource = resources[amount.resource];
+        if (seenStock.has(amount.resource)) issues.push({ path: `${stockPath}/resource`, code: "tooling.duplicate-stock", message: `Tooling provider '${id}' stocks '${amount.resource}' more than once` });
+        seenStock.add(amount.resource);
+        if (!resource) issues.push({ path: `${stockPath}/resource`, code: "reference.resource", message: `Unknown stocked tooling Resource '${amount.resource}'` });
+        else if (resource.unit.kind !== "discrete" || resource.tracking) issues.push({ path: `${stockPath}/resource`, code: "tooling.discrete-untracked", message: `Stocked tooling '${amount.resource}' must be a discrete, non-lot Resource` });
+        if (inventory && !acceptsResource(inventory.accepts, amount.resource)) issues.push({ path: `${stockPath}/resource`, code: "buffer.resource-contract", message: `Tooling inventory '${inventory.id}' does not accept '${amount.resource}'` });
+      }
+      if (inventory && asset.toolingProvider.stock.reduce((sum, amount) => sum + amount.count, 0) > inventory.capacity) issues.push({
+        path: `${providerPath}/stock`, code: "tooling.stock-capacity",
+        message: `Tooling provider '${id}' stock exceeds inventory capacity ${inventory.capacity}`,
+      });
     } else if (asset.capabilities.includes("tooling")) issues.push({
       path: `assets/devices/${id}/asset.json/capabilities`, code: "tooling.provider-required", message: "Tooling capability requires a toolingProvider specification",
     });
@@ -1260,13 +1274,29 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   }
 
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
+  for (const provider of placed) {
+    const contract = provider.assetDef.toolingProvider;
+    if (!contract) continue;
+    const inventory = provider.buffers[contract.inventoryBuffer];
+    for (const amount of contract.stock) {
+      const accepts = Boolean(inventory && acceptsResource(inventory.accepts, amount.resource));
+      const capacity = inventory?.resourceCapacities?.[amount.resource] ?? inventory?.capacity ?? 0;
+      if (!accepts || capacity < amount.count) issues.push({
+        path: `blueprint/devices/${loaded.blueprint.devices.findIndex((candidate) => candidate.id === provider.id)}/bufferFilters/${contract.inventoryBuffer}`,
+        code: "tooling.stock-filtered",
+        message: `Device '${provider.id}' inventory configuration cannot hold its bundled stock ${amount.count} '${amount.resource}'`,
+      });
+    }
+  }
   for (const device of placed) for (const plan of device.processPlans) {
     if (!plan.tooling.length) continue;
     plan.toolingProviders = placed.flatMap((provider) => {
       const contract = provider.assetDef.toolingProvider;
       const inventory = contract ? provider.buffers[contract.inventoryBuffer] : undefined;
+      const stock = Object.fromEntries((contract?.stock ?? []).map((amount) => [amount.resource, amount.count]));
       if (!contract || provider.region !== device.region || !inventory
         || plan.tooling.some((tool) => !acceptsResource(inventory.accepts, tool.resource)
+          || (stock[tool.resource] ?? 0) < tool.count
           || (inventory.resourceCapacities?.[tool.resource] ?? inventory.capacity) < tool.count)
         || plan.tooling.reduce((sum, tool) => sum + tool.count, 0) > inventory.capacity) return [];
       const distance = centerDistance(device, provider);
@@ -1561,6 +1591,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     for (const [bufferId, inventory] of Object.entries(buffers)) {
       const buffer = device.buffers[bufferId];
       if (!buffer) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "reference.buffer", message: `Unknown buffer '${bufferId}'` });
+      if (device.assetDef.toolingProvider?.inventoryBuffer === bufferId && Object.keys(inventory).length) issues.push({
+        path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "tooling.asset-stock-owned",
+        message: `Tooling provider '${deviceId}' inventory is bundled with its project-local Device asset and cannot be injected by a Scenario`,
+      });
       for (const resource of Object.keys(inventory)) {
         if (!loaded.resources[resource]) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
         else if (loaded.resources[resource]!.tracking) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "lot.explicit-required", message: `Tracked Resource '${resource}' must be declared through lotReleases` });

@@ -219,6 +219,8 @@ export interface DeviceAssetManifest {
   toolingProvider?: {
     serviceRadius: number;
     inventoryBuffer: BufferId;
+    /** Physical tools bundled with every placed provider instance; their capital is included in the Device build cost. */
+    stock: ProcessAmount[];
   };
   extraction?: {
     resources: ResourceId[];

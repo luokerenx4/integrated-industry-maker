@@ -113,7 +113,9 @@ export const deviceAssetSchema = z.object({
   maintenanceProvider: z.object({
     skills: z.array(id).min(1), crews: positiveInt, serviceRadius: positiveInt, inventoryBuffer: id,
   }).strict().optional(),
-  toolingProvider: z.object({ serviceRadius: positiveInt, inventoryBuffer: id }).strict().optional(),
+  toolingProvider: z.object({
+    serviceRadius: positiveInt, inventoryBuffer: id, stock: z.array(processAmountSchema).min(1),
+  }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,
     cycleTicks: positiveInt, itemsPerCycle: positiveInt,

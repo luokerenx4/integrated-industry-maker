@@ -58,8 +58,11 @@ function nextGeneratorBoundary(project: CompiledFactoryProject, deviceId: string
 export function createInitialFactoryState(project: CompiledFactoryProject): FactoryState {
   const devices: Record<string, DeviceRuntimeState> = {};
   for (const id of Object.keys(project.devices).sort()) {
+    const toolingProvider = project.devices[id]!.assetDef.toolingProvider;
     const buffers = Object.fromEntries(project.devices[id]!.assetDef.buffers.map((buffer) => [
-      buffer.id, { ...(project.scenario.initialBuffers?.[id]?.[buffer.id] ?? {}) },
+      buffer.id, toolingProvider?.inventoryBuffer === buffer.id
+        ? Object.fromEntries(toolingProvider.stock.map((amount) => [amount.resource, amount.count]))
+        : { ...(project.scenario.initialBuffers?.[id]?.[buffer.id] ?? {}) },
     ]));
     const materialBatches = Object.fromEntries(Object.entries(buffers).map(([buffer, inventory]) => [
       buffer, Object.fromEntries(Object.entries(inventory).filter(([, count]) => count > 0).map(([resource, count]) => [resource, { "0": count }])),

@@ -181,7 +181,9 @@ async function loadStudioData(projectId: string, runName?: string) {
       maintenanceProviders: device.maintenanceProviders.map((provider) => ({ ...provider })),
       qualificationProviders: device.qualificationProviders.map((provider) => ({ ...provider })),
       ...(device.assetDef.maintenanceProvider ? { maintenanceProvider: { ...device.assetDef.maintenanceProvider } } : {}),
-      ...(device.assetDef.toolingProvider ? { toolingProvider: { ...device.assetDef.toolingProvider } } : {}),
+      ...(device.assetDef.toolingProvider ? { toolingProvider: {
+        ...device.assetDef.toolingProvider, stock: device.assetDef.toolingProvider.stock.map((amount) => ({ ...amount })),
+      } } : {}),
       region: device.region,
       position: {
         x: device.position.x + regionLayout.offsets.get(device.region)!.x,
@@ -315,7 +317,9 @@ async function loadStudioData(projectId: string, runName?: string) {
         buffers: asset.buffers,
         production: asset.production,
         maintenanceProvider: asset.maintenanceProvider,
-        toolingProvider: asset.toolingProvider,
+        toolingProvider: asset.toolingProvider ? {
+          ...asset.toolingProvider, stock: asset.toolingProvider.stock.map((amount) => ({ ...amount })),
+        } : undefined,
         treatment: asset.treatment,
         extraction: asset.extraction,
         logistics: asset.logistics,

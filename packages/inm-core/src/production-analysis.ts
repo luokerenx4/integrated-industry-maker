@@ -255,6 +255,10 @@ export interface ProductionAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
   devices: DeviceProductionRate[];
+  toolingProviders: Array<{
+    device: string; asset: string; serviceRadius: number; inventoryBuffer: string;
+    stock: ProcessAmount[]; buildCost: number; occupiedArea: number;
+  }>;
   bufferContracts: Array<{
     device: string; asset: string;
     buffers: Array<{ buffer: string; role: string; capacity: number; accepts: ResourceId[] | ["*"]; resourceCapacities?: Record<ResourceId, number> }>;
@@ -692,6 +696,15 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }));
 
   const diagnostics: ProductionDiagnostic[] = [];
+  const toolingProviders = Object.values(project.devices).filter((device) => device.assetDef.toolingProvider)
+    .sort((left, right) => left.id.localeCompare(right.id)).map((device) => ({
+      device: device.id, asset: device.asset,
+      serviceRadius: device.assetDef.toolingProvider!.serviceRadius,
+      inventoryBuffer: device.assetDef.toolingProvider!.inventoryBuffer,
+      stock: device.assetDef.toolingProvider!.stock.map((amount) => ({ ...amount })),
+      buildCost: device.assetDef.economics.buildCost,
+      occupiedArea: device.footprint.width * device.footprint.height,
+    }));
   for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
@@ -883,12 +896,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   const declarativeDeviceIds = new Set([
     ...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device),
     ...generationDevices.map((device) => device.device), ...storageDevices.map((device) => device.device),
+    ...toolingProviders.map((device) => device.device),
   ]);
   return {
     powerAllocation: project.blueprint.policies.powerAllocation,
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, bufferContracts, portContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
+    devices, toolingProviders, bufferContracts, portContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
     resources,
     connections,
     transportCells,

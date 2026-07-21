@@ -1,6 +1,6 @@
 # Reusable production tooling
 
-Status: finite provider inventory, spatial coverage, whole-job reservation, failure trapping, metrics, CLI/Studio projection, and memory-fab reticle modeling implemented.
+Status: asset-bundled finite provider inventory, Blueprint-purchasable capacity, spatial coverage, whole-job reservation, failure trapping, metrics, CLI/Studio projection, and memory-fab reticle modeling implemented.
 
 Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/usage-based-maintenance]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
@@ -44,14 +44,20 @@ A provider is a placed Device with finite inventory and local reach:
   }],
   "toolingProvider": {
     "serviceRadius": 16,
-    "inventoryBuffer": "reticle-inventory"
+    "inventoryBuffer": "reticle-inventory",
+    "stock": [
+      { "resource": "reticle-mask-set-l1", "count": 1 },
+      { "resource": "reticle-mask-set-l2", "count": 1 }
+    ]
   }
 }
 ```
 
-The inventory buffer is input-only so reserved tools cannot be dispatched as ordinary outbound cargo. Compilation resolves providers independently for every placed production Device and Process plan. At least one provider in the same industrial zone must cover the Device, accept every required Resource, and have capacity for the complete tool set. Candidate providers are ordered deterministically by distance and Device id.
+The inventory buffer is input-only so reserved tools cannot be dispatched as ordinary outbound cargo. `stock` is the exact physical package bundled with every placed provider instance; the Device `economics.buildCost` includes both the stocker and those tools. Stock must be unique, discrete, non-lot-tracked, accepted by the inventory, and fit its total capacity. Blueprint instance filters may narrow a provider only if its complete bundled stock still fits.
 
-The Scenario owns initial physical stock. Adding a provider without stocking it adds storage and coverage, not imaginary tools.
+Compilation resolves providers independently for every placed production Device and Process plan. At least one provider in the same industrial zone must cover the Device, carry enough matching stock, accept every required Resource, and have capacity for the complete tool set. Candidate providers are ordered deterministically by distance and Device id.
+
+This ownership boundary converts tooling capacity into Blueprint code. Copying and placing a provider purchases another complete, costed tool package; removing it removes those assets. A Scenario may not inject free inventory into a tooling provider. Fixed workloads still own failures and arrivals, while the candidate owns how many tool packages it buys and where it places them.
 
 ## Runtime semantics
 
@@ -67,9 +73,9 @@ The Scenario owns initial physical stock. Adding a provider without stocking it 
 
 ## Memory-fab application
 
-The synthetic [[examples/memory-fab]] project has distinct layer-1 and layer-2 reticle sets. One reticle stocker contains exactly one of each and covers the nearby lithography bays. Each patterning job reserves its matching set; the timed lithography interruption traps a reticle until recovery. The specialized candidate may run layer-1 and layer-2 lithography concurrently because they require different physical sets, while duplicate equipment for the same layer would contend for the single matching set.
+The synthetic [[examples/memory-fab]] project has distinct layer-1 and layer-2 reticle sets. Each placed reticle-stocker asset purchases exactly one of each and covers nearby lithography bays. Each patterning job reserves its matching set; the timed lithography interruption traps a reticle until recovery. The specialized candidate may run layer-1 and layer-2 lithography concurrently because they require different physical sets, while duplicate equipment for the same layer contends for the single matching set unless the Blueprint pays for and places another stocker.
 
-This is intentionally an industrial abstraction rather than a proprietary recipe claim. Future layers may model tool cleaning, lifetime/cycle limits, inspection, refurbishment, transport time, qualification state, or Blueprint-authored initial provisioning. Those should extend the same conserved physical ownership model instead of turning tooling into a scalar speed bonus.
+This is intentionally an industrial abstraction rather than a proprietary recipe claim. Future layers may model tool cleaning, lifetime/cycle limits, inspection, refurbishment, transport time, or qualification state. Those should extend the same conserved physical ownership model instead of turning tooling into a scalar speed bonus.
 
 ## Verification
 

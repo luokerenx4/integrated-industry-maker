@@ -913,7 +913,7 @@ describe("blueprint compiler", () => {
       capabilities: ["tooling"],
       buffers: [{ id: "inventory", role: "input", capacity: 2, accepts: ["coal"] }],
       geometry: { footprint: { width: 2, height: 2 }, rotatable: true, ports: [] },
-      toolingProvider: { serviceRadius: 20, inventoryBuffer: "inventory" },
+      toolingProvider: { serviceRadius: 20, inventoryBuffer: "inventory", stock: [{ resource: "coal", count: 1 }] },
       economics: { buildCost: 400 },
     };
     const smelter1 = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!);
@@ -930,7 +930,6 @@ describe("blueprint compiler", () => {
     source.scenario.initialBuffers = {
       "smelter-1": { input: { "iron-ore": 2 } },
       "smelter-2": { input: { "iron-ore": 2 } },
-      "tool-crib-1": { inventory: { coal: 1 } },
     };
     source.scenario.initialEnergyMilliJoules = {};
     source.scenario.renewableProfiles = [];
@@ -939,6 +938,13 @@ describe("blueprint compiler", () => {
     expect(project.devices["smelter-1"]!.processPlan!.toolingProviders).toEqual([
       expect.objectContaining({ device: "tool-crib-1" }),
     ]);
+    const toolingAnalysis = analyzeProduction({
+      ...project, objective: { ...project.objective, targetResource: "iron-plate", targetRegion: smelter1.region, targetRatePerMinute: 1 },
+    });
+    expect(toolingAnalysis.toolingProviders).toEqual([{
+      device: "tool-crib-1", asset: "tool-crib", serviceRadius: 20, inventoryBuffer: "inventory",
+      stock: [{ resource: "coal", count: 1 }], buildCost: 400, occupiedArea: 4,
+    }]);
     const result = runUntil(project, undefined, { untilTick: 11_000 });
     expect(result.events.filter((event) => event.type === "device.tooling-acquired").map((event) => [event.tick, event.device, event.provider])).toEqual([
       [0, "smelter-1", "tool-crib-1"], [4_000, "smelter-2", "tool-crib-1"],
@@ -960,6 +966,34 @@ describe("blueprint compiler", () => {
     expect(result.metrics.productionTooling.providers["tool-crib-1"]).toEqual(expect.objectContaining({
       allocations: 2, completed: 1, cancelled: 1, peakReserved: { coal: 1 }, reserved: {}, unitTicks: 8_000,
     }));
+
+    const purchasedCapacity = { ...source, blueprint: structuredClone(source.blueprint), scenario: structuredClone(source.scenario) };
+    purchasedCapacity.blueprint.devices.push({
+      id: "tool-crib-2", asset: "tool-crib", region: smelter1.region, position: { x: 14, y: 6 }, rotation: 0,
+    });
+    purchasedCapacity.scenario.failures = [];
+    const purchased = runUntil(compileFactoryProject(purchasedCapacity), undefined, { untilTick: 5_000 });
+    expect(purchased.events.filter((event) => event.type === "device.tooling-acquired").map((event) => [event.tick, event.device, event.provider])).toEqual([
+      [0, "smelter-1", "tool-crib-1"], [0, "smelter-2", "tool-crib-2"],
+    ]);
+    expect(purchased.state.devices["tool-crib-1"]!.buffers.inventory).toEqual({ coal: 1 });
+    expect(purchased.state.devices["tool-crib-2"]!.buffers.inventory).toEqual({ coal: 1 });
+
+    const freeScenarioStock = { ...source, blueprint: structuredClone(source.blueprint), scenario: structuredClone(source.scenario) };
+    freeScenarioStock.scenario.initialBuffers!["tool-crib-1"] = { inventory: { coal: 1 } };
+    expect(issueCodes(() => compileFactoryProject(freeScenarioStock))).toContain("tooling.asset-stock-owned");
+
+    const filteredStock = { ...source, blueprint: structuredClone(source.blueprint) };
+    filteredStock.blueprint.devices.find((device) => device.id === "tool-crib-1")!.bufferFilters = { inventory: [] };
+    expect(issueCodes(() => compileFactoryProject(filteredStock))).toContain("tooling.stock-filtered");
+
+    const duplicateStock = { ...source, deviceAssets: { ...source.deviceAssets, "tool-crib": {
+      ...source.deviceAssets["tool-crib"]!, toolingProvider: {
+        ...source.deviceAssets["tool-crib"]!.toolingProvider!,
+        stock: [{ resource: "coal", count: 1 }, { resource: "coal", count: 1 }],
+      },
+    } } };
+    expect(issueCodes(() => compileFactoryProject(duplicateStock))).toContain("tooling.duplicate-stock");
 
     const uncovered = await loaded();
     uncovered.processes["smelt-iron"]!.tooling = [{ resource: "coal", count: 1 }];
