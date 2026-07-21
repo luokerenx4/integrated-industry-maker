@@ -1,9 +1,12 @@
 {
+  "averageBeltItems": 0.4825,
+  "averageBlockedBeltItems": 0,
   "averageWip": 39.824,
+  "beltCellUtilization": 0.024125,
   "blockedOutputTime": {
     "assembler-1": 0,
-    "coal-miner-assembly": 108000,
-    "coal-miner-forge": 108000,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 45000,
@@ -22,7 +25,7 @@
     "coal": 24,
     "iron-ore": 75
   },
-  "finalScore": 32.158300000000004,
+  "finalScore": 35.758300000000006,
   "fuelConsumed": {
     "coal": 4
   },
@@ -53,6 +56,7 @@
   },
   "occupiedArea": 84,
   "onTimeDelivery": 1,
+  "peakBeltItems": 4,
   "produced": {
     "coal": 24,
     "gear": 12,
@@ -97,7 +101,7 @@
     }
   },
   "scoreBreakdown": {
-    "blocked": -4.35,
+    "blocked": -0.75,
     "buildCost": -10.69,
     "constraintPenalty": 0,
     "energy": -2.0193000000000003,
@@ -108,11 +112,11 @@
   },
   "throughputPerMinute": 6,
   "totalBuildCost": 21380,
-  "transportCongestion": 0.16278273809523808,
+  "transportCongestion": 0.14472619047619048,
   "waitingInputTime": {
     "assembler-1": 84000,
-    "coal-miner-assembly": 0,
-    "coal-miner-forge": 0,
+    "coal-miner-assembly": 108000,
+    "coal-miner-forge": 108000,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 0,

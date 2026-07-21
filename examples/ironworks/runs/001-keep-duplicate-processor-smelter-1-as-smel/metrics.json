@@ -1,30 +1,34 @@
 {
-  "averageWip": 32.8565,
+  "averageBeltItems": 0.8135833333333333,
+  "averageBlockedBeltItems": 0,
+  "averageWip": 33.21966666666667,
+  "beltCellUtilization": 0.03129166666666667,
   "blockedOutputTime": {
     "assembler-1": 0,
-    "coal-miner-assembly": 108000,
-    "coal-miner-forge": 108000,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 0,
     "output-1": 0,
     "smelter-1": 0,
     "smelter-1-parallel": 0,
+    "smelter-1-split": 0,
     "station-demand": 0,
     "station-supply": 0,
     "wind-turbine-support": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 22,
+  "completedOrders": 21,
   "consumed": {
-    "gear": 22
+    "gear": 21
   },
-  "energyConsumedMilliJoules": 219900000,
+  "energyConsumedMilliJoules": 222300000,
   "extracted": {
     "coal": 24,
     "iron-ore": 90
   },
-  "finalScore": 78.80535,
+  "finalScore": 76.61503333333333,
   "fuelConsumed": {
     "coal": 4
   },
@@ -38,6 +42,7 @@
     "output-1": 0,
     "smelter-1": 0,
     "smelter-1-parallel": 0,
+    "smelter-1-split": 120000,
     "station-demand": 120000,
     "station-supply": 120000,
     "wind-turbine-support": 120000
@@ -53,12 +58,14 @@
     "output-1": 0,
     "smelter-1": 0.7333333333333333,
     "smelter-1-parallel": 0.7333333333333333,
+    "smelter-1-split": 0,
     "station-demand": 0,
     "station-supply": 0,
     "wind-turbine-support": 0
   },
-  "occupiedArea": 100,
+  "occupiedArea": 102,
   "onTimeDelivery": 1,
+  "peakBeltItems": 4,
   "produced": {
     "coal": 24,
     "gear": 22,
@@ -103,28 +110,29 @@
     }
   },
   "scoreBreakdown": {
-    "blocked": -3.6,
-    "buildCost": -12.11,
+    "blocked": 0,
+    "buildCost": -12.44,
     "constraintPenalty": 0,
-    "energy": -2.1990000000000003,
-    "occupiedArea": -20,
+    "energy": -2.2230000000000003,
+    "occupiedArea": -20.400000000000002,
     "onTimeDelivery": 10,
-    "throughput": 110,
-    "wip": -3.28565
+    "throughput": 105,
+    "wip": -3.321966666666667
   },
-  "throughputPerMinute": 11,
-  "totalBuildCost": 24220,
-  "transportCongestion": 0.1328425925925926,
+  "throughputPerMinute": 10.5,
+  "totalBuildCost": 24880,
+  "transportCongestion": 0.10842916666666705,
   "waitingInputTime": {
     "assembler-1": 54000,
-    "coal-miner-assembly": 0,
-    "coal-miner-forge": 0,
+    "coal-miner-assembly": 108000,
+    "coal-miner-forge": 108000,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 30000,
     "output-1": 120000,
     "smelter-1": 32000,
     "smelter-1-parallel": 32000,
+    "smelter-1-split": 0,
     "station-demand": 0,
     "station-supply": 0,
     "wind-turbine-support": 0

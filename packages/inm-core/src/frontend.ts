@@ -11,7 +11,7 @@ export interface FactorySceneModel {
     visual: Record<string, unknown>; runtimeStatus: DeviceStatus; progress?: number; bottleneck?: boolean;
   }>;
   resourcesInTransit: Array<{
-    id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; path: GridPosition[]; progress: number; visual?: Record<string, unknown>;
+    id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; path: GridPosition[]; position: GridPosition; progress: number; blocked?: boolean; visual?: Record<string, unknown>;
   }>;
   connections: Array<{ id: string; from: GridPosition; to: GridPosition; path: GridPosition[]; kind: "physical" | "station"; blocked?: boolean }>;
   metrics: FactoryMetrics | null;
@@ -76,7 +76,7 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
       id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
       from: center(from.position, from.footprint), to: center(to.position, to.footprint),
       path: next.connections.find((item) => item.id === event.connection)!.path,
-      progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
+      position: center(from.position, from.footprint), progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
   } else if (event.type === "logistics.depart") {
     const route = project.logisticsNetworks[event.network]!.routes.find((item) => item.id === event.route)!;
@@ -86,13 +86,25 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
       from: center(from.position, from.footprint),
       to: center(to.position, to.footprint),
       path: [],
-      progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
+      position: center(from.position, from.footprint), progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
+  } else if (event.type === "resource.belt-position") {
+    const transit = next.resourcesInTransit.find((item) => item.id === event.transit.id);
+    if (transit) {
+      transit.position = transit.path[event.cellIndex]!;
+      transit.progress = (event.cellIndex + 1) / (transit.path.length + 1);
+      transit.blocked = false;
+    }
+  } else if (event.type === "resource.belt-blocked") {
+    const transit = next.resourcesInTransit.find((item) => item.id === event.transit.id);
+    if (transit) transit.blocked = true;
+  } else if (event.type === "resource.belt-unblocked") {
+    const transit = next.resourcesInTransit.find((item) => item.id === event.transit.id);
+    if (transit) transit.blocked = false;
+  } else if (event.type === "resource.unload-start") {
+    const transit = next.resourcesInTransit.find((item) => item.id === event.transit.id);
+    if (transit) { transit.position = { ...transit.to }; transit.progress = 1; transit.blocked = false; }
   } else if (event.type === "resource.arrive" || event.type === "logistics.arrive") next.resourcesInTransit = next.resourcesInTransit.filter((transit) => transit.id !== event.transit.id);
-  for (const transit of next.resourcesInTransit) {
-    const sourceEvent = model.resourcesInTransit.find((item) => item.id === transit.id);
-    if (sourceEvent) transit.progress = sourceEvent.progress;
-  }
   return next;
 }
 
@@ -102,12 +114,15 @@ export function replayFactoryEvents(project: CompiledFactoryProject, events: Fac
   for (const event of events) {
     if (event.tick > throughTick) break;
     model = reduceFactoryEvent(model, event, project);
-    if (event.type === "resource.depart" || event.type === "logistics.depart") departed.set(event.transit.id, event.transit);
+    if (event.type === "logistics.depart") departed.set(event.transit.id, event.transit);
   }
   model.tick = Math.min(throughTick, events.at(-1)?.tick ?? 0);
   for (const transit of model.resourcesInTransit) {
     const timing = departed.get(transit.id);
-    if (timing) transit.progress = Math.max(0, Math.min(1, (model.tick - timing.departTick) / Math.max(1, timing.arriveTick - timing.departTick)));
+    if (timing) {
+      transit.progress = Math.max(0, Math.min(1, (model.tick - timing.departTick) / Math.max(1, timing.arriveTick - timing.departTick)));
+      transit.position = { x: transit.from.x + (transit.to.x - transit.from.x) * transit.progress, y: transit.from.y + (transit.to.y - transit.from.y) * transit.progress };
+    }
   }
   return model;
 }

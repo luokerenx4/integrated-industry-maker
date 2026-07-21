@@ -348,7 +348,10 @@ export interface CompiledConnection extends BlueprintConnection {
   }>;
   distance: number;
   transportCells: string[];
+  loaderDispatchIntervalTicks: Tick;
   lineDispatchIntervalTicks: Tick;
+  lineCellTravelTicks: Tick;
+  unloaderDispatchIntervalTicks: Tick;
   capacity: number;
   travelTicks: Tick;
   dispatchIntervalTicks: Tick;
@@ -359,7 +362,9 @@ export interface CompiledTransportCell {
   position: GridPosition;
   asset: DeviceAsset;
   connections: ConnectionId[];
+  output: { kind: "cell"; cell: string } | { kind: "port"; device: DeviceInstanceId; port: string };
   dispatchIntervalTicks: Tick;
+  travelTicks: Tick;
 }
 export interface CompiledLogisticsRoute {
   id: string;
@@ -452,11 +457,19 @@ export interface ResourceTransit {
   arriveTick: Tick;
   logisticsRoute?: string;
 }
+export type BeltTransitPhase = "loading" | "belt" | "unloading";
+export interface BeltTransit extends ResourceTransit {
+  phase: BeltTransitPhase;
+  /** -1 while the item is in a loader or unloader; otherwise indexes connection.transportCells. */
+  cellIndex: number;
+  readyTick: Tick;
+  blockedBy?: string;
+}
 export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
   resourceNodes: Record<string, { remaining: number; reserved: number; extracted: number }>;
-  transports: Record<ConnectionId, ResourceTransit[]>;
+  transports: Record<ConnectionId, BeltTransit[]>;
   logisticsTransports: Record<string, ResourceTransit[]>;
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;
@@ -475,6 +488,10 @@ export type FactoryEvent =
   | { type: "resource.extracted"; tick: Tick; device: DeviceInstanceId; node: string; resource: ResourceId; count: number; remaining: number }
   | { type: "resource.depleted"; tick: Tick; node: string; resource: ResourceId }
   | { type: "resource.depart"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
+  | { type: "resource.belt-position"; tick: Tick; transit: BeltTransit; connection: ConnectionId; cell: string; cellIndex: number }
+  | { type: "resource.belt-blocked"; tick: Tick; transit: BeltTransit; connection: ConnectionId; cell: string | null; waitingFor: string }
+  | { type: "resource.belt-unblocked"; tick: Tick; transit: BeltTransit; connection: ConnectionId }
+  | { type: "resource.unload-start"; tick: Tick; transit: BeltTransit; connection: ConnectionId }
   | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "logistics.depart"; tick: Tick; transit: ResourceTransit; network: string; route: string }
   | { type: "logistics.arrive"; tick: Tick; transit: ResourceTransit; network: string; route: string }
@@ -515,6 +532,10 @@ export interface FactoryMetrics {
   waitingInputTime: Record<DeviceInstanceId, Tick>;
   blockedOutputTime: Record<DeviceInstanceId, Tick>;
   averageWip: number;
+  averageBeltItems: number;
+  averageBlockedBeltItems: number;
+  peakBeltItems: number;
+  beltCellUtilization: number;
   transportCongestion: number;
   bottleneckEntity: DeviceInstanceId | null;
   infeasibleReason: string | null;

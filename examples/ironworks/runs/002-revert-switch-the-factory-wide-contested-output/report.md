@@ -1,8 +1,8 @@
-# INM Run 001-keep-duplicate-processor-smelter-1-as-smel
+# INM Run 002-revert-switch-the-factory-wide-contested-output
 
-- Decision: **KEEP**
+- Decision: **REVERT**
 - Score: **76.615**
-- Result hash: `5c95903e05aa4fb5008727897fd37e436d1c2eb6fc1311d74a35bc16747d1552`
+- Result hash: `b329a4cbf848368d91b341744d3c90e482d3b8a72db59d3e0f7f8561f9911647`
 - Bottleneck: smelter-1
 - Throughput/min: 10.500
 - Belt utilization: 3.1%

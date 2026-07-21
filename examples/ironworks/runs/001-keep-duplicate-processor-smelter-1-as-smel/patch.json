@@ -16,13 +16,30 @@
   },
   {
     "op": "add",
-    "path": "/connections/-",
+    "path": "/devices/-",
+    "value": {
+      "asset": "splitter",
+      "id": "smelter-1-split",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 6,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/connections/0",
     "value": {
       "from": {
         "device": "ore-source-1",
         "port": "output"
       },
-      "id": "ore-to-smelter-smelter-1-parallel",
+      "id": "ore-to-smelter",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -41,19 +58,83 @@
         },
         {
           "x": 4,
-          "y": 9
-        },
-        {
-          "x": 4,
-          "y": 8
+          "y": 11
         },
         {
           "x": 5,
-          "y": 8
+          "y": 11
+        }
+      ],
+      "to": {
+        "device": "smelter-1-split",
+        "port": "input-west"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/connections/-",
+    "value": {
+      "from": {
+        "device": "smelter-1-split",
+        "port": "output-east"
+      },
+      "id": "ore-to-smelter-smelter-1-split-original",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 8,
+          "y": 11
         },
         {
-          "x": 6,
-          "y": 8
+          "x": 8,
+          "y": 10
+        }
+      ],
+      "to": {
+        "device": "smelter-1",
+        "port": "input"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/connections/-",
+    "value": {
+      "from": {
+        "device": "smelter-1-split",
+        "port": "output-north"
+      },
+      "id": "ore-to-smelter-smelter-1-split-parallel",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 7,
+          "y": 10
+        },
+        {
+          "x": 7,
+          "y": 9
         },
         {
           "x": 7,
@@ -96,8 +177,16 @@
           "y": 8
         },
         {
+          "x": 11,
+          "y": 9
+        },
+        {
+          "x": 11,
+          "y": 10
+        },
+        {
           "x": 12,
-          "y": 8
+          "y": 10
         },
         {
           "x": 12,

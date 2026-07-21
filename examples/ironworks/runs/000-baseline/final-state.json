@@ -17,7 +17,7 @@
           "coal": 7
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "coal-miner-forge": {
       "buffers": {
@@ -25,7 +25,7 @@
           "coal": 7
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "generator-1": {
       "activeJob": {
@@ -215,11 +215,14 @@
     "ore-to-smelter": [
       {
         "arriveTick": 120250,
+        "cellIndex": -1,
         "count": 1,
         "departTick": 119250,
         "from": "ore-source-1",
         "fromBuffer": "output",
         "id": "transit-000151",
+        "phase": "unloading",
+        "readyTick": 120250,
         "resource": "iron-ore",
         "to": "smelter-1",
         "toBuffer": "input"

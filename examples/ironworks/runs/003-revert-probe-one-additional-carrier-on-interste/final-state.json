@@ -1,17 +1,10 @@
 {
-  "completedOrders": 22,
+  "completedOrders": 21,
   "consumed": {
-    "gear": 22
+    "gear": 21
   },
   "devices": {
     "assembler-1": {
-      "buffers": {
-        "input": {},
-        "output": {}
-      },
-      "status": "waiting-input"
-    },
-    "assembler-1-parallel": {
       "buffers": {
         "input": {},
         "output": {}
@@ -24,7 +17,7 @@
           "coal": 7
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "coal-miner-forge": {
       "buffers": {
@@ -32,7 +25,7 @@
           "coal": 7
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "generator-1": {
       "activeJob": {
@@ -108,6 +101,12 @@
       },
       "status": "waiting-input"
     },
+    "smelter-1-split": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
     "station-demand": {
       "buffers": {
         "storage": {}
@@ -116,33 +115,31 @@
     },
     "station-supply": {
       "buffers": {
-        "storage": {}
+        "storage": {
+          "iron-plate": 2
+        }
       },
       "status": "idle"
     },
     "wind-turbine-support": {
       "buffers": {},
       "status": "idle"
-    },
-    "wind-turbine-support-2": {
-      "buffers": {},
-      "status": "idle"
     }
   },
   "energy": {
-    "availableMilliWatts": 3200000,
-    "consumedMilliJoules": 219900000,
+    "availableMilliWatts": 2600000,
+    "consumedMilliJoules": 221640000,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
-        "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 99120000
+        "availableMilliWatts": 1000000,
+        "consumedMilliJoules": 98460000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 120780000
+        "consumedMilliJoules": 123180000
       }
     }
   },
@@ -151,7 +148,7 @@
   },
   "produced": {
     "coal": 24,
-    "gear": 22,
+    "gear": 21,
     "iron-ore": 90,
     "iron-plate": 44
   },
@@ -187,12 +184,11 @@
     "coal-assembly-to-generator": [],
     "coal-forge-to-generator": [],
     "gear-to-output": [],
-    "gear-to-output-assembler-1-parallel": [],
     "ore-to-smelter": [],
-    "ore-to-smelter-smelter-1-parallel": [],
+    "ore-to-smelter-smelter-1-split-original": [],
+    "ore-to-smelter-smelter-1-split-parallel": [],
     "plate-to-station": [],
     "plate-to-station-smelter-1-parallel": [],
-    "station-to-assembler": [],
-    "station-to-assembler-assembler-1-parallel": []
+    "station-to-assembler": []
   }
 }

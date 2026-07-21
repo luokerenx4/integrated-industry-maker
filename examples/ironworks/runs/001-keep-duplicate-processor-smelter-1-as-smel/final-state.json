@@ -1,7 +1,7 @@
 {
-  "completedOrders": 22,
+  "completedOrders": 21,
   "consumed": {
-    "gear": 22
+    "gear": 21
   },
   "devices": {
     "assembler-1": {
@@ -17,7 +17,7 @@
           "coal": 7
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "coal-miner-forge": {
       "buffers": {
@@ -25,7 +25,7 @@
           "coal": 7
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "generator-1": {
       "activeJob": {
@@ -101,6 +101,12 @@
       },
       "status": "waiting-input"
     },
+    "smelter-1-split": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
     "station-demand": {
       "buffers": {
         "storage": {}
@@ -120,7 +126,7 @@
   },
   "energy": {
     "availableMilliWatts": 2600000,
-    "consumedMilliJoules": 219900000,
+    "consumedMilliJoules": 222300000,
     "fuelConsumed": {
       "coal": 4
     },
@@ -131,7 +137,7 @@
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 120780000
+        "consumedMilliJoules": 123180000
       }
     }
   },
@@ -175,9 +181,25 @@
   "transports": {
     "coal-assembly-to-generator": [],
     "coal-forge-to-generator": [],
-    "gear-to-output": [],
+    "gear-to-output": [
+      {
+        "arriveTick": 120420,
+        "cellIndex": 3,
+        "count": 1,
+        "departTick": 119420,
+        "from": "assembler-1",
+        "fromBuffer": "output",
+        "id": "transit-000307",
+        "phase": "belt",
+        "readyTick": 120070,
+        "resource": "gear",
+        "to": "output-1",
+        "toBuffer": "input"
+      }
+    ],
     "ore-to-smelter": [],
-    "ore-to-smelter-smelter-1-parallel": [],
+    "ore-to-smelter-smelter-1-split-original": [],
+    "ore-to-smelter-smelter-1-split-parallel": [],
     "plate-to-station": [],
     "plate-to-station-smelter-1-parallel": [],
     "station-to-assembler": []

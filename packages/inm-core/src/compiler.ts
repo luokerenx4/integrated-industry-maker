@@ -436,11 +436,24 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     });
     const travelTicks = logisticsStages.reduce((sum, stage) => sum + stage.durationTicks, 0);
     const dispatchIntervalTicks = Math.max(...logisticsStages.map((stage) => Math.ceil(stage.durationTicks / stage.capacity)));
+    const loaderStage = logisticsStages.find((stage) => stage.stage === "loader")!;
     const lineStage = logisticsStages.find((stage) => stage.stage === "line")!;
+    const unloaderStage = logisticsStages.find((stage) => stage.stage === "unloader")!;
+    if (lineStage.capacity !== distance) issues.push({
+      path: `${path}/logistics/line`, code: "logistics.line-slot-count",
+      message: `Line asset '${lineStage.asset.id}' must expose one item slot per routed cell (${distance}); planTransport() returned ${lineStage.capacity}`,
+    });
+    const loaderDispatchIntervalTicks = Math.ceil(loaderStage.durationTicks / loaderStage.capacity);
     const lineDispatchIntervalTicks = Math.ceil(lineStage.durationTicks / lineStage.capacity);
+    const lineCellTravelTicks = Math.ceil(lineStage.durationTicks / distance);
+    const unloaderDispatchIntervalTicks = Math.ceil(unloaderStage.durationTicks / unloaderStage.capacity);
     const capacity = Math.max(1, Math.ceil(travelTicks / dispatchIntervalTicks));
     const transportCells = connection.path.map((position) => transportCellId(from.region, position));
-    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, transportCells, lineDispatchIntervalTicks, capacity, travelTicks, dispatchIntervalTicks };
+    connections[connection.id] = {
+      ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, transportCells,
+      loaderDispatchIntervalTicks, lineDispatchIntervalTicks, lineCellTravelTicks, unloaderDispatchIntervalTicks,
+      capacity, travelTicks, dispatchIntervalTicks,
+    };
   }
 
   const transportCells: Record<string, CompiledTransportCell> = {};
@@ -448,15 +461,30 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const lineAsset = connection.logisticsStages.find((stage) => stage.stage === "line")!.asset;
     for (const [cellIndex, position] of connection.path.entries()) {
       const id = connection.transportCells[cellIndex]!;
+      const output: CompiledTransportCell["output"] = cellIndex < connection.transportCells.length - 1
+        ? { kind: "cell", cell: connection.transportCells[cellIndex + 1]! }
+        : { kind: "port", device: connection.to.device, port: connection.to.port };
       const existing = transportCells[id];
       if (existing && existing.asset.id !== lineAsset.id) {
         issues.push({ path: `blueprint/connections/${loaded.blueprint.connections.findIndex((item) => item.id === connection.id)}/path/${cellIndex}`, code: "logistics.shared-cell-asset", message: `Shared transport cell '${id}' mixes line assets '${existing.asset.id}' and '${lineAsset.id}'` });
         continue;
       }
       if (existing) {
+        if (JSON.stringify(existing.output) !== JSON.stringify(output)) {
+          issues.push({
+            path: `blueprint/connections/${loaded.blueprint.connections.findIndex((item) => item.id === connection.id)}/path/${cellIndex}`,
+            code: "logistics.shared-cell-direction",
+            message: `Shared transport cell '${id}' cannot feed both '${existing.output.kind === "cell" ? existing.output.cell : `${existing.output.device}.${existing.output.port}`}' and '${output.kind === "cell" ? output.cell : `${output.device}.${output.port}`}'`,
+          });
+          continue;
+        }
         existing.connections.push(connection.id);
         existing.dispatchIntervalTicks = Math.max(existing.dispatchIntervalTicks, connection.lineDispatchIntervalTicks);
-      } else transportCells[id] = { id, region: connection.fromDevice.region, position: { ...position }, asset: lineAsset, connections: [connection.id], dispatchIntervalTicks: connection.lineDispatchIntervalTicks };
+        existing.travelTicks = Math.max(existing.travelTicks, connection.lineCellTravelTicks);
+      } else transportCells[id] = {
+        id, region: connection.fromDevice.region, position: { ...position }, asset: lineAsset,
+        connections: [connection.id], output, dispatchIntervalTicks: connection.lineDispatchIntervalTicks, travelTicks: connection.lineCellTravelTicks,
+      };
     }
   }
 

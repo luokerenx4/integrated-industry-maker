@@ -34,7 +34,7 @@ Compiles extractor rates, finite deposit inventory and estimated depletion, Proc
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
-Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact.
+Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes physical belt utilization, average blocked belt items, and peak belt occupancy; JSON metrics retain the complete per-cell transport measurements.
 
 ```bash
 inm simulate examples/ironworks \
@@ -91,7 +91,7 @@ Launches the local read-only 3D runtime debugger. `/` is a project launcher; cho
 
 The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from the project's Process definitions, previews their visual identity, and exposes tags, capabilities, geometry, ports, buffers, runtime entry, units, transformations, cycle times, transport limits, content hashes, and current instance counts. Every data and file request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
-The adjacent Analysis view recompiles the currently selected run blueprint against the project world and presents finite deposits/depletion, nominal material balance, warning diagnostics, loader/line/unloader pipelines, region-qualified station supply/demand routes and shared-fleet load, plus generator kind, fuel rate, rated generation, rated demand, membership, and headroom for each regional power grid. The 3D view renders every region as a separate labeled factory floor, shrinks deposits as extraction events replay, and bridges worlds with interstellar routes.
+The adjacent Analysis view recompiles the currently selected run blueprint against the project world and presents finite deposits/depletion, nominal material balance, warning diagnostics, loader/line/unloader pipelines and directed belt cells, region-qualified station supply/demand routes and shared-fleet load, plus generator kind, fuel rate, rated generation, rated demand, membership, and headroom for each regional power grid. The 3D view renders every region as a separate labeled factory floor, places local cargo on its event-reported belt cell, highlights blocked cargo, shrinks deposits as extraction events replay, and bridges worlds with interstellar routes.
 
 Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 

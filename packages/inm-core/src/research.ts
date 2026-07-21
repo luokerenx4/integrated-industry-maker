@@ -144,7 +144,10 @@ function placeDevice(blueprint: Blueprint, device: Blueprint["devices"][number],
 
 function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFactoryProject["devices"][string], reason: string): StrategyCandidate | null {
   const instance = input.blueprint.devices.find((device) => device.id === original.id);
-  if (!instance) return null;
+  const junctionAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("transport-junction")
+    && asset.geometry.ports.filter((port) => port.direction === "input").length >= 2
+    && asset.geometry.ports.filter((port) => port.direction === "output").length >= 2);
+  if (!instance || !junctionAsset) return null;
   const id = uniqueDeviceId(input.blueprint, `${original.id}-parallel`);
   const clone = structuredClone(instance); clone.id = id;
   if (!placeDevice(input.blueprint, clone, input.project, original.position)) return null;
@@ -152,19 +155,91 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
   const candidateBlueprint = structuredClone(input.blueprint);
   candidateBlueprint.devices.push(clone);
   const grid = original.powerGrid ? input.production.powerGrids.find((item) => item.grid === original.powerGrid) : undefined;
-  const needsPowerSupport = original.assetDef.power.consumptionMilliWatts > (grid?.headroomMilliWatts ?? 0);
   let powerSupport: Blueprint["devices"][number] | undefined;
   const adjacent = input.blueprint.connections.filter((connection) => connection.to.device === original.id || connection.from.device === original.id);
+  const inputPorts = junctionAsset.geometry.ports.filter((port) => port.direction === "input");
+  const outputPorts = junctionAsset.geometry.ports.filter((port) => port.direction === "output");
+  let junctionCount = 0;
   for (const connection of adjacent) {
-    const copy = structuredClone(connection); copy.id = `${connection.id}-${id}`;
-    if (copy.to.device === original.id) copy.to.device = id;
-    if (copy.from.device === original.id) copy.from.device = id;
-    const path = findBlueprintConnectionPath(candidateBlueprint, input.project.world, input.project.deviceAssets, copy);
-    if (!path) return null;
-    copy.path = path;
-    candidateBlueprint.connections.push(copy);
-    patch.push({ op: "add", path: "/connections/-", value: copy });
+    const originalIndex = input.blueprint.connections.findIndex((item) => item.id === connection.id);
+    const candidateIndex = candidateBlueprint.connections.findIndex((item) => item.id === connection.id);
+    if (originalIndex < 0 || candidateIndex < 0) return null;
+    const incoming = connection.to.device === original.id;
+    if (!incoming) {
+      let merged: Blueprint["connections"][number] | undefined;
+      for (const [mergeIndex, mergeCell] of connection.path.entries()) {
+        const candidate: Blueprint["connections"][number] = {
+          ...structuredClone(connection), id: `${connection.id}-${id}`,
+          from: { device: id, port: connection.from.port }, path: [],
+        };
+        const prefix = findBlueprintConnectionPath(candidateBlueprint, input.project.world, input.project.deviceAssets, candidate, { end: mergeCell, allowEndTransportCell: true });
+        if (!prefix) continue;
+        candidate.path = [...prefix, ...connection.path.slice(mergeIndex + 1)];
+        merged = candidate; break;
+      }
+      if (!merged) return null;
+      candidateBlueprint.connections.push(merged);
+      patch.push({ op: "add", path: "/connections/-", value: merged });
+      continue;
+    }
+    candidateBlueprint.connections.splice(candidateIndex, 1);
+    const junction: Blueprint["devices"][number] = {
+      id: uniqueDeviceId(candidateBlueprint, `${original.id}-split`),
+      asset: junctionAsset.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0,
+      policy: { dispatch: "round-robin" },
+    };
+    const peerId = connection.from.device;
+    const peer = input.project.devices[peerId];
+    const preferred = peer ? { x: Math.round((original.position.x + peer.position.x) / 2), y: Math.round((original.position.y + peer.position.y) / 2) } : original.position;
+    const bounds = input.project.regions[junction.region]?.bounds;
+    if (!bounds) return null;
+    const positions = Array.from({ length: bounds.width * bounds.height }, (_, index) => ({ x: index % bounds.width, y: Math.floor(index / bounds.width) }))
+      .sort((a, b) => Math.hypot(a.x - preferred.x, a.y - preferred.y) - Math.hypot(b.x - preferred.x, b.y - preferred.y) || a.y - b.y || a.x - b.x);
+    const routeTemplates: Blueprint["connections"] = [
+      { ...structuredClone(connection), to: { device: junction.id, port: inputPorts[0]!.id } },
+      {
+        ...structuredClone(connection), id: `${connection.id}-${junction.id}-original`,
+        from: { device: junction.id, port: outputPorts[0]!.id }, to: structuredClone(connection.to), path: [],
+      },
+      {
+        ...structuredClone(connection), id: `${connection.id}-${junction.id}-parallel`,
+        from: { device: junction.id, port: outputPorts[1]!.id }, to: { device: id, port: connection.to.port }, path: [],
+      },
+    ];
+    const routeOrders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    let routed: Blueprint["connections"] | undefined;
+    for (const position of positions) {
+      junction.position = position;
+      for (const rotation of [0, 90, 180, 270] as const) {
+        junction.rotation = rotation;
+        if (overlaps(candidateBlueprint, junction, input.project)) continue;
+        candidateBlueprint.devices.push(junction);
+        for (const order of routeOrders) {
+          const candidates = structuredClone(routeTemplates);
+          const routeStart = candidateBlueprint.connections.length;
+          let valid = true;
+          for (const routeIndex of order) {
+            const route = candidates[routeIndex]!;
+            const path = findBlueprintConnectionPath(candidateBlueprint, input.project.world, input.project.deviceAssets, route);
+            if (!path) { valid = false; break; }
+            route.path = path; candidateBlueprint.connections.push(route);
+          }
+          if (valid) { routed = candidates; break; }
+          candidateBlueprint.connections.splice(routeStart);
+        }
+        if (routed) break;
+        candidateBlueprint.devices.pop();
+      }
+      if (routed) break;
+    }
+    if (!routed) return null;
+    junctionCount++;
+    patch.push({ op: "add", path: "/devices/-", value: junction });
+    patch.push({ op: "replace", path: `/connections/${originalIndex}`, value: routed[0]! });
+    patch.push({ op: "add", path: "/connections/-", value: routed[1]! }, { op: "add", path: "/connections/-", value: routed[2]! });
   }
+  const addedLoad = original.assetDef.power.consumptionMilliWatts + junctionCount * junctionAsset.power.consumptionMilliWatts;
+  const needsPowerSupport = addedLoad > (grid?.headroomMilliWatts ?? 0);
   if (needsPowerSupport) {
     const generator = Object.values(input.project.deviceAssets)
       .filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts && asset.power.distribution)
@@ -273,11 +348,39 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
     const connection = input.blueprint.connections.find((item) => item.from.device === original.id); if (!connection) continue;
     const id = uniqueDeviceId(input.blueprint, `${original.id}-buffer`);
     const buffer: Blueprint["devices"][number] = { id, asset: bufferAsset.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0 };
-    if (!placeDevice(input.blueprint, buffer, input.project, original.position)) continue;
     const connectionIndex = input.blueprint.connections.indexOf(connection);
     const inputPort = bufferAsset.geometry.ports.find((port) => port.direction === "input")!;
     const outputPort = bufferAsset.geometry.ports.find((port) => port.direction === "output")!;
-    const newConnection = { id: `${connection.id}-${id}-output`, from: { device: id, port: outputPort.id }, to: structuredClone(connection.to), logistics: structuredClone(connection.logistics) };
+    const candidateBlueprint = structuredClone(input.blueprint);
+    candidateBlueprint.connections.splice(connectionIndex, 1);
+    const bounds = input.project.regions[buffer.region]?.bounds; if (!bounds) continue;
+    const positions = Array.from({ length: bounds.width * bounds.height }, (_, index) => ({ x: index % bounds.width, y: Math.floor(index / bounds.width) }))
+      .sort((a, b) => Math.hypot(a.x - original.position.x, a.y - original.position.y) - Math.hypot(b.x - original.position.x, b.y - original.position.y) || a.y - b.y || a.x - b.x);
+    let inbound: Blueprint["connections"][number] | undefined;
+    let outbound: Blueprint["connections"][number] | undefined;
+    for (const position of positions) {
+      buffer.position = position;
+      if (overlaps(candidateBlueprint, buffer, input.project)) continue;
+      candidateBlueprint.devices.push(buffer);
+      for (const order of [["in", "out"], ["out", "in"]] as const) {
+        const nextInbound: Blueprint["connections"][number] = { ...structuredClone(connection), to: { device: id, port: inputPort.id }, path: [] };
+        const nextOutbound: Blueprint["connections"][number] = {
+          ...structuredClone(connection), id: `${connection.id}-${id}-output`, from: { device: id, port: outputPort.id }, path: [],
+        };
+        const routes = { in: nextInbound, out: nextOutbound }; const routeStart = candidateBlueprint.connections.length;
+        let valid = true;
+        for (const key of order) {
+          const route = routes[key]; const path = findBlueprintConnectionPath(candidateBlueprint, input.project.world, input.project.deviceAssets, route);
+          if (!path) { valid = false; break; }
+          route.path = path; candidateBlueprint.connections.push(route);
+        }
+        if (valid) { inbound = nextInbound; outbound = nextOutbound; break; }
+        candidateBlueprint.connections.splice(routeStart);
+      }
+      if (inbound && outbound) break;
+      candidateBlueprint.devices.pop();
+    }
+    if (!inbound || !outbound) continue;
     const key = `buffer:${connection.id}`;
     candidates.push({ key, proposal: {
       strategy: key,
@@ -285,17 +388,48 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
       expectedEffect: "Decouple producer completion from downstream demand and expose whether storage relieves the measured blockage.",
       patch: [
         { op: "add", path: "/devices/-", value: buffer },
-        { op: "replace", path: `/connections/${connectionIndex}/to`, value: { device: id, port: inputPort.id } },
-        { op: "add", path: "/connections/-", value: newConnection },
+        { op: "replace", path: `/connections/${connectionIndex}`, value: inbound },
+        { op: "add", path: "/connections/-", value: outbound },
       ],
     } });
   }
   return candidates;
 }
 
+function policyCandidates(input: ResearchInput): StrategyCandidate[] {
+  const current = input.blueprint.policies?.dispatch ?? "fifo";
+  const next = current === "fifo" ? "round-robin" : "fifo";
+  const operation: JsonPatchOperation = input.blueprint.policies?.dispatch
+    ? { op: "replace", path: "/policies/dispatch", value: next }
+    : input.blueprint.policies
+      ? { op: "add", path: "/policies/dispatch", value: next }
+      : { op: "add", path: "/policies", value: { dispatch: next } };
+  return [{ key: `dispatch:${next}`, proposal: {
+    strategy: `dispatch:${next}`,
+    hypothesis: `Switch the factory-wide contested-output policy from ${current} to ${next}.`,
+    expectedEffect: "Test whether deterministic output arbitration reduces starvation or blockage in the measured topology.",
+    patch: [operation],
+  } }];
+}
+
+function exploratoryStationCandidates(input: ResearchInput): StrategyCandidate[] {
+  return input.blueprint.logisticsNetworks.map((network, index) => {
+    const count = network.fleet.count + 1;
+    return { key: `station-fleet:${network.id}:${count}`, proposal: {
+      strategy: `station-fleet:${network.id}:${count}`,
+      hypothesis: `Probe one additional carrier on ${network.id} (${network.fleet.count} → ${count}) even though static fleet load is currently feasible.`,
+      expectedEffect: "Measure whether dynamic contention or burst timing makes nominally spare station capacity valuable.",
+      patch: [{ op: "replace" as const, path: `/logisticsNetworks/${index}/fleet/count`, value: count }],
+    } };
+  });
+}
+
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
+    const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...stationCandidates(input)];
+    const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
+    if (diagnosed) return diagnosed.proposal;
     for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {
       const producer = input.production.devices.filter((device) => (device.outputsPerMinute[diagnostic.resource!] ?? 0) > 0)
         .sort((a, b) => (b.outputsPerMinute[diagnostic.resource!] ?? 0) - (a.outputsPerMinute[diagnostic.resource!] ?? 0) || a.device.localeCompare(b.device))[0];
@@ -305,14 +439,16 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
       }
     }
     candidates.push(...bufferCandidates(input));
+    candidates.push(...policyCandidates(input));
+    candidates.push(...exploratoryStationCandidates(input));
     const processors = Object.values(input.project.devices).filter((device) => device.assetDef.capabilities.includes("process"))
       .sort((a, b) => (input.metrics.machineUtilization[b.id] ?? 0) - (input.metrics.machineUtilization[a.id] ?? 0) || a.id.localeCompare(b.id));
     for (const processor of processors) {
       const candidate = duplicateProcessorCandidate(input, processor, `its measured utilization is ${((input.metrics.machineUtilization[processor.id] ?? 0) * 100).toFixed(1)}%`);
       if (candidate) candidates.push(candidate);
     }
-    const used = new Set(input.history.map((entry) => entry.strategy));
-    const selected = candidates.find((candidate) => !used.has(candidate.key)) ?? candidates[input.iteration % Math.max(1, candidates.length)];
+    const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.key, candidate])).values()];
+    const selected = uniqueCandidates.find((candidate) => !used.has(candidate.key)) ?? uniqueCandidates[input.iteration % Math.max(1, uniqueCandidates.length)];
     if (!selected) throw new Error("Heuristic agent found no valid blueprint strategy to evaluate");
     return selected.proposal;
   }

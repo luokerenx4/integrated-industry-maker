@@ -1,0 +1,7 @@
+[
+  {
+    "op": "replace",
+    "path": "/logisticsNetworks/0/fleet/count",
+    "value": 2
+  }
+]

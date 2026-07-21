@@ -2,7 +2,7 @@ import { DeterministicPriorityQueue } from "./priority-queue";
 import { evaluateFactory, type SimulationStats } from "./evaluator";
 import { evaluateDeviceProgram } from "./device-runtime";
 import type {
-  CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
+  BeltTransit, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
   ResourceBufferQuantity, ResourceTransit, SimulationResult,
 } from "./types";
 import { hashValue } from "./utils";
@@ -10,6 +10,7 @@ import { mutateFactoryState } from "./state";
 
 type InternalEvent =
   | { kind: "complete"; device: string; generation: number }
+  | { kind: "belt-step"; connection: string; transitId: string }
   | { kind: "arrive"; connection: string; transitId: string }
   | { kind: "station-arrive"; network: string; route: string; transitId: string }
   | { kind: "logistics-ready"; connection: string }
@@ -29,7 +30,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     ]));
     devices[id] = { status: "idle", buffers };
   }
-  const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as ResourceTransit[]]));
+  const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as BeltTransit[]]));
   const logisticsTransports = Object.fromEntries(Object.keys(project.logisticsNetworks).sort().map((id) => [id, [] as ResourceTransit[]]));
   const grids = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => [grid.id, {
     availableMilliWatts: grid.members.reduce((sum, id) => sum + (project.devices[id]!.generationPlan?.kind === "renewable" ? project.devices[id]!.generationPlan.outputMilliWatts : 0), 0),
@@ -49,13 +50,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const queue = new DeterministicPriorityQueue<InternalEvent>();
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
-  const stats: SimulationStats = { durations: {}, wipArea: 0, congestionArea: 0, elapsedTicks: state.tick };
+  const stats: SimulationStats = {
+    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltBlockedArea: 0, peakBeltItems: 0, elapsedTicks: state.tick,
+  };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
   const dispatchCursors: Record<string, number> = {};
   const transportCellCursors: Record<string, number> = {};
   const stationDispatchCursors: Record<string, number> = {};
   const nextDispatchTick: Record<string, number> = Object.fromEntries(Object.keys(project.connections).map((id) => [id, state.tick]));
-  const nextTransportCellTick: Record<string, number> = Object.fromEntries(Object.keys(project.transportCells).map((id) => [id, state.tick]));
   const scheduledDispatchTick: Record<string, number | undefined> = {};
   const schedule = (tick: number, priority: number, value: InternalEvent) => queue.push({ tick, priority, sequence: sequence++, value });
   const scheduleLogisticsReady = (connection: string, tick: number) => {
@@ -99,10 +101,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const wip = Object.values(state.devices).reduce((sum, runtime) => sum + deviceQuantity(runtime), 0)
       + Object.values(state.transports).flat().reduce((sum, transit) => sum + transit.count, 0)
       + Object.values(state.logisticsTransports).flat().reduce((sum, transit) => sum + transit.count, 0);
-    const connectionCongestion = Object.entries(state.transports).reduce((sum, [id, transits]) => sum + transits.reduce((n, transit) => n + transit.count, 0) / project.connections[id]!.capacity, 0);
+    const occupiedBeltCells = Object.values(state.transports).flat().filter((transit) => transit.phase === "belt").length;
+    const blockedBeltItems = Object.values(state.transports).flat().filter((transit) => transit.blockedBy).length;
+    const connectionCongestion = occupiedBeltCells / Math.max(1, Object.keys(project.transportCells).length) * Object.keys(project.connections).length;
     const stationCongestion = Object.entries(state.logisticsTransports).reduce((sum, [id, transits]) => sum + transits.length / project.logisticsNetworks[id]!.fleetSize, 0);
     const congestion = connectionCongestion + stationCongestion;
     stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
+    stats.beltOccupancyArea += occupiedBeltCells * delta;
+    stats.beltBlockedArea += blockedBeltItems * delta;
+    stats.peakBeltItems = Math.max(stats.peakBeltItems, occupiedBeltCells);
     for (const grid of Object.keys(project.powerGrids).sort()) {
       const consumedMilliJoules = Math.min(availablePower(grid), activePower(grid)) * delta / 1000;
       if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
@@ -115,6 +122,43 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const incomingQuantity = (device: string, buffer: string) => [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
     .filter((transit) => transit.to === device && transit.toBuffer === buffer).reduce((sum, transit) => sum + transit.count, 0);
+  const transportStage = (connection: CompiledFactoryProject["connections"][string], stage: "loader" | "unloader") => connection.logisticsStages.find((item) => item.stage === stage)!;
+  const occupiedCell = (cell: string): BeltTransit | undefined => {
+    for (const [connectionId, transits] of Object.entries(state.transports)) {
+      const connection = project.connections[connectionId]!;
+      const occupant = transits.find((transit) => transit.phase === "belt" && connection.transportCells[transit.cellIndex] === cell);
+      if (occupant) return occupant;
+    }
+    return undefined;
+  };
+  const desiredCell = (connectionId: string, transit: BeltTransit): string | null => {
+    const connection = project.connections[connectionId]!;
+    if (transit.phase === "loading") return connection.transportCells[0]!;
+    if (transit.phase === "belt" && transit.cellIndex < connection.transportCells.length - 1) return connection.transportCells[transit.cellIndex + 1]!;
+    return null;
+  };
+  const waitingConnections = (cell: string): string[] => {
+    const waiting = new Set<string>();
+    for (const [connectionId, transits] of Object.entries(state.transports)) {
+      if (transits.some((transit) => transit.readyTick <= state.tick && desiredCell(connectionId, transit) === cell)) waiting.add(connectionId);
+    }
+    return project.transportCells[cell]!.connections.filter((connection) => waiting.has(connection));
+  };
+  const markBlocked = (connectionId: string, transit: BeltTransit, waitingFor: string, retryTicks: number) => {
+    const firstBlock = transit.blockedBy !== waitingFor;
+    mutateFactoryState(state, { kind: "transport.update", connection: connectionId, transitId: transit.id, changes: { readyTick: state.tick + retryTicks, blockedBy: waitingFor } });
+    if (firstBlock) {
+      const connection = project.connections[connectionId]!;
+      const cell = transit.phase === "belt" ? connection.transportCells[transit.cellIndex]! : null;
+      emit({ type: "resource.belt-blocked", tick: state.tick, transit: { ...transit }, connection: connectionId, cell, waitingFor });
+    }
+    schedule(state.tick + retryTicks, 8, { kind: "belt-step", connection: connectionId, transitId: transit.id });
+  };
+  const clearBlocked = (connectionId: string, transit: BeltTransit) => {
+    if (!transit.blockedBy) return;
+    mutateFactoryState(state, { kind: "transport.update", connection: connectionId, transitId: transit.id, changes: { blockedBy: null } });
+    emit({ type: "resource.belt-unblocked", tick: state.tick, transit: { ...transit }, connection: connectionId });
+  };
 
   const dispatch = (): boolean => {
     let moved = false;
@@ -127,22 +171,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const cursor = dispatchCursors[sourceId] ?? 0;
       return [...outgoing.slice(cursor % outgoing.length), ...outgoing.slice(0, cursor % outgoing.length)];
     });
-    const arbitrationScore = (connection: CompiledFactoryProject["connections"][string]) => connection.transportCells.reduce((score, cellId) => {
-      const contenders = project.transportCells[cellId]!.connections;
-      return contenders.length > 1 && contenders[(transportCellCursors[cellId] ?? 0) % contenders.length] === connection.id ? score + 1 : score;
-    }, 0);
     const orderedConnections = sourceOrderedConnections.map((connection, index) => ({
-      connection, index, score: arbitrationScore(connection),
+      connection, index,
       inputPriority: Number(project.devices[connection.to.device]!.policy?.inputPriority === connection.to.port),
-    })).sort((a, b) => b.score - a.score || b.inputPriority - a.inputPriority || a.index - b.index).map((item) => item.connection);
+    })).sort((a, b) => b.inputPriority - a.inputPriority || a.index - b.index).map((item) => item.connection);
     for (const connection of orderedConnections) {
       const sourceState = state.devices[connection.from.device]!;
       const sourceBuffer = sourceState.buffers[connection.fromPort.buffer]!;
       const targetState = state.devices[connection.to.device]!;
       if ((usesPersistentPower(connection.fromDevice) && sourceState.status === "unpowered") || (usesPersistentPower(connection.toDevice) && targetState.status === "unpowered")) continue;
       const targetBuffer = targetState.buffers[connection.toPort.buffer]!;
-      const inTransit = state.transports[connection.id]!.reduce((sum, transit) => sum + transit.count, 0);
-      if (inTransit >= connection.capacity) continue;
+      const loader = transportStage(connection, "loader");
+      if (state.transports[connection.id]!.filter((transit) => transit.phase === "loading").length >= loader.capacity) continue;
       const filter = connection.fromDevice.policy?.filter;
       const resource = Object.keys(sourceBuffer).sort().find((id) => {
         if ((sourceBuffer[id] ?? 0) <= 0 || !accepts(connection.toDevice, connection.toPort.buffer, id)) return false;
@@ -152,28 +192,23 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (!resource) continue;
       const targetCapacity = connection.toDevice.buffers[connection.toPort.buffer]!.capacity;
       if (quantity(targetBuffer) + incomingQuantity(connection.to.device, connection.toPort.buffer) >= targetCapacity) continue;
-      const sharedPathReady = Math.max(state.tick, ...connection.transportCells.map((cell) => nextTransportCellTick[cell] ?? state.tick));
-      const readyTick = Math.max(nextDispatchTick[connection.id]!, sharedPathReady);
+      const readyTick = nextDispatchTick[connection.id]!;
       if (state.tick < readyTick) {
         scheduleLogisticsReady(connection.id, readyTick);
         continue;
       }
       mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -1 });
-      const transit: ResourceTransit = {
+      const transit: BeltTransit = {
         id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count: 1,
         from: connection.from.device, fromBuffer: connection.fromPort.buffer,
         to: connection.to.device, toBuffer: connection.toPort.buffer,
         departTick: state.tick, arriveTick: state.tick + connection.travelTicks,
+        phase: "loading", cellIndex: -1, readyTick: state.tick + loader.durationTicks,
       };
       mutateFactoryState(state, { kind: "transport.add", connection: connection.id, transit });
       emit({ type: "resource.depart", tick: state.tick, transit: { ...transit }, connection: connection.id });
-      schedule(transit.arriveTick, 10, { kind: "arrive", connection: connection.id, transitId: transit.id });
-      nextDispatchTick[connection.id] = state.tick + connection.dispatchIntervalTicks;
-      for (const cell of connection.transportCells) nextTransportCellTick[cell] = state.tick + project.transportCells[cell]!.dispatchIntervalTicks;
-      for (const cell of connection.transportCells) {
-        const contenders = project.transportCells[cell]!.connections;
-        if (contenders.length > 1) transportCellCursors[cell] = (contenders.indexOf(connection.id) + 1) % contenders.length;
-      }
+      schedule(transit.readyTick, 8, { kind: "belt-step", connection: connection.id, transitId: transit.id });
+      nextDispatchTick[connection.id] = state.tick + connection.loaderDispatchIntervalTicks;
       scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
       moved = true;
       if ((connection.fromDevice.policy?.dispatch ?? project.blueprint.policies?.dispatch) === "round-robin") {
@@ -286,7 +321,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const tryDecision = (device: CompiledDevice, decision: DeviceProgramDecision): boolean => {
     const runtime = state.devices[device.id]!;
     if (decision.kind === "none") { setStatus(device.id, "idle"); return false; }
-    if (decision.kind === "wait") { setStatus(device.id, decision.reason === "input" ? "waiting-input" : decision.reason === "output" ? "blocked-output" : "idle"); return false; }
+    if (decision.kind === "wait") {
+      const status = decision.reason === "input" ? "waiting-input" : decision.reason === "output" ? "blocked-output" : "idle";
+      if (status === "blocked-output" && runtime.status !== "blocked-output") emit({ type: "buffer.blocked", tick: state.tick, device: device.id });
+      setStatus(device.id, status); return false;
+    }
     if (decision.kind === "extract") {
       const plan = device.extractionPlan;
       const node = plan?.nodes.find((item) => item.id === decision.node);
@@ -384,9 +423,6 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     });
     return tryDecision(device, decision);
   };
-  const hasBlockedOutput = (device: CompiledDevice): boolean => !device.assetDef.capabilities.includes("station")
-    && device.ports.some((port) => port.direction === "output" && quantity(state.devices[device.id]!.buffers[port.buffer]!) > 0);
-
   const settle = () => {
     let changed = true; let guard = 0;
     while (changed && guard++ < 100_000) {
@@ -403,13 +439,6 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     syncPowerAvailability();
     if (guard >= 100_000) throw new Error("Device scripts did not reach a stable state after 100000 actions at one tick");
-    for (const device of Object.values(project.devices)) {
-      const runtime = state.devices[device.id]!;
-      if (runtime.status !== "failed" && runtime.status !== "processing" && hasBlockedOutput(device)) {
-        if (runtime.status !== "blocked-output") emit({ type: "buffer.blocked", tick: state.tick, device: device.id });
-        setStatus(device.id, "blocked-output");
-      }
-    }
   };
 
   for (const failure of project.scenario.failures ?? []) {
@@ -438,10 +467,56 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (job.fuel) emit({ type: "power.fuel-spent", tick: state.tick, device: event.device, grid: project.devices[event.device]!.powerGrid!, resource: job.fuel.resource, count: job.fuel.count });
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce) });
+    } else if (event.kind === "belt-step") {
+      const transit = state.transports[event.connection]?.find((item) => item.id === event.transitId);
+      if (!transit || transit.readyTick !== state.tick || transit.phase === "unloading") continue;
+      const connection = project.connections[event.connection]!;
+      if (transit.phase === "belt" && transit.cellIndex === connection.transportCells.length - 1) {
+        const unloader = transportStage(connection, "unloader");
+        const unloading = state.transports[event.connection]!.filter((item) => item.phase === "unloading").length;
+        if (unloading >= unloader.capacity) {
+          markBlocked(event.connection, transit, `${connection.to.device}.${connection.to.port}`, connection.lineCellTravelTicks);
+          continue;
+        }
+        clearBlocked(event.connection, transit);
+        const arriveTick = state.tick + unloader.durationTicks;
+        mutateFactoryState(state, {
+          kind: "transport.update", connection: event.connection, transitId: transit.id,
+          changes: { phase: "unloading", cellIndex: -1, readyTick: arriveTick, arriveTick },
+        });
+        emit({ type: "resource.unload-start", tick: state.tick, transit: { ...transit }, connection: event.connection });
+        schedule(arriveTick, 7, { kind: "arrive", connection: event.connection, transitId: transit.id });
+      } else {
+        const targetIndex = transit.phase === "loading" ? 0 : transit.cellIndex + 1;
+        const targetCell = connection.transportCells[targetIndex]!;
+        const cell = project.transportCells[targetCell]!;
+        const contenders = waitingConnections(targetCell);
+        const cursor = (transportCellCursors[targetCell] ?? 0) % cell.connections.length;
+        const preferred = contenders.length > 1
+          ? [...cell.connections.slice(cursor), ...cell.connections.slice(0, cursor)].find((candidate) => contenders.includes(candidate))!
+          : event.connection;
+        if (occupiedCell(targetCell) || preferred !== event.connection) {
+          markBlocked(event.connection, transit, targetCell, cell.travelTicks);
+          continue;
+        }
+        clearBlocked(event.connection, transit);
+        const nextReadyTick = state.tick + cell.travelTicks;
+        mutateFactoryState(state, {
+          kind: "transport.update", connection: event.connection, transitId: transit.id,
+          changes: { phase: "belt", cellIndex: targetIndex, readyTick: nextReadyTick },
+        });
+        if (cell.connections.length > 1) {
+          const index = cell.connections.indexOf(event.connection);
+          transportCellCursors[targetCell] = (index + 1) % cell.connections.length;
+        }
+        emit({ type: "resource.belt-position", tick: state.tick, transit: { ...transit }, connection: event.connection, cell: targetCell, cellIndex: targetIndex });
+        schedule(nextReadyTick, 8, { kind: "belt-step", connection: event.connection, transitId: transit.id });
+      }
     } else if (event.kind === "arrive") {
       const transits = state.transports[event.connection]!; const index = transits.findIndex((transit) => transit.id === event.transitId);
       if (index < 0) continue;
       const transit = transits[index]!;
+      if (transit.phase !== "unloading" || transit.readyTick !== state.tick) continue;
       mutateFactoryState(state, { kind: "transport.remove", connection: event.connection, transitId: transit.id });
       mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count });
       emit({ type: "resource.arrive", tick: state.tick, transit: { ...transit }, connection: event.connection });

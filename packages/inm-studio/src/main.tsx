@@ -118,6 +118,9 @@ interface FactoryEvent {
   remaining?: number;
   transit?: { id: string; resource: string; count: number; departTick: number; arriveTick: number };
   connection?: string;
+  cell?: string | null;
+  cellIndex?: number;
+  waitingFor?: string;
   network?: string;
   route?: string;
 }
@@ -130,6 +133,10 @@ interface Metrics {
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
+  averageBeltItems: number;
+  averageBlockedBeltItems: number;
+  peakBeltItems: number;
+  beltCellUtilization: number;
   bottleneckEntity: string | null;
   consumed: Record<string, number>;
   extracted: Record<string, number>;
@@ -148,7 +155,7 @@ interface IndustrialAnalysis {
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
   }>;
-  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; capacityItemsPerMinute: number }>;
+  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityItemsPerMinute: number }>;
   powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
@@ -192,7 +199,7 @@ interface StudioData {
 }
 
 interface DeviceFrame { status: Status; progress: number }
-interface TransitFrame { id: string; material: string; progress: number; path: string }
+interface TransitFrame { id: string; material: string; progress: number; path: string; kind: "belt" | "station"; position?: { x: number; y: number }; blocked?: boolean }
 
 const STATUS_COLORS: Record<Status, string> = {
   idle: "#64748b",
@@ -246,10 +253,21 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     else if (event.device && event.type === "power.shortage") devices[event.device] = { status: "unpowered", progress: 0 };
     else if (event.device && event.type === "device.breakdown") devices[event.device] = { status: "failed", progress: 0 };
     else if (event.type === "resource.depart" && event.transit && event.connection) {
-      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.connection });
+      const connection = data.connections.find((item) => item.id === event.connection)!;
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.connection, kind: "belt", position: connection.points[0] });
+    } else if (event.type === "resource.belt-position" && event.transit && event.connection && event.cellIndex !== undefined) {
+      const transit = transits.get(event.transit.id); const connection = data.connections.find((item) => item.id === event.connection);
+      if (transit && connection) { transit.position = connection.points[event.cellIndex + 1]; transit.progress = (event.cellIndex + 1) / (connection.points.length - 1); transit.blocked = false; }
+    } else if (event.type === "resource.belt-blocked" && event.transit) {
+      const transit = transits.get(event.transit.id); if (transit) transit.blocked = true;
+    } else if (event.type === "resource.belt-unblocked" && event.transit) {
+      const transit = transits.get(event.transit.id); if (transit) transit.blocked = false;
+    } else if (event.type === "resource.unload-start" && event.transit && event.connection) {
+      const transit = transits.get(event.transit.id); const connection = data.connections.find((item) => item.id === event.connection);
+      if (transit && connection) { transit.position = connection.points.at(-1); transit.progress = 1; transit.blocked = false; }
     } else if (event.type === "resource.arrive" && event.transit) transits.delete(event.transit.id);
     else if (event.type === "logistics.depart" && event.transit && event.route) {
-      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.route });
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.route, kind: "station" });
     } else if (event.type === "logistics.arrive" && event.transit) transits.delete(event.transit.id);
   }
   for (const device of data.devices) {
@@ -260,8 +278,10 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     }
   }
   for (const transit of transits.values()) {
-    const depart = data.events.findLast((event) => (event.type === "resource.depart" || event.type === "logistics.depart") && event.transit?.id === transit.id)?.transit;
-    if (depart) transit.progress = Math.max(0, Math.min(1, (tick - depart.departTick) / Math.max(1, depart.arriveTick - depart.departTick)));
+    if (transit.kind === "station") {
+      const depart = data.events.findLast((event) => event.type === "logistics.depart" && event.transit?.id === transit.id)?.transit;
+      if (depart) transit.progress = Math.max(0, Math.min(1, (tick - depart.departTick) / Math.max(1, depart.arriveTick - depart.departTick)));
+    }
   }
   return { devices, transits: [...transits.values()], visibleEvents };
 }
@@ -358,14 +378,14 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
     {frame.transits.map((transit) => {
       const connection = [...data.connections, ...data.logisticsRoutes].find((item) => item.id === transit.path)!;
-      const position = "points" in connection ? pointAlongPath(connection.points, transit.progress) : pointAlongPath([connection.from, connection.to], transit.progress);
+      const position = transit.position ?? ("points" in connection ? pointAlongPath(connection.points, transit.progress) : pointAlongPath([connection.from, connection.to], transit.progress));
       const x = position.x;
       const z = position.y;
       const resource = data.resources[transit.material];
       const color = resource?.visual?.color ?? "#d7f3ff";
-      return <mesh key={transit.id} position={[x, .42, z]} castShadow>
+      return <mesh key={transit.id} position={[x, transit.blocked ? .52 : .42, z]} castShadow>
         {resource?.visual?.shape === "box" ? <boxGeometry args={[.28, .28, .28]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.17, .17, .22, 16]} /> : <sphereGeometry args={[.16, 16, 16]} />}
-        {resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={color} emissiveIntensity={.55} />}
+        {resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={transit.blocked ? "#ff7b49" : color} emissiveIntensity={transit.blocked ? 1.2 : .55} />}
       </mesh>;
     })}
     <OrbitControls makeDefault target={[data.bounds.width / 2, 0, data.bounds.height / 2]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI * .47} />
@@ -694,7 +714,7 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p></div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>

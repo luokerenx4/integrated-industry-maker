@@ -23,25 +23,17 @@
           "y": 10
         },
         {
+          "x": 4,
+          "y": 11
+        },
+        {
           "x": 5,
-          "y": 10
-        },
-        {
-          "x": 6,
-          "y": 10
-        },
-        {
-          "x": 7,
-          "y": 10
-        },
-        {
-          "x": 8,
-          "y": 10
+          "y": 11
         }
       ],
       "to": {
-        "device": "smelter-1",
-        "port": "input"
+        "device": "smelter-1-split",
+        "port": "input-west"
       }
     },
     {
@@ -226,10 +218,10 @@
     },
     {
       "from": {
-        "device": "ore-source-1",
-        "port": "output"
+        "device": "smelter-1-split",
+        "port": "output-east"
       },
-      "id": "ore-to-smelter-smelter-1-parallel",
+      "id": "ore-to-smelter-smelter-1-split-original",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -243,24 +235,44 @@
       },
       "path": [
         {
-          "x": 4,
+          "x": 8,
+          "y": 11
+        },
+        {
+          "x": 8,
+          "y": 10
+        }
+      ],
+      "to": {
+        "device": "smelter-1",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "smelter-1-split",
+        "port": "output-north"
+      },
+      "id": "ore-to-smelter-smelter-1-split-parallel",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 7,
           "y": 10
         },
         {
-          "x": 4,
+          "x": 7,
           "y": 9
-        },
-        {
-          "x": 4,
-          "y": 8
-        },
-        {
-          "x": 5,
-          "y": 8
-        },
-        {
-          "x": 6,
-          "y": 8
         },
         {
           "x": 7,
@@ -299,112 +311,16 @@
           "y": 8
         },
         {
-          "x": 12,
-          "y": 8
-        },
-        {
-          "x": 12,
+          "x": 11,
           "y": 9
-        }
-      ],
-      "to": {
-        "device": "station-supply",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "ore-source-1",
-        "port": "output"
-      },
-      "id": "ore-to-smelter-smelter-1-parallel-smelter-1-parallel-parallel",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
         },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
         {
-          "x": 4,
+          "x": 11,
           "y": 10
         },
         {
-          "x": 4,
-          "y": 9
-        },
-        {
-          "x": 4,
-          "y": 8
-        },
-        {
-          "x": 4,
-          "y": 7
-        },
-        {
-          "x": 4,
-          "y": 6
-        },
-        {
-          "x": 5,
-          "y": 6
-        },
-        {
-          "x": 6,
-          "y": 6
-        },
-        {
-          "x": 7,
-          "y": 6
-        },
-        {
-          "x": 8,
-          "y": 6
-        }
-      ],
-      "to": {
-        "device": "smelter-1-parallel-parallel",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "smelter-1-parallel-parallel",
-        "port": "output"
-      },
-      "id": "plate-to-station-smelter-1-parallel-smelter-1-parallel-parallel",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 11,
-          "y": 6
-        },
-        {
           "x": 12,
-          "y": 6
-        },
-        {
-          "x": 12,
-          "y": 7
-        },
-        {
-          "x": 12,
-          "y": 8
+          "y": 10
         },
         {
           "x": 12,
@@ -546,23 +462,25 @@
       "rotation": 0
     },
     {
+      "asset": "splitter",
+      "id": "smelter-1-split",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 6,
+        "y": 11
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
       "asset": "wind-turbine",
       "id": "wind-turbine-support",
       "position": {
         "x": 9,
         "y": 12
       },
-      "region": "forge-world",
-      "rotation": 0
-    },
-    {
-      "asset": "smelter",
-      "id": "smelter-1-parallel-parallel",
-      "position": {
-        "x": 9,
-        "y": 6
-      },
-      "process": "smelt-iron",
       "region": "forge-world",
       "rotation": 0
     }
@@ -600,8 +518,8 @@
     }
   ],
   "policies": {
-    "dispatch": "round-robin"
+    "dispatch": "fifo"
   },
-  "revision": "dd8a4b47e630028e2e020a30072e11fe4731311a8eaecb1e8b2c514dcaff03dd",
+  "revision": "fec3b429369412df41ab18bbd2f6bc692027aee0e1edb354d95062bba5f225e7",
   "version": 1
 }

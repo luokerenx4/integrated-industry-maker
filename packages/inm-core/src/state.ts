@@ -1,10 +1,11 @@
-import type { ActiveDeviceJob, DeviceStatus, FactoryState, ResourceTransit, Tick } from "./types";
+import type { ActiveDeviceJob, BeltTransit, DeviceStatus, FactoryState, ResourceTransit, Tick } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
   | { kind: "status"; device: string; status: DeviceStatus }
   | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number }
-  | { kind: "transport.add"; connection: string; transit: ResourceTransit }
+  | { kind: "transport.add"; connection: string; transit: BeltTransit }
+  | { kind: "transport.update"; connection: string; transitId: string; changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & { blockedBy?: string | null } }
   | { kind: "transport.remove"; connection: string; transitId: string }
   | { kind: "logistics.add"; network: string; transit: ResourceTransit }
   | { kind: "logistics.remove"; network: string; transitId: string }
@@ -34,6 +35,13 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       return;
     }
     case "transport.add": state.transports[mutation.connection]!.push(mutation.transit); return;
+    case "transport.update": {
+      const transit = state.transports[mutation.connection]!.find((item) => item.id === mutation.transitId);
+      if (!transit) throw new Error(`Unknown transit '${mutation.transitId}' on '${mutation.connection}'`);
+      Object.assign(transit, mutation.changes);
+      if (mutation.changes.blockedBy === null) delete transit.blockedBy;
+      return;
+    }
     case "transport.remove": {
       const transits = state.transports[mutation.connection]!; const index = transits.findIndex((item) => item.id === mutation.transitId);
       if (index < 0) throw new Error(`Unknown transit '${mutation.transitId}' on '${mutation.connection}'`);

@@ -226,7 +226,11 @@ Every physical connection includes the exact ordered grid cells occupied by its 
 }
 ```
 
-The first and last cells must be the exterior cells of the named ports. Consecutive cells must share a cardinal edge; paths cannot leave region bounds, repeat themselves, cross placed Devices, or cover finite resource nodes. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length. Multiple connections may deliberately reuse cells to form a visible belt graph. A reused cell has one line asset, one shared bandwidth clock, and deterministic round-robin arbitration across its connections. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
+The first and last cells must be the exterior cells of the named ports. Consecutive cells must share a cardinal edge; paths cannot leave region bounds, repeat themselves, cross placed Devices, or cover finite resource nodes. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
+
+Each compiled belt cell has one output direction and one item slot. Multiple connections may reuse cells only when they agree on that downstream direction, so branches may merge into a shared belt but cannot silently diverge without a placed transport junction. Every item moves through loading, exact belt-cell positions, and unloading. Occupied downstream cells stop movement, the blockage propagates upstream one cell at a time, and simultaneous merge contenders use deterministic round-robin arbitration. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
+
+A line asset's `planTransport()` capacity must equal the requested path distance: capacity is the number of physical one-item slots, while `durationTicks / distance` is the movement clock of each slot. Belt tiers change that duration; they do not manufacture hidden in-flight capacity outside the routed cells.
 
 ## Device TypeScript program
 

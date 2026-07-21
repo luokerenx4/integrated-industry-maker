@@ -111,6 +111,12 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.stage-role");
   });
 
+  test("requires one declared line slot for every physical belt cell", async () => {
+    const source = await loaded();
+    source.deviceAssets.conveyor!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 100 }) };
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.line-slot-count");
+  });
+
   test("validates explicit cardinal transport paths against ports, devices, deposits, and bounds", async () => {
     const source = await loaded();
     source.blueprint.connections[0]!.path[0] = { x: 5, y: 10 };
@@ -333,24 +339,63 @@ describe("deterministic discrete-event simulation", () => {
     source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
     source.blueprint.devices = [
       { id: "source-a", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
-      { id: "target-a", asset: "buffer", region: "forge-world", position: { x: 8, y: 0 }, rotation: 0 },
       { id: "source-b", asset: "buffer", region: "forge-world", position: { x: 0, y: 2 }, rotation: 0 },
-      { id: "target-b", asset: "buffer", region: "forge-world", position: { x: 8, y: 2 }, rotation: 0 },
+      { id: "target", asset: "buffer", region: "forge-world", position: { x: 8, y: 1 }, rotation: 0 },
     ];
     const logistics = { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } };
     source.blueprint.connections = [
-      { id: "shared-a", from: { device: "source-a", port: "output" }, to: { device: "target-a", port: "input" }, path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 6, y: 0 }, { x: 7, y: 0 }], logistics },
-      { id: "shared-b", from: { device: "source-b", port: "output" }, to: { device: "target-b", port: "input" }, path: [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 6, y: 2 }, { x: 7, y: 2 }], logistics },
+      { id: "shared-a", from: { device: "source-a", port: "output" }, to: { device: "target", port: "input" }, path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 7, y: 1 }], logistics },
+      { id: "shared-b", from: { device: "source-b", port: "output" }, to: { device: "target", port: "input" }, path: [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 7, y: 1 }], logistics },
     ];
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "source-a": { storage: { "iron-ore": 10 } }, "source-b": { storage: { "iron-ore": 10 } } };
     source.scenario.failures = [];
     const project = compileFactoryProject(source);
     expect(project.transportCells["forge-world:4,1"]!.connections).toEqual(["shared-a", "shared-b"]);
-    const result = runUntil(project, undefined, { untilTick: 550 });
-    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => [event.tick, event.connection])).toEqual([
-      [0, "shared-a"], [100, "shared-b"], [200, "shared-a"], [300, "shared-b"], [400, "shared-a"], [500, "shared-b"],
+    const result = runUntil(project, undefined, { untilTick: 1_000 });
+    expect(result.events.flatMap((event) => event.type === "resource.belt-position" && event.cell === "forge-world:4,1" ? [[event.tick, event.connection]] : [])).toEqual([
+      [410, "shared-a"], [510, "shared-b"], [620, "shared-a"], [720, "shared-b"], [830, "shared-a"], [930, "shared-b"],
     ]);
+    expect(result.events.some((event) => event.type === "resource.belt-blocked" && event.waitingFor === "forge-world:2,1")).toBeTrue();
+    const occupied = Object.entries(result.state.transports).flatMap(([connection, transits]) => transits
+      .filter((transit) => transit.phase === "belt")
+      .map((transit) => project.connections[connection]!.transportCells[transit.cellIndex]!));
+    expect(new Set(occupied).size).toBe(occupied.length);
+    source.blueprint.devices.push({ id: "target-b", asset: "buffer", region: "forge-world", position: { x: 8, y: 3 }, rotation: 0 });
+    source.blueprint.connections[1]!.to = { device: "target-b", port: "input" };
+    source.blueprint.connections[1]!.path = [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 4, y: 2 }, { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 3 }, { x: 7, y: 3 }];
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.shared-cell-direction");
+  });
+
+  test("slow unloading fills concrete belt cells and propagates backpressure upstream", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
+    source.deviceAssets["slow-unloader"] = {
+      ...source.deviceAssets.sorter!, id: "slow-unloader", name: "Slow unloader",
+      program: { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 1_000 }) },
+    };
+    source.blueprint.devices = [
+      { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
+      path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "slow-unloader" } },
+    }];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { source: { storage: { "iron-ore": 20 } } };
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    const result = runUntil(project, undefined, { untilTick: 1_500 });
+    const beltItems = result.state.transports.belt!.filter((transit) => transit.phase === "belt");
+    expect(beltItems.map((transit) => transit.cellIndex).sort()).toEqual([0, 1, 2, 3, 4]);
+    expect(result.state.transports.belt!.some((transit) => transit.phase === "loading" && transit.blockedBy === "forge-world:1,0")).toBeTrue();
+    expect(result.state.transports.belt!.some((transit) => transit.phase === "unloading")).toBeTrue();
+    expect(result.events.some((event) => event.type === "resource.belt-blocked" && event.cell === "forge-world:5,0" && event.waitingFor === "target.input")).toBeTrue();
+    expect(result.metrics.averageBlockedBeltItems).toBeGreaterThan(0);
+    expect(result.metrics.peakBeltItems).toBe(5);
+    expect(result.metrics.beltCellUtilization).toBeGreaterThan(0.5);
   });
 
   test("splitter policies route filtered resources through explicit output ports", async () => {
@@ -615,5 +660,13 @@ describe("artifacts and renderer-independent projection", () => {
     const base = createFactorySceneModel(project, result.metrics); const frame = replayFactoryEvents(project, result.events, 5000, result.metrics);
     expect(base.devices["smelter-1"]!.assetId).toBe("smelter"); expect(stableStringify(frame)).not.toContain("THREE.");
     expect(() => structuredClone(frame)).not.toThrow();
+    const beltEvent = result.events.find((event) => event.type === "resource.belt-position");
+    if (!beltEvent || beltEvent.type !== "resource.belt-position") throw new Error("missing belt position event");
+    const beltFrame = replayFactoryEvents(project, result.events, beltEvent.tick, result.metrics);
+    const item = beltFrame.resourcesInTransit.find((transit) => transit.id === beltEvent.transit.id)!;
+    const connection = project.connections[beltEvent.connection]!;
+    const cell = connection.path[beltEvent.cellIndex]!;
+    const regionOffset = beltFrame.regions.find((region) => region.id === connection.fromDevice.region)!.offset;
+    expect(item.position).toEqual({ x: cell.x + regionOffset.x + .5, y: cell.y + regionOffset.y + .5 });
   });
 });
