@@ -304,6 +304,8 @@ export interface BlueprintDevice {
   config?: Record<string, unknown>;
   policy?: {
     dispatch?: DispatchPolicy;
+    /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
+    powerPriority?: number;
     inputPriority?: string;
     outputPriority?: string;
     filter?: { resource: ResourceId; outputPort: string };

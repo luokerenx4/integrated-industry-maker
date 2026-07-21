@@ -23,6 +23,7 @@ export interface DeviceProductionRate {
   outputsPerMinute: Record<ResourceId, number>;
   inputPorts: Record<ResourceId, string>;
   outputPorts: Record<ResourceId, string>;
+  powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
@@ -44,6 +45,7 @@ export interface RecipeOptionAnalysis {
   inputPorts: Record<ResourceId, string>;
   outputPorts: Record<ResourceId, string>;
   targetOutputPerMinute: number;
+  powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
@@ -64,6 +66,7 @@ export interface DeviceExtractionRate {
   cycleTicks: number;
   itemsPerCycle: number;
   itemsPerMinute: number;
+  powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
@@ -82,6 +85,7 @@ export interface DeviceTreatmentRate {
   agentResource: ResourceId;
   agentPerCycle: number;
   agentPerMinute: number;
+  powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
@@ -145,7 +149,7 @@ export interface ConnectionRateLimit {
   maxLevel: number;
   stages: Array<{
     stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number;
-    device?: string; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
+    device?: string; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
   }>;
 }
 
@@ -381,6 +385,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         ...Object.fromEntries(device.processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
       },
       outputPorts: { ...(device.recipe?.outputs ?? {}) },
+      powerPriority: device.policy?.powerPriority ?? 0,
       idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
       powerMilliWatts: device.processPlan.powerMilliWatts,
     });
@@ -404,7 +409,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         selected: device.processPlan?.definition.id === process.id && device.processPlan.mode.id === mode.id, cycleTicks, cyclesPerMinute,
         inputs: amounts.inputs, outputs: amounts.outputs,
         inputPorts, outputPorts: bindings.outputs,
-        targetOutputPerMinute: targetOutput * cyclesPerMinute, idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
+        targetOutputPerMinute: targetOutput * cyclesPerMinute, powerPriority: device.policy?.powerPriority ?? 0,
+        idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
         powerMilliWatts: productionPowerMilliWatts(device.assetDef, mode),
       }];
     }));
@@ -420,6 +426,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       itemCount: plan.mode.itemCount, cycleTicks: plan.mode.durationTicks, itemsPerMinute: plan.mode.itemCount * cyclesPerMinute,
       inputBuffer: plan.inputBuffer, outputBuffer: plan.outputBuffer, agentBuffer: plan.agentBuffer,
       agentResource: plan.mode.agent.resource, agentPerCycle: plan.mode.agent.count, agentPerMinute,
+      powerPriority: device.policy?.powerPriority ?? 0,
       idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
       powerMilliWatts: device.assetDef.power.activeMilliWatts,
     });
@@ -479,6 +486,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       cycleTicks: device.extractionPlan.cycleTicks,
       itemsPerCycle: device.extractionPlan.itemsPerCycle,
       itemsPerMinute,
+      powerPriority: device.policy?.powerPriority ?? 0,
       idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
       powerMilliWatts: device.assetDef.power.activeMilliWatts,
     });
@@ -514,6 +522,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     sharedCells: connection.transportCells.filter((cell) => project.transportCells[cell]!.connections.length > 1).length,
     stages: connection.logisticsStages.map((stage) => ({
       stage: stage.stage, asset: stage.asset.id, distance: stage.distance, capacity: stage.capacity, durationTicks: stage.durationTicks, stackCapacity: stage.stackCapacity,
+      powerPriority: stage.device?.policy?.powerPriority ?? 0,
       idlePowerMilliWatts: stage.asset.power.idleMilliWatts, powerMilliWatts: stage.asset.power.activeMilliWatts,
       ...(stage.device ? { device: stage.device.id } : {}),
       ...(stage.powerGrid ? { powerGrid: stage.powerGrid } : {}), ...(stage.position ? { position: { ...stage.position } } : {}),

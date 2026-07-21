@@ -1,0 +1,38 @@
+{
+  "acceptance": {
+    "maximumCaseScoreRegression": 0,
+    "minimumAggregateScoreDelta": 0.001,
+    "requireCandidateCapacityReady": false
+  },
+  "baselineBlueprint": "power-priority-base",
+  "candidateBlueprint": "power-priority-candidate",
+  "cases": [
+    {
+      "id": "constrained-grid",
+      "name": "Critical line under a 240 kW grid cap",
+      "objective": "power-priority",
+      "scenario": "power-priority",
+      "seed": 42,
+      "weight": 1,
+      "world": "main"
+    }
+  ],
+  "id": "power-priority",
+  "lock": {
+    "cases": {
+      "constrained-grid": {
+        "blueprintHash": "fb57f4a2c18d5c575e9cd494f32e3c9e00f5aaa51bfa675f6b35c7346f71de6c",
+        "deviceCatalogHash": "0fd6303a7671c365f2934dc2408c3bd0d44288984417c5d080d0384d10d96285",
+        "engineVersion": "inm-sim/0.42.0",
+        "objectiveHash": "ac40f2a1778652293f2c2fd6e30915d5936465779cd7cb962c5e5157160b9480",
+        "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
+        "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
+        "scenarioHash": "49e796d649a6d7f52ca33b856f8c2d512af3e818f12c14a52ed7521a5187850a",
+        "worldHash": "84faa3bff5fc242f00c3bb0dd43f60513425b2c9b3cff374da2a415a7110bb00"
+      }
+    },
+    "contractHash": "ad60c5d9bff47ae205be0022abae7f5ccf069159d40c76f27528efcef91c849f"
+  },
+  "name": "Explicit Sorter and Critical Load Priority",
+  "version": 1
+}

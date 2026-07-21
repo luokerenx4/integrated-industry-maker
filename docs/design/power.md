@@ -1,6 +1,6 @@
 # Spatial power design
 
-Status: connected regional grids, explicit idle/active Device envelopes, explicit sorter Device loads, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.41.0`.
+Status: connected regional grids, explicit idle/active Device envelopes, authored load-shedding priority, explicit sorter Device loads, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.42.0`.
 
 Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
@@ -12,7 +12,7 @@ This document owns distributor topology, consumer coverage, generation, fuel bur
 
 Power is spatial and region-local. Distributor Devices within the minimum of their connection ranges form deterministic connected components. Components never cross regions. A consuming Device joins the nearest component whose distributor coverage contains its center.
 
-Explicit loader and unloader Devices are spatial consumers at their authored first and last belt cells, after applying their sorter distances from the machine ports. They join the local grid by their stable Device ids, continuously draw their idle baseline, and rise to their active total while moving cargo; the line itself does not draw endpoint power. A recipe Device contributes the active power of its selected production mode, clamped to at least the asset idle baseline. Every compiled grid records distributors, Device members (including connected sorters), transport stages, rated generation, idle consumption, rated consumption, storage members, energy capacity, and aggregate charge/discharge limits.
+Explicit loader and unloader Devices are spatial consumers at their authored first and last belt cells, after applying their sorter distances from the machine ports. They join the local grid as independent Device instances, continuously draw their idle baseline, and rise to their active total while moving cargo; the line itself does not draw endpoint power. A recipe Device contributes the active power of its selected production mode, clamped to at least the asset idle baseline. Every compiled grid records distributors, Device members (including connected sorters), transport stages, rated generation, idle consumption, rated consumption, storage members, energy capacity, and aggregate charge/discharge limits.
 
 ## Device power envelope
 
@@ -27,7 +27,9 @@ Every Device asset declares both values explicitly:
 
 `idleMilliWatts` is the connected standby baseline. `activeMilliWatts` is the total draw during work and already includes that baseline, so runtime demand is `idle + (active - idle)`, never `idle + active`. The compiler rejects `idle > active`; there is no legacy single-power field or migration fallback.
 
-At each grid rebalance, healthy members receive standby power in stable Device-id order. A Device whose baseline cannot be served becomes `unpowered` before it may begin work. Existing active work then competes for only the delta above standby and retains its exact interruption semantics. When baseline power returns, `power.standby-restored` makes an idle Device eligible for evaluation again. Requested-demand metrics retain rejected baselines, so brownouts remain visible instead of disappearing through load shedding.
+Every Blueprint Device may author `policy.powerPriority` as a non-negative integer. Higher priority receives finite grid power first; stable Device id resolves equal tiers. The priority applies to the complete envelope, so an active high-priority job reserves both its standby baseline and active-minus-idle delta before lower-ranked standby loads are admitted. Omission means priority zero; there is no implicit asset class priority.
+
+At each grid rebalance, healthy members receive standby and active power in that rank. A Device whose baseline cannot be served becomes `unpowered` before it may begin work. A higher-ranked pending job or sorter stage may preempt lower-ranked active work and persistent standby infrastructure. When baseline power returns, `power.standby-restored` makes an idle Device eligible for evaluation again. Requested-demand metrics retain rejected baselines, so load shedding remains visible instead of disappearing from demand.
 
 ## Accumulator contract
 
@@ -60,9 +62,9 @@ Renewable output follows its selected Scenario profile while its Device is healt
 
 For every interval between scheduled events, the runtime measures a constant generation/load state. A grid deficit draws energy from healthy non-empty storage in stable Device-id order, bounded independently by each accumulator's stored energy and discharge rate. A surplus charges healthy non-full storage in the same order, bounded by headroom and charge rate. The simulator schedules an internal event at the first exact integer-tick full/depleted boundary; it therefore rebalances power when the envelope changes rather than discovering a shortage only at the next unrelated production event. Energy moves only once through `energy.storage` state mutations and is conserved in per-Device and per-grid initial, final, charged, and discharged ledgers.
 
-Idle baselines, active Device jobs, persistent infrastructure, and active loader/unloader stages draw from their own compiled grid. Standby is allocated first; existing production/extraction jobs are then allocated by their active-minus-idle delta before new work and in stable Device-id order. If generation plus available discharge cannot cover an existing job, the runtime records its worked and remaining ticks, invalidates the old completion event, changes the Device to `unpowered`, and keeps its already-consumed inputs or extraction reservation. When power returns, the same job resumes for exactly its remaining ticks; it neither restarts nor consumes inputs twice. Fuel-generation jobs do not consume grid power and therefore are not paused by their own output loss. A failed Device still follows failure semantics: its active job ends, and an extraction reservation is released.
+Idle baselines, active Device jobs, persistent infrastructure, and active loader/unloader stages draw from their own compiled grid. Allocation uses authored `powerPriority` and then stable Device id across both standby and active deltas. If generation plus available discharge cannot cover existing work, the runtime records its worked and remaining ticks, invalidates the old completion event, changes the Device to `unpowered`, and keeps its already-consumed inputs or extraction reservation. When power returns or higher-ranked work releases capacity, the same job resumes for exactly its remaining ticks; it neither restarts nor consumes inputs twice. Fuel-generation jobs do not consume grid power and therefore are not paused by their own output loss. A failed Device still follows failure semantics: its active job ends, and an extraction reservation is released.
 
-A disconnected or underpowered loader cannot advance cargo and propagates belt backpressure. Endpoint restoration remains separate from Device-job restoration because transport stages are transient infrastructure activity rather than material-transforming jobs.
+A disconnected, preempted, or underpowered loader cannot advance cargo and propagates belt backpressure. Loading and unloading preserve the exact remaining stage duration during both failure and power interruption; restoration resumes the same transit rather than restarting it. Endpoint restoration remains separate from Device-job restoration because transport stages are transient infrastructure activity rather than material-transforming jobs.
 
 ## Static and measured meaning
 
@@ -72,7 +74,7 @@ The target-rate capacity plan adds a temporal design envelope without pretending
 
 Runtime metrics expose final/capacity energy plus cumulative charged/discharged energy per grid and `unpoweredTime` per Device. They also integrate generated, requested, served, unserved, and curtailed energy, peak generation/demand/deficit/surplus power, and the largest contiguous raw deficit-energy episode. Requested demand retains a Device's rejected power request while it is unpowered, so load shedding cannot disappear from the measurement merely because the job was unable to start.
 
-`power.storage-full` and `power.storage-depleted` identify physical boundaries. `power.shortage` covers rejected standby or active demand and optionally carries worked/remaining job ticks, `power.standby-restored` records standby recovery, `power.restored` carries the remaining active duration used for replay, and `power.generation-changed` exposes environmental boundaries. CLI simulation, immutable reports, Blueprint comparison, research, and Studio consume these same values.
+`power.storage-full` and `power.storage-depleted` identify physical boundaries. `power.shortage` covers rejected standby or active demand and optionally carries worked/remaining job ticks, `power.standby-restored` records standby recovery, `power.restored` carries the remaining active duration used for replay, and `transport.power-shortage` / `transport.power-restored` expose exact endpoint interruption. `power.generation-changed` exposes environmental boundaries. CLI simulation, immutable reports, Blueprint comparison, research, and Studio consume these same values; analysis displays every Device and logistics-stage priority.
 
 ## Measured storage research
 
@@ -118,10 +120,10 @@ bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --seed 42
 ```
 
-The power tests prove idle energy while waiting, active totals without double-counting standby, deterministic standby shedding, sorter standby energy, continuous surplus charging, exact depletion boundaries, retained input consumption, paused progress, exact remaining-work resumption after a timed generator failure, periodic renewable boundary wakeups, integrated deficit envelopes, measured generation/storage research, and Scenario-ready synthesis. High-throughput synthesis uses default 20-cell connection/coverage ranges on an 80×80 world and must compile one connected grid per active region, power every consuming Device and endpoint, and emit no shortage event.
+The power tests prove idle energy while waiting, active totals without double-counting standby, authored priority overriding Device-id order, critical-job reservation, explicit sorter preemption and exact resumption, sorter standby energy, continuous surplus charging, exact depletion boundaries, retained input consumption, paused progress, exact remaining-work resumption after a timed generator failure, periodic renewable boundary wakeups, integrated deficit envelopes, measured generation/storage research, and Scenario-ready synthesis. The `power-priority` coding-agent benchmark proves that changing only the critical assembler and sorter policies turns a stopped line into accepted delivery under the same locked 240 kW grid cap.
 
 ## Known next gaps
 
-- Grid priority tiers and deliberate brownout policies.
+- DSP-style proportional power satisfaction and speed scaling as an alternative to the current deterministic hard load-shedding policy.
 - Joint measured generator-plus-storage research bundles for grids that need both changes at once.
 - Non-renewable generator selection during synthesis when fuel economics are favorable.

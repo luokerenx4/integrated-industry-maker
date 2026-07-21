@@ -511,9 +511,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         path: `${path}/transportEndpoint/stage`, code: "logistics.endpoint-role",
         message: `Device asset '${asset.id}' cannot serve as logistics ${instance.transportEndpoint.stage}`,
       });
-      if (instance.recipe || instance.treatment || instance.resourceNodes || instance.bufferFilters || instance.portFilters || instance.policy) issues.push({
+      const materialPolicy = instance.policy?.dispatch || instance.policy?.inputPriority || instance.policy?.outputPriority || instance.policy?.filter;
+      if (instance.recipe || instance.treatment || instance.resourceNodes || instance.bufferFilters || instance.portFilters || materialPolicy) issues.push({
         path: `${path}/transportEndpoint`, code: "logistics.endpoint-exclusive",
-        message: "A transport endpoint attachment cannot also configure production, treatment, extraction, material filters, or dispatch policy",
+        message: "A transport endpoint attachment cannot also configure production, treatment, extraction, material filters, or material dispatch policy",
       });
     } else if (dedicatedEndpoint) issues.push({
       path: `${path}/transportEndpoint`, code: "logistics.endpoint-binding-required",

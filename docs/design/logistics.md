@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: explicit sorter Devices, physical local logistics, and treatment-aware dispatch implemented through `inm-sim/0.41.0`.
+Status: explicit sorter Devices, physical local logistics, power-priority preemption, and treatment-aware dispatch implemented through `inm-sim/0.42.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -63,7 +63,7 @@ For each planned local flow, synthesis writes a one-Resource lane allowlist and 
 
 ## Explicit sorter runtime
 
-Loader and unloader attachments are Device instances, not connection attributes. Their active cargo entities drive the Device's `processing` status and exact status-duration metrics; power loss drives `unpowered`; a Scenario failure drives `failed`. Every stage emits `transport.stage-start` and `transport.stage-finish` with the endpoint Device and transit identity, so replay and optimization do not have to infer ownership from a lane. If a sorter fails in the middle of loading or unloading, the runtime freezes the exact remaining stage time and resumes that same work after recovery. New work cannot enter a failed endpoint, and active power excludes failed or unserved stages while requested grid demand retains blocked work.
+Loader and unloader attachments are Device instances, not connection attributes. Their active cargo entities drive the Device's `processing` status and exact status-duration metrics; power loss drives `unpowered`; a Scenario failure drives `failed`. Every stage emits `transport.stage-start` and `transport.stage-finish` with the endpoint Device and transit identity, so replay and optimization do not have to infer ownership from a lane. If a sorter fails or loses its authored power-priority contest in the middle of loading or unloading, the runtime freezes the exact remaining stage time and resumes that same transit after recovery or capacity release. New work cannot enter an unavailable endpoint, and active power excludes failed or unserved stages while requested grid demand retains blocked work. `transport.power-shortage` and `transport.power-restored` identify power interruption independently from equipment failure.
 
 ## Station logistics
 
@@ -109,7 +109,7 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 
 ## Telemetry
 
-Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's explicit Device id, physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Device metrics preserve sorter idle, processing, unpowered, and failed intervals independently from capacity-normalized stage utilization. Station analysis records the effective network dispatch policy and, for every matched route, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, effective carrier batch range, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's explicit Device id, power priority, physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Device metrics preserve sorter idle, processing, unpowered, and failed intervals independently from capacity-normalized stage utilization. Station analysis records the effective network dispatch policy and, for every matched route, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, effective carrier batch range, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 

@@ -178,6 +178,14 @@ Each port binds to exactly one named buffer. Input ports cannot bind to output-o
 
 Power consumption and generation use integer milliwatts. Every Device declares an idle baseline and an active total. `activeMilliWatts` includes the idle baseline; the two values are never added together, and idle may not exceed active. A connected healthy Device receives idle power before it may wait, process, extract, treat, or move cargo. Renewable generation is continuously available while its Device is healthy:
 
+A Blueprint instance may declare a hard load-shedding rank independently from its asset:
+
+```json
+"policy": { "powerPriority": 10 }
+```
+
+`powerPriority` is a non-negative integer. Higher values receive both standby and active power before lower values; stable Device id resolves equal values, and omission means zero. A high-priority active job reserves its complete envelope, so lower-priority always-on infrastructure can be shed. This policy applies equally to processors, extractors, junctions, stations, and explicit sorter endpoint Devices.
+
 ```json
 "power": {
   "idleMilliWatts": 0,
@@ -281,7 +289,8 @@ The loader and unloader are ordinary, explicit Blueprint Device instances. A sor
   "region": "forge-world",
   "position": { "x": 4, "y": 10 },
   "rotation": 0,
-  "transportEndpoint": { "connection": "ore-to-smelter", "stage": "loader", "distance": 3 }
+  "transportEndpoint": { "connection": "ore-to-smelter", "stage": "loader", "distance": 3 },
+  "policy": { "powerPriority": 10 }
 }
 ```
 
@@ -293,7 +302,7 @@ The first and last cells must be level-0 cells exactly the loader and unloader D
 
 Each compiled belt cell has one output direction and one item slot. Multiple connections may reuse cells only when they agree on that downstream direction, so branches may merge into a shared belt but cannot silently diverge without a placed transport junction. Every item moves through loading, exact belt-cell positions, and unloading. Occupied downstream cells stop movement, the blockage propagates upstream one cell at a time, and simultaneous merge contenders use deterministic round-robin arbitration. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
 
-Each connection owns one loader and one unloader stage instance. Its `planTransport()` capacity limits concurrent items, while the asset's declared power is drawn once whenever that stage is active. A disconnected, underpowered, or failed loader cannot remove an item from its source buffer; an unavailable unloader holds the item in the final belt cell and propagates backpressure. A sorter failure during active work freezes that Device's exact remaining stage time and resumes it only after the same Device recovers. `transport.stage-start` / `transport.stage-finish`, shortage/restoration, per-Device status duration, per-endpoint utilization, and transport-only energy are recorded for run artifacts, optimization, and Studio replay. Simulation additionally records per-connection departures and deliveries by Resource, actual items/min against compiled capacity, average in-flight inventory, blocked item-ticks, and the fraction of in-flight time spent blocked. These measurements distinguish a nominally capable line from one that is saturated, failed, unpowered, or backpressured in its actual topology.
+Each connection owns one loader and one unloader stage instance. Its `planTransport()` capacity limits concurrent items, while the asset's declared power is drawn once whenever that stage is active. A disconnected, underpowered, preempted, or failed loader cannot remove an item from its source buffer; an unavailable unloader holds the item in the final belt cell and propagates backpressure. A sorter interruption during active work freezes that Device's exact remaining stage time and resumes the same transit only after failure recovery or power restoration. `transport.stage-start` / `transport.stage-finish`, power shortage/restoration, per-Device status duration, per-endpoint utilization, and transport-only energy are recorded for run artifacts, optimization, and Studio replay. Simulation additionally records per-connection departures and deliveries by Resource, actual items/min against compiled capacity, average in-flight inventory, blocked item-ticks, and the fraction of in-flight time spent blocked. These measurements distinguish a nominally capable line from one that is saturated, failed, unpowered, or backpressured in its actual topology.
 
 A line asset's `planTransport()` capacity must equal the requested path distance: capacity is the number of physical one-item slots, while `durationTicks / distance` is the movement clock of each slot. Belt tiers change that duration; they do not manufacture hidden in-flight capacity outside the routed cells.
 
@@ -623,7 +632,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.41.0",
+        "engineVersion": "inm-sim/0.42.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

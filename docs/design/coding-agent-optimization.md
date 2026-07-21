@@ -66,7 +66,7 @@ JSON output contains every case score, capacity state and gap, aggregate score, 
 
 A single Scenario rewards brittle layouts. A benchmark case suite represents an operating envelope: ordinary production, a timed equipment outage, intermittent regional power, demand variation, depleted feedstock, or another project-specific disturbance. Aggregate improvement is insufficient when a safety-critical case regresses beyond its configured allowance. This is the first bridge from a factory-game optimizer toward real production engineering: the Blueprint is evaluated as a control/design program under several declared conditions.
 
-The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
+The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. Blueprint-authored `policy.powerPriority` is part of the editable control program, so an Agent can protect a critical processor and its explicit loader/unloader without changing the asset catalog or evaluator. The focused `power-priority` benchmark locks a 240 kW grid cap and proves that exactly those three policy edits convert a stopped line into accepted gear delivery. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
 
 ## Source of truth
 
@@ -81,6 +81,7 @@ The bundled Ironworks program keeps the candidate initially byte-equivalent to i
 ```bash
 bun run inm benchmark examples/ironworks --benchmark autoresearch
 bun run inm benchmark examples/ironworks --benchmark autoresearch --json
+bun run inm benchmark examples/ironworks --benchmark power-priority
 ```
 
 Tests must prove unchanged-baseline scoring, fixed tick accounting, lock drift rejection, and explicit relocking. Broader engine changes that alter any locked content require a reviewed `--lock` update.

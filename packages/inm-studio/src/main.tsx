@@ -45,6 +45,7 @@ interface Device {
   assetId: string;
   name: string;
   region: string;
+  powerPriority: number;
   capabilities: string[];
   position: { x: number; y: number };
   rotation: number;
@@ -199,7 +200,7 @@ interface IndustrialAnalysis {
   devices: Array<{
     device: string; asset: string; process: string; mode: string; inputCycles: number; outputCycles: number; minimumInputTreatmentLevel: number; category: string; cycleTicks: number; cyclesPerMinute: number;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
-    inputPorts: Record<string, string>; outputPorts: Record<string, string>; idlePowerMilliWatts: number; powerMilliWatts: number;
+    inputPorts: Record<string, string>; outputPorts: Record<string, string>; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number;
   }>;
   bufferContracts: Array<{
     device: string; asset: string;
@@ -212,17 +213,17 @@ interface IndustrialAnalysis {
   recipeOptions: Array<{
     device: string; asset: string; process: string; mode: string; modeName: string; minimumInputTreatmentLevel: number; name: string; category: string; selected: boolean;
     cycleTicks: number; cyclesPerMinute: number; inputs: Array<{ resource: string; count: number }>; outputs: Array<{ resource: string; count: number }>;
-    inputPorts: Record<string, string>; outputPorts: Record<string, string>; targetOutputPerMinute: number; idlePowerMilliWatts: number; powerMilliWatts: number;
+    inputPorts: Record<string, string>; outputPorts: Record<string, string>; targetOutputPerMinute: number; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number;
   }>;
   productionGraph: {
     targetResource: string; rawInputsPerTarget: Record<string, number>; coproductSurplusPerTarget: Record<string, number>;
     steps: Array<{ device: string; process: string; mode: string; cyclesPerTarget: number }>;
     dependencies: Array<{ device: string; process: string; mode: string; inputs: string[]; outputs: string[] }>;
   };
-  extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; idlePowerMilliWatts: number; powerMilliWatts: number }>;
+  extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number }>;
   treatmentDevices: Array<{
     device: string; asset: string; mode: string; level: number; itemCount: number; cycleTicks: number; itemsPerMinute: number;
-    inputBuffer: string; outputBuffer: string; agentBuffer: string; agentResource: string; agentPerCycle: number; agentPerMinute: number; idlePowerMilliWatts: number; powerMilliWatts: number;
+    inputBuffer: string; outputBuffer: string; agentBuffer: string; agentResource: string; agentPerCycle: number; agentPerMinute: number; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number;
   }>;
   generationDevices: Array<{ device: string; asset: string; region: string; kind: "renewable" | "fuel"; outputMilliWatts: number; fuelBuffer?: string; fuelResource?: string; fuelPerMinute?: number; burnTicks?: number }>;
   storageDevices: Array<{ device: string; asset: string; region: string; capacityMilliJoules: number; initialMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number }>;
@@ -234,7 +235,7 @@ interface IndustrialAnalysis {
     dispatchPolicy: "fifo" | "round-robin" | "shortage-first";
     dispatchProfiles: Array<{ resource: string; targetKind: "objective" | "process" | "fuel" | "buffer"; coverageUnit: number; criticalDepth: number | null; minimumTreatmentLevel: number }>;
     capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
-    stages: Array<{ stage: "loader" | "line" | "unloader"; device?: string; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
+    stages: Array<{ stage: "loader" | "line" | "unloader"; device?: string; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
   transportCells: Array<{ cell: string; region: string; position: { x: number; y: number; level?: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
   powerGrids: Array<{
@@ -306,7 +307,7 @@ interface StudioData {
     from: { x: number; y: number; level: number };
     to: { x: number; y: number; level: number };
     points: Array<{ x: number; y: number; level: number }>;
-    endpoints: Array<{ stage: "loader" | "unloader"; device: string; asset: string; distance: number; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid: string | null }>;
+    endpoints: Array<{ stage: "loader" | "unloader"; device: string; asset: string; distance: number; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid: string | null }>;
   }>;
   logisticsRoutes: Array<{
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
@@ -668,6 +669,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>POSITION</small><b>{device.position.x.toFixed(0)}, {device.position.y.toFixed(0)} · {device.rotation}°</b></span>
         <span><small>FOOTPRINT</small><b>{device.footprint.width} × {device.footprint.height}</b></span>
         <span><small>BUILD COST</small><b>{asset?.economics.buildCost.toLocaleString() ?? "—"}</b></span>
+        <span><small>POWER PRIORITY</small><b>P{device.powerPriority}</b></span>
         <span><small>IDLE → ACTIVE POWER</small><b>{(idlePowerMilliWatts / 1000).toFixed(1)} → {(powerMilliWatts / 1000).toFixed(1)} W</b></span>
       </div>
       {device.transportEndpoint && <div className="inspector-section"><div className="inspector-section-title"><span>TRANSPORT ATTACHMENT</span><b>{device.transportEndpoint.stage.toUpperCase()}</b></div><div className="inspector-inline"><strong>{device.transportEndpoint.connection}</strong><code>{device.transportEndpoint.distance} cell arm · belt-side anchor</code></div></div>}
@@ -739,7 +741,7 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
         <div className="inspector-stage-list">{analysis?.stages.map((stage) => {
           const endpointPowered = stage.stage === "line" ? true : frame.endpointPower[`${connection.id}:${stage.stage}`];
           const utilization = stage.stage === "loader" ? stageUtilization?.loader : stage.stage === "unloader" ? stageUtilization?.unloader : flow?.utilization;
-          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.device ? `${stage.device} · ` : ""}{stage.asset}</b><code>{stage.distance} cell span · {stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`}{stage.powerMilliWatts ? ` · ${(stage.idlePowerMilliWatts / 1000).toFixed(1)} → ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
+          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.device ? `${stage.device} · ` : ""}{stage.asset}</b><code>{stage.distance} cell span · {stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`} · P{stage.powerPriority}{stage.powerMilliWatts ? ` · ${(stage.idlePowerMilliWatts / 1000).toFixed(1)} → ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
         })}</div>
       </div>
       <div className="inspector-section">
@@ -920,14 +922,14 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="pipeline-list">{analysis.devices.map((device) => <div className="pipeline-card" key={device.device}>
             <div className="pipeline-head"><span><strong>{device.device}</strong><small>{device.asset} · {device.process} / {device.mode}</small></span><b>{device.cyclesPerMinute.toFixed(2)} cycles/min</b></div>
             <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(device.inputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ") || "none"}</strong><code>{Object.entries(device.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(device.outputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ")}</strong><code>{Object.entries(device.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span></div>
-            <footer><span>JOB {device.inputCycles}× INPUT / {device.outputCycles}× OUTPUT · {device.cycleTicks}ms{device.minimumInputTreatmentLevel ? ` · INPUTS @${device.minimumInputTreatmentLevel}+` : ""}</span><span>{(device.idlePowerMilliWatts / 1000).toFixed(0)} → {(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
+            <footer><span>JOB {device.inputCycles}× INPUT / {device.outputCycles}× OUTPUT · {device.cycleTicks}ms{device.minimumInputTreatmentLevel ? ` · INPUTS @${device.minimumInputTreatmentLevel}+` : ""}</span><span>P{device.powerPriority} · {(device.idlePowerMilliWatts / 1000).toFixed(0)} → {(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
           </div>)}</div>
         </section>
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>MATERIAL TREATMENT</span><b>AGENT → LOT LEVEL</b></div>
           <div className="pipeline-list">{analysis.treatmentDevices.length ? analysis.treatmentDevices.map((device) => <div className="pipeline-card" key={device.device}>
             <div className="pipeline-head"><span><strong>{device.device}</strong><small>{device.asset} / {device.mode} · {device.inputBuffer} → {device.outputBuffer}</small></span><b>@{device.level} · {device.itemsPerMinute.toFixed(2)} ITEMS/MIN</b></div>
-            <footer><span>{device.itemCount} ITEMS / {device.cycleTicks}ms</span><span>{device.agentPerMinute.toFixed(2)} {device.agentResource.toUpperCase()}/MIN @ {device.agentBuffer}</span><span>{(device.idlePowerMilliWatts / 1000).toFixed(0)} → {(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
+            <footer><span>{device.itemCount} ITEMS / {device.cycleTicks}ms</span><span>{device.agentPerMinute.toFixed(2)} {device.agentResource.toUpperCase()}/MIN @ {device.agentBuffer}</span><span>P{device.powerPriority} · {(device.idlePowerMilliWatts / 1000).toFixed(0)} → {(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO MATERIAL TREATMENT DEVICES</span></div>}</div>
         </section>
         <section className="analysis-section material-analysis">
@@ -952,7 +954,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>RECIPE ALTERNATIVES</span><b>AUTO-PATCH CANDIDATES</b></div>
           <div className="pipeline-list">{analysis.recipeOptions.filter((option) => !option.selected).map((option) => <div className="pipeline-card" key={`${option.device}-${option.process}-${option.mode}`}>
-            <div className="pipeline-head"><span><strong>{option.process} / {option.modeName}</strong><small>{option.device} · {option.name} · {(option.idlePowerMilliWatts / 1000).toFixed(0)} → {(option.powerMilliWatts / 1000).toFixed(0)} W</small></span><b>{option.targetOutputPerMinute.toFixed(2)} {analysis.productionGraph.targetResource}/min</b></div>
+            <div className="pipeline-head"><span><strong>{option.process} / {option.modeName}</strong><small>{option.device} · {option.name} · P{option.powerPriority} · {(option.idlePowerMilliWatts / 1000).toFixed(0)} → {(option.powerMilliWatts / 1000).toFixed(0)} W</small></span><b>{option.targetOutputPerMinute.toFixed(2)} {analysis.productionGraph.targetResource}/min</b></div>
             <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(option.inputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ")}</strong><code>{option.inputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(option.outputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ")}</strong><code>{option.outputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span></div>
           </div>)}</div>
         </section>
@@ -967,7 +969,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             const mix = flow ? Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") : "";
             return <div className="pipeline-card" key={connection.connection}>
               <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to} · FILTER {connection.resources.join(" + ")}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
-              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.distance} cells · {stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.idlePowerMilliWatts / 1000).toFixed(1)}→${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.distance} cells · {stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms · P{stage.powerPriority}{stage.powerMilliWatts ? ` · ${(stage.idlePowerMilliWatts / 1000).toFixed(1)}→${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
               <footer><span>{connection.dispatchPolicy.toUpperCase()}{connection.dispatchPolicy === "shortage-first" ? ` · ${connection.dispatchProfiles.map((profile) => `${profile.resource}${profile.minimumTreatmentLevel ? `@${profile.minimumTreatmentLevel}+` : ""}:${profile.targetKind}/D${profile.criticalDepth ?? "-"}`).join(" + ")}` : ""}</span><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.maxLevel ? ` · LEVEL ${connection.maxLevel}` : ""}{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
             </div>;
           })}</div>

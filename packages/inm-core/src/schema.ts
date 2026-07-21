@@ -138,6 +138,7 @@ export const blueprintSchema = z.object({
     config: z.record(z.unknown()).optional(),
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
+      powerPriority: nonNegativeInt.optional(),
       inputPriority: id.optional(),
       outputPriority: id.optional(),
       filter: z.object({ resource: id, outputPort: id }).strict().optional(),

@@ -1,0 +1,21 @@
+{
+  "constraints": {
+    "maxBuildCost": 12000,
+    "maxOccupiedArea": 80,
+    "minProduction": 4
+  },
+  "id": "power-priority",
+  "name": "Protect Critical Gear Delivery",
+  "targetRatePerMinute": 12,
+  "targetRegion": "assembly-world",
+  "targetResource": "gear",
+  "weights": {
+    "blocked": 2,
+    "buildCost": 0.2,
+    "energy": 0.01,
+    "occupiedArea": 0.1,
+    "onTimeDelivery": 10,
+    "throughput": 10,
+    "wip": 0.1
+  }
+}

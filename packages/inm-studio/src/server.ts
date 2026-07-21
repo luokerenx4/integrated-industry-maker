@@ -174,6 +174,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       assetId: device.asset,
       name: device.assetDef.name,
       capabilities: device.assetDef.capabilities,
+      powerPriority: device.policy?.powerPriority ?? 0,
       region: device.region,
       position: {
         x: device.position.x + regionLayout.offsets.get(device.region)!.x,
@@ -228,7 +229,8 @@ async function loadStudioData(projectId: string, runName?: string) {
           stage: stageName, device: stage.device!.id, asset: stage.asset.id, distance: stage.distance, from: device, to: belt,
           position: { x: (device.x + belt.x) / 2, y: (device.y + belt.y) / 2 },
           idlePowerMilliWatts: stage.asset.power.idleMilliWatts,
-          powerMilliWatts: stage.asset.power.activeMilliWatts, powerGrid: stage.powerGrid ?? null,
+          powerMilliWatts: stage.asset.power.activeMilliWatts, powerPriority: stage.device!.policy?.powerPriority ?? 0,
+          powerGrid: stage.powerGrid ?? null,
         };
       });
       return {
