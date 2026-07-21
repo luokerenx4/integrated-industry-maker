@@ -225,7 +225,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -301,13 +301,23 @@ export function bindProcessPorts(
     return bindings;
   };
   const inputs = bind(process.inputs, production.inputPorts, preferred?.inputs);
-  const outputs = bind(process.outputs, production.outputPorts, preferred?.outputs);
+  const outputAmounts = process.quality?.kind === "inspection"
+    ? [
+      ...process.outputs,
+      { resource: process.quality.rejectResource, count: process.outputs[0]!.count },
+      ...(process.quality.scrapResource
+        ? [{ resource: process.quality.scrapResource, count: process.outputs[0]!.count }]
+        : []),
+    ]
+    : process.outputs;
+  const outputs = bind(outputAmounts, production.outputPorts, preferred?.outputs);
   return inputs && outputs ? { inputs, outputs } : null;
 }
 
 function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
   const candidates = devices.flatMap((producer) => {
     const processPlan = project.devices[producer.device]?.processPlans.find((plan) => plan.definition.id === producer.process && plan.mode.id === producer.mode);
+    if (processPlan?.definition.quality?.kind === "rework") return [];
     const amounts = processPlan ? plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets) : undefined;
     return processPlan ? [{
       key: `${producer.device}:${producer.process}:${producer.mode}`,
@@ -369,44 +379,45 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   const consumed: Record<ResourceId, number> = {};
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
     for (const [planIndex, processPlan] of device.processPlans.entries()) {
-    const cyclesPerMinute = 60_000 / processPlan.durationTicks;
-    const nominalShare = 1 / device.processPlans.length;
-    const inputsPerMinute: Record<ResourceId, number> = {};
-    const outputsPerMinute: Record<ResourceId, number> = {};
-    for (const amount of processPlan.inputs) {
-      add(inputsPerMinute, amount.resource, amount.count * cyclesPerMinute);
-      add(consumed, amount.resource, amount.count * cyclesPerMinute * nominalShare);
-    }
-    for (const amount of processPlan.outputs) {
-      add(outputsPerMinute, amount.resource, amount.count * cyclesPerMinute);
-      add(produced, amount.resource, amount.count * cyclesPerMinute * nominalShare);
-    }
-    const authoredRecipe = (device.recipes ?? (device.recipe ? [device.recipe] : []))[planIndex];
-    devices.push({
-      device: device.id,
-      asset: device.asset,
-      process: processPlan.definition.id,
-      mode: processPlan.mode.id,
-      inputCycles: processPlan.mode.inputCycles,
-      outputCycles: processPlan.mode.outputCycles,
-      minimumInputTreatmentLevel: processPlan.mode.minimumInputTreatmentLevel,
-      category: processPlan.definition.category,
-      cycleTicks: processPlan.durationTicks,
-      cyclesPerMinute,
-      inputsPerMinute,
-      outputsPerMinute,
-      inputPorts: {
-        ...(authoredRecipe?.inputs ?? {}),
-        ...Object.fromEntries(processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
-      },
-      outputPorts: { ...(authoredRecipe?.outputs ?? {}) },
-      powerPriority: device.policy?.powerPriority ?? 0,
-      idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
-      powerMilliWatts: processPlan.powerMilliWatts,
-      ...(processPlan.setupGroup ? { setupGroup: processPlan.setupGroup } : {}),
-      ...(processPlan.changeoverDurationTicks === undefined ? {} : { changeoverDurationTicks: processPlan.changeoverDurationTicks }),
-      ...(processPlan.changeoverPowerMilliWatts === undefined ? {} : { changeoverPowerMilliWatts: processPlan.changeoverPowerMilliWatts }),
-    });
+      const cyclesPerMinute = 60_000 / processPlan.durationTicks;
+      const nominalShare = 1 / device.processPlans.length;
+      const contributesToNominalBalance = processPlan.definition.quality?.kind !== "rework";
+      const inputsPerMinute: Record<ResourceId, number> = {};
+      const outputsPerMinute: Record<ResourceId, number> = {};
+      for (const amount of processPlan.inputs) {
+        add(inputsPerMinute, amount.resource, amount.count * cyclesPerMinute);
+        if (contributesToNominalBalance) add(consumed, amount.resource, amount.count * cyclesPerMinute * nominalShare);
+      }
+      for (const amount of processPlan.outputs) {
+        add(outputsPerMinute, amount.resource, amount.count * cyclesPerMinute);
+        if (contributesToNominalBalance) add(produced, amount.resource, amount.count * cyclesPerMinute * nominalShare);
+      }
+      const authoredRecipe = (device.recipes ?? (device.recipe ? [device.recipe] : []))[planIndex];
+      devices.push({
+        device: device.id,
+        asset: device.asset,
+        process: processPlan.definition.id,
+        mode: processPlan.mode.id,
+        inputCycles: processPlan.mode.inputCycles,
+        outputCycles: processPlan.mode.outputCycles,
+        minimumInputTreatmentLevel: processPlan.mode.minimumInputTreatmentLevel,
+        category: processPlan.definition.category,
+        cycleTicks: processPlan.durationTicks,
+        cyclesPerMinute,
+        inputsPerMinute,
+        outputsPerMinute,
+        inputPorts: {
+          ...(authoredRecipe?.inputs ?? {}),
+          ...Object.fromEntries(processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
+        },
+        outputPorts: { ...(authoredRecipe?.outputs ?? {}) },
+        powerPriority: device.policy?.powerPriority ?? 0,
+        idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
+        powerMilliWatts: processPlan.powerMilliWatts,
+        ...(processPlan.setupGroup ? { setupGroup: processPlan.setupGroup } : {}),
+        ...(processPlan.changeoverDurationTicks === undefined ? {} : { changeoverDurationTicks: processPlan.changeoverDurationTicks }),
+        ...(processPlan.changeoverPowerMilliWatts === undefined ? {} : { changeoverPowerMilliWatts: processPlan.changeoverPowerMilliWatts }),
+      });
     }
   }
   const recipeOptions: RecipeOptionAnalysis[] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((device) => {
@@ -647,6 +658,27 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
       message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}; per-operation rates are exclusive maxima`,
+    });
+  }
+  const selectedInspectionPlans = Object.values(project.devices).flatMap((device) => device.processPlans
+    .filter((plan) => plan.quality?.kind === "inspection").map((plan) => ({ device, plan, quality: plan.quality! })));
+  for (const { device, plan, quality } of selectedInspectionPlans) if (quality.kind === "inspection") diagnostics.push({
+    code: "quality-inspection", severity: "info", device: device.id,
+    message: `${device.id}/${plan.definition.id} detects ${quality.detects.join(", ")} and routes failed lots to ${quality.rejectOutput.resource}${quality.scrapOutput ? `, then ${quality.scrapOutput.resource} after ${quality.maxReworkCycles} rework cycle(s)` : ""}`,
+  });
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) for (const plan of device.processPlans) {
+    if (plan.quality?.kind !== "rework") continue;
+    diagnostics.push({
+      code: "quality-rework", severity: "info", device: device.id,
+      message: `${device.id}/${plan.definition.id} repairs ${plan.quality.repairs.join(", ")} while preserving lot identity; all other latent defects remain`,
+    });
+  }
+  const detectableDefects = new Set(selectedInspectionPlans.flatMap(({ quality }) => quality.kind === "inspection" ? quality.detects : []));
+  for (const defect of [...new Set((project.scenario.qualityExcursions ?? []).flatMap((excursion) => excursion.defects))].sort()) {
+    if (detectableDefects.has(defect)) continue;
+    diagnostics.push({
+      code: "quality-escape-risk", severity: "warning",
+      message: `Fixed Scenario introduces '${defect}', but no selected inspection operation detects it; a target lot can escape with latent quality loss`,
     });
   }
   const hasTreatmentSource = (device: string, buffer: string, resource: ResourceId, minimumLevel: number, visited = new Set<string>()): boolean => {

@@ -9,6 +9,10 @@ export type FactoryStateMutation =
   | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
   | { kind: "lot.complete"; lotIds: string[]; device: string; buffer: string }
   | { kind: "lot.scrap"; lotIds: string[]; device: string; reason: string }
+  | { kind: "lot.scrap-buffer"; lotIds: string[]; device: string; buffer: string; reason: string }
+  | { kind: "lot.quality-excursion"; lotIds: string[]; excursion: string; defects: string[] }
+  | { kind: "lot.inspect"; lotIds: string[]; result: "pass" | "reject" | "scrap" }
+  | { kind: "lot.rework"; lotIds: string[]; repairs: string[] }
   | { kind: "lot.checkpoint"; lotIds: string[] }
   | { kind: "transport.add"; connection: string; transit: BeltTransit }
   | { kind: "transport.update"; connection: string; transitId: string; changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & { blockedBy?: string | null } }
@@ -138,6 +142,47 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
           throw new Error(`Lot '${id}' is not processing on ${mutation.device}`);
         }
         setLotStatus(lot, state.tick, "scrapped", { kind: "scrapped", device: mutation.device, reason: mutation.reason });
+      }
+      return;
+    }
+    case "lot.scrap-buffer": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        removeLotFromBuffer(state, lot, mutation.device, mutation.buffer);
+        setLotStatus(lot, state.tick, "scrapped", { kind: "scrapped", device: mutation.device, reason: mutation.reason });
+      }
+      return;
+    }
+    case "lot.quality-excursion": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.quality.appliedExcursions.includes(mutation.excursion)) continue;
+        lot.quality.appliedExcursions.push(mutation.excursion);
+        lot.quality.appliedExcursions.sort();
+        lot.quality.defects = [...new Set([...lot.quality.defects, ...mutation.defects])].sort();
+      }
+      return;
+    }
+    case "lot.inspect": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        lot.quality.inspections += 1;
+        if (mutation.result === "pass") lot.quality.passes += 1;
+        else if (mutation.result === "reject") lot.quality.rejections += 1;
+        else lot.quality.scrapDispositions += 1;
+      }
+      return;
+    }
+    case "lot.rework": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        const repairs = new Set(mutation.repairs);
+        lot.quality.defects = lot.quality.defects.filter((defect) => !repairs.has(defect));
+        lot.quality.reworkCycles += 1;
       }
       return;
     }

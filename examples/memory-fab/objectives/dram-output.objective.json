@@ -1,12 +1,12 @@
 {
   "id": "dram-output",
-  "name": "Complete DRAM wafer lots with low WIP",
-  "targetResource": "dram-wafer-lot",
+  "name": "Deliver qualified DRAM wafer lots with controlled quality loss",
+  "targetResource": "qualified-dram-wafer-lot",
   "targetRegion": "cleanroom",
-  "targetRatePerMinute": 3,
+  "targetRatePerMinute": 2.5,
   "constraints": {
-    "maxBuildCost": 80000,
-    "maxOccupiedArea": 180,
+    "maxBuildCost": 140000,
+    "maxOccupiedArea": 320,
     "minProduction": 4
   },
   "weights": {
@@ -19,6 +19,8 @@
     "blocked": 3,
     "cycleTime": 2,
     "tardiness": 4,
-    "changeovers": 0.5
+    "changeovers": 0.5,
+    "qualityEscapes": 15,
+    "rework": 0.5
   }
 }

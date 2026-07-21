@@ -59,6 +59,24 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     meanTardinessTicks: mean(tardiness),
     maximumTardinessTicks: tardiness.at(-1) ?? 0,
   };
+  const defectFreeCompleted = completedTargetLots.filter((lot) => lot.quality.defects.length === 0).length;
+  const firstPassCompleted = completedTargetLots.filter((lot) => lot.quality.reworkCycles === 0 && lot.quality.defects.length === 0).length;
+  const qualityFlow: FactoryMetrics["qualityFlow"] = {
+    inspectedLots: targetLots.filter((lot) => lot.quality.inspections > 0).length,
+    totalInspections: targetLots.reduce((sum, lot) => sum + lot.quality.inspections, 0),
+    passedInspections: targetLots.reduce((sum, lot) => sum + lot.quality.passes, 0),
+    rejectedInspections: targetLots.reduce((sum, lot) => sum + lot.quality.rejections, 0),
+    scrapDispositions: targetLots.reduce((sum, lot) => sum + lot.quality.scrapDispositions, 0),
+    reworkedLots: targetLots.filter((lot) => lot.quality.reworkCycles > 0).length,
+    totalReworkCycles: targetLots.reduce((sum, lot) => sum + lot.quality.reworkCycles, 0),
+    defectFreeCompleted,
+    firstPassCompleted,
+    escapedDefects: completedTargetLots.filter((lot) => lot.quality.defects.length > 0).length,
+    activeDefects: targetLots.filter((lot) => lot.status !== "completed" && lot.status !== "scrapped")
+      .reduce((sum, lot) => sum + lot.quality.defects.length, 0),
+    goodYield: targetLots.length ? defectFreeCompleted / targetLots.length : 0,
+    firstPassYield: targetLots.length ? firstPassCompleted / targetLots.length : 0,
+  };
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
   const waitingInputTime: Record<string, Tick> = {};
@@ -145,6 +163,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     cycleTime: -(lotFlow.meanCycleTimeTicks / 60_000) * (weights.cycleTime ?? 0),
     tardiness: -(lotFlow.meanTardinessTicks / 60_000) * (weights.tardiness ?? 0),
     changeovers: -equipmentSetups.totalChangeovers * (weights.changeovers ?? 0),
+    qualityEscapes: -qualityFlow.escapedDefects * (weights.qualityEscapes ?? 0),
+    rework: -qualityFlow.totalReworkCycles * (weights.rework ?? 0),
     constraintPenalty: violations.length ? -1_000_000 : 0,
   };
   const finalScore = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0);
@@ -193,7 +213,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, qualityFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

@@ -402,7 +402,23 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 }
 ```
 
-The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. Optional `setupGroup` names retained equipment state; switching a setup-sensitive Device to a different group creates a separate powered changeover job. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed. See [[docs/design/equipment-changeover]].
+The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. Optional `setupGroup` names retained equipment state; switching a setup-sensitive Device to a different group creates a separate powered changeover job. Optional `quality` makes a one-lot Process an inspection or selective rework operation. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed. See [[docs/design/equipment-changeover]] and [[docs/design/quality-flow]].
+
+An inspection declares a normal pass output in `outputs` plus alternate rework and optional scrap Resources:
+
+```json
+{
+  "quality": {
+    "kind": "inspection",
+    "detects": ["critical-dimension", "particle-contamination"],
+    "rejectResource": "rework-required-dram-wafer-lot",
+    "scrapResource": "scrap-dram-wafer-lot",
+    "maxReworkCycles": 1
+  }
+}
+```
+
+The Blueprint recipe must bind pass, reject, and scrap Resources to physical output ports. They are mutually exclusive dispositions, not coproducts. A rework Process uses `quality: { "kind": "rework", "repairs": ["critical-dimension"] }`; other latent defects remain with the lot. A terminal Device asset uses capability `discard` and an ordinary consuming runtime to mark tracked input lots scrapped without counting Objective delivery.
 
 `inm analyze` also enumerates every project-local Process/mode pair compatible with each placed production Device. A deterministic binder preserves existing Resource assignments when possible, assigns new ingredients to distinct compatible buffers, and exposes the resulting recipe object as an optimization candidate. The selected production graph solves one target item as a global material balance over the active jobs, so coproducts, auxiliary inputs, and recycle loops retain their real topology. The CLI and research agent can compare alternatives before simulation while still using simulation and objective score as the final KEEP/REVERT authority.
 
@@ -624,6 +640,9 @@ Initial quantities address device and buffer explicitly:
     { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "priority": 10, "dueTick": 90000 }
   ],
   "initialSetups": { "lithography-1": "photo-mask-l1" },
+  "qualityExcursions": [
+    { "id": "cd-lot-03", "process": "etch-cell-layer-2", "lot": "dram-lot-03", "defects": ["critical-dimension"] }
+  ],
   "initialTreatments": [
     { "device": "smelter-1", "buffer": "input", "resource": "iron-ore", "level": 1, "count": 2 }
   ],
@@ -660,6 +679,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `initialSetups` maps setup-sensitive Device ids to qualified Process setup groups at tick zero. An omitted Device starts unconfigured and must perform a first changeover when ready WIP arrives. Scenario setup is fixed benchmark input; a candidate Blueprint cannot edit the physical starting state.
 
+`qualityExcursions` is fixed deterministic benchmark workload. Each unique id names one initial lot, one Process, and one or more latent defect classes. The excursion is applied once when that lot first completes the Process. It is not a random seed or probability: every candidate Blueprint receives the same named quality challenge.
+
 ```json
 {
   "id": "default",
@@ -678,12 +699,14 @@ Capacity planning integrates these curves against the Objective-derived constant
     "blocked": 2,
     "cycleTime": 0,
     "tardiness": 0,
-    "changeovers": 0
+    "changeovers": 0,
+    "qualityEscapes": 0,
+    "rework": 0
   }
 }
 ```
 
-`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by released lots. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes each completed equipment reconfiguration. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
+`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by released lots. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
 ## Coding Agent benchmark
 
@@ -716,7 +739,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.49.0",
+        "engineVersion": "inm-sim/0.50.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

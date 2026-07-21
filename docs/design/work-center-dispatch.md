@@ -1,8 +1,8 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, and setup-aware deterministic ready-WIP dispatch implemented in engine version `inm-sim/0.49.0`.
+Status: multi-operation qualification plus operation-, lot-, setup-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.50.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
 ## Why this exists
 

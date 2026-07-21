@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "id": "inspect-final-pattern-deep",
+  "name": "Deep final patterned-wafer inspection",
+  "description": "Deep final patterned-wafer inspection classifies each identity-preserving wafer lot into pass, rework, or terminal scrap.",
+  "category": "inspection",
+  "tags": [
+    "dram",
+    "quality",
+    "inline-inspection"
+  ],
+  "durationTicks": 8000,
+  "inputs": [
+    {
+      "resource": "dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "qualified-dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "quality": {
+    "kind": "inspection",
+    "detects": [
+      "critical-dimension",
+      "latent-electrical",
+      "particle-contamination"
+    ],
+    "rejectResource": "rework-required-dram-wafer-lot",
+    "scrapResource": "scrap-dram-wafer-lot",
+    "maxReworkCycles": 1
+  }
+}

@@ -3,7 +3,7 @@ import { evaluateFactory, type SimulationStats } from "./evaluator";
 import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
-  BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
+  ActiveDeviceJob, BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
   ResourceBufferQuantity, ResourceTransit, SimulationResult,
 } from "./types";
 import { hashValue } from "./utils";
@@ -114,6 +114,10 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
       releasedAtTick: 0,
       ...(definition.dueTick === undefined ? {} : { dueTick: definition.dueTick }),
       routeStep: 0,
+      quality: {
+        defects: [], appliedExcursions: [], inspections: 0, passes: 0,
+        rejections: 0, scrapDispositions: 0, reworkCycles: 0,
+      },
       status: "queued",
       statusSinceTick: 0,
       queueTicks: 0,
@@ -888,7 +892,24 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return leftKeys.length === rightKeys.length && leftKeys.every((value, index) => value === rightKeys[index]);
   };
   const amountKey = (amount: Pick<ResourceBufferQuantity, "buffer" | "resource">): string => `${amount.buffer}\0${amount.resource}`;
-  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], delivered: boolean): Record<string, string[]> => {
+  const resolveInspectionExecution = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]) => {
+    const quality = plan.quality;
+    if (quality?.kind !== "inspection") return undefined;
+    const transfer = plan.lotTransfers[0]!;
+    const lotId = rankedLotIds(device, transfer.input.buffer, transfer.input.resource)
+      .find((id) => state.lots[id]!.treatmentLevel >= (transfer.input.minimumTreatmentLevel ?? 0));
+    if (!lotId) return undefined;
+    const lot = state.lots[lotId]!;
+    const detectedDefects = lot.quality.defects.filter((defect) => quality.detects.includes(defect)).sort();
+    const result = detectedDefects.length === 0 ? "pass" as const
+      : quality.scrapOutput && lot.quality.reworkCycles >= quality.maxReworkCycles ? "scrap" as const
+        : "reject" as const;
+    const output = result === "pass" ? quality.passOutput
+      : result === "scrap" ? quality.scrapOutput!
+        : quality.rejectOutput;
+    return { lotId, detectedDefects, result, output };
+  };
+  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], disposition: "process" | "deliver" | "scrap"): Record<string, string[]> => {
     const consumedLots: Record<string, string[]> = {};
     for (const amount of amounts) {
       if (isTracked(amount.resource)) {
@@ -896,13 +917,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           .filter((id) => state.lots[id]!.treatmentLevel >= (amount.minimumTreatmentLevel ?? 0)).slice(0, amount.count);
         if (lotIds.length !== amount.count) throw new Error(`Insufficient tracked lots for ${device.id}/${amount.buffer}/${amount.resource}`);
         consumedLots[amountKey(amount)] = lotIds;
-        if (delivered) {
+        if (disposition === "deliver") {
           mutateFactoryState(state, { kind: "lot.complete", lotIds, device: device.id, buffer: amount.buffer });
           for (const id of lotIds) {
             const lot = state.lots[id]!;
             const cycleTicks = state.tick - lot.releasedAtTick;
             const tardinessTicks = Math.max(0, state.tick - (lot.dueTick ?? state.tick));
             emit({ type: "lot.completed", tick: state.tick, device: device.id, lot: id, family: lot.family, resource: amount.resource, cycleTicks, tardinessTicks });
+          }
+        } else if (disposition === "scrap") {
+          mutateFactoryState(state, { kind: "lot.scrap-buffer", lotIds, device: device.id, buffer: amount.buffer, reason: "quality-rejection" });
+          for (const id of lotIds) {
+            const lot = state.lots[id]!;
+            emit({ type: "lot.scrapped", tick: state.tick, device: device.id, lot: id, family: lot.family, resource: amount.resource, reason: "quality-rejection" });
           }
         } else mutateFactoryState(state, {
           kind: "lot.depart", lotIds, device: device.id, buffer: amount.buffer,
@@ -920,7 +947,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
       if (remaining > 0) throw new Error(`Insufficient eligible material for ${device.id}/${amount.buffer}/${amount.resource}`);
       }
-      if (delivered) {
+      if (disposition === "deliver") {
         mutateFactoryState(state, { kind: "consumed", resource: amount.resource, count: amount.count });
         mutateFactoryState(state, { kind: "orders", count: amount.count });
         const regional = stats.consumedByRegion[device.region] ??= {};
@@ -979,7 +1006,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (decision.count !== 1 || decision.durationTicks !== fuel.durationTicks || decision.outputMilliWatts !== plan.outputMilliWatts) throw new Error(`Device program '${device.asset}' must use the compiled fuel generation plan`);
       const amount = { buffer: plan.fuelBuffer, resource: fuel.resource, count: 1 };
       if (!amountAvailable(device, amount)) { setStatus(device.id, "waiting-input"); return false; }
-      applyConsume(device, [amount], false);
+      applyConsume(device, [amount], "process");
       mutateFactoryState(state, { kind: "fuel", resource: fuel.resource, count: 1 });
       const job = {
         operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
@@ -1029,7 +1056,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         kind: "buffer", device: device.id, buffer: plan.inputBuffer, resource: decision.resource,
         delta: -decision.count, treatmentLevel: decision.inputTreatmentLevel,
       });
-      applyConsume(device, [agent], false);
+      applyConsume(device, [agent], "process");
       mutateFactoryState(state, { kind: "treatment.agent", resource: agent.resource, count: agent.count });
       const job = {
         operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
@@ -1049,7 +1076,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     if (!allAmountsKnown(device, decision.consume)) throw new Error(`Device program '${device.asset}' referenced an unknown resource or buffer`);
     if (!decision.consume.every((amount) => amountAvailable(device, amount))) { setStatus(device.id, "waiting-input"); return false; }
-    if (decision.kind === "consume") { applyConsume(device, decision.consume, true); setStatus(device.id, "idle"); return true; }
+    if (decision.kind === "consume") {
+      applyConsume(device, decision.consume, device.assetDef.capabilities.includes("discard") ? "scrap" : "deliver");
+      setStatus(device.id, "idle"); return true;
+    }
     if (!allAmountsKnown(device, decision.produce)) throw new Error(`Device program '${device.asset}' referenced an unknown output resource or buffer`);
     if (selectedProcessPlan) {
       const plan = selectedProcessPlan;
@@ -1059,7 +1089,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         throw new Error(`Device program '${device.asset}' must execute compiled process '${plan.definition.id}' mode '${plan.mode.id}' exactly`);
       }
     }
-    if (!outputFits(device, decision.produce)) {
+    const inspectionExecution = selectedProcessPlan?.quality?.kind === "inspection"
+      ? resolveInspectionExecution(device, selectedProcessPlan) : undefined;
+    const capacityOutputs = inspectionExecution ? [inspectionExecution.output] : decision.produce;
+    if (!outputFits(device, capacityOutputs)) {
       if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
       return false;
     }
@@ -1070,16 +1103,34 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, available) : 0 });
       setStatus(device.id, "unpowered"); return false;
     }
-    const consumedLots = applyConsume(device, decision.consume, false);
-    const lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
+    const consumedLots = applyConsume(device, decision.consume, "process");
+    let lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
       lotIds: consumedLots[amountKey(transfer.input)] ?? [],
       output: { ...transfer.output },
     })).filter((transfer) => transfer.lotIds.length) ?? [];
+    let actualProduce = structuredClone(decision.produce);
+    let quality: ActiveDeviceJob["quality"];
+    const processQuality = selectedProcessPlan?.quality;
+    if (processQuality?.kind === "inspection") {
+      const lotIds = lotTransfers.flatMap((transfer) => transfer.lotIds);
+      if (lotIds.length !== 1) throw new Error(`Inspection Process '${selectedProcessPlan!.definition.id}' must select exactly one lot`);
+      if (!inspectionExecution || inspectionExecution.lotId !== lotIds[0]) throw new Error(`Inspection lot selection changed while starting '${selectedProcessPlan!.definition.id}'`);
+      const { detectedDefects, result, output } = inspectionExecution;
+      actualProduce = [{ ...output }];
+      lotTransfers = [{ lotIds, output: { ...output } }];
+      quality = { kind: "inspection", lotIds, detectedDefects, result };
+    } else if (processQuality?.kind === "rework") {
+      quality = {
+        kind: "rework", lotIds: lotTransfers.flatMap((transfer) => transfer.lotIds),
+        repairs: [...processQuality.repairs],
+      };
+    }
     const job = {
       operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
       remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
-      powerMilliWatts: required, produce: structuredClone(decision.produce),
+      powerMilliWatts: required, produce: actualProduce,
       ...(lotTransfers.length ? { lotTransfers } : {}),
+      ...(quality ? { quality } : {}),
     };
     setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
     emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks,
@@ -1088,7 +1139,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return true;
   };
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
-    plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device, plan.outputs);
+    plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device,
+      plan.quality?.kind === "inspection" ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput] : plan.outputs);
   const selectProcessPlan = (device: CompiledDevice): CompiledDevice["processPlans"][number] | undefined => {
     const ranked = device.processPlans.map((plan, index) => ({ plan, index }));
     const policy = device.policy?.recipeDispatch ?? "authored-order";
@@ -1494,6 +1546,34 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           });
         } else mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count, treatmentLevel: output.treatmentLevel });
         mutateFactoryState(state, { kind: "produced", resource: output.resource, count: output.count });
+      }
+      if (job.quality?.kind === "inspection") {
+        mutateFactoryState(state, { kind: "lot.inspect", lotIds: job.quality.lotIds, result: job.quality.result });
+        for (const id of job.quality.lotIds) emit({
+          type: "lot.inspected", tick: state.tick, device: event.device, lot: id, process: job.operation,
+          result: job.quality.result, detectedDefects: [...job.quality.detectedDefects], reworkCycles: state.lots[id]!.quality.reworkCycles,
+        });
+      } else if (job.quality?.kind === "rework") {
+        const before = Object.fromEntries(job.quality.lotIds.map((id) => [id, [...state.lots[id]!.quality.defects]]));
+        mutateFactoryState(state, { kind: "lot.rework", lotIds: job.quality.lotIds, repairs: job.quality.repairs });
+        for (const id of job.quality.lotIds) {
+          const remainingDefects = [...state.lots[id]!.quality.defects];
+          const repairedDefects = before[id]!.filter((defect) => !remainingDefects.includes(defect));
+          emit({
+            type: "lot.reworked", tick: state.tick, device: event.device, lot: id, process: job.operation,
+            repairedDefects, remainingDefects, reworkCycles: state.lots[id]!.quality.reworkCycles,
+          });
+        }
+      }
+      for (const id of job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? []) {
+        for (const excursion of (project.scenario.qualityExcursions ?? []).filter((candidate) => candidate.process === job.operation && candidate.lot === id)) {
+          if (state.lots[id]!.quality.appliedExcursions.includes(excursion.id)) continue;
+          mutateFactoryState(state, { kind: "lot.quality-excursion", lotIds: [id], excursion: excursion.id, defects: excursion.defects });
+          emit({
+            type: "lot.quality-excursion", tick: state.tick, device: event.device, lot: id, process: job.operation,
+            excursion: excursion.id, defects: [...excursion.defects],
+          });
+        }
       }
       if (job.extraction) {
         const node = project.resourceNodes[job.extraction.node]!;

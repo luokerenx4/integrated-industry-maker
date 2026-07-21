@@ -2,7 +2,7 @@
 
 Status: project launcher, stable project routes, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 

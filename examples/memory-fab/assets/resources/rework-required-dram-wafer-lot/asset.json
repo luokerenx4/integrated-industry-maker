@@ -1,0 +1,27 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "rework-required-dram-wafer-lot",
+  "name": "Rework-required DRAM Wafer Lot",
+  "description": "Inspected DRAM wafer lot routed to a qualified recovery operation.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "wip"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "tracking": {
+    "kind": "lot",
+    "family": "dram-wafer"
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

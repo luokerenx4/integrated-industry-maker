@@ -229,6 +229,21 @@
     "iron-ore": 74,
     "iron-plate": 29
   },
+  "qualityFlow": {
+    "activeDefects": 0,
+    "defectFreeCompleted": 0,
+    "escapedDefects": 0,
+    "firstPassCompleted": 0,
+    "firstPassYield": 0,
+    "goodYield": 0,
+    "inspectedLots": 0,
+    "passedInspections": 0,
+    "rejectedInspections": 0,
+    "reworkedLots": 0,
+    "scrapDispositions": 0,
+    "totalInspections": 0,
+    "totalReworkCycles": 0
+  },
   "resourceNodes": {
     "coal-seam-assembly": {
       "depleted": false,
@@ -275,6 +290,8 @@
     "energy": -2.4255675,
     "occupiedArea": -22,
     "onTimeDelivery": 4.166666666666667,
+    "qualityEscapes": 0,
+    "rework": 0,
     "tardiness": 0,
     "throughput": 50,
     "wip": -5.5094

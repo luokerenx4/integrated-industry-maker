@@ -2,7 +2,7 @@
 
 Status: explicit setup groups, powered changeover jobs, setup-aware dispatch, failure cancellation, metrics, and replay implemented in engine version `inm-sim/0.49.0`.
 
-Related: [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/quality-flow]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why setup is a first-class industrial job
 

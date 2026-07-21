@@ -37,6 +37,13 @@ const processAmountSchema = z.object({ resource: id, count: positiveInt }).stric
 export const processSchema = z.object({
   version: z.literal(1), id, name: z.string().min(1), description: z.string(), category: id, tags: z.array(id),
   setupGroup: id.optional(),
+  quality: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("inspection"), detects: z.array(id).min(1), rejectResource: id,
+      scrapResource: id.optional(), maxReworkCycles: nonNegativeInt.optional(),
+    }).strict(),
+    z.object({ kind: z.literal("rework"), repairs: z.array(id).min(1) }).strict(),
+  ]).optional(),
   durationTicks: positiveInt, inputs: z.array(processAmountSchema), outputs: z.array(processAmountSchema).min(1),
 }).strict();
 
@@ -52,7 +59,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["extract", "process", "treat", "store", "transport", "transport-junction", "station", "consume", "power"])).min(1),
+  capabilities: z.array(z.enum(["extract", "process", "treat", "store", "transport", "transport-junction", "station", "consume", "discard", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -200,6 +207,9 @@ export const scenarioSchema = z.object({
     priority: z.number().int().optional(), dueTick: nonNegativeInt.optional(),
   }).strict()).optional(),
   initialSetups: z.record(id).optional(),
+  qualityExcursions: z.array(z.object({
+    id, process: id, lot: id, defects: z.array(id).min(1),
+  }).strict()).optional(),
   initialTreatments: z.array(z.object({
     device: id, buffer: id, resource: id, level: positiveInt, count: positiveInt,
   }).strict()).optional(),
@@ -223,6 +233,7 @@ export const objectiveSchema = z.object({
     throughput: z.number(), onTimeDelivery: z.number().optional(), energy: z.number(),
     buildCost: z.number(), occupiedArea: z.number(), wip: z.number(), blocked: z.number(),
     cycleTime: z.number().optional(), tardiness: z.number().optional(), changeovers: z.number().optional(),
+    qualityEscapes: z.number().optional(), rework: z.number().optional(),
   }).strict(),
 }).strict();
 

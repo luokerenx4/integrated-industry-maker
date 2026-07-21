@@ -1,0 +1,27 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "scrap-dram-wafer-lot",
+  "name": "Scrap DRAM Wafer Lot",
+  "description": "DRAM wafer lot whose quality disposition is terminal scrap.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "scrap"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "tracking": {
+    "kind": "lot",
+    "family": "dram-wafer"
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

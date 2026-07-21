@@ -1,0 +1,56 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "scrap-bin",
+  "name": "Quality Scrap Bin",
+  "description": "Terminal quality disposition that destroys rejected tracked lots without counting delivery.",
+  "tags": [
+    "quality",
+    "scrap",
+    "terminal"
+  ],
+  "capabilities": [
+    "discard"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 2,
+      "height": 2
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "input",
+        "direction": "input",
+        "kind": "resource",
+        "side": "west",
+        "offset": 0,
+        "buffer": "input"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "input",
+      "role": "input",
+      "capacity": 32,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 0,
+    "activeMilliWatts": 0
+  },
+  "economics": {
+    "buildCost": 400
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

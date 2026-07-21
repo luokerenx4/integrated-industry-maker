@@ -16,7 +16,7 @@
 
 > A Device is a packaged black box with geometry, buffers, ports, visuals, and an editable TypeScript program.
 
-> A Process is project-local industrial source code: explicit inputs, outputs, category, and base cycle time.
+> A Process is project-local industrial source code: explicit inputs, outputs, category, base cycle time, and optional setup or quality behavior.
 
 > Resource and Device are the two asset classes. Every asset owns a directory.
 
@@ -62,7 +62,7 @@ JSON
 → immutable World region, coordinate, and finite resource-node resolution
 → rotation and footprint normalization
 → region identity, world coordinates, per-region bounds, resource-node range, and overlap validation
-→ Process category, speed, port, buffer, resource-contract, and device-config validation
+→ Process category, speed, port, buffer, resource-contract, setup, quality-disposition, excursion, and device-config validation
 → region-local power-distributor topology, coverage, and isolated-grid compilation
 → exact connection Resource allowlist, explicit sorter Device ownership/geometry, and cardinal transport-path validation; shared-cell graph compilation; loader/line/unloader throughput; and integer travel time
 → local/inter-zone topology, supply/demand matching, station-owned carrier compatibility, world-distance outbound/return time, and home-fleet compilation
@@ -104,6 +104,8 @@ The injection interface is uniform even though each device's implementation and 
 
 Setup-sensitive production stays on the host side of that boundary. Processes declare retained setup groups, Device assets declare fixed changeover time and power, and Scenarios declare tick-zero setup state. Before calling the Device program for ready work in another group, the host schedules a non-productive powered changeover. Blueprint dispatch can minimize or deliberately spend those changes, but cannot rewrite their physical cost. See [[docs/design/equipment-changeover]].
 
+Quality-sensitive production also stays on the host side. Named Scenario excursions add latent defects to exact lot identities once a matching Process completes. An inspection Process declares detected defect classes and mutually exclusive pass/rework/scrap Resources; the host resolves one output for the selected lot before work starts. Rework removes only declared repairable defects. A `discard` Device terminates a rejected lot without counting delivery. Blueprint code can select inspection recipes or duplicate equipment but cannot rewrite excursion workload or quality physics. See [[docs/design/quality-flow]].
+
 Treatment-aware jobs use the same host boundary. Programs see exact level batches and a compiled treatment plan; the host validates material identity, source/target levels, agent, duration, and power. Local belts and station cargo preserve that level, and shortage coverage counts only lots eligible for the downstream Process contract. See [[docs/design/material-treatment]].
 
 `inm analyze` compiles selected recipes and Resource-to-physical-port bindings, treatment requirements and Device/agent rates, effective port contracts and backing-buffer partitions, compatible alternatives, a globally balanced production graph, extraction and finite-deposit lifetime, material/fuel balance, grade-aware local and station logistics envelopes, effective dispatch policies and coverage profiles, endpoint power, accumulator capacity/startup energy/charge/discharge limits, and per-grid steady-state headroom without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
@@ -126,7 +128,7 @@ Each result is keyed by engine version, all catalog and input hashes, seed, dura
 
 ## Evaluation
 
-Evaluation exposes quantities, treated lots and agent consumption, throughput, completed orders, on-time delivery, consumed/fuel/stored/charged/discharged energy, build cost, occupied area, per-machine utilization, idle/waiting/blocked/unpowered time, WIP, belt occupancy/blocking, loader/unloader utilization, per-connection flow, transport-only energy, congestion, bottleneck, infeasibility, score breakdown, and final score.
+Evaluation exposes quantities, treated lots and agent consumption, throughput, completed orders, on-time delivery, inspection/rework/scrap/escape outcomes, good and first-pass yield, consumed/fuel/stored/charged/discharged energy, build cost, occupied area, per-machine utilization, idle/waiting/blocked/unpowered time, WIP, belt occupancy/blocking, loader/unloader utilization, per-connection flow, transport-only energy, congestion, bottleneck, infeasibility, score breakdown, and final score.
 
 Before simulation, `planProductionCapacity()` treats `Objective.targetRatePerMinute` as an executable industrial specification and `Objective.targetRegion` as its delivery boundary. Runtime throughput counts target-Resource consumption only in that region. A deterministic two-phase simplex solves all configured Process types as one non-negative material-balance system. Phase one minimizes weighted finite raw-resource extraction; phase two preserves that optimum while minimizing continuous installed Process capacity. This supports converging demand, alternative recipes, multiple outputs, direct and indirect recycle loops, and explicit surplus without pretending the graph is a tree. Blueprint synthesis adds a second formulation whose constraints are keyed by `(Resource, region)`: Process variables are region-qualified, raw-source variables have Scenario-derived reserve caps, and directed transport variables subtract from one regional balance and add to another with world-distance cost. Target-producing Processes are constrained to `targetRegion`, making upstream placement and intermediate shipment the optimized degrees of freedom. The resulting cycle rates size Process Devices and extractors, account for generator fuel, test finite reserves over Scenario time, check every Process input/output connection envelope, derive station fleet demand from route trip capacity, and build a regional power envelope. Every gap retains a stable kind, entity, and explanation. The plan is returned by `inm plan`, rendered in Studio, and injected into every research proposal; after a KEEP it is recomputed from the new compiled blueprint.
 

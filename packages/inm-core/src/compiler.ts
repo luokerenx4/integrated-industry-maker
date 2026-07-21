@@ -93,6 +93,34 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         message: `Process '${id}' cannot create or destroy '${family}' lot identities (${inputs[0]!.count} in, ${outputs[0]!.count} out)`,
       });
     }
+    if (process.quality?.kind === "inspection") {
+      const path = `processes/${id}.process.json/quality`;
+      const input = process.inputs[0]; const output = process.outputs[0];
+      const inputTracking = input ? resources[input.resource]?.tracking : undefined;
+      const outputTracking = output ? resources[output.resource]?.tracking : undefined;
+      if (process.inputs.length !== 1 || process.outputs.length !== 1 || input?.count !== 1 || output?.count !== 1 || !inputTracking || !outputTracking) {
+        issues.push({ path, code: "quality.inspection-lot-shape", message: `Inspection Process '${id}' must transform exactly one tracked lot input into one declared pass output` });
+      }
+      const alternatives = [process.quality.rejectResource, ...(process.quality.scrapResource ? [process.quality.scrapResource] : [])];
+      if (new Set([output?.resource, ...alternatives]).size !== 1 + alternatives.length) issues.push({
+        path, code: "quality.inspection-output-distinct", message: `Inspection Process '${id}' pass, reject, and scrap Resources must be distinct`,
+      });
+      for (const resourceId of alternatives) {
+        const resource = resources[resourceId];
+        if (!resource) issues.push({ path, code: "reference.resource", message: `Inspection Process '${id}' references unknown disposition Resource '${resourceId}'` });
+        else if (!resource.tracking || resource.tracking.family !== inputTracking?.family) issues.push({
+          path, code: "quality.inspection-family", message: `Inspection disposition Resource '${resourceId}' must track the same lot family as '${input?.resource}'`,
+        });
+      }
+      if (process.quality.maxReworkCycles !== undefined && !process.quality.scrapResource) issues.push({
+        path, code: "quality.scrap-output-required", message: `Inspection Process '${id}' needs scrapResource when maxReworkCycles is configured`,
+      });
+      if (new Set(process.quality.detects).size !== process.quality.detects.length) issues.push({
+        path: `${path}/detects`, code: "quality.duplicate-defect", message: `Inspection Process '${id}' declares a defect class more than once`,
+      });
+    } else if (process.quality?.kind === "rework" && new Set(process.quality.repairs).size !== process.quality.repairs.length) {
+      issues.push({ path: `processes/${id}.process.json/quality/repairs`, code: "quality.duplicate-defect", message: `Rework Process '${id}' declares a defect class more than once` });
+    }
   }
   for (const [id, asset] of Object.entries(devices)) {
     if (asset.power.idleMilliWatts > asset.power.activeMilliWatts) issues.push({
@@ -744,9 +772,13 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         const compiledOutputs = [] as NonNullable<CompiledDevice["processPlan"]>["outputs"];
         const lotTransfers: NonNullable<CompiledDevice["processPlan"]>["lotTransfers"] = [];
         const compiledBindings = { inputs: {} as Record<ResourceId, string>, outputs: {} as Record<ResourceId, string> };
+        const inspectionAlternatives = definition.quality?.kind === "inspection" ? [
+          { resource: definition.quality.rejectResource, count: definition.outputs[0]!.count },
+          ...(definition.quality.scrapResource ? [{ resource: definition.quality.scrapResource, count: definition.outputs[0]!.count }] : []),
+        ] : [];
         for (const [side, amounts, bindings, allowedPorts, compiled, resolvedBindings] of [
           ["inputs", definition.inputs, recipe.inputs, asset.production.inputPorts, compiledInputs, compiledBindings.inputs],
-          ["outputs", definition.outputs, recipe.outputs, asset.production.outputPorts, compiledOutputs, compiledBindings.outputs],
+          ["outputs", [...definition.outputs, ...inspectionAlternatives], recipe.outputs, asset.production.outputPorts, compiledOutputs, compiledBindings.outputs],
         ] as const) {
           const expected = new Set(amounts.map((amount) => amount.resource));
           for (const resource of Object.keys(bindings).sort()) if (!expected.has(resource)) {
@@ -811,6 +843,13 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
                 bindingValid = false;
               } else lotTransfers.push({ family, input: { ...input }, output: { ...outputs[0]! } });
             }
+            if (definition.quality?.kind === "inspection" && (lotTransfers.length !== 1 || lotTransfers[0]!.input.count !== 1 || lotTransfers[0]!.output.count !== 1)) {
+              issues.push({
+                path: `${recipePath}/mode`, code: "quality.inspection-single-lot",
+                message: `Inspection Process '${definition.id}' must execute as one identity-preserving lot per Device job`,
+              });
+              bindingValid = false;
+            }
             for (const bufferId of [...new Set([...compiledInputs, ...compiledOutputs].map((amount) => amount.buffer))]) {
               const amountsInBuffer = recipeBufferRequirements(bufferId, compiledInputs, compiledOutputs);
               const required = amountsInBuffer.reduce((sum, amount) => sum + amount.count, 0);
@@ -828,6 +867,23 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             issues.push({ path: recipePath, code: "production.duplicate-operation", message: `Qualified operation '${definition.id}/${mode.id}' is declared more than once` });
           }
           seenOperations.add(operationKey);
+          const passOutput = lotTransfers[0]?.output;
+          const quality = definition.quality?.kind === "inspection" && passOutput ? {
+            kind: "inspection" as const,
+            detects: [...definition.quality.detects],
+            passOutput: { ...passOutput },
+            rejectOutput: {
+              buffer: compiledBindings.outputs[definition.quality.rejectResource]!, resource: definition.quality.rejectResource,
+              count: passOutput.count, treatmentLevel: passOutput.treatmentLevel,
+            },
+            ...(definition.quality.scrapResource ? { scrapOutput: {
+              buffer: compiledBindings.outputs[definition.quality.scrapResource]!, resource: definition.quality.scrapResource,
+              count: passOutput.count, treatmentLevel: passOutput.treatmentLevel,
+            } } : {}),
+            maxReworkCycles: definition.quality.maxReworkCycles ?? Number.MAX_SAFE_INTEGER,
+          } : definition.quality?.kind === "rework" ? {
+            kind: "rework" as const, repairs: [...definition.quality.repairs],
+          } : undefined;
           const compiledPlan = {
             definition, mode,
             durationTicks: productionDurationTicks(definition, asset, mode),
@@ -836,6 +892,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             outputs: compiledOutputs,
             priority: recipe.priority ?? 0,
             lotTransfers,
+            ...(quality ? { quality } : {}),
             ...(definition.setupGroup ? { setupGroup: definition.setupGroup } : {}),
             ...(asset.production.changeover ? {
               changeoverDurationTicks: asset.production.changeover.durationTicks,
@@ -851,7 +908,9 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             (portResources[portId] ??= new Set()).add(resource);
           }
           for (const input of mode.auxiliaryInputs) (portResources[input.port] ??= new Set()).add(input.resource);
-          for (const amount of [...compiledInputs, ...compiledOutputs]) {
+          const qualityOutputs = quality?.kind === "inspection"
+            ? [quality.rejectOutput, ...(quality.scrapOutput ? [quality.scrapOutput] : [])] : [];
+          for (const amount of [...compiledInputs, ...compiledOutputs, ...qualityOutputs]) {
             const byResource = bufferRequirements[amount.buffer] ??= new Map();
             const existing = byResource.get(amount.resource);
             if (!existing || existing.count < amount.count) byResource.set(amount.resource, { ...amount });
@@ -1247,6 +1306,28 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const resourceCapacity = buffer?.resourceCapacities?.[lot.resource];
     if (resourceCapacity !== undefined && (lotsPerResourceBuffer.get(resourceKey) ?? 0) > resourceCapacity) issues.push({
       path, code: "buffer.resource-capacity", message: `Initial '${lot.resource}' lots exceed buffer quota ${resourceCapacity}`,
+    });
+  }
+  const excursionIds = new Set<string>();
+  for (const [index, excursion] of (loaded.scenario.qualityExcursions ?? []).entries()) {
+    const path = `scenario/qualityExcursions/${index}`;
+    if (excursionIds.has(excursion.id)) issues.push({ path: `${path}/id`, code: "quality.duplicate-excursion", message: `Quality excursion '${excursion.id}' is declared more than once` });
+    excursionIds.add(excursion.id);
+    const process = loaded.processes[excursion.process];
+    if (!process) issues.push({ path: `${path}/process`, code: "reference.process", message: `Unknown Process '${excursion.process}'` });
+    else if (!Object.values(devices).some((device) => device.processPlans.some((plan) => plan.definition.id === excursion.process))) issues.push({
+      path: `${path}/process`, code: "quality.process-not-qualified", message: `No Blueprint Device is qualified to run excursion Process '${excursion.process}'`,
+    });
+    if (!lotIds.has(excursion.lot)) issues.push({ path: `${path}/lot`, code: "quality.unknown-lot", message: `Unknown initial lot '${excursion.lot}'` });
+    if (new Set(excursion.defects).size !== excursion.defects.length) issues.push({ path: `${path}/defects`, code: "quality.duplicate-defect", message: `Quality excursion '${excursion.id}' declares a defect class more than once` });
+    const lotDefinition = loaded.scenario.initialLots?.find((lot) => lot.id === excursion.lot);
+    const lotFamily = lotDefinition ? loaded.resources[lotDefinition.resource]?.tracking?.family : undefined;
+    const processFamilies = process ? new Set([...process.inputs, ...process.outputs].flatMap((amount) => {
+      const family = loaded.resources[amount.resource]?.tracking?.family;
+      return family ? [family] : [];
+    })) : new Set<string>();
+    if (lotFamily && process && !processFamilies.has(lotFamily)) issues.push({
+      path, code: "quality.excursion-family", message: `Excursion Process '${process.id}' does not operate on lot family '${lotFamily}'`,
     });
   }
   for (const [deviceId, setupGroup] of Object.entries(loaded.scenario.initialSetups ?? {})) {

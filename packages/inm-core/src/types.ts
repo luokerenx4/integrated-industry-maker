@@ -58,6 +58,24 @@ export interface IndustrialProcessManifest {
   tags: string[];
   /** Recipe family retained by setup-sensitive equipment. Changing groups requires a physical changeover. */
   setupGroup?: string;
+  /** Deterministic lot-quality behavior owned by the fixed Process catalog. */
+  quality?:
+    | {
+      kind: "inspection";
+      /** Latent defect classes this operation can reveal. */
+      detects: string[];
+      /** Alternate tracked output used while a lot remains eligible for rework. */
+      rejectResource: ResourceId;
+      /** Optional terminal disposition after the configured rework limit. */
+      scrapResource?: ResourceId;
+      /** Number of completed rework cycles permitted before scrap disposition. */
+      maxReworkCycles?: number;
+    }
+    | {
+      kind: "rework";
+      /** Latent defect classes removed by one successful rework cycle. */
+      repairs: string[];
+    };
   durationTicks: Tick;
   inputs: ProcessAmount[];
   outputs: ProcessAmount[];
@@ -68,7 +86,7 @@ export interface IndustrialProcess extends IndustrialProcessManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "extract" | "process" | "treat" | "store" | "transport" | "transport-junction" | "station" | "consume" | "power";
+export type DeviceCapability = "extract" | "process" | "treat" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -424,6 +442,13 @@ export interface Scenario {
   }>;
   /** Scenario-owned setup state at tick zero for setup-sensitive production Devices. */
   initialSetups?: Record<DeviceInstanceId, string>;
+  /** Fixed, deterministic process excursions applied once to named lots when the matching operation completes. */
+  qualityExcursions?: Array<{
+    id: string;
+    process: ProcessId;
+    lot: string;
+    defects: string[];
+  }>;
   /** Treated subsets of initialBuffers. Undeclared remainder is untreated level zero. */
   initialTreatments?: Array<{ device: DeviceInstanceId; buffer: BufferId; resource: ResourceId; level: number; count: number }>;
   initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
@@ -453,6 +478,10 @@ export interface Objective {
     tardiness?: number;
     /** Penalty per completed equipment changeover. */
     changeovers?: number;
+    /** Penalty per target lot that escapes delivery with a latent defect. */
+    qualityEscapes?: number;
+    /** Penalty per completed rework cycle. */
+    rework?: number;
   };
 }
 
@@ -503,6 +532,16 @@ export interface CompiledDevice extends BlueprintDevice {
     priority: number;
     /** Identity-preserving input/output pairs. Counts are always equal. */
     lotTransfers: Array<{ family: string; input: ResourceBufferQuantity; output: ResourceBufferQuantity }>;
+    quality?:
+      | {
+        kind: "inspection";
+        detects: string[];
+        passOutput: ResourceBufferQuantity;
+        rejectOutput: ResourceBufferQuantity;
+        scrapOutput?: ResourceBufferQuantity;
+        maxReworkCycles: number;
+      }
+      | { kind: "rework"; repairs: string[] };
     setupGroup?: string;
     changeoverDurationTicks?: Tick;
     changeoverPowerMilliWatts?: number;
@@ -675,6 +714,9 @@ export interface ActiveDeviceJob {
   treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
   lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
   changeover?: { from: string | null; to: string };
+  quality?:
+    | { kind: "inspection"; lotIds: string[]; detectedDefects: string[]; result: "pass" | "reject" | "scrap" }
+    | { kind: "rework"; lotIds: string[]; repairs: string[] };
 }
 export type WorkLotStatus = "queued" | "processing" | "transport" | "completed" | "scrapped";
 export interface WorkLot {
@@ -686,6 +728,15 @@ export interface WorkLot {
   releasedAtTick: Tick;
   dueTick?: Tick;
   routeStep: number;
+  quality: {
+    defects: string[];
+    appliedExcursions: string[];
+    inspections: number;
+    passes: number;
+    rejections: number;
+    scrapDispositions: number;
+    reworkCycles: number;
+  };
   status: WorkLotStatus;
   statusSinceTick: Tick;
   queueTicks: Tick;
@@ -814,7 +865,10 @@ export type FactoryEvent =
   | { type: "logistics.energy-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; lotIds?: string[] }
   | { type: "lot.completed"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; cycleTicks: Tick; tardinessTicks: Tick }
-  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" }
+  | { type: "lot.quality-excursion"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; excursion: string; defects: string[] }
+  | { type: "lot.inspected"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; result: "pass" | "reject" | "scrap"; detectedDefects: string[]; reworkCycles: number }
+  | { type: "lot.reworked"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; repairedDefects: string[]; remainingDefects: string[]; reworkCycles: number }
+  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" | "quality-rejection" }
   | { type: "material.treated"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; fromLevel: number; toLevel: number; agentResource: ResourceId; agentCount: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
@@ -844,6 +898,8 @@ export interface ScoreBreakdown {
   cycleTime: number;
   tardiness: number;
   changeovers: number;
+  qualityEscapes: number;
+  rework: number;
   constraintPenalty: number;
 }
 export interface FactoryMetrics {
@@ -869,6 +925,21 @@ export interface FactoryMetrics {
     meanTransportTimeTicks: number;
     meanTardinessTicks: number;
     maximumTardinessTicks: number;
+  };
+  qualityFlow: {
+    inspectedLots: number;
+    totalInspections: number;
+    passedInspections: number;
+    rejectedInspections: number;
+    scrapDispositions: number;
+    reworkedLots: number;
+    totalReworkCycles: number;
+    defectFreeCompleted: number;
+    firstPassCompleted: number;
+    escapedDefects: number;
+    activeDefects: number;
+    goodYield: number;
+    firstPassYield: number;
   };
   energyConsumedMilliJoules: number;
   energyStorage: Record<string, {

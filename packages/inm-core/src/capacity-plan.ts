@@ -123,16 +123,18 @@ function add(target: Record<string, number>, key: string, value: number): void {
 export function planProductionCapacity(project: CompiledFactoryProject): ProductionCapacityPlan {
   const targetRatePerMinute = project.objective.targetRatePerMinute;
   const scenarioMinutes = project.scenario.durationTicks / 60_000;
-  const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => template.processPlans.map((processPlan) => {
-    const amounts = plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets);
-    const candidate = {
-      key: `${processPlan.definition.id}:${template.asset}:${processPlan.mode.id}`,
-      inputs: amounts.inputs,
-      outputs: amounts.outputs,
-      data: { template, processPlan },
-    };
-    return [candidate.key, candidate] as const;
-  }))).values()];
+  const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => template.processPlans
+    .filter((processPlan) => processPlan.definition.quality?.kind !== "rework")
+    .map((processPlan) => {
+      const amounts = plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets);
+      const candidate = {
+        key: `${processPlan.definition.id}:${template.asset}:${processPlan.mode.id}`,
+        inputs: amounts.inputs,
+        outputs: amounts.outputs,
+        data: { template, processPlan },
+      };
+      return [candidate.key, candidate] as const;
+    }))).values()];
   const producedResources = new Set(processCandidates.flatMap((candidate) => candidate.outputs.map((output) => output.resource)));
   const inputResources = new Set(processCandidates.flatMap((candidate) => candidate.inputs.map((input) => input.resource)));
   const rawResourceIds = Object.keys(project.resources).filter((resource) => Object.values(project.resourceNodes).some((node) => node.resource === resource)

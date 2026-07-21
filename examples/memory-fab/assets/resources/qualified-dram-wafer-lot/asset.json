@@ -1,0 +1,27 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "qualified-dram-wafer-lot",
+  "name": "Qualified DRAM Wafer Lot",
+  "description": "Defect-screened DRAM wafer lot released to wafer sort and downstream packaging.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "finished"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "tracking": {
+    "kind": "lot",
+    "family": "dram-wafer"
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

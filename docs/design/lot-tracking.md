@@ -1,8 +1,8 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, due-date dispatch, setup-aware queueing, and cycle-time evaluation implemented in engine version `inm-sim/0.49.0`.
+Status: explicit WIP identity, due-date dispatch, setup-aware queueing, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.50.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
 ## Why identity is industrial state
 
@@ -26,7 +26,7 @@ The valid lifecycle is:
 queued buffer → transport → queued buffer → processing
              ↘                 ↑             ↓
               completed sink   └ transformed output
-              scrapped on an interrupted equipment job
+              scrapped on an interrupted equipment job or terminal quality disposition
 ```
 
 Physical belt and station transits carry exact lot ids. A production start removes selected ids from the input buffer and holds them on the active Device job. Completion changes their Resource to the compiled output stage, increments `routeStep`, and queues the same ids in the output buffer. A boundary consumer marks them completed. An equipment breakdown that cancels an active job marks its held identities `scrapped` rather than leaving invisible WIP. `lot.completed` and `lot.scrapped` expose both outcomes in the immutable event stream.
@@ -56,7 +56,7 @@ Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean 
 
 ## Current boundary
 
-Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Batch formation, yield, inspection/rework, dynamically timed releases, chamber cleaning, and preventive maintenance remain later industrial layers. Sequence-dependent equipment setup is now explicit; see [[docs/design/equipment-changeover]].
+Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Batch formation, dynamically timed releases, chamber cleaning, preventive maintenance, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
 
 ## Verification
 
@@ -66,4 +66,4 @@ bun run inm test examples/memory-fab
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 ```
 
-The unchanged memory-fab candidate reports `UNCHANGED`. Changing both shared bays to `recipeDispatch: earliest-due-date` and `lotDispatch: earliest-due-date` must report `KEEP`, eliminate measured tardiness in the fixed case, and improve mean cycle time without changing the simulator or evaluator.
+The unchanged memory-fab candidate reports `UNCHANGED`. Replacing its standard final inspection recipe with the fixed deep-inspection alternative must report `KEEP` in the current Objective because the candidate eliminates one latent quality escape, even though it completes fewer lots with longer cycle time.

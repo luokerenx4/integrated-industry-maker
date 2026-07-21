@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "id": "rework-final-pattern",
+  "name": "Recover final pattern excursion",
+  "description": "A selective recovery operation that can repair critical-dimension excursions but not particle or latent electrical defects.",
+  "category": "rework",
+  "tags": [
+    "dram",
+    "quality",
+    "rework"
+  ],
+  "durationTicks": 8000,
+  "inputs": [
+    {
+      "resource": "rework-required-dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "quality": {
+    "kind": "rework",
+    "repairs": [
+      "critical-dimension"
+    ]
+  }
+}

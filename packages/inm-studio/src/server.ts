@@ -196,6 +196,14 @@ async function loadStudioData(projectId: string, runName?: string) {
         setupGroup: device.processPlan.setupGroup,
         changeoverDurationTicks: device.processPlan.changeoverDurationTicks,
         changeoverPowerMilliWatts: device.processPlan.changeoverPowerMilliWatts,
+        ...(device.processPlan.quality?.kind === "inspection" ? { quality: {
+          kind: "inspection" as const, detects: device.processPlan.quality.detects,
+          rejectResource: device.processPlan.quality.rejectOutput.resource,
+          scrapResource: device.processPlan.quality.scrapOutput?.resource,
+          maxReworkCycles: device.processPlan.quality.maxReworkCycles,
+        } } : device.processPlan.quality?.kind === "rework" ? { quality: {
+          kind: "rework" as const, repairs: device.processPlan.quality.repairs,
+        } } : {}),
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
         outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
       } } : {}),
@@ -209,6 +217,14 @@ async function loadStudioData(projectId: string, runName?: string) {
         setupGroup: plan.setupGroup,
         changeoverDurationTicks: plan.changeoverDurationTicks,
         changeoverPowerMilliWatts: plan.changeoverPowerMilliWatts,
+        ...(plan.quality?.kind === "inspection" ? { quality: {
+          kind: "inspection" as const, detects: plan.quality.detects,
+          rejectResource: plan.quality.rejectOutput.resource,
+          scrapResource: plan.quality.scrapOutput?.resource,
+          maxReworkCycles: plan.quality.maxReworkCycles,
+        } } : plan.quality?.kind === "rework" ? { quality: {
+          kind: "rework" as const, repairs: plan.quality.repairs,
+        } } : {}),
         inputs: plan.inputs.map((amount) => ({ ...amount })),
         outputs: plan.outputs.map((amount) => ({ ...amount })),
       })) } : {}),
@@ -320,6 +336,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         category: process.category,
         tags: process.tags,
         setupGroup: process.setupGroup,
+        quality: process.quality,
         durationTicks: process.durationTicks,
         inputs: process.inputs,
         outputs: process.outputs,

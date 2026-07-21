@@ -21,7 +21,12 @@ export interface BlueprintMetricSnapshot {
   throughputPerMinute: number;
   objectiveAttainment: number;
   completedLots: number;
+  scrappedLots: number;
   onTimeLots: number;
+  goodYield: number;
+  firstPassYield: number;
+  qualityEscapes: number;
+  reworkCycles: number;
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -51,7 +56,12 @@ export interface BlueprintMetricDelta {
   throughputPerMinute: number;
   objectiveAttainment: number;
   completedLots: number;
+  scrappedLots: number;
   onTimeLots: number;
+  goodYield: number;
+  firstPassYield: number;
+  qualityEscapes: number;
+  reworkCycles: number;
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -203,7 +213,12 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     throughputPerMinute: metrics.throughputPerMinute,
     objectiveAttainment: metrics.onTimeDelivery,
     completedLots: metrics.lotFlow.completed,
+    scrappedLots: metrics.lotFlow.scrapped,
     onTimeLots: metrics.lotFlow.onTimeCompleted,
+    goodYield: metrics.qualityFlow.goodYield,
+    firstPassYield: metrics.qualityFlow.firstPassYield,
+    qualityEscapes: metrics.qualityFlow.escapedDefects,
+    reworkCycles: metrics.qualityFlow.totalReworkCycles,
     meanCycleTimeTicks: metrics.lotFlow.meanCycleTimeTicks,
     p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
     meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,
@@ -235,7 +250,12 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     throughputPerMinute: after.throughputPerMinute - before.throughputPerMinute,
     objectiveAttainment: after.objectiveAttainment - before.objectiveAttainment,
     completedLots: after.completedLots - before.completedLots,
+    scrappedLots: after.scrappedLots - before.scrappedLots,
     onTimeLots: after.onTimeLots - before.onTimeLots,
+    goodYield: after.goodYield - before.goodYield,
+    firstPassYield: after.firstPassYield - before.firstPassYield,
+    qualityEscapes: after.qualityEscapes - before.qualityEscapes,
+    reworkCycles: after.reworkCycles - before.reworkCycles,
     meanCycleTimeTicks: after.meanCycleTimeTicks - before.meanCycleTimeTicks,
     p95CycleTimeTicks: after.p95CycleTimeTicks - before.p95CycleTimeTicks,
     meanQueueTimeTicks: after.meanQueueTimeTicks - before.meanQueueTimeTicks,

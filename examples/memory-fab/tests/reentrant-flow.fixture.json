@@ -1,5 +1,5 @@
 {
-  "name": "reentrant DRAM route completes lots through shared lithography and etch bays",
+  "name": "reentrant DRAM route closes deterministic inspection rework and scrap loops",
   "world": "cleanroom",
   "blueprint": "baseline",
   "scenario": "production-window",
@@ -8,7 +8,7 @@
   "assertions": [
     {
       "kind": "metric",
-      "path": "produced.dram-wafer-lot",
+      "path": "produced.qualified-dram-wafer-lot",
       "min": 4
     },
     {
@@ -47,6 +47,26 @@
       "min": 2
     },
     {
+      "kind": "metric",
+      "path": "qualityFlow.rejectedInspections",
+      "min": 2
+    },
+    {
+      "kind": "metric",
+      "path": "qualityFlow.totalReworkCycles",
+      "min": 2
+    },
+    {
+      "kind": "metric",
+      "path": "qualityFlow.scrapDispositions",
+      "min": 1
+    },
+    {
+      "kind": "metric",
+      "path": "qualityFlow.escapedDefects",
+      "equals": 1
+    },
+    {
       "kind": "event",
       "type": "device.start",
       "present": true
@@ -59,6 +79,26 @@
     {
       "kind": "event",
       "type": "lot.completed",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.quality-excursion",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.inspected",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.reworked",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.scrapped",
       "present": true
     }
   ]

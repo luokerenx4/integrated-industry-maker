@@ -2,11 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **5.138**
-- Result hash: `b2d0b02bbf7db670e3bc44fee7d7e50c65f49cb43a615bad1ddf9c252069acb0`
+- Result hash: `e4cc6139913c81ab18f3b5d2e428ff63a2bd62f247b2430f702cf9b511eef4b7`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
 - Tracked lots: 0 / 0 completed · 0 scrapped
 - Lot service: 37.5% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
+- Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Equipment setup: 0 changeovers · 0.000 s work
 - Target rate: 12.000 gear/min (37.5% attained)
 - Power allocation: proportional
@@ -67,6 +68,8 @@
   "energy": -2.27679672,
   "occupiedArea": -21.200000000000003,
   "onTimeDelivery": 3.75,
+  "qualityEscapes": 0,
+  "rework": 0,
   "tardiness": 0,
   "throughput": 45,
   "wip": -5.368016666666667

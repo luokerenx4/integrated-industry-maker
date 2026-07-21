@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "inspect-final-pattern-standard",
+  "name": "Standard final patterned-wafer inspection",
+  "description": "Standard final patterned-wafer inspection classifies each identity-preserving wafer lot into pass, rework, or terminal scrap.",
+  "category": "inspection",
+  "tags": [
+    "dram",
+    "quality",
+    "inline-inspection"
+  ],
+  "durationTicks": 4000,
+  "inputs": [
+    {
+      "resource": "dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "qualified-dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "quality": {
+    "kind": "inspection",
+    "detects": [
+      "critical-dimension",
+      "particle-contamination"
+    ],
+    "rejectResource": "rework-required-dram-wafer-lot",
+    "scrapResource": "scrap-dram-wafer-lot",
+    "maxReworkCycles": 1
+  }
+}

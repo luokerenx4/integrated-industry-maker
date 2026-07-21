@@ -154,6 +154,21 @@
     "hydrogen": 109,
     "refined-oil": 56
   },
+  "qualityFlow": {
+    "activeDefects": 0,
+    "defectFreeCompleted": 0,
+    "escapedDefects": 0,
+    "firstPassCompleted": 0,
+    "firstPassYield": 0,
+    "goodYield": 0,
+    "inspectedLots": 0,
+    "passedInspections": 0,
+    "rejectedInspections": 0,
+    "reworkedLots": 0,
+    "scrapDispositions": 0,
+    "totalInspections": 0,
+    "totalReworkCycles": 0
+  },
   "resourceNodes": {
     "oil-seep-1": {
       "depleted": false,
@@ -179,6 +194,8 @@
     "energy": -0.75302875,
     "occupiedArea": -20.400000000000002,
     "onTimeDelivery": 10,
+    "qualityEscapes": 0,
+    "rework": 0,
     "tardiness": 0,
     "throughput": 390,
     "wip": -0.41258333333333336

@@ -141,6 +141,21 @@
     "plastic": 26,
     "refined-oil": 56
   },
+  "qualityFlow": {
+    "activeDefects": 0,
+    "defectFreeCompleted": 0,
+    "escapedDefects": 0,
+    "firstPassCompleted": 0,
+    "firstPassYield": 0,
+    "goodYield": 0,
+    "inspectedLots": 0,
+    "passedInspections": 0,
+    "rejectedInspections": 0,
+    "reworkedLots": 0,
+    "scrapDispositions": 0,
+    "totalInspections": 0,
+    "totalReworkCycles": 0
+  },
   "resourceNodes": {
     "oil-seep-1": {
       "depleted": false,
@@ -166,6 +181,8 @@
     "energy": -0.7060035000000001,
     "occupiedArea": -14.600000000000001,
     "onTimeDelivery": 10,
+    "qualityEscapes": 0,
+    "rework": 0,
     "tardiness": 0,
     "throughput": 130,
     "wip": -0.32183333333333336

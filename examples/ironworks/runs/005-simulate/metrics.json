@@ -101,6 +101,21 @@
     }
   },
   "produced": {},
+  "qualityFlow": {
+    "activeDefects": 0,
+    "defectFreeCompleted": 0,
+    "escapedDefects": 0,
+    "firstPassCompleted": 0,
+    "firstPassYield": 0,
+    "goodYield": 0,
+    "inspectedLots": 0,
+    "passedInspections": 0,
+    "rejectedInspections": 0,
+    "reworkedLots": 0,
+    "scrapDispositions": 0,
+    "totalInspections": 0,
+    "totalReworkCycles": 0
+  },
   "resourceNodes": {
     "coal-seam-assembly": {
       "depleted": false,
@@ -147,6 +162,8 @@
     "energy": -0.00007000000000000001,
     "occupiedArea": -3.2,
     "onTimeDelivery": 10,
+    "qualityEscapes": 0,
+    "rework": 0,
     "tardiness": 0,
     "throughput": 240,
     "wip": -0.505

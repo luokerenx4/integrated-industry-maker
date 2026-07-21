@@ -2,12 +2,12 @@
   "assetVersion": 1,
   "type": "resource",
   "id": "dram-wafer-lot",
-  "name": "Completed DRAM Wafer Lot",
-  "description": "Completed front-end DRAM wafer lot delivered to wafer sort and downstream packaging.",
+  "name": "Unqualified DRAM Wafer Lot",
+  "description": "Completed front-end DRAM wafer lot awaiting inline quality disposition.",
   "tags": [
     "semiconductor",
     "wafer-lot",
-    "finished"
+    "wip"
   ],
   "unit": {
     "kind": "discrete",

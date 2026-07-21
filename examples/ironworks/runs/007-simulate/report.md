@@ -2,11 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **119.737**
-- Result hash: `bf4a5eca44eea3c78dea41330c347d6b226d7e28a3a2400f41f589d6dc3371e3`
+- Result hash: `8f376301cb32a510929086c50cf140c7f3455e4410cb39823cd1ab0507e54aeb`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Tracked lots: 0 / 0 completed · 0 scrapped
 - Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
+- Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Equipment setup: 0 changeovers · 0.000 s work
 - Target rate: 10.000 plastic/min (100.0% attained)
 - Power allocation: proportional
@@ -56,6 +57,8 @@ No configured logistics stations.
   "energy": -0.7060035000000001,
   "occupiedArea": -14.600000000000001,
   "onTimeDelivery": 10,
+  "qualityEscapes": 0,
+  "rework": 0,
   "tardiness": 0,
   "throughput": 130,
   "wip": -0.32183333333333336

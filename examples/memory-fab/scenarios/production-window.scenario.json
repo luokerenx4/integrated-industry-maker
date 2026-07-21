@@ -1,7 +1,7 @@
 {
   "id": "production-window",
-  "name": "Three-minute DRAM Production Window",
-  "durationTicks": 180000,
+  "name": "Four-minute DRAM Quality Production Window",
+  "durationTicks": 240000,
   "initialLots": [
     {
       "id": "dram-lot-01",
@@ -9,7 +9,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 1,
-      "dueTick": 180000
+      "dueTick": 240000
     },
     {
       "id": "dram-lot-02",
@@ -17,7 +17,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 1,
-      "dueTick": 170000
+      "dueTick": 230000
     },
     {
       "id": "dram-lot-03",
@@ -25,7 +25,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 1,
-      "dueTick": 160000
+      "dueTick": 220000
     },
     {
       "id": "dram-lot-04",
@@ -33,7 +33,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 1,
-      "dueTick": 150000
+      "dueTick": 210000
     },
     {
       "id": "dram-lot-05",
@@ -41,7 +41,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 1,
-      "dueTick": 140000
+      "dueTick": 200000
     },
     {
       "id": "dram-lot-06",
@@ -49,7 +49,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 1,
-      "dueTick": 130000
+      "dueTick": 190000
     },
     {
       "id": "dram-lot-07",
@@ -57,7 +57,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 5,
-      "dueTick": 120000
+      "dueTick": 180000
     },
     {
       "id": "dram-lot-08",
@@ -65,7 +65,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 5,
-      "dueTick": 110000
+      "dueTick": 170000
     },
     {
       "id": "dram-lot-09",
@@ -73,7 +73,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 5,
-      "dueTick": 100000
+      "dueTick": 160000
     },
     {
       "id": "dram-lot-10",
@@ -81,7 +81,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 10,
-      "dueTick": 90000
+      "dueTick": 150000
     },
     {
       "id": "dram-lot-11",
@@ -89,7 +89,7 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 10,
-      "dueTick": 80000
+      "dueTick": 140000
     },
     {
       "id": "dram-lot-12",
@@ -97,13 +97,39 @@
       "buffer": "storage",
       "resource": "blank-dram-wafer-lot",
       "priority": 10,
-      "dueTick": 70000
+      "dueTick": 130000
     }
   ],
   "initialSetups": {
     "lithography-1": "photo-mask-l1",
     "etch-1": "etch-recipe-l1"
   },
+  "qualityExcursions": [
+    {
+      "id": "cd-excursion-lot-03",
+      "process": "etch-cell-layer-2",
+      "lot": "dram-lot-03",
+      "defects": [
+        "critical-dimension"
+      ]
+    },
+    {
+      "id": "particle-excursion-lot-08",
+      "process": "etch-cell-layer-2",
+      "lot": "dram-lot-08",
+      "defects": [
+        "particle-contamination"
+      ]
+    },
+    {
+      "id": "latent-electrical-lot-11",
+      "process": "etch-cell-layer-2",
+      "lot": "dram-lot-11",
+      "defects": [
+        "latent-electrical"
+      ]
+    }
+  ],
   "initialEnergyMilliJoules": {},
   "failures": []
 }

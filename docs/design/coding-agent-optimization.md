@@ -2,7 +2,7 @@
 
 Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Product model
 
@@ -68,7 +68,7 @@ A single Scenario rewards brittle layouts. A benchmark case suite represents an 
 
 The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. Blueprint-authored `policies.powerAllocation`, per-Device `policy.powerPriority`, station charging/high-speed policies, generation, and storage are part of the editable control program. The focused `power-priority` benchmark locks hard allocation under a 240 kW grid cap and proves that exactly three priority edits protect an assembler plus its explicit loader/unloader. The `power-satisfaction` benchmark keeps proportional allocation and proves that adding an ordinary renewable Device improves shared satisfaction and delivery without editing the harness. The `station-energy` benchmark begins with source charging below the carrier mission demand and accepts the one-policy repair that restores the station route. The `high-speed-transport` benchmark limits route batch size and accepts expedited line haul only when its shorter turnaround outweighs its extra energy. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
 
-The bundled [[examples/memory-fab]] program applies the same loop to a re-entrant DRAM route. One wafer lot revisits shared lithography and etch work centers. Mask/recipe setup groups and powered changeovers are fixed benchmark physics, while operation and lot dispatch remain Blueprint code. The candidate begins identical to baseline. Operation-level earliest-due-date improves service but spends more equipment changeovers; `minimize-changeover` plus lot-level earliest-due-date preserves setup campaigns while reducing tardiness inside them. The locked score decides the trade instead of hiding it in scheduler code.
+The bundled [[examples/memory-fab]] program applies the same loop to a re-entrant DRAM route. Wafer lots revisit shared lithography and etch work centers, acquire fixed deterministic process excursions, then branch through inline inspection, selective rework, terminal scrap, or delivery. Mask/recipe setup groups, inspection coverage, repair capability, and excursion workload are fixed benchmark physics; operation choice, equipment count, topology, and lot dispatch remain Blueprint code. The candidate begins identical to baseline. Changing one recipe id from standard to deep inspection eliminates a latent electrical escape while losing throughput and service time. The locked score decides that industrial trade instead of hiding it in scheduler or evaluator code.
 
 ## Source of truth
 
