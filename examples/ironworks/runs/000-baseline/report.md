@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **5.138**
-- Result hash: `f99a81d998c73bd830fc925d454fe093981d0252316fb0434168a0a7f2ea58c8`
+- Result hash: `a77a708343ec706b3752c4ab0128b6e25ff61a8af173995a3f73c14c59872b6f`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped

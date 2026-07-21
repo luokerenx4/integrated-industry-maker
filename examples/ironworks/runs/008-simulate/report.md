@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `xray-cracking-factory`
 - Score: **373.334**
-- Result hash: `4b0d623b869d74154ea95cede1cdb68685dfbc6542dffa6d50778be3b8b1cde3`
+- Result hash: `4dbce90706148fe69f2012453e8dab2853c438088903d470082f34ed45b83f72`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped

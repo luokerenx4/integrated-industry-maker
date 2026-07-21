@@ -19,6 +19,7 @@
     { "id": "output", "role": "output", "capacity": 8, "accepts": ["iron-plate"] }
   ],
   "production": {
+    "processes": ["smelt-iron"],
     "categories": ["smelting"],
     "speed": { "numerator": 1, "denominator": 1 },
     "inputPorts": ["input"],

@@ -1,13 +1,13 @@
 {
   "assetVersion": 1,
   "type": "device",
-  "id": "thermal-batch-furnace",
-  "name": "Thermal Batch Furnace",
-  "description": "A carrier-scale furnace that can run an efficient three-lot batch or a faster single-lot rapid cycle.",
+  "id": "rapid-metrology-cell",
+  "name": "Rapid Optical Metrology Cell",
+  "description": "Compact high-throughput optical metrology qualified only for standard final-pattern screening.",
   "tags": [
     "semiconductor",
     "work-center",
-    "thermal"
+    "inspection"
   ],
   "capabilities": [
     "process"
@@ -20,26 +20,42 @@
     "rotatable": true,
     "ports": [
       {
-        "id": "batch-input",
+        "id": "wafer-input",
         "direction": "input",
-        "side": "south",
+        "side": "north",
         "offset": 1,
-        "buffer": "batch-input",
+        "buffer": "wafer-input",
         "kind": "resource"
       },
       {
-        "id": "batch-output",
+        "id": "pass-output",
         "direction": "output",
         "side": "west",
         "offset": 1,
-        "buffer": "batch-output",
+        "buffer": "pass-output",
+        "kind": "resource"
+      },
+      {
+        "id": "reject-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "reject-output",
+        "kind": "resource"
+      },
+      {
+        "id": "scrap-output",
+        "direction": "output",
+        "side": "south",
+        "offset": 1,
+        "buffer": "scrap-output",
         "kind": "resource"
       }
     ]
   },
   "buffers": [
     {
-      "id": "batch-input",
+      "id": "wafer-input",
       "role": "input",
       "capacity": 24,
       "accepts": [
@@ -47,7 +63,23 @@
       ]
     },
     {
-      "id": "batch-output",
+      "id": "pass-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "reject-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "scrap-output",
       "role": "output",
       "capacity": 24,
       "accepts": [
@@ -57,21 +89,22 @@
   ],
   "production": {
     "processes": [
-      "batch-anneal-dielectric-stack",
-      "rapid-anneal-dielectric-stack"
+      "inspect-final-pattern-standard"
     ],
     "categories": [
-      "thermal"
+      "inspection"
     ],
     "speed": {
       "numerator": 1,
       "denominator": 1
     },
     "inputPorts": [
-      "batch-input"
+      "wafer-input"
     ],
     "outputPorts": [
-      "batch-output"
+      "pass-output",
+      "reject-output",
+      "scrap-output"
     ],
     "modes": [
       {
@@ -90,18 +123,23 @@
         "auxiliaryInputs": [],
         "minimumInputTreatmentLevel": 0
       }
-    ]
+    ],
+    "maintenance": {
+      "maximumJobs": 8,
+      "durationTicks": 4000,
+      "powerMilliWatts": 90000
+    }
   },
   "runtime": {
     "apiVersion": 1,
     "entry": "runtime.ts"
   },
   "power": {
-    "idleMilliWatts": 30000,
-    "activeMilliWatts": 280000
+    "idleMilliWatts": 20000,
+    "activeMilliWatts": 180000
   },
   "economics": {
-    "buildCost": 16000
+    "buildCost": 6500
   },
   "files": {
     "visual": "visual.json"

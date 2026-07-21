@@ -24,7 +24,7 @@ interface BenchmarkDefinition {
 interface SearchRow {
   topology: string;
   blueprint: Blueprint;
-  inspectionMaintenance: number | null;
+  inspectionMaintenance: string;
   dispatch: "fifo" | "earliest-due-date";
   aggregateScore: number;
   aggregateDelta: number;
@@ -34,6 +34,7 @@ interface SearchRow {
   scores: number[];
   completedLots: number[];
   scrappedLots: number[];
+  qualityEscapes: number[];
   qTimeViolations: number[];
   maximumInspectionQueueTicks: number[];
   mandatoryMaintenance: number[];
@@ -63,7 +64,7 @@ async function simulate(blueprintName: string, blueprint?: Blueprint): Promise<F
 
 function configureInspectionPolicy(
   source: Blueprint,
-  inspectionMaintenance: number | null,
+  maintenance: { deep: number | null; rapid: number | null },
   dispatch: SearchRow["dispatch"],
 ): Blueprint {
   const blueprint = structuredClone(source);
@@ -76,8 +77,9 @@ function configureInspectionPolicy(
   }
   for (const device of blueprint.devices.filter((item) => item.id === "inspection-1" || item.id === "inspection-2")) {
     device.policy = { ...device.policy, lotDispatch: dispatch };
-    if (inspectionMaintenance === null) delete device.policy.preventiveMaintenance;
-    else device.policy.preventiveMaintenance = { minimumJobs: inspectionMaintenance };
+    const minimumJobs = device.asset === "rapid-metrology-cell" ? maintenance.rapid : maintenance.deep;
+    if (minimumJobs === null) delete device.policy.preventiveMaintenance;
+    else device.policy.preventiveMaintenance = { minimumJobs };
   }
   return blueprint;
 }
@@ -103,10 +105,36 @@ physicalSeeds.push(
   { id: "incumbent-layout", project: incumbentProject, blueprint: incumbentProject.blueprint },
 );
 const parallelTopologies = physicalSeeds.map((seed) => ({
-  id: seed.id,
+  id: `${seed.id}:deep+deep`,
   result: parallelizeWorkCenter(seed.project, seed.blueprint, { device: "inspection-1", cloneId: "inspection-2" }),
 }));
 for (const topology of parallelTopologies) if (!topology.result) throw new Error(`Could not author explicit parallel inspection topology '${topology.id}'`);
+
+const hybrid = parallelizeWorkCenter(incumbentProject, incumbentProject.blueprint, {
+  device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",
+});
+if (!hybrid) throw new Error("Could not author the deep+rapid heterogeneous metrology topology");
+const rapidOnly = structuredClone(incumbentProject.blueprint);
+const rapidInspection = rapidOnly.devices.find((device) => device.id === "inspection-1");
+if (!rapidInspection?.recipe) throw new Error("Could not find the incumbent inspection recipe");
+rapidInspection.asset = "rapid-metrology-cell";
+rapidInspection.recipe.process = "inspect-final-pattern-standard";
+const rapidOnlyProject = compileFactoryProject({ ...incumbentProject, blueprint: rapidOnly });
+const doubleRapid = parallelizeWorkCenter(rapidOnlyProject, rapidOnly, { device: "inspection-1", cloneId: "inspection-2" });
+if (!doubleRapid) throw new Error("Could not author the rapid+rapid metrology topology");
+
+const topologies: Array<{ id: string; blueprint: Blueprint }> = [
+  ...parallelTopologies.map((topology) => ({ id: topology.id, blueprint: topology.result!.blueprint })),
+  { id: "incumbent-layout:deep+rapid", blueprint: hybrid.blueprint },
+  { id: "incumbent-layout:rapid-only", blueprint: rapidOnly },
+  { id: "incumbent-layout:rapid+rapid", blueprint: doubleRapid.blueprint },
+];
+const maintenancePolicies = [
+  { id: "off/off", deep: null, rapid: null },
+  { id: "deep-3/rapid-7", deep: 3, rapid: 7 },
+  { id: "deep-4/rapid-7", deep: 4, rapid: 7 },
+  { id: "deep-3/rapid-4", deep: 3, rapid: 4 },
+] as const;
 
 const baselineMetrics = await simulate(definition.baselineBlueprint);
 const incumbentMetrics = await simulate(definition.candidateBlueprint);
@@ -115,17 +143,17 @@ const incumbentScores = incumbentMetrics.map((metrics) => metrics.finalScore);
 const incumbentAggregate = weightedMean(incumbentScores);
 const rows: SearchRow[] = [];
 
-for (const topology of parallelTopologies) {
-  for (const inspectionMaintenance of [null, 3, 4] as const) {
+for (const topology of topologies) {
+  for (const inspectionMaintenance of maintenancePolicies) {
     for (const dispatch of ["fifo", "earliest-due-date"] as const) {
-      const blueprint = configureInspectionPolicy(topology.result!.blueprint, inspectionMaintenance, dispatch);
+      const blueprint = configureInspectionPolicy(topology.blueprint, inspectionMaintenance, dispatch);
       const metrics = await simulate(definition.candidateBlueprint, blueprint);
       const scores = metrics.map((item) => item.finalScore);
       const aggregateScore = weightedMean(scores);
       const aggregateDelta = aggregateScore - incumbentAggregate;
       const minimumCaseDelta = Math.min(...scores.map((score, index) => score - baselineScores[index]!));
       rows.push({
-        topology: topology.id, blueprint, inspectionMaintenance, dispatch, aggregateScore, aggregateDelta, minimumCaseDelta,
+        topology: topology.id, blueprint, inspectionMaintenance: inspectionMaintenance.id, dispatch, aggregateScore, aggregateDelta, minimumCaseDelta,
         accepted: aggregateDelta >= definition.acceptance.minimumAggregateScoreDelta
           && minimumCaseDelta >= -definition.acceptance.maximumCaseScoreRegression
           && metrics.every((item) => item.infeasibleReason === null),
@@ -133,6 +161,7 @@ for (const topology of parallelTopologies) {
         scores,
         completedLots: metrics.map((item) => item.lotFlow.completed),
         scrappedLots: metrics.map((item) => item.lotFlow.scrapped),
+        qualityEscapes: metrics.map((item) => item.qualityFlow.escapedDefects),
         qTimeViolations: metrics.map((item) => item.routeFlow["dram-front-end"]!.queueTimeViolations),
         maximumInspectionQueueTicks: metrics.map((item) => item.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks),
         mandatoryMaintenance: metrics.map((item) => item.equipmentMaintenance.totalMandatory),
@@ -150,14 +179,15 @@ rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || left.totalBuildCost - right.totalBuildCost || left.occupiedArea - right.occupiedArea
   || left.topology.localeCompare(right.topology)
   || left.dispatch.localeCompare(right.dispatch)
-  || (left.inspectionMaintenance ?? 99) - (right.inspectionMaintenance ?? 99));
+  || left.inspectionMaintenance.localeCompare(right.inspectionMaintenance));
 
-console.log(`# incumbent aggregate=${incumbentAggregate.toFixed(6)} · 4 capital topologies × 3 symmetric inspection-maintenance policies × 2 dispatch policies`);
-console.log("verdict\tfeasible\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\ttopology\tdispatch\tinspection-maint\tcost\tarea\tcase-scores\tcompleted\tscrapped\tqtime-violations\tinspection-max-queue-s\tmandatory\topportunistic");
+console.log(`# incumbent aggregate=${incumbentAggregate.toFixed(6)} · 7 equipment architectures × 4 equipment-specific maintenance policies × 2 lot-dispatch policies`);
+console.log("verdict\tfeasible\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\ttopology\tdispatch\tinspection-maint\tcost\tarea\tcase-scores\tcompleted\tscrapped\tescaped-defects\tqtime-violations\tinspection-max-queue-s\tmandatory\topportunistic");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : "REJECT", `${row.feasibleCases}/${definition.cases.length}`, row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
-  row.topology, row.dispatch, row.inspectionMaintenance ?? "off", row.totalBuildCost, row.occupiedArea,
+  row.topology, row.dispatch, row.inspectionMaintenance, row.totalBuildCost, row.occupiedArea,
   row.scores.map((value) => value.toFixed(3)).join(","), row.completedLots.join(","), row.scrappedLots.join(","),
+  row.qualityEscapes.join(","),
   row.qTimeViolations.join(","), row.maximumInspectionQueueTicks.map((ticks) => (ticks / 1000).toFixed(1)).join(","),
   row.mandatoryMaintenance.join(","), row.opportunisticMaintenance.join(","),
 ].join("\t"));
@@ -167,5 +197,5 @@ if (writeBest) {
   if (!best?.accepted) throw new Error("No gate-passing parallel metrology Blueprint improved the incumbent; candidate Blueprint was not changed");
   const path = join(projectDir, "blueprints", `${definition.candidateBlueprint}.blueprint.json`);
   await writeFile(path, `${stableStringify({ ...best.blueprint, revision: "memory-fab-parallel-metrology-v1" }, 2)}\n`);
-  console.log(`# wrote ${path}: topology=${best.topology}, dispatch=${best.dispatch}, inspection maintenance=${best.inspectionMaintenance ?? "off"}`);
+  console.log(`# wrote ${path}: topology=${best.topology}, dispatch=${best.dispatch}, inspection maintenance=${best.inspectionMaintenance}`);
 }

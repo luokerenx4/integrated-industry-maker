@@ -23,6 +23,7 @@
     { "id": "graphite-output", "role": "output", "capacity": 12, "accepts": ["graphite"] }
   ],
   "production": {
+    "processes": ["xray-crack-oil"],
     "categories": ["cracking"], "speed": { "numerator": 1, "denominator": 1 },
     "inputPorts": ["oil-input", "hydrogen-input"], "outputPorts": ["hydrogen-output", "graphite-output"],
     "modes": [{

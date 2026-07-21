@@ -21,6 +21,7 @@
     { "id": "gas-output", "role": "output", "capacity": 12, "accepts": ["hydrogen"] }
   ],
   "production": {
+    "processes": ["refine-crude"],
     "categories": ["refining"], "speed": { "numerator": 1, "denominator": 1 },
     "inputPorts": ["crude-input"], "outputPorts": ["liquid-output", "gas-output"],
     "modes": [{

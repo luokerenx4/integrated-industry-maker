@@ -175,6 +175,8 @@ export interface DeviceAssetManifest {
   };
   buffers: DeviceBufferDefinition[];
   production?: {
+    /** Exact project-local Processes this equipment is physically qualified to execute. */
+    processes: ProcessId[];
     categories: string[];
     speed: { numerator: number; denominator: number };
     inputPorts: PortId[];

@@ -3,7 +3,7 @@
   "type": "device",
   "id": "wafer-inspection-bay",
   "name": "Wafer Inspection Bay",
-  "description": "Inline patterned-wafer inspection that performs deterministic pass, rework, and scrap disposition.",
+  "description": "Inline patterned-wafer inspection qualified for standard optical and deep electrical disposition.",
   "tags": [
     "semiconductor",
     "work-center",
@@ -88,6 +88,10 @@
     }
   ],
   "production": {
+    "processes": [
+      "inspect-final-pattern-standard",
+      "inspect-final-pattern-deep"
+    ],
     "categories": [
       "inspection"
     ],

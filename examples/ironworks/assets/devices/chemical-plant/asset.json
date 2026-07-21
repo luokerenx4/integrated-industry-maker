@@ -21,6 +21,7 @@
     { "id": "output", "role": "output", "capacity": 12, "accepts": ["plastic"] }
   ],
   "production": {
+    "processes": ["make-plastic"],
     "categories": ["chemical"], "speed": { "numerator": 1, "denominator": 1 },
     "inputPorts": ["liquid-input", "gas-input"], "outputPorts": ["output"],
     "modes": [{

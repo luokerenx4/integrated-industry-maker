@@ -352,6 +352,10 @@ function duplicateProcessorCandidate(input: TopologyResearchInput, original: Com
 export interface WorkCenterParallelizationRequest {
   device: string;
   cloneId?: string;
+  /** Optional project-local equipment class for a heterogeneous parallel branch. */
+  cloneAsset?: string;
+  /** Optional Process override for the cloned single-recipe work center. */
+  cloneProcess?: string;
 }
 
 export interface WorkCenterParallelizationResult {
@@ -384,7 +388,7 @@ function parallelWorkCenterTopology(
   project: CompiledFactoryProject,
   blueprint: Blueprint,
   originalDevice: string,
-  cloneId: string,
+  cloneTemplate: Blueprint["devices"][number],
   clonePlacement: { position: { x: number; y: number }; rotation: Blueprint["devices"][number]["rotation"] },
   junctionPlacement: { position: { x: number; y: number }; rotation: Blueprint["devices"][number]["rotation"] },
 ): Blueprint | null {
@@ -394,7 +398,7 @@ function parallelWorkCenterTopology(
     && asset.geometry.ports.filter((port) => port.direction === "output").length >= 2);
   if (!original || !junctionAsset) return null;
   const candidate = structuredClone(blueprint);
-  const clone = { ...structuredClone(original), id: cloneId, ...clonePlacement };
+  const clone = { ...structuredClone(cloneTemplate), ...clonePlacement };
   if (overlaps(candidate, clone, project)) return null;
   candidate.devices.push(clone);
   const junction: Blueprint["devices"][number] = {
@@ -421,7 +425,7 @@ function parallelWorkCenterTopology(
     if (!routeNewConnection(candidate, project, routed)) return null;
   }
   const dispatchTemplate = incoming[0]!;
-  for (const [index, target] of [originalDevice, cloneId].entries()) {
+  for (const [index, target] of [originalDevice, clone.id].entries()) {
     const routed: Blueprint["connections"][number] = {
       ...structuredClone(dispatchTemplate), id: uniqueConnectionId(candidate, `${originalDevice}-dispatch-${target}`),
       from: { device: junction.id, port: outputPorts[index]!.id }, to: { device: target, port: dispatchTemplate.to.port },
@@ -431,8 +435,8 @@ function parallelWorkCenterTopology(
   }
   for (const connection of outgoing) {
     const routed: Blueprint["connections"][number] = {
-      ...structuredClone(connection), id: uniqueConnectionId(candidate, `${connection.id}-${cloneId}`),
-      from: { device: cloneId, port: connection.from.port }, path: [],
+      ...structuredClone(connection), id: uniqueConnectionId(candidate, `${connection.id}-${clone.id}`),
+      from: { device: clone.id, port: connection.from.port }, path: [],
     };
     if (!routeNewConnection(candidate, project, routed)) return null;
   }
@@ -467,12 +471,21 @@ export function parallelizeWorkCenter(
   const rotations = ([authored.rotation, 0, 90, 180, 270] as const).filter((rotation, index, values) => values.indexOf(rotation) === index);
   const cloneId = request.cloneId ?? uniqueDeviceId(blueprint, `${request.device}-parallel`);
   if (blueprint.devices.some((device) => device.id === cloneId)) return null;
+  const cloneTemplate = { ...structuredClone(authored), id: cloneId };
+  if (request.cloneAsset) {
+    if (!project.deviceAssets[request.cloneAsset]) return null;
+    cloneTemplate.asset = request.cloneAsset;
+  }
+  if (request.cloneProcess) {
+    if (!cloneTemplate.recipe || cloneTemplate.recipes) return null;
+    cloneTemplate.recipe.process = request.cloneProcess;
+  }
   const junctionAsset = Object.values(project.deviceAssets).find((asset) => asset.capabilities.includes("transport-junction")
     && asset.geometry.ports.filter((port) => port.direction === "input").length >= 2
     && asset.geometry.ports.filter((port) => port.direction === "output").length >= 2);
   if (!junctionAsset) return null;
   const clonePlacements = positions.flatMap((position) => rotations.map((rotation) => ({ position, rotation })))
-    .filter((placement) => !overlaps(blueprint, { ...structuredClone(authored), id: cloneId, ...placement }, project))
+    .filter((placement) => !overlaps(blueprint, { ...structuredClone(cloneTemplate), ...placement }, project))
     .slice(0, 48);
   const junctionPlacements = positions.flatMap((position) => ([0, 90, 180, 270] as const).map((rotation) => ({ position, rotation })))
     .filter((placement) => !overlaps(blueprint, {
@@ -481,7 +494,7 @@ export function parallelizeWorkCenter(
   let next: Blueprint | null = null;
   for (const clonePlacement of clonePlacements) {
     for (const junctionPlacement of junctionPlacements) {
-      next = parallelWorkCenterTopology(project, blueprint, request.device, cloneId,
+      next = parallelWorkCenterTopology(project, blueprint, request.device, cloneTemplate,
         clonePlacement, junctionPlacement);
       if (next) break;
     }

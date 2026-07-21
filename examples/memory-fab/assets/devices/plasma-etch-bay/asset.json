@@ -72,6 +72,10 @@
     }
   ],
   "production": {
+    "processes": [
+      "etch-cell-layer-1",
+      "etch-cell-layer-2"
+    ],
     "categories": [
       "etch"
     ],

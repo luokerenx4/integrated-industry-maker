@@ -72,6 +72,10 @@
     }
   ],
   "production": {
+    "processes": [
+      "pattern-cell-layer-1",
+      "pattern-cell-layer-2"
+    ],
     "categories": [
       "lithography"
     ],

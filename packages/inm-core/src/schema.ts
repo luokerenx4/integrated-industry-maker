@@ -77,6 +77,7 @@ export const deviceAssetSchema = z.object({
   }).strict(),
   buffers: z.array(bufferSchema),
   production: z.object({
+    processes: z.array(id).min(1),
     categories: z.array(id).min(1),
     speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
     inputPorts: z.array(id).min(1), outputPorts: z.array(id).min(1),

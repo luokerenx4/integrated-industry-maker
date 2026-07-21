@@ -129,6 +129,7 @@ async function workCenter(
   name: string,
   description: string,
   category: string,
+  processes: string[],
   color: string,
   ports: Array<{ id: string; direction: "input" | "output"; side: "north" | "east" | "south" | "west"; offset: number; buffer: string }>,
   inputPorts: string[],
@@ -136,6 +137,7 @@ async function workCenter(
   buildCost: number,
   changeoverTicks?: number,
   maintenance?: { maximumJobs: number; durationTicks: number; powerMilliWatts: number },
+  equipment?: { footprint: { width: number; height: number }; idleMilliWatts: number; activeMilliWatts: number },
 ): Promise<void> {
   const buffers = [...new Set(ports.map((port) => port.buffer))].map((buffer) => ({
     id: buffer,
@@ -146,45 +148,45 @@ async function workCenter(
   await json(join(project, "assets", "devices", id, "asset.json"), {
     assetVersion: 1, type: "device", id, name, description,
     tags: ["semiconductor", "work-center", category], capabilities: ["process"],
-    geometry: { footprint: { width: 3, height: 3 }, rotatable: true, ports: ports.map((port) => ({ ...port, kind: "resource" })) },
+    geometry: { footprint: equipment?.footprint ?? { width: 3, height: 3 }, rotatable: true, ports: ports.map((port) => ({ ...port, kind: "resource" })) },
     buffers,
     production: {
-      categories: [category], speed: { numerator: 1, denominator: 1 }, inputPorts, outputPorts, modes: [standardMode],
+      processes, categories: [category], speed: { numerator: 1, denominator: 1 }, inputPorts, outputPorts, modes: [standardMode],
       ...(changeoverTicks ? { changeover: { durationTicks: changeoverTicks, powerMilliWatts: 180_000 } } : {}),
       ...(maintenance ? { maintenance } : {}),
     },
     runtime: { apiVersion: 1, entry: "runtime.ts" },
-    power: { idleMilliWatts: 30_000, activeMilliWatts: 280_000 }, economics: { buildCost }, files: { visual: "visual.json" },
+    power: { idleMilliWatts: equipment?.idleMilliWatts ?? 30_000, activeMilliWatts: equipment?.activeMilliWatts ?? 280_000 }, economics: { buildCost }, files: { visual: "visual.json" },
   });
   await json(join(project, "assets", "devices", id, "visual.json"), { shape: "box", height: 2.4, texture: null, model: null, color, label: name.toUpperCase() });
   await text(join(project, "assets", "devices", id, "runtime.ts"), runtime);
 }
 
-await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified lithography work center revisited by the same wafer route.", "lithography", "#7f5af0", [
+await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified lithography work center revisited by the same wafer route.", "lithography", ["pattern-cell-layer-1", "pattern-cell-layer-2"], "#7f5af0", [
   { id: "release-input", direction: "input", side: "west", offset: 1, buffer: "release-input" },
   { id: "reentrant-input", direction: "input", side: "north", offset: 1, buffer: "reentrant-input" },
   { id: "pattern-output", direction: "output", side: "east", offset: 1, buffer: "pattern-output" },
 ], ["release-input", "reentrant-input"], ["pattern-output"], 18_000, 4_000,
 { maximumJobs: 8, durationTicks: 9_000, powerMilliWatts: 220_000 });
 
-await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work center qualified for both memory-cell layers.", "etch", "#ed8b3a", [
+await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work center qualified for both memory-cell layers.", "etch", ["etch-cell-layer-1", "etch-cell-layer-2"], "#ed8b3a", [
   { id: "pattern-input", direction: "input", side: "west", offset: 1, buffer: "pattern-input" },
   { id: "loop-output", direction: "output", side: "east", offset: 1, buffer: "loop-output" },
   { id: "final-output", direction: "output", side: "south", offset: 1, buffer: "final-output" },
 ], ["pattern-input"], ["loop-output", "final-output"], 12_000, 3_000,
 { maximumJobs: 8, durationTicks: 7_000, powerMilliWatts: 200_000 });
 
-await workCenter("ald-deposition-bay", "ALD Deposition Bay", "Atomic-layer deposition work center for the DRAM capacitor dielectric stack.", "deposition", "#2cb6a0", [
+await workCenter("ald-deposition-bay", "ALD Deposition Bay", "Atomic-layer deposition work center for the DRAM capacitor dielectric stack.", "deposition", ["deposit-dielectric-stack"], "#2cb6a0", [
   { id: "etch-input", direction: "input", side: "west", offset: 1, buffer: "etch-input" },
   { id: "return-output", direction: "output", side: "north", offset: 1, buffer: "return-output" },
 ], ["etch-input"], ["return-output"], 15_000);
 
-await workCenter("thermal-batch-furnace", "Thermal Batch Furnace", "A carrier-scale furnace that can run an efficient three-lot batch or a faster single-lot rapid cycle.", "thermal", "#db7c4b", [
+await workCenter("thermal-batch-furnace", "Thermal Batch Furnace", "A carrier-scale furnace that can run an efficient three-lot batch or a faster single-lot rapid cycle.", "thermal", ["batch-anneal-dielectric-stack", "rapid-anneal-dielectric-stack"], "#db7c4b", [
   { id: "batch-input", direction: "input", side: "south", offset: 1, buffer: "batch-input" },
   { id: "batch-output", direction: "output", side: "west", offset: 1, buffer: "batch-output" },
 ], ["batch-input"], ["batch-output"], 16_000);
 
-await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline patterned-wafer inspection that performs deterministic pass, rework, and scrap disposition.", "inspection", "#3fa7d6", [
+await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline patterned-wafer inspection qualified for standard optical and deep electrical disposition.", "inspection", ["inspect-final-pattern-standard", "inspect-final-pattern-deep"], "#3fa7d6", [
   { id: "wafer-input", direction: "input", side: "north", offset: 1, buffer: "wafer-input" },
   { id: "pass-output", direction: "output", side: "west", offset: 1, buffer: "pass-output" },
   { id: "reject-output", direction: "output", side: "east", offset: 1, buffer: "reject-output" },
@@ -192,7 +194,16 @@ await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline pattern
 ], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 22_000, undefined,
 { maximumJobs: 5, durationTicks: 6_000, powerMilliWatts: 150_000 });
 
-await workCenter("pattern-rework-bay", "Pattern Rework Bay", "Qualified recovery cell for repairable final-pattern excursions.", "rework", "#f2a93b", [
+await workCenter("rapid-metrology-cell", "Rapid Optical Metrology Cell", "Compact high-throughput optical metrology qualified only for standard final-pattern screening.", "inspection", ["inspect-final-pattern-standard"], "#35c2c1", [
+  { id: "wafer-input", direction: "input", side: "north", offset: 1, buffer: "wafer-input" },
+  { id: "pass-output", direction: "output", side: "west", offset: 1, buffer: "pass-output" },
+  { id: "reject-output", direction: "output", side: "east", offset: 1, buffer: "reject-output" },
+  { id: "scrap-output", direction: "output", side: "south", offset: 1, buffer: "scrap-output" },
+], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 6_500, undefined,
+{ maximumJobs: 8, durationTicks: 4_000, powerMilliWatts: 90_000 },
+{ footprint: { width: 3, height: 3 }, idleMilliWatts: 20_000, activeMilliWatts: 180_000 });
+
+await workCenter("pattern-rework-bay", "Pattern Rework Bay", "Qualified recovery cell for repairable final-pattern excursions.", "rework", ["rework-final-pattern"], "#f2a93b", [
   { id: "reject-input", direction: "input", side: "west", offset: 1, buffer: "reject-input" },
   { id: "recovered-output", direction: "output", side: "east", offset: 1, buffer: "recovered-output" },
 ], ["reject-input"], ["recovered-output"], 10_000);
@@ -487,7 +498,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Q-time changed its optimum: the previous 7/7/4 lithography/etch/inspection policy scores `30.467190`, while the new 7/off/3 policy scores `31.765837` (`+1.298647`) and clears every case gate. Against mandatory-only maintenance at `30.855063`, the selected policy adds `+0.910774`.\n\n`bun run memory-fab:research-metrology` authors a complete second deep-inspection topology with a finite project-local dispatcher, independent lanes and explicit sorters, then jointly searches shared/dedicated lithography and etch capital allocation plus inspection maintenance and dispatch. The extra tool clears final-inspection Q-time loss, but the incumbent layout costs `156260` against the fixed `140000` limit. The best budget-feasible parallel layout scores `23.078411`, below the incumbent `31.765837`, and fails the interruption gate. This is retained negative evidence; the checked-in candidate does not buy the second bay.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Q-time changed its optimum: the previous 7/7/4 lithography/etch/inspection policy scores `30.467190`, while the new 7/off/3 policy scores `31.765837` (`+1.298647`) and clears every case gate. Against mandatory-only maintenance at `30.855063`, the selected policy adds `+0.910774`.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures: deep-only, rapid-only, deep+deep, deep+rapid, and rapid+rapid variants across capital layouts, equipment-specific maintenance, and lot dispatch. Device assets now own mandatory exact Process qualifications, so the project-local `rapid-metrology-cell` may execute the four-second standard optical screen but never the eight-second deep electrical inspection merely because both share the `inspection` category. A second deep bay totals `156260` against the fixed `140000` limit; deep+rapid clears inspection Q-time but still totals `140760`. Rapid-only is feasible at `117350` and is the best new alternative at `30.540497`, but remains `1.225340` behind the `31.765837` incumbent because latent electrical defects can escape standard inspection. All 56 variants are rejected, so the checked-in candidate retains one deep bay.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",

@@ -1,10 +1,10 @@
 {
-  "createdAt": "2026-07-21T20:44:46.222Z",
+  "createdAt": "2026-07-21T21:22:51.873Z",
   "decision": "BASELINE",
   "engineVersion": "inm-sim/0.58.0",
   "hashes": {
     "blueprintHash": "203a6ba6559ec34b9dd9ab2eae01703a4ffff31c9058fb397805655f51a7b57f",
-    "deviceCatalogHash": "975052655cf44c817353ca16db5d6f9a3d40b472a4835144950b99c4228cac17",
+    "deviceCatalogHash": "ec0925fbe09819f926a565aaaf39ec98768aa343ea80aa1638fbbfa388541748",
     "engineVersion": "inm-sim/0.58.0",
     "objectiveHash": "0953a4e3e29aa3df8c82db13042c91814074c61f340e6f002a17cc91525a2899",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
@@ -13,8 +13,8 @@
     "scenarioHash": "655ab7deed2ac8fe110433a4a31412fd97cf217c2e227e7242b7c16d371e5dd9",
     "worldHash": "8ca7e0a67db35012fcd0cb629cb981af61d5d9da3d02dca0c0182097c6586b35"
   },
-  "resultHash": "c437cba3c449f4b536af30dcf850edf766e87b28649fa04d2510e541813049b4",
-  "runKey": "9cb93bc7fbf489508176a8930de220c75544806cbe50e821ffb485a47f685367",
+  "resultHash": "e677242d0dd652b45667b12279bb7b7637d58150395605030306336e5a41d11a",
+  "runKey": "b458fc5654ca827732ad906af933d1d74abca3a1e34224a92608fc53281171e2",
   "seed": 42,
   "selection": {
     "blueprint": "scaled-factory",

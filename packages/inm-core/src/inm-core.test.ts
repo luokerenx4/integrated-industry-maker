@@ -625,6 +625,12 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(missing))).toContain("reference.process");
     const incompatible = await loaded(); incompatible.blueprint.devices[1]!.recipe!.process = "assemble-gear";
     expect(issueCodes(() => compileFactoryProject(incompatible))).toContain("production.category");
+    const unqualified = await loaded(); unqualified.deviceAssets.assembler!.production!.processes = ["forge-gear-pair"];
+    expect(issueCodes(() => compileFactoryProject(unqualified))).toContain("production.process-qualification");
+    const unknownQualification = await loaded(); unknownQualification.deviceAssets.assembler!.production!.processes = ["missing-process"];
+    expect(issueCodes(() => compileFactoryProject(unknownQualification))).toContain("reference.process");
+    const duplicateQualification = await loaded(); duplicateQualification.deviceAssets.assembler!.production!.processes = ["assemble-gear", "assemble-gear"];
+    expect(issueCodes(() => compileFactoryProject(duplicateQualification))).toContain("production.duplicate-process");
   });
 
   test("recipe bindings configure each physical port and must cover the selected process exactly", async () => {
@@ -2538,6 +2544,18 @@ describe("research boundary and experiment decisions", () => {
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
     expect(result.metrics.infeasibleReason).toBe("build cost 156260 exceeds 140000");
+
+    const hybrid = parallelizeWorkCenter(project, project.blueprint, {
+      device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",
+    });
+    expect(hybrid).toEqual(expect.objectContaining({ addedBuildCost: 7_100, addedArea: 13 }));
+    const hybridProject = compileFactoryProject({ ...source, blueprint: hybrid!.blueprint });
+    expect(hybridProject.devices["inspection-1"]!.processPlans[0]!.definition.id).toBe("inspect-final-pattern-deep");
+    expect(hybridProject.devices["inspection-2"]!.assetDef.id).toBe("rapid-metrology-cell");
+    expect(hybridProject.devices["inspection-2"]!.processPlans[0]!.definition.id).toBe("inspect-final-pattern-standard");
+    const illegalDeepClone = structuredClone(hybrid!.blueprint);
+    illegalDeepClone.devices.find((device) => device.id === "inspection-2")!.recipe!.process = "inspect-final-pattern-deep";
+    expect(issueCodes(() => compileFactoryProject({ ...source, blueprint: illegalDeepClone }))).toContain("production.process-qualification");
   }, 20_000);
 
   test("Blueprint comparison exposes an unfed treatment mode as a regression", async () => {

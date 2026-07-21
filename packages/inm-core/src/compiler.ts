@@ -156,6 +156,18 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     }
     if (asset.production) {
       if (!asset.capabilities.includes("process")) issues.push({ path: `assets/devices/${id}/asset.json/production`, code: "capability.not-process", message: "Production specification requires process capability" });
+      const qualifiedProcesses = new Set<string>();
+      for (const [processIndex, processId] of asset.production.processes.entries()) {
+        const path = `assets/devices/${id}/asset.json/production/processes/${processIndex}`;
+        if (qualifiedProcesses.has(processId)) issues.push({ path, code: "production.duplicate-process", message: `Production qualification lists '${processId}' more than once` });
+        qualifiedProcesses.add(processId);
+        const process = processes[processId];
+        if (!process) issues.push({ path, code: "reference.process", message: `Unknown qualified Process '${processId}'` });
+        else if (!asset.production.categories.includes(process.category)) issues.push({
+          path, code: "production.qualification-category",
+          message: `Qualified Process '${processId}' has category '${process.category}', which Device '${asset.id}' does not support`,
+        });
+      }
       for (const [side, portIds, direction] of [
         ["inputPorts", asset.production.inputPorts, "input"],
         ["outputPorts", asset.production.outputPorts, "output"],
@@ -853,6 +865,13 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         }
         if (!asset.production.categories.includes(definition.category)) {
           issues.push({ path: `${recipePath}/process`, code: "production.category", message: `Device '${asset.id}' does not support process category '${definition.category}'` });
+          bindingValid = false;
+        }
+        if (!asset.production.processes.includes(definition.id)) {
+          issues.push({
+            path: `${recipePath}/process`, code: "production.process-qualification",
+            message: `Device '${asset.id}' is not qualified for Process '${definition.id}'`,
+          });
           bindingValid = false;
         }
         const compiledInputs = [] as NonNullable<CompiledDevice["processPlan"]>["inputs"];

@@ -21,6 +21,7 @@
     { "id": "output", "role": "output", "capacity": 8, "accepts": ["*"] }
   ],
   "production": {
+    "processes": ["assemble-gear", "forge-gear-pair"],
     "categories": ["assembling"],
     "speed": { "numerator": 1, "denominator": 1 },
     "inputPorts": ["input-primary", "input-secondary"],

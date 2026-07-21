@@ -19,6 +19,7 @@
     { "id": "output", "role": "output", "capacity": 16, "accepts": ["proliferator"] }
   ],
   "production": {
+    "processes": ["make-proliferator"],
     "categories": ["treatment-agent"],
     "speed": { "numerator": 1, "denominator": 1 },
     "inputPorts": ["input"],

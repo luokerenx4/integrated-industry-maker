@@ -56,6 +56,9 @@
     }
   ],
   "production": {
+    "processes": [
+      "deposit-dielectric-stack"
+    ],
     "categories": [
       "deposition"
     ],

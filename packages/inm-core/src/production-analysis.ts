@@ -289,7 +289,7 @@ export function bindProcessPorts(
   portFilters?: BlueprintDevice["portFilters"],
 ): { inputs: Record<ResourceId, string>; outputs: Record<ResourceId, string> } | null {
   const production = asset.production;
-  if (!production || !production.categories.includes(process.category)) return null;
+  if (!production || !production.categories.includes(process.category) || !production.processes.includes(process.id)) return null;
   const bind = (amounts: ProcessAmount[], allowed: string[], preferredBindings: Record<ResourceId, string> | undefined) => {
     const bindings: Record<ResourceId, string> = {};
     const used = new Set<string>();
