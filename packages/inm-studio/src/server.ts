@@ -203,6 +203,17 @@ async function loadStudioData(projectId: string, runName?: string) {
         x: connection.toDevice.position.x + regionLayout.offsets.get(connection.toDevice.region)!.x + connection.toDevice.footprint.width / 2,
         y: connection.toDevice.position.y + regionLayout.offsets.get(connection.toDevice.region)!.y + connection.toDevice.footprint.height / 2,
       },
+      points: [
+        {
+          x: connection.fromDevice.position.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + connection.fromDevice.footprint.width / 2,
+          y: connection.fromDevice.position.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + connection.fromDevice.footprint.height / 2,
+        },
+        ...connection.path.map((cell) => ({ x: cell.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + .5 })),
+        {
+          x: connection.toDevice.position.x + regionLayout.offsets.get(connection.toDevice.region)!.x + connection.toDevice.footprint.width / 2,
+          y: connection.toDevice.position.y + regionLayout.offsets.get(connection.toDevice.region)!.y + connection.toDevice.footprint.height / 2,
+        },
+      ],
     })),
     logisticsRoutes: Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
       id: route.id,

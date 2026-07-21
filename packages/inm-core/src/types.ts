@@ -63,7 +63,7 @@ export interface IndustrialProcess extends IndustrialProcessManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "extract" | "process" | "store" | "transport" | "station" | "consume" | "power";
+export type DeviceCapability = "extract" | "process" | "store" | "transport" | "transport-junction" | "station" | "consume" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -221,12 +221,18 @@ export interface BlueprintDevice {
   process?: ProcessId;
   resourceNodes?: string[];
   config?: Record<string, unknown>;
-  policy?: { dispatch?: "fifo" | "round-robin" };
+  policy?: {
+    dispatch?: "fifo" | "round-robin";
+    inputPriority?: string;
+    outputPriority?: string;
+    filter?: { resource: ResourceId; outputPort: string };
+  };
 }
 export interface BlueprintConnection {
   id: ConnectionId;
   from: { device: DeviceInstanceId; port: string };
   to: { device: DeviceInstanceId; port: string };
+  path: GridPosition[];
   logistics: {
     loader: { deviceAsset: DeviceAssetId };
     line: { deviceAsset: DeviceAssetId };
@@ -341,8 +347,18 @@ export interface CompiledConnection extends BlueprintConnection {
     durationTicks: Tick;
   }>;
   distance: number;
+  transportCells: string[];
+  lineDispatchIntervalTicks: Tick;
   capacity: number;
   travelTicks: Tick;
+  dispatchIntervalTicks: Tick;
+}
+export interface CompiledTransportCell {
+  id: string;
+  region: string;
+  position: GridPosition;
+  asset: DeviceAsset;
+  connections: ConnectionId[];
   dispatchIntervalTicks: Tick;
 }
 export interface CompiledLogisticsRoute {
@@ -390,6 +406,7 @@ export interface CompiledFactoryProject {
   resourceNodes: Record<string, WorldResourceNode>;
   devices: Record<DeviceInstanceId, CompiledDevice>;
   connections: Record<ConnectionId, CompiledConnection>;
+  transportCells: Record<string, CompiledTransportCell>;
   logisticsNetworks: Record<string, CompiledLogisticsNetwork>;
   powerGrids: Record<string, CompiledPowerGrid>;
   hashes: ProjectHashes;

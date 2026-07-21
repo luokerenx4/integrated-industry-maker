@@ -16,20 +16,6 @@
   },
   {
     "op": "add",
-    "path": "/devices/-",
-    "value": {
-      "asset": "wind-turbine",
-      "id": "wind-turbine-support",
-      "position": {
-        "x": 7,
-        "y": 10
-      },
-      "region": "forge-world",
-      "rotation": 0
-    }
-  },
-  {
-    "op": "add",
     "path": "/connections/-",
     "value": {
       "from": {
@@ -48,6 +34,36 @@
           "deviceAsset": "sorter"
         }
       },
+      "path": [
+        {
+          "x": 4,
+          "y": 10
+        },
+        {
+          "x": 4,
+          "y": 9
+        },
+        {
+          "x": 4,
+          "y": 8
+        },
+        {
+          "x": 5,
+          "y": 8
+        },
+        {
+          "x": 6,
+          "y": 8
+        },
+        {
+          "x": 7,
+          "y": 8
+        },
+        {
+          "x": 8,
+          "y": 8
+        }
+      ],
       "to": {
         "device": "smelter-1-parallel",
         "port": "input"
@@ -74,10 +90,38 @@
           "deviceAsset": "sorter"
         }
       },
+      "path": [
+        {
+          "x": 11,
+          "y": 8
+        },
+        {
+          "x": 12,
+          "y": 8
+        },
+        {
+          "x": 12,
+          "y": 9
+        }
+      ],
       "to": {
         "device": "station-supply",
         "port": "input"
       }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "wind-turbine",
+      "id": "wind-turbine-support",
+      "position": {
+        "x": 9,
+        "y": 12
+      },
+      "region": "forge-world",
+      "rotation": 0
     }
   }
 ]

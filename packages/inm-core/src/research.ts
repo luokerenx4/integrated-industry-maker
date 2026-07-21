@@ -11,6 +11,7 @@ import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { runUntil } from "./simulator";
 import { analyzeProduction, type ProductionAnalysis } from "./production-analysis";
 import { atomicWriteJson, hashValue } from "./utils";
+import { findBlueprintConnectionPath, rotatedFootprint } from "./routing";
 
 export interface ResearchInput {
   iteration: number;
@@ -106,17 +107,17 @@ export function applyResearchPatch(blueprint: Blueprint, patch: JsonPatchOperati
 
 function overlaps(blueprint: Blueprint, device: Blueprint["devices"][number], project: CompiledFactoryProject): boolean {
   const asset = project.deviceAssets[device.asset]!;
-  const width = device.rotation === 90 || device.rotation === 270 ? asset.geometry.footprint.height : asset.geometry.footprint.width;
-  const height = device.rotation === 90 || device.rotation === 270 ? asset.geometry.footprint.width : asset.geometry.footprint.height;
+  const { width, height } = rotatedFootprint(asset, device.rotation);
   const region = project.regions[device.region];
   if (!region || device.position.x + width > region.bounds.width || device.position.y + height > region.bounds.height) return true;
-  return blueprint.devices.some((other) => {
+  const deviceOverlap = blueprint.devices.some((other) => {
     if (other.region !== device.region) return false;
     const otherAsset = project.deviceAssets[other.asset]!;
-    const ow = other.rotation === 90 || other.rotation === 270 ? otherAsset.geometry.footprint.height : otherAsset.geometry.footprint.width;
-    const oh = other.rotation === 90 || other.rotation === 270 ? otherAsset.geometry.footprint.width : otherAsset.geometry.footprint.height;
+    const { width: ow, height: oh } = rotatedFootprint(otherAsset, other.rotation);
     return device.position.x < other.position.x + ow && device.position.x + width > other.position.x && device.position.y < other.position.y + oh && device.position.y + height > other.position.y;
   });
+  if (deviceOverlap) return true;
+  return blueprint.connections.some((connection) => connection.path.some((cell) => cell.x >= device.position.x && cell.x < device.position.x + width && cell.y >= device.position.y && cell.y < device.position.y + height));
 }
 
 interface StrategyCandidate { key: string; proposal: ResearchProposal }
@@ -148,26 +149,31 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
   const clone = structuredClone(instance); clone.id = id;
   if (!placeDevice(input.blueprint, clone, input.project, original.position)) return null;
   const patch: JsonPatchOperation[] = [{ op: "add", path: "/devices/-", value: clone }];
+  const candidateBlueprint = structuredClone(input.blueprint);
+  candidateBlueprint.devices.push(clone);
   const grid = original.powerGrid ? input.production.powerGrids.find((item) => item.grid === original.powerGrid) : undefined;
   const needsPowerSupport = original.assetDef.power.consumptionMilliWatts > (grid?.headroomMilliWatts ?? 0);
   let powerSupport: Blueprint["devices"][number] | undefined;
+  const adjacent = input.blueprint.connections.filter((connection) => connection.to.device === original.id || connection.from.device === original.id);
+  for (const connection of adjacent) {
+    const copy = structuredClone(connection); copy.id = `${connection.id}-${id}`;
+    if (copy.to.device === original.id) copy.to.device = id;
+    if (copy.from.device === original.id) copy.from.device = id;
+    const path = findBlueprintConnectionPath(candidateBlueprint, input.project.world, input.project.deviceAssets, copy);
+    if (!path) return null;
+    copy.path = path;
+    candidateBlueprint.connections.push(copy);
+    patch.push({ op: "add", path: "/connections/-", value: copy });
+  }
   if (needsPowerSupport) {
     const generator = Object.values(input.project.deviceAssets)
       .filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts && asset.power.distribution)
       .sort((a, b) => ((b.power.generation?.outputMilliWatts ?? 0) - b.power.consumptionMilliWatts) - ((a.power.generation?.outputMilliWatts ?? 0) - a.power.consumptionMilliWatts) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
     if (!generator) return null;
     powerSupport = { id: uniqueDeviceId(input.blueprint, `${generator.id}-support`), asset: generator.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0 };
-    const candidateBlueprint = structuredClone(input.blueprint);
-    candidateBlueprint.devices.push(clone);
     if (!placeDevice(candidateBlueprint, powerSupport, input.project, original.position)) return null;
+    candidateBlueprint.devices.push(powerSupport);
     patch.push({ op: "add", path: "/devices/-", value: powerSupport });
-  }
-  const adjacent = input.blueprint.connections.filter((connection) => connection.to.device === original.id || connection.from.device === original.id);
-  for (const connection of adjacent) {
-    const copy = structuredClone(connection); copy.id = `${connection.id}-${id}`;
-    if (copy.to.device === original.id) copy.to.device = id;
-    if (copy.from.device === original.id) copy.from.device = id;
-    patch.push({ op: "add", path: "/connections/-", value: copy });
   }
   return {
     key: `capacity:${original.id}`,

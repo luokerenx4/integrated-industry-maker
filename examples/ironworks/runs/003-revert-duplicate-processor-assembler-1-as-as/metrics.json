@@ -1,5 +1,5 @@
 {
-  "averageWip": 32.644,
+  "averageWip": 32.257333333333335,
   "blockedOutputTime": {
     "assembler-1": 0,
     "assembler-1-parallel": 0,
@@ -26,7 +26,7 @@
     "coal": 24,
     "iron-ore": 90
   },
-  "finalScore": 81.06660000000001,
+  "finalScore": 74.66026666666666,
   "fuelConsumed": {
     "coal": 4
   },
@@ -63,7 +63,7 @@
     "wind-turbine-support": 0,
     "wind-turbine-support-2": 0
   },
-  "occupiedArea": 80,
+  "occupiedArea": 113,
   "onTimeDelivery": 1,
   "produced": {
     "coal": 24,
@@ -110,17 +110,17 @@
   },
   "scoreBreakdown": {
     "blocked": -3.6,
-    "buildCost": -13.87,
+    "buildCost": -13.715,
     "constraintPenalty": 0,
     "energy": -2.1990000000000003,
-    "occupiedArea": -16,
+    "occupiedArea": -22.6,
     "onTimeDelivery": 10,
     "throughput": 110,
-    "wip": -3.2644
+    "wip": -3.225733333333334
   },
   "throughputPerMinute": 11,
-  "totalBuildCost": 27740,
-  "transportCongestion": 0.1047121212121212,
+  "totalBuildCost": 27430,
+  "transportCongestion": 0.10943939393939393,
   "waitingInputTime": {
     "assembler-1": 87000,
     "assembler-1-parallel": 87000,

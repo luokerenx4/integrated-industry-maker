@@ -2,7 +2,7 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production system as a folder of immutable world definitions, finite resource deposits, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple sites, planets, or orbital regions, each with its own two-dimensional factory floor, deposits, and power topology. The complete system can be validated, statically balanced across extraction, materials, local transport, shared-fleet station networks, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production system as a folder of immutable world definitions, finite resource deposits, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple sites, planets, or orbital regions, each with its own two-dimensional factory floor, deposits, explicitly routed transport cells, and power topology. The complete system can be validated, statically balanced across extraction, materials, shared-capacity belt paths, junction policies, shared-fleet station networks, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 > A factory is a folder. Blueprints are programs. Scenarios are tests. Objectives are benchmarks.
 
@@ -30,10 +30,10 @@ bun run inm studio examples/ironworks
 The bundled experiment demonstrates the complete loop:
 
 ```text
-000 finite-resource/fuel baseline score 31.057
-001 smelter + renewable support   score 79.254  KEEP
-002 another parallel smelter      score 77.707  REVERT
-003 assembler + renewable support score 81.067  KEEP
+000 routed resource/fuel baseline score 32.158
+001 smelter + routed branches     score 78.805  KEEP
+002 another parallel smelter      score 70.466  REVERT
+003 assembler + routed branches   score 74.660  REVERT
 ```
 
 The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates; Assembly World unloads it into a local assembler. Each planet also has a finite coal seam, coal miner, local fuel link, and thermal generator. A coal unit has a declared energy value, starts a time-bounded generation job, and can leave its regional grid dark when fuel logistics fail. Physical links and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint machinery and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
@@ -95,7 +95,7 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
 - A **process** declares a visible material transformation, category, and base cycle time; a blueprint binds it to a compatible Device.
 - A **world** declares regions, world coordinates, build bounds, and finite resource nodes; optimization cannot edit it.
-- A **blueprint** places Devices into world regions, binds extractors to reachable resource nodes, and declares local connections plus planetary or interstellar station networks with finite carrier fleets.
+- A **blueprint** places Devices into world regions, binds extractors to reachable resource nodes, routes local connections through explicit grid cells, and declares planetary or interstellar station networks with finite carrier fleets.
 - A **scenario** fixes initial state, failures, duration, and test conditions.
 - An **objective** defines hard constraints and a transparent weighted score.
 

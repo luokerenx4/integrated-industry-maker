@@ -6,6 +6,7 @@
         "port": "output"
       },
       "id": "ore-to-smelter",
+      "path": [{ "x": 4, "y": 10 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }],
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -28,6 +29,7 @@
         "port": "output"
       },
       "id": "plate-to-station",
+      "path": [{ "x": 11, "y": 10 }, { "x": 12, "y": 10 }, { "x": 12, "y": 9 }],
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -50,6 +52,7 @@
         "port": "output"
       },
       "id": "station-to-assembler",
+      "path": [{ "x": 5, "y": 9 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }],
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -72,6 +75,7 @@
         "port": "output"
       },
       "id": "gear-to-output",
+      "path": [{ "x": 9, "y": 10 }, { "x": 10, "y": 10 }, { "x": 11, "y": 10 }, { "x": 12, "y": 10 }, { "x": 13, "y": 10 }],
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -94,6 +98,7 @@
         "port": "output"
       },
       "id": "coal-forge-to-generator",
+      "path": [{ "x": 5, "y": 3 }, { "x": 6, "y": 3 }, { "x": 7, "y": 3 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
         "loader": { "deviceAsset": "sorter" },
@@ -110,6 +115,7 @@
         "port": "output"
       },
       "id": "coal-assembly-to-generator",
+      "path": [{ "x": 3, "y": 3 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
         "loader": { "deviceAsset": "sorter" },

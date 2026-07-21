@@ -145,9 +145,10 @@ interface IndustrialAnalysis {
   resourceNodes: Array<{ node: string; region: string; resource: string; amount: number; miners: string[]; nominalSharePerMinute: number; estimatedDepletionMinutes: number | null }>;
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
-    connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number;
+    connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
   }>;
+  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; capacityItemsPerMinute: number }>;
   powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
@@ -175,6 +176,7 @@ interface StudioData {
     toDevice: string;
     from: { x: number; y: number };
     to: { x: number; y: number };
+    points: Array<{ x: number; y: number }>;
   }>;
   logisticsRoutes: Array<{
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
@@ -264,6 +266,22 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
   return { devices, transits: [...transits.values()], visibleEvents };
 }
 
+function pointAlongPath(points: Array<{ x: number; y: number }>, progress: number): { x: number; y: number } {
+  if (points.length < 2) return points[0] ?? { x: 0, y: 0 };
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point.x - points[index]!.x, point.y - points[index]!.y));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  let remaining = total * progress;
+  for (let index = 0; index < lengths.length; index++) {
+    const length = lengths[index]!;
+    if (remaining <= length || index === lengths.length - 1) {
+      const ratio = length ? remaining / length : 0;
+      return { x: THREE.MathUtils.lerp(points[index]!.x, points[index + 1]!.x, ratio), y: THREE.MathUtils.lerp(points[index]!.y, points[index + 1]!.y, ratio) };
+    }
+    remaining -= length;
+  }
+  return points.at(-1)!;
+}
+
 function FactoryTexture({ projectId, path, color, processing }: { projectId: string; path: string; color: string; processing: boolean }) {
   const texture = useTexture(fileUrl(projectId, path));
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -335,13 +353,14 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
     </group>)}
     {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}
-    {data.connections.map((connection) => <Line key={connection.id} points={[[connection.from.x, .16, connection.from.y], [connection.to.x, .16, connection.to.y]]} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
+    {data.connections.map((connection) => <Line key={connection.id} points={connection.points.map((point) => [point.x, .16, point.y])} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
     {data.logisticsRoutes.map((route) => <Line key={route.id} points={[[route.from.x, .32, route.from.y], [route.to.x, .32, route.to.y]]} color="#55c9df" lineWidth={1.5} dashed dashScale={2.4} dashSize={.45} gapSize={.28} transparent opacity={.7} />)}
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
     {frame.transits.map((transit) => {
       const connection = [...data.connections, ...data.logisticsRoutes].find((item) => item.id === transit.path)!;
-      const x = THREE.MathUtils.lerp(connection.from.x, connection.to.x, transit.progress);
-      const z = THREE.MathUtils.lerp(connection.from.y, connection.to.y, transit.progress);
+      const position = "points" in connection ? pointAlongPath(connection.points, transit.progress) : pointAlongPath([connection.from, connection.to], transit.progress);
+      const x = position.x;
+      const z = position.y;
       const resource = data.resources[transit.material];
       const color = resource?.visual?.color ?? "#d7f3ff";
       return <mesh key={transit.id} position={[x, .42, z]} castShadow>
@@ -491,7 +510,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="pipeline-list">{analysis.connections.map((connection) => <div className="pipeline-card" key={connection.connection}>
             <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}</small></span><b>{connection.capacityItemsPerMinute.toFixed(1)} /min</b></div>
             <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
-            <footer><span>LATENCY {connection.travelTicks}ms</span><span>DISPATCH {connection.dispatchIntervalTicks}ms</span></footer>
+            <footer><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span><span>DISPATCH {connection.dispatchIntervalTicks}ms</span></footer>
           </div>)}</div>
         </section>
         <section className="analysis-section station-analysis">

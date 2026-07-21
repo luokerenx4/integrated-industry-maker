@@ -11,9 +11,9 @@ export interface FactorySceneModel {
     visual: Record<string, unknown>; runtimeStatus: DeviceStatus; progress?: number; bottleneck?: boolean;
   }>;
   resourcesInTransit: Array<{
-    id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; progress: number; visual?: Record<string, unknown>;
+    id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; path: GridPosition[]; progress: number; visual?: Record<string, unknown>;
   }>;
-  connections: Array<{ id: string; from: GridPosition; to: GridPosition; kind: "physical" | "station"; blocked?: boolean }>;
+  connections: Array<{ id: string; from: GridPosition; to: GridPosition; path: GridPosition[]; kind: "physical" | "station"; blocked?: boolean }>;
   metrics: FactoryMetrics | null;
 }
 
@@ -43,12 +43,14 @@ export function createFactorySceneModel(project: CompiledFactoryProject, metrics
   const connections: FactorySceneModel["connections"] = [
     ...Object.values(project.connections).map((connection) => ({
       id: connection.id, from: center(worldPosition(connection.fromDevice), connection.fromDevice.footprint),
-      to: center(worldPosition(connection.toDevice), connection.toDevice.footprint), kind: "physical" as const,
+      to: center(worldPosition(connection.toDevice), connection.toDevice.footprint),
+      path: connection.path.map((cell) => ({ x: cell.x + offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + offsets.get(connection.fromDevice.region)!.y + .5 })), kind: "physical" as const,
     })),
     ...Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
       id: route.id,
       from: center(worldPosition(project.devices[route.from]!), project.devices[route.from]!.footprint),
       to: center(worldPosition(project.devices[route.to]!), project.devices[route.to]!.footprint),
+      path: [],
       kind: "station" as const,
     }))),
   ];
@@ -73,6 +75,7 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
     next.resourcesInTransit.push({
       id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
       from: center(from.position, from.footprint), to: center(to.position, to.footprint),
+      path: next.connections.find((item) => item.id === event.connection)!.path,
       progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
   } else if (event.type === "logistics.depart") {
@@ -82,6 +85,7 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
       id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
       from: center(from.position, from.footprint),
       to: center(to.position, to.footprint),
+      path: [],
       progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
     });
   } else if (event.type === "resource.arrive" || event.type === "logistics.arrive") next.resourcesInTransit = next.resourcesInTransit.filter((transit) => transit.id !== event.transit.id);

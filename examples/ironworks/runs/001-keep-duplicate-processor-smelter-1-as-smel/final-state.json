@@ -1,7 +1,7 @@
 {
-  "completedOrders": 21,
+  "completedOrders": 22,
   "consumed": {
-    "gear": 21
+    "gear": 22
   },
   "devices": {
     "assembler-1": {
@@ -175,19 +175,7 @@
   "transports": {
     "coal-assembly-to-generator": [],
     "coal-forge-to-generator": [],
-    "gear-to-output": [
-      {
-        "arriveTick": 121120,
-        "count": 1,
-        "departTick": 119920,
-        "from": "assembler-1",
-        "fromBuffer": "output",
-        "id": "transit-000217",
-        "resource": "gear",
-        "to": "output-1",
-        "toBuffer": "input"
-      }
-    ],
+    "gear-to-output": [],
     "ore-to-smelter": [],
     "ore-to-smelter-smelter-1-parallel": [],
     "plate-to-station": [],

@@ -1,28 +1,28 @@
 {
-  "averageWip": 40.013,
+  "averageWip": 39.824,
   "blockedOutputTime": {
     "assembler-1": 0,
     "coal-miner-assembly": 108000,
     "coal-miner-forge": 108000,
     "generator-1": 0,
     "generator-2": 0,
-    "ore-source-1": 45200,
+    "ore-source-1": 45000,
     "output-1": 0,
     "smelter-1": 0,
     "station-demand": 0,
     "station-supply": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 11,
+  "completedOrders": 12,
   "consumed": {
-    "gear": 11
+    "gear": 12
   },
-  "energyConsumedMilliJoules": 201884000,
+  "energyConsumedMilliJoules": 201930000,
   "extracted": {
     "coal": 24,
-    "iron-ore": 74
+    "iron-ore": 75
   },
-  "finalScore": 31.056526666666677,
+  "finalScore": 32.158300000000004,
   "fuelConsumed": {
     "coal": 4
   },
@@ -45,18 +45,18 @@
     "coal-miner-forge": 0.1,
     "generator-1": 1,
     "generator-2": 1,
-    "ore-source-1": 0.6233333333333333,
+    "ore-source-1": 0.625,
     "output-1": 0,
-    "smelter-1": 0.9733333333333334,
+    "smelter-1": 0.975,
     "station-demand": 0,
     "station-supply": 0
   },
-  "occupiedArea": 64,
+  "occupiedArea": 84,
   "onTimeDelivery": 1,
   "produced": {
     "coal": 24,
     "gear": 12,
-    "iron-ore": 74,
+    "iron-ore": 75,
     "iron-plate": 29
   },
   "resourceNodes": {
@@ -90,25 +90,25 @@
     },
     "iron-vein-3": {
       "depleted": false,
-      "extracted": 14,
+      "extracted": 15,
       "initial": 30,
-      "remaining": 15,
+      "remaining": 14,
       "reserved": 1
     }
   },
   "scoreBreakdown": {
-    "blocked": -4.3533333333333335,
-    "buildCost": -10.77,
+    "blocked": -4.35,
+    "buildCost": -10.69,
     "constraintPenalty": 0,
-    "energy": -2.01884,
-    "occupiedArea": -12.8,
+    "energy": -2.0193000000000003,
+    "occupiedArea": -16.8,
     "onTimeDelivery": 10,
-    "throughput": 55,
-    "wip": -4.0013
+    "throughput": 60,
+    "wip": -3.9824
   },
-  "throughputPerMinute": 5.5,
-  "totalBuildCost": 21540,
-  "transportCongestion": 0.15631547619047612,
+  "throughputPerMinute": 6,
+  "totalBuildCost": 21380,
+  "transportCongestion": 0.16278273809523808,
   "waitingInputTime": {
     "assembler-1": 84000,
     "coal-miner-assembly": 0,
@@ -117,7 +117,7 @@
     "generator-2": 0,
     "ore-source-1": 0,
     "output-1": 120000,
-    "smelter-1": 3200,
+    "smelter-1": 3000,
     "station-demand": 0,
     "station-supply": 0
   }

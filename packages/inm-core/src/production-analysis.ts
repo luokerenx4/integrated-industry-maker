@@ -61,7 +61,18 @@ export interface ConnectionRateLimit {
   capacityItemsPerMinute: number;
   travelTicks: number;
   dispatchIntervalTicks: number;
+  pathCells: number;
+  sharedCells: number;
   stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
+}
+
+export interface TransportCellAnalysis {
+  cell: string;
+  region: string;
+  position: { x: number; y: number };
+  asset: string;
+  connections: string[];
+  capacityItemsPerMinute: number;
 }
 
 export interface PowerGridAnalysis {
@@ -114,6 +125,7 @@ export interface ProductionAnalysis {
   resourceNodes: ResourceNodeAnalysis[];
   resources: ResourceProductionBalance[];
   connections: ConnectionRateLimit[];
+  transportCells: TransportCellAnalysis[];
   stationNetworks: StationNetworkAnalysis[];
   powerGrids: PowerGridAnalysis[];
   diagnostics: ProductionDiagnostic[];
@@ -217,7 +229,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     capacityItemsPerMinute: 60_000 / connection.dispatchIntervalTicks,
     travelTicks: connection.travelTicks,
     dispatchIntervalTicks: connection.dispatchIntervalTicks,
+    pathCells: connection.path.length,
+    sharedCells: connection.transportCells.filter((cell) => project.transportCells[cell]!.connections.length > 1).length,
     stages: connection.logisticsStages.map((stage) => ({ stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks })),
+  }));
+  const transportCells = Object.values(project.transportCells).sort((a, b) => a.id.localeCompare(b.id)).map((cell) => ({
+    cell: cell.id, region: cell.region, position: { ...cell.position }, asset: cell.asset.id,
+    connections: [...cell.connections], capacityItemsPerMinute: 60_000 / cell.dispatchIntervalTicks,
   }));
 
   const deviceRates = new Map(devices.map((device) => [device.device, device]));
@@ -347,6 +365,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     devices, extractionDevices, generationDevices, resourceNodes,
     resources,
     connections,
+    transportCells,
     stationNetworks,
     powerGrids,
     diagnostics,

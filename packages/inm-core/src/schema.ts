@@ -50,7 +50,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["extract", "process", "store", "transport", "station", "consume", "power"])).min(1),
+  capabilities: z.array(z.enum(["extract", "process", "store", "transport", "transport-junction", "station", "consume", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -109,10 +109,16 @@ export const blueprintSchema = z.object({
     process: id.optional(),
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
-    policy: z.object({ dispatch: z.enum(["fifo", "round-robin"]).optional() }).strict().optional(),
+    policy: z.object({
+      dispatch: z.enum(["fifo", "round-robin"]).optional(),
+      inputPriority: id.optional(),
+      outputPriority: id.optional(),
+      filter: z.object({ resource: id, outputPort: id }).strict().optional(),
+    }).strict().optional(),
   }).strict()),
   connections: z.array(z.object({
     id, from: z.object({ device: id, port: id }).strict(), to: z.object({ device: id, port: id }).strict(),
+    path: z.array(z.object({ x: nonNegativeInt, y: nonNegativeInt }).strict()).min(1),
     logistics: z.object({
       loader: z.object({ deviceAsset: id }).strict(),
       line: z.object({ deviceAsset: id }).strict(),

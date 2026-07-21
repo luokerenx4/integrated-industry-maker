@@ -52,8 +52,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const stats: SimulationStats = { durations: {}, wipArea: 0, congestionArea: 0, elapsedTicks: state.tick };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
   const dispatchCursors: Record<string, number> = {};
+  const transportCellCursors: Record<string, number> = {};
   const stationDispatchCursors: Record<string, number> = {};
   const nextDispatchTick: Record<string, number> = Object.fromEntries(Object.keys(project.connections).map((id) => [id, state.tick]));
+  const nextTransportCellTick: Record<string, number> = Object.fromEntries(Object.keys(project.transportCells).map((id) => [id, state.tick]));
   const scheduledDispatchTick: Record<string, number | undefined> = {};
   const schedule = (tick: number, priority: number, value: InternalEvent) => queue.push({ tick, priority, sequence: sequence++, value });
   const scheduleLogisticsReady = (connection: string, tick: number) => {
@@ -70,13 +72,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     statusSince[device] = state.tick;
     mutateFactoryState(state, { kind: "status", device, status });
   };
-  const stationBasePower = (grid?: string) => Object.entries(state.devices).reduce((sum, [id, runtime]) => {
+  const usesPersistentPower = (device: CompiledDevice) => device.assetDef.capabilities.includes("station") || device.assetDef.capabilities.includes("transport-junction");
+  const infrastructureBasePower = (grid?: string) => Object.entries(state.devices).reduce((sum, [id, runtime]) => {
     const device = project.devices[id]!;
-    if (!device.assetDef.capabilities.includes("station") || runtime.status === "failed") return sum;
+    if (!usesPersistentPower(device) || runtime.status === "failed") return sum;
     if (grid !== undefined && device.powerGrid !== grid) return sum;
     return sum + device.assetDef.power.consumptionMilliWatts;
   }, 0);
-  const activePower = (grid?: string) => stationBasePower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
+  const activePower = (grid?: string) => infrastructureBasePower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
     if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
     return sum + (runtime.activeJob?.powerMilliWatts ?? 0);
   }, 0);
@@ -116,25 +119,43 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const dispatch = (): boolean => {
     let moved = false;
     const sourceIds = [...new Set(Object.values(project.connections).map((connection) => connection.from.device))].sort();
-    const orderedConnections = sourceIds.flatMap((sourceId) => {
+    const sourceOrderedConnections = sourceIds.flatMap((sourceId) => {
       const outgoing = Object.values(project.connections).filter((connection) => connection.from.device === sourceId).sort((a, b) => a.id.localeCompare(b.id));
+      const outputPriority = project.devices[sourceId]!.policy?.outputPriority;
+      if (outputPriority) return outgoing.sort((a, b) => Number(b.from.port === outputPriority) - Number(a.from.port === outputPriority) || a.id.localeCompare(b.id));
       if (outgoing.length < 2 || (project.devices[sourceId]!.policy?.dispatch ?? project.blueprint.policies?.dispatch ?? "fifo") === "fifo") return outgoing;
       const cursor = dispatchCursors[sourceId] ?? 0;
       return [...outgoing.slice(cursor % outgoing.length), ...outgoing.slice(0, cursor % outgoing.length)];
     });
+    const arbitrationScore = (connection: CompiledFactoryProject["connections"][string]) => connection.transportCells.reduce((score, cellId) => {
+      const contenders = project.transportCells[cellId]!.connections;
+      return contenders.length > 1 && contenders[(transportCellCursors[cellId] ?? 0) % contenders.length] === connection.id ? score + 1 : score;
+    }, 0);
+    const orderedConnections = sourceOrderedConnections.map((connection, index) => ({
+      connection, index, score: arbitrationScore(connection),
+      inputPriority: Number(project.devices[connection.to.device]!.policy?.inputPriority === connection.to.port),
+    })).sort((a, b) => b.score - a.score || b.inputPriority - a.inputPriority || a.index - b.index).map((item) => item.connection);
     for (const connection of orderedConnections) {
       const sourceState = state.devices[connection.from.device]!;
       const sourceBuffer = sourceState.buffers[connection.fromPort.buffer]!;
       const targetState = state.devices[connection.to.device]!;
+      if ((usesPersistentPower(connection.fromDevice) && sourceState.status === "unpowered") || (usesPersistentPower(connection.toDevice) && targetState.status === "unpowered")) continue;
       const targetBuffer = targetState.buffers[connection.toPort.buffer]!;
       const inTransit = state.transports[connection.id]!.reduce((sum, transit) => sum + transit.count, 0);
       if (inTransit >= connection.capacity) continue;
-      const resource = Object.keys(sourceBuffer).sort().find((id) => (sourceBuffer[id] ?? 0) > 0 && accepts(connection.toDevice, connection.toPort.buffer, id));
+      const filter = connection.fromDevice.policy?.filter;
+      const resource = Object.keys(sourceBuffer).sort().find((id) => {
+        if ((sourceBuffer[id] ?? 0) <= 0 || !accepts(connection.toDevice, connection.toPort.buffer, id)) return false;
+        if (!filter) return true;
+        return connection.from.port === filter.outputPort ? id === filter.resource : id !== filter.resource;
+      });
       if (!resource) continue;
       const targetCapacity = connection.toDevice.buffers[connection.toPort.buffer]!.capacity;
       if (quantity(targetBuffer) + incomingQuantity(connection.to.device, connection.toPort.buffer) >= targetCapacity) continue;
-      if (state.tick < nextDispatchTick[connection.id]!) {
-        scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
+      const sharedPathReady = Math.max(state.tick, ...connection.transportCells.map((cell) => nextTransportCellTick[cell] ?? state.tick));
+      const readyTick = Math.max(nextDispatchTick[connection.id]!, sharedPathReady);
+      if (state.tick < readyTick) {
+        scheduleLogisticsReady(connection.id, readyTick);
         continue;
       }
       mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -1 });
@@ -148,6 +169,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       emit({ type: "resource.depart", tick: state.tick, transit: { ...transit }, connection: connection.id });
       schedule(transit.arriveTick, 10, { kind: "arrive", connection: connection.id, transitId: transit.id });
       nextDispatchTick[connection.id] = state.tick + connection.dispatchIntervalTicks;
+      for (const cell of connection.transportCells) nextTransportCellTick[cell] = state.tick + project.transportCells[cell]!.dispatchIntervalTicks;
+      for (const cell of connection.transportCells) {
+        const contenders = project.transportCells[cell]!.connections;
+        if (contenders.length > 1) transportCellCursors[cell] = (contenders.indexOf(connection.id) + 1) % contenders.length;
+      }
       scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
       moved = true;
       if ((connection.fromDevice.policy?.dispatch ?? project.blueprint.policies?.dispatch) === "round-robin") {
@@ -159,7 +185,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return moved;
   };
 
-  const stationPowered = (device: CompiledDevice): boolean => {
+  const infrastructurePowered = (device: CompiledDevice): boolean => {
     if (state.devices[device.id]!.status === "failed") return false;
     const required = device.assetDef.power.consumptionMilliWatts;
     if (required === 0) return true;
@@ -176,11 +202,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return false;
   };
 
-  const refreshStationPower = (): boolean => {
+  const refreshInfrastructurePower = (): boolean => {
     let changed = false;
-    for (const device of Object.values(project.devices).filter((item) => item.assetDef.capabilities.includes("station")).sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const device of Object.values(project.devices).filter(usesPersistentPower).sort((a, b) => a.id.localeCompare(b.id))) {
       const before = state.devices[device.id]!.status;
-      stationPowered(device);
+      infrastructurePowered(device);
       if (state.devices[device.id]!.status !== before) changed = true;
     }
     return changed;
@@ -205,7 +231,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           - quantity(targetState.buffers[route.toBuffer]!)
           - incomingQuantity(route.to, route.toBuffer);
         if (sourceState.status === "failed" || targetState.status === "failed" || available < route.minimumBatch || free < route.minimumBatch
-          || !stationPowered(sourceDevice) || !stationPowered(targetDevice)) {
+          || !infrastructurePowered(sourceDevice) || !infrastructurePowered(targetDevice)) {
           scannedWithoutDispatch++;
           continue;
         }
@@ -369,7 +395,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       let generationChanged = false;
       for (const device of evaluationOrder.filter((item) => item.generationPlan)) if (tryEvaluate(device)) generationChanged = true;
       syncPowerAvailability();
-      const stationPowerChanged = refreshStationPower();
+      const stationPowerChanged = refreshInfrastructurePower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
       changed = generationChanged || stationPowerChanged || physicalMoved || stationMoved;

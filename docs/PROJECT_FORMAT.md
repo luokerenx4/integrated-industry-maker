@@ -134,6 +134,19 @@ A combustible Resource declares how much energy one unit contains. The value is 
 
 Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device may declare compatible Process categories, an exact rational speed multiplier, and input/output bindings. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
 
+A transport junction is a placed Device with the `transport-junction` capability, an internal buffer, and multiple input/output ports. Its blueprint policy can select deterministic merge/split behavior without hiding topology in runtime code:
+
+```json
+"policy": {
+  "dispatch": "round-robin",
+  "inputPriority": "input-west",
+  "outputPriority": "output-east",
+  "filter": { "resource": "coal", "outputPort": "output-north" }
+}
+```
+
+Priorities name real ports and filters name a project Resource plus a real output port, so the compiler rejects stale or impossible routing contracts. A filtered Resource uses only the filtered output; other Resources use the remaining outputs.
+
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
 Power consumption and generation use integer milliwatts. Renewable generation is continuously available while its Device is healthy:
@@ -190,6 +203,30 @@ A reusable carrier declares the `carrier` logistics role and its supported netwo
 ```
 
 Its `planTransport()` result defines per-trip batch capacity and occupied travel time. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
+
+## Explicit local transport paths
+
+Every physical connection includes the exact ordered grid cells occupied by its line:
+
+```json
+{
+  "id": "ore-to-smelter",
+  "from": { "device": "ore-miner", "port": "output" },
+  "to": { "device": "smelter", "port": "input" },
+  "path": [
+    { "x": 4, "y": 10 },
+    { "x": 5, "y": 10 },
+    { "x": 6, "y": 10 }
+  ],
+  "logistics": {
+    "loader": { "deviceAsset": "sorter" },
+    "line": { "deviceAsset": "conveyor" },
+    "unloader": { "deviceAsset": "sorter" }
+  }
+}
+```
+
+The first and last cells must be the exterior cells of the named ports. Consecutive cells must share a cardinal edge; paths cannot leave region bounds, repeat themselves, cross placed Devices, or cover finite resource nodes. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length. Multiple connections may deliberately reuse cells to form a visible belt graph. A reused cell has one line asset, one shared bandwidth clock, and deterministic round-robin arbitration across its connections. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
 
 ## Device TypeScript program
 

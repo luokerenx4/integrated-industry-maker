@@ -1,21 +1,12 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
-  BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, DeviceAsset, DevicePort,
+  BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, CompiledTransportCell, DeviceAsset,
   IndustrialProcess, ProjectHashes, ResourceAsset, ValidationIssue, WorldResourceNode,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
 import { ENGINE_VERSION, hashValue } from "./utils";
-
-function rotatedFootprint(asset: DeviceAsset, rotation: number): { width: number; height: number } {
-  const footprint = asset.geometry.footprint;
-  return rotation === 90 || rotation === 270 ? { width: footprint.height, height: footprint.width } : { ...footprint };
-}
-
-function rotateSide(side: DevicePort["side"], rotation: number): DevicePort["side"] {
-  const sides: DevicePort["side"][] = ["north", "east", "south", "west"];
-  return sides[(sides.indexOf(side) + rotation / 90) % 4]!;
-}
+import { externalPortCell, rotatePortSide, rotatedFootprint, transportCellId } from "./routing";
 
 function validateAssets(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -277,6 +268,21 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     for (const message of validateDeviceConfig(asset.id, asset.program, instance.config ?? {})) {
       issues.push({ path: `${path}/config`, code: "runtime.invalid-config", message });
     }
+    if (instance.policy?.inputPriority) {
+      const port = asset.geometry.ports.find((item) => item.id === instance.policy!.inputPriority);
+      if (!port || port.direction !== "input") issues.push({ path: `${path}/policy/inputPriority`, code: "policy.input-priority-port", message: `Input priority must name an input port on '${asset.id}'` });
+    }
+    if (instance.policy?.outputPriority) {
+      const port = asset.geometry.ports.find((item) => item.id === instance.policy!.outputPriority);
+      if (!port || port.direction !== "output") issues.push({ path: `${path}/policy/outputPriority`, code: "policy.output-priority-port", message: `Output priority must name an output port on '${asset.id}'` });
+    }
+    if (instance.policy?.filter) {
+      const port = asset.geometry.ports.find((item) => item.id === instance.policy!.filter!.outputPort);
+      if (!port || port.direction !== "output") issues.push({ path: `${path}/policy/filter/outputPort`, code: "policy.filter-output-port", message: `Filter must name an output port on '${asset.id}'` });
+      if (!loaded.resources[instance.policy.filter.resource]) issues.push({ path: `${path}/policy/filter/resource`, code: "reference.resource", message: `Unknown filter resource '${instance.policy.filter.resource}'` });
+      const buffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
+      if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(instance.policy.filter.resource)) issues.push({ path: `${path}/policy/filter/resource`, code: "policy.filter-resource-contract", message: `Output port '${port!.id}' cannot carry '${instance.policy.filter.resource}'` });
+    }
     let processPlan: CompiledDevice["processPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
@@ -343,7 +349,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     };
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
-      ports: asset.geometry.ports.map((port) => ({ ...port, side: rotateSide(port.side, instance.rotation) })),
+      ports: asset.geometry.ports.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
       buffers: Object.fromEntries(asset.buffers.map((buffer) => [buffer.id, buffer])),
       ...(processPlan ? { processPlan } : {}),
       ...(extractionPlan ? { extractionPlan } : {}),
@@ -392,17 +398,66 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (!sourceResources.includes("*") && !targetResources.includes("*") && !sourceResources.some((resource) => targetResources.includes(resource))) {
       issues.push({ path, code: "port.resource-contract", message: `Connection '${connection.id}' has no resource accepted by both endpoint buffers` });
     }
-    const distance = Math.max(1, Math.abs(from.position.x - to.position.x) + Math.abs(from.position.y - to.position.y));
+    if (!connection.path?.length) { issues.push({ path: `${path}/path`, code: "logistics.path-required", message: `Connection '${connection.id}' requires at least one explicit transport cell` }); continue; }
+    let pathValid = true;
+    const expectedStart = externalPortCell(from, from.assetDef, connection.from.port);
+    const expectedEnd = externalPortCell(to, to.assetDef, connection.to.port);
+    const first = connection.path[0]!; const last = connection.path.at(-1)!;
+    if (!expectedStart || first.x !== expectedStart.x || first.y !== expectedStart.y) {
+      issues.push({ path: `${path}/path/0`, code: "logistics.path-start", message: `Path must start at the exterior cell of '${from.id}.${connection.from.port}'` }); pathValid = false;
+    }
+    if (!expectedEnd || last.x !== expectedEnd.x || last.y !== expectedEnd.y) {
+      issues.push({ path: `${path}/path/${connection.path.length - 1}`, code: "logistics.path-end", message: `Path must end at the exterior cell of '${to.id}.${connection.to.port}'` }); pathValid = false;
+    }
+    const seenPathCells = new Set<string>();
+    const region = regions[from.region]!;
+    for (const [pathIndex, position] of connection.path.entries()) {
+      const cellPath = `${path}/path/${pathIndex}`;
+      const key = `${position.x},${position.y}`;
+      if (seenPathCells.has(key)) { issues.push({ path: cellPath, code: "logistics.path-self-intersection", message: `Path visits cell (${position.x},${position.y}) more than once` }); pathValid = false; }
+      seenPathCells.add(key);
+      if (position.x >= region.bounds.width || position.y >= region.bounds.height) { issues.push({ path: cellPath, code: "logistics.path-out-of-bounds", message: `Path cell (${position.x},${position.y}) exceeds region '${region.id}' bounds` }); pathValid = false; }
+      const blockingDevice = Object.values(devices).find((device) => device.region === from.region && position.x >= device.position.x && position.x < device.position.x + device.footprint.width && position.y >= device.position.y && position.y < device.position.y + device.footprint.height);
+      if (blockingDevice) { issues.push({ path: cellPath, code: "logistics.path-device-collision", message: `Path cell (${position.x},${position.y}) intersects device '${blockingDevice.id}'` }); pathValid = false; }
+      const blockingNode = Object.values(resourceNodes).find((node) => node.region === from.region && node.position.x === position.x && node.position.y === position.y);
+      if (blockingNode) { issues.push({ path: cellPath, code: "logistics.path-resource-collision", message: `Path cell (${position.x},${position.y}) intersects resource node '${blockingNode.id}'` }); pathValid = false; }
+      if (pathIndex > 0) {
+        const previous = connection.path[pathIndex - 1]!;
+        if (Math.abs(previous.x - position.x) + Math.abs(previous.y - position.y) !== 1) { issues.push({ path: cellPath, code: "logistics.path-disconnected", message: "Consecutive path cells must share a cardinal edge" }); pathValid = false; }
+      }
+    }
+    if (!pathValid) continue;
+    const distance = connection.path.length;
     const logisticsStages = stageDefinitions.map(({ stage }, stageIndex) => {
       const asset = stageAssets[stageIndex]!;
       const stageDistance = stage === "line" ? distance : 1;
       const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: connection.id, stage, distance: stageDistance });
       return { stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks };
     });
-    const capacity = logisticsStages.reduce((sum, stage) => sum + stage.capacity, 0);
     const travelTicks = logisticsStages.reduce((sum, stage) => sum + stage.durationTicks, 0);
     const dispatchIntervalTicks = Math.max(...logisticsStages.map((stage) => Math.ceil(stage.durationTicks / stage.capacity)));
-    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, capacity, travelTicks, dispatchIntervalTicks };
+    const lineStage = logisticsStages.find((stage) => stage.stage === "line")!;
+    const lineDispatchIntervalTicks = Math.ceil(lineStage.durationTicks / lineStage.capacity);
+    const capacity = Math.max(1, Math.ceil(travelTicks / dispatchIntervalTicks));
+    const transportCells = connection.path.map((position) => transportCellId(from.region, position));
+    connections[connection.id] = { ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, transportCells, lineDispatchIntervalTicks, capacity, travelTicks, dispatchIntervalTicks };
+  }
+
+  const transportCells: Record<string, CompiledTransportCell> = {};
+  for (const connection of Object.values(connections).sort((a, b) => a.id.localeCompare(b.id))) {
+    const lineAsset = connection.logisticsStages.find((stage) => stage.stage === "line")!.asset;
+    for (const [cellIndex, position] of connection.path.entries()) {
+      const id = connection.transportCells[cellIndex]!;
+      const existing = transportCells[id];
+      if (existing && existing.asset.id !== lineAsset.id) {
+        issues.push({ path: `blueprint/connections/${loaded.blueprint.connections.findIndex((item) => item.id === connection.id)}/path/${cellIndex}`, code: "logistics.shared-cell-asset", message: `Shared transport cell '${id}' mixes line assets '${existing.asset.id}' and '${lineAsset.id}'` });
+        continue;
+      }
+      if (existing) {
+        existing.connections.push(connection.id);
+        existing.dispatchIntervalTicks = Math.max(existing.dispatchIntervalTicks, connection.lineDispatchIntervalTicks);
+      } else transportCells[id] = { id, region: connection.fromDevice.region, position: { ...position }, asset: lineAsset, connections: [connection.id], dispatchIntervalTicks: connection.lineDispatchIntervalTicks };
+    }
   }
 
   const logisticsNetworks = compileLogisticsNetworks(loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, regions, issues);
@@ -432,5 +487,5 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     worldHash: hashValue(loaded.world),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
-  return { ...loaded, regions, resourceNodes, devices, connections, logisticsNetworks, powerGrids, hashes };
+  return { ...loaded, regions, resourceNodes, devices, connections, transportCells, logisticsNetworks, powerGrids, hashes };
 }

@@ -22,7 +22,7 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, per-region geometry/rotation checks, port validation, region-local physical-link resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, per-region geometry/rotation checks, port validation, explicit cardinal transport-path and shared-cell resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
@@ -30,7 +30,7 @@ Prints the selected world, finite deposits, project topology, region kinds/world
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
-Compiles extractor rates, finite deposit inventory and estimated depletion, Process-bound Device cycle rates, renewable and fuel generation rates, per-resource nominal production/consumption balance including fuel demand, boundary demand, local connection throughput limits, region-to-region station routes and estimated carrier load, and region-qualified power-grid headroom without running a simulation. Diagnostics expose deposits that are unmined or expected to deplete during the scenario, material deficits, unconsumed surplus, insufficient input/output logistics, unmatched station supply/demand, undersized shared fleets, unfed fuel generators, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
+Compiles extractor rates, finite deposit inventory and estimated depletion, Process-bound Device cycle rates, renewable and fuel generation rates, per-resource nominal production/consumption balance including fuel demand, boundary demand, local connection throughput/path/shared-cell limits, region-to-region station routes and estimated carrier load, and region-qualified power-grid headroom without running a simulation. Diagnostics expose deposits that are unmined or expected to deplete during the scenario, material deficits, unconsumed surplus, insufficient input/output logistics, unmatched station supply/demand, undersized shared fleets, unfed fuel generators, disconnected consumers, and undersupplied grids. `--json` is designed to be consumed directly by optimization agents.
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 

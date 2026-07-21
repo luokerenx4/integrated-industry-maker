@@ -1,23 +1,23 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
-- Score: **31.057**
-- Result hash: `3fde08cfae1a2ad731500a82e691bff88ab966bca704ec79c1c10b5edcaa9d0f`
+- Score: **32.158**
+- Result hash: `1b88b9eb9478d742acf72390f89027f5c10b508b7e094e8c3dcc5a3faa074c2a`
 - Bottleneck: smelter-1
-- Throughput/min: 5.500
+- Throughput/min: 6.000
 - Feasible: yes
 
 ## Score breakdown
 
 ```json
 {
-  "blocked": -4.3533333333333335,
-  "buildCost": -10.77,
+  "blocked": -4.35,
+  "buildCost": -10.69,
   "constraintPenalty": 0,
-  "energy": -2.01884,
-  "occupiedArea": -12.8,
+  "energy": -2.0193000000000003,
+  "occupiedArea": -16.8,
   "onTimeDelivery": 10,
-  "throughput": 55,
-  "wip": -4.0013
+  "throughput": 60,
+  "wip": -3.9824
 }
 ```

@@ -1,5 +1,5 @@
 {
-  "averageWip": 33.32383333333333,
+  "averageWip": 32.8565,
   "blockedOutputTime": {
     "assembler-1": 0,
     "coal-miner-assembly": 108000,
@@ -15,16 +15,16 @@
     "wind-turbine-support": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 21,
+  "completedOrders": 22,
   "consumed": {
-    "gear": 21
+    "gear": 22
   },
   "energyConsumedMilliJoules": 219900000,
   "extracted": {
     "coal": 24,
     "iron-ore": 90
   },
-  "finalScore": 79.25361666666666,
+  "finalScore": 78.80535,
   "fuelConsumed": {
     "coal": 4
   },
@@ -57,7 +57,7 @@
     "station-supply": 0,
     "wind-turbine-support": 0
   },
-  "occupiedArea": 72,
+  "occupiedArea": 100,
   "onTimeDelivery": 1,
   "produced": {
     "coal": 24,
@@ -104,17 +104,17 @@
   },
   "scoreBreakdown": {
     "blocked": -3.6,
-    "buildCost": -12.215,
+    "buildCost": -12.11,
     "constraintPenalty": 0,
     "energy": -2.1990000000000003,
-    "occupiedArea": -14.4,
+    "occupiedArea": -20,
     "onTimeDelivery": 10,
-    "throughput": 105,
-    "wip": -3.3323833333333335
+    "throughput": 110,
+    "wip": -3.28565
   },
-  "throughputPerMinute": 10.5,
-  "totalBuildCost": 24430,
-  "transportCongestion": 0.12814814814814812,
+  "throughputPerMinute": 11,
+  "totalBuildCost": 24220,
+  "transportCongestion": 0.1328425925925926,
   "waitingInputTime": {
     "assembler-1": 54000,
     "coal-miner-assembly": 0,
