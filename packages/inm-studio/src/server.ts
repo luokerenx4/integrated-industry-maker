@@ -185,6 +185,10 @@ async function loadStudioData(projectId: string, runName?: string) {
         .map(([bufferId, buffer]) => [bufferId, [...buffer.accepts]])),
       ...(device.processPlan ? { recipe: {
         process: device.processPlan.definition.id,
+        mode: device.processPlan.mode.id,
+        modeName: device.processPlan.mode.name,
+        durationTicks: device.processPlan.durationTicks,
+        powerMilliWatts: device.processPlan.powerMilliWatts,
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
         outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
       } } : {}),

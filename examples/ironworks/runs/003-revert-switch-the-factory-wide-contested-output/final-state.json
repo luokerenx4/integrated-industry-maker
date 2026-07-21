@@ -10,7 +10,7 @@
           "iron-plate": 2
         },
         "input-secondary": {
-          "coal": 8
+          "coal": 7
         },
         "output": {}
       },
@@ -18,9 +18,7 @@
     },
     "coal-miner-assembly": {
       "buffers": {
-        "output": {
-          "coal": 5
-        }
+        "output": {}
       },
       "status": "waiting-input"
     },
@@ -34,9 +32,7 @@
     },
     "coal-splitter-assembly": {
       "buffers": {
-        "storage": {
-          "coal": 8
-        }
+        "storage": {}
       },
       "status": "idle"
     },
@@ -143,14 +139,14 @@
   },
   "energy": {
     "availableMilliWatts": 3200000,
-    "consumedMilliJoules": 224263000,
+    "consumedMilliJoules": 224281000,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 100854000
+        "consumedMilliJoules": 100872000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1600000,

@@ -49,7 +49,7 @@ interface Device {
   rotation: number;
   footprint: { width: number; height: number };
   visual: Visual;
-  recipe?: { process: string; inputs: Array<{ resource: string; buffer: string; count: number }>; outputs: Array<{ resource: string; buffer: string; count: number }> };
+  recipe?: { process: string; mode: string; modeName: string; durationTicks: number; powerMilliWatts: number; inputs: Array<{ resource: string; buffer: string; count: number }>; outputs: Array<{ resource: string; buffer: string; count: number }> };
   resourceContracts: Record<string, string[]>;
 }
 
@@ -66,7 +66,14 @@ interface DeviceCatalogAsset {
     ports: Array<{ id: string; direction: "input" | "output"; side: string; buffer: string }>;
   };
   buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
-  production?: { categories: string[]; speed: { numerator: number; denominator: number }; inputBuffers: string[]; outputBuffers: string[] };
+  production?: {
+    categories: string[]; speed: { numerator: number; denominator: number }; inputBuffers: string[]; outputBuffers: string[];
+    modes: Array<{
+      id: string; name: string; inputCycles: number; outputCycles: number;
+      durationMultiplier: { numerator: number; denominator: number }; powerMultiplier: { numerator: number; denominator: number };
+      auxiliaryInputs: Array<{ resource: string; count: number; buffer: string }>;
+    }>;
+  };
   extraction?: { resources: string[]; radius: number; outputBuffer: string; cycleTicks: number; itemsPerCycle: number };
   logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar"> };
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number };
@@ -161,7 +168,7 @@ interface IndustrialAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
   devices: Array<{
-    device: string; asset: string; process: string; category: string; cycleTicks: number; cyclesPerMinute: number;
+    device: string; asset: string; process: string; mode: string; inputCycles: number; outputCycles: number; category: string; cycleTicks: number; cyclesPerMinute: number;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
     inputBindings: Record<string, string>; outputBindings: Record<string, string>; powerMilliWatts: number;
   }>;
@@ -170,14 +177,14 @@ interface IndustrialAnalysis {
     buffers: Array<{ buffer: string; role: string; capacity: number; accepts: string[]; resourceCapacities?: Record<string, number> }>;
   }>;
   recipeOptions: Array<{
-    device: string; asset: string; process: string; name: string; category: string; selected: boolean;
+    device: string; asset: string; process: string; mode: string; modeName: string; name: string; category: string; selected: boolean;
     cycleTicks: number; cyclesPerMinute: number; inputs: Array<{ resource: string; count: number }>; outputs: Array<{ resource: string; count: number }>;
-    inputBindings: Record<string, string>; outputBindings: Record<string, string>; targetOutputPerMinute: number;
+    inputBindings: Record<string, string>; outputBindings: Record<string, string>; targetOutputPerMinute: number; powerMilliWatts: number;
   }>;
   productionGraph: {
     targetResource: string; rawInputsPerTarget: Record<string, number>; coproductSurplusPerTarget: Record<string, number>;
-    steps: Array<{ device: string; process: string; cyclesPerTarget: number }>;
-    dependencies: Array<{ device: string; process: string; inputs: string[]; outputs: string[] }>;
+    steps: Array<{ device: string; process: string; mode: string; cyclesPerTarget: number }>;
+    dependencies: Array<{ device: string; process: string; mode: string; inputs: string[]; outputs: string[] }>;
   };
   extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; powerMilliWatts: number }>;
   generationDevices: Array<{ device: string; asset: string; region: string; kind: "renewable" | "fuel"; outputMilliWatts: number; fuelBuffer?: string; fuelResource?: string; fuelPerMinute?: number; burnTicks?: number }>;
@@ -204,7 +211,7 @@ interface IndustrialAnalysis {
 interface CapacityPlan {
   targetResource: string; targetRatePerMinute: number; scenarioMinutes: number; targetItemsForScenario: number; ready: boolean;
   processes: Array<{
-    resource: string; process: string; asset: string; templateDevice: string; requiredOutputPerMinute: number; requiredCyclesPerMinute: number;
+    resource: string; process: string; mode: string; asset: string; templateDevice: string; requiredOutputPerMinute: number; requiredCyclesPerMinute: number;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>; capacityPerMachine: number; configuredMachines: number; configuredCapacityPerMinute: number;
     requiredMachines: number; additionalMachines: number; region: string; powerMilliWattsPerMachine: number;
   }>;
@@ -402,7 +409,7 @@ function FactoryDevice({ projectId, device, frame, bottleneck }: { projectId: st
     {bottleneck && <mesh position={[0, .03 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .7, Math.max(device.footprint.width, device.footprint.height) * .88, 48]} /><meshBasicMaterial color="#ffcf5c" transparent opacity={.8} /></mesh>}
     <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>
+    <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process} / {device.recipe.mode}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>
   </group>;
 }
 
@@ -523,7 +530,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>POWER</label><strong>{(selected.power.consumptionMilliWatts / 1000).toFixed(0)} W</strong></div>
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
-              {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputBuffers.join(" + ")} → {selected.production.outputBuffers.join(" + ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div></div></section>}
+              {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputBuffers.join(" + ")} → {selected.production.outputBuffers.join(" + ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div>{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.buffer}`).join(" · ") || "no auxiliary input"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
               {selected.extraction && <section className="asset-section"><h4>Extraction</h4><div className="asset-table"><div><b>{selected.extraction.resources.join(", ")}</b><strong>{selected.extraction.itemsPerCycle} / {selected.extraction.cycleTicks}ms</strong><span>radius</span><code>{selected.extraction.radius} cells</code></div></div></section>}
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
@@ -585,8 +592,8 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
       <div className="analysis-body">
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>TARGET-RATE CAPACITY PLAN</span><b>{plan.ready ? "READY" : `${plan.gaps.length} GAPS`} · {plan.targetRatePerMinute.toFixed(2)} {plan.targetResource.toUpperCase()}/MIN</b></div>
-          <div className="pipeline-list">{plan.processes.map((process) => <div className="pipeline-card" key={`${process.process}-${process.resource}`}>
-            <div className="pipeline-head"><span><strong>{process.process}</strong><small>{process.region} · {process.asset} · {Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")} → {Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</small></span><b>{process.configuredMachines} / {process.requiredMachines} MACHINES</b></div>
+          <div className="pipeline-list">{plan.processes.map((process) => <div className="pipeline-card" key={`${process.process}-${process.mode}-${process.resource}`}>
+            <div className="pipeline-head"><span><strong>{process.process} / {process.mode}</strong><small>{process.region} · {process.asset} · {Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")} → {Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</small></span><b>{process.configuredMachines} / {process.requiredMachines} MACHINES</b></div>
             <footer><span>CAPACITY {process.configuredCapacityPerMinute.toFixed(2)} / {process.requiredOutputPerMinute.toFixed(2)}/MIN</span><span>{process.additionalMachines ? `ADD ${process.additionalMachines} ${process.asset.toUpperCase()}` : "CAPACITY READY"}</span><span>{(process.powerMilliWattsPerMachine / 1000).toFixed(0)} W / MACHINE</span></footer>
           </div>)}</div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACTION</span><span>RESERVE AFTER RUN</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>
@@ -610,9 +617,9 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>CONFIGURED RECIPES</span><b>RESOURCE → BUFFER</b></div>
           <div className="pipeline-list">{analysis.devices.map((device) => <div className="pipeline-card" key={device.device}>
-            <div className="pipeline-head"><span><strong>{device.device}</strong><small>{device.asset} · {device.process}</small></span><b>{device.cyclesPerMinute.toFixed(2)} cycles/min</b></div>
+            <div className="pipeline-head"><span><strong>{device.device}</strong><small>{device.asset} · {device.process} / {device.mode}</small></span><b>{device.cyclesPerMinute.toFixed(2)} cycles/min</b></div>
             <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(device.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ") || "none"}</strong><code>{Object.entries(device.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(device.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{Object.entries(device.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span></div>
-            <footer><span>CYCLE {device.cycleTicks}ms</span><span>{(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
+            <footer><span>JOB {device.inputCycles}× INPUT / {device.outputCycles}× OUTPUT · {device.cycleTicks}ms</span><span>{(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
           </div>)}</div>
         </section>
         <section className="analysis-section material-analysis">
@@ -625,13 +632,13 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>PRODUCTION GRAPH</span><b>PER 1 {analysis.productionGraph.targetResource.toUpperCase()}</b></div>
           <div className="pipeline-list"><div className="pipeline-card">
             <div className="pipeline-head"><span><strong>{analysis.productionGraph.targetResource}</strong><small>selected recipe dependency chain</small></span><b>{Object.entries(analysis.productionGraph.rawInputsPerTarget).map(([resource, amount]) => `${amount.toFixed(2)} ${resource}`).join(" + ")}</b></div>
-            <div className="pipeline-stages">{analysis.productionGraph.steps.map((step, index) => <React.Fragment key={step.device}><span><small>{step.device}</small><strong>{step.process}</strong><code>{step.cyclesPerTarget.toFixed(2)} cycles / target</code></span>{index < analysis.productionGraph.steps.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+            <div className="pipeline-stages">{analysis.productionGraph.steps.map((step, index) => <React.Fragment key={step.device}><span><small>{step.device}</small><strong>{step.process} / {step.mode}</strong><code>{step.cyclesPerTarget.toFixed(2)} jobs / target</code></span>{index < analysis.productionGraph.steps.length - 1 && <i>→</i>}</React.Fragment>)}</div>
           </div></div>
         </section>
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>RECIPE ALTERNATIVES</span><b>AUTO-PATCH CANDIDATES</b></div>
-          <div className="pipeline-list">{analysis.recipeOptions.filter((option) => !option.selected).map((option) => <div className="pipeline-card" key={`${option.device}-${option.process}`}>
-            <div className="pipeline-head"><span><strong>{option.process}</strong><small>{option.device} · {option.name}</small></span><b>{option.targetOutputPerMinute.toFixed(2)} {analysis.productionGraph.targetResource}/min</b></div>
+          <div className="pipeline-list">{analysis.recipeOptions.filter((option) => !option.selected).map((option) => <div className="pipeline-card" key={`${option.device}-${option.process}-${option.mode}`}>
+            <div className="pipeline-head"><span><strong>{option.process} / {option.modeName}</strong><small>{option.device} · {option.name} · {(option.powerMilliWatts / 1000).toFixed(0)} W</small></span><b>{option.targetOutputPerMinute.toFixed(2)} {analysis.productionGraph.targetResource}/min</b></div>
             <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(option.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{option.inputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(option.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{option.outputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span></div>
           </div>)}</div>
         </section>

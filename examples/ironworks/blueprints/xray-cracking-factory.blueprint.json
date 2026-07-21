@@ -443,7 +443,8 @@
           "hydrogen": "gas-output",
           "refined-oil": "liquid-output"
         },
-        "process": "refine-crude"
+        "process": "refine-crude",
+        "mode": "standard"
       },
       "region": "chemical-basin",
       "rotation": 0
@@ -464,7 +465,8 @@
           "graphite": "graphite-output",
           "hydrogen": "hydrogen-output"
         },
-        "process": "xray-crack-oil"
+        "process": "xray-crack-oil",
+        "mode": "standard"
       },
       "region": "chemical-basin",
       "rotation": 0

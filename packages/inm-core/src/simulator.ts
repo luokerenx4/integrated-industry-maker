@@ -383,6 +383,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     });
   };
   const allAmountsKnown = (device: CompiledDevice, amounts: ResourceBufferQuantity[]) => amounts.every((amount) => device.buffers[amount.buffer] && project.resources[amount.resource]);
+  const sameAmounts = (left: ResourceBufferQuantity[], right: ResourceBufferQuantity[]) => {
+    const key = (amount: ResourceBufferQuantity) => `${amount.buffer}\0${amount.resource}\0${amount.count}`;
+    const leftKeys = left.map(key).sort(); const rightKeys = right.map(key).sort();
+    return leftKeys.length === rightKeys.length && leftKeys.every((value, index) => value === rightKeys[index]);
+  };
   const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], delivered: boolean) => {
     for (const amount of amounts) {
       mutateFactoryState(state, { kind: "buffer", device: device.id, buffer: amount.buffer, resource: amount.resource, delta: -amount.count });
@@ -452,6 +457,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (!decision.consume.every((amount) => amountAvailable(device, amount))) { setStatus(device.id, "waiting-input"); return false; }
     if (decision.kind === "consume") { applyConsume(device, decision.consume, true); setStatus(device.id, "idle"); return true; }
     if (!allAmountsKnown(device, decision.produce)) throw new Error(`Device program '${device.asset}' referenced an unknown output resource or buffer`);
+    if (device.processPlan) {
+      const plan = device.processPlan;
+      const required = decision.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
+      if (decision.operation !== plan.definition.id || decision.durationTicks !== plan.durationTicks
+        || !sameAmounts(decision.consume, plan.inputs) || !sameAmounts(decision.produce, plan.outputs) || required !== plan.powerMilliWatts) {
+        throw new Error(`Device program '${device.asset}' must execute compiled process '${plan.definition.id}' mode '${plan.mode.id}' exactly`);
+      }
+    }
     if (!outputFits(device, decision.produce)) {
       if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
       return false;
@@ -482,6 +495,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         name: device.processPlan.definition.name,
         category: device.processPlan.definition.category,
         durationTicks: device.processPlan.durationTicks,
+        mode: {
+          id: device.processPlan.mode.id,
+          name: device.processPlan.mode.name,
+          inputCycles: device.processPlan.mode.inputCycles,
+          outputCycles: device.processPlan.mode.outputCycles,
+        },
+        powerMilliWatts: device.processPlan.powerMilliWatts,
         inputs: device.processPlan.inputs,
         outputs: device.processPlan.outputs,
       } } : {}),

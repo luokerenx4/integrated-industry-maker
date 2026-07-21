@@ -125,7 +125,14 @@ A combustible Resource declares how much energy one unit contains. The value is 
     "categories": ["smelting"],
     "speed": { "numerator": 1, "denominator": 1 },
     "inputBuffers": ["input"],
-    "outputBuffers": ["output"]
+    "outputBuffers": ["output"],
+    "modes": [{
+      "id": "standard", "name": "Standard",
+      "inputCycles": 1, "outputCycles": 1,
+      "durationMultiplier": { "numerator": 1, "denominator": 1 },
+      "powerMultiplier": { "numerator": 1, "denominator": 1 },
+      "auxiliaryInputs": []
+    }]
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 180000 },
@@ -134,7 +141,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
-Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, and the set of physical input/output buffers that a recipe may configure. Asset-level `accepts` values are maximum capabilities. A blueprint instance may narrow any buffer with `bufferFilters`; an empty list closes that buffer. The selected recipe then narrows its listed buffers again to the Resources actually bound there, and unused recipe buffers accept nothing. Extractor output is narrowed to the Resource type of its bound deposits. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision.
+Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, the set of physical input/output buffers that a recipe may configure, and at least one production mode. There is no implicit standard mode and no compatibility fallback: every mode is asset data and every blueprint recipe selects one by id. Modes are defined in [[docs/design/production-modes]]. Asset-level `accepts` values are maximum capabilities. A blueprint instance may narrow any buffer with `bufferFilters`; an empty list closes that buffer. The selected recipe then narrows its listed buffers again to the Resources actually bound there, and unused recipe buffers accept nothing. Extractor output is narrowed to the Resource type of its bound deposits. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision inside the exact compiled job contract.
 
 A transport junction is a placed Device with the `transport-junction` capability, an internal buffer, and multiple input/output ports. Its blueprint policy can select deterministic merge/split behavior without hiding topology in runtime code:
 
@@ -259,13 +266,14 @@ export default {
       operation: process.id,
       durationTicks: process.durationTicks,
       consume: [...process.inputs],
-      produce: [...process.outputs]
+      produce: [...process.outputs],
+      powerMilliWatts: process.powerMilliWatts
     };
   }
 } satisfies DeviceProgram;
 ```
 
-`assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. The program is a black box behind one host interface:
+`assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. For a production Device, `context.process` includes the selected `mode`, exact `durationTicks`, exact `powerMilliWatts`, and already-scaled buffer quantities. The program is a black box behind one host interface:
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
 - `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process, extraction, or fuel-generation plan when one is bound.
@@ -296,7 +304,7 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 
 The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. The blueprint recipe selects one Process for a Device instance and explicitly maps every declared Resource to one of the Device's permitted input/output buffers. The compiler rejects missing, extra, incompatible, or unknown bindings before producing the exact buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
 
-`inm analyze` also enumerates every other project-local Process compatible with each placed production Device. A deterministic binder preserves existing Resource assignments when possible, assigns new ingredients to distinct compatible buffers, and exposes the resulting recipe object as an optimization candidate. The selected production graph solves one target item as a global material balance over the active recipes, so coproducts and recycle loops retain their real topology. The CLI and research agent can compare alternatives before simulation while still using simulation and objective score as the final KEEP/REVERT authority.
+`inm analyze` also enumerates every project-local Process/mode pair compatible with each placed production Device. A deterministic binder preserves existing Resource assignments when possible, assigns new ingredients to distinct compatible buffers, and exposes the resulting recipe object as an optimization candidate. The selected production graph solves one target item as a global material balance over the active jobs, so coproducts, auxiliary inputs, and recycle loops retain their real topology. The CLI and research agent can compare alternatives before simulation while still using simulation and objective score as the final KEEP/REVERT authority.
 
 ## World
 
@@ -353,6 +361,7 @@ Every Device instance belongs to exactly one region from the selected world. Rot
       "rotation": 0,
       "recipe": {
         "process": "smelt-iron",
+        "mode": "standard",
         "inputs": { "iron-ore": "input" },
         "outputs": { "iron-plate": "output" }
       }
@@ -376,7 +385,7 @@ Every Device instance belongs to exactly one region from the selected world. Rot
 }
 ```
 
-`recipe.process` is engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
+`recipe.process` and required `recipe.mode` are engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes or modes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. Auxiliary mode inputs already name a Device buffer and are compiled into the same physical job; if an auxiliary Resource is also a Process input, both quantities must use the same buffer and are aggregated. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
 
 Every Device instance—not only a recipe machine—may configure accepted Resources without editing its asset package:
 

@@ -883,7 +883,8 @@
         "outputs": {
           "gear": "output"
         },
-        "process": "forge-gear-pair"
+        "process": "forge-gear-pair",
+        "mode": "standard"
       },
       "region": "assembly-world",
       "rotation": 0
@@ -902,7 +903,8 @@
         "outputs": {
           "iron-plate": "output"
         },
-        "process": "smelt-iron"
+        "process": "smelt-iron",
+        "mode": "standard"
       },
       "region": "forge-world",
       "rotation": 0
@@ -921,7 +923,8 @@
         "outputs": {
           "iron-plate": "output"
         },
-        "process": "smelt-iron"
+        "process": "smelt-iron",
+        "mode": "standard"
       },
       "region": "forge-world",
       "rotation": 0
@@ -940,7 +943,8 @@
         "outputs": {
           "iron-plate": "output"
         },
-        "process": "smelt-iron"
+        "process": "smelt-iron",
+        "mode": "standard"
       },
       "region": "forge-world",
       "rotation": 0

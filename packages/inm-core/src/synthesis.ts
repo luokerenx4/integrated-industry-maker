@@ -1,20 +1,25 @@
 import type {
-  Blueprint, BlueprintDevice, BlueprintLogisticsNetwork, DeviceAsset, GridPosition, IndustrialProcess, ResourceId,
+  Blueprint, BlueprintDevice, BlueprintLogisticsNetwork, DeviceAsset, GridPosition, IndustrialProcess, ProductionModeDefinition, ResourceId,
 } from "./types";
 import type { LoadedFactoryProject } from "./loader";
 import { bindProcessRecipe } from "./production-analysis";
 import { externalPortCell, findBlueprintConnectionPath, rotatedFootprint } from "./routing";
 import { planDeviceTransport } from "./device-runtime";
 import { optimizeSpatialResourceDemand } from "./production-demand";
+import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 
 interface ProcessSelection {
   resource: ResourceId;
   process: IndustrialProcess;
   asset: DeviceAsset;
+  mode: ProductionModeDefinition;
   inputs: Record<ResourceId, string>;
   outputs: Record<ResourceId, string>;
+  effectiveInputs: Array<{ resource: ResourceId; count: number }>;
+  effectiveOutputs: Array<{ resource: ResourceId; count: number }>;
   outputPerCycle: number;
   durationTicks: number;
+  powerMilliWatts: number;
   requiredPerMinute: number;
   requiredCyclesPerMinute: number;
   region: string;
@@ -38,7 +43,7 @@ export interface BlueprintSynthesisResult {
   blueprint: Blueprint;
   target: { resource: ResourceId; region: string; ratePerMinute: number };
   selectedProcesses: Array<{
-    resource: ResourceId; process: string; asset: string; region: string; machines: number; capacityPerMachine: number;
+    resource: ResourceId; process: string; mode: string; asset: string; region: string; machines: number; capacityPerMachine: number;
     requiredCyclesPerMinute: number; inputsPerMinute: Record<ResourceId, number>; outputsPerMinute: Record<ResourceId, number>;
   }>;
   extraction: Array<{ resource: ResourceId; asset: string; region: string; machines: number; nodes: string[] }>;
@@ -202,18 +207,22 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   };
   const baseProcessCandidates = Object.values(loaded.processes).flatMap((process) => Object.values(loaded.deviceAssets).flatMap((asset) => {
     const binding = bindProcessRecipe(asset, process); if (!binding || !asset.production) return [];
-    const durationTicks = Math.max(1, Math.ceil(process.durationTicks * asset.production.speed.denominator / asset.production.speed.numerator));
-    const primary = [...process.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!;
-    const selected: Omit<ProcessSelection, "requiredPerMinute" | "requiredCyclesPerMinute" | "region" | "machines" | "instances"> = {
-      resource: primary.resource, process, asset, inputs: binding.inputs, outputs: binding.outputs,
-      outputPerCycle: primary.count, durationTicks,
-    };
-    return [{
-      key: `${selected.process.id}:${selected.asset.id}`,
-      inputs: selected.process.inputs,
-      outputs: selected.process.outputs,
-      data: selected,
-    }];
+    return asset.production.modes.filter((mode) => !mode.auxiliaryInputs.some((amount) => binding.inputs[amount.resource] !== undefined
+      && binding.inputs[amount.resource] !== amount.buffer)).map((mode) => {
+      const amounts = effectiveProductionAmounts(process, mode);
+      const primary = [...amounts.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!;
+      const selected: Omit<ProcessSelection, "requiredPerMinute" | "requiredCyclesPerMinute" | "region" | "machines" | "instances"> = {
+        resource: primary.resource, process, asset, mode, inputs: binding.inputs, outputs: binding.outputs,
+        effectiveInputs: amounts.inputs, effectiveOutputs: amounts.outputs,
+        outputPerCycle: primary.count, durationTicks: productionDurationTicks(process, asset, mode), powerMilliWatts: productionPowerMilliWatts(asset, mode),
+      };
+      return {
+        key: `${selected.process.id}:${selected.asset.id}:${mode.id}`,
+        inputs: amounts.inputs,
+        outputs: amounts.outputs,
+        data: selected,
+      };
+    });
   })).sort((a, b) => a.key.localeCompare(b.key));
   const regions = loaded.world.regions.map((region) => region.id);
   const processCandidates = regions.flatMap((region) => baseProcessCandidates.filter((candidate) => region === finalRegion
@@ -237,12 +246,12 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     candidateCost: (candidate) => {
       const continuousMachines = candidate.data.durationTicks / 60_000;
       return continuousMachines * (candidate.data.asset.economics.buildCost * Math.max(.001, loaded.objective.weights.buildCost)
-        + candidate.data.asset.power.consumptionMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
+        + candidate.data.powerMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
     },
   });
   const selections = new Map(demandPlan.processes.map((row) => {
     const selected = row.candidate.data;
-    const output = selected.process.outputs.find((amount) => amount.resource === row.primaryResource)!;
+    const output = selected.effectiveOutputs.find((amount) => amount.resource === row.primaryResource)!;
     const selection: ProcessSelection = {
       ...selected, resource: row.primaryResource, outputPerCycle: output.count,
       requiredPerMinute: row.outputsPerMinute[row.primaryResource]!, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
@@ -253,7 +262,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   for (const selection of selections.values()) {
     const cyclesPerMachine = 60_000 / selection.durationTicks;
     const productionMachines = Math.ceil(selection.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
-    const transportMachines = Math.max(1, ...[...selection.process.inputs, ...selection.process.outputs].map((amount) =>
+    const transportMachines = Math.max(1, ...[...selection.effectiveInputs, ...selection.effectiveOutputs].map((amount) =>
       Math.ceil(amount.count * selection.requiredCyclesPerMinute / maximumLocalCapacity(amount.resource) - 1e-9)));
     selection.machines = Math.max(productionMachines, transportMachines);
     const region = loaded.world.regions.find((item) => item.id === selection.region)!;
@@ -261,7 +270,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const device: BlueprintDevice = {
         id: uniqueId(blueprint, `synth-${selection.process.id}-${index + 1}`), asset: selection.asset.id, region: selection.region,
         position: { x: 0, y: 0 }, rotation: 0,
-        recipe: { process: selection.process.id, inputs: { ...selection.inputs }, outputs: { ...selection.outputs } },
+        recipe: { process: selection.process.id, mode: selection.mode.id, inputs: { ...selection.inputs }, outputs: { ...selection.outputs } },
       };
       placeDevice(loaded, blueprint, device, selection.resource === targetResource
         ? { x: Math.floor(region.bounds.width * .35), y: Math.floor(region.bounds.height * .3) + index * 6 }
@@ -288,13 +297,13 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       });
     }
   };
-  const targetSelection = [...selections.values()].find((selection) => selection.process.outputs.some((output) => output.resource === targetResource));
+  const targetSelection = [...selections.values()].find((selection) => selection.effectiveOutputs.some((output) => output.resource === targetResource));
   const targetInstance = targetSelection?.instances[0];
   if (!targetInstance) throw new Error(`Objective Resource '${targetResource}' must be produced by a project-local process`);
   addSinks(targetResource, finalRegion, targetInstance, targetRate);
   for (const surplus of demandPlan.surplus) {
     const producing = [...selections.values()].filter((selection) => selection.region === surplus.region
-      && selection.process.outputs.some((output) => output.resource === surplus.resource));
+      && selection.effectiveOutputs.some((output) => output.resource === surplus.resource));
     const near = producing[0]?.instances[0];
     if (near) addSinks(surplus.resource, surplus.region, near, surplus.perMinute, "surplus-sink");
   }
@@ -335,15 +344,15 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const producers = new Map<ResourceId, Endpoint[]>(); const consumers = new Map<ResourceId, Endpoint[]>();
   for (const [resource, endpoints] of extractorEndpoints) producers.set(resource, [...endpoints]);
   for (const selection of selections.values()) for (const instance of selection.instances) {
-    for (const output of selection.process.outputs) {
+    for (const output of selection.effectiveOutputs) {
       const outputBuffer = selection.outputs[output.resource]!;
       (producers.get(output.resource) ?? producers.set(output.resource, []).get(output.resource)!).push({
         device: instance.id, port: portForBuffer(selection.asset, "output", outputBuffer), region: instance.region,
         ratePerMinute: output.count * selection.requiredCyclesPerMinute / selection.machines,
       });
     }
-    for (const input of selection.process.inputs) {
-      const buffer = selection.inputs[input.resource]!;
+    for (const input of selection.effectiveInputs) {
+      const buffer = selection.mode.auxiliaryInputs.find((amount) => amount.resource === input.resource)?.buffer ?? selection.inputs[input.resource]!;
       (consumers.get(input.resource) ?? consumers.set(input.resource, []).get(input.resource)!).push({
         device: instance.id, port: portForBuffer(selection.asset, "input", buffer), region: instance.region,
         ratePerMinute: input.count * selection.requiredCyclesPerMinute / selection.machines,
@@ -762,8 +771,14 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const reservedConnections = new Map(blueprint.connections.map((connection) => [connection.id, connection]));
   blueprint.connections = plannedConnections.map((planned) => reservedConnections.get(planned.id)!);
 
+  const devicePower = (device: BlueprintDevice): number => {
+    const asset = loaded.deviceAssets[device.asset]!;
+    if (!device.recipe || !asset.production) return asset.power.consumptionMilliWatts;
+    const mode = asset.production.modes.find((candidate) => candidate.id === device.recipe!.mode);
+    return mode ? productionPowerMilliWatts(asset, mode) : asset.power.consumptionMilliWatts;
+  };
   const ratedLoad: Record<string, number> = {};
-  for (const device of blueprint.devices) add(ratedLoad, device.region, loaded.deviceAssets[device.asset]!.power.consumptionMilliWatts);
+  for (const device of blueprint.devices) add(ratedLoad, device.region, devicePower(device));
   for (const connection of plannedConnections) {
     const pipeline = selectedPipelines.get(connection.id)!;
     add(ratedLoad, connection.from.region, pipeline.loader.power.consumptionMilliWatts + pipeline.unloader.power.consumptionMilliWatts);
@@ -784,8 +799,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const generatorCenter = (position: GridPosition): { x: number; y: number } => ({
       x: position.x + generatorFootprint.width / 2, y: position.y + generatorFootprint.height / 2,
     });
-    const targets = blueprint.devices.filter((device) => device.region === region.id
-      && loaded.deviceAssets[device.asset]!.power.consumptionMilliWatts > 0)
+    const targets = blueprint.devices.filter((device) => device.region === region.id && devicePower(device) > 0)
       .map((device) => ({ id: device.id, point: deviceCenter(device) }));
     for (const connection of plannedConnections.filter((item) => item.from.region === region.id)) {
       const physical = blueprint.connections.find((item) => item.id === connection.id)!;
@@ -864,8 +878,9 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       resource: selection.resource, process: selection.process.id, asset: selection.asset.id, region: selection.region, machines: selection.machines,
       capacityPerMachine: selection.outputPerCycle * 60_000 / selection.durationTicks,
       requiredCyclesPerMinute: selection.requiredCyclesPerMinute,
-      inputsPerMinute: Object.fromEntries(selection.process.inputs.map((input) => [input.resource, input.count * selection.requiredCyclesPerMinute])),
-      outputsPerMinute: Object.fromEntries(selection.process.outputs.map((output) => [output.resource, output.count * selection.requiredCyclesPerMinute])),
+      mode: selection.mode.id,
+      inputsPerMinute: Object.fromEntries(selection.effectiveInputs.map((input) => [input.resource, input.count * selection.requiredCyclesPerMinute])),
+      outputsPerMinute: Object.fromEntries(selection.effectiveOutputs.map((output) => [output.resource, output.count * selection.requiredCyclesPerMinute])),
     })).sort((a, b) => a.process.localeCompare(b.process)),
     extraction: extractionSummary,
     plannedTransports: demandPlan.transports.map(({ resource, fromRegion, toRegion, requiredPerMinute, costPerItem }) => ({ resource, fromRegion, toRegion, requiredPerMinute, costPerItem })),

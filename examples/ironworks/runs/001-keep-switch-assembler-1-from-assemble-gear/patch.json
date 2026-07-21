@@ -7,6 +7,7 @@
         "coal": "input-secondary",
         "iron-plate": "input-primary"
       },
+      "mode": "accelerated",
       "outputs": {
         "gear": "output"
       },

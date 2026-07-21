@@ -1,16 +1,16 @@
-# INM Run 001-keep-switch-assembler-1-from-recipe-assemb
+# INM Run 001-keep-switch-assembler-1-from-assemble-gear
 
 - Decision: **KEEP**
-- Score: **44.558**
-- Result hash: `4bac3008628e00928ef3f995b63069a5083603e9facf7dcabf3a3a3adfb17bab`
+- Score: **45.175**
+- Result hash: `53bd1259cd6d2296c0967b0f13a7212daa8bd4a423536164ba3c9be0274124df`
 - Bottleneck: smelter-1
 - Throughput/min: 8.000
 - Target rate: 12.000 gear/min (66.7% attained)
 - Capacity plan: 2 GAPS
-- Belt utilization: 2.1%
+- Belt utilization: 2.3%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
-- Powered transport energy: 191.500 J
+- Powered transport energy: 207.500 J
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -23,10 +23,10 @@
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
 | ore-to-smelter | 33.500 / 240.000 | 14.0% | 0 | 67 iron-ore |
-| coal-assembly-to-splitter | 14.500 / 240.000 | 6.0% | 0 | 29 coal |
+| coal-assembly-to-splitter | 18.500 / 240.000 | 7.7% | 0 | 37 coal |
 | plate-to-station | 14.500 / 240.000 | 6.0% | 0 | 29 iron-plate |
+| coal-splitter-to-assembler | 12.000 / 240.000 | 5.0% | 0 | 24 coal |
 | station-to-assembler | 12.000 / 240.000 | 5.0% | 0 | 24 iron-plate |
-| coal-splitter-to-assembler | 8.000 / 240.000 | 3.3% | 0 | 16 coal |
 | gear-to-output | 8.000 / 240.000 | 3.3% | 0 | 16 gear |
 | coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 | coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
@@ -35,13 +35,13 @@
 
 ```json
 {
-  "blocked": -2.1333333333333333,
+  "blocked": -1.589,
   "buildCost": -11.83,
   "constraintPenalty": 0,
-  "energy": -2.048915,
+  "energy": -2.0505750000000003,
   "occupiedArea": -20.8,
   "onTimeDelivery": 6.666666666666666,
   "throughput": 80,
-  "wip": -5.296433333333334
+  "wip": -5.222216666666667
 }
 ```

@@ -439,6 +439,7 @@
         "inputs": {
           "crude-oil": "crude-input"
         },
+        "mode": "standard",
         "outputs": {
           "hydrogen": "gas-output",
           "refined-oil": "liquid-output"
@@ -460,6 +461,7 @@
           "hydrogen": "hydrogen-input",
           "refined-oil": "oil-input"
         },
+        "mode": "standard",
         "outputs": {
           "graphite": "graphite-output",
           "hydrogen": "hydrogen-output"

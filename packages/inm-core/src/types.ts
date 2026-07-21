@@ -83,6 +83,21 @@ export interface DeviceBufferDefinition {
   accepts: Array<ResourceId | "*">;
 }
 
+export interface ProductionModeDefinition {
+  id: string;
+  name: string;
+  /** Number of base Process cycles consumed by one Device job. */
+  inputCycles: number;
+  /** Number of base Process output cycles produced by one Device job. */
+  outputCycles: number;
+  /** Multiplier applied to Process duration after Device base speed. */
+  durationMultiplier: { numerator: number; denominator: number };
+  /** Multiplier applied to Device base active power. */
+  powerMultiplier: { numerator: number; denominator: number };
+  /** Extra project Resources consumed once per mode job in fixed physical buffers. */
+  auxiliaryInputs: Array<{ resource: ResourceId; count: number; buffer: BufferId }>;
+}
+
 export interface DeviceAssetManifest {
   assetVersion: 1;
   type: "device";
@@ -102,6 +117,7 @@ export interface DeviceAssetManifest {
     speed: { numerator: number; denominator: number };
     inputBuffers: BufferId[];
     outputBuffers: BufferId[];
+    modes: ProductionModeDefinition[];
   };
   extraction?: {
     resources: ResourceId[];
@@ -148,6 +164,8 @@ export interface DeviceProgramContext {
     name: string;
     category: string;
     durationTicks: Tick;
+    mode: Readonly<{ id: string; name: string; inputCycles: number; outputCycles: number }>;
+    powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   }>;
@@ -220,6 +238,7 @@ export interface BlueprintDevice {
   rotation: Rotation;
   recipe?: {
     process: ProcessId;
+    mode: string;
     inputs: Record<ResourceId, BufferId>;
     outputs: Record<ResourceId, BufferId>;
   };
@@ -341,7 +360,9 @@ export interface CompiledDevice extends BlueprintDevice {
   buffers: Record<BufferId, CompiledDeviceBuffer>;
   processPlan?: {
     definition: IndustrialProcess;
+    mode: ProductionModeDefinition;
     durationTicks: Tick;
+    powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   };

@@ -20,7 +20,15 @@
     { "id": "gas-input", "role": "input", "capacity": 12, "accepts": ["hydrogen"] },
     { "id": "output", "role": "output", "capacity": 12, "accepts": ["plastic"] }
   ],
-  "production": { "categories": ["chemical"], "speed": { "numerator": 1, "denominator": 1 }, "inputBuffers": ["liquid-input", "gas-input"], "outputBuffers": ["output"] },
+  "production": {
+    "categories": ["chemical"], "speed": { "numerator": 1, "denominator": 1 },
+    "inputBuffers": ["liquid-input", "gas-input"], "outputBuffers": ["output"],
+    "modes": [{
+      "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
+      "durationMultiplier": { "numerator": 1, "denominator": 1 },
+      "powerMultiplier": { "numerator": 1, "denominator": 1 }, "auxiliaryInputs": []
+    }]
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 240000 },
   "economics": { "buildCost": 2000 },

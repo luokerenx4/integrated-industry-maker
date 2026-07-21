@@ -22,7 +22,15 @@
     { "id": "hydrogen-output", "role": "output", "capacity": 12, "accepts": ["hydrogen"] },
     { "id": "graphite-output", "role": "output", "capacity": 12, "accepts": ["graphite"] }
   ],
-  "production": { "categories": ["cracking"], "speed": { "numerator": 1, "denominator": 1 }, "inputBuffers": ["oil-input", "hydrogen-input"], "outputBuffers": ["hydrogen-output", "graphite-output"] },
+  "production": {
+    "categories": ["cracking"], "speed": { "numerator": 1, "denominator": 1 },
+    "inputBuffers": ["oil-input", "hydrogen-input"], "outputBuffers": ["hydrogen-output", "graphite-output"],
+    "modes": [{
+      "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
+      "durationMultiplier": { "numerator": 1, "denominator": 1 },
+      "powerMultiplier": { "numerator": 1, "denominator": 1 }, "auxiliaryInputs": []
+    }]
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 280000 },
   "economics": { "buildCost": 2200 },

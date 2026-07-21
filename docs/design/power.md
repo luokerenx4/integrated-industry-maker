@@ -2,7 +2,7 @@
 
 Status: connected regional grids, renewable/fuel generation, endpoint load, and synthesized coverage implemented.
 
-Related: [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
+Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
 ## Scope
 
@@ -12,7 +12,7 @@ This document owns distributor topology, consumer coverage, generation, fuel bur
 
 Power is spatial and region-local. Distributor Devices within the minimum of their connection ranges form deterministic connected components. Components never cross regions. A consuming Device joins the nearest component whose distributor coverage contains its center.
 
-Loader and unloader stages are spatial consumers at the first and last belt cells. Lines themselves do not draw endpoint power. Every compiled grid records distributors, Device members, transport stages, rated generation, and rated consumption.
+Loader and unloader stages are spatial consumers at the first and last belt cells. Lines themselves do not draw endpoint power. A recipe Device contributes the active power of its selected production mode, while other Devices contribute their asset base consumption. Every compiled grid records distributors, Device members, transport stages, rated generation, and rated consumption.
 
 ## Runtime generation and allocation
 

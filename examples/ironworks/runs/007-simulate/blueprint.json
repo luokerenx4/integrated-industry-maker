@@ -305,6 +305,7 @@
           "hydrogen": "gas-input",
           "refined-oil": "liquid-input"
         },
+        "mode": "standard",
         "outputs": {
           "plastic": "output"
         },
@@ -324,6 +325,7 @@
         "inputs": {
           "crude-oil": "crude-input"
         },
+        "mode": "standard",
         "outputs": {
           "hydrogen": "gas-output",
           "refined-oil": "liquid-output"

@@ -2,7 +2,7 @@
 
 Status: target-rate planning, full blueprint synthesis, bounded research, and CLI evaluation loop implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Product model
 
@@ -22,7 +22,7 @@ AI edits project files and invokes the same CLI as a human. It does not manipula
 
 ## Capacity planning
 
-The Objective defines a target Resource, delivery region, steady-state rate, hard constraints, and transparent weights. A deterministic two-phase material-balance solve minimizes finite raw demand first and installed process/logistics capacity second. It supports alternative recipes, multiple outputs, coproduct credit, and recycle loops.
+The Objective defines a target Resource, delivery region, steady-state rate, hard constraints, and transparent weights. A deterministic two-phase material-balance solve minimizes finite raw demand first and installed process/logistics capacity second. Each Process/Device/mode combination is a separate candidate with its effective inputs, outputs, duration, and active power. It supports alternative recipes, production modes, multiple outputs, coproduct credit, and recycle loops without dropping auxiliary material or energy costs.
 
 The capacity plan turns that solution into required Process machines, extraction rate and reserve lifetime, local connection envelopes, station fleets, regional power, and stable actionable gaps. It is recomputed after every accepted edit.
 
@@ -30,7 +30,7 @@ The capacity plan turns that solution into required Process machines, extraction
 
 `synthesizeFactoryBlueprint()` starts with an empty Blueprint and only project-local definitions. Its regional material balance decides where upstream Processes run and which Resource crosses each boundary. It then:
 
-1. selects compatible Process/Device pairs and exact multi-Resource bindings;
+1. selects compatible Process/Device/mode triples and exact multi-Resource bindings;
 2. sizes machines by cycle rate and physical port/lane capacity;
 3. binds finite deposits and places extractors;
 4. creates exact boundary and surplus consumers;

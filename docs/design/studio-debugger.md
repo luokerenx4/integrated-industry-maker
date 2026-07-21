@@ -2,7 +2,7 @@
 
 Status: project launcher, stable project routes, asset catalog, industrial analysis, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
@@ -14,7 +14,7 @@ The root route presents available projects. Selecting one establishes `/<project
 
 ## Project-local catalog
 
-The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, runtime entry, transformations, transport properties, content hashes, and current instance/fleet counts.
+The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, production modes and auxiliary inputs, runtime entry, transformations, transport properties, content hashes, and current instance/fleet counts.
 
 ## Industrial analysis
 
@@ -23,7 +23,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 - target-rate Process/extraction/power/fleet plan and gaps;
 - finite deposits and depletion;
 - material balance and dependency graph;
-- configured recipes and alternatives;
+- configured Process/mode jobs and mode-aware alternatives;
 - every Device instance's effective buffer capacity and accepted Resources;
 - local pipeline stages, measured Resource mix, capacity, utilization, blockage, and power;
 - station routes/fleet load;

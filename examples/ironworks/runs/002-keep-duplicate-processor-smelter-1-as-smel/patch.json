@@ -13,6 +13,7 @@
         "inputs": {
           "iron-ore": "input"
         },
+        "mode": "standard",
         "outputs": {
           "iron-plate": "output"
         },

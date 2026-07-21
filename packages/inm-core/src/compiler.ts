@@ -7,6 +7,7 @@ import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
 import { ENGINE_VERSION, hashValue } from "./utils";
 import { externalPortCell, rotatePortSide, rotatedFootprint, transportCellId } from "./routing";
+import { compileProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 
 function validateAssets(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -57,6 +58,25 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
           else if (buffer.role === forbiddenRole) issues.push({ path, code: "production.buffer-role", message: `Production ${direction} buffer '${bufferId}' cannot be ${forbiddenRole}-only` });
           if (!asset.geometry.ports.some((port) => port.direction === direction && port.buffer === bufferId)) {
             issues.push({ path, code: "production.buffer-port", message: `Production ${direction} buffer '${bufferId}' requires a matching ${direction} port` });
+          }
+        }
+      }
+      const modeIds = new Set<string>();
+      for (const [modeIndex, mode] of asset.production.modes.entries()) {
+        const modePath = `assets/devices/${id}/asset.json/production/modes/${modeIndex}`;
+        if (modeIds.has(mode.id)) issues.push({ path: `${modePath}/id`, code: "production-mode.duplicate", message: `Production mode '${mode.id}' is declared more than once` });
+        modeIds.add(mode.id);
+        const auxiliaryResources = new Set<string>();
+        for (const [inputIndex, input] of mode.auxiliaryInputs.entries()) {
+          const inputPath = `${modePath}/auxiliaryInputs/${inputIndex}`;
+          if (auxiliaryResources.has(input.resource)) issues.push({ path: inputPath, code: "production-mode.duplicate-input", message: `Production mode '${mode.id}' declares auxiliary Resource '${input.resource}' more than once` });
+          auxiliaryResources.add(input.resource);
+          if (!resources[input.resource]) issues.push({ path: `${inputPath}/resource`, code: "reference.resource", message: `Unknown auxiliary Resource '${input.resource}'` });
+          const buffer = asset.buffers.find((item) => item.id === input.buffer);
+          if (!buffer) issues.push({ path: `${inputPath}/buffer`, code: "reference.buffer", message: `Unknown auxiliary input buffer '${input.buffer}'` });
+          else {
+            if (!asset.production.inputBuffers.includes(input.buffer)) issues.push({ path: `${inputPath}/buffer`, code: "production-mode.buffer-role", message: `Auxiliary input buffer '${input.buffer}' is not a production input buffer` });
+            if (!buffer.accepts.includes("*") && !buffer.accepts.includes(input.resource)) issues.push({ path: `${inputPath}/resource`, code: "production-mode.resource-contract", message: `Buffer '${input.buffer}' does not accept auxiliary Resource '${input.resource}'` });
           }
         }
       }
@@ -172,7 +192,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     device.powerGrid = grid.id;
     grid.members.push(device.id);
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
-    grid.ratedConsumptionMilliWatts += device.assetDef.power.consumptionMilliWatts;
+    grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
   }
   return grids;
 }
@@ -429,11 +449,17 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
     if (instance.recipe) {
-      const definition = loaded.processes[instance.recipe.process];
-      if (!definition) issues.push({ path: `${path}/recipe/process`, code: "reference.process", message: `Unknown process '${instance.recipe.process}'` });
+      const recipe = instance.recipe;
+      const definition = loaded.processes[recipe.process];
+      if (!definition) issues.push({ path: `${path}/recipe/process`, code: "reference.process", message: `Unknown process '${recipe.process}'` });
       if (!asset.production) issues.push({ path: `${path}/recipe`, code: "production.unsupported", message: `Device asset '${asset.id}' does not support declarative recipes` });
       if (definition && asset.production) {
         let bindingValid = true;
+        const mode = asset.production.modes.find((item) => item.id === recipe.mode);
+        if (!mode) {
+          issues.push({ path: `${path}/recipe/mode`, code: "production-mode.unknown", message: `Device '${asset.id}' does not define production mode '${recipe.mode}'` });
+          bindingValid = false;
+        }
         if (!asset.production.categories.includes(definition.category)) {
           issues.push({ path: `${path}/recipe/process`, code: "production.category", message: `Device '${asset.id}' does not support process category '${definition.category}'` });
           bindingValid = false;
@@ -477,14 +503,41 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             compiled.push({ buffer: bufferId, ...amount });
           }
         }
+        if (mode) {
+          for (const input of mode.auxiliaryInputs) {
+            const buffer = effectiveBuffers[input.buffer];
+            const processBinding = recipe.inputs[input.resource];
+            if (processBinding && processBinding !== input.buffer) {
+              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.ambiguous-buffer", message: `Production mode '${mode.id}' requires '${input.resource}' in '${input.buffer}', but the process binds it to '${processBinding}'` });
+              bindingValid = false;
+            }
+            if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(input.resource)) {
+              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.resource-filter", message: `Production mode '${mode.id}' requires '${input.resource}' in buffer '${input.buffer}', but the instance filter excludes it` });
+              bindingValid = false;
+            }
+          }
+          if (bindingValid) {
+            const amounts = compileProductionAmounts(definition, mode, recipe);
+            compiledInputs.splice(0, compiledInputs.length, ...amounts.inputs);
+            compiledOutputs.splice(0, compiledOutputs.length, ...amounts.outputs);
+            for (const amount of [...compiledInputs, ...compiledOutputs]) {
+              const capacity = effectiveBuffers[amount.buffer]?.capacity;
+              if (capacity !== undefined && amount.count > capacity) {
+                issues.push({ path: `${path}/recipe/mode`, code: "production-mode.job-capacity", message: `Production mode '${mode.id}' requires ${amount.count} '${amount.resource}' in buffer '${amount.buffer}', exceeding capacity ${capacity}` });
+                bindingValid = false;
+              }
+            }
+          }
+        }
         for (const bufferId of [...new Set([...asset.production.inputBuffers, ...asset.production.outputBuffers])]) {
           const resources = [...compiledInputs, ...compiledOutputs].filter((amount) => amount.buffer === bufferId).map((amount) => amount.resource);
           effectiveBuffers[bufferId] = { ...effectiveBuffers[bufferId]!, accepts: [...new Set(resources)].sort() };
         }
-        if (bindingValid) {
+        if (bindingValid && mode) {
           processPlan = {
-            definition,
-            durationTicks: Math.max(1, Math.ceil(definition.durationTicks * asset.production.speed.denominator / asset.production.speed.numerator)),
+            definition, mode,
+            durationTicks: productionDurationTicks(definition, asset, mode),
+            powerMilliWatts: productionPowerMilliWatts(asset, mode),
             inputs: compiledInputs,
             outputs: compiledOutputs,
           };

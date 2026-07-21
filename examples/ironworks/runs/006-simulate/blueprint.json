@@ -880,6 +880,7 @@
           "coal": "input-secondary",
           "iron-plate": "input-primary"
         },
+        "mode": "standard",
         "outputs": {
           "gear": "output"
         },
@@ -899,6 +900,7 @@
         "inputs": {
           "iron-ore": "input"
         },
+        "mode": "standard",
         "outputs": {
           "iron-plate": "output"
         },
@@ -918,6 +920,7 @@
         "inputs": {
           "iron-ore": "input"
         },
+        "mode": "standard",
         "outputs": {
           "iron-plate": "output"
         },
@@ -937,6 +940,7 @@
         "inputs": {
           "iron-ore": "input"
         },
+        "mode": "standard",
         "outputs": {
           "iron-plate": "output"
         },

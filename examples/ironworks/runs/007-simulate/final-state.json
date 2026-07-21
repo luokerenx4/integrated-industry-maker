@@ -73,14 +73,14 @@
         "powerMilliWatts": 300000,
         "produce": [
           {
-            "buffer": "liquid-output",
-            "count": 2,
-            "resource": "refined-oil"
-          },
-          {
             "buffer": "gas-output",
             "count": 1,
             "resource": "hydrogen"
+          },
+          {
+            "buffer": "liquid-output",
+            "count": 2,
+            "resource": "refined-oil"
           }
         ],
         "startedAt": 117700

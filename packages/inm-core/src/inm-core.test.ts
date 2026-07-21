@@ -118,8 +118,9 @@ describe("factory synthesis", () => {
     expect(first.selectedProcesses.map((process) => [process.process, process.region])).toEqual([
       ["forge-gear-pair", "assembly-world"], ["smelt-iron", "forge-world"],
     ]);
+    expect(first.selectedProcesses.find((process) => process.process === "forge-gear-pair")!.mode).toBe("productive");
     expect(first.plannedTransports).toEqual([{
-      resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 18, costPerItem: 100,
+      resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 9, costPerItem: 100,
     }]);
     expect(first.localLogistics.find((connection) => connection.resource === "gear")).toEqual(expect.objectContaining({
       requiredPerMinute: 12, capacityPerMinute: 240, loader: "sorter", line: "conveyor", unloader: "sorter", stackSize: 1,
@@ -139,6 +140,7 @@ describe("factory synthesis", () => {
     const source = await loadFactoryProject(ironworks, { blueprint: "blank", scenario: "cold-start" });
     source.objective.targetRatePerMinute = 24;
     source.objective.constraints = { maxBuildCost: 50_000, maxOccupiedArea: 260 };
+    source.deviceAssets.assembler!.production!.modes = source.deviceAssets.assembler!.production!.modes.filter((mode) => mode.id === "standard");
     for (const node of source.world.resourceNodes.filter((node) => node.resource === "iron-ore")) node.amount = 100;
 
     const synthesis = synthesizeFactoryBlueprint(source);
@@ -162,6 +164,7 @@ describe("factory synthesis", () => {
     source.world.resourceNodes.push({
       id: "assembly-iron-vein", region: "assembly-world", resource: "iron-ore", position: { x: 1, y: 9 }, amount: 36,
     });
+    source.deviceAssets.assembler!.production!.modes = source.deviceAssets.assembler!.production!.modes.filter((mode) => mode.id === "standard");
 
     const synthesis = synthesizeFactoryBlueprint(source);
     expect(synthesis.selectedProcesses.map((process) => [process.process, process.region, process.requiredCyclesPerMinute])).toEqual([
@@ -186,6 +189,7 @@ describe("factory synthesis", () => {
     source.deviceAssets["mining-machine"]!.extraction!.cycleTicks = 100;
     source.deviceAssets.smelter!.production!.speed.numerator = 10;
     source.deviceAssets.assembler!.production!.speed.numerator = 10;
+    source.deviceAssets.assembler!.production!.modes = source.deviceAssets.assembler!.production!.modes.filter((mode) => mode.id === "standard");
 
     const synthesis = synthesizeFactoryBlueprint(source);
     const trunk = synthesis.localLogistics.find((connection) => connection.resource === "iron-ore" && connection.requiredPerMinute === 600)!;
@@ -212,6 +216,7 @@ describe("factory synthesis", () => {
     source.deviceAssets["mining-machine"]!.extraction!.radius = 50;
     source.deviceAssets.smelter!.production!.speed.numerator = 100;
     source.deviceAssets.assembler!.production!.speed.numerator = 100;
+    source.deviceAssets.assembler!.production!.modes = source.deviceAssets.assembler!.production!.modes.filter((mode) => mode.id === "standard");
     source.processes["smelt-iron"]!.inputs = [{ resource: "iron-ore", count: 1 }];
 
     const synthesis = synthesizeFactoryBlueprint(source);
@@ -255,7 +260,7 @@ describe("factory synthesis", () => {
     expect(synthesis.extraction).toEqual([expect.objectContaining({ resource: "crude-oil", asset: "oil-extractor", machines: 1 })]);
     const refinery = synthesis.blueprint.devices.find((device) => device.asset === "refinery")!;
     expect(refinery.recipe).toEqual({
-      process: "refine-crude", inputs: { "crude-oil": "crude-input" },
+      process: "refine-crude", mode: "standard", inputs: { "crude-oil": "crude-input" },
       outputs: { "refined-oil": "liquid-output", hydrogen: "gas-output" },
     });
 
@@ -431,6 +436,21 @@ describe("blueprint compiler", () => {
     expect(project.connections["coal-splitter-to-assembler"]!.toDevice.buffers["input-secondary"]!.accepts).toEqual(["coal"]);
     const alternative = await loaded(); alternative.blueprint.devices[2]!.recipe!.process = "forge-gear-pair";
     expect(analyzeProduction(compileFactoryProject(alternative)).productionGraph.rawInputsPerTarget).toEqual({ coal: .5, "iron-ore": 3 });
+  });
+
+  test("production modes are explicit and validate auxiliary inputs plus physical job capacity", async () => {
+    const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
+    expect(issueCodes(() => compileFactoryProject(unknown))).toContain("production-mode.unknown");
+
+    const filtered = await loaded();
+    filtered.blueprint.devices[2]!.recipe!.mode = "productive";
+    filtered.blueprint.devices[2]!.bufferFilters = { "input-primary": ["iron-plate"], "input-secondary": ["iron-plate"], output: ["gear"] };
+    expect(issueCodes(() => compileFactoryProject(filtered))).toContain("production-mode.resource-filter");
+
+    const oversized = await loaded();
+    oversized.blueprint.devices[2]!.recipe!.mode = "productive";
+    oversized.deviceAssets.assembler!.production!.modes.find((mode) => mode.id === "productive")!.outputCycles = 9;
+    expect(issueCodes(() => compileFactoryProject(oversized))).toContain("production-mode.job-capacity");
   });
 
   test("instance buffer filters narrow wildcard assets and constrain recipes, extraction, stations, and initial inventory", async () => {
@@ -656,12 +676,17 @@ describe("deterministic discrete-event simulation", () => {
       targetResource: "gear", rawInputsPerTarget: { coal: 1, "iron-ore": 4 },
     }));
     expect(analysis.productionGraph.steps).toEqual([
-      { device: "assembler-1", process: "assemble-gear", cyclesPerTarget: 1 },
-      { device: "smelter-1", process: "smelt-iron", cyclesPerTarget: 2 },
+      { device: "assembler-1", process: "assemble-gear", mode: "standard", cyclesPerTarget: 1 },
+      { device: "smelter-1", process: "smelt-iron", mode: "standard", cyclesPerTarget: 2 },
     ]);
     expect(analysis.recipeOptions).toContainEqual(expect.objectContaining({
       device: "assembler-1", process: "forge-gear-pair", selected: false, targetOutputPerMinute: 30,
       inputBindings: { "iron-plate": "input-primary", coal: "input-secondary" }, outputBindings: { gear: "output" },
+    }));
+    expect(analysis.recipeOptions).toContainEqual(expect.objectContaining({
+      device: "assembler-1", process: "assemble-gear", mode: "productive", selected: false,
+      cycleTicks: 3000, powerMilliWatts: 330000,
+      inputs: [{ resource: "coal", count: 2 }, { resource: "iron-plate", count: 2 }], outputs: [{ resource: "gear", count: 2 }],
     }));
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
     expect(analysis.powerGrids).toEqual([
@@ -1144,6 +1169,38 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.metrics.produced["iron-plate"]).toBe(1);
   });
 
+  test("productive mode compiles and executes one exact powered physical job", async () => {
+    const source = await loaded();
+    const assembler = source.blueprint.devices.find((device) => device.id === "assembler-1")!;
+    assembler.recipe!.mode = "productive";
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id === "assembler-1" || device.id === "generator-2");
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.durationTicks = 3100;
+    source.scenario.initialBuffers = {
+      "assembler-1": { "input-primary": { "iron-plate": 2 }, "input-secondary": { coal: 2 } },
+      "generator-2": { fuel: { coal: 1 } },
+    };
+    const project = compileFactoryProject(source);
+    expect(project.devices["assembler-1"]!.processPlan).toEqual(expect.objectContaining({
+      durationTicks: 3000, powerMilliWatts: 330000,
+      inputs: [{ buffer: "input-primary", resource: "iron-plate", count: 2 }, { buffer: "input-secondary", resource: "coal", count: 2 }],
+      outputs: [{ buffer: "output", resource: "gear", count: 2 }],
+    }));
+    const result = runUntil(project);
+    expect(result.metrics.produced.gear).toBe(2);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "device.start", device: "assembler-1", durationTicks: 3000 }));
+
+    source.deviceAssets.assembler!.program = {
+      apiVersion: 1,
+      evaluate: (context) => context.process ? {
+        kind: "start", operation: context.process.id, durationTicks: context.process.durationTicks,
+        consume: [...context.process.inputs], produce: [...context.process.outputs], powerMilliWatts: context.process.powerMilliWatts - 1,
+      } : { kind: "wait", reason: "idle" },
+    } satisfies DeviceProgram;
+    expect(() => runUntil(compileFactoryProject(source))).toThrow("must execute compiled process 'assemble-gear' mode 'productive' exactly");
+  });
+
   test("failure scenarios break and recover devices deterministically", async () => {
     const project = await openFactoryProject(ironworks, { scenario: "machine-failure" }); const result = runUntil(project, undefined, { seed: 42 });
     expect(result.events.some((event) => event.type === "device.breakdown")).toBeTrue();
@@ -1182,11 +1239,11 @@ describe("research boundary and experiment decisions", () => {
     const agent = new HeuristicResearchAgent();
     const base = { project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project) };
     const first = await agent.propose({ iteration: 1, ...base, history: [] });
-    expect(first.strategy).toBe("recipe:assembler-1:forge-gear-pair");
+    expect(first.strategy).toBe("recipe:assembler-1:forge-gear-pair:accelerated");
     const second = await agent.propose({ iteration: 2, ...base, history: [{
       iteration: 1, strategy: first.strategy!, hypothesis: first.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
     }] });
-    expect(second.strategy).toBe("capacity-plan:smelt-iron:1->2");
+    expect(second.strategy).toBe("recipe:assembler-1:forge-gear-pair:productive");
   });
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {

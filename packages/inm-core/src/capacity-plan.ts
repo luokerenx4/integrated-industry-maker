@@ -1,10 +1,12 @@
 import type { CompiledFactoryProject, ResourceId } from "./types";
 import { connectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
+import { effectiveProductionAmounts } from "./production-mode";
 
 export interface ProcessCapacityRequirement {
   resource: ResourceId;
   process: string;
+  mode: string;
   asset: string;
   templateDevice: string;
   requiredOutputPerMinute: number;
@@ -89,10 +91,11 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => {
     const processPlan = template.processPlan;
     if (!processPlan) return [];
+    const amounts = effectiveProductionAmounts(processPlan.definition, processPlan.mode);
     const candidate = {
-      key: `${processPlan.definition.id}:${template.asset}`,
-      inputs: processPlan.definition.inputs,
-      outputs: processPlan.definition.outputs,
+      key: `${processPlan.definition.id}:${template.asset}:${processPlan.mode.id}`,
+      inputs: amounts.inputs,
+      outputs: amounts.outputs,
       data: template,
     };
     return [[candidate.key, candidate] as const];
@@ -115,7 +118,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const template = row.candidate.data;
     const primaryOutput = row.candidate.outputs.find((amount) => amount.resource === row.primaryResource)!;
     const plan = template.processPlan!;
-    const matching = Object.values(project.devices).filter((device) => device.asset === template.asset && device.processPlan?.definition.id === plan.definition.id);
+    const matching = Object.values(project.devices).filter((device) => device.asset === template.asset
+      && device.processPlan?.definition.id === plan.definition.id && device.processPlan.mode.id === plan.mode.id);
     const configuredCapacityPerMinute = matching.reduce((sum, device) => {
       const output = device.processPlan!.outputs.find((amount) => amount.resource === row.primaryResource)?.count ?? 0;
       return sum + output * 60_000 / device.processPlan!.durationTicks;
@@ -125,11 +129,11 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const requiredMachines = Math.ceil(row.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
     const additionalMachines = Math.max(0, requiredMachines - matching.length);
     return {
-      resource: row.primaryResource, process: plan.definition.id, asset: template.asset, templateDevice: template.id,
+      resource: row.primaryResource, process: plan.definition.id, mode: plan.mode.id, asset: template.asset, templateDevice: template.id,
       requiredOutputPerMinute: row.outputsPerMinute[row.primaryResource]!, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
       inputsPerMinute: row.inputsPerMinute, outputsPerMinute: row.outputsPerMinute,
       outputPerCycle: primaryOutput.count, capacityPerMachine, configuredMachines: matching.length, configuredCapacityPerMinute,
-      requiredMachines, additionalMachines, region: template.region, powerMilliWattsPerMachine: template.assetDef.power.consumptionMilliWatts,
+      requiredMachines, additionalMachines, region: template.region, powerMilliWattsPerMachine: plan.powerMilliWatts,
     };
   }).sort((a, b) => a.process.localeCompare(b.process) || a.resource.localeCompare(b.resource));
 
@@ -157,7 +161,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   });
 
   const transport: TransportCapacityRequirement[] = processes.flatMap((requirement) => {
-    const devices = Object.values(project.devices).filter((device) => device.asset === requirement.asset && device.processPlan?.definition.id === requirement.process);
+    const devices = Object.values(project.devices).filter((device) => device.asset === requirement.asset
+      && device.processPlan?.definition.id === requirement.process && device.processPlan.mode.id === requirement.mode);
     const ids = new Set(devices.map((device) => device.id));
     const rows: TransportCapacityRequirement[] = [];
     for (const [resource, requiredItemsPerMinute] of Object.entries(requirement.inputsPerMinute)) {

@@ -591,6 +591,7 @@
         "inputs": {
           "iron-ore": "input"
         },
+        "mode": "standard",
         "outputs": {
           "iron-plate": "output"
         },
@@ -611,6 +612,7 @@
           "coal": "input-secondary",
           "iron-plate": "input-primary"
         },
+        "mode": "accelerated",
         "outputs": {
           "gear": "output"
         },
@@ -741,6 +743,7 @@
         "inputs": {
           "iron-ore": "input"
         },
+        "mode": "standard",
         "outputs": {
           "iron-plate": "output"
         },
@@ -814,6 +817,6 @@
   "policies": {
     "dispatch": "fifo"
   },
-  "revision": "3cfb1391bd46a444c6b699ec44e47d45713b9990362373b535555bc7c466b3a4",
+  "revision": "32262399bb547f985c37189b21416c462cb3fd0b7323d07272c6d2e7559dcaaa",
   "version": 1
 }

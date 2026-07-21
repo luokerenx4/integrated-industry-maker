@@ -12,6 +12,7 @@ Read the relevant linked document before changing a subsystem:
 - System principles and package boundaries: [[docs/ARCHITECTURE]]
 - Workspace, project, and self-contained asset boundaries: [[docs/design/project-boundaries]]
 - Resources, configurable recipes, ports, buffers, and instance filters: [[docs/design/material-contracts]]
+- Standard, accelerated, and productive job semantics: [[docs/design/production-modes]]
 - Physical belts, sorters, junctions, stacking, and station fleets: [[docs/design/logistics]]
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]

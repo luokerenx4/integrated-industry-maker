@@ -1,0 +1,89 @@
+# Production modes and exact jobs
+
+Status: implemented in engine version `inm-sim/0.29.0`.
+
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
+
+## Scope
+
+This subsystem owns Device-declared production modes, blueprint mode selection, compilation of a Process into one physical job, mode-aware static analysis and optimization, and exact runtime enforcement. It models choices such as standard, accelerated, and productive operation without engine-global upgrades or hidden multipliers.
+
+## Authoring contract
+
+Every production-capable Device asset has a non-empty `production.modes` array. Every blueprint recipe has a required `mode` id. There is no default, alias, migration, or fallback because INM is in early development and the selected mode is part of the industrial design.
+
+A mode declares:
+
+- `inputCycles`: how many Process input batches one job consumes;
+- `outputCycles`: how many Process output batches one job produces;
+- `durationMultiplier`: an exact positive rational applied after Device base speed;
+- `powerMultiplier`: an exact positive rational applied to Device base consumption;
+- `auxiliaryInputs`: project Resource quantities consumed once per job from named physical input buffers.
+
+Modes belong to the Device asset because they describe what that machine can do. Processes remain project-local material transformations and do not know which machines or operating regimes execute them.
+
+## Compilation
+
+For Process `P`, Device `D`, and selected mode `M`, the compiler creates one immutable plan:
+
+```text
+job inputs  = P.inputs × M.inputCycles + M.auxiliaryInputs
+job outputs = P.outputs × M.outputCycles
+job time    = ceil(P.duration × D.speed.denominator / D.speed.numerator
+                   × M.durationMultiplier.numerator / M.durationMultiplier.denominator)
+job power   = ceil(D.basePower × M.powerMultiplier.numerator / M.powerMultiplier.denominator)
+```
+
+Amounts for the same `(buffer, Resource)` are aggregated. One mode may declare each auxiliary Resource once. Auxiliary inputs must reference a project Resource, a declared production input buffer, and a Resource admitted by both the asset maximum and instance filter. If an auxiliary Resource is also a Process input, both declarations must resolve to the same buffer. A complete job must fit every involved buffer; the compiler does not split one job into fractional cycles.
+
+The compiled plan retains the complete mode definition, exact duration, exact active power, and buffer-bound quantities. Grid rated load uses this selected power rather than the Device base value.
+
+## Runtime authority
+
+The TypeScript Device program receives the compiled mode and job fields in `context.process`. It may wait for inputs or output space, but a returned `start` action must exactly match the compiled operation id, duration, consumed quantities, produced quantities, and power. The host rejects any difference before mutating inventory or allocating power.
+
+This boundary keeps runtime scripts useful for local scheduling while preventing them from silently inventing productivity, deleting auxiliary costs, under-reporting power, or bypassing physical buffers. Integer jobs also make failure, WIP, backpressure, and replay state unambiguous.
+
+## Analysis, planning, and synthesis
+
+Static recipe alternatives enumerate every compatible `(Device instance, Process, mode)` tuple. Their displayed inputs/outputs are effective job quantities, including auxiliary Resources; their rates use compiled duration and their power uses the mode multiplier.
+
+Material solvers treat every `(Process, Device asset, mode)` tuple as a separate production candidate. Raw-resource minimization therefore may select a productive mode only when its larger output batch and auxiliary cost improve the whole balanced system. The second optimization phase includes mode-aware installed power. Capacity planning groups configured machines by Process, asset, and mode, and sizes job rate, local/station transport, extraction, reserves, and regional power from the same effective quantities.
+
+Synthesis writes `recipe.mode` into the generated blueprint and routes auxiliary Resources to their declared ports. Research alternatives include the mode in strategy identity and patch the complete recipe object, so two modes of one Process are distinct experiments.
+
+## Observability
+
+`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates and mode power. Studio shows mode definitions in the project-local asset catalog, selected modes in configured jobs and the production graph, and mode-aware alternatives and capacity rows.
+
+Engine hashes include asset and blueprint content, so changing a mode or selection invalidates prior run identity. Immutable runs record the compiled blueprint and engine version used for replay.
+
+## Source of truth
+
+- Types/schema: `packages/inm-core/src/types.ts`, `packages/inm-core/src/schema.ts`
+- Job arithmetic: `packages/inm-core/src/production-mode.ts`
+- Compilation: `packages/inm-core/src/compiler.ts`
+- Runtime enforcement: `packages/inm-core/src/simulator.ts`
+- Analysis and binding: `packages/inm-core/src/production-analysis.ts`
+- Capacity and synthesis: `packages/inm-core/src/capacity-plan.ts`, `packages/inm-core/src/synthesis.ts`
+- Research candidates: `packages/inm-core/src/research.ts`
+- CLI and Studio: `packages/inm-cli/src/commands.ts`, `packages/inm-studio/src/main.tsx`
+
+## Verification
+
+Tests must cover an unknown mode, an auxiliary Resource rejected by an instance filter, a job that exceeds physical buffer capacity, exact compiled arithmetic, runtime production, power enforcement, mode-aware analysis, and synthesis choosing a mode through the material objective.
+
+```bash
+bun run inm validate examples/ironworks
+bun run inm analyze examples/ironworks
+bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output scratch
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "production mode|productive mode|factory synthesis"
+```
+
+## Change checklist
+
+- Keep asset schema, blueprint schema, project-local runtime API, compiler context, and Device scripts aligned.
+- Apply mode quantities to material balance, buffers, transport, reserves, power, metrics, and optimizer costs together.
+- Never hide auxiliary consumption or choose a mode outside the blueprint/compiler contract.
+- Preserve integer complete-job semantics and exact host validation.
+- Update CLI, Studio, examples, immutable runs, and this document in the same change.

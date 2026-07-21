@@ -20,7 +20,15 @@
     { "id": "liquid-output", "role": "output", "capacity": 12, "accepts": ["refined-oil"] },
     { "id": "gas-output", "role": "output", "capacity": 12, "accepts": ["hydrogen"] }
   ],
-  "production": { "categories": ["refining"], "speed": { "numerator": 1, "denominator": 1 }, "inputBuffers": ["crude-input"], "outputBuffers": ["liquid-output", "gas-output"] },
+  "production": {
+    "categories": ["refining"], "speed": { "numerator": 1, "denominator": 1 },
+    "inputBuffers": ["crude-input"], "outputBuffers": ["liquid-output", "gas-output"],
+    "modes": [{
+      "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
+      "durationMultiplier": { "numerator": 1, "denominator": 1 },
+      "powerMultiplier": { "numerator": 1, "denominator": 1 }, "auxiliaryInputs": []
+    }]
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 300000 },
   "economics": { "buildCost": 2400 },

@@ -171,6 +171,7 @@
       },
       "recipe": {
         "process": "smelt-iron",
+        "mode": "standard",
         "inputs": { "iron-ore": "input" },
         "outputs": { "iron-plate": "output" }
       },
@@ -186,6 +187,7 @@
       },
       "recipe": {
         "process": "assemble-gear",
+        "mode": "standard",
         "inputs": { "iron-plate": "input-primary", "coal": "input-secondary" },
         "outputs": { "gear": "output" }
       },

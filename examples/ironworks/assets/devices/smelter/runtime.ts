@@ -12,6 +12,7 @@ export default {
       durationTicks: process.durationTicks,
       consume: [...process.inputs],
       produce: [...process.outputs],
+      powerMilliWatts: process.powerMilliWatts,
     };
   },
 } satisfies DeviceProgram;

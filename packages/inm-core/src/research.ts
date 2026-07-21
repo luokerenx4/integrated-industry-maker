@@ -463,18 +463,18 @@ function recipeCandidates(input: ResearchInput): StrategyCandidate[] {
     if (!current || option.targetOutputPerMinute <= current.targetOutputPerMinute + 1e-9) return [];
     const deviceIndex = input.blueprint.devices.findIndex((device) => device.id === option.device);
     if (deviceIndex < 0) return [];
-    const key = `recipe:${option.device}:${option.process}`;
+    const key = `recipe:${option.device}:${option.process}:${option.mode}`;
     return [{ key, proposal: {
       strategy: key,
-      hypothesis: `Switch \`${option.device}\` from recipe \`${current.process}\` to \`${option.process}\` because nominal ${input.project.objective.targetResource} capacity rises from ${current.targetOutputPerMinute.toFixed(3)} to ${option.targetOutputPerMinute.toFixed(3)}/min.`,
+      hypothesis: `Switch \`${option.device}\` from \`${current.process}/${current.mode}\` to \`${option.process}/${option.mode}\` because nominal ${input.project.objective.targetResource} capacity rises from ${current.targetOutputPerMinute.toFixed(3)} to ${option.targetOutputPerMinute.toFixed(3)}/min.`,
       expectedEffect: "Test a project-local alternative recipe with explicit Resource-to-buffer bindings through the same deterministic simulation and score gate.",
       patch: [{ op: "replace" as const, path: `/devices/${deviceIndex}/recipe`, value: {
-        process: option.process, inputs: option.inputBindings, outputs: option.outputBindings,
+        process: option.process, mode: option.mode, inputs: option.inputBindings, outputs: option.outputBindings,
       } }],
     } }];
   }).sort((a, b) => {
-    const left = input.production.recipeOptions.find((option) => a.key === `recipe:${option.device}:${option.process}`)!;
-    const right = input.production.recipeOptions.find((option) => b.key === `recipe:${option.device}:${option.process}`)!;
+    const left = input.production.recipeOptions.find((option) => a.key === `recipe:${option.device}:${option.process}:${option.mode}`)!;
+    const right = input.production.recipeOptions.find((option) => b.key === `recipe:${option.device}:${option.process}:${option.mode}`)!;
     return right.targetOutputPerMinute - left.targetOutputPerMinute || a.key.localeCompare(b.key);
   });
 }

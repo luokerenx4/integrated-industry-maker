@@ -17,10 +17,10 @@
     "coal-miner-assembly": {
       "buffers": {
         "output": {
-          "coal": 8
+          "coal": 3
         }
       },
-      "status": "blocked-output"
+      "status": "waiting-input"
     },
     "coal-miner-forge": {
       "buffers": {
@@ -158,14 +158,14 @@
   },
   "energy": {
     "availableMilliWatts": 2600000,
-    "consumedMilliJoules": 204891500,
+    "consumedMilliJoules": 205057500,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 95380000
+        "consumedMilliJoules": 95546000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1000000,
@@ -181,7 +181,7 @@
         "departTick": 112120,
         "from": "station-supply",
         "fromBuffer": "storage",
-        "id": "transit-000188",
+        "id": "transit-000202",
         "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
@@ -190,15 +190,15 @@
     ]
   },
   "produced": {
-    "coal": 49,
+    "coal": 52,
     "gear": 16,
     "iron-ore": 75,
     "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 37,
-      "remaining": 3,
+      "extracted": 40,
+      "remaining": 0,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -237,7 +237,7 @@
         "departTick": 119250,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000200",
+        "id": "transit-000216",
         "phase": "unloading",
         "readyTick": 120250,
         "resource": "iron-ore",

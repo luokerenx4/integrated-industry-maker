@@ -1,11 +1,15 @@
 import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
 import { connectionCapacityPerMinute, maximumConnectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
+import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 
 export interface DeviceProductionRate {
   device: string;
   asset: string;
   process: string;
+  mode: string;
+  inputCycles: number;
+  outputCycles: number;
   category: string;
   cycleTicks: number;
   cyclesPerMinute: number;
@@ -20,6 +24,8 @@ export interface RecipeOptionAnalysis {
   device: string;
   asset: string;
   process: string;
+  mode: string;
+  modeName: string;
   name: string;
   category: string;
   selected: boolean;
@@ -30,14 +36,15 @@ export interface RecipeOptionAnalysis {
   inputBindings: Record<ResourceId, string>;
   outputBindings: Record<ResourceId, string>;
   targetOutputPerMinute: number;
+  powerMilliWatts: number;
 }
 
 export interface ProductionDependencyGraph {
   targetResource: ResourceId;
   rawInputsPerTarget: Record<ResourceId, number>;
   coproductSurplusPerTarget: Record<ResourceId, number>;
-  steps: Array<{ device: string; process: string; cyclesPerTarget: number }>;
-  dependencies: Array<{ device: string; process: string; inputs: ResourceId[]; outputs: ResourceId[] }>;
+  steps: Array<{ device: string; process: string; mode: string; cyclesPerTarget: number }>;
+  dependencies: Array<{ device: string; process: string; mode: string; inputs: ResourceId[]; outputs: ResourceId[] }>;
 }
 
 export interface DeviceExtractionRate {
@@ -220,10 +227,11 @@ export function bindProcessRecipe(
 function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
   const candidates = devices.flatMap((producer) => {
     const processPlan = project.devices[producer.device]?.processPlan;
+    const amounts = processPlan ? effectiveProductionAmounts(processPlan.definition, processPlan.mode) : undefined;
     return processPlan ? [{
       key: producer.device,
-      inputs: processPlan.definition.inputs,
-      outputs: processPlan.definition.outputs,
+      inputs: amounts!.inputs,
+      outputs: amounts!.outputs,
       data: { producer, processPlan },
     }] : [];
   });
@@ -242,10 +250,11 @@ function buildProductionGraph(project: CompiledFactoryProject, devices: DevicePr
     steps: plan.processes.map((row) => ({
       device: row.candidate.data.producer.device,
       process: row.candidate.data.processPlan.definition.id,
+      mode: row.candidate.data.processPlan.mode.id,
       cyclesPerTarget: row.requiredCyclesPerMinute,
     })).sort((a, b) => a.device.localeCompare(b.device)),
     dependencies: devices.map((device) => ({
-      device: device.device, process: device.process,
+      device: device.device, process: device.process, mode: device.mode,
       inputs: Object.keys(device.inputBindings).sort(), outputs: Object.keys(device.outputBindings).sort(),
     })),
   };
@@ -292,6 +301,9 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       device: device.id,
       asset: device.asset,
       process: device.processPlan.definition.id,
+      mode: device.processPlan.mode.id,
+      inputCycles: device.processPlan.mode.inputCycles,
+      outputCycles: device.processPlan.mode.outputCycles,
       category: device.processPlan.definition.category,
       cycleTicks: device.processPlan.durationTicks,
       cyclesPerMinute,
@@ -299,25 +311,30 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       outputsPerMinute,
       inputBindings: Object.fromEntries(device.processPlan.inputs.map((amount) => [amount.resource, amount.buffer])),
       outputBindings: Object.fromEntries(device.processPlan.outputs.map((amount) => [amount.resource, amount.buffer])),
-      powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
+      powerMilliWatts: device.processPlan.powerMilliWatts,
     });
   }
   const recipeOptions: RecipeOptionAnalysis[] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((device) => {
     if (!device.assetDef.production) return [];
-    return Object.values(project.processes).sort((a, b) => a.id.localeCompare(b.id)).flatMap((process) => {
+    return Object.values(project.processes).sort((a, b) => a.id.localeCompare(b.id)).flatMap((process) => device.assetDef.production!.modes.flatMap((mode) => {
       const bindings = bindProcessRecipe(device.assetDef, process, device.recipe, device.bufferFilters);
       if (!bindings) return [];
-      const cycleTicks = Math.max(1, Math.ceil(process.durationTicks * device.assetDef.production!.speed.denominator / device.assetDef.production!.speed.numerator));
+      if (mode.auxiliaryInputs.some((input) => !bufferSupports(device.assetDef, input.buffer, input.resource, device.bufferFilters))) return [];
+      if (mode.auxiliaryInputs.some((input) => bindings.inputs[input.resource] !== undefined && bindings.inputs[input.resource] !== input.buffer)) return [];
+      const amounts = effectiveProductionAmounts(process, mode);
+      const cycleTicks = productionDurationTicks(process, device.assetDef, mode);
       const cyclesPerMinute = 60_000 / cycleTicks;
-      const targetOutput = process.outputs.find((amount) => amount.resource === project.objective.targetResource)?.count ?? 0;
+      const targetOutput = amounts.outputs.find((amount) => amount.resource === project.objective.targetResource)?.count ?? 0;
+      const inputBindings = { ...bindings.inputs };
+      for (const input of mode.auxiliaryInputs) inputBindings[input.resource] = input.buffer;
       return [{
-        device: device.id, asset: device.asset, process: process.id, name: process.name, category: process.category,
-        selected: device.processPlan?.definition.id === process.id, cycleTicks, cyclesPerMinute,
-        inputs: structuredClone(process.inputs), outputs: structuredClone(process.outputs),
-        inputBindings: bindings.inputs, outputBindings: bindings.outputs,
-        targetOutputPerMinute: targetOutput * cyclesPerMinute,
+        device: device.id, asset: device.asset, process: process.id, mode: mode.id, modeName: mode.name, name: process.name, category: process.category,
+        selected: device.processPlan?.definition.id === process.id && device.processPlan.mode.id === mode.id, cycleTicks, cyclesPerMinute,
+        inputs: amounts.inputs, outputs: amounts.outputs,
+        inputBindings, outputBindings: bindings.outputs,
+        targetOutputPerMinute: targetOutput * cyclesPerMinute, powerMilliWatts: productionPowerMilliWatts(device.assetDef, mode),
       }];
-    });
+    }));
   });
   const productionGraph = buildProductionGraph(project, devices);
   const bufferContracts: ProductionAnalysis["bufferContracts"] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).map((device) => ({

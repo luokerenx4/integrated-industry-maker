@@ -1,8 +1,8 @@
 # Material, recipe, and buffer contracts
 
-Status: implemented through engine version `inm-sim/0.28.0`.
+Status: implemented through engine version `inm-sim/0.29.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
 ## Scope
 
@@ -25,7 +25,7 @@ Omitting `bufferFilters[buffer]` preserves the asset maximum. An explicit list n
 
 ## Configurable recipes
 
-A Process is project-local source code with any number of distinct inputs and one or more outputs. A production-capable Device asset declares supported Process categories, a rational speed, and allowed input/output buffers. Each Blueprint Device instance selects one Process and explicitly maps every Process Resource to a physical buffer.
+A Process is project-local source code with any number of distinct inputs and one or more outputs. A production-capable Device asset declares supported Process categories, a rational speed, allowed input/output buffers, and one or more explicit production modes. Each Blueprint Device instance selects one Process plus one mode and explicitly maps every Process Resource to a physical buffer. Mode-owned auxiliary Resources name their physical buffer in the asset; they never appear as hidden consumption.
 
 Compilation rejects missing, extra, unknown, wrong-role, asset-incompatible, or instance-filtered bindings. It then narrows every production buffer to the exact Resources mapped there; unused recipe buffers accept nothing. One generic assembler asset can therefore represent many recipes without runtime conditionals or a global recipe database.
 
@@ -56,7 +56,7 @@ If no Resource quota exists, only the total limit applies. Inbound reservations 
 
 ## Runtime authority
 
-Device TypeScript receives frozen buffer snapshots and a compiled Process/extraction/generation plan. It returns declarative actions. The host checks Resource existence, buffer identity, acceptance, capacity, required inputs, and exact compiled Process amounts before mutation. Device code never owns inventory.
+Device TypeScript receives frozen buffer snapshots and a compiled Process/extraction/generation plan. It returns declarative actions. The host checks Resource existence, buffer identity, acceptance, capacity, required inputs, selected mode, exact duration, exact compiled Process amounts, and exact active power before mutation. Device code never owns inventory.
 
 ## Synthesis behavior
 

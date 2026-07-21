@@ -56,14 +56,14 @@
         "powerMilliWatts": 300000,
         "produce": [
           {
-            "buffer": "liquid-output",
-            "count": 2,
-            "resource": "refined-oil"
-          },
-          {
             "buffer": "gas-output",
             "count": 1,
             "resource": "hydrogen"
+          },
+          {
+            "buffer": "liquid-output",
+            "count": 2,
+            "resource": "refined-oil"
           }
         ],
         "startedAt": 117700
@@ -85,14 +85,14 @@
         "powerMilliWatts": 280000,
         "produce": [
           {
-            "buffer": "hydrogen-output",
-            "count": 3,
-            "resource": "hydrogen"
-          },
-          {
             "buffer": "graphite-output",
             "count": 1,
             "resource": "graphite"
+          },
+          {
+            "buffer": "hydrogen-output",
+            "count": 3,
+            "resource": "hydrogen"
           }
         ],
         "startedAt": 119500

@@ -14,7 +14,9 @@ export interface DeviceProgramContext {
     id: string;
     name: string;
     category: string;
+    mode: { id: string; name: string };
     durationTicks: number;
+    powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   }>;
