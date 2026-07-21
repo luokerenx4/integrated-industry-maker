@@ -1,4 +1,4 @@
-import type { CompiledConnection, CompiledFactoryProject, DispatchPolicy, ResourceId } from "./types";
+import type { CompiledConnection, CompiledFactoryProject, CompiledLogisticsRoute, DispatchPolicy, ResourceId } from "./types";
 
 export type DispatchTargetKind = "objective" | "process" | "fuel" | "buffer";
 
@@ -9,6 +9,11 @@ export interface ConnectionDispatchProfile {
   coverageUnit: number;
   /** Zero is closest to target delivery; null means outside the selected production dependency graph. */
   criticalDepth: number | null;
+}
+
+export interface StationDispatchProfile extends ConnectionDispatchProfile {
+  /** Local physical links whose downstream contracts contribute to one replenishment coverage unit. */
+  downstreamConnections: string[];
 }
 
 export function effectiveDispatchPolicy(project: CompiledFactoryProject, connection: CompiledConnection): DispatchPolicy {
@@ -62,4 +67,47 @@ export function connectionDispatchProfiles(
         : buffer.resourceCapacities?.[resource] ?? buffer.capacity;
     return { resource, targetKind, coverageUnit: Math.max(1, coverageUnit), criticalDepth };
   });
+}
+
+export function stationRouteDispatchProfile(
+  project: CompiledFactoryProject,
+  route: CompiledLogisticsRoute,
+  depths = resourceCriticalDepth(project),
+): StationDispatchProfile {
+  const traversed = new Set<string>();
+  const leaves = new Map<string, ConnectionDispatchProfile>();
+  const walk = (device: string, buffer: string, ancestry: Set<string>): void => {
+    const outgoing = Object.values(project.connections).filter((connection) => connection.from.device === device
+      && connection.fromPort.buffer === buffer && connection.resources.includes(route.resource)).sort((a, b) => a.id.localeCompare(b.id));
+    for (const connection of outgoing) {
+      const profile = connectionDispatchProfiles(project, connection, depths).find((item) => item.resource === route.resource)!;
+      traversed.add(connection.id);
+      if (ancestry.has(connection.id)) { leaves.set(connection.id, profile); continue; }
+      const nextAncestry = new Set(ancestry).add(connection.id);
+      const next = Object.values(project.connections).some((candidate) => candidate.from.device === connection.to.device
+        && candidate.fromPort.buffer === connection.toPort.buffer && candidate.resources.includes(route.resource)
+        && !nextAncestry.has(candidate.id));
+      if (next) walk(connection.to.device, connection.toPort.buffer, nextAncestry);
+      else leaves.set(connection.id, profile);
+    }
+  };
+  walk(route.to, route.toBuffer, new Set());
+  const profiles = [...leaves.values()];
+  if (!profiles.length) return {
+    resource: route.resource,
+    targetKind: "buffer",
+    coverageUnit: Math.max(1, route.demandTarget),
+    criticalDepth: depths[route.resource] ?? null,
+    downstreamConnections: [...traversed].sort(),
+  };
+  const kindRank: Record<DispatchTargetKind, number> = { objective: 0, process: 1, fuel: 2, buffer: 3 };
+  const representative = [...profiles].sort((a, b) => (a.criticalDepth ?? Number.MAX_SAFE_INTEGER) - (b.criticalDepth ?? Number.MAX_SAFE_INTEGER)
+    || kindRank[a.targetKind] - kindRank[b.targetKind])[0]!;
+  return {
+    resource: route.resource,
+    targetKind: representative.targetKind,
+    coverageUnit: profiles.reduce((sum, profile) => sum + profile.coverageUnit, 0),
+    criticalDepth: representative.criticalDepth,
+    downstreamConnections: [...traversed].sort(),
+  };
 }

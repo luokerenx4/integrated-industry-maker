@@ -1,7 +1,7 @@
 import { DeterministicPriorityQueue } from "./priority-queue";
 import { evaluateFactory, type SimulationStats } from "./evaluator";
 import { evaluateDeviceProgram } from "./device-runtime";
-import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth } from "./dispatch-priority";
+import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
   BeltTransit, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
   ResourceBufferQuantity, ResourceTransit, SimulationResult,
@@ -72,6 +72,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const dispatchProfiles = Object.fromEntries(Object.values(project.connections).map((connection) => [
     connection.id, connectionDispatchProfiles(project, connection, criticalDepths),
   ]));
+  const stationDispatchProfiles = Object.fromEntries(Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => [
+    route.id, stationRouteDispatchProfile(project, route, criticalDepths),
+  ])));
   const events: FactoryEvent[] = [];
   const queue = new DeterministicPriorityQueue<InternalEvent>();
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
@@ -424,10 +427,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (!network.routes.length) continue;
       const active = state.logisticsTransports[network.id]!;
       while (active.length < network.fleetSize) {
-        const cursor = (stationDispatchCursors[network.id] ?? 0) % network.routes.length;
-        let selected: { route: (typeof network.routes)[number]; routeIndex: number; available: number; free: number } | undefined;
-        for (let offset = 0; offset < network.routes.length; offset++) {
-          const routeIndex = (cursor + offset) % network.routes.length;
+        const stableRouteIndices = network.routes.map((_, index) => index).sort((a, b) => network.routes[a]!.id.localeCompare(network.routes[b]!.id));
+        const cursor = (stationDispatchCursors[network.id] ?? 0) % stableRouteIndices.length;
+        const routeIndices = network.dispatchPolicy === "fifo" ? stableRouteIndices
+          : [...stableRouteIndices.slice(cursor), ...stableRouteIndices.slice(0, cursor)];
+        let selected: {
+          route: (typeof network.routes)[number]; available: number; free: number;
+          coverage: number; criticalDepth: number | null; nextCursor: number;
+        } | undefined;
+        for (const [offset, routeIndex] of routeIndices.entries()) {
           const route = network.routes[routeIndex]!;
           const sourceDevice = project.devices[route.from]!;
           const targetDevice = project.devices[route.to]!;
@@ -439,14 +447,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           const free = Math.max(0, Math.min(freeBufferCapacity(route.to, route.toBuffer, route.resource), targetFree));
           if (sourceState.status === "failed" || targetState.status === "failed" || available < route.minimumBatch || free < route.minimumBatch
             || !infrastructurePowered(sourceDevice) || !infrastructurePowered(targetDevice)) continue;
+          const profile = stationDispatchProfiles[route.id]!;
+          const coverage = (residentTarget + incomingQuantity(route.to, route.toBuffer, route.resource)) / profile.coverageUnit;
           if (!selected || route.demandPriority > selected.route.demandPriority
-            || (route.demandPriority === selected.route.demandPriority && route.supplyPriority > selected.route.supplyPriority)) {
-            selected = { route, routeIndex, available, free };
+            || (route.demandPriority === selected.route.demandPriority && route.supplyPriority > selected.route.supplyPriority)
+            || (network.dispatchPolicy === "shortage-first" && route.demandPriority === selected.route.demandPriority
+              && route.supplyPriority === selected.route.supplyPriority && (coverage < selected.coverage
+                || (coverage === selected.coverage && (profile.criticalDepth ?? Number.MAX_SAFE_INTEGER) < (selected.criticalDepth ?? Number.MAX_SAFE_INTEGER))))) {
+            selected = {
+              route, available, free, coverage, criticalDepth: profile.criticalDepth,
+              nextCursor: network.dispatchPolicy === "fifo" ? cursor : (cursor + offset + 1) % routeIndices.length,
+            };
           }
         }
         if (!selected) break;
-        const { route, routeIndex, available, free } = selected;
-        stationDispatchCursors[network.id] = (routeIndex + 1) % network.routes.length;
+        const { route, available, free } = selected;
+        stationDispatchCursors[network.id] = selected.nextCursor;
         const count = Math.min(route.capacity, available, free);
         mutateFactoryState(state, { kind: "buffer", device: route.from, buffer: route.fromBuffer, resource: route.resource, delta: -count });
         const transit: ResourceTransit = {

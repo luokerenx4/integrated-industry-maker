@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel,
   findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
-  stableStringify, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
+  stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
@@ -760,6 +760,16 @@ describe("deterministic discrete-event simulation", () => {
       dispatchPolicy: "shortage-first",
       dispatchProfiles: [{ resource: "coal", targetKind: "fuel", coverageUnit: 1, criticalDepth: 0 }],
     }));
+    expect(analysis.stationNetworks.find((network) => network.network === "interstellar-main")).toEqual(expect.objectContaining({
+      dispatchPolicy: "shortage-first",
+      routes: [expect.objectContaining({
+        resource: "iron-plate",
+        dispatchProfile: {
+          resource: "iron-plate", targetKind: "process", coverageUnit: 2, criticalDepth: 0,
+          downstreamConnections: ["station-to-assembler"],
+        },
+      })],
+    }));
   });
   test("target-rate planning sizes recipes, extraction, logistics, station fleets, power, and finite reserves", async () => {
     const project = await openFactoryProject(ironworks);
@@ -776,6 +786,26 @@ describe("deterministic discrete-event simulation", () => {
     expect(plan.stationNetworks).toContainEqual(expect.objectContaining({ network: "interstellar-main", resource: "iron-plate", requiredItemsPerMinute: 24, requiredCarriers: 1, configuredCarriers: 1 }));
     expect(plan.power).toContainEqual(expect.objectContaining({ region: "forge-world", headroomMilliWatts: -122_000 }));
     expect(plan.gaps.map((gap) => gap.kind)).toEqual(["process", "reserve", "power"]);
+  });
+
+  test("station shortage profiles traverse same-buffer pass-through links to the real Process batch", async () => {
+    const project = compileFactoryProject(await loaded());
+    const route = project.logisticsNetworks["interstellar-main"]!.routes[0]!;
+    const direct = project.connections["station-to-assembler"]!;
+    const passThrough = project.devices["station-supply"]!;
+    const input = passThrough.ports.find((port) => port.direction === "input")!;
+    const output = passThrough.ports.find((port) => port.direction === "output")!;
+    delete project.connections[direct.id];
+    project.connections["station-to-buffer"] = {
+      ...direct, id: "station-to-buffer", to: { device: passThrough.id, port: input.id }, toDevice: passThrough, toPort: input,
+    };
+    project.connections["buffer-to-assembler"] = {
+      ...direct, id: "buffer-to-assembler", from: { device: passThrough.id, port: output.id }, fromDevice: passThrough, fromPort: output,
+    };
+    expect(stationRouteDispatchProfile(project, route)).toEqual({
+      resource: "iron-plate", targetKind: "process", coverageUnit: 2, criticalDepth: 0,
+      downstreamConnections: ["buffer-to-assembler", "station-to-buffer"],
+    });
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
@@ -1214,6 +1244,25 @@ describe("deterministic discrete-event simulation", () => {
     ]);
   });
 
+  test("shortage-first station dispatch follows downstream coverage within equal explicit priorities", async () => {
+    const source = await stationProjectSource();
+    source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
+    source.blueprint.devices.push({
+      id: "station-starved", asset: "logistics-station", region: "forge-world", position: { x: 8, y: 10 }, rotation: 0,
+      bufferFilters: { storage: ["iron-ore"] },
+    });
+    const network = source.blueprint.logisticsNetworks[0]!;
+    network.dispatch = "shortage-first";
+    network.stations[0]!.slots[0]!.capacity = 30;
+    network.stations.push({ device: "station-starved", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
+    source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 30;
+    source.scenario.initialBuffers!["station-demand"] = { storage: { "iron-ore": 10 } };
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 2_500 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.to])).toEqual([
+      [0, "station-starved"], [2_200, "station-demand"],
+    ]);
+  });
+
   test("equal station priorities remain deterministic round-robin", async () => {
     const source = await stationProjectSource();
     source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
@@ -1222,6 +1271,7 @@ describe("deterministic discrete-event simulation", () => {
       bufferFilters: { storage: ["iron-ore"] },
     });
     const network = source.blueprint.logisticsNetworks[0]!;
+    network.dispatch = "round-robin";
     network.stations[0]!.slots[0]!.capacity = 20;
     network.stations[1]!.slots[0]!.priority = 5;
     network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 5 }] });
@@ -1229,6 +1279,24 @@ describe("deterministic discrete-event simulation", () => {
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 6_000 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.transit.to)).toEqual([
       "station-demand", "station-peer",
+    ]);
+  });
+
+  test("FIFO station dispatch keeps stable route order within equal explicit priorities", async () => {
+    const source = await stationProjectSource();
+    source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
+    source.blueprint.devices.push({
+      id: "station-peer", asset: "logistics-station", region: "forge-world", position: { x: 8, y: 10 }, rotation: 0,
+      bufferFilters: { storage: ["iron-ore"] },
+    });
+    const network = source.blueprint.logisticsNetworks[0]!;
+    network.dispatch = "fifo";
+    network.stations[0]!.slots[0]!.capacity = 20;
+    network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
+    source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 20;
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 6_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.transit.to)).toEqual([
+      "station-demand", "station-demand",
     ]);
   });
 
@@ -1575,6 +1643,29 @@ describe("research boundary and experiment decisions", () => {
     const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.strategy).toBe("station-fleet:interstellar-main:40");
     expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 40 }]);
+  });
+
+  test("heuristic research can isolate shared-fleet dispatch policy from the factory default", async () => {
+    const source = await stationProjectSource();
+    source.objective.targetResource = "iron-ore";
+    source.objective.targetRegion = "forge-world";
+    source.objective.targetRatePerMinute = 1;
+    source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
+    source.blueprint.devices.push({
+      id: "station-peer", asset: "logistics-station", region: "forge-world", position: { x: 8, y: 10 }, rotation: 0,
+      bufferFilters: { storage: ["iron-ore"] },
+    });
+    const network = source.blueprint.logisticsNetworks[0]!;
+    network.dispatch = "shortage-first";
+    network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
+    const project = compileFactoryProject(source);
+    const result = runUntil(project, undefined, { seed: 42, untilTick: 1_000 });
+    const proposal = await new HeuristicResearchAgent().propose({
+      iteration: 2, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project),
+      history: [{ iteration: 1, strategy: "dispatch:fifo", hypothesis: "already tested", decision: "REVERT", score: result.metrics.finalScore, scoreDelta: 0 }],
+    });
+    expect(proposal.strategy).toBe("station-dispatch:planetary-main:fifo");
+    expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/dispatch", value: "fifo" }]);
   });
 
   test("worse valid candidate is reverted", async () => {

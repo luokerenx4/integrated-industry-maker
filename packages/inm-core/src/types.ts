@@ -281,7 +281,7 @@ export interface BlueprintLogisticsSlot {
   /** Maximum resident plus inbound quantity for this Resource in the station buffer. */
   capacity: number;
   minimumBatch?: number;
-  /** Higher demand priority wins finite fleet capacity; equal priorities remain round-robin. */
+  /** Higher authored priority wins finite fleet capacity; the network dispatch policy resolves equal tiers. */
   priority?: number;
   /** Supply mode only: inventory at or below this quantity is retained for local use. */
   supplyReserve?: number;
@@ -295,6 +295,8 @@ export interface BlueprintLogisticsStation {
 export interface BlueprintLogisticsNetwork {
   id: string;
   kind: "planetary" | "interstellar";
+  /** Shared-fleet arbitration. Omit to inherit the Blueprint factory policy. */
+  dispatch?: DispatchPolicy;
   fleet: { deviceAsset: DeviceAssetId; count: number };
   stations: BlueprintLogisticsStation[];
 }
@@ -452,6 +454,7 @@ export interface CompiledLogisticsRoute {
 export interface CompiledLogisticsNetwork {
   id: string;
   kind: "planetary" | "interstellar";
+  dispatchPolicy: DispatchPolicy;
   fleetAsset: DeviceAsset;
   fleetSize: number;
   stations: BlueprintLogisticsStation[];

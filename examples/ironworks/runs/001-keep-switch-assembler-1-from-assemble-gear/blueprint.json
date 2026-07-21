@@ -537,6 +537,7 @@
   ],
   "logisticsNetworks": [
     {
+      "dispatch": "shortage-first",
       "fleet": {
         "count": 1,
         "deviceAsset": "logistics-vessel"
@@ -576,6 +577,6 @@
   "policies": {
     "dispatch": "shortage-first"
   },
-  "revision": "4ff9a7829dfe627058f771841b73db8ef139b0614ec581fd181e87f12c6deadf",
+  "revision": "cda0ec9db27a322ca488e5bfe71dce741d64b34e9b5dc1c53e880807708a1742",
   "version": 1
 }

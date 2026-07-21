@@ -169,8 +169,8 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     "",
     "Station networks",
     ...analysis.stationNetworks.flatMap((network) => [
-      `  ${network.network}  ${network.kind}  fleet ${network.fleetSize}× ${network.fleetAsset}  ${network.stations} stations  estimated load ${network.estimatedCarrierLoad.toFixed(3)}`,
-      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from}@${route.fromRegion} [${route.fromSlotCapacity}, keep ${route.supplyReserve}] → ${route.to}@${route.toRegion} [${route.toSlotCapacity}, target ${route.demandTarget}]  P${route.demandPriority}/${route.supplyPriority}  batch ${route.minimumBatch}-${route.batchCapacity}${route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
+      `  ${network.network}  ${network.kind}  fleet ${network.fleetSize}× ${network.fleetAsset}  dispatch ${network.dispatchPolicy}  ${network.stations} stations  estimated load ${network.estimatedCarrierLoad.toFixed(3)}`,
+      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from}@${route.fromRegion} [${route.fromSlotCapacity}, keep ${route.supplyReserve}] → ${route.to}@${route.toRegion} [${route.toSlotCapacity}, target ${route.demandTarget}]  P${route.demandPriority}/${route.supplyPriority}  coverage ${route.dispatchProfile.targetKind}/batch${route.dispatchProfile.coverageUnit}/d${route.dispatchProfile.criticalDepth ?? "-"}${route.dispatchProfile.downstreamConnections.length ? ` via ${route.dispatchProfile.downstreamConnections.join("+")}` : ""}  batch ${route.minimumBatch}-${route.batchCapacity}${route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
     ]),
     ...(analysis.stationNetworks.length ? [] : ["  none"]),
     "",

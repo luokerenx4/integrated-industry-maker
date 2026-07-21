@@ -1,7 +1,7 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
   BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, CompiledTransportCell, DeviceAsset,
-  IndustrialProcess, ProjectHashes, ResourceAsset, ResourceId, ValidationIssue, WorldResourceNode,
+  DispatchPolicy, IndustrialProcess, ProjectHashes, ResourceAsset, ResourceId, ValidationIssue, WorldResourceNode,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
@@ -276,7 +276,7 @@ function compileStationSlotContracts(
 
 function compileLogisticsNetworks(
   definitions: BlueprintLogisticsNetwork[], devices: Record<string, CompiledDevice>, assets: Record<string, DeviceAsset>,
-  resources: Record<string, ResourceAsset>, regions: Record<string, WorldRegion>, issues: ValidationIssue[],
+  resources: Record<string, ResourceAsset>, regions: Record<string, WorldRegion>, defaultDispatch: DispatchPolicy, issues: ValidationIssue[],
 ): Record<string, CompiledLogisticsNetwork> {
   const networks: Record<string, CompiledLogisticsNetwork> = {};
   const ids = new Set<string>();
@@ -373,7 +373,10 @@ function compileLogisticsNetworks(
         });
       }
     }
-    networks[definition.id] = { id: definition.id, kind: definition.kind, fleetAsset, fleetSize: definition.fleet.count, stations: structuredClone(definition.stations), routes };
+    networks[definition.id] = {
+      id: definition.id, kind: definition.kind, dispatchPolicy: definition.dispatch ?? defaultDispatch,
+      fleetAsset, fleetSize: definition.fleet.count, stations: structuredClone(definition.stations), routes,
+    };
   }
   return networks;
 }
@@ -804,7 +807,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
   }
 
-  const logisticsNetworks = compileLogisticsNetworks(loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, regions, issues);
+  const logisticsNetworks = compileLogisticsNetworks(
+    loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, regions,
+    loaded.blueprint.policies?.dispatch ?? "fifo", issues,
+  );
 
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
   if (!regions[loaded.objective.targetRegion]) issues.push({ path: "objective/targetRegion", code: "reference.region", message: `Unknown target region '${loaded.objective.targetRegion}'` });

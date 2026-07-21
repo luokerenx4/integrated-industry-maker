@@ -141,7 +141,7 @@ export const blueprintSchema = z.object({
     }).strict(),
   }).strict()),
   logisticsNetworks: z.array(z.object({
-    id, kind: z.enum(["planetary", "interstellar"]),
+    id, kind: z.enum(["planetary", "interstellar"]), dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
     fleet: z.object({ deviceAsset: id, count: positiveInt }).strict(),
     stations: z.array(z.object({
       device: id,

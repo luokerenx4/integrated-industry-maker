@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics, exact connection Resource filters, distance-aware sorter spans, stacking, shortage-aware dispatch, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.33.0`.
+Status: physical local logistics, exact connection Resource filters, distance-aware sorter spans, stacking, unified shortage-aware dispatch, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.34.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -61,7 +61,7 @@ For each planned local flow, synthesis writes a one-Resource lane allowlist and 
 
 ## Station logistics
 
-A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; dispatch policy is network-local.
+A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; shared-fleet dispatch policy is network-local and falls back to the Blueprint factory policy when omitted.
 
 The compiler collects slots globally by station instance before compiling local connections. For each station:
 
@@ -77,8 +77,16 @@ Supply and demand inventory policies deliberately distinguish local belt traffic
 
 - `supplyReserve` is the stock floor retained at a supply station. Carriers may remove only resident inventory above that floor, while local output belts may continue consuming it.
 - `demandTarget` is the remote replenishment ceiling. Remote dispatch treats resident and all already-inbound cargo as occupying that target, while local input belts themselves may still fill the slot to its full capacity.
-- `priority` is non-negative. Finite fleet dispatch chooses the highest demand priority first, then the highest supply priority. Routes tied on both remain deterministic round-robin.
+- `priority` is non-negative. Finite fleet dispatch chooses the highest demand priority first, then the highest supply priority; the network policy resolves routes tied on both.
 - Storage slots have no dispatch policy. They hold inventory without advertising supply or demand.
+
+After explicit demand and supply priorities, the network's `dispatch` policy resolves equal-tier contention:
+
+- `fifo` keeps stable route-id order until a route becomes ineligible;
+- `round-robin` advances the route cursor after every departure;
+- `shortage-first` compares destination resident plus every local/station inbound unit in downstream coverage units, then uses Objective critical depth and the rotated cursor as tie-breakers.
+
+Station coverage follows the same compiled signal as local dispatch. For a demand station with outgoing local lanes, the engine recursively follows same-Resource connections through same-buffer junctions and pass-through storage until it reaches the real target contracts, deduplicates converged leaves, and sums one simultaneous downstream round: exact Process input batches, fuel/Objective units, or terminal buffer capacity. A station feeding an assembler that consumes two iron plates per job therefore has a two-plate coverage unit even if the station slot holds 400. When no local downstream contract exists, `demandTarget` is the fallback coverage unit. This lets a finite planetary or interstellar fleet distinguish productive shortage from a merely large warehouse while keeping authored priorities authoritative.
 
 The effective route batch capacity is the minimum of carrier capacity, `slot capacity − supplyReserve`, and `demandTarget`. Static capacity planning uses the same value, so a small replenishment target cannot masquerade as full carrier throughput.
 
@@ -95,12 +103,13 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 
 ## Telemetry
 
-Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records the effective network dispatch policy and, for every matched route, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, effective carrier batch range, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 
 - Geometry/routing: `packages/inm-core/src/routing.ts`
 - Compilation: `packages/inm-core/src/compiler.ts`
+- Dispatch profiles: `packages/inm-core/src/dispatch-priority.ts`
 - Runtime: `packages/inm-core/src/simulator.ts`
 - Capacity/analysis: `packages/inm-core/src/capacity-plan.ts`, `packages/inm-core/src/production-analysis.ts`
 - Synthesis: `packages/inm-core/src/synthesis.ts`

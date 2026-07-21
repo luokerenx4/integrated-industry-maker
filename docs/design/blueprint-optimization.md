@@ -44,13 +44,13 @@ The capacity plan turns that solution into required Process machines, extraction
 10. synthesizes connected spatial power coverage and capacity;
 11. compiles, plans, cold-start simulates, and atomically writes the Blueprint.
 
-The generated factory has no synthetic capacity: every port, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default so generated fan-out responds to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
+The generated factory has no synthetic capacity: every port, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default and writes it onto every generated shared-fleet network, so local fan-out and planetary/interstellar contention respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
 
 ## Research boundary
 
 Research proposals are RFC 6902 patches limited to Blueprint `devices`, `connections`, `logisticsNetworks`, and `policies`. Worlds, deposits, assets, Processes, Scenarios, Objectives, simulator, and evaluator are benchmark inputs and cannot be patched.
 
-Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, power repair, buffering, measured-utilization duplication, and controlled cycling among FIFO, round-robin, and shortage-first dispatch.
+Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, power repair, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch.
 
 ## Source of truth
 

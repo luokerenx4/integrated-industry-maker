@@ -819,6 +819,7 @@
   ],
   "logisticsNetworks": [
     {
+      "dispatch": "shortage-first",
       "fleet": {
         "count": 1,
         "deviceAsset": "logistics-vessel"
@@ -858,6 +859,6 @@
   "policies": {
     "dispatch": "fifo"
   },
-  "revision": "ff8efa9b12937331497448640b661c511c1738fa00278caa76fe5982113515f3",
+  "revision": "65c6e5bd8f62eaefb1287a0c2a1ebb25af599c719d77acb984ad022fed36335e",
   "version": 1
 }

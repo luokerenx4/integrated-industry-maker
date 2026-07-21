@@ -1,5 +1,8 @@
 import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
-import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, type ConnectionDispatchProfile } from "./dispatch-priority";
+import {
+  connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile,
+  type ConnectionDispatchProfile, type StationDispatchProfile,
+} from "./dispatch-priority";
 import { connectionCapacityPerMinute, maximumConnectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
@@ -153,6 +156,7 @@ export interface PowerGridAnalysis {
 export interface StationNetworkAnalysis {
   network: string;
   kind: "planetary" | "interstellar";
+  dispatchPolicy: DispatchPolicy;
   fleetAsset: string;
   fleetSize: number;
   stations: number;
@@ -175,6 +179,7 @@ export interface StationNetworkAnalysis {
     batchCapacity: number;
     travelTicks: number;
     capacityItemsPerMinute: number;
+    dispatchProfile: StationDispatchProfile;
   }>;
 }
 
@@ -470,6 +475,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       batchCapacity: route.capacity,
       travelTicks: route.travelTicks,
       capacityItemsPerMinute: route.capacity * 60_000 / route.travelTicks,
+      dispatchProfile: stationRouteDispatchProfile(project, route, criticalDepths),
     }));
     let estimatedCarrierLoad = 0;
     for (const station of network.stations) for (const slot of station.slots.filter((item) => item.mode === "demand")) {
@@ -483,6 +489,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     return {
       network: network.id,
       kind: network.kind,
+      dispatchPolicy: network.dispatchPolicy,
       fleetAsset: network.fleetAsset.id,
       fleetSize: network.fleetSize,
       stations: network.stations.length,

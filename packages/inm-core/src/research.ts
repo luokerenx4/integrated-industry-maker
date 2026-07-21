@@ -446,6 +446,25 @@ function policyCandidates(input: ResearchInput): StrategyCandidate[] {
   } }];
 }
 
+function stationPolicyCandidates(input: ResearchInput): StrategyCandidate[] {
+  const policies = ["fifo", "round-robin", "shortage-first"] as const;
+  return input.blueprint.logisticsNetworks.flatMap((network, index) => {
+    if ((input.project.logisticsNetworks[network.id]?.routes.length ?? 0) < 2) return [];
+    const current = network.dispatch ?? input.blueprint.policies?.dispatch ?? "fifo";
+    const next = policies[(policies.indexOf(current) + 1) % policies.length]!;
+    const operation: JsonPatchOperation = network.dispatch
+      ? { op: "replace", path: `/logisticsNetworks/${index}/dispatch`, value: next }
+      : { op: "add", path: `/logisticsNetworks/${index}/dispatch`, value: next };
+    const key = `station-dispatch:${network.id}:${next}`;
+    return [{ key, proposal: {
+      strategy: key,
+      hypothesis: `Switch shared-fleet arbitration on ${network.id} from ${current} to ${next}.`,
+      expectedEffect: "Test whether demand coverage and Objective depth allocate finite carriers better than stable or rotating route order while preserving explicit slot priorities.",
+      patch: [operation],
+    } }];
+  });
+}
+
 function exploratoryStationCandidates(input: ResearchInput): StrategyCandidate[] {
   return input.blueprint.logisticsNetworks.map((network, index) => {
     const count = network.fleet.count + 1;
@@ -511,6 +530,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
     }
     candidates.push(...bufferCandidates(input));
     candidates.push(...policyCandidates(input));
+    candidates.push(...stationPolicyCandidates(input));
     candidates.push(...exploratoryStationCandidates(input));
     const processors = Object.values(input.project.devices).filter((device) => device.assetDef.capabilities.includes("process"))
       .sort((a, b) => (input.metrics.machineUtilization[b.id] ?? 0) - (input.metrics.machineUtilization[a.id] ?? 0) || a.id.localeCompare(b.id));

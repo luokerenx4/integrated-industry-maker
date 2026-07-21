@@ -636,6 +636,7 @@
   ],
   "logisticsNetworks": [
     {
+      "dispatch": "shortage-first",
       "fleet": {
         "count": 1,
         "deviceAsset": "logistics-vessel"

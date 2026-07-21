@@ -218,11 +218,12 @@ interface IndustrialAnalysis {
     storageCapacityMilliJoules: number; initialStoredMilliJoules: number; storageChargeMilliWatts: number; storageDischargeMilliWatts: number;
   }>;
   stationNetworks: Array<{
-    network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
+    network: string; kind: "planetary" | "interstellar"; dispatchPolicy: "fifo" | "round-robin" | "shortage-first"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
     routes: Array<{
       route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string;
       fromSlotCapacity: number; toSlotCapacity: number; supplyReserve: number; demandTarget: number; supplyPriority: number; demandPriority: number;
       minimumBatch: number; carrierBatchCapacity: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number;
+      dispatchProfile: { resource: string; targetKind: "objective" | "process" | "fuel" | "buffer"; coverageUnit: number; criticalDepth: number | null; downstreamConnections: string[] };
     }>;
   }>;
   diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; connection?: string; message: string }>;
@@ -867,8 +868,8 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <section className="analysis-section station-analysis">
           <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>
           <div className="station-network-list">{analysis.stationNetworks.length ? analysis.stationNetworks.map((network) => <div className="station-network-card" key={network.network}>
-            <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.fleetSize}× {network.fleetAsset}</b></div>
-            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}, keep {route.supplyReserve}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}, target {route.demandTarget}] · P{route.demandPriority}/{route.supplyPriority}</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
+            <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.dispatchPolicy.toUpperCase()} · {network.fleetSize}× {network.fleetAsset}</b></div>
+            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}, keep {route.supplyReserve}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}, target {route.demandTarget}] · P{route.demandPriority}/{route.supplyPriority}</small><small>{route.dispatchProfile.targetKind} · {route.dispatchProfile.coverageUnit}/batch · depth {route.dispatchProfile.criticalDepth ?? "—"}{route.dispatchProfile.downstreamConnections.length ? ` · via ${route.dispatchProfile.downstreamConnections.join(" + ")}` : ""}</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
         </section>
         <section className="analysis-section power-analysis">
