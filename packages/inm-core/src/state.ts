@@ -11,6 +11,7 @@ export type FactoryStateMutation =
   | { kind: "lot.depart"; lotIds: string[]; device: string; buffer: string; nextStatus: "processing" | "transport"; nextLocation: { kind: "device"; device: string } | { kind: "transit"; transit: string } }
   | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
   | { kind: "lot.route-advance"; lotIds: string[]; route: string; fromStep: string; toStep: string | null; terminal: "complete" | "scrap" | null }
+  | { kind: "lot.route-start"; lotId: string; route: string; step: string; queueTicks: Tick; violated: boolean }
   | { kind: "lot.complete"; lotIds: string[]; device: string; buffer: string }
   | { kind: "lot.scrap"; lotIds: string[]; device: string; reason: string }
   | { kind: "lot.scrap-buffer"; lotIds: string[]; device: string; buffer: string; reason: string }
@@ -133,6 +134,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (!runtime.buffers[mutation.buffer]) throw new Error(`Unknown buffer for ${mutation.device}/${mutation.buffer}`);
       setLotReleaseBlock(lot, state.tick, null);
       lot.releasedAtTick = state.tick;
+      lot.route.stepEnteredAtTick = state.tick;
       setLotStatus(lot, state.tick, "queued", { kind: "buffer", device: mutation.device, buffer: mutation.buffer });
       const ids = runtime.lotIds[mutation.buffer] ??= {};
       (ids[lot.resource] ??= []).push(lot.id);
@@ -172,12 +174,27 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
         lot.route.completedSteps += 1;
         lot.route.step = mutation.toStep;
         lot.route.terminal = mutation.terminal;
+        lot.route.stepEnteredAtTick = mutation.toStep ? state.tick : null;
         if (mutation.toStep) {
           const visits = (lot.route.visits[mutation.toStep] ?? 0) + 1;
           if (visits > 1) lot.route.reentrantTransitions += 1;
           lot.route.visits[mutation.toStep] = visits;
         }
       }
+      return;
+    }
+    case "lot.route-start": {
+      const lot = state.lots[mutation.lotId];
+      if (!lot) throw new Error(`Unknown lot '${mutation.lotId}'`);
+      if (lot.route.id !== mutation.route || lot.route.step !== mutation.step || lot.route.terminal || lot.route.stepEnteredAtTick === null) {
+        throw new Error(`Lot '${lot.id}' cannot start Route step '${mutation.route}/${mutation.step}'`);
+      }
+      if (mutation.queueTicks !== state.tick - lot.route.stepEnteredAtTick || mutation.queueTicks < 0) throw new Error(`Lot '${lot.id}' has an invalid Route queue time`);
+      const queue = lot.route.queue[mutation.step] ??= { starts: 0, totalTicks: 0, maximumTicks: 0, violations: 0 };
+      queue.starts += 1;
+      queue.totalTicks += mutation.queueTicks;
+      queue.maximumTicks = Math.max(queue.maximumTicks, mutation.queueTicks);
+      if (mutation.violated) { queue.violations += 1; lot.route.queueTimeViolations += 1; }
       return;
     }
     case "lot.complete": {

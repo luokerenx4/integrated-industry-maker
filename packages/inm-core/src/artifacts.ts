@@ -91,6 +91,11 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
   const treatmentAgents = Object.entries(result.metrics.materialTreatment.agentsConsumed)
     .map(([resource, count]) => `${count} ${resource}`);
+  const routeQueueTime = Object.values(result.metrics.routeFlow).reduce((summary, route) => ({
+    violations: summary.violations + route.queueTimeViolations,
+    violatedLots: summary.violatedLots + route.violatedLots,
+    maximumOverrunTicks: Math.max(summary.maximumOverrunTicks, ...Object.values(route.steps).map((step) => Math.max(0, step.maximumQueueTicks - (step.queueTimeMaximumTicks ?? step.maximumQueueTicks)))),
+  }), { violations: 0, violatedLots: 0, maximumOverrunTicks: 0 });
   const capacityPlan = planProductionCapacity(project);
   const report = [
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
@@ -102,6 +107,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Release control: ${result.metrics.releaseFlow.control}${result.metrics.releaseFlow.maximumWip === null ? "" : ` · max WIP ${result.metrics.releaseFlow.maximumWip} · reopen at ${result.metrics.releaseFlow.reopenAtWip} · ${result.metrics.releaseFlow.dispatch}${result.metrics.releaseFlow.maximumReleaseDelayPolicyTicks === null ? "" : ` · max delay ${(result.metrics.releaseFlow.maximumReleaseDelayPolicyTicks / 1000).toFixed(3)} s`}`} · peak ${result.metrics.releaseFlow.peakActiveLots} active lots · ${result.metrics.releaseFlow.controlBlockedLots} control-blocked / ${(result.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(3)} lot-s · ${result.metrics.releaseFlow.capacityBlockedLots} capacity-blocked / ${(result.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(3)} lot-s · ${result.metrics.releaseFlow.serviceLevelOpenings} service openings`,
     `- Lot service: ${(result.metrics.onTimeDelivery * 100).toFixed(1)}% on time · mean cycle ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s · p95 ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s · mean tardiness ${(result.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(3)} s`,
     `- Quality flow: ${(result.metrics.qualityFlow.goodYield * 100).toFixed(1)}% good yield · ${(result.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}% first-pass · ${result.metrics.qualityFlow.totalInspections} inspections · ${result.metrics.qualityFlow.totalReworkCycles} rework cycles · ${result.metrics.qualityFlow.scrapDispositions} scrap dispositions · ${result.metrics.qualityFlow.escapedDefects} escapes`,
+    `- Route Q-time: ${routeQueueTime.violations} violations across ${routeQueueTime.violatedLots} lots · ${(routeQueueTime.maximumOverrunTicks / 1000).toFixed(3)} s maximum overrun`,
     `- Batch processing: ${result.metrics.batchFlow.jobs} jobs · ${result.metrics.batchFlow.lots} lots · ${result.metrics.batchFlow.averageLotsPerJob.toFixed(3)} lots/job · ${(result.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(3)} s mean device wait/lot`,
     `- Equipment setup: ${result.metrics.equipmentSetups.totalChangeovers} changeovers · ${(result.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(3)} s work · ${result.metrics.equipmentSetups.totalCampaignHolds} campaign holds / ${(result.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(3)} s (${result.metrics.equipmentSetups.campaignMinimumLotReleases} lot-ready / ${result.metrics.equipmentSetups.campaignMaximumHoldReleases} timeout)`,
     `- Target rate: ${capacityPlan.targetRatePerMinute.toFixed(3)} ${capacityPlan.targetResource}/min (${(result.metrics.onTimeDelivery * 100).toFixed(1)}% attained)`,

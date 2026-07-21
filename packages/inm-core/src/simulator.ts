@@ -124,7 +124,10 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         reason: null, sinceTick: definition.releaseTick,
         ticks: { "buffer-capacity": 0, "resource-capacity": 0, "conwip-limit": 0 }, encountered: [],
       },
-      route: { id: route.id, step: route.entry.step, completedSteps: 0, visits: { [route.entry.step]: 1 }, reentrantTransitions: 0, terminal: null },
+      route: {
+        id: route.id, step: route.entry.step, completedSteps: 0, visits: { [route.entry.step]: 1 }, reentrantTransitions: 0,
+        stepEnteredAtTick: null, queue: {}, queueTimeViolations: 0, terminal: null,
+      },
       quality: {
         defects: [], appliedExcursions: [], inspections: 0, passes: 0,
         rejections: 0, scrapDispositions: 0, reworkCycles: 0,
@@ -587,6 +590,20 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (!lot.route.step || lot.route.terminal) return false;
     return project.routes[lot.route.id]!.steps.find((step) => step.id === lot.route.step)?.operations.includes(process) ?? false;
   };
+  const routeQueueAssessment = (lotId: string, process: string) => {
+    const lot = state.lots[lotId]!;
+    const stepId = lot.route.step;
+    if (!stepId || lot.route.stepEnteredAtTick === null) return undefined;
+    const step = project.routes[lot.route.id]!.steps.find((candidate) => candidate.id === stepId);
+    if (!step?.operations.includes(process)) return undefined;
+    const queueTicks = state.tick - lot.route.stepEnteredAtTick;
+    const maximumTicks = step.queueTime?.maximumTicks ?? null;
+    const violated = maximumTicks !== null && queueTicks > maximumTicks;
+    return {
+      lotId, route: lot.route.id, step: stepId, queueTicks, maximumTicks, violated,
+      defects: violated ? [...step.queueTime!.violationDefects] : [],
+    };
+  };
   const rankedProcessLotIds = (device: CompiledDevice, buffer: string, resource: string, process: string, minimumTreatmentLevel = 0): string[] =>
     rankedLotIds(device, buffer, resource).filter((id) => state.lots[id]!.treatmentLevel >= minimumTreatmentLevel && routeAllows(id, process));
   const takeLotIds = (device: CompiledDevice, buffer: string, resource: string, count: number, treatmentLevel?: number): string[] => {
@@ -952,7 +969,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const lotId = rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, plan.definition.id, transfer.input.minimumTreatmentLevel ?? 0)[0];
     if (!lotId) return undefined;
     const lot = state.lots[lotId]!;
-    const detectedDefects = lot.quality.defects.filter((defect) => quality.detects.includes(defect)).sort();
+    const assessment = routeQueueAssessment(lotId, plan.definition.id);
+    const effectiveDefects = [...new Set([...lot.quality.defects, ...(assessment?.defects ?? [])])];
+    const detectedDefects = effectiveDefects.filter((defect) => quality.detects.includes(defect)).sort();
     const result = detectedDefects.length === 0 ? "pass" as const
       : quality.scrapOutput && lot.quality.reworkCycles >= quality.maxReworkCycles ? "scrap" as const
         : "reject" as const;
@@ -1156,6 +1175,28 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (!canStartPoweredWork(device, required)) {
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, available) : 0 });
       setStatus(device.id, "unpowered"); return false;
+    }
+    const routeStarts = (selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
+      rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, selectedProcessPlan!.definition.id, transfer.input.minimumTreatmentLevel ?? 0)
+        .slice(0, transfer.input.count).map((id) => routeQueueAssessment(id, selectedProcessPlan!.definition.id)!));
+    for (const assessment of routeStarts) {
+      mutateFactoryState(state, {
+        kind: "lot.route-start", lotId: assessment.lotId, route: assessment.route, step: assessment.step,
+        queueTicks: assessment.queueTicks, violated: assessment.violated,
+      });
+      if (assessment.violated) {
+        const lot = state.lots[assessment.lotId]!;
+        mutateFactoryState(state, {
+          kind: "lot.quality-excursion", lotIds: [assessment.lotId],
+          excursion: `queue-time:${assessment.route}:${assessment.step}:${lot.route.visits[assessment.step] ?? 1}`,
+          defects: assessment.defects,
+        });
+        emit({
+          type: "lot.queue-time-violation", tick: state.tick, device: device.id, lot: assessment.lotId,
+          route: assessment.route, step: assessment.step, process: selectedProcessPlan!.definition.id,
+          queueTicks: assessment.queueTicks, maximumTicks: assessment.maximumTicks!, defects: [...assessment.defects],
+        });
+      }
     }
     const lotQueueWaitAtStart = Object.fromEntries((selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
       rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, selectedProcessPlan!.definition.id, transfer.input.minimumTreatmentLevel ?? 0)

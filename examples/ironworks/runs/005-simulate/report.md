@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.090**
-- Result hash: `96062cb4675139343af193f050728e260b983f80dfcd435ae266adda0731b6e0`
+- Result hash: `cf686a1152c6ec73e0983dd2b212a53919cf7468a0afb0ec6969524d009a106d`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
@@ -11,6 +11,7 @@
 - Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
 - Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
+- Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Target rate: 240.000 iron-ore/min (100.0% attained)

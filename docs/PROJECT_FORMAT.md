@@ -112,13 +112,14 @@ An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family":
       "id": "pattern-cell-layer-1",
       "name": "Pattern Cell Layer 1",
       "operations": ["pattern-cell-layer-1"],
+      "queueTime": { "maximumTicks": 20000, "violationDefects": ["critical-dimension"] },
       "transitions": [{ "resource": "patterned-cell-l1-lot", "to": "etch-cell-layer-1" }]
     }
   ]
 }
 ```
 
-Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Scenario lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]].
+Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Optional `queueTime` fixes the maximum elapsed ticks from entering the step to actual Device-job start and the deterministic defects added when it is exceeded. Its clock includes physical transport, batching, setup, maintenance, power and equipment waiting. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Scenario lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]].
 
 A combustible Resource declares how much energy one unit contains. The value is an integer number of millijoules and is consumed only through a fuel generator's compiled generation job:
 

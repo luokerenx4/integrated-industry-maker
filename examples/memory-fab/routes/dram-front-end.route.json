@@ -56,6 +56,12 @@
         "batch-anneal-dielectric-stack",
         "rapid-anneal-dielectric-stack"
       ],
+      "queueTime": {
+        "maximumTicks": 20000,
+        "violationDefects": [
+          "critical-dimension"
+        ]
+      },
       "transitions": [
         {
           "resource": "annealed-dielectric-stack-lot",
@@ -69,6 +75,12 @@
       "operations": [
         "pattern-cell-layer-2"
       ],
+      "queueTime": {
+        "maximumTicks": 45000,
+        "violationDefects": [
+          "critical-dimension"
+        ]
+      },
       "transitions": [
         {
           "resource": "patterned-cell-l2-lot",
@@ -96,6 +108,12 @@
         "inspect-final-pattern-standard",
         "inspect-final-pattern-deep"
       ],
+      "queueTime": {
+        "maximumTicks": 35000,
+        "violationDefects": [
+          "particle-contamination"
+        ]
+      },
       "transitions": [
         {
           "resource": "qualified-dram-wafer-lot",

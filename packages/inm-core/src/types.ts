@@ -99,6 +99,8 @@ export interface ProductRouteManifest {
     id: string;
     name: string;
     operations: ProcessId[];
+    /** Maximum elapsed time from entering this Route step until physical work starts. */
+    queueTime?: { maximumTicks: Tick; violationDefects: string[] };
     transitions: Array<{
       resource: ResourceId;
       to?: string;
@@ -803,6 +805,9 @@ export interface WorkLot {
     completedSteps: number;
     visits: Record<string, number>;
     reentrantTransitions: number;
+    stepEnteredAtTick: Tick | null;
+    queue: Record<string, { starts: number; totalTicks: Tick; maximumTicks: Tick; violations: number }>;
+    queueTimeViolations: number;
     terminal: "complete" | "scrap" | null;
   };
   quality: {
@@ -943,6 +948,7 @@ export type FactoryEvent =
   | { type: "lot.release-control-opened"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number; cause: "reopen-threshold" | "maximum-release-delay" }
   | { type: "lot.release-control-closed"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
   | { type: "lot.route-advanced"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; fromStep: string; process: ProcessId; outputResource: ResourceId; toStep: string | null; terminal: "complete" | "scrap" | null; visit: number; reentrant: boolean }
+  | { type: "lot.queue-time-violation"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; step: string; process: ProcessId; queueTicks: Tick; maximumTicks: Tick; defects: string[] }
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
@@ -1042,7 +1048,17 @@ export interface FactoryMetrics {
     inProgress: number;
     transitions: number;
     reentrantTransitions: number;
-    steps: Record<string, { visits: number; activeLots: number }>;
+    queueTimeViolations: number;
+    violatedLots: number;
+    steps: Record<string, {
+      visits: number;
+      starts: number;
+      activeLots: number;
+      meanQueueTicks: Tick;
+      maximumQueueTicks: Tick;
+      queueTimeMaximumTicks: Tick | null;
+      queueTimeViolations: number;
+    }>;
   }>;
   releaseFlow: {
     scheduled: number;

@@ -89,10 +89,21 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       inProgress: lots.filter((lot) => lot.releasedAtTick !== undefined && !lot.route.terminal && lot.status !== "scrapped").length,
       transitions: lots.reduce((sum, lot) => sum + lot.route.completedSteps, 0),
       reentrantTransitions: lots.reduce((sum, lot) => sum + lot.route.reentrantTransitions, 0),
-      steps: Object.fromEntries(route.steps.map((step) => [step.id, {
-        visits: lots.reduce((sum, lot) => sum + (lot.route.visits[step.id] ?? 0), 0),
-        activeLots: lots.filter((lot) => lot.route.step === step.id).length,
-      }])),
+      queueTimeViolations: lots.reduce((sum, lot) => sum + lot.route.queueTimeViolations, 0),
+      violatedLots: lots.filter((lot) => lot.route.queueTimeViolations > 0).length,
+      steps: Object.fromEntries(route.steps.map((step) => {
+        const starts = lots.reduce((sum, lot) => sum + (lot.route.queue[step.id]?.starts ?? 0), 0);
+        const totalQueueTicks = lots.reduce((sum, lot) => sum + (lot.route.queue[step.id]?.totalTicks ?? 0), 0);
+        return [step.id, {
+          visits: lots.reduce((sum, lot) => sum + (lot.route.visits[step.id] ?? 0), 0),
+          starts,
+          activeLots: lots.filter((lot) => lot.route.step === step.id).length,
+          meanQueueTicks: starts ? totalQueueTicks / starts : 0,
+          maximumQueueTicks: lots.reduce((maximum, lot) => Math.max(maximum, lot.route.queue[step.id]?.maximumTicks ?? 0), 0),
+          queueTimeMaximumTicks: step.queueTime?.maximumTicks ?? null,
+          queueTimeViolations: lots.reduce((sum, lot) => sum + (lot.route.queue[step.id]?.violations ?? 0), 0),
+        }];
+      })),
     }];
   }));
   const releaseFlow: FactoryMetrics["releaseFlow"] = {

@@ -17,6 +17,7 @@
     "memory-fab:research-campaign": "bun scripts/research-memory-fab-campaign.ts",
     "memory-fab:research-tools": "bun scripts/research-memory-fab-tools.ts",
     "memory-fab:research-maintenance": "bun scripts/research-memory-fab-maintenance.ts",
+    "memory-fab:research-qtime": "bun scripts/research-memory-fab-qtime.ts",
     "runs:regenerate": "bun scripts/regenerate-example-runs.ts",
     "test": "bun run docs:check && bun run typecheck && bun test packages/inm-core packages/inm-cli packages/inm-studio && bun run inm test examples/ironworks",
     "typecheck": "bunx tsc -p packages/inm-core/tsconfig.json --noEmit && bunx tsc -p packages/inm-cli/tsconfig.json --noEmit && bunx tsc -p packages/inm-studio/tsconfig.json --noEmit && bunx tsc -p examples/ironworks/assets/tsconfig.json --noEmit && bunx tsc -p examples/memory-fab/assets/tsconfig.json --noEmit",

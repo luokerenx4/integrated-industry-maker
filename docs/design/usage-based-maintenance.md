@@ -43,7 +43,7 @@ The event stream distinguishes `device.maintenance-start`, `device.maintenance-f
 
 The synthetic [[examples/memory-fab]] assets require lithography and etch maintenance after at most eight jobs and inspection maintenance after at most five. A TypeScript sweep evaluates 27 combinations across four locked workloads. The kept Blueprint starts those jobs after seven, seven, and four completed jobs respectively.
 
-Against the same specialized physical layout with mandatory-only maintenance, that policy improves weighted score by `+1.455168`. Against the locked baseline it raises aggregate score from `20.908422` to `34.062654`; every case improves and the minimum case delta is `+7.467272`.
+Q-time changed the optimum rather than merely adding another dashboard metric. A fresh 27-policy sweep replaced the former 7/7/4 lithography/etch/inspection policy (`30.467190`) with 7/off/3 (`31.765837`, `+1.298647`). The selected Blueprint improves on mandatory-only maintenance (`30.855063`) by `+0.910774`; against the locked baseline it raises aggregate score from `16.967452` to `31.765837`, and every case improves by at least `+12.529236`.
 
 Run the search with:
 

@@ -327,6 +327,9 @@ function validateRoutes(resources: Record<string, ResourceAsset>, processes: Rec
     let hasComplete = false;
     for (const [stepIndex, step] of route.steps.entries()) {
       const stepPath = `${routePath}/steps/${stepIndex}`;
+      if (step.queueTime && new Set(step.queueTime.violationDefects).size !== step.queueTime.violationDefects.length) issues.push({
+        path: `${stepPath}/queueTime/violationDefects`, code: "route.queue-time-duplicate-defect", message: `Step '${step.id}' declares a queue-time defect more than once`,
+      });
       const declaredOutputs = new Set(step.operations.flatMap((operationId) => {
         const operation = processes[operationId];
         if (!operation) return [];

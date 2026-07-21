@@ -39,6 +39,9 @@ export interface BlueprintMetricSnapshot {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  queueTimeViolations: number;
+  queueTimeViolatedLots: number;
+  maximumQueueTimeOverrunTicks: number;
   batchJobs: number;
   batchLots: number;
   averageLotsPerBatch: number;
@@ -99,6 +102,9 @@ export interface BlueprintMetricDelta {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  queueTimeViolations: number;
+  queueTimeViolatedLots: number;
+  maximumQueueTimeOverrunTicks: number;
   batchJobs: number;
   batchLots: number;
   averageLotsPerBatch: number;
@@ -258,6 +264,7 @@ export function compareBlueprintSemantics(before: Blueprint, after: Blueprint): 
 function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
   const storage = Object.values(metrics.energyStorage);
   const power = Object.values(metrics.powerGrids);
+  const routes = Object.values(metrics.routeFlow);
   return {
     score: metrics.finalScore,
     throughputPerMinute: metrics.throughputPerMinute,
@@ -281,6 +288,10 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     firstPassYield: metrics.qualityFlow.firstPassYield,
     qualityEscapes: metrics.qualityFlow.escapedDefects,
     reworkCycles: metrics.qualityFlow.totalReworkCycles,
+    queueTimeViolations: routes.reduce((sum, route) => sum + route.queueTimeViolations, 0),
+    queueTimeViolatedLots: routes.reduce((sum, route) => sum + route.violatedLots, 0),
+    maximumQueueTimeOverrunTicks: routes.reduce((maximum, route) => Math.max(maximum, ...Object.values(route.steps).map((step) =>
+      step.queueTimeMaximumTicks === null ? 0 : Math.max(0, step.maximumQueueTicks - step.queueTimeMaximumTicks))), 0),
     batchJobs: metrics.batchFlow.jobs,
     batchLots: metrics.batchFlow.lots,
     averageLotsPerBatch: metrics.batchFlow.averageLotsPerJob,
@@ -343,6 +354,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     firstPassYield: after.firstPassYield - before.firstPassYield,
     qualityEscapes: after.qualityEscapes - before.qualityEscapes,
     reworkCycles: after.reworkCycles - before.reworkCycles,
+    queueTimeViolations: after.queueTimeViolations - before.queueTimeViolations,
+    queueTimeViolatedLots: after.queueTimeViolatedLots - before.queueTimeViolatedLots,
+    maximumQueueTimeOverrunTicks: after.maximumQueueTimeOverrunTicks - before.maximumQueueTimeOverrunTicks,
     batchJobs: after.batchJobs - before.batchJobs,
     batchLots: after.batchLots - before.batchLots,
     averageLotsPerBatch: after.averageLotsPerBatch - before.averageLotsPerBatch,

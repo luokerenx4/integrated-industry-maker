@@ -15,6 +15,7 @@ Routes live inside each self-contained project as `routes/<id>.route.json`. Ever
 Each Route has one entry step and one or more named steps. A step declares:
 
 - one or more qualified Process ids;
+- an optional evaluator-owned Q-time window and deterministic violation defects;
 - every tracked Resource that those Processes can actually output;
 - either the next step or a `complete` / `scrap` terminal for each output.
 
@@ -28,8 +29,23 @@ Every WorkLot records its Route id, current step, visit counts, completed transi
 
 Successful production resolves the actual tracked output, advances the same lot identities through the declared transition, and emits `lot.route-advanced`. Inspection rework and scrap decisions use the actual disposition Resource. Delivery is legal only after a `complete` terminal; discard is legal only after a `scrap` terminal.
 
-`metrics.routeFlow` reports scheduled, complete, scrap and active lots, total transitions, re-entrant transitions, and visits/active lots per step. CLI simulation and Studio surface these evaluator-owned values.
+## Q-time windows
+
+Semiconductor work is often time-constrained between operations. A Route step may add:
+
+```json
+"queueTime": {
+  "maximumTicks": 20000,
+  "violationDefects": ["critical-dimension"]
+}
+```
+
+The clock starts when the prior Process finishes and the lot enters this step, before output transport begins. It stops only when the next physical Device job actually starts, so transport, batching, setup campaigns, maintenance, power loss, failures, and equipment queues all consume the same process window. The entry-step clock starts at actual factory release. Equality is valid; only a start later than `maximumTicks` violates the contract.
+
+A violation records the exact wait and fixed defect set on the lot before processing. An inspection step includes its own just-triggered Q-time defects when resolving pass/rework/scrap, so an overloaded metrology bay cannot hide behind a pass decision computed before the clock stops. Re-entry receives a fresh clock and visit-scoped violation identity.
+
+`metrics.routeFlow` reports scheduled, complete, scrap and active lots, total transitions, re-entrant transitions, violated lots, and total Q-time violations. Every step exposes visits, starts, mean/maximum queue time, the fixed window, and violations. CLI simulation and Studio surface the same evaluator-owned values.
 
 ## DRAM abstraction
 
-The checked-in `dram-front-end` Route intentionally models a small synthetic front-end slice, not a proprietary memory recipe. Its important industrial properties are explicit sequencing, qualified tool alternatives, batch versus single-lot thermal work, shared-tool re-entry, inspection branching, selective rework, and terminal disposition. The same state-machine shape can scale to hundreds of repeated mask, deposition, etch, implant, clean, metrology, and thermal steps without encoding sequence in ad-hoc Resource naming alone.
+The checked-in `dram-front-end` Route intentionally models a small synthetic front-end slice, not a proprietary memory recipe. Its important industrial properties are explicit sequencing, qualified tool alternatives, batch versus single-lot thermal work, shared-tool re-entry, inspection branching, selective rework, terminal disposition, and Q-time loss. Dielectric stacks have a 20-second anneal window, annealed lots have a 45-second return-to-lithography window, and final inspection has a 35-second contamination window. The same state-machine shape can scale to hundreds of repeated mask, deposition, etch, implant, clean, metrology, and thermal steps without encoding sequence in ad-hoc Resource naming alone.

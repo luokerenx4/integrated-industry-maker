@@ -104,10 +104,10 @@ await json(join(project, "routes", "dram-front-end.route.json"), {
     { id: "pattern-cell-layer-1", name: "Pattern Cell Layer 1", operations: ["pattern-cell-layer-1"], transitions: [{ resource: "patterned-cell-l1-lot", to: "etch-cell-layer-1" }] },
     { id: "etch-cell-layer-1", name: "Etch Cell Layer 1", operations: ["etch-cell-layer-1"], transitions: [{ resource: "etched-cell-l1-lot", to: "deposit-dielectric-stack" }] },
     { id: "deposit-dielectric-stack", name: "Deposit Dielectric Stack", operations: ["deposit-dielectric-stack"], transitions: [{ resource: "dielectric-stack-lot", to: "anneal-dielectric-stack" }] },
-    { id: "anneal-dielectric-stack", name: "Anneal Dielectric Stack", operations: ["batch-anneal-dielectric-stack", "rapid-anneal-dielectric-stack"], transitions: [{ resource: "annealed-dielectric-stack-lot", to: "pattern-cell-layer-2" }] },
-    { id: "pattern-cell-layer-2", name: "Pattern Cell Layer 2", operations: ["pattern-cell-layer-2"], transitions: [{ resource: "patterned-cell-l2-lot", to: "etch-cell-layer-2" }] },
+    { id: "anneal-dielectric-stack", name: "Anneal Dielectric Stack", operations: ["batch-anneal-dielectric-stack", "rapid-anneal-dielectric-stack"], queueTime: { maximumTicks: 20_000, violationDefects: ["critical-dimension"] }, transitions: [{ resource: "annealed-dielectric-stack-lot", to: "pattern-cell-layer-2" }] },
+    { id: "pattern-cell-layer-2", name: "Pattern Cell Layer 2", operations: ["pattern-cell-layer-2"], queueTime: { maximumTicks: 45_000, violationDefects: ["critical-dimension"] }, transitions: [{ resource: "patterned-cell-l2-lot", to: "etch-cell-layer-2" }] },
     { id: "etch-cell-layer-2", name: "Etch Cell Layer 2", operations: ["etch-cell-layer-2"], transitions: [{ resource: "dram-wafer-lot", to: "final-inspection" }] },
-    { id: "final-inspection", name: "Final Pattern Inspection", operations: ["inspect-final-pattern-standard", "inspect-final-pattern-deep"], transitions: [
+    { id: "final-inspection", name: "Final Pattern Inspection", operations: ["inspect-final-pattern-standard", "inspect-final-pattern-deep"], queueTime: { maximumTicks: 35_000, violationDefects: ["particle-contamination"] }, transitions: [
       { resource: "qualified-dram-wafer-lot", terminal: "complete" },
       { resource: "rework-required-dram-wafer-lot", to: "final-pattern-rework" },
       { resource: "scrap-dram-wafer-lot", terminal: "scrap" },
@@ -455,8 +455,8 @@ for (const request of [
   specializedProject = compileFactoryProject(specializedSource);
 }
 for (const device of specializedProject.blueprint.devices) {
-  const minimumJobs = /^lithography-\d+$/.test(device.id) || /^etch-\d+$/.test(device.id) ? 7
-    : device.id === "inspection-1" ? 4 : undefined;
+  const minimumJobs = /^lithography-\d+$/.test(device.id) ? 7
+    : device.id === "inspection-1" ? 3 : undefined;
   if (minimumJobs !== undefined) device.policy = {
     ...device.policy, preventiveMaintenance: { minimumJobs },
   };
@@ -464,7 +464,7 @@ for (const device of specializedProject.blueprint.devices) {
 specializedSource = { ...specializedSource, blueprint: specializedProject.blueprint };
 specializedProject = compileFactoryProject(specializedSource);
 await json(join(project, "blueprints", "experiment.blueprint.json"), {
-  ...specializedProject.blueprint, revision: "memory-fab-preventive-maintenance-v1",
+  ...specializedProject.blueprint, revision: "memory-fab-qtime-maintenance-v2",
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
 
@@ -479,15 +479,15 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.",
-    "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power. Optional `policy.setupCampaign` may hold that switch until `minimumReadyLots` are resident, with `maximumHoldTicks` as the starvation guard.",
+    "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power. Optional `policy.setupCampaign` may hold that switch until `minimumReadyLots` are resident, with `maximumHoldTicks` as the starvation guard. Route-owned Q-time windows measure the complete delay from step entry to physical job start; transport, batch formation, setup, maintenance, power loss and tool queues consume the same clock, and a late start adds fixed defects before ordinary inspection/rework/scrap disposition.",
   )
   .replace(
     "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
-    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. The assets require lithography and etch maintenance no later than eight completed jobs and inspection maintenance no later than five; the Blueprint pulls those fixed jobs into idle windows after seven, seven, and four jobs respectively. Across the locked envelope it raises the aggregate score from `20.908422` to `34.062654` (`+13.154232`), and every case improves; the minimum case delta is `+7.467272`. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. The assets require lithography and etch maintenance no later than eight completed jobs and inspection maintenance no later than five. Once Q-time became evaluator-owned physics, a fresh 27-policy sweep selected lithography maintenance after seven jobs, inspection after three, and mandatory-only etch maintenance. Across the locked envelope the candidate raises aggregate score from `16.967452` to `31.765837` (`+14.798384`), and every case improves; the minimum case delta is `+12.529236`. Continue from this candidate rather than resetting it.",
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. It found that starting lithography and etch maintenance after seven completed jobs and inspection maintenance after four moves evaluator-owned work into otherwise idle windows. Against the same physical candidate with mandatory-only maintenance, this adds `+1.455168` aggregate score while clearing every case gate.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Q-time changed its optimum: the previous 7/7/4 lithography/etch/inspection policy scores `30.467190`, while the new 7/off/3 policy scores `31.765837` (`+1.298647`) and clears every case gate. Against mandatory-only maintenance at `30.855063`, the selected policy adds `+0.910774`.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
@@ -495,7 +495,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\n```",
+    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-qtime\n```",
   ));
 
 const projectReadmePath = join(project, "README.md");
@@ -503,7 +503,7 @@ const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
   .replace(
     "# Re-entrant DRAM memory fab\n\n",
-    "# Re-entrant DRAM memory fab\n\nThe project-local `routes/dram-front-end.route.json` freezes the evaluator-owned DRAM product flow as an explicit state machine; Blueprints may allocate qualified tools and dispatch work but cannot skip, reorder, or invent wafer operations.\n\n",
+    "# Re-entrant DRAM memory fab\n\nThe project-local `routes/dram-front-end.route.json` freezes the evaluator-owned DRAM product flow as an explicit state machine; Blueprints may allocate qualified tools and dispatch work but cannot skip, reorder, or invent wafer operations.\n\nThree synthetic Q-time contracts make internal process delay part of quality physics: dielectric stacks must start anneal within 20 seconds, annealed lots must return to layer-2 lithography within 45 seconds, and final inspection must start within 35 seconds. Transport, batch formation, setup, maintenance, power and tool queues consume these windows. A late start adds evaluator-owned defects that flow through the ordinary inspection, rework and scrap model.\n\n",
   )
   .replace(
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
@@ -515,7 +515,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",
-    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, or `bun run inm studio",
+    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

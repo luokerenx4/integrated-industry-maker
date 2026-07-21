@@ -52,6 +52,7 @@ export const routeSchema = z.object({
   entry: z.object({ resource: id, step: id }).strict(),
   steps: z.array(z.object({
     id, name: z.string().min(1), operations: z.array(id).min(1),
+    queueTime: z.object({ maximumTicks: positiveInt, violationDefects: z.array(id).min(1) }).strict().optional(),
     transitions: z.array(z.object({ resource: id, to: id.optional(), terminal: z.enum(["complete", "scrap"]).optional() }).strict()
       .refine((transition) => Number(transition.to !== undefined) + Number(transition.terminal !== undefined) === 1, "transition must declare exactly one of to or terminal")).min(1),
   }).strict()).min(1),

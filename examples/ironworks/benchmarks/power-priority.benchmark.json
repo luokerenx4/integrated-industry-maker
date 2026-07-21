@@ -23,7 +23,7 @@
       "constrained-grid": {
         "blueprintHash": "ef014d80202e92c1c289e613a98ae169eb01733da7906218940801dd827013a8",
         "deviceCatalogHash": "975052655cf44c817353ca16db5d6f9a3d40b472a4835144950b99c4228cac17",
-        "engineVersion": "inm-sim/0.57.0",
+        "engineVersion": "inm-sim/0.58.0",
         "objectiveHash": "d04eb34ea20af17c8086bdd3d1e7a7ce6e5e8f3ca2bceb350c1fc87ec71738a5",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
