@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `72f413668b590ccb36e0d650d95676c8f1551689aa332cd1adff9232401fc205`
+- Result hash: `d012b3b4f7e88f5b6d2686dfefa2db5edae20b7b8a17c2decf2be9c2a3df5721`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Target rate: 240.000 iron-ore/min (100.0% attained)
@@ -14,6 +14,7 @@
 - Peak belt items: 8
 - Powered transport energy: 7.000 J
 - High-speed carrier missions: 0
+- Carrier missions / completed returns: 0 / 0
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks

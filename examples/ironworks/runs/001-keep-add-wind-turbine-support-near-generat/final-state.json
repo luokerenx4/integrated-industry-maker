@@ -1,12 +1,16 @@
 {
-  "completedOrders": 11,
+  "carrierMissions": 5,
+  "carrierReturns": 4,
+  "completedOrders": 10,
   "consumed": {
-    "gear": 11
+    "gear": 10
   },
   "devices": {
     "assembler-1": {
       "buffers": {
-        "input-primary": {},
+        "input-primary": {
+          "iron-plate": 1
+        },
         "input-secondary": {
           "coal": 8
         },
@@ -14,7 +18,11 @@
       },
       "idlePowered": true,
       "materialBatches": {
-        "input-primary": {},
+        "input-primary": {
+          "iron-plate": {
+            "0": 1
+          }
+        },
         "input-secondary": {
           "coal": {
             "0": 8
@@ -51,18 +59,18 @@
     "coal-miner-assembly": {
       "buffers": {
         "output": {
-          "coal": 7
+          "coal": 8
         }
       },
       "idlePowered": true,
       "materialBatches": {
         "output": {
           "coal": {
-            "0": 7
+            "0": 8
           }
         }
       },
-      "status": "waiting-input"
+      "status": "blocked-output"
     },
     "coal-miner-forge": {
       "buffers": {
@@ -130,7 +138,7 @@
       "buffers": {},
       "idlePowered": true,
       "materialBatches": {},
-      "status": "processing"
+      "status": "idle"
     },
     "generator-1": {
       "activeJob": {
@@ -343,10 +351,10 @@
       },
       "stationEnergy": {
         "capacityMilliJoules": 12000000,
-        "chargedMilliJoules": 32340000,
+        "chargedMilliJoules": 23300000,
         "chargeSatisfactionPpm": 0,
         "initialMilliJoules": 0,
-        "spentMilliJoules": 20340000,
+        "spentMilliJoules": 11300000,
         "storedMilliJoules": 12000000
       },
       "status": "idle"
@@ -391,7 +399,7 @@
   },
   "energy": {
     "availableMilliWatts": 3600000,
-    "consumedMilliJoules": 252898070,
+    "consumedMilliJoules": 242556750,
     "fuelConsumed": {
       "coal": 4
     },
@@ -399,7 +407,7 @@
       "grid-assembly-zone-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 110238170,
+        "consumedMilliJoules": 108936750,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
@@ -408,7 +416,7 @@
       "grid-forge-zone-generator-1": {
         "availableMilliWatts": 2000000,
         "chargedMilliJoules": 3600000,
-        "consumedMilliJoules": 142659900,
+        "consumedMilliJoules": 133620000,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 3600000,
@@ -417,15 +425,30 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {
+    "inter-zone-main": [
+      {
+        "cargoArriveTick": 124460,
+        "carrierAsset": "line-haul-carrier",
+        "departTick": 112420,
+        "homeStation": "station-supply",
+        "id": "mission-transit-000185",
+        "network": "inter-zone-main",
+        "phase": "outbound",
+        "returnTick": 136500,
+        "route": "inter-zone-main:iron-plate:station-supply->station-demand"
+      }
+    ]
+  },
   "logisticsTransports": {
     "inter-zone-main": [
       {
         "arriveTick": 124460,
-        "count": 3,
+        "count": 6,
         "departTick": 112420,
         "from": "station-supply",
         "fromBuffer": "storage",
-        "id": "transit-000190",
+        "id": "transit-000185",
         "logisticsRoute": "inter-zone-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
@@ -439,15 +462,15 @@
     "treated": {}
   },
   "produced": {
-    "coal": 52,
-    "gear": 12,
+    "coal": 51,
+    "gear": 10,
     "iron-ore": 74,
     "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 40,
-      "remaining": 0,
+      "extracted": 39,
+      "remaining": 1,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -477,23 +500,7 @@
     "coal-forge-to-generator": [],
     "coal-splitter-to-assembler": [],
     "coal-splitter-to-generator": [],
-    "gear-to-output": [
-      {
-        "arriveTick": 120220,
-        "cellIndex": -1,
-        "count": 1,
-        "departTick": 119220,
-        "from": "assembler-1",
-        "fromBuffer": "output",
-        "id": "transit-000201",
-        "phase": "unloading",
-        "readyTick": 120220,
-        "resource": "gear",
-        "to": "output-1",
-        "toBuffer": "input",
-        "treatmentLevel": 0
-      }
-    ],
+    "gear-to-output": [],
     "ore-to-smelter": [
       {
         "arriveTick": 120600,
@@ -502,7 +509,7 @@
         "departTick": 119300,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000203",
+        "id": "transit-000190",
         "phase": "loading",
         "readyTick": 120050,
         "resource": "iron-ore",
@@ -519,7 +526,7 @@
         "departTick": 119300,
         "from": "smelter-1",
         "fromBuffer": "output",
-        "id": "transit-000202",
+        "id": "transit-000189",
         "phase": "unloading",
         "readyTick": 120100,
         "resource": "iron-plate",

@@ -1,19 +1,20 @@
 # INM Run 003-keep-duplicate-processor-smelter-1-as-smel
 
 - Decision: **KEEP**
-- Score: **96.061**
-- Result hash: `46df8c06c6cc19bfd22c159a50b9bf5ab8c26d735657817545d43642d84fc229`
+- Score: **85.600**
+- Result hash: `f6df0c8b1ca7b70b4710c1c9443fcfa68e7a565a6db17c13e4cc1f9d53b484e4`
 - Bottleneck: smelter-1
-- Throughput/min: 14.000
+- Throughput/min: 13.000
 - Target rate: 12.000 gear/min (100.0% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
 - Capacity plan: READY
-- Belt utilization: 3.1%
+- Belt utilization: 3.0%
 - Average blocked belt items: 0.000
-- Peak belt items: 6
-- Powered transport energy: 1727.250 J
+- Peak belt items: 7
+- Powered transport energy: 1720.500 J
 - High-speed carrier missions: 0
+- Carrier missions / completed returns: 5 / 4
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -30,12 +31,12 @@
 | ore-to-smelter | 45.000 / 80.000 | 56.3% | 0 | 90 iron-ore |
 | ore-to-smelter-smelter-1-split-original | 22.500 / 80.000 | 28.1% | 0 | 45 iron-ore |
 | ore-to-smelter-smelter-1-split-parallel | 22.500 / 80.000 | 28.1% | 0 | 45 iron-ore |
-| station-to-assembler | 22.000 / 240.000 | 9.2% | 0 | 44 iron-plate |
-| coal-assembly-to-splitter | 17.500 / 240.000 | 7.3% | 0 | 35 coal |
-| gear-to-output | 14.000 / 240.000 | 5.8% | 0 | 28 gear |
-| coal-splitter-to-assembler | 11.000 / 240.000 | 4.6% | 0 | 22 coal |
+| station-to-assembler | 19.500 / 240.000 | 8.1% | 0 | 39 iron-plate |
+| coal-assembly-to-splitter | 17.000 / 240.000 | 7.1% | 0 | 34 coal |
+| gear-to-output | 13.000 / 240.000 | 5.4% | 0 | 26 gear |
 | plate-to-station | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
 | plate-to-station-smelter-1-parallel | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
+| coal-splitter-to-assembler | 10.500 / 240.000 | 4.4% | 0 | 21 coal |
 | coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 | coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 
@@ -50,19 +51,19 @@
 | Station | Initial (MJ) | Final / capacity (MJ) | Charge cap (W) | Charged (MJ) | Missions (MJ) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | station-demand | 0.000 | 12.000 / 12.000 | 300.000 | 12.000 | 0.000 |
-| station-supply | 0.000 | 12.000 / 12.000 | 300.000 | 30.080 | 18.080 |
+| station-supply | 0.000 | 12.000 / 12.000 | 300.000 | 23.300 | 11.300 |
 
 ## Score breakdown
 
 ```json
 {
-  "blocked": -0.894,
+  "blocked": -1.0946666666666667,
   "buildCost": -14.625,
   "constraintPenalty": 0,
-  "energy": -2.6976965,
+  "energy": -2.621512,
   "occupiedArea": -31,
   "onTimeDelivery": 10,
-  "throughput": 140,
-  "wip": -4.72245
+  "throughput": 130,
+  "wip": -5.058775000000001
 }
 ```

@@ -770,15 +770,12 @@
   "logisticsNetworks": [
     {
       "dispatch": "shortage-first",
-      "fleet": {
-        "count": 1,
-        "deviceAsset": "line-haul-carrier"
-      },
       "id": "inter-zone-main",
       "kind": "inter-zone",
       "stations": [
         {
           "device": "station-supply",
+          "fleet": { "count": 1, "deviceAsset": "line-haul-carrier" },
           "slots": [
             {
               "capacity": 400,
@@ -792,6 +789,7 @@
         },
         {
           "device": "station-demand",
+          "fleet": { "count": 0, "deviceAsset": "line-haul-carrier" },
           "slots": [
             {
               "capacity": 400,

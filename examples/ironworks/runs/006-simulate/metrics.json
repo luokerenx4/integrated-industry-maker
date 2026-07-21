@@ -1,14 +1,14 @@
 {
-  "averageBeltItems": 4.438,
-  "averageBlockedBeltItems": 0.17333333333333334,
-  "averageWip": 89.61708333333333,
-  "beltCellUtilization": 0.02978523489932886,
+  "averageBeltItems": 4.282166666666667,
+  "averageBlockedBeltItems": 0.13333333333333333,
+  "averageWip": 92.74158333333334,
+  "beltCellUtilization": 0.02873937360178971,
   "blockedOutputTime": {
     "synth-assembly-zone-wind-turbine-1": 0,
     "synth-assembly-zone-wind-turbine-2": 0,
     "synth-assembly-zone-wind-turbine-3": 0,
     "synth-assembly-zone-wind-turbine-4": 0,
-    "synth-coal-extractor-1": 30000,
+    "synth-coal-extractor-1": 34000,
     "synth-coal-split": 0,
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": 0,
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": 0,
@@ -18,7 +18,7 @@
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader": 0,
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 0,
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0,
-    "synth-coal-synth-forge-gear-pair-1-coater-1": 70300,
+    "synth-coal-synth-forge-gear-pair-1-coater-1": 69550,
     "synth-forge-gear-pair-1": 0,
     "synth-forge-zone-wind-turbine-1": 0,
     "synth-forge-zone-wind-turbine-2": 0,
@@ -60,11 +60,13 @@
     "synth-smelt-iron-2": 0
   },
   "bottleneckEntity": "synth-smelt-iron-1",
-  "completedOrders": 52,
+  "carrierMissions": 5,
+  "carrierReturns": 4,
+  "completedOrders": 40,
   "consumed": {
-    "gear": 52
+    "gear": 40
   },
-  "energyConsumedMilliJoules": 299899675,
+  "energyConsumedMilliJoules": 285101315,
   "energyStorage": {
     "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
       "capacityMilliJoules": 0,
@@ -82,7 +84,7 @@
     }
   },
   "extracted": {
-    "coal": 90,
+    "coal": 86,
     "iron-ore": 120
   },
   "failedTime": {
@@ -141,7 +143,7 @@
     "synth-smelt-iron-1": 0,
     "synth-smelt-iron-2": 0
   },
-  "finalScore": 183.9642949166667,
+  "finalScore": 122.07899518333335,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -151,22 +153,22 @@
     "synth-assembly-zone-wind-turbine-4": 120000,
     "synth-coal-extractor-1": 0,
     "synth-coal-split": 120000,
-    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": 99500,
-    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": 99500,
-    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 94000,
-    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 107000,
+    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": 100500,
+    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": 100500,
+    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 96000,
+    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 108000,
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-loader": 114500,
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader": 114500,
-    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 114750,
-    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 114750,
+    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 115250,
+    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 115250,
     "synth-coal-synth-forge-gear-pair-1-coater-1": 0,
     "synth-forge-gear-pair-1": 0,
     "synth-forge-zone-wind-turbine-1": 120000,
     "synth-forge-zone-wind-turbine-2": 120000,
     "synth-forge-zone-wind-turbine-3": 120000,
     "synth-gear-sink": 0,
-    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader": 100500,
-    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader": 94000,
+    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader": 105000,
+    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader": 100000,
     "synth-iron-ore-extractor-1": 0,
     "synth-iron-ore-split": 120000,
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-loader": 90250,
@@ -179,22 +181,22 @@
     "synth-iron-plate-forge-zone-station-supply-1": 120000,
     "synth-iron-plate-merge": 120000,
     "synth-iron-plate-synth-forge-gear-pair-1-coater-1": 0,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 108000,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 109500,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 109250,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 109250,
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-zone-station-supply-1-loader": 106000,
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-zone-station-supply-1-unloader": 106000,
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 110000,
-    "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 110000,
+    "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 110500,
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-loader": 113000,
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-unloader": 106000,
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-loader": 113000,
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-unloader": 106000,
     "synth-make-proliferator-1": 0,
     "synth-proliferator-split": 120000,
-    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader": 109250,
-    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader": 109250,
-    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 115750,
-    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 115750,
+    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader": 109500,
+    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader": 109500,
+    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 116000,
+    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 116000,
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 115500,
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 115500,
     "synth-smelt-iron-1": 0,
@@ -206,24 +208,24 @@
     "synth-assembly-zone-wind-turbine-2": 0,
     "synth-assembly-zone-wind-turbine-3": 0,
     "synth-assembly-zone-wind-turbine-4": 0,
-    "synth-coal-extractor-1": 0.75,
+    "synth-coal-extractor-1": 0.7166666666666667,
     "synth-coal-split": 0,
-    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": 0.17083333333333334,
-    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": 0.17083333333333334,
-    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 0.21666666666666667,
-    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 0.10833333333333334,
+    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": 0.1625,
+    "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": 0.1625,
+    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 0.2,
+    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 0.1,
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-loader": 0.04583333333333333,
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader": 0.04583333333333333,
-    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 0.04375,
-    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0.04375,
-    "synth-coal-synth-forge-gear-pair-1-coater-1": 0.01875,
-    "synth-forge-gear-pair-1": 0.43333333333333335,
+    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 0.03958333333333333,
+    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0.03958333333333333,
+    "synth-coal-synth-forge-gear-pair-1-coater-1": 0.016666666666666666,
+    "synth-forge-gear-pair-1": 0.35441666666666666,
     "synth-forge-zone-wind-turbine-1": 0,
     "synth-forge-zone-wind-turbine-2": 0,
     "synth-forge-zone-wind-turbine-3": 0,
     "synth-gear-sink": 0,
-    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader": 0.1625,
-    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader": 0.21666666666666667,
+    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader": 0.125,
+    "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader": 0.16666666666666666,
     "synth-iron-ore-extractor-1": 1,
     "synth-iron-ore-split": 0,
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-loader": 0.24791666666666667,
@@ -236,22 +238,22 @@
     "synth-iron-plate-forge-zone-station-supply-1": 0,
     "synth-iron-plate-merge": 0,
     "synth-iron-plate-synth-forge-gear-pair-1-coater-1": 0.020833333333333332,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 0.1,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0.0875,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 0.08958333333333333,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0.08958333333333333,
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-zone-station-supply-1-loader": 0.11666666666666667,
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-zone-station-supply-1-unloader": 0.11666666666666667,
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 0.08333333333333333,
-    "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0.08333333333333333,
+    "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0.07916666666666666,
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-loader": 0.058333333333333334,
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-unloader": 0.11666666666666667,
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-loader": 0.058333333333333334,
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-unloader": 0.11666666666666667,
     "synth-make-proliferator-1": 0.11666666666666667,
     "synth-proliferator-split": 0,
-    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader": 0.08958333333333333,
-    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader": 0.08958333333333333,
-    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 0.035416666666666666,
-    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 0.035416666666666666,
+    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader": 0.0875,
+    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader": 0.0875,
+    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": 0.03333333333333333,
+    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": 0.03333333333333333,
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 0.0375,
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0.0375,
     "synth-smelt-iron-1": 0.9608333333333333,
@@ -259,11 +261,11 @@
   },
   "materialTreatment": {
     "agentsConsumed": {
-      "proliferator": 19
+      "proliferator": 18
     },
     "treated": {
       "coal": {
-        "2": 36
+        "2": 32
       },
       "iron-plate": {
         "2": 40
@@ -271,27 +273,27 @@
     }
   },
   "occupiedArea": 261,
-  "onTimeDelivery": 1,
+  "onTimeDelivery": 0.8333333333333334,
   "peakBeltItems": 16,
   "powerGrids": {
     "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
       "averageSatisfactionPpm": 1000000,
-      "curtailedMilliJoules": 158021750,
-      "demandMilliJoules": 129978250,
+      "curtailedMilliJoules": 161278210,
+      "demandMilliJoules": 126721790,
       "generatedMilliJoules": 288000000,
       "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
-      "peakDemandMilliWatts": 1402500,
+      "peakDemandMilliWatts": 1422000,
       "peakGenerationMilliWatts": 2400000,
       "peakSurplusMilliWatts": 1615000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 129978250,
+      "servedMilliJoules": 126721790,
       "unservedMilliJoules": 0
     },
     "grid-forge-zone-synth-forge-zone-wind-turbine-1": {
       "averageSatisfactionPpm": 1000000,
-      "curtailedMilliJoules": 46078575,
-      "demandMilliJoules": 169921425,
+      "curtailedMilliJoules": 57620475,
+      "demandMilliJoules": 158379525,
       "generatedMilliJoules": 216000000,
       "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
@@ -299,13 +301,13 @@
       "peakGenerationMilliWatts": 1800000,
       "peakSurplusMilliWatts": 684000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 169921425,
+      "servedMilliJoules": 158379525,
       "unservedMilliJoules": 0
     }
   },
   "produced": {
-    "coal": 126,
-    "gear": 52,
+    "coal": 118,
+    "gear": 40,
     "iron-ore": 120,
     "iron-plate": 96,
     "proliferator": 56
@@ -313,9 +315,9 @@
   "resourceNodes": {
     "coal-seam-assembly": {
       "depleted": false,
-      "extracted": 90,
+      "extracted": 86,
       "initial": 100,
-      "remaining": 10,
+      "remaining": 14,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -348,14 +350,14 @@
     }
   },
   "scoreBreakdown": {
-    "blocked": -3.19,
+    "blocked": -3.2441666666666666,
     "buildCost": -18.685,
     "constraintPenalty": 0,
-    "energy": -2.99899675,
+    "energy": -2.85101315,
     "occupiedArea": -52.2,
-    "onTimeDelivery": 10,
-    "throughput": 260,
-    "wip": -8.961708333333332
+    "onTimeDelivery": 8.333333333333334,
+    "throughput": 200,
+    "wip": -9.274158333333334
   },
   "stationEnergy": {
     "synth-iron-plate-assembly-zone-station-demand-1": {
@@ -368,51 +370,71 @@
     },
     "synth-iron-plate-forge-zone-station-supply-1": {
       "capacityMilliJoules": 12000000,
-      "chargedMilliJoules": 32703000,
+      "chargedMilliJoules": 21161000,
       "configuredChargeMilliWatts": 300000,
       "initialMilliJoules": 0,
-      "spentMilliJoules": 22400000,
-      "storedMilliJoules": 10303000
+      "spentMilliJoules": 11200000,
+      "storedMilliJoules": 9961000
     }
   },
-  "throughputPerMinute": 26,
+  "stationFleets": {
+    "synth-iron-plate-forge-zone-to-assembly-zone-lane-1:synth-iron-plate-assembly-zone-station-demand-1": {
+      "activeMissions": 0,
+      "carrierAsset": "line-haul-carrier",
+      "completedReturns": 0,
+      "configuredCarriers": 0,
+      "network": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
+      "station": "synth-iron-plate-assembly-zone-station-demand-1",
+      "utilization": 0
+    },
+    "synth-iron-plate-forge-zone-to-assembly-zone-lane-1:synth-iron-plate-forge-zone-station-supply-1": {
+      "activeMissions": 1,
+      "carrierAsset": "line-haul-carrier",
+      "completedReturns": 4,
+      "configuredCarriers": 1,
+      "network": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
+      "station": "synth-iron-plate-forge-zone-station-supply-1",
+      "utilization": 0.8029166666666666
+    }
+  },
+  "throughputPerMinute": 20,
   "totalBuildCost": 37370,
-  "transportCongestion": 0.08168512304250795,
-  "transportEnergyConsumedMilliJoules": 2545875,
+  "transportCongestion": 0.07427921437031337,
+  "transportEnergyConsumedMilliJoules": 2517375,
   "transportFlows": {
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split": {
-      "averageInFlightItems": 0.47833333333333333,
+      "averageInFlightItems": 0.455,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "coal": 82
+        "coal": 78
       },
-      "deliveredItems": 82,
-      "deliveredItemsPerMinute": 41,
+      "deliveredItems": 78,
+      "deliveredItemsPerMinute": 39,
       "departedByResource": {
-        "coal": 82
+        "coal": 78
       },
-      "departedItems": 82,
-      "departedItemsPerMinute": 41,
-      "utilization": 0.17083333333333334
+      "departedItems": 78,
+      "departedItemsPerMinute": 39,
+      "utilization": 0.1625
     },
     "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1": {
-      "averageInFlightItems": 0.5416666666666666,
+      "averageInFlightItems": 0.5,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 120,
       "deliveredByResource": {
-        "coal": 52
+        "coal": 48
       },
-      "deliveredItems": 52,
-      "deliveredItemsPerMinute": 26,
+      "deliveredItems": 48,
+      "deliveredItemsPerMinute": 24,
       "departedByResource": {
-        "coal": 52
+        "coal": 48
       },
-      "departedItems": 52,
-      "departedItemsPerMinute": 26,
-      "utilization": 0.21666666666666667
+      "departedItems": 48,
+      "departedItemsPerMinute": 24,
+      "utilization": 0.2
     },
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1": {
       "averageInFlightItems": 0.4033333333333333,
@@ -432,38 +454,38 @@
       "utilization": 0.04583333333333333
     },
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": {
-      "averageInFlightItems": 0.2275,
+      "averageInFlightItems": 0.20583333333333334,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "coal": 21
+        "coal": 19
       },
-      "deliveredItems": 21,
-      "deliveredItemsPerMinute": 10.5,
+      "deliveredItems": 19,
+      "deliveredItemsPerMinute": 9.5,
       "departedByResource": {
-        "coal": 21
+        "coal": 19
       },
-      "departedItems": 21,
-      "departedItemsPerMinute": 10.5,
-      "utilization": 0.04375
+      "departedItems": 19,
+      "departedItemsPerMinute": 9.5,
+      "utilization": 0.03958333333333333
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink": {
-      "averageInFlightItems": 0.5416666666666666,
+      "averageInFlightItems": 0.4166666666666667,
       "blockedFraction": 0.32,
-      "blockedItemTicks": 20800,
+      "blockedItemTicks": 16000,
       "capacityItemsPerMinute": 120,
       "deliveredByResource": {
-        "gear": 52
+        "gear": 40
       },
-      "deliveredItems": 52,
-      "deliveredItemsPerMinute": 26,
+      "deliveredItems": 40,
+      "deliveredItemsPerMinute": 20,
       "departedByResource": {
-        "gear": 52
+        "gear": 40
       },
-      "departedItems": 52,
-      "departedItemsPerMinute": 26,
-      "utilization": 0.21666666666666667
+      "departedItems": 40,
+      "departedItemsPerMinute": 20,
+      "utilization": 0.16666666666666666
     },
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": {
       "averageInFlightItems": 0.6941666666666667,
@@ -517,21 +539,21 @@
       "utilization": 0.12291666666666666
     },
     "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
-      "averageInFlightItems": 0.79425,
+      "averageInFlightItems": 0.7525,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "iron-plate": 42
+        "iron-plate": 43
       },
-      "deliveredItems": 42,
-      "deliveredItemsPerMinute": 21,
+      "deliveredItems": 43,
+      "deliveredItemsPerMinute": 21.5,
       "departedByResource": {
-        "iron-plate": 48
+        "iron-plate": 43
       },
-      "departedItems": 48,
-      "departedItemsPerMinute": 24,
-      "utilization": 0.0875
+      "departedItems": 43,
+      "departedItemsPerMinute": 21.5,
+      "utilization": 0.08958333333333333
     },
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-zone-station-supply-1": {
       "averageInFlightItems": 0.32666666666666666,
@@ -551,21 +573,21 @@
       "utilization": 0.11666666666666667
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": {
-      "averageInFlightItems": 1.1666666666666667,
+      "averageInFlightItems": 1.1484166666666666,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "iron-plate": 40
+        "iron-plate": 38
       },
-      "deliveredItems": 40,
-      "deliveredItemsPerMinute": 20,
+      "deliveredItems": 38,
+      "deliveredItemsPerMinute": 19,
       "departedByResource": {
         "iron-plate": 40
       },
       "departedItems": 40,
       "departedItemsPerMinute": 20,
-      "utilization": 0.08333333333333333
+      "utilization": 0.07916666666666666
     },
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": {
       "averageInFlightItems": 0.2683333333333333,
@@ -602,38 +624,38 @@
       "utilization": 0.11666666666666667
     },
     "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split": {
-      "averageInFlightItems": 0.4658333333333333,
+      "averageInFlightItems": 0.455,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "proliferator": 43
+        "proliferator": 42
       },
-      "deliveredItems": 43,
-      "deliveredItemsPerMinute": 21.5,
+      "deliveredItems": 42,
+      "deliveredItemsPerMinute": 21,
       "departedByResource": {
-        "proliferator": 43
+        "proliferator": 42
       },
-      "departedItems": 43,
-      "departedItemsPerMinute": 21.5,
-      "utilization": 0.08958333333333333
+      "departedItems": 42,
+      "departedItemsPerMinute": 21,
+      "utilization": 0.0875
     },
     "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1": {
-      "averageInFlightItems": 0.5383333333333333,
+      "averageInFlightItems": 0.5066666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "proliferator": 17
+        "proliferator": 16
       },
-      "deliveredItems": 17,
-      "deliveredItemsPerMinute": 8.5,
+      "deliveredItems": 16,
+      "deliveredItemsPerMinute": 8,
       "departedByResource": {
-        "proliferator": 17
+        "proliferator": 16
       },
-      "departedItems": 17,
-      "departedItemsPerMinute": 8.5,
-      "utilization": 0.035416666666666666
+      "departedItems": 16,
+      "departedItemsPerMinute": 8,
+      "utilization": 0.03333333333333333
     },
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
       "averageInFlightItems": 0.165,
@@ -655,24 +677,24 @@
   },
   "transportStageUtilization": {
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split": {
-      "loader": 0.17083333333333334,
-      "unloader": 0.17083333333333334
+      "loader": 0.1625,
+      "unloader": 0.1625
     },
     "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1": {
-      "loader": 0.21666666666666667,
-      "unloader": 0.10833333333333334
+      "loader": 0.2,
+      "unloader": 0.1
     },
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1": {
       "loader": 0.04583333333333333,
       "unloader": 0.04583333333333333
     },
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": {
-      "loader": 0.04375,
-      "unloader": 0.04375
+      "loader": 0.03958333333333333,
+      "unloader": 0.03958333333333333
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink": {
-      "loader": 0.1625,
-      "unloader": 0.21666666666666667
+      "loader": 0.125,
+      "unloader": 0.16666666666666666
     },
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": {
       "loader": 0.24791666666666667,
@@ -687,8 +709,8 @@
       "unloader": 0.12291666666666666
     },
     "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
-      "loader": 0.1,
-      "unloader": 0.0875
+      "loader": 0.08958333333333333,
+      "unloader": 0.08958333333333333
     },
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-zone-station-supply-1": {
       "loader": 0.11666666666666667,
@@ -696,7 +718,7 @@
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": {
       "loader": 0.08333333333333333,
-      "unloader": 0.08333333333333333
+      "unloader": 0.07916666666666666
     },
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": {
       "loader": 0.058333333333333334,
@@ -707,12 +729,12 @@
       "unloader": 0.11666666666666667
     },
     "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split": {
-      "loader": 0.08958333333333333,
-      "unloader": 0.08958333333333333
+      "loader": 0.0875,
+      "unloader": 0.0875
     },
     "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1": {
-      "loader": 0.035416666666666666,
-      "unloader": 0.035416666666666666
+      "loader": 0.03333333333333333,
+      "unloader": 0.03333333333333333
     },
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
       "loader": 0.0375,
@@ -790,8 +812,8 @@
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader": 0,
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 0,
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0,
-    "synth-coal-synth-forge-gear-pair-1-coater-1": 47450,
-    "synth-forge-gear-pair-1": 68000,
+    "synth-coal-synth-forge-gear-pair-1-coater-1": 48450,
+    "synth-forge-gear-pair-1": 77470,
     "synth-forge-zone-wind-turbine-1": 0,
     "synth-forge-zone-wind-turbine-2": 0,
     "synth-forge-zone-wind-turbine-3": 0,

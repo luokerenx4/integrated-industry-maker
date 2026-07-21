@@ -1,8 +1,8 @@
 {
-  "averageBeltItems": 2.6054166666666667,
+  "averageBeltItems": 2.5708333333333333,
   "averageBlockedBeltItems": 0.08,
-  "averageWip": 75.29541666666667,
-  "beltCellUtilization": 0.01874400479616307,
+  "averageWip": 76.18291666666667,
+  "beltCellUtilization": 0.018495203836930454,
   "blockedOutputTime": {
     "synth-assembly-zone-wind-turbine-1": 0,
     "synth-assembly-zone-wind-turbine-2": 0,
@@ -49,11 +49,13 @@
     "synth-smelt-iron-1": 0
   },
   "bottleneckEntity": "synth-smelt-iron-1",
+  "carrierMissions": 5,
+  "carrierReturns": 4,
   "completedOrders": 24,
   "consumed": {
     "gear": 24
   },
-  "energyConsumedMilliJoules": 260522100,
+  "energyConsumedMilliJoules": 249081000,
   "energyStorage": {
     "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
       "capacityMilliJoules": 0,
@@ -119,7 +121,7 @@
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0,
     "synth-smelt-iron-1": 0
   },
-  "finalScore": 52.48523733333332,
+  "finalScore": 52.51089833333334,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -151,8 +153,8 @@
     "synth-iron-plate-assembly-zone-station-demand-1": 120000,
     "synth-iron-plate-forge-zone-station-supply-1": 120000,
     "synth-iron-plate-synth-forge-gear-pair-1-coater-1": 0,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 113750,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 114450,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 114500,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 114500,
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 115000,
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 115000,
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-loader": 112750,
@@ -197,8 +199,8 @@
     "synth-iron-plate-assembly-zone-station-demand-1": 0,
     "synth-iron-plate-forge-zone-station-supply-1": 0,
     "synth-iron-plate-synth-forge-gear-pair-1-coater-1": 0.010416666666666666,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 0.052083333333333336,
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0.04625,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": 0.04583333333333333,
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0.04583333333333333,
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": 0.041666666666666664,
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": 0.041666666666666664,
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1-loader": 0.06041666666666667,
@@ -232,8 +234,8 @@
   "powerGrids": {
     "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
       "averageSatisfactionPpm": 1000000,
-      "curtailedMilliJoules": 169991425,
-      "demandMilliJoules": 118008575,
+      "curtailedMilliJoules": 169992625,
+      "demandMilliJoules": 118007375,
       "generatedMilliJoules": 288000000,
       "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
@@ -241,13 +243,13 @@
       "peakGenerationMilliWatts": 2400000,
       "peakSurplusMilliWatts": 1615000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 118008575,
+      "servedMilliJoules": 118007375,
       "unservedMilliJoules": 0
     },
     "grid-forge-zone-synth-forge-zone-wind-turbine-1": {
       "averageSatisfactionPpm": 1000000,
-      "curtailedMilliJoules": 73486475,
-      "demandMilliJoules": 142513525,
+      "curtailedMilliJoules": 84926375,
+      "demandMilliJoules": 131073625,
       "generatedMilliJoules": 216000000,
       "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
@@ -255,7 +257,7 @@
       "peakGenerationMilliWatts": 1800000,
       "peakSurplusMilliWatts": 915000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 142513525,
+      "servedMilliJoules": 131073625,
       "unservedMilliJoules": 0
     }
   },
@@ -307,11 +309,11 @@
     "blocked": -2.305,
     "buildCost": -17.275,
     "constraintPenalty": 0,
-    "energy": -2.6052210000000002,
+    "energy": -2.4908099999999997,
     "occupiedArea": -47.800000000000004,
     "onTimeDelivery": 10,
     "throughput": 120,
-    "wip": -7.529541666666667
+    "wip": -7.618291666666668
   },
   "stationEnergy": {
     "synth-iron-plate-assembly-zone-station-demand-1": {
@@ -324,17 +326,37 @@
     },
     "synth-iron-plate-forge-zone-station-supply-1": {
       "capacityMilliJoules": 12000000,
-      "chargedMilliJoules": 33270000,
+      "chargedMilliJoules": 21830000,
       "configuredChargeMilliWatts": 300000,
       "initialMilliJoules": 0,
-      "spentMilliJoules": 23000000,
-      "storedMilliJoules": 10270000
+      "spentMilliJoules": 11500000,
+      "storedMilliJoules": 10330000
+    }
+  },
+  "stationFleets": {
+    "synth-iron-plate-forge-zone-to-assembly-zone-lane-1:synth-iron-plate-assembly-zone-station-demand-1": {
+      "activeMissions": 0,
+      "carrierAsset": "line-haul-carrier",
+      "completedReturns": 0,
+      "configuredCarriers": 0,
+      "network": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
+      "station": "synth-iron-plate-assembly-zone-station-demand-1",
+      "utilization": 0
+    },
+    "synth-iron-plate-forge-zone-to-assembly-zone-lane-1:synth-iron-plate-forge-zone-station-supply-1": {
+      "activeMissions": 1,
+      "carrierAsset": "line-haul-carrier",
+      "completedReturns": 4,
+      "configuredCarriers": 1,
+      "network": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
+      "station": "synth-iron-plate-forge-zone-station-supply-1",
+      "utilization": 0.8308333333333333
     }
   },
   "throughputPerMinute": 12,
   "totalBuildCost": 34550,
-  "transportCongestion": 0.08890472237594618,
-  "transportEnergyConsumedMilliJoules": 1699200,
+  "transportCongestion": 0.08098275225973084,
+  "transportEnergyConsumedMilliJoules": 1698000,
   "transportFlows": {
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split": {
       "averageInFlightItems": 0.23333333333333334,
@@ -439,7 +461,7 @@
       "utilization": 0.1375
     },
     "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
-      "averageInFlightItems": 0.42625,
+      "averageInFlightItems": 0.385,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
@@ -449,10 +471,10 @@
       "deliveredItems": 22,
       "deliveredItemsPerMinute": 11,
       "departedByResource": {
-        "iron-plate": 25
+        "iron-plate": 22
       },
-      "departedItems": 25,
-      "departedItemsPerMinute": 12.5,
+      "departedItems": 22,
+      "departedItemsPerMinute": 11,
       "utilization": 0.04583333333333333
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": {
@@ -567,8 +589,8 @@
       "unloader": 0.1375
     },
     "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
-      "loader": 0.052083333333333336,
-      "unloader": 0.04625
+      "loader": 0.04583333333333333,
+      "unloader": 0.04583333333333333
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": {
       "loader": 0.041666666666666664,

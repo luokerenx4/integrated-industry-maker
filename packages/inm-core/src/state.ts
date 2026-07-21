@@ -1,4 +1,4 @@
-import type { ActiveDeviceJob, BeltTransit, DeviceStatus, FactoryState, ResourceTransit, Tick } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, ResourceTransit, Tick } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
@@ -10,6 +10,9 @@ export type FactoryStateMutation =
   | { kind: "transport.remove"; connection: string; transitId: string }
   | { kind: "logistics.add"; network: string; transit: ResourceTransit }
   | { kind: "logistics.remove"; network: string; transitId: string }
+  | { kind: "logistics.mission-add"; network: string; mission: CarrierMission }
+  | { kind: "logistics.mission-returning"; network: string; missionId: string }
+  | { kind: "logistics.mission-remove"; network: string; missionId: string }
   | { kind: "produced"; resource: string; count: number }
   | { kind: "consumed"; resource: string; count: number }
   | { kind: "resource.reserve"; node: string; count: number }
@@ -24,6 +27,8 @@ export type FactoryStateMutation =
   | { kind: "treatment.complete"; resource: string; level: number; count: number }
   | { kind: "orders"; count: number }
   | { kind: "high-speed-mission" }
+  | { kind: "carrier-mission" }
+  | { kind: "carrier-return" }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -70,6 +75,17 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       const transits = state.logisticsTransports[mutation.network]!; const index = transits.findIndex((item) => item.id === mutation.transitId);
       if (index < 0) throw new Error(`Unknown logistics transit '${mutation.transitId}' on '${mutation.network}'`);
       transits.splice(index, 1); return;
+    }
+    case "logistics.mission-add": state.logisticsMissions[mutation.network]!.push(mutation.mission); return;
+    case "logistics.mission-returning": {
+      const mission = state.logisticsMissions[mutation.network]!.find((item) => item.id === mutation.missionId);
+      if (!mission) throw new Error(`Unknown carrier mission '${mutation.missionId}' on '${mutation.network}'`);
+      mission.phase = "returning"; return;
+    }
+    case "logistics.mission-remove": {
+      const missions = state.logisticsMissions[mutation.network]!; const index = missions.findIndex((item) => item.id === mutation.missionId);
+      if (index < 0) throw new Error(`Unknown carrier mission '${mutation.missionId}' on '${mutation.network}'`);
+      missions.splice(index, 1); return;
     }
     case "produced": state.produced[mutation.resource] = (state.produced[mutation.resource] ?? 0) + mutation.count; return;
     case "consumed": state.consumed[mutation.resource] = (state.consumed[mutation.resource] ?? 0) + mutation.count; return;
@@ -137,6 +153,8 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     }
     case "orders": state.completedOrders += mutation.count; return;
     case "high-speed-mission": state.highSpeedMissions += 1; return;
+    case "carrier-mission": state.carrierMissions += 1; return;
+    case "carrier-return": state.carrierReturns += 1; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;
     case "job.power": {

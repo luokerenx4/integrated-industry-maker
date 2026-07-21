@@ -1,4 +1,6 @@
 {
+  "carrierMissions": 0,
+  "carrierReturns": 0,
   "completedOrders": 104,
   "consumed": {
     "graphite": 26,
@@ -233,6 +235,7 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {},
   "logisticsTransports": {},
   "materialTreatment": {
     "agentsConsumed": {},

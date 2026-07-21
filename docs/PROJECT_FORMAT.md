@@ -275,7 +275,7 @@ A reusable carrier declares the `carrier` logistics role and its supported netwo
 }
 ```
 
-Its `planTransport()` result defines per-trip batch capacity and standard occupied travel time. `missionEnergy` defines the standard energy removed from the source station at departure. An optional `highSpeedMission` declares a strictly shorter duration multiplier and strictly higher energy multiplier. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
+Its `planTransport()` result defines per-trip batch capacity and standard one-way travel time. A complete mission uses one loaded outbound leg and one empty return leg. `missionEnergy` defines the complete round-trip energy removed from the source station at departure. An optional `highSpeedMission` declares a strictly shorter duration multiplier and strictly higher energy multiplier. The carrier is not placed as a blueprint Device instance; each station entry owns an explicit finite count of that asset and its build cost.
 
 Every station instance explicitly chooses its operating policy; omission is invalid:
 
@@ -514,7 +514,7 @@ A port filter may only narrow its backing buffer. Connections are validated agai
 
 A treatment Device instance instead selects its required mode with `"treatment": { "mode": "mk2" }`. Its `bufferFilters` should narrow wildcard material buffers to the intended Resource and its agent buffer to the declared agent. Synthesis always writes these exact filters.
 
-Every connection requires a non-empty exact `resources` allowlist. When several Resources share one connection under shortage-first dispatch, the same coverage comparison selects which Resource enters the loader. `policies.dispatch` is the factory default; a source Device's `policy.dispatch` overrides it for local lanes and a logistics network's `dispatch` overrides it for its shared fleet. There is no compatibility alias or implicit migration for older policy values.
+Every connection requires a non-empty exact `resources` allowlist. When several Resources share one connection under shortage-first dispatch, the same coverage comparison selects which Resource enters the loader. `policies.dispatch` is the factory default; a source Device's `policy.dispatch` overrides it for local lanes and a logistics network's `dispatch` overrides it when routes compete for one source station's home fleet. There is no compatibility alias or implicit migration for older policy values.
 
 Every Device instance—not only a recipe machine—may configure accepted Resources without editing its asset package:
 
@@ -533,7 +533,7 @@ Filters are strict narrowing contracts: they cannot add a Resource excluded by t
 
 A transport Device declares the stages it can fill. A sorter must declare its physical reach, for example `"logistics": { "roles": ["loader", "unloader"], "endpointRange": { "minimum": 1, "maximum": 3 } }`; a line uses only `"roles": ["line"]`. Its TypeScript `planTransport(context)` returns `{ capacity, durationTicks, stackCapacity? }`, and `context.distance` is the selected sorter span for endpoints or routed-cell count for a line. Capacity counts concurrent cargo entities, while `stackCapacity` (default 1) caps the number of Resource items carried by each entity. A blueprint connection may set `"stackSize": 4`; omitting it selects the maximum supported by all three stages and the Resource asset's `transport.stackSize`. The compiler rejects impossible explicit requests. One belt cell still contains at most one cargo entity, so stacking raises item throughput without bypassing cell occupancy, shared-lane arbitration, or backpressure. Static analysis reports each stage's distance/cargo/stack contract, per-Resource end-to-end items/min, and the complete stage chain. Projects may carry several speed/reach/stack tiers as independent local Device assets; research compares the combined items/min envelope and can replace every tied limiting stage while preserving the connection path and explicit endpoint distances.
 
-`logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances. A `local` network may route only between stations in the same region. An `inter-zone` network must include at least two regions and routes only between different regions:
+`logisticsNetworks` is required even when empty. A populated network declares at least two station instances, and every station explicitly declares its compatible home fleet; count zero is valid for a station that does not originate traffic. A `local` network may route only between stations in the same region. An `inter-zone` network must include at least two regions and routes only between different regions:
 
 ```json
 "logisticsNetworks": [
@@ -541,16 +541,17 @@ A transport Device declares the stages it can fill. A sorter must declare its ph
     "id": "inter-zone-main",
     "kind": "inter-zone",
     "dispatch": "shortage-first",
-    "fleet": { "deviceAsset": "line-haul-carrier", "count": 4 },
     "stations": [
       {
         "device": "station-supply",
+        "fleet": { "deviceAsset": "line-haul-carrier", "count": 4 },
         "slots": [
           { "resource": "iron-plate", "mode": "supply", "capacity": 200, "minimumBatch": 3, "priority": 2, "supplyReserve": 40 }
         ]
       },
       {
         "device": "station-demand",
+        "fleet": { "deviceAsset": "line-haul-carrier", "count": 0 },
         "slots": [
           { "resource": "iron-plate", "mode": "demand", "capacity": 120, "minimumBatch": 3, "priority": 10, "demandTarget": 90 }
         ]
@@ -562,13 +563,13 @@ A transport Device declares the stages it can fill. A sorter must declare its ph
 
 `capacity` is required and allocates an independent quantity limit for that Resource in the station's backing buffer. A station may appear in several networks, but a repeated Resource must keep the same capacity; unique Resources across all networks consume the asset's finite slot count, and their capacities may not sum beyond the backing buffer's total capacity. The compiler narrows the station buffer to exactly those Resources.
 
-Network `dispatch` accepts `fifo`, `round-robin`, or `shortage-first`; when omitted it inherits `policies.dispatch`. `supplyReserve` is valid only on `supply` and prevents carriers from taking the retained inventory; local output belts may still consume it. `demandTarget` is valid only on `demand` and stops remote replenishment when resident plus all already-inbound cargo reaches the target; local input belts may continue toward `capacity`. `priority` is a non-negative integer. A finite fleet always serves higher demand priority first, then higher supply priority. Within an equal explicit tier, FIFO uses stable route ids, round-robin advances after every departure, and shortage-first ranks destination coverage and Objective depth before deterministic cursor ties. `storage` slots cannot declare dispatch fields. Defaults are priority `0`, supply reserve `0`, demand target equal to `capacity`, and inherited dispatch policy.
+Network `dispatch` accepts `fifo`, `round-robin`, or `shortage-first`; when omitted it inherits `policies.dispatch`. `supplyReserve` is valid only on `supply` and prevents carriers from taking the retained inventory; local output belts may still consume it. `demandTarget` is valid only on `demand` and stops remote replenishment when resident plus all already-inbound cargo reaches the target; local input belts may continue toward `capacity`. `priority` is a non-negative integer. A source station's finite home fleet always serves higher demand priority first, then higher supply priority. Within an equal explicit tier, FIFO uses stable route ids, round-robin advances after every departure, and shortage-first ranks destination coverage and Objective depth before deterministic cursor ties. `storage` slots cannot declare dispatch fields. Defaults are priority `0`, supply reserve `0`, demand target equal to `capacity`, and inherited dispatch policy.
 
 For shortage-first, station inventory is measured in real downstream units. The compiler recursively follows same-Resource connections from the demand station's backing buffer through same-buffer junctions and pass-through storage, deduplicates converged leaves, and sums their exact Process input batches, fuel/Objective units, or terminal-buffer capacity as one coverage round. Resident inventory plus both belt and carrier inbound cargo is divided by that value. If the station has no local downstream contract for the Resource, its `demandTarget` is the fallback coverage unit. An explicit demand or supply priority always ranks above this automatic signal.
 
-The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, slot and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and raw cargo capacity. Effective route batch capacity is the minimum of carrier capacity, supply capacity after reserve, and demand target, and static fleet planning uses that same bounded rate. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination free space counts both total buffer occupancy and the Resource slot's resident plus in-flight quantity, including cargo arriving by local belt. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
+The compiler matches supply and demand slots for the same Resource, validates region topology, each station's carrier kind, slot and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into one-way duration and raw cargo capacity. Effective route batch capacity is the minimum of carrier capacity, supply capacity after reserve, and demand target, and static fleet planning divides it by the complete outbound-plus-return cycle. `storage` slots participate in inventory but neither advertise nor request a route. At runtime a departure reserves one carrier from the supply station's home fleet. Cargo reaches demand storage after the loaded outbound leg, but the carrier stays busy through its empty return and becomes dispatchable only after `logistics.return`. All routes originating at that station compete for the same declared fleet within the network. Destination free space counts both total buffer occupancy and the Resource slot's resident plus in-flight quantity, including cargo arriving by local belt. Station failures or unavailable same-region power block new departures, while already-departed cargo and returning carriers remain explicit state. Fleet assets, cargo in flight, return missions, persistent station power, WIP, and congestion all participate in evaluation.
 
-Every placed station must explicitly configure `policy.stationChargeMilliWatts`, from zero through the station asset's `maximumChargeMilliWatts`. Charging is a real regional-grid load and fills the station's independent carrier-energy buffer; it is neither hidden in idle power nor inferred from the fleet. A route mission costs `baseMilliJoules + distance × milliJoulesPerDistance` once at source departure. Insufficient stored energy blocks departure until an exact charging boundary, while incoming carriers never draw destination energy. Static route capacity is bounded by fleet travel and configured source-station charging.
+Every placed station must explicitly configure `policy.stationChargeMilliWatts`, from zero through the station asset's `maximumChargeMilliWatts`. Charging is a real regional-grid load and fills the station's independent carrier-energy buffer; it is neither hidden in idle power nor inferred from the fleet. A complete route mission costs `baseMilliJoules + distance × milliJoulesPerDistance` once at source departure. Insufficient stored energy blocks departure until an exact charging boundary, while incoming carriers never draw destination energy. Static route capacity is bounded by station-owned fleet round-trip time and configured source-station charging.
 
 ## Scenario and objective
 
@@ -667,7 +668,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.44.0",
+        "engineVersion": "inm-sim/0.46.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

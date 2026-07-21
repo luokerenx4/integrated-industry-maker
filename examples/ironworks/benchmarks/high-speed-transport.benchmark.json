@@ -21,9 +21,9 @@
   "lock": {
     "cases": {
       "small-batch-line-haul": {
-        "blueprintHash": "37209a48eba2be2d2f4244d52a2fd87b9e24f7d60204308e946fd3d6ff497986",
+        "blueprintHash": "10c43cbb57a2aa4494b39b2b2f6c229c1b23f9027b9131ff23cc922798a304d3",
         "deviceCatalogHash": "975052655cf44c817353ca16db5d6f9a3d40b472a4835144950b99c4228cac17",
-        "engineVersion": "inm-sim/0.45.0",
+        "engineVersion": "inm-sim/0.46.0",
         "objectiveHash": "2b5ad26d5574e35c488b7eb65d419cd6fe5c6418b1cff09f2047b92dcb1ea561",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",

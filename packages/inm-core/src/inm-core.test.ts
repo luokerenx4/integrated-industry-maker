@@ -80,10 +80,9 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
   source.blueprint.logisticsNetworks = [{
     id: "local-main",
     kind: "local",
-    fleet: { deviceAsset: "logistics-drone", count: 1 },
     stations: [
-      { device: "station-supply", slots: [{ resource: "iron-ore", mode: "supply", capacity: 25, minimumBatch: 10 }] },
-      { device: "station-demand", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] },
+      { device: "station-supply", fleet: { deviceAsset: "logistics-drone", count: 1 }, slots: [{ resource: "iron-ore", mode: "supply", capacity: 25, minimumBatch: 10 }] },
+      { device: "station-demand", fleet: { deviceAsset: "logistics-drone", count: 0 }, slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] },
     ],
   }];
   source.scenario.durationTicks = 7_000;
@@ -799,8 +798,10 @@ describe("blueprint compiler", () => {
   test("compiles supply and demand slots into reusable-carrier station routes", async () => {
     const project = compileFactoryProject(await stationProjectSource());
     const network = project.logisticsNetworks["local-main"]!;
-    expect(network.fleetAsset.id).toBe("logistics-drone");
-    expect(network.fleetSize).toBe(1);
+    expect(network.fleets).toEqual([
+      expect.objectContaining({ station: "station-demand", count: 0, asset: expect.objectContaining({ id: "logistics-drone" }) }),
+      expect.objectContaining({ station: "station-supply", count: 1, asset: expect.objectContaining({ id: "logistics-drone" }) }),
+    ]);
     expect(network.routes).toEqual([expect.objectContaining({
       resource: "iron-ore", from: "station-supply", to: "station-demand", fromSlotCapacity: 25, toSlotCapacity: 20,
       supplyReserve: 0, demandTarget: 20, supplyPriority: 0, demandPriority: 0,
@@ -834,7 +835,7 @@ describe("blueprint compiler", () => {
 
   test("rejects incompatible station carriers and duplicate resource slots", async () => {
     const source = await stationProjectSource();
-    source.blueprint.logisticsNetworks[0]!.fleet.deviceAsset = "conveyor";
+    source.blueprint.logisticsNetworks[0]!.stations[0]!.fleet.deviceAsset = "conveyor";
     source.blueprint.logisticsNetworks[0]!.stations[0]!.slots.push({ resource: "iron-ore", mode: "storage", capacity: 25 });
     const codes = issueCodes(() => compileFactoryProject(source));
     expect(codes).toContain("logistics.carrier-kind");
@@ -1462,16 +1463,19 @@ describe("deterministic discrete-event simulation", () => {
     expect(issueCodes(() => compileFactoryProject(source))).toContain("connection.target-resource-contract");
   });
 
-  test("station networks batch resources and share a finite reusable fleet", async () => {
+  test("station networks batch resources through a finite station-owned round-trip fleet", async () => {
     const project = compileFactoryProject(await stationProjectSource());
     expect(project.devices["station-supply"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
     expect(project.devices["station-demand"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
-    const result = runUntil(project, undefined, { untilTick: 7_000 });
-    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.count])).toEqual([[0, 10], [3_400, 10]]);
-    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([3_400, 6_800]);
+    const result = runUntil(project, undefined, { untilTick: 13_600 });
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.count])).toEqual([[0, 10], [6_800, 10]]);
+    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([3_400, 10_200]);
+    expect(result.events.filter((event) => event.type === "logistics.return").map((event) => event.tick)).toEqual([6_800, 13_600]);
     expect(result.state.devices["station-demand"]!.buffers.storage!["iron-ore"]).toBe(20);
     expect(result.state.devices["station-supply"]!.buffers.storage!["iron-ore"]).toBe(5);
     expect(result.state.logisticsTransports["local-main"]).toHaveLength(0);
+    expect(result.state.logisticsMissions["local-main"]).toHaveLength(0);
+    expect(result.metrics.stationFleets["local-main:station-supply"]).toEqual(expect.objectContaining({ configuredCarriers: 1, activeMissions: 0, completedReturns: 2, utilization: 1 }));
     expect(result.metrics.totalBuildCost).toBe(6_500);
   });
 
@@ -1479,24 +1483,25 @@ describe("deterministic discrete-event simulation", () => {
     const source = await stationProjectSource();
     source.blueprint.devices.find((device) => device.id === "station-demand")!.policy!.stationChargeMilliWatts = 0;
     source.scenario.initialEnergyMilliJoules = {};
-    source.scenario.durationTicks = 7_600;
+    source.scenario.durationTicks = 14_400;
     const project = compileFactoryProject(source);
     const route = project.logisticsNetworks["local-main"]!.routes[0]!;
     expect(route.distance).toBe(12);
     expect(route.missionEnergyMilliJoules).toBe(160_000);
 
-    const result = runUntil(project, undefined, { untilTick: 7_600 });
+    const result = runUntil(project, undefined, { untilTick: 14_400 });
     expect(result.events.filter((event) => event.type === "logistics.energy-shortage").map((event) => event.tick)).toEqual([0]);
     expect(result.events.filter((event) => event.type === "logistics.energy-spent").map((event) => [event.tick, event.energyMilliJoules])).toEqual([
-      [800, 160_000], [4_200, 160_000],
+      [800, 160_000], [7_600, 160_000],
     ]);
-    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.tick)).toEqual([800, 4_200]);
-    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([4_200, 7_600]);
+    expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.tick)).toEqual([800, 7_600]);
+    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([4_200, 11_000]);
+    expect(result.events.filter((event) => event.type === "logistics.return").map((event) => event.tick)).toEqual([7_600, 14_400]);
     expect(result.metrics.stationEnergy["station-supply"]).toEqual({
       initialMilliJoules: 0,
-      storedMilliJoules: 1_200_000,
+      storedMilliJoules: 2_560_000,
       capacityMilliJoules: 3_000_000,
-      chargedMilliJoules: 1_520_000,
+      chargedMilliJoules: 2_880_000,
       spentMilliJoules: 320_000,
       configuredChargeMilliWatts: 200_000,
     });
@@ -1510,17 +1515,20 @@ describe("deterministic discrete-event simulation", () => {
     expect(route).toEqual(expect.objectContaining({
       distance: 12,
       standardTravelTicks: 3_400,
+      standardRoundTripTicks: 6_800,
       standardMissionEnergyMilliJoules: 160_000,
       travelTicks: 1_700,
+      roundTripTicks: 3_400,
       missionEnergyMilliJoules: 213_334,
-      highSpeed: { enabled: true, travelTicks: 1_700, missionEnergyMilliJoules: 213_334 },
+      highSpeed: { enabled: true, travelTicks: 1_700, roundTripTicks: 3_400, missionEnergyMilliJoules: 213_334 },
     }));
 
-    const result = runUntil(project, undefined, { untilTick: 3_400 });
+    const result = runUntil(project, undefined, { untilTick: 6_800 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.highSpeed])).toEqual([
-      [0, true], [1_700, true],
+      [0, true], [3_400, true],
     ]);
-    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([1_700, 3_400]);
+    expect(result.events.filter((event) => event.type === "logistics.arrive").map((event) => event.tick)).toEqual([1_700, 5_100]);
+    expect(result.events.filter((event) => event.type === "logistics.return").map((event) => event.tick)).toEqual([3_400, 6_800]);
     expect(result.metrics.highSpeedMissions).toBe(2);
     expect(result.metrics.stationEnergy["station-supply"]!.spentMilliJoules).toBe(426_668);
   });
@@ -1530,7 +1538,7 @@ describe("deterministic discrete-event simulation", () => {
     source.scenario.initialTreatments = [{
       device: "station-supply", buffer: "storage", resource: "iron-ore", level: 2, count: 25,
     }];
-    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 10_200 });
     expect(result.events.filter((event) => event.type === "logistics.depart")
       .map((event) => [event.transit.count, event.transit.treatmentLevel])).toEqual([[10, 2], [10, 2]]);
     expect(result.state.devices["station-demand"]!.materialBatches.storage!["iron-ore"]).toEqual({ "2": 20 });
@@ -1555,7 +1563,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.state.devices["station-demand"]!.buffers.storage).toEqual({ "iron-ore": 10 });
   });
 
-  test("station demand priority wins finite fleet capacity and falls back when its target is full", async () => {
+  test("station demand priority wins finite home-fleet capacity and falls back when its target is full", async () => {
     const source = await stationProjectSource();
     source.deviceAssets.generator!.power.generation = { ...source.deviceAssets.generator!.power.generation!, outputMilliWatts: 2_000_000 };
     source.blueprint.devices.push({
@@ -1565,11 +1573,11 @@ describe("deterministic discrete-event simulation", () => {
     const network = source.blueprint.logisticsNetworks[0]!;
     network.stations[0]!.slots[0]!.capacity = 30;
     network.stations[1]!.slots[0] = { resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 0, demandTarget: 20 };
-    network.stations.push({ device: "station-priority", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 10, demandTarget: 20 }] });
+    network.stations.push({ device: "station-priority", fleet: { deviceAsset: "logistics-drone", count: 0 }, slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 10, demandTarget: 20 }] });
     source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 30;
-    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 8_000 });
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 9_000 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.to])).toEqual([
-      [0, "station-priority"], [2_200, "station-priority"], [4_400, "station-demand"],
+      [0, "station-priority"], [4_400, "station-priority"], [8_800, "station-demand"],
     ]);
   });
 
@@ -1583,12 +1591,12 @@ describe("deterministic discrete-event simulation", () => {
     const network = source.blueprint.logisticsNetworks[0]!;
     network.dispatch = "shortage-first";
     network.stations[0]!.slots[0]!.capacity = 30;
-    network.stations.push({ device: "station-starved", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
+    network.stations.push({ device: "station-starved", fleet: { deviceAsset: "logistics-drone", count: 0 }, slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
     source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 30;
     source.scenario.initialBuffers!["station-demand"] = { storage: { "iron-ore": 10 } };
-    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 2_500 });
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 4_500 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => [event.tick, event.transit.to])).toEqual([
-      [0, "station-starved"], [2_200, "station-demand"],
+      [0, "station-starved"], [4_400, "station-demand"],
     ]);
   });
 
@@ -1603,9 +1611,9 @@ describe("deterministic discrete-event simulation", () => {
     network.dispatch = "round-robin";
     network.stations[0]!.slots[0]!.capacity = 20;
     network.stations[1]!.slots[0]!.priority = 5;
-    network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 5 }] });
+    network.stations.push({ device: "station-peer", fleet: { deviceAsset: "logistics-drone", count: 0 }, slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10, priority: 5 }] });
     source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 20;
-    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 6_000 });
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.transit.to)).toEqual([
       "station-demand", "station-peer",
     ]);
@@ -1621,9 +1629,9 @@ describe("deterministic discrete-event simulation", () => {
     const network = source.blueprint.logisticsNetworks[0]!;
     network.dispatch = "fifo";
     network.stations[0]!.slots[0]!.capacity = 20;
-    network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
+    network.stations.push({ device: "station-peer", fleet: { deviceAsset: "logistics-drone", count: 0 }, slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
     source.scenario.initialBuffers!["station-supply"]!.storage!["iron-ore"] = 20;
-    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 6_000 });
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
     expect(result.events.filter((event) => event.type === "logistics.depart").map((event) => event.transit.to)).toEqual([
       "station-demand", "station-demand",
     ]);
@@ -2326,7 +2334,7 @@ describe("research boundary and experiment decisions", () => {
       .toBeGreaterThan(project.connections[connection]!.maxStackSize / project.connections[connection]!.dispatchIntervalTicks);
   });
 
-  test("heuristic station strategy expands a statically undersized shared fleet", async () => {
+  test("heuristic station strategy expands a statically undersized station-owned fleet", async () => {
     const source = await loaded();
     delete source.deviceAssets["line-haul-carrier"]!.logistics!.highSpeedMission;
     source.deviceAssets["line-haul-carrier"]!.program = {
@@ -2342,8 +2350,8 @@ describe("research boundary and experiment decisions", () => {
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "station-fleet-deficit")).toBeTrue();
     const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
-    expect(proposal.strategy).toBe("station-fleet:inter-zone-main:40");
-    expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 40 }]);
+    expect(proposal.strategy).toBe("station-fleet:inter-zone-main:station-supply:80");
+    expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/stations/0/fleet/count", value: 80 }]);
   });
 
   test("heuristic station strategy enables high-speed line haul only when its energy trade improves capacity", async () => {
@@ -2373,7 +2381,7 @@ describe("research boundary and experiment decisions", () => {
     expect(candidate.logisticsNetworks["inter-zone-main"]!.routes[0]!.travelTicks).toBe(30_000);
   });
 
-  test("heuristic research can isolate shared-fleet dispatch policy from the factory default", async () => {
+  test("heuristic research can isolate home-fleet dispatch policy from the factory default", async () => {
     const source = await stationProjectSource();
     source.objective.targetResource = "iron-ore";
     source.objective.targetRegion = "forge-zone";
@@ -2385,7 +2393,7 @@ describe("research boundary and experiment decisions", () => {
     });
     const network = source.blueprint.logisticsNetworks[0]!;
     network.dispatch = "shortage-first";
-    network.stations.push({ device: "station-peer", slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
+    network.stations.push({ device: "station-peer", fleet: { deviceAsset: "logistics-drone", count: 0 }, slots: [{ resource: "iron-ore", mode: "demand", capacity: 20, minimumBatch: 10 }] });
     const project = compileFactoryProject(source);
     const result = runUntil(project, undefined, { seed: 42, untilTick: 1_000 });
     const proposal = await new HeuristicResearchAgent().propose({

@@ -165,9 +165,9 @@ export const blueprintSchema = z.object({
   }).strict()),
   logisticsNetworks: z.array(z.object({
     id, kind: z.enum(["local", "inter-zone"]), dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
-    fleet: z.object({ deviceAsset: id, count: positiveInt }).strict(),
     stations: z.array(z.object({
       device: id,
+      fleet: z.object({ deviceAsset: id, count: nonNegativeInt }).strict(),
       slots: z.array(z.object({
         resource: id, mode: z.enum(["supply", "demand", "storage"]), capacity: positiveInt,
         minimumBatch: positiveInt.optional(), priority: nonNegativeInt.optional(), supplyReserve: nonNegativeInt.optional(), demandTarget: positiveInt.optional(),

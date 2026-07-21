@@ -1,4 +1,6 @@
 {
+  "carrierMissions": 5,
+  "carrierReturns": 4,
   "completedOrders": 24,
   "consumed": {
     "gear": 24
@@ -272,11 +274,11 @@
       },
       "stationEnergy": {
         "capacityMilliJoules": 12000000,
-        "chargedMilliJoules": 33270000,
+        "chargedMilliJoules": 21830000,
         "chargeSatisfactionPpm": 1000000,
         "initialMilliJoules": 0,
-        "spentMilliJoules": 23000000,
-        "storedMilliJoules": 10270000
+        "spentMilliJoules": 11500000,
+        "storedMilliJoules": 10330000
       },
       "status": "idle"
     },
@@ -316,7 +318,7 @@
       "buffers": {},
       "idlePowered": true,
       "materialBatches": {},
-      "status": "processing"
+      "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": {
       "buffers": {},
@@ -458,13 +460,13 @@
   },
   "energy": {
     "availableMilliWatts": 4200000,
-    "consumedMilliJoules": 260522100,
+    "consumedMilliJoules": 249081000,
     "fuelConsumed": {},
     "grids": {
       "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
         "availableMilliWatts": 2400000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 118008575,
+        "consumedMilliJoules": 118007375,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
@@ -473,7 +475,7 @@
       "grid-forge-zone-synth-forge-zone-wind-turbine-1": {
         "availableMilliWatts": 1800000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 142513525,
+        "consumedMilliJoules": 131073625,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
@@ -482,15 +484,30 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {
+    "synth-iron-plate-forge-zone-to-assembly-zone-lane-1": [
+      {
+        "cargoArriveTick": 130100,
+        "carrierAsset": "line-haul-carrier",
+        "departTick": 117900,
+        "homeStation": "synth-iron-plate-forge-zone-station-supply-1",
+        "id": "mission-transit-000318",
+        "network": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
+        "phase": "outbound",
+        "returnTick": 142300,
+        "route": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1:iron-plate:synth-iron-plate-forge-zone-station-supply-1->synth-iron-plate-assembly-zone-station-demand-1"
+      }
+    ]
+  },
   "logisticsTransports": {
     "synth-iron-plate-forge-zone-to-assembly-zone-lane-1": [
       {
-        "arriveTick": 130300,
-        "count": 3,
-        "departTick": 118100,
+        "arriveTick": 130100,
+        "count": 6,
+        "departTick": 117900,
         "from": "synth-iron-plate-forge-zone-station-supply-1",
         "fromBuffer": "storage",
-        "id": "transit-000324",
+        "id": "transit-000318",
         "logisticsRoute": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1:iron-plate:synth-iron-plate-forge-zone-station-supply-1->synth-iron-plate-assembly-zone-station-demand-1",
         "resource": "iron-plate",
         "to": "synth-iron-plate-assembly-zone-station-demand-1",
@@ -561,7 +578,7 @@
         "departTick": 119200,
         "from": "synth-iron-ore-extractor-1",
         "fromBuffer": "output",
-        "id": "transit-000328",
+        "id": "transit-000320",
         "phase": "belt",
         "readyTick": 120050,
         "resource": "iron-ore",
@@ -576,7 +593,7 @@
         "departTick": 119450,
         "from": "synth-iron-ore-extractor-1",
         "fromBuffer": "output",
-        "id": "transit-000329",
+        "id": "transit-000321",
         "phase": "belt",
         "readyTick": 120100,
         "resource": "iron-ore",
@@ -585,53 +602,7 @@
         "treatmentLevel": 0
       }
     ],
-    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": [
-      {
-        "arriveTick": 120200,
-        "cellIndex": -1,
-        "count": 1,
-        "departTick": 118100,
-        "from": "synth-iron-plate-assembly-zone-station-demand-1",
-        "fromBuffer": "storage",
-        "id": "transit-000323",
-        "phase": "unloading",
-        "readyTick": 120200,
-        "resource": "iron-plate",
-        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
-        "toBuffer": "material-input",
-        "treatmentLevel": 0
-      },
-      {
-        "arriveTick": 120450,
-        "cellIndex": 14,
-        "count": 1,
-        "departTick": 118350,
-        "from": "synth-iron-plate-assembly-zone-station-demand-1",
-        "fromBuffer": "storage",
-        "id": "transit-000325",
-        "phase": "belt",
-        "readyTick": 120100,
-        "resource": "iron-plate",
-        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
-        "toBuffer": "material-input",
-        "treatmentLevel": 0
-      },
-      {
-        "arriveTick": 120700,
-        "cellIndex": 11,
-        "count": 1,
-        "departTick": 118600,
-        "from": "synth-iron-plate-assembly-zone-station-demand-1",
-        "fromBuffer": "storage",
-        "id": "transit-000326",
-        "phase": "belt",
-        "readyTick": 120050,
-        "resource": "iron-plate",
-        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
-        "toBuffer": "material-input",
-        "treatmentLevel": 0
-      }
-    ],
+    "synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": [],
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": [],
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1": [
       {
@@ -641,7 +612,7 @@
         "departTick": 119200,
         "from": "synth-smelt-iron-1",
         "fromBuffer": "output",
-        "id": "transit-000327",
+        "id": "transit-000319",
         "phase": "belt",
         "readyTick": 120050,
         "resource": "iron-plate",

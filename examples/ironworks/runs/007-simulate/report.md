@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **119.737**
-- Result hash: `e4ae37e0050161ef21c35e87f74488b78723c110823fbb64bbef1493cfc824ac`
+- Result hash: `b6d03e5f51ae4dc2b462814024b4abe51e3f165bc48a04b9c0f2a0c4841410b0`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
@@ -14,6 +14,7 @@
 - Peak belt items: 4
 - Powered transport energy: 606.450 J
 - High-speed carrier missions: 0
+- Carrier missions / completed returns: 0 / 0
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks

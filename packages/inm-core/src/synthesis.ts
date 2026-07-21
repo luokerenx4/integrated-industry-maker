@@ -876,14 +876,15 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         device: demand.id, port: demandPort.id, region: targetRegion, ratePerMinute: laneRate,
       });
       const networkId = safeId(`synth-${resource}-${sourceRegion}-to-${targetRegion}-lane-${index + 1}`);
-      const perCarrierRate = carrierCapacity * 60_000 / carrierDurationTicks;
+      const perCarrierRate = carrierCapacity * 60_000 / (carrierDurationTicks * 2);
       const carriers = Math.max(1, Math.ceil(laneRate / perCarrierRate - 1e-9));
+      const dispatchBatch = Math.max(1, Math.min(carrierCapacity, Math.ceil(laneRate * carrierDurationTicks * 2 / 60_000 - 1e-9)));
       const slotCapacity = stationAsset.buffers.find((buffer) => buffer.id === stationAsset.logisticsStation!.buffer)!.capacity;
       const network: BlueprintLogisticsNetwork = {
-        id: networkId, kind: "inter-zone", dispatch: "shortage-first", fleet: { deviceAsset: carrier.id, count: carriers },
+        id: networkId, kind: "inter-zone", dispatch: "shortage-first",
         stations: [
-          { device: supply.id, slots: [{ resource, mode: "supply", capacity: slotCapacity, minimumBatch: 1, priority: 0, supplyReserve: 0 }] },
-          { device: demand.id, slots: [{ resource, mode: "demand", capacity: slotCapacity, minimumBatch: 1, priority: 0, demandTarget: slotCapacity }] },
+          { device: supply.id, fleet: { deviceAsset: carrier.id, count: carriers }, slots: [{ resource, mode: "supply", capacity: slotCapacity, minimumBatch: dispatchBatch, priority: 0, supplyReserve: 0 }] },
+          { device: demand.id, fleet: { deviceAsset: carrier.id, count: 0 }, slots: [{ resource, mode: "demand", capacity: slotCapacity, minimumBatch: dispatchBatch, priority: 0, demandTarget: slotCapacity }] },
         ],
       };
       blueprint.logisticsNetworks.push(network);

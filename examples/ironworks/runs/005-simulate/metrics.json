@@ -11,6 +11,8 @@
     "stacked-link-unloader": 0
   },
   "bottleneckEntity": null,
+  "carrierMissions": 0,
+  "carrierReturns": 0,
   "completedOrders": 8,
   "consumed": {
     "iron-ore": 8
@@ -126,6 +128,7 @@
     "wip": -0.505
   },
   "stationEnergy": {},
+  "stationFleets": {},
   "throughputPerMinute": 240,
   "totalBuildCost": 2410,
   "transportCongestion": 0.09999999999999999,

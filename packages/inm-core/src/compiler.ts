@@ -397,13 +397,8 @@ function compileLogisticsNetworks(
     const path = `blueprint/logisticsNetworks/${networkIndex}`;
     if (ids.has(definition.id)) issues.push({ path: `${path}/id`, code: "reference.duplicate", message: `Duplicate logistics network '${definition.id}'` });
     ids.add(definition.id);
-    const fleetAsset = assets[definition.fleet.deviceAsset];
-    if (!fleetAsset) issues.push({ path: `${path}/fleet/deviceAsset`, code: "reference.device", message: `Unknown carrier asset '${definition.fleet.deviceAsset}'` });
-    else if (!fleetAsset.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind)) {
-      issues.push({ path: `${path}/fleet/deviceAsset`, code: "logistics.carrier-kind", message: `Device '${fleetAsset.id}' cannot carry '${definition.kind}' station traffic` });
-    }
     const stationIds = new Set<string>();
-    const validStations: Array<{ definition: BlueprintLogisticsNetwork["stations"][number]; device: CompiledDevice; buffer: string }> = [];
+    const validStations: Array<{ definition: BlueprintLogisticsNetwork["stations"][number]; device: CompiledDevice; buffer: string; fleetAsset?: DeviceAsset }> = [];
     for (const [stationIndex, station] of definition.stations.entries()) {
       const stationPath = `${path}/stations/${stationIndex}`;
       if (stationIds.has(station.device)) issues.push({ path: `${stationPath}/device`, code: "station.duplicate-device", message: `Station '${station.device}' is listed more than once` });
@@ -413,6 +408,15 @@ function compileLogisticsNetworks(
       if (!regions[device.region]) continue;
       const spec = device.assetDef.logisticsStation;
       if (!spec || !spec.networkKinds.includes(definition.kind)) { issues.push({ path: `${stationPath}/device`, code: "station.network-kind", message: `Device '${station.device}' does not support '${definition.kind}' logistics` }); continue; }
+      if (!station.fleet) {
+        issues.push({ path: `${stationPath}/fleet`, code: "station.fleet-required", message: `Station '${station.device}' must explicitly configure its home fleet` });
+        continue;
+      }
+      const fleetAsset = assets[station.fleet.deviceAsset];
+      if (!fleetAsset) issues.push({ path: `${stationPath}/fleet/deviceAsset`, code: "reference.device", message: `Unknown carrier asset '${station.fleet.deviceAsset}'` });
+      else if (!fleetAsset.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind)) {
+        issues.push({ path: `${stationPath}/fleet/deviceAsset`, code: "logistics.carrier-kind", message: `Device '${fleetAsset.id}' cannot carry '${definition.kind}' traffic from station '${station.device}'` });
+      }
       if (station.slots.length > spec.slots) issues.push({ path: `${stationPath}/slots`, code: "station.slot-capacity", message: `Station '${station.device}' exposes ${spec.slots} slots but configures ${station.slots.length}` });
       const slotResources = new Set<string>();
       for (const [slotIndex, slot] of station.slots.entries()) {
@@ -449,14 +453,15 @@ function compileLogisticsNetworks(
           message: `Station '${station.device}' minimum batch ${slot.minimumBatch} exceeds '${slot.resource}' dispatchable capacity ${policyCapacity}`,
         });
       }
-      validStations.push({ definition: station, device, buffer: spec.buffer });
+      validStations.push({ definition: station, device, buffer: spec.buffer, fleetAsset });
     }
     const stationRegions = new Set(validStations.map((station) => station.device.region));
     if (definition.kind === "local" && stationRegions.size > 1) issues.push({ path: `${path}/stations`, code: "station.local-cross-region", message: `Local network '${definition.id}' cannot cross industrial zones` });
     if (definition.kind === "inter-zone" && stationRegions.size < 2) issues.push({ path: `${path}/stations`, code: "station.inter-zone-single-region", message: `Inter-zone network '${definition.id}' must include stations in at least two industrial zones` });
-    if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind) || !fleetAsset.logistics.missionEnergy) continue;
     const routes: CompiledLogisticsNetwork["routes"] = [];
     for (const supply of validStations) for (const supplySlot of supply.definition.slots.filter((slot) => slot.mode === "supply")) {
+      const fleetAsset = supply.fleetAsset;
+      if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind) || !fleetAsset.logistics.missionEnergy) continue;
       for (const demand of validStations) for (const demandSlot of demand.definition.slots.filter((slot) => slot.mode === "demand" && slot.resource === supplySlot.resource)) {
         if (supply.device.id === demand.device.id) continue;
         const crossesRegions = supply.device.region !== demand.device.region;
@@ -487,6 +492,7 @@ function compileLogisticsNetworks(
         const highSpeed = highSpeedSpec ? {
           enabled: highSpeedEnabled,
           travelTicks: Math.max(1, Math.ceil(plan.durationTicks * highSpeedSpec.durationMultiplier.numerator / highSpeedSpec.durationMultiplier.denominator)),
+          roundTripTicks: Math.max(2, Math.ceil(plan.durationTicks * highSpeedSpec.durationMultiplier.numerator / highSpeedSpec.durationMultiplier.denominator) * 2),
           missionEnergyMilliJoules: Math.max(1, Math.ceil(standardMissionEnergyMilliJoules * highSpeedSpec.energyMultiplier.numerator / highSpeedSpec.energyMultiplier.denominator)),
         } : undefined;
         routes.push({
@@ -496,10 +502,12 @@ function compileLogisticsNetworks(
           fromSlotCapacity: supplySlot.capacity, toSlotCapacity: demandSlot.capacity,
           supplyReserve, demandTarget,
           supplyPriority: supplySlot.priority ?? 0, demandPriority: demandSlot.priority ?? 0,
-          minimumBatch, distance, carrierCapacity: plan.capacity, capacity,
+          minimumBatch, distance, carrierCapacity: plan.capacity, carrierAsset: fleetAsset.id, fleetSize: supply.definition.fleet.count, capacity,
           standardTravelTicks: plan.durationTicks,
+          standardRoundTripTicks: plan.durationTicks * 2,
           standardMissionEnergyMilliJoules,
           travelTicks: highSpeedEnabled ? highSpeed!.travelTicks : plan.durationTicks,
+          roundTripTicks: highSpeedEnabled ? highSpeed!.roundTripTicks : plan.durationTicks * 2,
           missionEnergyMilliJoules: highSpeedEnabled ? highSpeed!.missionEnergyMilliJoules : standardMissionEnergyMilliJoules,
           ...(highSpeed ? { highSpeed } : {}),
         });
@@ -507,7 +515,10 @@ function compileLogisticsNetworks(
     }
     networks[definition.id] = {
       id: definition.id, kind: definition.kind, dispatchPolicy: definition.dispatch ?? defaultDispatch,
-      fleetAsset, fleetSize: definition.fleet.count, stations: structuredClone(definition.stations), routes,
+      fleets: validStations.filter((station): station is typeof station & { fleetAsset: DeviceAsset } => Boolean(station.fleetAsset)).map((station) => ({
+        station: station.device.id, region: station.device.region, asset: station.fleetAsset, count: station.definition.fleet.count,
+      })).sort((a, b) => a.station.localeCompare(b.station)),
+      stations: structuredClone(definition.stations), routes,
     };
   }
   return networks;

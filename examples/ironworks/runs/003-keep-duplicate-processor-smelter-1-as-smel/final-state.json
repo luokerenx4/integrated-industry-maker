@@ -1,14 +1,14 @@
 {
-  "completedOrders": 28,
+  "carrierMissions": 5,
+  "carrierReturns": 4,
+  "completedOrders": 26,
   "consumed": {
-    "gear": 28
+    "gear": 26
   },
   "devices": {
     "assembler-1": {
       "buffers": {
-        "input-primary": {
-          "iron-plate": 2
-        },
+        "input-primary": {},
         "input-secondary": {
           "coal": 8
         },
@@ -16,11 +16,7 @@
       },
       "idlePowered": true,
       "materialBatches": {
-        "input-primary": {
-          "iron-plate": {
-            "0": 2
-          }
-        },
+        "input-primary": {},
         "input-secondary": {
           "coal": {
             "0": 8
@@ -57,14 +53,14 @@
     "coal-miner-assembly": {
       "buffers": {
         "output": {
-          "coal": 5
+          "coal": 6
         }
       },
       "idlePowered": true,
       "materialBatches": {
         "output": {
           "coal": {
-            "0": 5
+            "0": 6
           }
         }
       },
@@ -360,10 +356,10 @@
       },
       "stationEnergy": {
         "capacityMilliJoules": 12000000,
-        "chargedMilliJoules": 30080000,
+        "chargedMilliJoules": 23300000,
         "chargeSatisfactionPpm": 0,
         "initialMilliJoules": 0,
-        "spentMilliJoules": 18080000,
+        "spentMilliJoules": 11300000,
         "storedMilliJoules": 12000000
       },
       "status": "idle"
@@ -408,7 +404,7 @@
   },
   "energy": {
     "availableMilliWatts": 3600000,
-    "consumedMilliJoules": 269769650,
+    "consumedMilliJoules": 262151200,
     "fuelConsumed": {
       "coal": 4
     },
@@ -416,7 +412,7 @@
       "grid-assembly-zone-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 114428500,
+        "consumedMilliJoules": 113589750,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
@@ -425,7 +421,7 @@
       "grid-forge-zone-generator-1": {
         "availableMilliWatts": 2000000,
         "chargedMilliJoules": 3600000,
-        "consumedMilliJoules": 155341150,
+        "consumedMilliJoules": 148561450,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 3600000,
@@ -434,8 +430,37 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {
+    "inter-zone-main": [
+      {
+        "cargoArriveTick": 123460,
+        "carrierAsset": "line-haul-carrier",
+        "departTick": 111420,
+        "homeStation": "station-supply",
+        "id": "mission-transit-000352",
+        "network": "inter-zone-main",
+        "phase": "outbound",
+        "returnTick": 135500,
+        "route": "inter-zone-main:iron-plate:station-supply->station-demand"
+      }
+    ]
+  },
   "logisticsTransports": {
-    "inter-zone-main": []
+    "inter-zone-main": [
+      {
+        "arriveTick": 123460,
+        "count": 5,
+        "departTick": 111420,
+        "from": "station-supply",
+        "fromBuffer": "storage",
+        "id": "transit-000352",
+        "logisticsRoute": "inter-zone-main:iron-plate:station-supply->station-demand",
+        "resource": "iron-plate",
+        "to": "station-demand",
+        "toBuffer": "storage",
+        "treatmentLevel": 0
+      }
+    ]
   },
   "materialTreatment": {
     "agentsConsumed": {},
@@ -443,7 +468,7 @@
   },
   "produced": {
     "coal": 52,
-    "gear": 28,
+    "gear": 26,
     "iron-ore": 90,
     "iron-plate": 44
   },

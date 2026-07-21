@@ -1,7 +1,9 @@
 {
-  "completedOrders": 16,
+  "carrierMissions": 5,
+  "carrierReturns": 4,
+  "completedOrders": 14,
   "consumed": {
-    "gear": 16
+    "gear": 14
   },
   "devices": {
     "assembler-1": {
@@ -343,10 +345,10 @@
       },
       "stationEnergy": {
         "capacityMilliJoules": 12000000,
-        "chargedMilliJoules": 32340000,
+        "chargedMilliJoules": 23300000,
         "chargeSatisfactionPpm": 0,
         "initialMilliJoules": 0,
-        "spentMilliJoules": 20340000,
+        "spentMilliJoules": 11300000,
         "storedMilliJoules": 12000000
       },
       "status": "idle"
@@ -391,7 +393,7 @@
   },
   "energy": {
     "availableMilliWatts": 3600000,
-    "consumedMilliJoules": 251922400,
+    "consumedMilliJoules": 241998250,
     "fuelConsumed": {
       "coal": 4
     },
@@ -399,7 +401,7 @@
       "grid-assembly-zone-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 109262500,
+        "consumedMilliJoules": 108378250,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
@@ -408,7 +410,7 @@
       "grid-forge-zone-generator-1": {
         "availableMilliWatts": 2000000,
         "chargedMilliJoules": 3600000,
-        "consumedMilliJoules": 142659900,
+        "consumedMilliJoules": 133620000,
         "dischargedMilliJoules": 0,
         "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 3600000,
@@ -417,15 +419,30 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {
+    "inter-zone-main": [
+      {
+        "cargoArriveTick": 124460,
+        "carrierAsset": "line-haul-carrier",
+        "departTick": 112420,
+        "homeStation": "station-supply",
+        "id": "mission-transit-000183",
+        "network": "inter-zone-main",
+        "phase": "outbound",
+        "returnTick": 136500,
+        "route": "inter-zone-main:iron-plate:station-supply->station-demand"
+      }
+    ]
+  },
   "logisticsTransports": {
     "inter-zone-main": [
       {
         "arriveTick": 124460,
-        "count": 3,
+        "count": 6,
         "departTick": 112420,
         "from": "station-supply",
         "fromBuffer": "storage",
-        "id": "transit-000188",
+        "id": "transit-000183",
         "logisticsRoute": "inter-zone-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
@@ -439,15 +456,15 @@
     "treated": {}
   },
   "produced": {
-    "coal": 49,
-    "gear": 16,
+    "coal": 48,
+    "gear": 14,
     "iron-ore": 74,
     "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 37,
-      "remaining": 3,
+      "extracted": 36,
+      "remaining": 4,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -486,7 +503,7 @@
         "departTick": 119300,
         "from": "ore-source-1",
         "fromBuffer": "output",
-        "id": "transit-000199",
+        "id": "transit-000188",
         "phase": "loading",
         "readyTick": 120050,
         "resource": "iron-ore",
@@ -503,7 +520,7 @@
         "departTick": 119300,
         "from": "smelter-1",
         "fromBuffer": "output",
-        "id": "transit-000198",
+        "id": "transit-000187",
         "phase": "unloading",
         "readyTick": 120100,
         "resource": "iron-plate",

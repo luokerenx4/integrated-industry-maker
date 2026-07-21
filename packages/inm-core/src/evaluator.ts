@@ -15,6 +15,8 @@ export interface SimulationStats {
   connectionDeliveredItems: Record<string, number>;
   connectionDepartedByResource: Record<string, Record<string, number>>;
   connectionDeliveredByResource: Record<string, Record<string, number>>;
+  stationFleetBusyArea: Record<string, number>;
+  stationFleetCompletedReturns: Record<string, number>;
   consumedByRegion: Record<string, Record<string, number>>;
   powerGrids: Record<string, {
     generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
@@ -31,7 +33,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + (device.transportEndpoint ? 0 : device.footprint.width * device.footprint.height), 0) + Object.keys(project.transportCells).length;
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
     + Object.values(project.transportCells).reduce((sum, cell) => sum + cell.asset.economics.buildCost, 0)
-    + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleetAsset.economics.buildCost * network.fleetSize, 0);
+    + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleets.reduce((fleetSum, fleet) => fleetSum + fleet.asset.economics.buildCost * fleet.count, 0), 0);
   const targetProduced = stats.consumedByRegion[project.objective.targetRegion]?.[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const machineUtilization: Record<string, number> = {};
@@ -142,9 +144,22 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
         configuredChargeMilliWatts: device.stationEnergyPlan!.chargeMilliWatts,
       }];
     }));
+  const stationFleets = Object.fromEntries(Object.values(project.logisticsNetworks).flatMap((network) => network.fleets.map((fleet) => {
+    const key = `${network.id}:${fleet.station}`;
+    return [key, {
+    network: network.id,
+    station: fleet.station,
+    carrierAsset: fleet.asset.id,
+    configuredCarriers: fleet.count,
+    activeMissions: state.logisticsMissions[network.id]!.filter((mission) => mission.homeStation === fleet.station && mission.carrierAsset === fleet.asset.id).length,
+    completedReturns: stats.stationFleetCompletedReturns[key] ?? 0,
+    utilization: fleet.count > 0 ? (stats.stationFleetBusyArea[key] ?? 0) / duration / fleet.count : 0,
+  }] as const;
+  })));
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
+    carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
     onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,

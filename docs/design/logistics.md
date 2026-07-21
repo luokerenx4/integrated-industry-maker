@@ -67,7 +67,7 @@ Loader and unloader attachments are Device instances, not connection attributes.
 
 ## Station logistics
 
-A station asset declares supported network kinds, one internal material buffer, a maximum slot count, a carrier-energy capacity, and maximum charging power. Every placed station explicitly selects `policy.stationChargeMilliWatts`; that request is an ordinary load on its regional grid until its independent energy buffer is full. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; shared-fleet dispatch policy is network-local and falls back to the Blueprint factory policy when omitted.
+A station asset declares supported network kinds, one internal material buffer, a maximum slot count, a carrier-energy capacity, and maximum charging power. Every placed station explicitly selects `policy.stationChargeMilliWatts`; that request is an ordinary load on its regional grid until its independent energy buffer is full. Every station entry inside a Blueprint network also declares its own compatible carrier asset and finite count, including an explicit zero when it owns none. The network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; route-contention policy is network-local and falls back to the Blueprint factory policy when omitted.
 
 The compiler collects slots globally by station instance before compiling local connections. For each station:
 
@@ -83,7 +83,7 @@ Supply and demand inventory policies deliberately distinguish local belt traffic
 
 - `supplyReserve` is the stock floor retained at a supply station. Carriers may remove only resident inventory above that floor, while local output belts may continue consuming it.
 - `demandTarget` is the remote replenishment ceiling. Remote dispatch treats resident and all already-inbound cargo as occupying that target, while local input belts themselves may still fill the slot to its full capacity.
-- `priority` is non-negative. Finite fleet dispatch chooses the highest demand priority first, then the highest supply priority; the network policy resolves routes tied on both.
+- `priority` is non-negative. Routes competing for one source station's home fleet choose the highest demand priority first, then the highest supply priority; the network policy resolves routes tied on both.
 - Storage slots have no dispatch policy. They hold inventory without advertising supply or demand.
 
 After explicit demand and supply priorities, the network's `dispatch` policy resolves equal-tier contention:
@@ -92,7 +92,7 @@ After explicit demand and supply priorities, the network's `dispatch` policy res
 - `round-robin` advances the route cursor after every departure;
 - `shortage-first` compares destination resident plus every local/station inbound unit in downstream coverage units, then uses Objective critical depth and the rotated cursor as tie-breakers.
 
-Station coverage follows the same compiled signal as local dispatch. For a demand station with outgoing local lanes, the engine recursively follows same-Resource connections through same-buffer junctions and pass-through storage until it reaches the real target contracts, deduplicates converged leaves, and sums one simultaneous downstream round: exact Process input batches, fuel/Objective units, or terminal buffer capacity. A station feeding an assembler that consumes two iron plates per job therefore has a two-plate coverage unit even if the station slot holds 400. When no local downstream contract exists, `demandTarget` is the fallback coverage unit. This lets a finite local or inter-zone fleet distinguish productive shortage from a merely large warehouse while keeping authored priorities authoritative.
+Station coverage follows the same compiled signal as local dispatch. For a demand station with outgoing local lanes, the engine recursively follows same-Resource connections through same-buffer junctions and pass-through storage until it reaches the real target contracts, deduplicates converged leaves, and sums one simultaneous downstream round: exact Process input batches, fuel/Objective units, or terminal buffer capacity. A station feeding an assembler that consumes two iron plates per job therefore has a two-plate coverage unit even if the station slot holds 400. When no local downstream contract exists, `demandTarget` is the fallback coverage unit. This lets a finite local or inter-zone home fleet distinguish productive shortage from a merely large warehouse while keeping authored priorities authoritative.
 
 The effective route batch capacity is the minimum of carrier capacity, `slot capacity − supplyReserve`, and `demandTarget`. Static capacity planning uses the same value, so a small replenishment target cannot masquerade as full carrier throughput.
 
@@ -101,16 +101,16 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 - Local routes remain within one industrial zone.
 - Inter-zone routes cross industrial zones.
 - World plus local coordinates determine route distance.
-- Carrier `planTransport()` determines batch capacity and travel time.
-- Carrier `missionEnergy` determines one source-side departure cost from route distance.
+- Carrier `planTransport()` determines batch capacity and one-way travel time.
+- Carrier `missionEnergy` determines one source-side complete-mission cost from route distance.
 - Optional carrier `highSpeedMission` defines a shorter travel-time multiplier and a higher mission-energy multiplier.
 - Every station explicitly enables or disables high-speed service and sets its minimum route distance in the Blueprint.
 - Effective route batch capacity includes the source reserve and destination target; planning and analysis use this effective value.
-- A departing batch reserves a fleet member and destination Resource quota until arrival.
-- All routes in a network share that fleet.
-- Source-station energy, power, and failure gate departures; a mission spends energy exactly once and in-flight cargo remains explicit.
+- A departing batch reserves a source-station home-fleet member for the loaded outbound and empty return legs, and reserves destination Resource quota until cargo arrival.
+- All routes originating at the same station inside the network share that station's declared fleet; other stations own independent fleets.
+- Source-station energy, power, and failure gate departures; a mission spends energy exactly once, cargo remains explicit until arrival, and the carrier remains explicit until return.
 
-Charging and dispatch use exact event boundaries. If a station is below a route's selected standard or high-speed mission cost, `logistics.energy-shortage` exposes the blocked route and the scheduler wakes at the first tick when grid-delivered charge reaches that cost. Departure emits `logistics.energy-spent`; reaching capacity emits `logistics.energy-full`. Destination stations do not pay for incoming missions. Capacity analysis reports standard and selected service time/energy plus fleet-limited and charging-limited items/min. The research loop can edit station charging or enable high-speed service, but proposes high speed only when the resulting fleet-capacity/charging-capacity intersection actually improves.
+Charging and dispatch use exact event boundaries. If a station is below a route's selected standard or high-speed mission cost, `logistics.energy-shortage` exposes the blocked route and the scheduler wakes at the first tick when grid-delivered charge reaches that cost. Departure emits `logistics.energy-spent`, cargo delivery emits `logistics.arrive`, carrier availability emits `logistics.return`, and reaching energy capacity emits `logistics.energy-full`. Destination stations do not pay for incoming missions. Capacity analysis reports standard and selected outbound/round-trip time, energy, per-station fleet-limited throughput, and charging-limited items/min. The research loop can edit a station's carrier count or charging and can enable high-speed service, but proposes high speed only when the resulting fleet-capacity/charging-capacity intersection actually improves.
 
 ## Telemetry
 

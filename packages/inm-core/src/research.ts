@@ -547,17 +547,20 @@ function measuredLogisticsCandidates(input: ResearchInput): StrategyCandidate[] 
 
 function stationCandidates(input: ResearchInput): StrategyCandidate[] {
   const candidates: StrategyCandidate[] = [];
-  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "station-fleet-deficit" && item.network)) {
+  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "station-fleet-deficit" && item.network && item.device)) {
     const networkIndex = input.blueprint.logisticsNetworks.findIndex((network) => network.id === diagnostic.network);
     const analysis = input.production.stationNetworks.find((network) => network.network === diagnostic.network);
     if (networkIndex < 0 || !analysis) continue;
-    const count = Math.max(analysis.fleetSize + 1, Math.ceil(analysis.estimatedCarrierLoad));
-    const key = `station-fleet:${analysis.network}:${count}`;
+    const stationIndex = input.blueprint.logisticsNetworks[networkIndex]!.stations.findIndex((station) => station.device === diagnostic.device);
+    const fleet = analysis.fleets.find((item) => item.station === diagnostic.device);
+    if (stationIndex < 0 || !fleet) continue;
+    const count = Math.max(fleet.count + 1, Math.ceil(fleet.estimatedLoad));
+    const key = `station-fleet:${analysis.network}:${fleet.station}:${count}`;
     candidates.push({ key, proposal: {
       strategy: key,
-      hypothesis: `Expand \`${analysis.network}\` from ${analysis.fleetSize} to ${count} \`${analysis.fleetAsset}\` carriers because ${diagnostic.message}.`,
-      expectedEffect: "Increase shared station-network throughput without changing station supply and demand declarations.",
-      patch: [{ op: "replace", path: `/logisticsNetworks/${networkIndex}/fleet/count`, value: count }],
+      hypothesis: `Expand \`${fleet.station}\` from ${fleet.count} to ${count} station-owned \`${fleet.carrierAsset}\` carriers because ${diagnostic.message}.`,
+      expectedEffect: "Increase this depot's round-trip throughput without creating fungible network-global carrier capacity.",
+      patch: [{ op: "replace", path: `/logisticsNetworks/${networkIndex}/stations/${stationIndex}/fleet/count`, value: count }],
     } });
   }
   return candidates;
@@ -568,7 +571,7 @@ function stationChargeCandidates(input: ResearchInput): StrategyCandidate[] {
   for (const requirement of input.capacityPlan.stationNetworks.filter((item) => item.additionalChargeMilliWatts > 0)) {
     const network = input.project.logisticsNetworks[requirement.network];
     if (!network) continue;
-    for (const source of [...new Set(network.routes.filter((route) => route.resource === requirement.resource).map((route) => route.from))].sort()) {
+    for (const source of [requirement.source]) {
       const device = input.project.devices[source]!; const index = input.blueprint.devices.findIndex((item) => item.id === source);
       const maximum = device.assetDef.logisticsStation!.maximumChargeMilliWatts;
       const current = device.stationEnergyPlan!.chargeMilliWatts;
@@ -592,18 +595,18 @@ function stationHighSpeedCandidates(input: ResearchInput): StrategyCandidate[] {
   for (const requirement of input.capacityPlan.stationNetworks.filter((item) => item.configuredItemsPerMinute + 1e-9 < item.requiredItemsPerMinute)) {
     const network = input.project.logisticsNetworks[requirement.network];
     if (!network) continue;
-    for (const route of network.routes.filter((item) => item.resource === requirement.resource && item.highSpeed && !item.highSpeed.enabled)) {
+    for (const route of network.routes.filter((item) => item.from === requirement.source && item.resource === requirement.resource && item.highSpeed && !item.highSpeed.enabled)) {
       if (seenSources.has(route.from)) continue;
       const source = input.project.devices[route.from]!;
       const index = input.blueprint.devices.findIndex((item) => item.id === route.from);
       if (index < 0 || !source.policy?.highSpeedTransport || source.policy.highSpeedTransport.enabled) continue;
-      const standardCarrierCapacity = route.capacity * 60_000 / route.standardTravelTicks;
-      const highSpeedCarrierCapacity = route.capacity * 60_000 / route.highSpeed!.travelTicks;
+      const standardCarrierCapacity = route.capacity * 60_000 / route.standardRoundTripTicks;
+      const highSpeedCarrierCapacity = route.capacity * 60_000 / route.highSpeed!.roundTripTicks;
       const charge = source.stationEnergyPlan!.chargeMilliWatts;
       const standardEnergyCapacity = charge * 60 / route.standardMissionEnergyMilliJoules * route.capacity;
       const highSpeedEnergyCapacity = charge * 60 / route.highSpeed!.missionEnergyMilliJoules * route.capacity;
-      const standardCapacity = Math.min(network.fleetSize * standardCarrierCapacity, standardEnergyCapacity);
-      const highSpeedCapacity = Math.min(network.fleetSize * highSpeedCarrierCapacity, highSpeedEnergyCapacity);
+      const standardCapacity = Math.min(route.fleetSize * standardCarrierCapacity, standardEnergyCapacity);
+      const highSpeedCapacity = Math.min(route.fleetSize * highSpeedCarrierCapacity, highSpeedEnergyCapacity);
       if (highSpeedCapacity <= standardCapacity + 1e-9) continue;
       const key = `station-high-speed:${route.from}:${route.id}`;
       candidates.push({ key, proposal: {
@@ -700,7 +703,7 @@ function stationPolicyCandidates(input: ResearchInput): StrategyCandidate[] {
     const key = `station-dispatch:${network.id}:${next}`;
     return [{ key, proposal: {
       strategy: key,
-      hypothesis: `Switch shared-fleet arbitration on ${network.id} from ${current} to ${next}.`,
+      hypothesis: `Switch source-station home-fleet arbitration on ${network.id} from ${current} to ${next}.`,
       expectedEffect: "Test whether demand coverage and Objective depth allocate finite carriers better than stable or rotating route order while preserving explicit slot priorities.",
       patch: [operation],
     } }];
@@ -708,15 +711,16 @@ function stationPolicyCandidates(input: ResearchInput): StrategyCandidate[] {
 }
 
 function exploratoryStationCandidates(input: ResearchInput): StrategyCandidate[] {
-  return input.blueprint.logisticsNetworks.map((network, index) => {
-    const count = network.fleet.count + 1;
-    return { key: `station-fleet:${network.id}:${count}`, proposal: {
-      strategy: `station-fleet:${network.id}:${count}`,
-      hypothesis: `Probe one additional carrier on ${network.id} (${network.fleet.count} → ${count}) even though static fleet load is currently feasible.`,
-      expectedEffect: "Measure whether dynamic contention or burst timing makes nominally spare station capacity valuable.",
-      patch: [{ op: "replace" as const, path: `/logisticsNetworks/${index}/fleet/count`, value: count }],
+  return input.blueprint.logisticsNetworks.flatMap((network, networkIndex) => network.stations.filter((station) => station.slots.some((slot) => slot.mode === "supply")).map((station) => {
+    const stationIndex = network.stations.indexOf(station);
+    const count = station.fleet.count + 1;
+    return { key: `station-fleet:${network.id}:${station.device}:${count}`, proposal: {
+      strategy: `station-fleet:${network.id}:${station.device}:${count}`,
+      hypothesis: `Probe one additional station-owned carrier at ${station.device} on ${network.id} (${station.fleet.count} → ${count}) even though static fleet load is currently feasible.`,
+      expectedEffect: "Measure whether burst timing or return-leg occupancy makes nominally spare depot capacity valuable.",
+      patch: [{ op: "replace" as const, path: `/logisticsNetworks/${networkIndex}/stations/${stationIndex}/fleet/count`, value: count }],
     } };
-  });
+  }));
 }
 
 function recipeCandidates(input: ResearchInput): StrategyCandidate[] {

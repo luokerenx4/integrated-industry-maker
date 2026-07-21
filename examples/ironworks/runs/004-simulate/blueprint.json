@@ -1663,19 +1663,19 @@
   "logisticsNetworks": [
     {
       "dispatch": "shortage-first",
-      "fleet": {
-        "count": 1,
-        "deviceAsset": "line-haul-carrier"
-      },
       "id": "synth-iron-plate-forge-zone-to-assembly-zone-lane-1",
       "kind": "inter-zone",
       "stations": [
         {
           "device": "synth-iron-plate-forge-zone-station-supply-1",
+          "fleet": {
+            "count": 1,
+            "deviceAsset": "line-haul-carrier"
+          },
           "slots": [
             {
               "capacity": 400,
-              "minimumBatch": 1,
+              "minimumBatch": 4,
               "mode": "supply",
               "priority": 0,
               "resource": "iron-plate",
@@ -1685,11 +1685,15 @@
         },
         {
           "device": "synth-iron-plate-assembly-zone-station-demand-1",
+          "fleet": {
+            "count": 0,
+            "deviceAsset": "line-haul-carrier"
+          },
           "slots": [
             {
               "capacity": 400,
               "demandTarget": 400,
-              "minimumBatch": 1,
+              "minimumBatch": 4,
               "mode": "demand",
               "priority": 0,
               "resource": "iron-plate"

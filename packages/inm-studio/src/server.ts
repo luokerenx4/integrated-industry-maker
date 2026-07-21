@@ -148,8 +148,8 @@ async function loadStudioData(projectId: string, runName?: string) {
     instanceCounts.set(device.asset, (instanceCounts.get(device.asset) ?? 0) + 1);
   }
   const fleetCounts = new Map<string, number>();
-  for (const network of Object.values(project.logisticsNetworks)) {
-    fleetCounts.set(network.fleetAsset.id, (fleetCounts.get(network.fleetAsset.id) ?? 0) + network.fleetSize);
+  for (const network of Object.values(project.logisticsNetworks)) for (const fleet of network.fleets) {
+    fleetCounts.set(fleet.asset.id, (fleetCounts.get(fleet.asset.id) ?? 0) + fleet.count);
   }
 
   return {

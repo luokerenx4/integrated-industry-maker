@@ -352,7 +352,7 @@ export interface BlueprintLogisticsSlot {
   /** Maximum resident plus inbound quantity for this Resource in the station buffer. */
   capacity: number;
   minimumBatch?: number;
-  /** Higher authored priority wins finite fleet capacity; the network dispatch policy resolves equal tiers. */
+  /** Higher authored priority wins the source station's finite home-fleet capacity; the network policy resolves equal tiers. */
   priority?: number;
   /** Supply mode only: inventory at or below this quantity is retained for local use. */
   supplyReserve?: number;
@@ -361,14 +361,15 @@ export interface BlueprintLogisticsSlot {
 }
 export interface BlueprintLogisticsStation {
   device: DeviceInstanceId;
+  /** Carrier equipment physically based at this station. A zero count is an explicit empty depot. */
+  fleet: { deviceAsset: DeviceAssetId; count: number };
   slots: BlueprintLogisticsSlot[];
 }
 export interface BlueprintLogisticsNetwork {
   id: string;
   kind: "local" | "inter-zone";
-  /** Shared-fleet arbitration. Omit to inherit the Blueprint factory policy. */
+  /** Route arbitration among station-owned fleets. Omit to inherit the Blueprint factory policy. */
   dispatch?: DispatchPolicy;
-  fleet: { deviceAsset: DeviceAssetId; count: number };
   stations: BlueprintLogisticsStation[];
 }
 export interface Blueprint {
@@ -544,15 +545,20 @@ export interface CompiledLogisticsRoute {
   minimumBatch: number;
   distance: number;
   carrierCapacity: number;
+  carrierAsset: DeviceAssetId;
+  fleetSize: number;
   /** Effective batch capacity after intersecting carrier and both station slots. */
   capacity: number;
   standardTravelTicks: Tick;
+  standardRoundTripTicks: Tick;
   standardMissionEnergyMilliJoules: number;
   travelTicks: Tick;
+  roundTripTicks: Tick;
   missionEnergyMilliJoules: number;
   highSpeed?: {
     enabled: boolean;
     travelTicks: Tick;
+    roundTripTicks: Tick;
     missionEnergyMilliJoules: number;
   };
 }
@@ -560,8 +566,7 @@ export interface CompiledLogisticsNetwork {
   id: string;
   kind: "local" | "inter-zone";
   dispatchPolicy: DispatchPolicy;
-  fleetAsset: DeviceAsset;
-  fleetSize: number;
+  fleets: Array<{ station: DeviceInstanceId; region: string; asset: DeviceAsset; count: number }>;
   stations: BlueprintLogisticsStation[];
   routes: CompiledLogisticsRoute[];
 }
@@ -660,6 +665,18 @@ export interface ResourceTransit {
   logisticsRoute?: string;
   highSpeed?: boolean;
 }
+export interface CarrierMission {
+  id: string;
+  network: string;
+  route: string;
+  homeStation: DeviceInstanceId;
+  carrierAsset: DeviceAssetId;
+  phase: "outbound" | "returning";
+  departTick: Tick;
+  cargoArriveTick: Tick;
+  returnTick: Tick;
+  highSpeed?: boolean;
+}
 export type BeltTransitPhase = "loading" | "belt" | "unloading";
 export interface BeltTransit extends ResourceTransit {
   phase: BeltTransitPhase;
@@ -674,6 +691,7 @@ export interface FactoryState {
   resourceNodes: Record<string, { remaining: number; reserved: number; extracted: number }>;
   transports: Record<ConnectionId, BeltTransit[]>;
   logisticsTransports: Record<string, ResourceTransit[]>;
+  logisticsMissions: Record<string, CarrierMission[]>;
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;
   energy: {
@@ -692,6 +710,8 @@ export interface FactoryState {
   };
   completedOrders: number;
   highSpeedMissions: number;
+  carrierMissions: number;
+  carrierReturns: number;
   materialTreatment: {
     treated: Record<ResourceId, Record<string, number>>;
     agentsConsumed: Record<ResourceId, number>;
@@ -713,6 +733,7 @@ export type FactoryEvent =
   | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "logistics.depart"; tick: Tick; transit: ResourceTransit; network: string; route: string }
   | { type: "logistics.arrive"; tick: Tick; transit: ResourceTransit; network: string; route: string }
+  | { type: "logistics.return"; tick: Tick; mission: CarrierMission; network: string; route: string }
   | { type: "logistics.energy-shortage"; tick: Tick; device: DeviceInstanceId; network: string; route: string; requiredMilliJoules: number; storedMilliJoules: number }
   | { type: "logistics.energy-spent"; tick: Tick; device: DeviceInstanceId; network: string; route: string; energyMilliJoules: number; storedMilliJoules: number }
   | { type: "logistics.energy-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
@@ -786,6 +807,18 @@ export interface FactoryMetrics {
   }>;
   fuelConsumed: Record<ResourceId, number>;
   highSpeedMissions: number;
+  carrierMissions: number;
+  carrierReturns: number;
+  /** Keyed by `<network>:<station>` because one physical station may participate in several networks. */
+  stationFleets: Record<string, {
+    network: string;
+    station: DeviceInstanceId;
+    carrierAsset: DeviceAssetId;
+    configuredCarriers: number;
+    activeMissions: number;
+    completedReturns: number;
+    utilization: number;
+  }>;
   materialTreatment: {
     treated: Record<ResourceId, Record<string, number>>;
     agentsConsumed: Record<ResourceId, number>;

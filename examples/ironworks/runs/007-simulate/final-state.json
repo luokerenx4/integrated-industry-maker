@@ -1,4 +1,6 @@
 {
+  "carrierMissions": 0,
+  "carrierReturns": 0,
   "completedOrders": 26,
   "consumed": {
     "plastic": 26
@@ -208,6 +210,7 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {},
   "logisticsTransports": {},
   "materialTreatment": {
     "agentsConsumed": {},

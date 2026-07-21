@@ -186,8 +186,7 @@ export interface StationNetworkAnalysis {
   network: string;
   kind: "local" | "inter-zone";
   dispatchPolicy: DispatchPolicy;
-  fleetAsset: string;
-  fleetSize: number;
+  fleets: Array<{ station: string; region: string; carrierAsset: string; count: number; estimatedLoad: number }>;
   stations: number;
   estimatedCarrierLoad: number;
   stationEnergy: Array<{ device: string; region: string; capacityMilliJoules: number; chargeMilliWatts: number }>;
@@ -206,12 +205,16 @@ export interface StationNetworkAnalysis {
     demandPriority: number;
     minimumBatch: number;
     carrierBatchCapacity: number;
+    carrierAsset: string;
+    fleetSize: number;
     batchCapacity: number;
     standardTravelTicks: number;
+    standardRoundTripTicks: number;
     standardMissionEnergyMilliJoules: number;
     travelTicks: number;
+    roundTripTicks: number;
     missionEnergyMilliJoules: number;
-    highSpeed: { enabled: boolean; travelTicks: number; missionEnergyMilliJoules: number } | null;
+    highSpeed: { enabled: boolean; travelTicks: number; roundTripTicks: number; missionEnergyMilliJoules: number } | null;
     capacityItemsPerMinute: number;
     energyLimitedItemsPerMinute: number;
     dispatchProfile: StationDispatchProfile;
@@ -558,31 +561,39 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       demandPriority: route.demandPriority,
       minimumBatch: route.minimumBatch,
       carrierBatchCapacity: route.carrierCapacity,
+      carrierAsset: route.carrierAsset,
+      fleetSize: route.fleetSize,
       batchCapacity: route.capacity,
       standardTravelTicks: route.standardTravelTicks,
+      standardRoundTripTicks: route.standardRoundTripTicks,
       standardMissionEnergyMilliJoules: route.standardMissionEnergyMilliJoules,
       travelTicks: route.travelTicks,
+      roundTripTicks: route.roundTripTicks,
       missionEnergyMilliJoules: route.missionEnergyMilliJoules,
       highSpeed: route.highSpeed ? { ...route.highSpeed } : null,
-      capacityItemsPerMinute: route.capacity * 60_000 / route.travelTicks,
+      capacityItemsPerMinute: route.capacity * 60_000 / route.roundTripTicks,
       energyLimitedItemsPerMinute: project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts * 60 / route.missionEnergyMilliJoules * route.capacity,
       dispatchProfile: stationRouteDispatchProfile(project, route, criticalDepths),
     }));
-    let estimatedCarrierLoad = 0;
+    const fleetLoads: Record<string, number> = {};
     for (const station of network.stations) for (const slot of station.slots.filter((item) => item.mode === "demand")) {
       const matchingRoutes = routeRows.filter((route) => route.to === station.device && route.resource === slot.resource);
-      const bestCarrierRate = Math.max(0, ...matchingRoutes.map((route) => route.capacityItemsPerMinute));
+      const bestRoute = [...matchingRoutes].sort((a, b) => b.capacityItemsPerMinute - a.capacityItemsPerMinute || a.route.localeCompare(b.route))[0];
+      const bestCarrierRate = bestRoute?.capacityItemsPerMinute ?? 0;
       const downstreamDemand = Object.values(project.connections)
         .filter((connection) => connection.from.device === station.device && connection.resources.includes(slot.resource))
         .reduce((sum, connection) => sum + (deviceRates.get(connection.to.device)?.inputsPerMinute[slot.resource] ?? 0), 0);
-      if (bestCarrierRate > 0 && downstreamDemand > 0) estimatedCarrierLoad += downstreamDemand / bestCarrierRate;
+      if (bestRoute && bestCarrierRate > 0 && downstreamDemand > 0) fleetLoads[bestRoute.from] = (fleetLoads[bestRoute.from] ?? 0) + downstreamDemand / bestCarrierRate;
     }
+    const fleets = network.fleets.map((fleet) => ({
+      station: fleet.station, region: fleet.region, carrierAsset: fleet.asset.id, count: fleet.count, estimatedLoad: fleetLoads[fleet.station] ?? 0,
+    })).sort((a, b) => a.station.localeCompare(b.station));
+    const estimatedCarrierLoad = fleets.reduce((sum, fleet) => sum + fleet.estimatedLoad, 0);
     return {
       network: network.id,
       kind: network.kind,
       dispatchPolicy: network.dispatchPolicy,
-      fleetAsset: network.fleetAsset.id,
-      fleetSize: network.fleetSize,
+      fleets,
       stations: network.stations.length,
       estimatedCarrierLoad,
       stationEnergy: network.stations.map((station) => {
@@ -724,9 +735,9 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       });
     }
   }
-  for (const network of stationNetworks) if (network.estimatedCarrierLoad > network.fleetSize + 1e-9) diagnostics.push({
-    code: "station-fleet-deficit", severity: "warning", network: network.network,
-    message: `${network.network} needs about ${network.estimatedCarrierLoad.toFixed(2)} carriers for its directly connected process demand but configures ${network.fleetSize}`,
+  for (const network of stationNetworks) for (const fleet of network.fleets) if (fleet.estimatedLoad > fleet.count + 1e-9) diagnostics.push({
+    code: "station-fleet-deficit", severity: "warning", network: network.network, device: fleet.station,
+    message: `${fleet.station} needs about ${fleet.estimatedLoad.toFixed(2)} station-owned ${fleet.carrierAsset} carriers for ${network.network} but configures ${fleet.count}`,
   });
   for (const network of stationNetworks) for (const route of network.routes) {
     const downstreamDemand = Object.values(project.connections).filter((connection) => connection.from.device === route.to && connection.resources.includes(route.resource))

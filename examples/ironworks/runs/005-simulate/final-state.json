@@ -1,4 +1,6 @@
 {
+  "carrierMissions": 0,
+  "carrierReturns": 0,
   "completedOrders": 8,
   "consumed": {
     "iron-ore": 8
@@ -60,6 +62,7 @@
     }
   },
   "highSpeedMissions": 0,
+  "logisticsMissions": {},
   "logisticsTransports": {},
   "materialTreatment": {
     "agentsConsumed": {},

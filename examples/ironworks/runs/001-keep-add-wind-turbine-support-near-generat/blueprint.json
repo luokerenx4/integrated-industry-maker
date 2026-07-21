@@ -786,15 +786,15 @@
   "logisticsNetworks": [
     {
       "dispatch": "shortage-first",
-      "fleet": {
-        "count": 1,
-        "deviceAsset": "line-haul-carrier"
-      },
       "id": "inter-zone-main",
       "kind": "inter-zone",
       "stations": [
         {
           "device": "station-supply",
+          "fleet": {
+            "count": 1,
+            "deviceAsset": "line-haul-carrier"
+          },
           "slots": [
             {
               "capacity": 400,
@@ -808,6 +808,10 @@
         },
         {
           "device": "station-demand",
+          "fleet": {
+            "count": 0,
+            "deviceAsset": "line-haul-carrier"
+          },
           "slots": [
             {
               "capacity": 400,
@@ -826,6 +830,6 @@
     "dispatch": "shortage-first",
     "powerAllocation": "proportional"
   },
-  "revision": "3a1d4f15dce0688c1f98a849459d72a906de77b35d17469fe36bf728b96bc4cb",
+  "revision": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
   "version": 1
 }

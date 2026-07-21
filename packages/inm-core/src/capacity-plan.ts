@@ -72,6 +72,8 @@ export interface TransportCapacityRequirement {
 
 export interface StationCapacityRequirement {
   network: string;
+  source: string;
+  carrierAsset: string;
   resource: ResourceId;
   routes: string[];
   requiredItemsPerMinute: number;
@@ -277,29 +279,34 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
 
   const compiledNetworks = Object.values(project.logisticsNetworks);
   const stationNetworks: StationCapacityRequirement[] = compiledNetworks.flatMap((network) => {
-    const byResource = new Map<ResourceId, typeof network.routes>();
-    for (const route of network.routes) byResource.set(route.resource, [...(byResource.get(route.resource) ?? []), route]);
-    return [...byResource.entries()].map(([resource, routes]) => {
+    const bySourceResource = new Map<string, typeof network.routes>();
+    for (const route of network.routes) {
+      const key = `${route.from}\0${route.resource}`;
+      bySourceResource.set(key, [...(bySourceResource.get(key) ?? []), route]);
+    }
+    return [...bySourceResource.entries()].map(([key, routes]) => {
+      const [source, resource] = key.split("\0") as [string, ResourceId];
       const parallelNetworks = Math.max(1, ...routes.map((route) => compiledNetworks.filter((candidate) => candidate.routes.some((candidateRoute) =>
         candidateRoute.resource === resource && candidateRoute.fromRegion === route.fromRegion && candidateRoute.toRegion === route.toRegion)).length));
       const requiredItemsPerMinute = processes.reduce((sum, process) => sum + (process.inputsPerMinute[resource] ?? 0), 0) / parallelNetworks;
-      const perCarrierItemsPerMinute = Math.max(0, ...routes.map((route) => route.capacity * 60_000 / route.travelTicks));
+      const perCarrierItemsPerMinute = Math.max(0, ...routes.map((route) => route.capacity * 60_000 / route.roundTripTicks));
       const energyLimitedItemsPerMinute = Math.max(0, ...routes.map((route) => {
         const charge = project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts;
         return charge * 60 / route.missionEnergyMilliJoules * route.capacity;
       }));
       const requiredCarriers = perCarrierItemsPerMinute > 0 ? Math.ceil(requiredItemsPerMinute / perCarrierItemsPerMinute - 1e-9) : 0;
-      const configuredItemsPerMinute = Math.min(network.fleetSize * perCarrierItemsPerMinute, energyLimitedItemsPerMinute);
+      const configuredCarriers = Math.max(0, ...routes.map((route) => route.fleetSize));
+      const configuredItemsPerMinute = Math.min(configuredCarriers * perCarrierItemsPerMinute, energyLimitedItemsPerMinute);
       const requiredChargeMilliWatts = Math.max(0, ...routes.map((route) => requiredItemsPerMinute / route.capacity * route.missionEnergyMilliJoules / 60));
       const configuredChargeMilliWatts = Math.max(0, ...routes.map((route) => project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts));
       return {
-        network: network.id, resource, routes: routes.map((route) => route.id).sort(), requiredItemsPerMinute, perCarrierItemsPerMinute,
+        network: network.id, source, carrierAsset: routes[0]!.carrierAsset, resource, routes: routes.map((route) => route.id).sort(), requiredItemsPerMinute, perCarrierItemsPerMinute,
         energyLimitedItemsPerMinute, configuredItemsPerMinute,
-        requiredCarriers, configuredCarriers: network.fleetSize, additionalCarriers: Math.max(0, requiredCarriers - network.fleetSize),
+        requiredCarriers, configuredCarriers, additionalCarriers: Math.max(0, requiredCarriers - configuredCarriers),
         additionalChargeMilliWatts: Math.max(0, Math.ceil(requiredChargeMilliWatts - configuredChargeMilliWatts - 1e-9)),
       };
     });
-  }).sort((a, b) => a.network.localeCompare(b.network) || a.resource.localeCompare(b.resource));
+  }).sort((a, b) => a.network.localeCompare(b.network) || a.source.localeCompare(b.source) || a.resource.localeCompare(b.resource));
 
   const requiredPowerByRegion: Record<string, number> = {};
   for (const process of processes) add(requiredPowerByRegion, process.region, process.requiredMachines * process.powerMilliWattsPerMachine);

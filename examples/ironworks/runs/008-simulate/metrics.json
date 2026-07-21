@@ -23,6 +23,8 @@
     "synth-xray-crack-oil-1": 0
   },
   "bottleneckEntity": "synth-refine-crude-1",
+  "carrierMissions": 0,
+  "carrierReturns": 0,
   "completedOrders": 104,
   "consumed": {
     "graphite": 26,
@@ -158,6 +160,7 @@
     "wip": -0.41258333333333336
   },
   "stationEnergy": {},
+  "stationFleets": {},
   "throughputPerMinute": 39,
   "totalBuildCost": 10200,
   "transportCongestion": 0.03146428571428557,

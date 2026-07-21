@@ -1,19 +1,20 @@
 # INM Run 004-simulate
 
 - Decision: **BASELINE**
-- Score: **52.485**
-- Result hash: `8b468b9a3a0802d834c6785b6b67721e6b82d0d945e711087a7d3e02e36bc7f5`
+- Score: **52.511**
+- Result hash: `5fe09f2e05ca94538dbb189fa44865ac077046f3b9ff78e5febd06e5bdbba677`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Target rate: 12.000 gear/min (100.0% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
 - Capacity plan: READY
-- Belt utilization: 1.9%
+- Belt utilization: 1.8%
 - Average blocked belt items: 0.080
 - Peak belt items: 15
-- Powered transport energy: 1699.200 J
+- Powered transport energy: 1698.000 J
 - High-speed carrier missions: 0
+- Carrier missions / completed returns: 5 / 4
 - Material treated: 20 coal@2 + 20 iron-plate@2
 - Treatment agents consumed: 10 proliferator
 - Aggregate unpowered time: 0 device-ticks
@@ -49,7 +50,7 @@ No configured accumulators.
 | Station | Initial (MJ) | Final / capacity (MJ) | Charge cap (W) | Charged (MJ) | Missions (MJ) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | synth-iron-plate-assembly-zone-station-demand-1 | 0.000 | 12.000 / 12.000 | 300.000 | 12.000 | 0.000 |
-| synth-iron-plate-forge-zone-station-supply-1 | 0.000 | 10.270 / 12.000 | 300.000 | 33.270 | 23.000 |
+| synth-iron-plate-forge-zone-station-supply-1 | 0.000 | 10.330 / 12.000 | 300.000 | 21.830 | 11.500 |
 
 ## Score breakdown
 
@@ -58,10 +59,10 @@ No configured accumulators.
   "blocked": -2.305,
   "buildCost": -17.275,
   "constraintPenalty": 0,
-  "energy": -2.6052210000000002,
+  "energy": -2.4908099999999997,
   "occupiedArea": -47.800000000000004,
   "onTimeDelivery": 10,
   "throughput": 120,
-  "wip": -7.529541666666667
+  "wip": -7.618291666666668
 }
 ```

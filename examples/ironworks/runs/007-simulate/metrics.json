@@ -20,6 +20,8 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
   "bottleneckEntity": "synth-refine-crude-1",
+  "carrierMissions": 0,
+  "carrierReturns": 0,
   "completedOrders": 26,
   "consumed": {
     "plastic": 26
@@ -145,6 +147,7 @@
     "wip": -0.32183333333333336
   },
   "stationEnergy": {},
+  "stationFleets": {},
   "throughputPerMinute": 13,
   "totalBuildCost": 9270,
   "transportCongestion": 0.035851851851851545,
