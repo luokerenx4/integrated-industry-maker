@@ -207,7 +207,6 @@ describe("factory synthesis", () => {
     source.deviceAssets["mining-machine"]!.extraction!.radius = 50;
     source.deviceAssets.smelter!.production!.speed.numerator = 100;
     source.deviceAssets.assembler!.production!.speed.numerator = 100;
-    source.deviceAssets["wind-turbine"]!.power.distribution = { connectionRange: 80, coverageRange: 80 };
     source.processes["smelt-iron"]!.inputs = [{ resource: "iron-ore", count: 1 }];
 
     const synthesis = synthesizeFactoryBlueprint(source);
@@ -222,14 +221,24 @@ describe("factory synthesis", () => {
     const targetPorts = synthesis.blueprint.connections.map((connection) => `${connection.to.device}:${connection.to.port}`);
     expect(new Set(sourcePorts).size).toBe(sourcePorts.length);
     expect(new Set(targetPorts).size).toBe(targetPorts.length);
+    expect(synthesis.power.some((grid) => grid.devices > grid.capacityDevices)).toBeTrue();
 
     const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    for (const region of source.world.regions) {
+      expect(Object.values(project.powerGrids).filter((grid) => grid.region === region.id)).toHaveLength(1);
+    }
+    expect(Object.values(project.devices).filter((device) => device.assetDef.power.consumptionMilliWatts > 0)
+      .every((device) => device.powerGrid)).toBeTrue();
+    expect(Object.values(project.connections).flatMap((connection) => connection.logisticsStages)
+      .filter((stage) => stage.stage !== "line" && stage.asset.power.consumptionMilliWatts > 0)
+      .every((stage) => stage.powerGrid)).toBeTrue();
     const capacityPlan = planProductionCapacity(project);
     expect(capacityPlan.ready).toBeTrue();
     expect(capacityPlan.stationNetworks.every((network) => network.requiredItemsPerMinute === 1_500)).toBeTrue();
     const simulation = runUntil(project);
     expect(simulation.metrics.infeasibleReason).toBeNull();
     expect(simulation.metrics.produced.gear ?? 0).toBeGreaterThan(0);
+    expect(simulation.events.some((event) => event.type === "power.shortage" || event.type === "transport.power-shortage")).toBeFalse();
   });
 
   test("credits refinery coproducts once and routes both outputs into a configurable multi-input process", async () => {

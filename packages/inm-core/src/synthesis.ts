@@ -49,7 +49,10 @@ export interface BlueprintSynthesisResult {
     loader: string; line: string; unloader: string; stackSize: number;
   }>;
   stationNetworks: Array<{ network: string; resource: ResourceId; fromRegion: string; toRegion: string; carriers: number }>;
-  power: Array<{ region: string; asset: string; devices: number; generationMilliWatts: number; ratedLoadMilliWatts: number }>;
+  power: Array<{
+    region: string; asset: string; devices: number; capacityDevices: number; coverageTargets: number;
+    generationMilliWatts: number; ratedLoadMilliWatts: number;
+  }>;
 }
 
 function safeId(value: string): string { return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""); }
@@ -737,22 +740,94 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const pipeline = selectedPipelines.get(connection.id)!;
     add(ratedLoad, connection.from.region, pipeline.loader.power.consumptionMilliWatts + pipeline.unloader.power.consumptionMilliWatts);
   }
-  const renewable = Object.values(loaded.deviceAssets).filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.distribution)
+  const renewable = Object.values(loaded.deviceAssets).filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.distribution
+    && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts)
     .sort((a, b) => (b.power.generation?.outputMilliWatts ?? 0) - (a.power.generation?.outputMilliWatts ?? 0) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   if (!renewable?.power.generation || renewable.power.generation.kind !== "renewable") throw new Error("Blueprint synthesis requires a project-local renewable power distributor");
   const powerSummary: BlueprintSynthesisResult["power"] = [];
   for (const region of loaded.world.regions) {
-    const load = ratedLoad[region.id] ?? 0; const count = Math.max(1, Math.ceil(load / renewable.power.generation.outputMilliWatts));
-    const poweredDevices = blueprint.devices.filter((device) => device.region === region.id && loaded.deviceAssets[device.asset]!.power.consumptionMilliWatts > 0);
-    const center = poweredDevices.length ? {
-      x: Math.round(poweredDevices.reduce((sum, device) => sum + device.position.x, 0) / poweredDevices.length),
-      y: Math.round(poweredDevices.reduce((sum, device) => sum + device.position.y, 0) / poweredDevices.length),
-    } : { x: Math.floor(region.bounds.width * .5), y: Math.floor(region.bounds.height * .5) };
-    for (let index = 0; index < count; index++) {
-      const generator: BlueprintDevice = { id: uniqueId(blueprint, `synth-${region.id}-${renewable.id}-${index + 1}`), asset: renewable.id, region: region.id, position: { x: 0, y: 0 }, rotation: 0 };
-      placeDevice(loaded, blueprint, generator, { x: center.x + index * 3, y: Math.max(1, center.y - 4) });
+    const load = ratedLoad[region.id] ?? 0;
+    const distribution = renewable.power.distribution!;
+    const generatorFootprint = rotatedFootprint(renewable, 0);
+    const deviceCenter = (device: BlueprintDevice): { x: number; y: number } => {
+      const footprint = rotatedFootprint(loaded.deviceAssets[device.asset]!, device.rotation);
+      return { x: device.position.x + footprint.width / 2, y: device.position.y + footprint.height / 2 };
+    };
+    const generatorCenter = (position: GridPosition): { x: number; y: number } => ({
+      x: position.x + generatorFootprint.width / 2, y: position.y + generatorFootprint.height / 2,
+    });
+    const targets = blueprint.devices.filter((device) => device.region === region.id
+      && loaded.deviceAssets[device.asset]!.power.consumptionMilliWatts > 0)
+      .map((device) => ({ id: device.id, point: deviceCenter(device) }));
+    for (const connection of plannedConnections.filter((item) => item.from.region === region.id)) {
+      const physical = blueprint.connections.find((item) => item.id === connection.id)!;
+      const pipeline = selectedPipelines.get(connection.id)!;
+      if (pipeline.loader.power.consumptionMilliWatts > 0) {
+        const cell = physical.path[0]!;
+        targets.push({ id: `${connection.id}.loader`, point: { x: cell.x + .5, y: cell.y + .5 } });
+      }
+      if (pipeline.unloader.power.consumptionMilliWatts > 0) {
+        const cell = physical.path.at(-1)!;
+        targets.push({ id: `${connection.id}.unloader`, point: { x: cell.x + .5, y: cell.y + .5 } });
+      }
     }
-    powerSummary.push({ region: region.id, asset: renewable.id, devices: count, generationMilliWatts: count * renewable.power.generation.outputMilliWatts, ratedLoadMilliWatts: load });
+    targets.sort((a, b) => a.point.x - b.point.x || a.point.y - b.point.y || a.id.localeCompare(b.id));
+    const uniqueTargets = targets.filter((target, index) => targets.findIndex((candidate) => candidate.point.x === target.point.x && candidate.point.y === target.point.y) === index);
+    const distributors: BlueprintDevice[] = [];
+    const addDistributor = (
+      preferredCenter: { x: number; y: number },
+      predicate: (center: { x: number; y: number }) => boolean,
+    ): void => {
+      const generator: BlueprintDevice = { id: uniqueId(blueprint, `synth-${region.id}-${renewable.id}-${distributors.length + 1}`), asset: renewable.id, region: region.id, position: { x: 0, y: 0 }, rotation: 0 };
+      placeDevice(loaded, blueprint, generator, {
+        x: Math.round(preferredCenter.x - generatorFootprint.width / 2),
+        y: Math.round(preferredCenter.y - generatorFootprint.height / 2),
+      }, (position) => predicate(generatorCenter(position)));
+      distributors.push(generator);
+    };
+    const covered = (point: { x: number; y: number }): boolean => distributors.some((device) => {
+      const center = deviceCenter(device);
+      return Math.hypot(center.x - point.x, center.y - point.y) <= distribution.coverageRange + 1e-9;
+    });
+    for (const target of uniqueTargets) {
+      let attempts = 0;
+      while (!covered(target.point)) {
+        if (attempts++ > region.bounds.width * region.bounds.height) throw new Error(`Cannot connect synthesized power coverage to '${target.id}' in region '${region.id}'`);
+        if (!distributors.length) {
+          addDistributor(target.point, (center) => Math.hypot(center.x - target.point.x, center.y - target.point.y) <= distribution.coverageRange + 1e-9);
+          continue;
+        }
+        const nearest = distributors.map((device) => ({ device, center: deviceCenter(device) }))
+          .map((entry) => ({ ...entry, distance: Math.hypot(entry.center.x - target.point.x, entry.center.y - target.point.y) }))
+          .sort((a, b) => a.distance - b.distance || a.device.id.localeCompare(b.device.id))[0]!;
+        const move = Math.min(Math.max(.5, distribution.connectionRange - .5), Math.max(.5, nearest.distance - distribution.coverageRange + .5));
+        const ratio = move / nearest.distance;
+        const preferred = {
+          x: nearest.center.x + (target.point.x - nearest.center.x) * ratio,
+          y: nearest.center.y + (target.point.y - nearest.center.y) * ratio,
+        };
+        addDistributor(preferred, (center) => distributors.some((device) => {
+          const existing = deviceCenter(device);
+          return Math.hypot(existing.x - center.x, existing.y - center.y) <= distribution.connectionRange + 1e-9;
+        }) && Math.hypot(center.x - target.point.x, center.y - target.point.y) < nearest.distance - 1e-9);
+      }
+    }
+    const netGeneration = renewable.power.generation.outputMilliWatts - renewable.power.consumptionMilliWatts;
+    const capacityDevices = load > 0 ? Math.ceil(load / netGeneration - 1e-9) : 0;
+    const loadCenter = uniqueTargets.length ? {
+      x: uniqueTargets.reduce((sum, target) => sum + target.point.x, 0) / uniqueTargets.length,
+      y: uniqueTargets.reduce((sum, target) => sum + target.point.y, 0) / uniqueTargets.length,
+    } : { x: region.bounds.width / 2, y: region.bounds.height / 2 };
+    while (distributors.length < capacityDevices) {
+      addDistributor(loadCenter, (center) => !distributors.length || distributors.some((device) => {
+        const existing = deviceCenter(device);
+        return Math.hypot(existing.x - center.x, existing.y - center.y) <= distribution.connectionRange + 1e-9;
+      }));
+    }
+    powerSummary.push({
+      region: region.id, asset: renewable.id, devices: distributors.length, capacityDevices, coverageTargets: uniqueTargets.length,
+      generationMilliWatts: distributors.length * renewable.power.generation.outputMilliWatts, ratedLoadMilliWatts: load,
+    });
   }
 
   return {

@@ -217,6 +217,8 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
     ...(synthesis.plannedTransports.length ? ["Optimized inter-region flows:", ...synthesis.plannedTransports.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3)}/min · ${flow.fromRegion} → ${flow.toRegion}`)] : []),
     "Capacity-aware local logistics:",
     ...synthesis.localLogistics.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3).padStart(8)}/${flow.capacityPerMinute.toFixed(3)} items/min · stack×${flow.stackSize} · ${flow.loader} → ${flow.line} → ${flow.unloader}`),
+    "Spatial power networks:",
+    ...synthesis.power.map((power) => `  ${power.region.padEnd(18)} ${power.devices} ${power.asset} (${power.capacityDevices} capacity + ${power.devices - power.capacityDevices} coverage) · ${power.coverageTargets} targets · ${(power.generationMilliWatts / 1000).toFixed(3)}/${(power.ratedLoadMilliWatts / 1000).toFixed(3)} W`),
     `Factory: ${summary.devices} devices · ${summary.connections} connections / ${summary.pathCells} belt cells · ${summary.stationNetworks.length} station network${summary.stationNetworks.length === 1 ? "" : "s"}`,
     `Capacity plan: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`,
     `Cold-start measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${synthesis.target.resource}/min · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,

@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **119.744**
-- Result hash: `62c0a2a68eeead1d5fb7e3170b841cc492699afea1d4c75a6cffeecdd79ecfc6`
+- Result hash: `a83e13e240afcfb726cb0837b3d820c23a153b72fb1c8fe87379e3a3bf685541`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
