@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
-  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
+  findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
@@ -78,6 +78,27 @@ describe("production mix optimization", () => {
     expect(plan.processes.map((row) => row.candidate.key)).toEqual(["slow-efficient"]);
     expect(plan.rawDemandPerMinute.ore).toBeCloseTo(10, 8);
   });
+
+  test("chooses whether to ship ore, intermediates, or finished goods as part of the process mix", () => {
+    const processes = [
+      { id: "smelt", inputs: [{ resource: "ore", count: 1 }], outputs: [{ resource: "plate", count: 1 }] },
+      { id: "assemble", inputs: [{ resource: "plate", count: 2 }], outputs: [{ resource: "gear", count: 1 }] },
+    ];
+    const candidates = ["mine", "factory"].flatMap((region) => processes.map((process) => ({
+      key: `${process.id}:${region}`, region, inputs: process.inputs, outputs: process.outputs, data: process.id,
+    })));
+    const transports = ["ore", "plate", "gear"].flatMap((resource) => [
+      { resource, fromRegion: "mine", toRegion: "factory", costPerItem: 1 },
+      { resource, fromRegion: "factory", toRegion: "mine", costPerItem: 1 },
+    ]);
+    const plan = optimizeSpatialResourceDemand({
+      targetResource: "gear", targetRatePerMinute: 10, targetRegion: "factory", regions: ["mine", "factory"], candidates,
+      rawSources: [{ resource: "ore", region: "mine", capacityPerMinute: 100, cost: 1 }], transports,
+    });
+    expect(plan.processes.map((row) => `${row.candidate.data}:${row.region}`)).toEqual(["assemble:mine", "smelt:mine"]);
+    expect(plan.transports).toEqual([expect.objectContaining({ resource: "gear", fromRegion: "mine", toRegion: "factory", requiredPerMinute: 10 })]);
+    expect(plan.rawSources).toEqual([expect.objectContaining({ resource: "ore", region: "mine", requiredPerMinute: 20 })]);
+  });
 });
 
 describe("factory synthesis", () => {
@@ -89,6 +110,12 @@ describe("factory synthesis", () => {
     expect(first.blueprint.devices.filter((device) => source.deviceAssets[device.asset]!.production).every((device) => Boolean(device.recipe))).toBeTrue();
     expect(first.blueprint.devices.find((device) => device.asset === "assembler")!.recipe!.inputs).toEqual({ coal: "input-secondary", "iron-plate": "input-primary" });
     expect(first.stationNetworks).toHaveLength(1);
+    expect(first.selectedProcesses.map((process) => [process.process, process.region])).toEqual([
+      ["forge-gear-pair", "assembly-world"], ["smelt-iron", "forge-world"],
+    ]);
+    expect(first.plannedTransports).toEqual([{
+      resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 18, costPerItem: 100,
+    }]);
 
     const project = compileFactoryProject({ ...source, blueprint: first.blueprint });
     expect(planProductionCapacity(project).ready).toBeTrue();
@@ -107,6 +134,9 @@ describe("factory synthesis", () => {
     for (const node of source.world.resourceNodes.filter((node) => node.resource === "iron-ore")) node.amount = 100;
 
     const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.plannedTransports).toEqual([expect.objectContaining({
+      resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 36,
+    })]);
     const junctions = synthesis.blueprint.devices.filter((device) => device.asset === "splitter");
     expect(junctions.length).toBeGreaterThan(2);
     expect(synthesis.blueprint.connections.some((connection) => connection.path.some((cell) => (cell.level ?? 0) > 0))).toBeTrue();
@@ -117,6 +147,27 @@ describe("factory synthesis", () => {
     const simulation = runUntil(project);
     expect(simulation.metrics.produced.gear).toBeGreaterThanOrEqual(30);
     expect(simulation.metrics.infeasibleReason).toBeNull();
+  });
+
+  test("combines local production with a planned regional import", async () => {
+    const source = await loadFactoryProject(ironworks, { blueprint: "blank", scenario: "cold-start" });
+    source.world.resourceNodes.push({
+      id: "assembly-iron-vein", region: "assembly-world", resource: "iron-ore", position: { x: 1, y: 9 }, amount: 36,
+    });
+
+    const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.selectedProcesses.map((process) => [process.process, process.region, process.requiredCyclesPerMinute])).toEqual([
+      ["forge-gear-pair", "assembly-world", 6],
+      ["smelt-iron", "assembly-world", 9],
+      ["smelt-iron", "forge-world", 9],
+    ]);
+    expect(synthesis.plannedTransports).toEqual([expect.objectContaining({
+      resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 9,
+    })]);
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    expect(planProductionCapacity(project).ready).toBeTrue();
+    expect(runUntil(project).metrics.infeasibleReason).toBeNull();
   });
 
   test("credits refinery coproducts once and routes both outputs into a configurable multi-input process", async () => {
@@ -465,6 +516,14 @@ describe("deterministic discrete-event simulation", () => {
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
     const project = await openFactoryProject(ironworks); const first = runUntil(project, undefined, { seed: 42 }); const second = runUntil(project, undefined, { seed: 42 });
     expect(first).toEqual(second); expect(first.metrics.consumed.gear).toBeGreaterThanOrEqual(10);
+  });
+
+  test("counts objective delivery only in the declared target region", async () => {
+    const source = await loaded();
+    source.objective.targetRegion = "forge-world";
+    const result = runUntil(compileFactoryProject(source));
+    expect(result.metrics.consumed.gear).toBeGreaterThan(0);
+    expect(result.metrics.throughputPerMinute).toBe(0);
   });
 
   test("fuel generation burns delivered coal and contributes power only for its compiled burn duration", async () => {

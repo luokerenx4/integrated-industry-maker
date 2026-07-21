@@ -104,6 +104,20 @@
       },
       "status": "idle"
     },
+    "synth-iron-plate-assembly-world-station-demand": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "synth-iron-plate-forge-world-station-supply": {
+      "buffers": {
+        "storage": {
+          "iron-plate": 6
+        }
+      },
+      "status": "idle"
+    },
     "synth-iron-plate-merge": {
       "buffers": {
         "storage": {}
@@ -113,20 +127,6 @@
     "synth-iron-plate-merge-2": {
       "buffers": {
         "storage": {}
-      },
-      "status": "idle"
-    },
-    "synth-iron-plate-station-demand": {
-      "buffers": {
-        "storage": {}
-      },
-      "status": "idle"
-    },
-    "synth-iron-plate-station-supply": {
-      "buffers": {
-        "storage": {
-          "iron-plate": 6
-        }
       },
       "status": "idle"
     },
@@ -221,12 +221,12 @@
         "arriveTick": 124210,
         "count": 9,
         "departTick": 111770,
-        "from": "synth-iron-plate-station-supply",
+        "from": "synth-iron-plate-forge-world-station-supply",
         "fromBuffer": "storage",
         "id": "transit-001041",
-        "logisticsRoute": "synth-iron-plate-forge-world-to-assembly-world:iron-plate:synth-iron-plate-station-supply->synth-iron-plate-station-demand",
+        "logisticsRoute": "synth-iron-plate-forge-world-to-assembly-world:iron-plate:synth-iron-plate-forge-world-station-supply->synth-iron-plate-assembly-world-station-demand",
         "resource": "iron-plate",
-        "to": "synth-iron-plate-station-demand",
+        "to": "synth-iron-plate-assembly-world-station-demand",
         "toBuffer": "storage"
       }
     ]
@@ -333,7 +333,8 @@
       }
     ],
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-3": [],
-    "synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-station-supply": [
+    "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1": [],
+    "synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-forge-world-station-supply": [
       {
         "arriveTick": 120250,
         "cellIndex": -1,
@@ -345,7 +346,7 @@
         "phase": "unloading",
         "readyTick": 120250,
         "resource": "iron-plate",
-        "to": "synth-iron-plate-station-supply",
+        "to": "synth-iron-plate-forge-world-station-supply",
         "toBuffer": "storage"
       }
     ],
@@ -365,7 +366,6 @@
         "toBuffer": "storage"
       }
     ],
-    "synth-iron-plate-synth-iron-plate-station-demand-to-synth-forge-gear-pair-1": [],
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": [],
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": [],
     "synth-iron-plate-synth-smelt-iron-3-to-synth-iron-plate-merge-2": []

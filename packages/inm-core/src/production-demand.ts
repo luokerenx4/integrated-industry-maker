@@ -35,6 +35,46 @@ export interface ResourceDemandOptimization<T> {
   rawResourceCost?: (resource: ResourceId) => number;
 }
 
+export interface SpatialDemandProcessCandidate<T> extends DemandProcessCandidate<T> {
+  region: string;
+}
+
+export interface SpatialRawSource {
+  resource: ResourceId;
+  region: string;
+  capacityPerMinute: number;
+  cost: number;
+}
+
+export interface SpatialTransportOption {
+  resource: ResourceId;
+  fromRegion: string;
+  toRegion: string;
+  costPerItem: number;
+  capacityPerMinute?: number;
+}
+
+export interface SpatialResourceDemandPlan<T> {
+  processes: Array<PlannedDemandProcess<T> & { region: string }>;
+  rawSources: Array<SpatialRawSource & { requiredPerMinute: number }>;
+  transports: Array<SpatialTransportOption & { requiredPerMinute: number }>;
+  surplus: Array<{ resource: ResourceId; region: string; perMinute: number }>;
+  rawCost: number;
+  processCost: number;
+  logisticsCost: number;
+}
+
+export interface SpatialResourceDemandOptimization<T> {
+  targetResource: ResourceId;
+  targetRatePerMinute: number;
+  targetRegion: string;
+  regions: readonly string[];
+  candidates: readonly SpatialDemandProcessCandidate<T>[];
+  rawSources: readonly SpatialRawSource[];
+  transports: readonly SpatialTransportOption[];
+  candidateCost?: (candidate: SpatialDemandProcessCandidate<T>) => number;
+}
+
 function add(target: Map<ResourceId, number>, resource: ResourceId, amount: number): void {
   const next = (target.get(resource) ?? 0) + amount;
   target.set(resource, Math.abs(next) <= EPSILON ? 0 : next);
@@ -229,5 +269,95 @@ export function optimizeResourceDemand<T>(options: ResourceDemandOptimization<T>
       .map(([resource, amount]): [ResourceId, number] => [resource, normalize(amount)]).sort(([a], [b]) => a.localeCompare(b))),
     rawCost: normalize(rawCost),
     processCost: processRows.reduce((sum, row) => sum + row.cycles * (options.candidateCost?.(row.candidate) ?? 1), 0),
+  };
+}
+
+/**
+ * Solves production, extraction, and inter-region shipment as one material
+ * balance per (Resource, region). This decides whether to move ore,
+ * intermediates, or finished goods instead of assigning regions after recipe
+ * selection.
+ */
+export function optimizeSpatialResourceDemand<T>(options: SpatialResourceDemandOptimization<T>): SpatialResourceDemandPlan<T> {
+  const regions = [...new Set(options.regions)].sort();
+  if (!regions.includes(options.targetRegion)) throw new Error(`Unknown target region '${options.targetRegion}'`);
+  const candidates = [...new Map(options.candidates.map((candidate) => [candidate.key, candidate])).values()].sort((a, b) => a.key.localeCompare(b.key));
+  const rawSources = [...options.rawSources].sort((a, b) => a.region.localeCompare(b.region) || a.resource.localeCompare(b.resource));
+  const transports = [...options.transports].sort((a, b) => a.resource.localeCompare(b.resource) || a.fromRegion.localeCompare(b.fromRegion) || a.toRegion.localeCompare(b.toRegion));
+  const resources = [...new Set([
+    options.targetResource,
+    ...candidates.flatMap((candidate) => [...candidate.inputs, ...candidate.outputs].map((amount) => amount.resource)),
+    ...rawSources.map((source) => source.resource), ...transports.map((transport) => transport.resource),
+  ])].sort();
+  const balances = resources.flatMap((resource) => regions.map((region) => ({ resource, region })));
+  const variableCount = candidates.length + rawSources.length + transports.length;
+  const matrix = balances.map(({ resource, region }) => [
+    ...candidates.map((candidate) => candidate.region === region
+      ? candidate.inputs.filter((amount) => amount.resource === resource).reduce((sum, amount) => sum + amount.count, 0)
+        - candidate.outputs.filter((amount) => amount.resource === resource).reduce((sum, amount) => sum + amount.count, 0)
+      : 0),
+    ...rawSources.map((source) => source.region === region && source.resource === resource ? -1 : 0),
+    ...transports.map((transport) => transport.resource !== resource ? 0
+      : transport.fromRegion === region ? 1 : transport.toRegion === region ? -1 : 0),
+  ]);
+  const bounds = balances.map(({ resource, region }) => resource === options.targetResource && region === options.targetRegion ? -options.targetRatePerMinute : 0);
+  for (let index = 0; index < rawSources.length; index++) {
+    const row = Array<number>(variableCount).fill(0); row[candidates.length + index] = 1;
+    matrix.push(row); bounds.push(rawSources[index]!.capacityPerMinute);
+  }
+  for (let index = 0; index < transports.length; index++) if (transports[index]!.capacityPerMinute !== undefined) {
+    const row = Array<number>(variableCount).fill(0); row[candidates.length + rawSources.length + index] = 1;
+    matrix.push(row); bounds.push(transports[index]!.capacityPerMinute!);
+  }
+
+  const rawObjective = [
+    ...candidates.map(() => 0), ...rawSources.map((source) => -Math.max(EPSILON, source.cost)), ...transports.map(() => 0),
+  ];
+  const rawSolution = solveLinearProgram(matrix, bounds, rawObjective);
+  if (!rawSolution) throw new Error(`No spatial production mix can deliver ${options.targetRatePerMinute} '${options.targetResource}'/min to '${options.targetRegion}'`);
+  const rawCost = -rawSolution.objective;
+  const rawCostRow = [
+    ...candidates.map(() => 0), ...rawSources.map((source) => Math.max(EPSILON, source.cost)), ...transports.map(() => 0),
+  ];
+  const candidateCosts = candidates.map((candidate) => Math.max(EPSILON, options.candidateCost?.(candidate) ?? 1));
+  const processObjective = [
+    ...candidateCosts.map((cost) => -cost), ...rawSources.map((source) => -Math.max(EPSILON, source.cost) * 1e-6),
+    ...transports.map((transport) => -Math.max(EPSILON, transport.costPerItem)),
+  ];
+  const solution = solveLinearProgram([...matrix, rawCostRow], [...bounds, rawCost + EPSILON], processObjective) ?? rawSolution;
+
+  const processRows = candidates.map((candidate, index) => ({ candidate, cycles: normalize(solution.variables[index] ?? 0) }))
+    .filter((row) => row.cycles > PLAN_EPSILON);
+  const rawRows = rawSources.map((source, index) => ({ ...source, requiredPerMinute: normalize(solution.variables[candidates.length + index] ?? 0) }))
+    .filter((row) => row.requiredPerMinute > PLAN_EPSILON);
+  const transportRows = transports.map((transport, index) => ({
+    ...transport, requiredPerMinute: normalize(solution.variables[candidates.length + rawSources.length + index] ?? 0),
+  })).filter((row) => row.requiredPerMinute > PLAN_EPSILON);
+  const localBalances = new Map(balances.map(({ resource, region }) => [`${region}\0${resource}`, 0]));
+  const addLocal = (resource: ResourceId, region: string, amount: number): void => {
+    const key = `${region}\0${resource}`; localBalances.set(key, (localBalances.get(key) ?? 0) + amount);
+  };
+  for (const row of processRows) {
+    for (const output of row.candidate.outputs) addLocal(output.resource, row.candidate.region, output.count * row.cycles);
+    for (const input of row.candidate.inputs) addLocal(input.resource, row.candidate.region, -input.count * row.cycles);
+  }
+  for (const row of rawRows) addLocal(row.resource, row.region, row.requiredPerMinute);
+  for (const row of transportRows) { addLocal(row.resource, row.fromRegion, -row.requiredPerMinute); addLocal(row.resource, row.toRegion, row.requiredPerMinute); }
+  addLocal(options.targetResource, options.targetRegion, -options.targetRatePerMinute);
+  return {
+    processes: processRows.map((row) => ({
+      candidate: row.candidate, region: row.candidate.region,
+      primaryResource: row.candidate.outputs.some((amount) => amount.resource === options.targetResource)
+        ? options.targetResource : [...row.candidate.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!.resource,
+      requiredCyclesPerMinute: row.cycles, inputsPerMinute: rates(row.candidate.inputs, row.cycles), outputsPerMinute: rates(row.candidate.outputs, row.cycles),
+    })),
+    rawSources: rawRows,
+    transports: transportRows,
+    surplus: [...localBalances.entries()].filter(([, amount]) => amount > PLAN_EPSILON).map(([key, amount]) => {
+      const [region, resource] = key.split("\0") as [string, ResourceId]; return { region, resource, perMinute: normalize(amount) };
+    }).sort((a, b) => a.region.localeCompare(b.region) || a.resource.localeCompare(b.resource)),
+    rawCost: normalize(rawCost),
+    processCost: processRows.reduce((sum, row) => sum + row.cycles * (options.candidateCost?.(row.candidate) ?? 1), 0),
+    logisticsCost: transportRows.reduce((sum, row) => sum + row.requiredPerMinute * row.costPerItem, 0),
   };
 }

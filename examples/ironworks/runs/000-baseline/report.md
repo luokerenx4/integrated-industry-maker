@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **22.991**
-- Result hash: `b74a11828811e390cad45d07a18c7592709204d77d236c0cbb04098952e6354d`
+- Result hash: `6370ebb4d4eca4c9ed8a2606c5b5e99f75163386780a62af1173f2db3e1e44d6`
 - Bottleneck: smelter-1
 - Throughput/min: 6.000
 - Target rate: 12.000 gear/min (50.0% attained)

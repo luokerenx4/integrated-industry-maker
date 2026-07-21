@@ -15,6 +15,7 @@ export interface SimulationStats {
   connectionDeliveredItems: Record<string, number>;
   connectionDepartedByResource: Record<string, Record<string, number>>;
   connectionDeliveredByResource: Record<string, Record<string, number>>;
+  consumedByRegion: Record<string, Record<string, number>>;
   transportEnergyConsumedMilliJoules: number;
   elapsedTicks: number;
 }
@@ -26,7 +27,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     + Object.values(project.connections).reduce((sum, connection) => sum + connection.logisticsStages.filter((stage) => stage.stage !== "line").reduce((stageSum, stage) => stageSum + stage.asset.economics.buildCost * stage.distance, 0), 0)
     + Object.values(project.transportCells).reduce((sum, cell) => sum + cell.asset.economics.buildCost, 0)
     + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleetAsset.economics.buildCost * network.fleetSize, 0);
-  const targetProduced = state.consumed[project.objective.targetResource] ?? 0;
+  const targetProduced = stats.consumedByRegion[project.objective.targetRegion]?.[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};

@@ -528,6 +528,42 @@
     },
     {
       "from": {
+        "device": "synth-iron-plate-assembly-world-station-demand",
+        "port": "output"
+      },
+      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter"
+        },
+        "unloader": {
+          "deviceAsset": "sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 5,
+          "y": 8
+        },
+        {
+          "x": 5,
+          "y": 7
+        },
+        {
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "to": {
+        "device": "synth-forge-gear-pair-1",
+        "port": "input-primary"
+      }
+    },
+    {
+      "from": {
         "device": "synth-smelt-iron-1",
         "port": "output"
       },
@@ -757,7 +793,7 @@
         "device": "synth-iron-plate-merge-2",
         "port": "output-north"
       },
-      "id": "synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-station-supply",
+      "id": "synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-forge-world-station-supply",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -780,44 +816,8 @@
         }
       ],
       "to": {
-        "device": "synth-iron-plate-station-supply",
+        "device": "synth-iron-plate-forge-world-station-supply",
         "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "synth-iron-plate-station-demand",
-        "port": "output"
-      },
-      "id": "synth-iron-plate-synth-iron-plate-station-demand-to-synth-forge-gear-pair-1",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 5,
-          "y": 8
-        },
-        {
-          "x": 5,
-          "y": 7
-        },
-        {
-          "x": 6,
-          "y": 7
-        }
-      ],
-      "to": {
-        "device": "synth-forge-gear-pair-1",
-        "port": "input-primary"
       }
     },
     {
@@ -985,6 +985,26 @@
       "rotation": 0
     },
     {
+      "asset": "interstellar-logistics-station",
+      "id": "synth-iron-plate-forge-world-station-supply",
+      "position": {
+        "x": 15,
+        "y": 14
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "interstellar-logistics-station",
+      "id": "synth-iron-plate-assembly-world-station-demand",
+      "position": {
+        "x": 1,
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
       "asset": "splitter",
       "id": "synth-iron-ore-merge",
       "position": {
@@ -1018,26 +1038,6 @@
         "y": 11
       },
       "region": "forge-world",
-      "rotation": 0
-    },
-    {
-      "asset": "interstellar-logistics-station",
-      "id": "synth-iron-plate-station-supply",
-      "position": {
-        "x": 15,
-        "y": 14
-      },
-      "region": "forge-world",
-      "rotation": 0
-    },
-    {
-      "asset": "interstellar-logistics-station",
-      "id": "synth-iron-plate-station-demand",
-      "position": {
-        "x": 1,
-        "y": 7
-      },
-      "region": "assembly-world",
       "rotation": 0
     },
     {
@@ -1121,7 +1121,7 @@
       "kind": "interstellar",
       "stations": [
         {
-          "device": "synth-iron-plate-station-supply",
+          "device": "synth-iron-plate-forge-world-station-supply",
           "slots": [
             {
               "minimumBatch": 1,
@@ -1131,7 +1131,7 @@
           ]
         },
         {
-          "device": "synth-iron-plate-station-demand",
+          "device": "synth-iron-plate-assembly-world-station-demand",
           "slots": [
             {
               "minimumBatch": 1,

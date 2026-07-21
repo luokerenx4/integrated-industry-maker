@@ -54,6 +54,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {},
+    consumedByRegion: {},
     transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
   };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
@@ -365,6 +366,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (delivered) {
         mutateFactoryState(state, { kind: "consumed", resource: amount.resource, count: amount.count });
         mutateFactoryState(state, { kind: "orders", count: amount.count });
+        const regional = stats.consumedByRegion[device.region] ??= {};
+        regional[amount.resource] = (regional[amount.resource] ?? 0) + amount.count;
         emit({ type: "resource.consumed", tick: state.tick, device: device.id, resource: amount.resource, count: amount.count });
       }
     }

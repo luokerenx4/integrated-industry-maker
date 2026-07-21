@@ -55,7 +55,7 @@ factory/
 
 The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors.
 
-A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Synthesis reads only this project tree: its Objective determines the required rate, its Processes provide the dependency graph, its Resource nodes constrain extraction, and its Device packages supply all processors, junctions, transport tiers, stations, carriers, consumers, and power generation. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
+A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Synthesis reads only this project tree: its Objective determines the required rate and delivery region, its Processes define material transformations, its regional Resource nodes constrain extraction over Scenario time, and its Device packages supply all processors, junctions, transport tiers, stations, carriers, consumers, and power generation. The spatial optimizer jointly selects region-qualified Process rates, finite raw-source rates, and directed inter-region Resource flows before physical placement. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
 
 Splitting presentation and execution from identity is intentional. Catalog tools can inspect `asset.json` without executing code, artists can replace files named by `visual.json`, and device authors can edit `runtime.ts` without turning the blueprint into a script container. The hash of an asset covers every file in its package.
 
@@ -431,6 +431,7 @@ Initial quantities address device and buffer explicitly:
   "id": "default",
   "name": "Sustain Gear Throughput",
   "targetResource": "gear",
+  "targetRegion": "assembly-world",
   "targetRatePerMinute": 12,
   "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": {
@@ -445,6 +446,6 @@ Initial quantities address device and buffer explicitly:
 }
 ```
 
-`targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` recursively expands that rate through the selected recipes, sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. Runtime `onTimeDelivery` is the achieved target-Resource rate divided by this design rate, capped at one. `constraints.minProduction` remains a separate hard minimum item count over the complete Scenario.
+`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. Runtime `onTimeDelivery` is the achieved regional delivery rate divided by this design rate, capped at one. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
 The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks).

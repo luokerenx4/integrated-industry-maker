@@ -13,9 +13,9 @@
     "synth-gear-sink": 0,
     "synth-iron-ore-extractor-1": 0,
     "synth-iron-ore-split": 0,
+    "synth-iron-plate-assembly-world-station-demand": 0,
+    "synth-iron-plate-forge-world-station-supply": 0,
     "synth-iron-plate-merge": 0,
-    "synth-iron-plate-station-demand": 0,
-    "synth-iron-plate-station-supply": 0,
     "synth-smelt-iron-1": 0,
     "synth-smelt-iron-2": 0
   },
@@ -41,9 +41,9 @@
     "synth-gear-sink": 0,
     "synth-iron-ore-extractor-1": 0,
     "synth-iron-ore-split": 120000,
+    "synth-iron-plate-assembly-world-station-demand": 120000,
+    "synth-iron-plate-forge-world-station-supply": 120000,
     "synth-iron-plate-merge": 120000,
-    "synth-iron-plate-station-demand": 120000,
-    "synth-iron-plate-station-supply": 120000,
     "synth-smelt-iron-1": 0,
     "synth-smelt-iron-2": 0
   },
@@ -58,9 +58,9 @@
     "synth-gear-sink": 0,
     "synth-iron-ore-extractor-1": 0.75,
     "synth-iron-ore-split": 0,
+    "synth-iron-plate-assembly-world-station-demand": 0,
+    "synth-iron-plate-forge-world-station-supply": 0,
     "synth-iron-plate-merge": 0,
-    "synth-iron-plate-station-demand": 0,
-    "synth-iron-plate-station-supply": 0,
     "synth-smelt-iron-1": 0.7333333333333333,
     "synth-smelt-iron-2": 0.7333333333333333
   },
@@ -210,8 +210,8 @@
       "departedItemsPerMinute": 22.5,
       "utilization": 0.09375
     },
-    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-station-supply": {
-      "averageInFlightItems": 0.25666666666666665,
+    "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1": {
+      "averageInFlightItems": 0.29333333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
@@ -227,8 +227,8 @@
       "departedItemsPerMinute": 22,
       "utilization": 0.09166666666666666
     },
-    "synth-iron-plate-synth-iron-plate-station-demand-to-synth-forge-gear-pair-1": {
-      "averageInFlightItems": 0.29333333333333333,
+    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply": {
+      "averageInFlightItems": 0.25666666666666665,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
@@ -300,11 +300,11 @@
       "loader": 0.09375,
       "unloader": 0.09375
     },
-    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-station-supply": {
+    "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1": {
       "loader": 0.09166666666666666,
       "unloader": 0.09166666666666666
     },
-    "synth-iron-plate-synth-iron-plate-station-demand-to-synth-forge-gear-pair-1": {
+    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply": {
       "loader": 0.09166666666666666,
       "unloader": 0.09166666666666666
     },
@@ -327,9 +327,9 @@
     "synth-gear-sink": 120000,
     "synth-iron-ore-extractor-1": 30000,
     "synth-iron-ore-split": 0,
+    "synth-iron-plate-assembly-world-station-demand": 0,
+    "synth-iron-plate-forge-world-station-supply": 0,
     "synth-iron-plate-merge": 0,
-    "synth-iron-plate-station-demand": 0,
-    "synth-iron-plate-station-supply": 0,
     "synth-smelt-iron-1": 32000,
     "synth-smelt-iron-2": 32000
   }

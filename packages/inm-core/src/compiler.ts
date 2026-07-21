@@ -574,6 +574,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   const logisticsNetworks = compileLogisticsNetworks(loaded.blueprint.logisticsNetworks, devices, loaded.deviceAssets, loaded.resources, regions, issues);
 
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
+  if (!regions[loaded.objective.targetRegion]) issues.push({ path: "objective/targetRegion", code: "reference.region", message: `Unknown target region '${loaded.objective.targetRegion}'` });
   for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {
     const device = devices[deviceId];
     if (!device) { issues.push({ path: `scenario/initialBuffers/${deviceId}`, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` }); continue; }

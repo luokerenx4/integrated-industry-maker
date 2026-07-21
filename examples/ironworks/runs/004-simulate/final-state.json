@@ -58,19 +58,19 @@
       },
       "status": "idle"
     },
+    "synth-iron-plate-assembly-world-station-demand": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "synth-iron-plate-forge-world-station-supply": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
     "synth-iron-plate-merge": {
-      "buffers": {
-        "storage": {}
-      },
-      "status": "idle"
-    },
-    "synth-iron-plate-station-demand": {
-      "buffers": {
-        "storage": {}
-      },
-      "status": "idle"
-    },
-    "synth-iron-plate-station-supply": {
       "buffers": {
         "storage": {}
       },
@@ -153,8 +153,8 @@
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": [],
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1": [],
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2": [],
-    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-station-supply": [],
-    "synth-iron-plate-synth-iron-plate-station-demand-to-synth-forge-gear-pair-1": [],
+    "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1": [],
+    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply": [],
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": [],
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": []
   }

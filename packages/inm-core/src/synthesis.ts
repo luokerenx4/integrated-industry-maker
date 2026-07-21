@@ -5,7 +5,7 @@ import type { LoadedFactoryProject } from "./loader";
 import { bindProcessRecipe } from "./production-analysis";
 import { externalPortCell, findBlueprintConnectionPath, rotatedFootprint } from "./routing";
 import { planDeviceTransport } from "./device-runtime";
-import { optimizeResourceDemand } from "./production-demand";
+import { optimizeSpatialResourceDemand } from "./production-demand";
 
 interface ProcessSelection {
   resource: ResourceId;
@@ -27,12 +27,14 @@ interface PlannedConnection { id: string; resource: ResourceId; from: Endpoint; 
 
 export interface BlueprintSynthesisResult {
   blueprint: Blueprint;
-  target: { resource: ResourceId; ratePerMinute: number };
+  target: { resource: ResourceId; region: string; ratePerMinute: number };
   selectedProcesses: Array<{
     resource: ResourceId; process: string; asset: string; region: string; machines: number; capacityPerMachine: number;
     requiredCyclesPerMinute: number; inputsPerMinute: Record<ResourceId, number>; outputsPerMinute: Record<ResourceId, number>;
   }>;
   extraction: Array<{ resource: ResourceId; asset: string; region: string; machines: number; nodes: string[] }>;
+  plannedTransports: Array<{ resource: ResourceId; fromRegion: string; toRegion: string; requiredPerMinute: number; costPerItem: number }>;
+  optimization: { rawCost: number; processCost: number; logisticsCost: number };
   stationNetworks: Array<{ network: string; resource: ResourceId; fromRegion: string; toRegion: string; carriers: number }>;
   power: Array<{ region: string; asset: string; devices: number; generationMilliWatts: number; ratedLoadMilliWatts: number }>;
 }
@@ -134,14 +136,6 @@ function assignJunctionPorts(
   return best.ports;
 }
 
-function bestRegionForResources(loaded: LoadedFactoryProject, resources: Set<ResourceId>, fallback: string): string {
-  const candidates = loaded.world.regions.map((region) => ({
-    region: region.id,
-    reserve: loaded.world.resourceNodes.filter((node) => node.region === region.id && resources.has(node.resource)).reduce((sum, node) => sum + node.amount, 0),
-  })).sort((a, b) => b.reserve - a.reserve || a.region.localeCompare(b.region));
-  return candidates[0]?.reserve ? candidates[0].region : fallback;
-}
-
 export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): BlueprintSynthesisResult {
   const blueprint: Blueprint = { version: 1, devices: [], connections: [], logisticsNetworks: [], policies: { dispatch: "round-robin" } };
   const targetResource = loaded.objective.targetResource;
@@ -152,8 +146,9 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   })).sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   const boundaryAsset = consumerAssetFor(targetResource);
   if (!boundaryAsset) throw new Error(`No project-local consumer Device accepts objective Resource '${targetResource}'`);
-  const finalRegion = loaded.world.regions.at(-1)!.id;
-  const processCandidates = Object.values(loaded.processes).flatMap((process) => Object.values(loaded.deviceAssets).flatMap((asset) => {
+  const finalRegion = loaded.objective.targetRegion;
+  if (!loaded.world.regions.some((region) => region.id === finalRegion)) throw new Error(`Objective target region '${finalRegion}' is not present in world '${loaded.world.id}'`);
+  const baseProcessCandidates = Object.values(loaded.processes).flatMap((process) => Object.values(loaded.deviceAssets).flatMap((asset) => {
     const binding = bindProcessRecipe(asset, process); if (!binding || !asset.production) return [];
     const durationTicks = Math.max(1, Math.ceil(process.durationTicks * asset.production.speed.denominator / asset.production.speed.numerator));
     const primary = [...process.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!;
@@ -168,16 +163,29 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       data: selected,
     }];
   })).sort((a, b) => a.key.localeCompare(b.key));
-  const producedResources = new Set(processCandidates.flatMap((candidate) => candidate.outputs.map((output) => output.resource)));
-  const inputResources = new Set(processCandidates.flatMap((candidate) => candidate.inputs.map((input) => input.resource)));
-  const rawResources = Object.keys(loaded.resources).filter((resource) => loaded.world.resourceNodes.some((node) => node.resource === resource)
-    || (inputResources.has(resource) && !producedResources.has(resource)));
-  const demandPlan = optimizeResourceDemand({
-    targetResource, targetRatePerMinute: targetRate, candidates: processCandidates, rawResources,
-    candidateCost: (candidate) => candidate.data.asset.economics.buildCost * candidate.data.durationTicks / 60_000,
-    rawResourceCost: (resource) => {
-      const reserve = loaded.world.resourceNodes.filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
-      return reserve > 0 ? 1 + targetRate / reserve : 1;
+  const regions = loaded.world.regions.map((region) => region.id);
+  const processCandidates = regions.flatMap((region) => baseProcessCandidates.filter((candidate) => region === finalRegion
+    || !candidate.outputs.some((output) => output.resource === targetResource))
+    .map((candidate) => ({ ...candidate, key: `${candidate.key}:${region}`, region })));
+  const scenarioMinutes = loaded.scenario.durationTicks / 60_000;
+  const rawSources = loaded.world.regions.flatMap((region) => Object.keys(loaded.resources).flatMap((resource) => {
+    const reserve = loaded.world.resourceNodes.filter((node) => node.region === region.id && node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
+    const globalReserve = loaded.world.resourceNodes.filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
+    return reserve > 0 ? [{ resource, region: region.id, capacityPerMinute: reserve / scenarioMinutes, cost: 1 + targetRate / globalReserve }] : [];
+  }));
+  const canCrossRegions = Object.values(loaded.deviceAssets).some((asset) => asset.logisticsStation?.networkKinds.includes("interstellar"))
+    && Object.values(loaded.deviceAssets).some((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("interstellar"));
+  const transportOptions = canCrossRegions ? Object.keys(loaded.resources).flatMap((resource) => loaded.world.regions.flatMap((from) => loaded.world.regions
+    .filter((to) => to.id !== from.id).map((to) => ({
+      resource, fromRegion: from.id, toRegion: to.id,
+      costPerItem: Math.max(1, Math.hypot(from.coordinates.x - to.coordinates.x, from.coordinates.y - to.coordinates.y, from.coordinates.z - to.coordinates.z)),
+    })))) : [];
+  const demandPlan = optimizeSpatialResourceDemand({
+    targetResource, targetRatePerMinute: targetRate, targetRegion: finalRegion, regions, candidates: processCandidates, rawSources, transports: transportOptions,
+    candidateCost: (candidate) => {
+      const continuousMachines = candidate.data.durationTicks / 60_000;
+      return continuousMachines * (candidate.data.asset.economics.buildCost * Math.max(.001, loaded.objective.weights.buildCost)
+        + candidate.data.asset.power.consumptionMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
     },
   });
   const selections = new Map(demandPlan.processes.map((row) => {
@@ -186,21 +194,11 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const selection: ProcessSelection = {
       ...selected, resource: row.primaryResource, outputPerCycle: output.count,
       requiredPerMinute: row.outputsPerMinute[row.primaryResource]!, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
-      region: finalRegion, machines: 0, instances: [],
+      region: row.region, machines: 0, instances: [],
     };
     return [row.candidate.key, selection] as const;
   }));
-  const rawDemand = demandPlan.rawDemandPerMinute;
-
-  const rawDescendants = (resource: ResourceId, visiting = new Set<ResourceId>()): Set<ResourceId> => {
-    if (visiting.has(resource)) return new Set([resource]);
-    const selected = [...selections.values()].find((item) => item.process.outputs.some((output) => output.resource === resource));
-    if (!selected) return new Set([resource]);
-    const next = new Set(visiting); next.add(resource);
-    return new Set(selected.process.inputs.flatMap((input) => [...rawDescendants(input.resource, next)]));
-  };
   for (const selection of selections.values()) {
-    selection.region = selection.resource === targetResource ? finalRegion : bestRegionForResources(loaded, rawDescendants(selection.resource), finalRegion);
     const cyclesPerMachine = 60_000 / selection.durationTicks;
     selection.machines = Math.ceil(selection.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
     const region = loaded.world.regions.find((item) => item.id === selection.region)!;
@@ -231,20 +229,17 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const targetInstance = targetSelection?.instances[0];
   if (!targetInstance) throw new Error(`Objective Resource '${targetResource}' must be produced by a project-local process`);
   addSink(targetResource, finalRegion, targetInstance, targetRate);
-  for (const resource of Object.keys(demandPlan.surplusPerMinute).filter((id) => id !== targetResource).sort()) {
-    const producing = [...selections.values()].filter((selection) => selection.process.outputs.some((output) => output.resource === resource));
-    for (const region of [...new Set(producing.map((selection) => selection.region))].sort()) {
-      const near = producing.find((selection) => selection.region === region)?.instances[0];
-      if (near) addSink(resource, region, near, demandPlan.surplusPerMinute[resource]! / Math.max(1, producing.length), "surplus-sink");
-    }
+  for (const surplus of demandPlan.surplus) {
+    const producing = [...selections.values()].filter((selection) => selection.region === surplus.region
+      && selection.process.outputs.some((output) => output.resource === surplus.resource));
+    const near = producing[0]?.instances[0];
+    if (near) addSink(surplus.resource, surplus.region, near, surplus.perMinute, "surplus-sink");
   }
 
   const extractionSummary: BlueprintSynthesisResult["extraction"] = [];
   const extractorEndpoints = new Map<ResourceId, Endpoint[]>();
-  for (const [resource, demand] of Object.entries(rawDemand).sort(([a], [b]) => a.localeCompare(b))) {
-    const consumerRegions = [...new Set([...selections.values()].filter((selection) => selection.process.inputs.some((input) => input.resource === resource)).map((selection) => selection.region))];
-    const region = consumerRegions.find((candidate) => loaded.world.resourceNodes.some((node) => node.region === candidate && node.resource === resource))
-      ?? bestRegionForResources(loaded, new Set([resource]), finalRegion);
+  for (const source of [...demandPlan.rawSources].sort((a, b) => a.region.localeCompare(b.region) || a.resource.localeCompare(b.resource))) {
+    const { resource, region } = source; const demand = source.requiredPerMinute;
     const nodes = loaded.world.resourceNodes.filter((node) => node.region === region && node.resource === resource).sort((a, b) => a.id.localeCompare(b.id));
     if (!nodes.length) throw new Error(`No finite '${resource}' resource node is available for synthesized demand`);
     const asset = Object.values(loaded.deviceAssets).filter((candidate) => candidate.extraction?.resources.includes(resource))
@@ -267,7 +262,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       });
       endpoints.push({ device: device.id, port: portForBuffer(asset, "output", asset.extraction.outputBuffer), region, ratePerMinute: demand / machines });
     }
-    extractorEndpoints.set(resource, endpoints);
+    extractorEndpoints.set(resource, [...(extractorEndpoints.get(resource) ?? []), ...endpoints]);
     extractionSummary.push({ resource, asset: asset.id, region, machines, nodes: nodes.map((node) => node.id) });
   }
 
@@ -476,49 +471,64 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     reserveRoutes(plannedConnections.slice(plannedStart));
   };
 
-  const routedResources = [...consumers.keys()].sort((a, b) => Number(a === targetResource) - Number(b === targetResource) || a.localeCompare(b));
+  const stationAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.logisticsStation?.networkKinds.includes("interstellar"))
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  const carrier = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("interstellar"))
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  for (const transport of demandPlan.transports) {
+    const { resource, fromRegion: sourceRegion, toRegion: targetRegion, requiredPerMinute: requiredRate } = transport;
+    if (!stationAsset?.logisticsStation || !carrier) throw new Error(`Cross-region '${resource}' flow requires project-local interstellar station and carrier assets`);
+    const sourceRegionDef = loaded.world.regions.find((item) => item.id === sourceRegion)!;
+    const targetRegionDef = loaded.world.regions.find((item) => item.id === targetRegion)!;
+    const preferredY = (region: string, endpoints: Endpoint[]): number => {
+      const matching = endpoints.filter((endpoint) => endpoint.region === region);
+      if (!matching.length) return Math.floor(loaded.world.regions.find((item) => item.id === region)!.bounds.height / 2);
+      return Math.round(matching.reduce((sum, endpoint) => sum + blueprint.devices.find((device) => device.id === endpoint.device)!.position.y, 0) / matching.length);
+    };
+    const supply: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply`), asset: stationAsset.id, region: sourceRegion, position: { x: 0, y: 0 }, rotation: 0 };
+    const demand: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand`), asset: stationAsset.id, region: targetRegion, position: { x: 0, y: 0 }, rotation: 0 };
+    placeDevice(loaded, blueprint, supply, {
+      x: sourceRegionDef.bounds.width - stationAsset.geometry.footprint.width - 1,
+      y: preferredY(sourceRegion, producers.get(resource) ?? []),
+    });
+    placeDevice(loaded, blueprint, demand, { x: 1, y: preferredY(targetRegion, consumers.get(resource) ?? []) });
+    const supplyPort = stationAsset.geometry.ports.find((port) => port.direction === "input")!;
+    const demandPort = stationAsset.geometry.ports.find((port) => port.direction === "output")!;
+    (consumers.get(resource) ?? consumers.set(resource, []).get(resource)!).push({
+      device: supply.id, port: supplyPort.id, region: sourceRegion, ratePerMinute: requiredRate,
+    });
+    (producers.get(resource) ?? producers.set(resource, []).get(resource)!).push({
+      device: demand.id, port: demandPort.id, region: targetRegion, ratePerMinute: requiredRate,
+    });
+    const distance = Math.max(1, Math.ceil(Math.hypot(
+      sourceRegionDef.coordinates.x - targetRegionDef.coordinates.x,
+      sourceRegionDef.coordinates.y - targetRegionDef.coordinates.y,
+      sourceRegionDef.coordinates.z - targetRegionDef.coordinates.z,
+    )));
+    const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: `synth-${resource}-network`, stage: "carrier", distance });
+    const perCarrierRate = plan.capacity * 60_000 / plan.durationTicks; const carriers = Math.max(1, Math.ceil(requiredRate / perCarrierRate - 1e-9));
+    const networkId = safeId(`synth-${resource}-${sourceRegion}-to-${targetRegion}`);
+    const network: BlueprintLogisticsNetwork = {
+      id: networkId, kind: "interstellar", fleet: { deviceAsset: carrier.id, count: carriers },
+      stations: [
+        { device: supply.id, slots: [{ resource, mode: "supply", minimumBatch: 1 }] },
+        { device: demand.id, slots: [{ resource, mode: "demand", minimumBatch: 1 }] },
+      ],
+    };
+    blueprint.logisticsNetworks.push(network);
+    stationSummary.push({ network: networkId, resource, fromRegion: sourceRegion, toRegion: targetRegion, carriers });
+  }
+
+  const routedResources = [...new Set([...producers.keys(), ...consumers.keys()])]
+    .sort((a, b) => Number(a === targetResource) - Number(b === targetResource) || a.localeCompare(b));
   for (const resource of routedResources) {
-    const resourceProducers = producers.get(resource) ?? []; const resourceConsumers = consumers.get(resource)!;
-    for (const region of [...new Set(resourceConsumers.map((endpoint) => endpoint.region))].sort()) {
-      const targets = resourceConsumers.filter((endpoint) => endpoint.region === region);
-      const local = resourceProducers.filter((endpoint) => endpoint.region === region);
-      if (local.length) { connectLocal(resource, local, targets); continue; }
-      const sourceRegion = [...new Set(resourceProducers.map((endpoint) => endpoint.region))].sort()[0];
-      if (!sourceRegion) throw new Error(`No synthesized producer exists for Resource '${resource}'`);
-      const stationAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.logisticsStation?.networkKinds.includes("interstellar"))
-        .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-      const carrier = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("carrier") && asset.logistics.carrierKinds?.includes("interstellar"))
-        .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-      if (!stationAsset?.logisticsStation || !carrier) throw new Error(`Cross-region '${resource}' flow requires project-local interstellar station and carrier assets`);
-      const sourceBounds = loaded.world.regions.find((item) => item.id === sourceRegion)!.bounds;
-      const supply: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-station-supply`), asset: stationAsset.id, region: sourceRegion, position: { x: 0, y: 0 }, rotation: 0 };
-      const demand: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-station-demand`), asset: stationAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
-      const sourceY = Math.round(resourceProducers.filter((endpoint) => endpoint.region === sourceRegion).reduce((sum, endpoint) => sum + blueprint.devices.find((device) => device.id === endpoint.device)!.position.y, 0)
-        / resourceProducers.filter((endpoint) => endpoint.region === sourceRegion).length);
-      const targetY = Math.round(targets.reduce((sum, endpoint) => sum + blueprint.devices.find((device) => device.id === endpoint.device)!.position.y, 0) / targets.length);
-      placeDevice(loaded, blueprint, supply, { x: sourceBounds.width - stationAsset.geometry.footprint.width - 1, y: sourceY });
-      placeDevice(loaded, blueprint, demand, { x: 1, y: targetY });
-      const supplyPort = stationAsset.geometry.ports.find((port) => port.direction === "input")!; const demandPort = stationAsset.geometry.ports.find((port) => port.direction === "output")!;
-      connectLocal(resource, resourceProducers.filter((endpoint) => endpoint.region === sourceRegion), [{ device: supply.id, port: supplyPort.id, region: sourceRegion }]);
-      connectLocal(resource, [{ device: demand.id, port: demandPort.id, region }], targets);
-      const distance = Math.max(1, Math.ceil(Math.hypot(
-        loaded.world.regions.find((item) => item.id === sourceRegion)!.coordinates.x - loaded.world.regions.find((item) => item.id === region)!.coordinates.x,
-        loaded.world.regions.find((item) => item.id === sourceRegion)!.coordinates.y - loaded.world.regions.find((item) => item.id === region)!.coordinates.y,
-        loaded.world.regions.find((item) => item.id === sourceRegion)!.coordinates.z - loaded.world.regions.find((item) => item.id === region)!.coordinates.z,
-      )));
-      const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: `synth-${resource}-network`, stage: "carrier", distance });
-      const requiredRate = [...selections.values()].reduce((sum, selection) => sum + selection.process.inputs.filter((input) => input.resource === resource).reduce((inner, input) => inner + input.count * selection.requiredPerMinute / selection.outputPerCycle, 0), 0);
-      const perCarrierRate = plan.capacity * 60_000 / plan.durationTicks; const carriers = Math.max(1, Math.ceil(requiredRate / perCarrierRate - 1e-9));
-      const networkId = safeId(`synth-${resource}-${sourceRegion}-to-${region}`);
-      const network: BlueprintLogisticsNetwork = {
-        id: networkId, kind: "interstellar", fleet: { deviceAsset: carrier.id, count: carriers },
-        stations: [
-          { device: supply.id, slots: [{ resource, mode: "supply", minimumBatch: 1 }] },
-          { device: demand.id, slots: [{ resource, mode: "demand", minimumBatch: 1 }] },
-        ],
-      };
-      blueprint.logisticsNetworks.push(network);
-      stationSummary.push({ network: networkId, resource, fromRegion: sourceRegion, toRegion: region, carriers });
+    const resourceProducers = producers.get(resource) ?? []; const resourceConsumers = consumers.get(resource) ?? [];
+    const routedRegions = [...new Set([...resourceProducers, ...resourceConsumers].map((endpoint) => endpoint.region))].sort();
+    for (const region of routedRegions) {
+      const localSources = resourceProducers.filter((endpoint) => endpoint.region === region);
+      const localTargets = resourceConsumers.filter((endpoint) => endpoint.region === region);
+      if (!localSources.length || !localTargets.length) throw new Error(`Spatial plan leaves unroutable '${resource}' flow in region '${region}'`);
+      connectLocal(resource, localSources, localTargets);
     }
   }
 
@@ -547,7 +557,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   }
 
   return {
-    blueprint, target: { resource: targetResource, ratePerMinute: targetRate },
+    blueprint, target: { resource: targetResource, region: finalRegion, ratePerMinute: targetRate },
     selectedProcesses: [...selections.values()].map((selection) => ({
       resource: selection.resource, process: selection.process.id, asset: selection.asset.id, region: selection.region, machines: selection.machines,
       capacityPerMachine: selection.outputPerCycle * 60_000 / selection.durationTicks,
@@ -555,6 +565,9 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       inputsPerMinute: Object.fromEntries(selection.process.inputs.map((input) => [input.resource, input.count * selection.requiredCyclesPerMinute])),
       outputsPerMinute: Object.fromEntries(selection.process.outputs.map((output) => [output.resource, output.count * selection.requiredCyclesPerMinute])),
     })).sort((a, b) => a.process.localeCompare(b.process)),
-    extraction: extractionSummary, stationNetworks: stationSummary, power: powerSummary,
+    extraction: extractionSummary,
+    plannedTransports: demandPlan.transports.map(({ resource, fromRegion, toRegion, requiredPerMinute, costPerItem }) => ({ resource, fromRegion, toRegion, requiredPerMinute, costPerItem })),
+    optimization: { rawCost: demandPlan.rawCost, processCost: demandPlan.processCost, logisticsCost: demandPlan.logisticsCost },
+    stationNetworks: stationSummary, power: powerSummary,
   };
 }

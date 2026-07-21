@@ -2,7 +2,7 @@
 
 - Decision: **REVERT**
 - Score: **97.546**
-- Result hash: `79b55034cbc599c6c5a9e903dd8c3bcb4fd8b5e9c14407a0b33970e09d03b260`
+- Result hash: `c2dc2179fbb4de1acc88232f53874357ba4097dfa0843fc69297a8d0bb008c0b`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)

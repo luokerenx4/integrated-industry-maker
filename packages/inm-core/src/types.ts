@@ -282,6 +282,7 @@ export interface Objective {
   id: string;
   name: string;
   targetResource: ResourceId;
+  targetRegion: string;
   targetRatePerMinute: number;
   constraints?: { maxBuildCost?: number; maxOccupiedArea?: number; minProduction?: number };
   weights: {

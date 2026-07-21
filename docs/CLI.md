@@ -42,7 +42,7 @@ inm plan examples/ironworks --json
 
 ### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
 
-Creates a new complete blueprint from the selected Objective rather than editing the input blueprint. The deterministic synthesizer considers every compatible project-local Process and Device, solves a globally raw-efficient continuous process mix (including alternatives, coproducts, and recycle loops), sizes machine and extractor counts, binds multi-input/multi-output recipes and finite deposits, selects regions, inserts direct rate-matched flows or arbitrary-size merge/split junction trees and cross-region station fleets, provisions renewable power near the load centroid, places every Device, and globally selects explicit collision-free ground or raised local-belt paths. It compiles the result, runs the target-rate capacity plan, and performs a cold-start simulation before atomically writing `blueprints/<output>.blueprint.json`. Existing files are never overwritten.
+Creates a new complete blueprint from the selected Objective rather than editing the input blueprint. The deterministic synthesizer considers every compatible project-local Process and Device, solves a globally raw-efficient continuous process mix (including alternatives, coproducts, and recycle loops), then expands it across `(Resource, region)` balances. Regional raw variables are capped by the selected Scenario's finite reserve lifetime; inter-region variables are costed by world-coordinate distance. The final Process and boundary consumer are anchored to the Objective's required `targetRegion` while upstream Processes may move, so the solver explicitly chooses which intermediate crosses each planetary boundary. It then sizes machine and extractor counts, binds multi-input/multi-output recipes and finite deposits, inserts direct rate-matched flows or arbitrary-size merge/split junction trees and cross-region station fleets, provisions renewable power near the load centroid, places every Device, and globally selects explicit collision-free ground or raised local-belt paths. It compiles the result, runs the target-rate capacity plan, and performs a cold-start simulation before atomically writing `blueprints/<output>.blueprint.json`. Existing files are never overwritten.
 
 ```bash
 inm synthesize examples/ironworks \
@@ -51,7 +51,7 @@ inm synthesize examples/ironworks \
   --output synthesized
 ```
 
-Use `--json` to receive the selected recipes, extraction bindings, station networks, regional power envelope, plan gaps, and measured throughput/area/cost. The verification run intentionally clears scenario buffers and failures tied to the input blueprint; subsequent `validate`, `plan`, `simulate`, and `test` commands can select any scenario compatible with the generated Device ids.
+Human output includes the optimized cycles/min and every selected cross-region Resource flow. Use `--json` to receive the selected recipes and regions, spatial raw/process/logistics costs, extraction bindings, planned transports, realized station networks, regional power envelope, plan gaps, and measured throughput/area/cost. The verification run intentionally clears scenario buffers and failures tied to the input blueprint; subsequent `validate`, `plan`, `simulate`, and `test` commands can select any scenario compatible with the generated Device ids.
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 

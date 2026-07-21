@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **126.681**
-- Result hash: `10228f2911a47b99ecf25dee643c682e2c4dde4831241108cf6d2db57343c0ec`
+- Result hash: `0bb13716c86d41568e7c0262771b84b83806d09ebcb8caa8504d3f26ad65945e`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 19.000
 - Target rate: 24.000 gear/min (79.2% attained)
@@ -25,9 +25,9 @@
 | synth-iron-ore-synth-iron-ore-split-2-to-synth-iron-ore-split | 67.000 / 240.000 | 27.9% | 0 | 134 iron-ore |
 | synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-merge | 54.500 / 240.000 | 22.7% | 0 | 109 iron-ore |
 | synth-iron-ore-synth-iron-ore-extractor-2-to-synth-iron-ore-merge | 54.500 / 240.000 | 22.7% | 0 | 109 iron-ore |
-| synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-station-supply | 40.000 / 240.000 | 16.7% | 0 | 80 iron-plate |
+| synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-forge-world-station-supply | 40.000 / 240.000 | 16.7% | 0 | 80 iron-plate |
 | synth-iron-ore-synth-iron-ore-split-2-to-synth-smelt-iron-1 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-ore |
-| synth-iron-plate-synth-iron-plate-station-demand-to-synth-forge-gear-pair-1 | 32.500 / 240.000 | 13.5% | 0 | 65 iron-plate |
+| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-to-synth-forge-gear-pair-1 | 32.500 / 240.000 | 13.5% | 0 | 65 iron-plate |
 | synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-3 | 32.000 / 240.000 | 13.3% | 0 | 64 iron-ore |
 | synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2 | 31.000 / 240.000 | 12.9% | 0 | 62 iron-ore |
 | synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-merge-2 | 27.000 / 240.000 | 11.3% | 0 | 54 iron-plate |
