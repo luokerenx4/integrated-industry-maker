@@ -28,6 +28,7 @@ const resources = [
   ["patterned-cell-l1-lot", "Patterned Cell L1 Lot", "Wafer lot after the first lithography pass.", "#c878dc"],
   ["etched-cell-l1-lot", "Etched Cell L1 Lot", "Wafer lot after the first plasma etch pass.", "#d69252"],
   ["dielectric-stack-lot", "Dielectric Stack Lot", "Wafer lot with the deposited capacitor dielectric stack, routed back to lithography.", "#53b7b0"],
+  ["annealed-dielectric-stack-lot", "Annealed Dielectric Stack Lot", "Wafer lot released from a batch thermal anneal and ready for the second lithography pass.", "#45a6a0"],
   ["patterned-cell-l2-lot", "Patterned Cell L2 Lot", "Re-entrant wafer lot after the second lithography pass.", "#9c75ef"],
   ["dram-wafer-lot", "Unqualified DRAM Wafer Lot", "Completed front-end DRAM wafer lot awaiting inline quality disposition.", "#58d68d"],
   ["qualified-dram-wafer-lot", "Qualified DRAM Wafer Lot", "Defect-screened DRAM wafer lot released to wafer sort and downstream packaging.", "#42d392"],
@@ -48,7 +49,7 @@ const processes = [
   ["pattern-cell-layer-1", "Pattern memory-cell layer 1", "lithography", "photo-mask-l1", 6_000, "blank-dram-wafer-lot", "patterned-cell-l1-lot"],
   ["etch-cell-layer-1", "Etch memory-cell layer 1", "etch", "etch-recipe-l1", 5_000, "patterned-cell-l1-lot", "etched-cell-l1-lot"],
   ["deposit-dielectric-stack", "Deposit capacitor dielectric stack", "deposition", "ald-dielectric", 7_000, "etched-cell-l1-lot", "dielectric-stack-lot"],
-  ["pattern-cell-layer-2", "Pattern memory-cell layer 2", "lithography", "photo-mask-l2", 6_000, "dielectric-stack-lot", "patterned-cell-l2-lot"],
+  ["pattern-cell-layer-2", "Pattern memory-cell layer 2", "lithography", "photo-mask-l2", 6_000, "annealed-dielectric-stack-lot", "patterned-cell-l2-lot"],
   ["etch-cell-layer-2", "Etch memory-cell layer 2", "etch", "etch-recipe-l2", 5_000, "patterned-cell-l2-lot", "dram-wafer-lot"],
 ] as const;
 for (const [id, name, category, setupGroup, durationTicks, input, output] of processes) {
@@ -59,6 +60,19 @@ for (const [id, name, category, setupGroup, durationTicks, input, output] of pro
     inputs: [{ resource: input, count: 1 }], outputs: [{ resource: output, count: 1 }],
   });
 }
+
+await json(join(project, "processes", "batch-anneal-dielectric-stack.process.json"), {
+  version: 1, id: "batch-anneal-dielectric-stack", name: "Batch anneal capacitor dielectric stacks",
+  description: "A three-lot furnace cycle that waits for a complete carrier batch before thermal annealing.",
+  category: "thermal", tags: ["dram", "front-end", "batch", "thermal"], durationTicks: 12_000,
+  inputs: [{ resource: "dielectric-stack-lot", count: 3 }], outputs: [{ resource: "annealed-dielectric-stack-lot", count: 3 }],
+});
+await json(join(project, "processes", "rapid-anneal-dielectric-stack.process.json"), {
+  version: 1, id: "rapid-anneal-dielectric-stack", name: "Rapid anneal one dielectric stack lot",
+  description: "A single-lot thermal cycle with lower queue delay but less carrier-level energy and capacity efficiency.",
+  category: "thermal", tags: ["dram", "front-end", "single-lot", "thermal"], durationTicks: 6_000,
+  inputs: [{ resource: "dielectric-stack-lot", count: 1 }], outputs: [{ resource: "annealed-dielectric-stack-lot", count: 1 }],
+});
 
 for (const inspection of [
   { id: "inspect-final-pattern-standard", name: "Standard final patterned-wafer inspection", durationTicks: 4_000, detects: ["critical-dimension", "particle-contamination"] },
@@ -141,6 +155,11 @@ await workCenter("ald-deposition-bay", "ALD Deposition Bay", "Atomic-layer depos
   { id: "return-output", direction: "output", side: "north", offset: 1, buffer: "return-output" },
 ], ["etch-input"], ["return-output"], 15_000);
 
+await workCenter("thermal-batch-furnace", "Thermal Batch Furnace", "A carrier-scale furnace that can run an efficient three-lot batch or a faster single-lot rapid cycle.", "thermal", "#db7c4b", [
+  { id: "batch-input", direction: "input", side: "south", offset: 1, buffer: "batch-input" },
+  { id: "batch-output", direction: "output", side: "west", offset: 1, buffer: "batch-output" },
+], ["batch-input"], ["batch-output"], 16_000);
+
 await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline patterned-wafer inspection that performs deterministic pass, rework, and scrap disposition.", "inspection", "#3fa7d6", [
   { id: "wafer-input", direction: "input", side: "north", offset: 1, buffer: "wafer-input" },
   { id: "pass-output", direction: "output", side: "west", offset: 1, buffer: "pass-output" },
@@ -175,7 +194,7 @@ const devices: Device[] = [
     id: "lithography-1", asset: "lithography-bay", region: "cleanroom", position: { x: 8, y: 12 }, rotation: 0,
     recipes: [
       { process: "pattern-cell-layer-1", mode: "qualified", priority: 1, inputs: { "blank-dram-wafer-lot": "release-input" }, outputs: { "patterned-cell-l1-lot": "pattern-output" } },
-      { process: "pattern-cell-layer-2", mode: "qualified", priority: 10, inputs: { "dielectric-stack-lot": "reentrant-input" }, outputs: { "patterned-cell-l2-lot": "pattern-output" } },
+      { process: "pattern-cell-layer-2", mode: "qualified", priority: 10, inputs: { "annealed-dielectric-stack-lot": "reentrant-input" }, outputs: { "patterned-cell-l2-lot": "pattern-output" } },
     ],
     policy: { recipeDispatch: "authored-order", lotDispatch: "fifo", powerPriority: 10 },
   },
@@ -191,6 +210,14 @@ const devices: Device[] = [
     id: "deposition-1", asset: "ald-deposition-bay", region: "cleanroom", position: { x: 25, y: 12 }, rotation: 0,
     recipe: { process: "deposit-dielectric-stack", mode: "qualified", inputs: { "etched-cell-l1-lot": "etch-input" }, outputs: { "dielectric-stack-lot": "return-output" } },
     policy: { powerPriority: 8 },
+  },
+  {
+    id: "furnace-1", asset: "thermal-batch-furnace", region: "cleanroom", position: { x: 25, y: 5 }, rotation: 0,
+    recipe: {
+      process: "batch-anneal-dielectric-stack", mode: "qualified",
+      inputs: { "dielectric-stack-lot": "batch-input" }, outputs: { "annealed-dielectric-stack-lot": "batch-output" },
+    },
+    policy: { lotDispatch: "fifo", powerPriority: 8 },
   },
   {
     id: "inspection-1", asset: "wafer-inspection-bay", region: "cleanroom", position: { x: 17, y: 20 }, rotation: 0,
@@ -249,8 +276,13 @@ connect("lithography-to-etch", { device: "lithography-1", port: "pattern-output"
 connect("etch-to-deposition", { device: "etch-1", port: "loop-output", side: "east" }, { device: "deposition-1", port: "etch-input", side: "west" }, ["etched-cell-l1-lot"], [
   { x: 20, y: 13 }, { x: 21, y: 13 }, { x: 22, y: 13 }, { x: 23, y: 13 }, { x: 24, y: 13 },
 ]);
-connect("deposition-return-to-lithography", { device: "deposition-1", port: "return-output", side: "north" }, { device: "lithography-1", port: "reentrant-input", side: "north" }, ["dielectric-stack-lot"], [
-  { x: 26, y: 11 }, { x: 26, y: 10 }, { x: 26, y: 9 }, { x: 26, y: 8 }, { x: 25, y: 8 }, { x: 24, y: 8 }, { x: 23, y: 8 }, { x: 22, y: 8 }, { x: 21, y: 8 }, { x: 20, y: 8 }, { x: 19, y: 8 }, { x: 18, y: 8 }, { x: 17, y: 8 }, { x: 16, y: 8 }, { x: 15, y: 8 }, { x: 14, y: 8 }, { x: 13, y: 8 }, { x: 12, y: 8 }, { x: 11, y: 8 }, { x: 10, y: 8 }, { x: 9, y: 8 }, { x: 9, y: 9 }, { x: 9, y: 10 }, { x: 9, y: 11 },
+connect("deposition-to-batch-furnace", { device: "deposition-1", port: "return-output", side: "north" }, { device: "furnace-1", port: "batch-input", side: "south" }, ["dielectric-stack-lot"], [
+  { x: 26, y: 11 }, { x: 26, y: 10 }, { x: 26, y: 9 }, { x: 26, y: 8 },
+]);
+connect("batch-furnace-to-lithography", { device: "furnace-1", port: "batch-output", side: "west" }, { device: "lithography-1", port: "reentrant-input", side: "north" }, ["annealed-dielectric-stack-lot"], [
+  { x: 24, y: 6 }, { x: 23, y: 6 }, { x: 22, y: 6 }, { x: 21, y: 6 }, { x: 20, y: 6 }, { x: 19, y: 6 }, { x: 18, y: 6 }, { x: 17, y: 6 },
+  { x: 16, y: 6 }, { x: 15, y: 6 }, { x: 14, y: 6 }, { x: 13, y: 6 }, { x: 12, y: 6 }, { x: 11, y: 6 }, { x: 10, y: 6 }, { x: 9, y: 6 },
+  { x: 9, y: 7 }, { x: 9, y: 8 }, { x: 9, y: 9 }, { x: 9, y: 10 }, { x: 9, y: 11 },
 ]);
 connect("etch-to-inspection", { device: "etch-1", port: "final-output", side: "south" }, { device: "inspection-1", port: "wafer-input", side: "north" }, ["dram-wafer-lot"], [
   { x: 18, y: 15 }, { x: 18, y: 16 }, { x: 18, y: 17 }, { x: 18, y: 18 }, { x: 18, y: 19 },
@@ -270,7 +302,7 @@ connect("inspection-to-scrap", { device: "inspection-1", port: "scrap-output", s
   { x: 18, y: 23 }, { x: 18, y: 24 }, { x: 18, y: 25 }, { x: 17, y: 25 }, { x: 17, y: 26 },
 ]);
 
-const blueprint = { version: 1, revision: "memory-fab-quality-v3", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
+const blueprint = { version: 1, revision: "memory-fab-batch-v4", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
 const experimentBlueprint = structuredClone(blueprint);
 for (const device of experimentBlueprint.devices) if (["lithography-1", "etch-1"].includes(String(device.id))) {
   device.policy = { ...(device.policy as Record<string, unknown>), recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
@@ -278,6 +310,10 @@ for (const device of experimentBlueprint.devices) if (["lithography-1", "etch-1"
 const experimentInspection = experimentBlueprint.devices.find((device) => device.id === "inspection-1");
 if (experimentInspection?.recipe && typeof experimentInspection.recipe === "object") {
   (experimentInspection.recipe as Record<string, unknown>).process = "inspect-final-pattern-deep";
+}
+const experimentFurnace = experimentBlueprint.devices.find((device) => device.id === "furnace-1");
+if (experimentFurnace?.recipe && typeof experimentFurnace.recipe === "object") {
+  (experimentFurnace.recipe as Record<string, unknown>).process = "rapid-anneal-dielectric-stack";
 }
 await json(join(project, "blueprints", "baseline.blueprint.json"), blueprint);
 await json(join(project, "blueprints", "experiment.blueprint.json"), experimentBlueprint);
@@ -344,6 +380,8 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "metric", path: "qualityFlow.totalReworkCycles", min: 2 },
     { kind: "metric", path: "qualityFlow.scrapDispositions", min: 1 },
     { kind: "metric", path: "qualityFlow.escapedDefects", equals: 1 },
+    { kind: "metric", path: "batchFlow.jobs", min: 4 },
+    { kind: "metric", path: "batchFlow.averageLotsPerJob", equals: 3 },
     { kind: "event", type: "device.start", present: true },
     { kind: "event", type: "device.changeover-finish", present: true },
     { kind: "event", type: "lot.completed", present: true },
@@ -366,8 +404,8 @@ await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
 
-await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses an identity-preserving wafer lot within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses standard inspection, authored operation order, and FIFO lots.\n\nThe checked-in candidate contains two kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, followed by deep inspection. Due-date dispatch improves every case, especially recovery after the lithography interruption, while deliberately paying more changeover work. Deep inspection catches latent electrical defects, consumes more inspection/rework time, and converts otherwise escaped lots into terminal scrap; the current Objective values that containment above maximum shipment count. Continue from this candidate rather than resetting it.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, buffers, routes, or power by editing the candidate Blueprint only. Yield, first-pass yield, quality escapes, rework, scrap, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
-await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before inline inspection. Their identities and latent defect state survive processing and physical transport. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise repairable critical-dimension defects, terminal particle contamination, and latent electrical defects missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nThe locked Coding Agent benchmark evaluates one candidate Blueprint across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption. This prevents a layout or policy from winning only by memorizing one defect schedule. The evaluator measures good and first-pass yield, inspection count, rework, scrap, quality escape, complete cycle, queue, processing, transport, changeover, on-time service, tardiness, and per-case score instead of inferring them from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters. Start with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, \`bun run inm benchmark examples/memory-fab --benchmark dispatch-research\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
+await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses identity-preserving wafer lots within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nBetween deposition and the second lithography pass, the baseline furnace requires three dielectric-stack lots before one fixed twelve-second anneal job may start. The same three lot identities leave together, and the evaluator owns actual lots/job plus pre-start batch queue wait. A six-second single-lot rapid-anneal Process is qualified on the same physical furnace, so batch policy is a visible Blueprint recipe choice instead of scheduler magic.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses fixed-batch anneal, standard inspection, authored operation order, and FIFO lots.\n\nThe checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Due-date dispatch improves service while paying more changeover work. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate; the locked four-case result decides whether its longer per-lot equipment demand is worthwhile. Continue from this candidate rather than resetting it.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, furnace duplication, release cadence, buffers, routes, or power by editing the candidate Blueprint only. Yield, first-pass yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
+await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition → thermal anneal, then return to the same lithography and etch work centers before inline inspection. Their identities and latent defect state survive processing and physical transport. The baseline furnace starts only when three lots are resident and returns the same three identities after one fixed batch job; its alternative rapid-anneal Process handles one lot at a time. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise repairable critical-dimension defects, terminal particle contamination, and latent electrical defects missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nThe locked Coding Agent benchmark evaluates one candidate Blueprint across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption. This prevents a layout or policy from winning only by memorizing one defect schedule. The evaluator measures good and first-pass yield, inspection count, rework, scrap, quality escape, actual lots per batch, pre-start batch queue wait, complete cycle, queue, processing, transport, changeover, on-time service, tardiness, and per-case score instead of inferring them from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters. Start with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, \`bun run inm benchmark examples/memory-fab --benchmark dispatch-research\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");
 
 const tsconfig = JSON.parse(await readFile(join(project, "assets", "tsconfig.json"), "utf8")) as Record<string, unknown>;

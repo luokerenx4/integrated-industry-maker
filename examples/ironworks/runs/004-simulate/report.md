@@ -3,12 +3,13 @@
 - Decision: **BASELINE**
 - Blueprint: `synthesized`
 - Score: **52.511**
-- Result hash: `189aae3775f584cf498b59019fe9e8f047587d3ce0325cc9caf11fa6251906d3`
+- Result hash: `65ca50be49f5011b9651c6eb1d509226465a18c8257f6cde031832684cf87234`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Tracked lots: 0 / 0 completed · 0 scrapped
 - Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
+- Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
 - Equipment setup: 0 changeovers · 0.000 s work
 - Target rate: 12.000 gear/min (100.0% attained)
 - Power allocation: proportional

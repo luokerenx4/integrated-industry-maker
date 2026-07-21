@@ -2,7 +2,7 @@
 
 Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Product model
 
@@ -71,7 +71,7 @@ A single Scenario rewards brittle layouts. A benchmark case suite represents an 
 
 The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. Blueprint-authored `policies.powerAllocation`, per-Device `policy.powerPriority`, station charging/high-speed policies, generation, and storage are part of the editable control program. The focused `power-priority` benchmark locks hard allocation under a 240 kW grid cap and proves that exactly three priority edits protect an assembler plus its explicit loader/unloader. The `power-satisfaction` benchmark keeps proportional allocation and proves that adding an ordinary renewable Device improves shared satisfaction and delivery without editing the harness. The `station-energy` benchmark begins with source charging below the carrier mission demand and accepts the one-policy repair that restores the station route. The `high-speed-transport` benchmark limits route batch size and accepts expedited line haul only when its shorter turnaround outweighs its extra energy. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
 
-The bundled [[examples/memory-fab]] program applies the same loop to a re-entrant DRAM route. Wafer lots revisit shared lithography and etch work centers, acquire fixed deterministic process excursions, then branch through inline inspection, selective rework, terminal scrap, or delivery. Mask/recipe setup groups, inspection coverage, repair capability, and excursion workload are fixed benchmark physics; operation choice, equipment count, topology, and lot dispatch remain Blueprint code. Four locked cases cover excursion-free flow, mixed quality work, a systematic excursion, and a timed lithography interruption. The checked-in candidate records two kept hypotheses: earliest-due-date dispatch improves every case, especially interruption recovery, while increasing sequence-dependent changeovers; deep inspection then eliminates latent electrical escapes while losing shipment count and service time. The locked score decides those industrial trades instead of hiding them in scheduler or evaluator code.
+The bundled [[examples/memory-fab]] program applies the same loop to a re-entrant DRAM route. Wafer lots revisit shared lithography and etch work centers, pass through a fixed three-lot thermal batch, acquire deterministic process excursions, then branch through inline inspection, selective rework, terminal scrap, or delivery. Mask/recipe setup groups, inspection coverage, repair capability, excursion workload, and the alternative batch/rapid anneal Processes are fixed benchmark physics; Process selection, equipment count, topology, and lot dispatch remain Blueprint code. Four locked cases cover excursion-free flow, mixed quality work, a systematic excursion, and a timed lithography interruption. The checked-in candidate records three kept hypotheses: earliest-due-date dispatch improves service while increasing sequence-dependent changeovers; deep inspection eliminates latent electrical escapes while losing shipment count; rapid single-lot anneal removes formation wait while consuming more furnace time per lot. The locked score decides those industrial trades instead of hiding them in scheduler or evaluator code.
 
 ## Source of truth
 
@@ -80,6 +80,7 @@ The bundled [[examples/memory-fab]] program applies the same loop to a re-entran
 - CLI rendering: `packages/inm-cli/src/commands.ts`
 - Example fixed harness: `examples/ironworks/benchmarks/autoresearch.benchmark.json`
 - Example Agent program: `examples/ironworks/AUTORESEARCH.md`
+- Memory-fab harness and program: `examples/memory-fab/benchmarks/dispatch-research.benchmark.json`, `examples/memory-fab/AUTORESEARCH.md`
 
 ## Verification
 

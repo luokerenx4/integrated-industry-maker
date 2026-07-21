@@ -1,8 +1,8 @@
 # Material, recipe, port, and buffer contracts
 
-Status: multi-input/multi-output Processes, mutually exclusive inspection dispositions, physical recipe-port binding, multi-operation work centers, setup groups, independent instance port filters, shared-buffer recipe partitions, treatment-aware contracts, and opt-in lot identity implemented through engine version `inm-sim/0.50.0`.
+Status: multi-input/multi-output Processes, mutually exclusive inspection dispositions, physical recipe-port binding, multi-operation work centers, setup groups, independent instance port filters, shared-buffer recipe partitions, treatment-aware contracts, and opt-in single- or multi-lot identity implemented through engine version `inm-sim/0.51.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/quality-flow]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
 ## Scope
 

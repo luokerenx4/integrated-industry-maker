@@ -2,6 +2,14 @@
   "averageBeltItems": 2.0375,
   "averageBlockedBeltItems": 0,
   "averageWip": 50.58775,
+  "batchFlow": {
+    "averageLotsPerJob": 0,
+    "batchOperations": 0,
+    "jobs": 0,
+    "lots": 0,
+    "meanQueueWaitTicksPerLot": 0,
+    "operations": {}
+  },
   "beltCellUtilization": 0.03041044776119403,
   "blockedOutputTime": {
     "assembler-1": 0,

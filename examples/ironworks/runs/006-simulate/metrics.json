@@ -2,6 +2,14 @@
   "averageBeltItems": 4.282166666666667,
   "averageBlockedBeltItems": 0.13333333333333333,
   "averageWip": 92.74158333333334,
+  "batchFlow": {
+    "averageLotsPerJob": 0,
+    "batchOperations": 0,
+    "jobs": 0,
+    "lots": 0,
+    "meanQueueWaitTicksPerLot": 0,
+    "operations": {}
+  },
   "beltCellUtilization": 0.02873937360178971,
   "blockedOutputTime": {
     "synth-assembly-zone-wind-turbine-1": 0,

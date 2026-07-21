@@ -174,6 +174,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {}, stationFleetBusyArea: {}, stationFleetCompletedReturns: {},
+    lotProcessBatches: {},
     consumedByRegion: {},
     powerGrids: Object.fromEntries(Object.keys(project.powerGrids).sort().map((grid) => [grid, {
       generatedMilliJoules: 0, demandMilliJoules: 0, servedMilliJoules: 0, unservedMilliJoules: 0, curtailedMilliJoules: 0,
@@ -1103,6 +1104,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, available) : 0 });
       setStatus(device.id, "unpowered"); return false;
     }
+    const lotQueueWaitAtStart = Object.fromEntries((selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
+      rankedLotIds(device, transfer.input.buffer, transfer.input.resource)
+        .filter((id) => state.lots[id]!.treatmentLevel >= (transfer.input.minimumTreatmentLevel ?? 0))
+        .slice(0, transfer.input.count)
+        .map((id) => [id, state.lots[id]!.status === "queued" ? state.tick - state.lots[id]!.statusSinceTick : 0])));
     const consumedLots = applyConsume(device, decision.consume, "process");
     let lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
       lotIds: consumedLots[amountKey(transfer.input)] ?? [],
@@ -1132,9 +1138,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ...(lotTransfers.length ? { lotTransfers } : {}),
       ...(quality ? { quality } : {}),
     };
+    const jobLotIds = lotTransfers.flatMap((transfer) => transfer.lotIds);
+    if (selectedProcessPlan && jobLotIds.length) {
+      const key = `${device.id}:${selectedProcessPlan.definition.id}:${selectedProcessPlan.mode.id}`;
+      const operation = stats.lotProcessBatches[key] ??= {
+        device: device.id, process: selectedProcessPlan.definition.id, mode: selectedProcessPlan.mode.id,
+        expectedLotsPerJob: selectedProcessPlan.lotTransfers.reduce((sum, transfer) => sum + transfer.input.count, 0),
+        jobs: 0, lots: 0, queueWaitTicks: 0, maximumLotsPerJob: 0,
+      };
+      operation.jobs += 1;
+      operation.lots += jobLotIds.length;
+      operation.queueWaitTicks += jobLotIds.reduce((sum, id) => sum + (lotQueueWaitAtStart[id] ?? 0), 0);
+      operation.maximumLotsPerJob = Math.max(operation.maximumLotsPerJob, jobLotIds.length);
+    }
     setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
     emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks,
-      ...(lotTransfers.length ? { lotIds: lotTransfers.flatMap((transfer) => transfer.lotIds) } : {}) });
+      ...(jobLotIds.length ? { lotIds: jobLotIds } : {}) });
     schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };

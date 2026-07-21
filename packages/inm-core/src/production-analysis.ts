@@ -225,7 +225,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -658,6 +658,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
       message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}; per-operation rates are exclusive maxima`,
+    });
+  }
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) for (const plan of device.processPlans) {
+    const lotsPerJob = plan.lotTransfers.reduce((sum, transfer) => sum + transfer.input.count, 0);
+    if (lotsPerJob <= 1) continue;
+    diagnostics.push({
+      code: "batch-process", severity: "info", device: device.id,
+      message: `${device.id}/${plan.definition.id} requires ${lotsPerJob} identity-preserving lots before one ${plan.durationTicks} ms batch job can start`,
     });
   }
   const selectedInspectionPlans = Object.values(project.devices).flatMap((device) => device.processPlans

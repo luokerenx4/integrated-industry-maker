@@ -16,6 +16,7 @@ Read the relevant linked document before changing a subsystem:
 - Standard, accelerated, and productive job semantics: [[docs/design/production-modes]]
 - Multi-operation equipment qualification, re-entrant routes, and ready-WIP dispatch: [[docs/design/work-center-dispatch]]
 - Identity-preserving WIP lots, due dates, and cycle-time evaluation: [[docs/design/lot-tracking]]
+- Fixed-size tracked-lot batches, formation wait, and Blueprint recipe alternatives: [[docs/design/batch-processing]]
 - Sequence-dependent setup groups, powered changeovers, and setup-aware dispatch: [[docs/design/equipment-changeover]]
 - Latent lot defects, inline inspection, selective rework, scrap, yield, and quality escapes: [[docs/design/quality-flow]]
 - Physical belts, sorters, junctions, stacking, and station fleets: [[docs/design/logistics]]

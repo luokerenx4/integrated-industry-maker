@@ -1,0 +1,105 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "thermal-batch-furnace",
+  "name": "Thermal Batch Furnace",
+  "description": "A carrier-scale furnace that can run an efficient three-lot batch or a faster single-lot rapid cycle.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "thermal"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "batch-input",
+        "direction": "input",
+        "side": "south",
+        "offset": 1,
+        "buffer": "batch-input",
+        "kind": "resource"
+      },
+      {
+        "id": "batch-output",
+        "direction": "output",
+        "side": "west",
+        "offset": 1,
+        "buffer": "batch-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "batch-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "batch-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "categories": [
+      "thermal"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "batch-input"
+    ],
+    "outputPorts": [
+      "batch-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 30000,
+    "activeMilliWatts": 280000
+  },
+  "economics": {
+    "buildCost": 16000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -942,6 +942,24 @@ export interface FactoryMetrics {
     goodYield: number;
     firstPassYield: number;
   };
+  batchFlow: {
+    batchOperations: number;
+    jobs: number;
+    lots: number;
+    averageLotsPerJob: number;
+    meanQueueWaitTicksPerLot: number;
+    operations: Record<string, {
+      device: string;
+      process: string;
+      mode: string;
+      expectedLotsPerJob: number;
+      jobs: number;
+      lots: number;
+      averageLotsPerJob: number;
+      maximumLotsPerJob: number;
+      meanQueueWaitTicksPerLot: number;
+    }>;
+  };
   energyConsumedMilliJoules: number;
   energyStorage: Record<string, {
     initialMilliJoules: number;

@@ -2,6 +2,14 @@
   "averageBeltItems": 1.6133333333333333,
   "averageBlockedBeltItems": 0,
   "averageWip": 3.2183333333333333,
+  "batchFlow": {
+    "averageLotsPerJob": 0,
+    "batchOperations": 0,
+    "jobs": 0,
+    "lots": 0,
+    "meanQueueWaitTicksPerLot": 0,
+    "operations": {}
+  },
   "beltCellUtilization": 0.03585185185185185,
   "blockedOutputTime": {
     "synth-chemical-basin-wind-turbine-1": 0,

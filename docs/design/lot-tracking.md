@@ -1,8 +1,8 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, due-date dispatch, setup-aware queueing, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.50.0`.
+Status: explicit WIP identity, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.51.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
 ## Why identity is industrial state
 
@@ -56,7 +56,7 @@ Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean 
 
 ## Current boundary
 
-Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Batch formation, dynamically timed releases, chamber cleaning, preventive maintenance, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
+Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]]. Dynamic releases, partial/timeout batches, chamber cleaning, preventive maintenance, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
 
 ## Verification
 

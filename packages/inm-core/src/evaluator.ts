@@ -17,6 +17,10 @@ export interface SimulationStats {
   connectionDeliveredByResource: Record<string, Record<string, number>>;
   stationFleetBusyArea: Record<string, number>;
   stationFleetCompletedReturns: Record<string, number>;
+  lotProcessBatches: Record<string, {
+    device: string; process: string; mode: string; expectedLotsPerJob: number;
+    jobs: number; lots: number; queueWaitTicks: number; maximumLotsPerJob: number;
+  }>;
   consumedByRegion: Record<string, Record<string, number>>;
   powerGrids: Record<string, {
     generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
@@ -77,6 +81,28 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     goodYield: targetLots.length ? defectFreeCompleted / targetLots.length : 0,
     firstPassYield: targetLots.length ? firstPassCompleted / targetLots.length : 0,
   };
+  const batchOperations = Object.fromEntries(Object.entries(stats.lotProcessBatches)
+    .filter(([, operation]) => operation.expectedLotsPerJob > 1)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, operation]) => [key, {
+      device: operation.device, process: operation.process, mode: operation.mode,
+      expectedLotsPerJob: operation.expectedLotsPerJob, jobs: operation.jobs, lots: operation.lots,
+      averageLotsPerJob: operation.jobs ? operation.lots / operation.jobs : 0,
+      maximumLotsPerJob: operation.maximumLotsPerJob,
+      meanQueueWaitTicksPerLot: operation.lots ? operation.queueWaitTicks / operation.lots : 0,
+    }]));
+  const batchFlow: FactoryMetrics["batchFlow"] = {
+    batchOperations: Object.keys(batchOperations).length,
+    jobs: Object.values(batchOperations).reduce((sum, operation) => sum + operation.jobs, 0),
+    lots: Object.values(batchOperations).reduce((sum, operation) => sum + operation.lots, 0),
+    averageLotsPerJob: 0,
+    meanQueueWaitTicksPerLot: 0,
+    operations: batchOperations,
+  };
+  batchFlow.averageLotsPerJob = batchFlow.jobs ? batchFlow.lots / batchFlow.jobs : 0;
+  const totalBatchQueueWait = Object.values(batchOperations)
+    .reduce((sum, operation) => sum + operation.meanQueueWaitTicksPerLot * operation.lots, 0);
+  batchFlow.meanQueueWaitTicksPerLot = batchFlow.lots ? totalBatchQueueWait / batchFlow.lots : 0;
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
   const waitingInputTime: Record<string, Tick> = {};
@@ -213,7 +239,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, qualityFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

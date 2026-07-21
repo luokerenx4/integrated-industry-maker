@@ -3,12 +3,13 @@
 - Decision: **KEEP**
 - Blueprint: `main`
 - Score: **85.600**
-- Result hash: `98556e47f82dc8f2a94c1614eb70afa4e99c55a83c80f4ed169aa2deb63aed23`
+- Result hash: `704d9002fb8fccbaf3c2cc73edb04e219ab5d1d5ee9943584488319aa46f977b`
 - Bottleneck: smelter-1
 - Throughput/min: 13.000
 - Tracked lots: 0 / 0 completed · 0 scrapped
 - Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
+- Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
 - Equipment setup: 0 changeovers · 0.000 s work
 - Target rate: 12.000 gear/min (100.0% attained)
 - Power allocation: proportional

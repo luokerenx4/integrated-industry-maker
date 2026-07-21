@@ -27,6 +27,10 @@ export interface BlueprintMetricSnapshot {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  batchJobs: number;
+  batchLots: number;
+  averageLotsPerBatch: number;
+  meanBatchQueueWaitTicksPerLot: number;
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -62,6 +66,10 @@ export interface BlueprintMetricDelta {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  batchJobs: number;
+  batchLots: number;
+  averageLotsPerBatch: number;
+  meanBatchQueueWaitTicksPerLot: number;
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -219,6 +227,10 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     firstPassYield: metrics.qualityFlow.firstPassYield,
     qualityEscapes: metrics.qualityFlow.escapedDefects,
     reworkCycles: metrics.qualityFlow.totalReworkCycles,
+    batchJobs: metrics.batchFlow.jobs,
+    batchLots: metrics.batchFlow.lots,
+    averageLotsPerBatch: metrics.batchFlow.averageLotsPerJob,
+    meanBatchQueueWaitTicksPerLot: metrics.batchFlow.meanQueueWaitTicksPerLot,
     meanCycleTimeTicks: metrics.lotFlow.meanCycleTimeTicks,
     p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
     meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,
@@ -256,6 +268,10 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     firstPassYield: after.firstPassYield - before.firstPassYield,
     qualityEscapes: after.qualityEscapes - before.qualityEscapes,
     reworkCycles: after.reworkCycles - before.reworkCycles,
+    batchJobs: after.batchJobs - before.batchJobs,
+    batchLots: after.batchLots - before.batchLots,
+    averageLotsPerBatch: after.averageLotsPerBatch - before.averageLotsPerBatch,
+    meanBatchQueueWaitTicksPerLot: after.meanBatchQueueWaitTicksPerLot - before.meanBatchQueueWaitTicksPerLot,
     meanCycleTimeTicks: after.meanCycleTimeTicks - before.meanCycleTimeTicks,
     p95CycleTimeTicks: after.p95CycleTimeTicks - before.p95CycleTimeTicks,
     meanQueueTimeTicks: after.meanQueueTimeTicks - before.meanQueueTimeTicks,

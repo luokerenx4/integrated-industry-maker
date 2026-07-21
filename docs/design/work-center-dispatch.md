@@ -1,8 +1,8 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, setup-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.50.0`.
+Status: multi-operation qualification plus operation-, lot-, fixed-batch-, setup-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.51.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
 ## Why this exists
 
@@ -43,7 +43,7 @@ The event stream records the selected Process id and tracked lot ids in `device.
 
 `inm analyze` emits one row per qualified operation. Its cycles/min value is an exclusive maximum: the rate if that operation owned the work center continuously. A `shared-work-center` diagnostic names the dispatch policy and warns that those maxima cannot run simultaneously. Material-balance and capacity planning enumerate every qualified operation, but the first implementation does not yet solve a coupled allocation variable across all operations on one physical Device. Locked event simulation is therefore the score authority for re-entrant work-center optimization.
 
-The next industrial layers should make that coupling richer rather than hide it: minimum/maximum batch formation, chamber cleaning consumables, qualification expiry, preventive maintenance and breakdown repair, stochastic-but-seeded yield, inspection, scrap, and rework routes.
+Fixed full-batch formation is now executable; see [[docs/design/batch-processing]]. The next industrial layers should make that coupling richer rather than hide it: minimum/maximum and timeout batches, chamber cleaning consumables, qualification expiry, preventive maintenance and breakdown repair, and stochastic-but-seeded yield.
 
 ## Memory-fab reference project
 

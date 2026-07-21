@@ -551,7 +551,7 @@ A re-entrant work center uses `recipes` instead of `recipe`:
 }
 ```
 
-`recipe` and `recipes` are mutually exclusive. `recipeDispatch` accepts static operation rules (`authored-order`, `shortest-cycle`, `highest-priority`, `minimize-changeover`) and tracked-WIP rules (`oldest-lot`, `earliest-due-date`, `highest-lot-priority`); omission means `authored-order`. `minimize-changeover` prefers ready work in the Device's current setup group. `lotDispatch` is `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority` and chooses identities within the winning operation. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties deterministically. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], and [[docs/design/equipment-changeover]].
+`recipe` and `recipes` are mutually exclusive. `recipeDispatch` accepts static operation rules (`authored-order`, `shortest-cycle`, `highest-priority`, `minimize-changeover`) and tracked-WIP rules (`oldest-lot`, `earliest-due-date`, `highest-lot-priority`); omission means `authored-order`. `minimize-changeover` prefers ready work in the Device's current setup group. `lotDispatch` is `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority` and chooses the exact identity set within the winning operation. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties deterministically. An equal multi-lot tracked input/output count is one fixed identity-preserving batch; see [[docs/design/batch-processing]]. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], and [[docs/design/equipment-changeover]].
 
 Non-recipe Devices can configure ingress/egress independently:
 
@@ -739,7 +739,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.50.0",
+        "engineVersion": "inm-sim/0.51.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

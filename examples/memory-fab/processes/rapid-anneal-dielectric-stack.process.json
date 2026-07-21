@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "rapid-anneal-dielectric-stack",
+  "name": "Rapid anneal one dielectric stack lot",
+  "description": "A single-lot thermal cycle with lower queue delay but less carrier-level energy and capacity efficiency.",
+  "category": "thermal",
+  "tags": [
+    "dram",
+    "front-end",
+    "single-lot",
+    "thermal"
+  ],
+  "durationTicks": 6000,
+  "inputs": [
+    {
+      "resource": "dielectric-stack-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "annealed-dielectric-stack-lot",
+      "count": 1
+    }
+  ]
+}

@@ -67,6 +67,16 @@
       "equals": 1
     },
     {
+      "kind": "metric",
+      "path": "batchFlow.jobs",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "batchFlow.averageLotsPerJob",
+      "equals": 3
+    },
+    {
       "kind": "event",
       "type": "device.start",
       "present": true

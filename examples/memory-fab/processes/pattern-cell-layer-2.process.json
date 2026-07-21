@@ -13,7 +13,7 @@
   "durationTicks": 6000,
   "inputs": [
     {
-      "resource": "dielectric-stack-lot",
+      "resource": "annealed-dielectric-stack-lot",
       "count": 1
     }
   ],

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "batch-anneal-dielectric-stack",
+  "name": "Batch anneal capacitor dielectric stacks",
+  "description": "A three-lot furnace cycle that waits for a complete carrier batch before thermal annealing.",
+  "category": "thermal",
+  "tags": [
+    "dram",
+    "front-end",
+    "batch",
+    "thermal"
+  ],
+  "durationTicks": 12000,
+  "inputs": [
+    {
+      "resource": "dielectric-stack-lot",
+      "count": 3
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "annealed-dielectric-stack-lot",
+      "count": 3
+    }
+  ]
+}

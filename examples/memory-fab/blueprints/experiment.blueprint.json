@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": "memory-fab-quality-v3",
+  "revision": "memory-fab-batch-v4",
   "devices": [
     {
       "id": "lot-release",
@@ -43,7 +43,7 @@
           "mode": "qualified",
           "priority": 10,
           "inputs": {
-            "dielectric-stack-lot": "reentrant-input"
+            "annealed-dielectric-stack-lot": "reentrant-input"
           },
           "outputs": {
             "patterned-cell-l2-lot": "pattern-output"
@@ -115,6 +115,30 @@
         }
       },
       "policy": {
+        "powerPriority": 8
+      }
+    },
+    {
+      "id": "furnace-1",
+      "asset": "thermal-batch-furnace",
+      "region": "cleanroom",
+      "position": {
+        "x": 25,
+        "y": 5
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "rapid-anneal-dielectric-stack",
+        "mode": "qualified",
+        "inputs": {
+          "dielectric-stack-lot": "batch-input"
+        },
+        "outputs": {
+          "annealed-dielectric-stack-lot": "batch-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "fifo",
         "powerPriority": 8
       }
     },
@@ -339,7 +363,7 @@
       }
     },
     {
-      "id": "deposition-return-to-lithography-loader",
+      "id": "deposition-to-batch-furnace-loader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -348,13 +372,43 @@
       },
       "rotation": 270,
       "transportEndpoint": {
-        "connection": "deposition-return-to-lithography",
+        "connection": "deposition-to-batch-furnace",
         "stage": "loader",
         "distance": 1
       }
     },
     {
-      "id": "deposition-return-to-lithography-unloader",
+      "id": "deposition-to-batch-furnace-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 26,
+        "y": 8
+      },
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "deposition-to-batch-furnace",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "batch-furnace-to-lithography-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 24,
+        "y": 6
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "batch-furnace-to-lithography",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "batch-furnace-to-lithography-unloader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -363,7 +417,7 @@
       },
       "rotation": 90,
       "transportEndpoint": {
-        "connection": "deposition-return-to-lithography",
+        "connection": "batch-furnace-to-lithography",
         "stage": "unloader",
         "distance": 1
       }
@@ -667,14 +721,14 @@
       }
     },
     {
-      "id": "deposition-return-to-lithography",
+      "id": "deposition-to-batch-furnace",
       "from": {
         "device": "deposition-1",
         "port": "return-output"
       },
       "to": {
-        "device": "lithography-1",
-        "port": "reentrant-input"
+        "device": "furnace-1",
+        "port": "batch-input"
       },
       "resources": [
         "dielectric-stack-lot"
@@ -695,70 +749,101 @@
         {
           "x": 26,
           "y": 8
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "deposition-to-batch-furnace-loader"
         },
-        {
-          "x": 25,
-          "y": 8
+        "line": {
+          "deviceAsset": "conveyor"
         },
+        "unloader": {
+          "device": "deposition-to-batch-furnace-unloader"
+        }
+      }
+    },
+    {
+      "id": "batch-furnace-to-lithography",
+      "from": {
+        "device": "furnace-1",
+        "port": "batch-output"
+      },
+      "to": {
+        "device": "lithography-1",
+        "port": "reentrant-input"
+      },
+      "resources": [
+        "annealed-dielectric-stack-lot"
+      ],
+      "path": [
         {
           "x": 24,
-          "y": 8
+          "y": 6
         },
         {
           "x": 23,
-          "y": 8
+          "y": 6
         },
         {
           "x": 22,
-          "y": 8
+          "y": 6
         },
         {
           "x": 21,
-          "y": 8
+          "y": 6
         },
         {
           "x": 20,
-          "y": 8
+          "y": 6
         },
         {
           "x": 19,
-          "y": 8
+          "y": 6
         },
         {
           "x": 18,
-          "y": 8
+          "y": 6
         },
         {
           "x": 17,
-          "y": 8
+          "y": 6
         },
         {
           "x": 16,
-          "y": 8
+          "y": 6
         },
         {
           "x": 15,
-          "y": 8
+          "y": 6
         },
         {
           "x": 14,
-          "y": 8
+          "y": 6
         },
         {
           "x": 13,
-          "y": 8
+          "y": 6
         },
         {
           "x": 12,
-          "y": 8
+          "y": 6
         },
         {
           "x": 11,
-          "y": 8
+          "y": 6
         },
         {
           "x": 10,
-          "y": 8
+          "y": 6
+        },
+        {
+          "x": 9,
+          "y": 6
+        },
+        {
+          "x": 9,
+          "y": 7
         },
         {
           "x": 9,
@@ -779,13 +864,13 @@
       ],
       "logistics": {
         "loader": {
-          "device": "deposition-return-to-lithography-loader"
+          "device": "batch-furnace-to-lithography-loader"
         },
         "line": {
           "deviceAsset": "conveyor"
         },
         "unloader": {
-          "device": "deposition-return-to-lithography-unloader"
+          "device": "batch-furnace-to-lithography-unloader"
         }
       }
     },

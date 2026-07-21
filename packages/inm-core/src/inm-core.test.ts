@@ -718,6 +718,15 @@ describe("blueprint compiler", () => {
     expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 2, totalSetupTicks: 7_000 }));
     expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(2);
     expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(2);
+    expect(baseline.metrics.batchFlow).toEqual(expect.objectContaining({
+      batchOperations: 1, jobs: 4, lots: 12, averageLotsPerJob: 3, meanQueueWaitTicksPerLot: 7_000,
+    }));
+    expect(baseline.metrics.batchFlow.operations["furnace-1:batch-anneal-dielectric-stack:qualified"]).toEqual(expect.objectContaining({
+      expectedLotsPerJob: 3, jobs: 4, lots: 12, averageLotsPerJob: 3, maximumLotsPerJob: 3,
+    }));
+    const furnaceStarts = baseline.events.filter((event) => event.type === "device.start" && event.device === "furnace-1");
+    expect(furnaceStarts).toHaveLength(4);
+    expect(furnaceStarts.every((event) => event.type === "device.start" && event.lotIds?.length === 3)).toBeTrue();
 
     const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
@@ -727,7 +736,7 @@ describe("blueprint compiler", () => {
     const candidate = runUntil(compileFactoryProject(candidateSource), undefined, { seed: 42 });
     expect(candidate.metrics.lotFlow.onTimeCompleted).toBeGreaterThan(baseline.metrics.lotFlow.onTimeCompleted);
     expect(candidate.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeLessThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
+    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeGreaterThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
     expect(candidate.metrics.equipmentSetups.totalChangeovers).toBeGreaterThan(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(candidate.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
 
@@ -2580,7 +2589,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect((await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash).not.toBe(previousLock);
   }, 20_000);
 
-  test("keeps a due-date dispatch improvement across the locked memory-fab operating envelope", async () => {
+  test("keeps dispatch, inspection, and rapid-anneal improvements across the locked memory-fab envelope", async () => {
     const result = await evaluateBlueprintBenchmark(memoryFab, "dispatch-research");
     expect(result.verdict).toBe("KEEP");
     expect(result.accepted).toBeTrue();
@@ -2591,9 +2600,9 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.cases.every((item) => item.scoreDelta > 0)).toBeTrue();
     expect(result.minimumCaseScoreDelta).toBeCloseTo(Math.min(...result.cases.map((item) => item.scoreDelta)), 8);
     expect(result.worstCaseCandidateScore).toBeGreaterThan(result.worstCaseBaselineScore);
-    expect(result.scoreDelta).toBeGreaterThan(9);
+    expect(result.scoreDelta).toBeGreaterThan(8);
     expect(result.cases.every((item) => item.candidateMetrics.qualityEscapes === 0)).toBeTrue();
-    expect(result.changes).toHaveLength(3);
+    expect(result.changes).toHaveLength(4);
   });
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {
