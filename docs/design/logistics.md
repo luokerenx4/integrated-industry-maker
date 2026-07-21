@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: explicit sorter Devices, physical local logistics, and treatment-aware dispatch implemented through `inm-sim/0.40.0`.
+Status: explicit sorter Devices, physical local logistics, and treatment-aware dispatch implemented through `inm-sim/0.41.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 

@@ -1,8 +1,8 @@
 # INM Run 001-keep-switch-assembler-1-from-assemble-gear
 
 - Decision: **KEEP**
-- Score: **43.260**
-- Result hash: `69e879726c35cccfaa2c567f705ff71736cdaf78b8cab1162d542e346fa43951`
+- Score: **43.233**
+- Result hash: `9b10b37b367c2e66190c974d1edf02ec4af4635d59911d6243abbcce17a681b2`
 - Bottleneck: smelter-1
 - Throughput/min: 8.000
 - Target rate: 12.000 gear/min (66.7% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 1.8%
 - Average blocked belt items: 0.000
 - Peak belt items: 5
-- Powered transport energy: 257.200 J
+- Powered transport energy: 1152.900 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -47,7 +47,7 @@
   "blocked": -2.138333333333333,
   "buildCost": -12.72,
   "constraintPenalty": 0,
-  "energy": -2.0488820000000003,
+  "energy": -2.075818,
   "occupiedArea": -21.200000000000003,
   "onTimeDelivery": 6.666666666666666,
   "throughput": 80,

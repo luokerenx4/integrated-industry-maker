@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `bb300799fbbfa70cda2f16534ee214830dd7a6abc0f16e8d6b219a49cf80ccc8`
+- Result hash: `98b99d6c9e4d0f6a83ae91e995f2fc3bfcf4f848d7920e5ba3e7b606c07f7101`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Target rate: 240.000 iron-ore/min (100.0% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 10.0%
 - Average blocked belt items: 0.000
 - Peak belt items: 8
-- Powered transport energy: 3.750 J
+- Powered transport energy: 7.000 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -37,7 +37,7 @@ No configured accumulators.
   "blocked": 0,
   "buildCost": -1.205,
   "constraintPenalty": 0,
-  "energy": -0.0000375,
+  "energy": -0.00007000000000000001,
   "occupiedArea": -3.2,
   "onTimeDelivery": 10,
   "throughput": 240,

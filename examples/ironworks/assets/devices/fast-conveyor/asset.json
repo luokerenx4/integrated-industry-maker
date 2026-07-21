@@ -10,7 +10,7 @@
   "buffers": [],
   "logistics": { "roles": ["line"] },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 0 },
+  "power": { "idleMilliWatts": 0, "activeMilliWatts": 0 },
   "economics": { "buildCost": 25 },
   "files": { "visual": "visual.json" }
 }

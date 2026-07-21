@@ -20,7 +20,7 @@
     "itemsPerCycle": 1
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 50000 },
+  "power": { "idleMilliWatts": 3000, "activeMilliWatts": 50000 },
   "economics": { "buildCost": 500 },
   "files": { "visual": "visual.json" }
 }

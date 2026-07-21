@@ -3,6 +3,7 @@ import type { ActiveDeviceJob, BeltTransit, DeviceStatus, FactoryState, Resource
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
   | { kind: "status"; device: string; status: DeviceStatus }
+  | { kind: "idle-power"; device: string; powered: boolean }
   | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number }
   | { kind: "transport.add"; connection: string; transit: BeltTransit }
   | { kind: "transport.update"; connection: string; transitId: string; changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & { blockedBy?: string | null } }
@@ -30,6 +31,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
   switch (mutation.kind) {
     case "tick": state.tick = mutation.tick; return;
     case "status": state.devices[mutation.device]!.status = mutation.status; return;
+    case "idle-power": state.devices[mutation.device]!.idlePowered = mutation.powered; return;
     case "buffer": {
       const runtime = state.devices[mutation.device]!;
       const inventory = runtime.buffers[mutation.buffer];

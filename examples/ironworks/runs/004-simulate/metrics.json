@@ -51,7 +51,7 @@
   "consumed": {
     "gear": 24
   },
-  "energyConsumedMilliJoules": 210049600,
+  "energyConsumedMilliJoules": 215251800,
   "energyStorage": {
     "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
       "capacityMilliJoules": 0,
@@ -115,7 +115,7 @@
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": 0,
     "synth-smelt-iron-1": 0
   },
-  "finalScore": 55.989962333333324,
+  "finalScore": 55.93794033333333,
   "fuelConsumed": {},
   "idleTime": {
     "synth-assembly-world-wind-turbine-1": 120000,
@@ -222,27 +222,27 @@
   "peakBeltItems": 15,
   "powerGrids": {
     "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
-      "curtailedMilliJoules": 114809900,
-      "demandMilliJoules": 101190100,
+      "curtailedMilliJoules": 109991425,
+      "demandMilliJoules": 106008575,
       "generatedMilliJoules": 216000000,
       "peakDeficitMilliWatts": 0,
-      "peakDemandMilliWatts": 1196000,
+      "peakDemandMilliWatts": 1221500,
       "peakGenerationMilliWatts": 1800000,
-      "peakSurplusMilliWatts": 1060000,
+      "peakSurplusMilliWatts": 1015000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 101190100,
+      "servedMilliJoules": 106008575,
       "unservedMilliJoules": 0
     },
     "grid-forge-world-synth-forge-world-wind-turbine-1": {
-      "curtailedMilliJoules": 35140500,
-      "demandMilliJoules": 108859500,
+      "curtailedMilliJoules": 34756775,
+      "demandMilliJoules": 109243225,
       "generatedMilliJoules": 144000000,
       "peakDeficitMilliWatts": 0,
-      "peakDemandMilliWatts": 936000,
+      "peakDemandMilliWatts": 936500,
       "peakGenerationMilliWatts": 1200000,
-      "peakSurplusMilliWatts": 450000,
+      "peakSurplusMilliWatts": 438000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 108859500,
+      "servedMilliJoules": 109243225,
       "unservedMilliJoules": 0
     }
   },
@@ -294,7 +294,7 @@
     "blocked": -2.305,
     "buildCost": -15.875,
     "constraintPenalty": 0,
-    "energy": -2.100496,
+    "energy": -2.152518,
     "occupiedArea": -46.2,
     "onTimeDelivery": 10,
     "throughput": 120,
@@ -303,7 +303,7 @@
   "throughputPerMinute": 12,
   "totalBuildCost": 31750,
   "transportCongestion": 0.08890472237594618,
-  "transportEnergyConsumedMilliJoules": 345600,
+  "transportEnergyConsumedMilliJoules": 1699200,
   "transportFlows": {
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split": {
       "averageInFlightItems": 0.23333333333333334,

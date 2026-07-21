@@ -89,7 +89,8 @@ export const deviceAssetSchema = z.object({
   }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
   power: z.object({
-    consumptionMilliWatts: nonNegativeInt,
+    idleMilliWatts: nonNegativeInt,
+    activeMilliWatts: nonNegativeInt,
     generation: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("renewable"), outputMilliWatts: positiveInt }).strict(),
       z.object({ kind: z.literal("fuel"), outputMilliWatts: positiveInt, fuelBuffer: id, fuels: z.array(id).min(1) }).strict(),

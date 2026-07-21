@@ -1,8 +1,8 @@
 # INM Run 006-simulate
 
 - Decision: **BASELINE**
-- Score: **187.461**
-- Result hash: `94debfd5ab509e271fd43dfb817f7c5def983d303691df25de37cc0bf6104515`
+- Score: **187.411**
+- Result hash: `0d9f60a717e182d7fb892c4e1c14a00dddada4e1b6710dd7796874f2ee9b6a5e`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 26.000
 - Target rate: 24.000 gear/min (100.0% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 3.0%
 - Average blocked belt items: 0.173
 - Peak belt items: 16
-- Powered transport energy: 834.500 J
+- Powered transport energy: 2545.875 J
 - Material treated: 36 coal@2 + 40 iron-plate@2
 - Treatment agents consumed: 19 proliferator
 - Aggregate unpowered time: 0 device-ticks
@@ -52,7 +52,7 @@ No configured accumulators.
   "blocked": -3.19,
   "buildCost": -17.285,
   "constraintPenalty": 0,
-  "energy": -2.502145,
+  "energy": -2.55196375,
   "occupiedArea": -50.6,
   "onTimeDelivery": 10,
   "throughput": 260,

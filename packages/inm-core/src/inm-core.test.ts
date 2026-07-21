@@ -134,7 +134,7 @@ describe("temporal power envelope planning", () => {
     const plan = optimizePowerInfrastructure({
       durationTicks: 8_000, loadMilliWatts: 180_000, minimumGenerators: 1,
       generator: { outputMilliWatts: 600_000, buildCost: 1_400, occupiedArea: 4, profile },
-      storage: { capacityMilliJoules: 1_000_000, chargeMilliWatts: 500_000, dischargeMilliWatts: 500_000, consumptionMilliWatts: 0, buildCost: 100, occupiedArea: 1 },
+      storage: { capacityMilliJoules: 1_000_000, chargeMilliWatts: 500_000, dischargeMilliWatts: 500_000, idleMilliWatts: 0, buildCost: 100, occupiedArea: 1 },
     });
     expect(plan).toEqual(expect.objectContaining({ generators: 1, storageDevices: 1, buildCost: 1_500 }));
     expect(plan!.envelope.unservedMilliJoules).toBe(0);
@@ -355,10 +355,10 @@ describe("factory synthesis", () => {
     for (const region of source.world.regions) {
       expect(Object.values(project.powerGrids).filter((grid) => grid.region === region.id)).toHaveLength(1);
     }
-    expect(Object.values(project.devices).filter((device) => device.assetDef.power.consumptionMilliWatts > 0)
+    expect(Object.values(project.devices).filter((device) => device.assetDef.power.activeMilliWatts > 0)
       .every((device) => device.powerGrid)).toBeTrue();
     expect(Object.values(project.connections).flatMap((connection) => connection.logisticsStages)
-      .filter((stage) => stage.stage !== "line" && stage.asset.power.consumptionMilliWatts > 0)
+      .filter((stage) => stage.stage !== "line" && stage.asset.power.activeMilliWatts > 0)
       .every((stage) => stage.powerGrid)).toBeTrue();
     const capacityPlan = planProductionCapacity(project);
     expect(capacityPlan.ready).toBeTrue();
@@ -609,6 +609,12 @@ describe("blueprint compiler", () => {
   test("rejects unknown device assets", async () => {
     const source = await loaded(); source.blueprint.devices[0]!.asset = "missing-device";
     expect(issueCodes(() => compileFactoryProject(source))).toContain("reference.device");
+  });
+
+  test("rejects Device power envelopes whose idle draw exceeds the active total", async () => {
+    const source = await loaded();
+    source.deviceAssets.smelter!.power.idleMilliWatts = source.deviceAssets.smelter!.power.activeMilliWatts + 1;
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("power.idle-exceeds-active");
   });
 
   test("rejects missing and incompatible process bindings", async () => {
@@ -1046,7 +1052,8 @@ describe("deterministic discrete-event simulation", () => {
   test("powered transport endpoints stop and recover with their local grid", async () => {
     const source = await loaded();
     source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 11_000 };
-    source.deviceAssets.splitter!.power.consumptionMilliWatts = 10_000;
+    source.deviceAssets.splitter!.power.idleMilliWatts = 10_000;
+    source.deviceAssets.splitter!.power.activeMilliWatts = 10_000;
     source.blueprint.devices = [
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 4, y: 0 }, rotation: 0 },
@@ -1075,7 +1082,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.events.find((event) => event.type === "resource.arrive")?.tick).toBe(1_300);
     expect(result.metrics.transportStageUtilization["powered-belt"]!.loader).toBeGreaterThan(0);
     expect(result.metrics.transportStageUtilization["powered-belt"]!.unloader).toBeGreaterThan(0);
-    expect(result.metrics.transportEnergyConsumedMilliJoules).toBe(1_000);
+    expect(result.metrics.transportEnergyConsumedMilliJoules).toBe(2_750);
   });
 
   test("explicit sorter failures pause their own in-flight stage and resume exact remaining work", async () => {
@@ -1085,7 +1092,8 @@ describe("deterministic discrete-event simulation", () => {
       evaluate: () => ({ kind: "none" }),
       planTransport: () => ({ capacity: 1, durationTicks: 1_000 }),
     };
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 4, y: 0 }, rotation: 0 },
@@ -1123,7 +1131,8 @@ describe("deterministic discrete-event simulation", () => {
       evaluate: () => ({ kind: "none" }),
       planTransport: () => ({ capacity: 1, durationTicks: 1_000 }),
     };
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source-buffer", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target-buffer", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
@@ -1145,7 +1154,8 @@ describe("deterministic discrete-event simulation", () => {
 
   test("sorter span changes physical belt endpoints, latency, and throughput", async () => {
     const source = await loaded();
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "span-source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "span-target", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
@@ -1205,7 +1215,8 @@ describe("deterministic discrete-event simulation", () => {
   test("connections sharing physical belt cells share bandwidth with deterministic fair arbitration", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source-a", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "source-b", asset: "buffer", region: "forge-world", position: { x: 0, y: 2 }, rotation: 0 },
@@ -1240,7 +1251,8 @@ describe("deterministic discrete-event simulation", () => {
   test("slow unloading fills concrete belt cells and propagates backpressure upstream", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.deviceAssets["slow-unloader"] = {
       ...source.deviceAssets.sorter!, id: "slow-unloader", name: "Slow unloader",
       program: { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 1_000 }) },
@@ -1301,8 +1313,10 @@ describe("deterministic discrete-event simulation", () => {
 
   test("shortage-first dispatch feeds the least-covered downstream buffer deterministically", async () => {
     const source = await loaded();
-    source.deviceAssets.splitter!.power.consumptionMilliWatts = 0;
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.splitter!.power.idleMilliWatts = 0;
+    source.deviceAssets.splitter!.power.activeMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source", asset: "splitter", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0 },
       { id: "stocked", asset: "buffer", region: "forge-world", position: { x: 10, y: 4 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
@@ -1329,7 +1343,8 @@ describe("deterministic discrete-event simulation", () => {
 
   test("shortage-first dispatch chooses the least-covered Resource on a shared lane and counts inbound cargo", async () => {
     const source = await loaded();
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
@@ -1352,8 +1367,10 @@ describe("deterministic discrete-event simulation", () => {
 
   test("explicit output priority overrides shortage-first dispatch", async () => {
     const source = await loaded();
-    source.deviceAssets.splitter!.power.consumptionMilliWatts = 0;
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.splitter!.power.idleMilliWatts = 0;
+    source.deviceAssets.splitter!.power.activeMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source", asset: "splitter", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0, policy: { dispatch: "shortage-first", outputPriority: "output-east" } },
       { id: "preferred", asset: "buffer", region: "forge-world", position: { x: 10, y: 4 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
@@ -1376,7 +1393,8 @@ describe("deterministic discrete-event simulation", () => {
 
   test("connection Resource filters admit only the declared material from a mixed source", async () => {
     const source = await loaded();
-    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "gear-only", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
@@ -1567,6 +1585,56 @@ describe("deterministic discrete-event simulation", () => {
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42, untilTick: 10_000 });
     expect(result.events.some((event) => event.type === "power.shortage" && event.grid === null)).toBeTrue();
     expect(result.state.devices["ore-source-1"]!.status).toBe("unpowered");
+  });
+
+  test("connected idle Devices consume their standby envelope while waiting for input", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "accumulator-1");
+    source.scenario.initialBuffers = {};
+    source.scenario.initialEnergyMilliJoules = {};
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 2_000 });
+    const grid = Object.values(result.metrics.powerGrids)[0]!;
+    expect(result.state.devices["smelter-1"]!.status).toBe("waiting-input");
+    expect(result.state.devices["smelter-1"]!.idlePowered).toBeTrue();
+    expect(result.state.energy.consumedMilliJoules).toBe(20_000);
+    expect(grid.demandMilliJoules).toBe(20_000);
+    expect(grid.servedMilliJoules).toBe(20_000);
+  });
+
+  test("active draw includes standby instead of adding it twice", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "accumulator-1");
+    source.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 2 } } };
+    source.scenario.initialEnergyMilliJoules = {};
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 4_000 });
+    const grid = Object.values(result.metrics.powerGrids)[0]!;
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "device.start", tick: 0, device: "smelter-1" }));
+    expect(result.state.energy.consumedMilliJoules).toBe(720_000);
+    expect(grid.demandMilliJoules).toBe(720_000);
+    expect(grid.peakDemandMilliWatts).toBe(180_000);
+  });
+
+  test("standby allocation sheds Devices deterministically when a grid cannot cover idle demand", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 15_000 };
+    const smelter = source.blueprint.devices.find((device) => device.id === "smelter-1")!;
+    source.blueprint.devices = [
+      source.blueprint.devices.find((device) => device.id === "wind-1")!,
+      { ...structuredClone(smelter), id: "a-smelter", position: { x: 5, y: 6 } },
+      { ...structuredClone(smelter), id: "b-smelter", position: { x: 9, y: 6 } },
+    ];
+    source.scenario.initialBuffers = {};
+    source.scenario.initialEnergyMilliJoules = {};
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 2_000 });
+    const grid = Object.values(result.metrics.powerGrids)[0]!;
+    expect(result.state.devices["a-smelter"]!.status).toBe("waiting-input");
+    expect(result.state.devices["b-smelter"]!.status).toBe("unpowered");
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "power.shortage", tick: 0, device: "b-smelter", requiredMilliWatts: 10_000, availableMilliWatts: 5_000,
+    }));
+    expect(grid.demandMilliJoules).toBe(40_000);
+    expect(grid.servedMilliJoules).toBe(20_000);
+    expect(grid.unservedMilliJoules).toBe(20_000);
   });
 
   test("renewable surplus charges grid storage continuously", async () => {

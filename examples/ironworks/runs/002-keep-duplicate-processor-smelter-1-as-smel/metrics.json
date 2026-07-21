@@ -48,7 +48,7 @@
   "consumed": {
     "gear": 28
   },
-  "energyConsumedMilliJoules": 224443000,
+  "energyConsumedMilliJoules": 227689250,
   "energyStorage": {
     "grid-assembly-world-generator-2": {
       "capacityMilliJoules": 0,
@@ -109,7 +109,7 @@
     "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   },
-  "finalScore": 96.51412,
+  "finalScore": 96.4816575,
   "fuelConsumed": {
     "coal": 4
   },
@@ -203,27 +203,27 @@
   "peakBeltItems": 6,
   "powerGrids": {
     "grid-assembly-world-generator-2": {
-      "curtailedMilliJoules": 91146000,
-      "demandMilliJoules": 100854000,
+      "curtailedMilliJoules": 89571500,
+      "demandMilliJoules": 102428500,
       "generatedMilliJoules": 192000000,
       "peakDeficitMilliWatts": 0,
-      "peakDemandMilliWatts": 998000,
+      "peakDemandMilliWatts": 1001000,
       "peakGenerationMilliWatts": 1600000,
-      "peakSurplusMilliWatts": 880000,
+      "peakSurplusMilliWatts": 860000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 100854000,
+      "servedMilliJoules": 102428500,
       "unservedMilliJoules": 0
     },
     "grid-forge-world-generator-1": {
-      "curtailedMilliJoules": 64811000,
-      "demandMilliJoules": 123589000,
+      "curtailedMilliJoules": 63139250,
+      "demandMilliJoules": 125260750,
       "generatedMilliJoules": 192000000,
       "peakDeficitMilliWatts": 0,
-      "peakDemandMilliWatts": 1188000,
+      "peakDemandMilliWatts": 1192000,
       "peakGenerationMilliWatts": 1600000,
-      "peakSurplusMilliWatts": 880000,
+      "peakSurplusMilliWatts": 848000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 123589000,
+      "servedMilliJoules": 125260750,
       "unservedMilliJoules": 0
     }
   },
@@ -274,7 +274,7 @@
     "blocked": -0.894,
     "buildCost": -14.625,
     "constraintPenalty": 0,
-    "energy": -2.2444300000000004,
+    "energy": -2.2768924999999998,
     "occupiedArea": -31,
     "onTimeDelivery": 10,
     "throughput": 140,
@@ -283,7 +283,7 @@
   "throughputPerMinute": 14,
   "totalBuildCost": 29250,
   "transportCongestion": 0.09516417910447751,
-  "transportEnergyConsumedMilliJoules": 543000,
+  "transportEnergyConsumedMilliJoules": 1727250,
   "transportFlows": {
     "coal-assembly-to-splitter": {
       "averageInFlightItems": 0.20416666666666666,

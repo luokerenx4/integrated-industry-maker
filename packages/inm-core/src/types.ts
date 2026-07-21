@@ -153,7 +153,10 @@ export interface DeviceAssetManifest {
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: BufferId; slots: number };
   runtime: { apiVersion: 1; entry: string };
   power: {
-    consumptionMilliWatts: number;
+    /** Connected standby draw while the Device is not doing active work. */
+    idleMilliWatts: number;
+    /** Total draw while active, inclusive of the standby baseline. */
+    activeMilliWatts: number;
     generation?:
       | { kind: "renewable"; outputMilliWatts: number }
       | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: ResourceId[] };
@@ -540,6 +543,7 @@ export interface CompiledPowerGrid {
   members: DeviceInstanceId[];
   transportStages: Array<{ connection: ConnectionId; stage: "loader" | "unloader"; device: DeviceInstanceId }>;
   productionMilliWatts: number;
+  idleConsumptionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
   storageDevices: DeviceInstanceId[];
   storageCapacityMilliJoules: number;
@@ -594,6 +598,8 @@ export interface ActiveDeviceJob {
 }
 export interface DeviceRuntimeState {
   status: DeviceStatus;
+  /** Whether this Device currently receives its connected standby baseline. */
+  idlePowered: boolean;
   buffers: Record<BufferId, Record<ResourceId, number>>;
   /** Authoritative lot breakdown; its per-Resource sum always equals buffers. */
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
@@ -670,6 +676,7 @@ export type FactoryEvent =
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number; remainingTicks?: Tick; workedTicks?: Tick }
+  | { type: "power.standby-restored"; tick: Tick; device: DeviceInstanceId; grid: string }
   | { type: "transport.power-shortage"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
   | { type: "transport.power-restored"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; grid: string }
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }

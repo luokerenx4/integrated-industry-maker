@@ -53,5 +53,6 @@ export function productionDurationTicks(process: IndustrialProcess, asset: Devic
 }
 
 export function productionPowerMilliWatts(asset: DeviceAsset, mode: ProductionModeDefinition): number {
-  return Math.ceil(asset.power.consumptionMilliWatts * mode.powerMultiplier.numerator / mode.powerMultiplier.denominator);
+  return Math.max(asset.power.idleMilliWatts,
+    Math.ceil(asset.power.activeMilliWatts * mode.powerMultiplier.numerator / mode.powerMultiplier.denominator));
 }

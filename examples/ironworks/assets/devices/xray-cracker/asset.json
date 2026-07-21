@@ -33,7 +33,7 @@
     }]
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 280000 },
+  "power": { "idleMilliWatts": 14000, "activeMilliWatts": 280000 },
   "economics": { "buildCost": 2200 },
   "files": { "visual": "visual.json" }
 }

@@ -1,8 +1,8 @@
 # INM Run 008-simulate
 
 - Decision: **BASELINE**
-- Score: **373.342**
-- Result hash: `6ec004cf81e334bfb7a4da5c09c9bacbedc6be8167d78669c2ebe13c691a996c`
+- Score: **373.334**
+- Result hash: `709f5b758dd344ddfffb8d009bd787f18ed1f66caf3ad22d79f04efdb770d803`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Target rate: 10.000 hydrogen/min (100.0% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 3.1%
 - Average blocked belt items: 0.000
 - Peak belt items: 5
-- Powered transport energy: 248.500 J
+- Powered transport energy: 786.375 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -41,7 +41,7 @@ No configured accumulators.
   "blocked": 0,
   "buildCost": -5.1,
   "constraintPenalty": 0,
-  "energy": -0.7451850000000001,
+  "energy": -0.75302875,
   "occupiedArea": -20.400000000000002,
   "onTimeDelivery": 10,
   "throughput": 390,

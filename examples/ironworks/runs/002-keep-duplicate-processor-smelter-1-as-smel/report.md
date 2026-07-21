@@ -1,8 +1,8 @@
 # INM Run 002-keep-duplicate-processor-smelter-1-as-smel
 
 - Decision: **KEEP**
-- Score: **96.514**
-- Result hash: `2a578c251e6152a709a071960688077912b282246aa5bbf865f9ddbe3ab327e5`
+- Score: **96.482**
+- Result hash: `918ea5d293fd7ddc4138ed8d8867b56ce3c001417e30adcd139819d8dbfde2f2`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 3.1%
 - Average blocked belt items: 0.000
 - Peak belt items: 6
-- Powered transport energy: 543.000 J
+- Powered transport energy: 1727.250 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -49,7 +49,7 @@
   "blocked": -0.894,
   "buildCost": -14.625,
   "constraintPenalty": 0,
-  "energy": -2.2444300000000004,
+  "energy": -2.2768924999999998,
   "occupiedArea": -31,
   "onTimeDelivery": 10,
   "throughput": 140,

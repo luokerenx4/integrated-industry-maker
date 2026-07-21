@@ -14,6 +14,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input-primary": {
           "iron-plate": {
@@ -31,21 +32,25 @@
     },
     "coal-assembly-to-splitter-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "coal-assembly-to-splitter-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "coal-forge-to-generator-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "coal-forge-to-generator-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -55,6 +60,7 @@
           "coal": 5
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "output": {
           "coal": {
@@ -70,6 +76,7 @@
           "coal": 7
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "output": {
           "coal": {
@@ -85,6 +92,7 @@
           "coal": 8
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {
           "coal": {
@@ -96,31 +104,37 @@
     },
     "coal-splitter-to-assembler-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "coal-splitter-to-assembler-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "coal-splitter-to-generator-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "coal-splitter-to-generator-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "gear-to-output-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "gear-to-output-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -146,6 +160,7 @@
           "coal": 4
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "fuel": {
           "coal": {
@@ -178,6 +193,7 @@
           "coal": 4
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "fuel": {
           "coal": {
@@ -192,6 +208,7 @@
       "buffers": {
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "output": {}
       },
@@ -199,31 +216,37 @@
     },
     "ore-to-smelter-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-original-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-original-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-parallel-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-smelter-1-split-parallel-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "ore-to-smelter-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -231,6 +254,7 @@
       "buffers": {
         "input": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {}
       },
@@ -238,21 +262,25 @@
     },
     "plate-to-station-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "plate-to-station-smelter-1-parallel-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "plate-to-station-smelter-1-parallel-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "plate-to-station-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -263,6 +291,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -280,6 +309,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -294,6 +324,7 @@
       "buffers": {
         "storage": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {}
       },
@@ -303,6 +334,7 @@
       "buffers": {
         "storage": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {}
       },
@@ -312,6 +344,7 @@
       "buffers": {
         "storage": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {}
       },
@@ -319,11 +352,13 @@
     },
     "station-to-assembler-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "station-to-assembler-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -336,23 +371,26 @@
         "initialMilliJoules": 0,
         "storedMilliJoules": 3600000
       },
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "wind-assembly-recipe-line": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "wind-turbine-support": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     }
   },
   "energy": {
     "availableMilliWatts": 3600000,
-    "consumedMilliJoules": 224443000,
+    "consumedMilliJoules": 227689250,
     "fuelConsumed": {
       "coal": 4
     },
@@ -360,7 +398,7 @@
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 100854000,
+        "consumedMilliJoules": 102428500,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
@@ -368,7 +406,7 @@
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 2000000,
         "chargedMilliJoules": 3600000,
-        "consumedMilliJoules": 123589000,
+        "consumedMilliJoules": 125260750,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 3600000,
         "storedMilliJoules": 3600000

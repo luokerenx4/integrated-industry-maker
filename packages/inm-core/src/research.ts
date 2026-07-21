@@ -322,12 +322,12 @@ function duplicateProcessorCandidate(input: ResearchInput, original: CompiledFac
     patch.push({ op: "replace", path: `/connections/${originalIndex}`, value: routed[0]! });
     patch.push({ op: "add", path: "/connections/-", value: routed[1]! }, { op: "add", path: "/connections/-", value: routed[2]! });
   }
-  const addedLoad = original.assetDef.power.consumptionMilliWatts + junctionCount * junctionAsset.power.consumptionMilliWatts;
+  const addedLoad = original.assetDef.power.activeMilliWatts + junctionCount * junctionAsset.power.activeMilliWatts;
   const needsPowerSupport = addedLoad > (grid?.headroomMilliWatts ?? 0);
   if (needsPowerSupport) {
     const generator = Object.values(input.project.deviceAssets)
-      .filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts && asset.power.distribution)
-      .sort((a, b) => ((b.power.generation?.outputMilliWatts ?? 0) - b.power.consumptionMilliWatts) - ((a.power.generation?.outputMilliWatts ?? 0) - a.power.consumptionMilliWatts) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+      .filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.generation.outputMilliWatts > asset.power.activeMilliWatts && asset.power.distribution)
+      .sort((a, b) => ((b.power.generation?.outputMilliWatts ?? 0) - b.power.activeMilliWatts) - ((a.power.generation?.outputMilliWatts ?? 0) - a.power.activeMilliWatts) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
     if (!generator) return null;
     powerSupport = { id: uniqueDeviceId(input.blueprint, `${generator.id}-support`), asset: generator.id, region: original.region, position: { x: 0, y: 0 }, rotation: 0 };
     if (!placeDevice(candidateBlueprint, powerSupport, input.project, original.position)) return null;

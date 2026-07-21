@@ -1,8 +1,8 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
-- Score: **16.272**
-- Result hash: `53eecf5a6e4163632dbb8d9adccaa83362c45d5d3c05d4965c1514112223b4d4`
+- Score: **16.246**
+- Result hash: `8848b4a71b9d7dbade73901f36e3447cf361eb557fd64eebf512d83a5b8866db`
 - Bottleneck: smelter-1
 - Throughput/min: 5.500
 - Target rate: 12.000 gear/min (45.8% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 1.9%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
-- Powered transport energy: 260.760 J
+- Powered transport energy: 1155.570 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -48,7 +48,7 @@
   "blocked": -1.992,
   "buildCost": -12.72,
   "constraintPenalty": 0,
-  "energy": -2.0592176,
+  "energy": -2.0855747,
   "occupiedArea": -21.200000000000003,
   "onTimeDelivery": 4.583333333333333,
   "throughput": 55,

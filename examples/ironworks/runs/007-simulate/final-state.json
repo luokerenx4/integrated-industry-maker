@@ -6,11 +6,13 @@
   "devices": {
     "synth-chemical-basin-wind-turbine-1": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-chemical-basin-wind-turbine-2": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -38,6 +40,7 @@
       "buffers": {
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "output": {}
       },
@@ -46,21 +49,25 @@
     },
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "processing"
     },
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "processing"
     },
@@ -89,6 +96,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "gas-input": {},
         "liquid-input": {
@@ -105,6 +113,7 @@
       "buffers": {
         "input": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {}
       },
@@ -112,11 +121,13 @@
     },
     "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -151,6 +162,7 @@
         "gas-output": {},
         "liquid-output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "crude-input": {
           "crude-oil": {
@@ -165,24 +177,26 @@
     },
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     }
   },
   "energy": {
     "availableMilliWatts": 1200000,
-    "consumedMilliJoules": 69930600,
+    "consumedMilliJoules": 70600350,
     "fuelConsumed": {},
     "grids": {
       "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
         "availableMilliWatts": 1200000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 69930600,
+        "consumedMilliJoules": 70600350,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0

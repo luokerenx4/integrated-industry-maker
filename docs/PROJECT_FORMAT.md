@@ -136,7 +136,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
     }]
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 180000 },
+  "power": { "idleMilliWatts": 10000, "activeMilliWatts": 180000 },
   "economics": { "buildCost": 1200 },
   "files": { "visual": "visual.json" }
 }
@@ -176,11 +176,12 @@ A transport junction is a placed Device with the `transport-junction` capability
 
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
-Power consumption and generation use integer milliwatts. Renewable generation is continuously available while its Device is healthy:
+Power consumption and generation use integer milliwatts. Every Device declares an idle baseline and an active total. `activeMilliWatts` includes the idle baseline; the two values are never added together, and idle may not exceed active. A connected healthy Device receives idle power before it may wait, process, extract, treat, or move cargo. Renewable generation is continuously available while its Device is healthy:
 
 ```json
 "power": {
-  "consumptionMilliWatts": 0,
+  "idleMilliWatts": 0,
+  "activeMilliWatts": 0,
   "generation": { "kind": "renewable", "outputMilliWatts": 600000 },
   "distribution": { "connectionRange": 20, "coverageRange": 20 }
 }
@@ -190,7 +191,8 @@ A thermal generator instead names an input buffer and accepted fuel Resources:
 
 ```json
 "power": {
-  "consumptionMilliWatts": 0,
+  "idleMilliWatts": 0,
+  "activeMilliWatts": 0,
   "generation": {
     "kind": "fuel",
     "outputMilliWatts": 1000000,
@@ -205,7 +207,8 @@ An accumulator declares physical energy capacity and independent charge/discharg
 
 ```json
 "power": {
-  "consumptionMilliWatts": 0,
+  "idleMilliWatts": 0,
+  "activeMilliWatts": 0,
   "distribution": { "connectionRange": 20, "coverageRange": 20 },
   "storage": {
     "capacityMilliJoules": 3600000,
@@ -620,7 +623,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.40.0",
+        "engineVersion": "inm-sim/0.41.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

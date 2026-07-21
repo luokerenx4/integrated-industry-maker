@@ -10,7 +10,7 @@
   "buffers": [{ "id": "output", "role": "output", "capacity": 12, "accepts": ["crude-oil"] }],
   "extraction": { "resources": ["crude-oil"], "radius": 4, "outputBuffer": "output", "cycleTicks": 2000, "itemsPerCycle": 1 },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 80000 },
+  "power": { "idleMilliWatts": 4000, "activeMilliWatts": 80000 },
   "economics": { "buildCost": 900 },
   "files": { "visual": "visual.json" }
 }

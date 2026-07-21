@@ -10,7 +10,7 @@
   "buffers": [],
   "logistics": { "roles": ["carrier"], "carrierKinds": ["planetary"] },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 0 },
+  "power": { "idleMilliWatts": 0, "activeMilliWatts": 0 },
   "economics": { "buildCost": 500 },
   "files": { "visual": "visual.json" }
 }

@@ -292,17 +292,17 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   const requiredPowerByRegion: Record<string, number> = {};
   for (const process of processes) add(requiredPowerByRegion, process.region, process.requiredMachines * process.powerMilliWattsPerMachine);
   for (const treatment of treatments) add(requiredPowerByRegion, treatment.region,
-    treatment.requiredDevices * project.deviceAssets[treatment.asset]!.power.consumptionMilliWatts);
+    treatment.requiredDevices * project.deviceAssets[treatment.asset]!.power.activeMilliWatts);
   for (const raw of rawResources) {
     const templates = Object.values(project.devices).filter((device) => device.extractionPlan?.nodes.some((node) => node.resource === raw.resource));
     const template = templates.sort((a, b) => a.id.localeCompare(b.id))[0];
-    if (template) add(requiredPowerByRegion, template.region, (raw.configuredExtractors + raw.additionalExtractors) * template.assetDef.power.consumptionMilliWatts);
+    if (template) add(requiredPowerByRegion, template.region, (raw.configuredExtractors + raw.additionalExtractors) * template.assetDef.power.activeMilliWatts);
   }
   for (const device of Object.values(project.devices)) if (device.assetDef.capabilities.includes("station") || device.assetDef.capabilities.includes("transport-junction")) {
-    add(requiredPowerByRegion, device.region, device.assetDef.power.consumptionMilliWatts);
+    add(requiredPowerByRegion, device.region, device.assetDef.power.activeMilliWatts);
   }
   for (const connection of Object.values(project.connections)) for (const stage of connection.logisticsStages) {
-    if (stage.region) add(requiredPowerByRegion, stage.region, stage.asset.power.consumptionMilliWatts);
+    if (stage.region) add(requiredPowerByRegion, stage.region, stage.asset.power.activeMilliWatts);
   }
   const power: PowerCapacityRequirement[] = project.world.regions.map((region) => {
     const requiredMilliWatts = requiredPowerByRegion[region.id] ?? 0;

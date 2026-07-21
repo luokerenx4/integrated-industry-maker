@@ -10,7 +10,8 @@
   "buffers": [],
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": {
-    "consumptionMilliWatts": 0,
+    "idleMilliWatts": 0,
+    "activeMilliWatts": 0,
     "distribution": { "connectionRange": 20, "coverageRange": 20 },
     "storage": {
       "capacityMilliJoules": 3600000,

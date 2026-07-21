@@ -6,16 +6,19 @@
   "devices": {
     "synth-assembly-world-wind-turbine-1": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-assembly-world-wind-turbine-2": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-assembly-world-wind-turbine-3": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -25,6 +28,7 @@
           "coal": 8
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "output": {
           "coal": {
@@ -40,6 +44,7 @@
           "coal": 8
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {
           "coal": {
@@ -51,41 +56,49 @@
     },
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-extractor-1-to-synth-coal-split-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-split-to-synth-make-proliferator-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -101,6 +114,7 @@
           "coal": 15
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "agent-input": {
           "proliferator": {
@@ -130,6 +144,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input-primary": {
           "iron-plate": {
@@ -147,11 +162,13 @@
     },
     "synth-forge-world-wind-turbine-1": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-forge-world-wind-turbine-2": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -159,6 +176,7 @@
       "buffers": {
         "input": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {}
       },
@@ -166,11 +184,13 @@
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -198,6 +218,7 @@
       "buffers": {
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "output": {}
       },
@@ -208,6 +229,7 @@
       "buffers": {
         "storage": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {}
       },
@@ -215,31 +237,37 @@
     },
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "processing"
     },
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -247,6 +275,7 @@
       "buffers": {
         "storage": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {}
       },
@@ -258,6 +287,7 @@
           "iron-plate": 2
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {
           "iron-plate": {
@@ -271,6 +301,7 @@
       "buffers": {
         "storage": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {}
       },
@@ -286,6 +317,7 @@
         },
         "material-output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "agent-input": {
           "proliferator": {
@@ -303,51 +335,61 @@
     },
     "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -360,6 +402,7 @@
           "proliferator": 13
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {
           "coal": {
@@ -380,6 +423,7 @@
           "proliferator": 8
         }
       },
+      "idlePowered": true,
       "materialBatches": {
         "storage": {
           "proliferator": {
@@ -391,31 +435,37 @@
     },
     "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-loader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
     "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1-unloader": {
       "buffers": {},
+      "idlePowered": true,
       "materialBatches": {},
       "status": "idle"
     },
@@ -443,6 +493,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -478,6 +529,7 @@
         },
         "output": {}
       },
+      "idlePowered": true,
       "materialBatches": {
         "input": {
           "iron-ore": {
@@ -492,13 +544,13 @@
   },
   "energy": {
     "availableMilliWatts": 3000000,
-    "consumedMilliJoules": 250214500,
+    "consumedMilliJoules": 255196375,
     "fuelConsumed": {},
     "grids": {
       "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
         "availableMilliWatts": 1800000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 113727000,
+        "consumedMilliJoules": 117978250,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
@@ -506,7 +558,7 @@
       "grid-forge-world-synth-forge-world-wind-turbine-1": {
         "availableMilliWatts": 1200000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 136487500,
+        "consumedMilliJoules": 137218125,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0

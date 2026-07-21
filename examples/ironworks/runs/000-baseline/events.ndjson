@@ -1232,7 +1232,6 @@
 {"device":"ore-source-1","tick":45300,"type":"buffer.blocked"}
 {"connection":"ore-to-smelter","device":"ore-to-smelter-unloader","stage":"unloader","tick":45350,"transitId":"transit-000092","type":"transport.stage-finish"}
 {"connection":"ore-to-smelter","tick":45350,"transit":{"arriveTick":45350,"cellIndex":-1,"count":1,"departTick":44050,"from":"ore-source-1","fromBuffer":"output","id":"transit-000092","phase":"unloading","readyTick":45350,"resource":"iron-ore","to":"smelter-1","toBuffer":"input","treatmentLevel":0},"type":"resource.arrive"}
-{"device":"storage-forge","grid":"grid-forge-world-generator-1","storedMilliJoules":3600000,"tick":46500,"type":"power.storage-full"}
 {"device":"assembler-1","operation":"assemble-gear","produced":[{"buffer":"output","count":1,"resource":"gear","treatmentLevel":0}],"tick":46980,"type":"device.finish"}
 {"connection":"gear-to-output","tick":46980,"transit":{"arriveTick":47980,"cellIndex":-1,"count":1,"departTick":46980,"from":"assembler-1","fromBuffer":"output","id":"transit-000093","phase":"loading","readyTick":47230,"resource":"gear","to":"output-1","toBuffer":"input","treatmentLevel":0},"type":"resource.depart"}
 {"connection":"gear-to-output","device":"gear-to-output-loader","durationTicks":250,"stage":"loader","tick":46980,"transitId":"transit-000093","type":"transport.stage-start"}
@@ -1287,6 +1286,7 @@
 {"device":"ore-source-1","tick":49300,"type":"buffer.blocked"}
 {"connection":"ore-to-smelter","device":"ore-to-smelter-unloader","stage":"unloader","tick":49350,"transitId":"transit-000096","type":"transport.stage-finish"}
 {"connection":"ore-to-smelter","tick":49350,"transit":{"arriveTick":49350,"cellIndex":-1,"count":1,"departTick":48050,"from":"ore-source-1","fromBuffer":"output","id":"transit-000096","phase":"unloading","readyTick":49350,"resource":"iron-ore","to":"smelter-1","toBuffer":"input","treatmentLevel":0},"type":"resource.arrive"}
+{"device":"storage-forge","grid":"grid-forge-world-generator-1","storedMilliJoules":3600000,"tick":49931,"type":"power.storage-full"}
 {"device":"smelter-1","operation":"smelt-iron","produced":[{"buffer":"output","count":1,"resource":"iron-plate","treatmentLevel":0}],"tick":51300,"type":"device.finish"}
 {"connection":"plate-to-station","tick":51300,"transit":{"arriveTick":52100,"cellIndex":-1,"count":1,"departTick":51300,"from":"smelter-1","fromBuffer":"output","id":"transit-000097","phase":"loading","readyTick":51550,"resource":"iron-plate","to":"station-supply","toBuffer":"storage","treatmentLevel":0},"type":"resource.depart"}
 {"connection":"plate-to-station","device":"plate-to-station-loader","durationTicks":250,"stage":"loader","tick":51300,"transitId":"transit-000097","type":"transport.stage-start"}

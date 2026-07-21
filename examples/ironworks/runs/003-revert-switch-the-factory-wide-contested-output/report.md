@@ -1,8 +1,8 @@
 # INM Run 003-revert-switch-the-factory-wide-contested-output
 
 - Decision: **REVERT**
-- Score: **96.514**
-- Result hash: `9cd1d3da6e873dedaf0e466972745f73ae5f8fe352f267325bf13e196ce730a2`
+- Score: **96.482**
+- Result hash: `bde3d8b3070f8f6be5089dd015e480eaec0e1cc23e860027625b530981994602`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 3.1%
 - Average blocked belt items: 0.000
 - Peak belt items: 6
-- Powered transport energy: 543.000 J
+- Powered transport energy: 1727.250 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -49,7 +49,7 @@
   "blocked": -0.894,
   "buildCost": -14.625,
   "constraintPenalty": 0,
-  "energy": -2.2444300000000004,
+  "energy": -2.2768924999999998,
   "occupiedArea": -31,
   "onTimeDelivery": 10,
   "throughput": 140,

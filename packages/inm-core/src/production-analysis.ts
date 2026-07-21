@@ -23,6 +23,7 @@ export interface DeviceProductionRate {
   outputsPerMinute: Record<ResourceId, number>;
   inputPorts: Record<ResourceId, string>;
   outputPorts: Record<ResourceId, string>;
+  idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
 
@@ -43,6 +44,7 @@ export interface RecipeOptionAnalysis {
   inputPorts: Record<ResourceId, string>;
   outputPorts: Record<ResourceId, string>;
   targetOutputPerMinute: number;
+  idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
 
@@ -62,6 +64,7 @@ export interface DeviceExtractionRate {
   cycleTicks: number;
   itemsPerCycle: number;
   itemsPerMinute: number;
+  idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
 
@@ -79,6 +82,7 @@ export interface DeviceTreatmentRate {
   agentResource: ResourceId;
   agentPerCycle: number;
   agentPerMinute: number;
+  idlePowerMilliWatts: number;
   powerMilliWatts: number;
 }
 
@@ -141,7 +145,7 @@ export interface ConnectionRateLimit {
   maxLevel: number;
   stages: Array<{
     stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number;
-    device?: string; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
+    device?: string; idlePowerMilliWatts: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
   }>;
 }
 
@@ -165,6 +169,7 @@ export interface PowerGridAnalysis {
   generators: DevicePowerGenerationRate[];
   storageDevices: DevicePowerStorageRate[];
   productionMilliWatts: number;
+  idleConsumptionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
   headroomMilliWatts: number;
   storageCapacityMilliJoules: number;
@@ -376,6 +381,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         ...Object.fromEntries(device.processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
       },
       outputPorts: { ...(device.recipe?.outputs ?? {}) },
+      idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
       powerMilliWatts: device.processPlan.powerMilliWatts,
     });
   }
@@ -398,7 +404,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         selected: device.processPlan?.definition.id === process.id && device.processPlan.mode.id === mode.id, cycleTicks, cyclesPerMinute,
         inputs: amounts.inputs, outputs: amounts.outputs,
         inputPorts, outputPorts: bindings.outputs,
-        targetOutputPerMinute: targetOutput * cyclesPerMinute, powerMilliWatts: productionPowerMilliWatts(device.assetDef, mode),
+        targetOutputPerMinute: targetOutput * cyclesPerMinute, idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
+        powerMilliWatts: productionPowerMilliWatts(device.assetDef, mode),
       }];
     }));
   });
@@ -413,7 +420,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       itemCount: plan.mode.itemCount, cycleTicks: plan.mode.durationTicks, itemsPerMinute: plan.mode.itemCount * cyclesPerMinute,
       inputBuffer: plan.inputBuffer, outputBuffer: plan.outputBuffer, agentBuffer: plan.agentBuffer,
       agentResource: plan.mode.agent.resource, agentPerCycle: plan.mode.agent.count, agentPerMinute,
-      powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
+      idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
+      powerMilliWatts: device.assetDef.power.activeMilliWatts,
     });
     add(consumed, plan.mode.agent.resource, agentPerMinute);
   }
@@ -471,7 +479,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       cycleTicks: device.extractionPlan.cycleTicks,
       itemsPerCycle: device.extractionPlan.itemsPerCycle,
       itemsPerMinute,
-      powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
+      idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
+      powerMilliWatts: device.assetDef.power.activeMilliWatts,
     });
   }
 
@@ -505,7 +514,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     sharedCells: connection.transportCells.filter((cell) => project.transportCells[cell]!.connections.length > 1).length,
     stages: connection.logisticsStages.map((stage) => ({
       stage: stage.stage, asset: stage.asset.id, distance: stage.distance, capacity: stage.capacity, durationTicks: stage.durationTicks, stackCapacity: stage.stackCapacity,
-      powerMilliWatts: stage.asset.power.consumptionMilliWatts,
+      idlePowerMilliWatts: stage.asset.power.idleMilliWatts, powerMilliWatts: stage.asset.power.activeMilliWatts,
       ...(stage.device ? { device: stage.device.id } : {}),
       ...(stage.powerGrid ? { powerGrid: stage.powerGrid } : {}), ...(stage.position ? { position: { ...stage.position } } : {}),
     })),
@@ -568,6 +577,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     generators: generationDevices.filter((device) => grid.members.includes(device.device)),
     storageDevices: storageDevices.filter((device) => grid.storageDevices.includes(device.device)),
     productionMilliWatts: grid.productionMilliWatts,
+    idleConsumptionMilliWatts: grid.idleConsumptionMilliWatts,
     ratedConsumptionMilliWatts: grid.ratedConsumptionMilliWatts,
     headroomMilliWatts: grid.productionMilliWatts - grid.ratedConsumptionMilliWatts,
     storageCapacityMilliJoules: grid.storageCapacityMilliJoules,
@@ -645,13 +655,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }
 
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
-    if (!device.transportEndpoint && device.assetDef.power.consumptionMilliWatts > 0 && !device.powerGrid) diagnostics.push({
+    if (!device.transportEndpoint && device.assetDef.power.activeMilliWatts > 0 && !device.powerGrid) diagnostics.push({
       code: "power-disconnected", severity: "warning", device: device.id,
       message: `${device.id} requires power but is outside every distribution grid`,
     });
   }
   for (const connection of Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id))) for (const stage of connection.logisticsStages) {
-    if (stage.stage === "line" || stage.asset.power.consumptionMilliWatts <= 0 || stage.powerGrid) continue;
+    if (stage.stage === "line" || stage.asset.power.activeMilliWatts <= 0 || stage.powerGrid) continue;
     diagnostics.push({
       code: "power-transport-disconnected", severity: "warning", connection: connection.id,
       device: stage.device?.id,

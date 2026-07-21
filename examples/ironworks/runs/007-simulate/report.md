@@ -1,8 +1,8 @@
 # INM Run 007-simulate
 
 - Decision: **BASELINE**
-- Score: **119.744**
-- Result hash: `3fe9e4350620972062eb0d30b70864ecdebc659a8b882799d83619a53e190e9a`
+- Score: **119.737**
+- Result hash: `67054e8446d6a7207486060713df62e46e69b9194769ceb2a03319bb194ebea3`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
@@ -10,7 +10,7 @@
 - Belt utilization: 3.6%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
-- Powered transport energy: 168.600 J
+- Powered transport energy: 606.450 J
 - Material treated: none
 - Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
@@ -40,7 +40,7 @@ No configured accumulators.
   "blocked": 0,
   "buildCost": -4.635,
   "constraintPenalty": 0,
-  "energy": -0.699306,
+  "energy": -0.7060035000000001,
   "occupiedArea": -14.600000000000001,
   "onTimeDelivery": 10,
   "throughput": 130,

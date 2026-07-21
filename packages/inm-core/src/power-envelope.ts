@@ -116,7 +116,7 @@ export function optimizePowerInfrastructure(input: {
   loadMilliWatts: number;
   minimumGenerators: number;
   generator: { outputMilliWatts: number; buildCost: number; occupiedArea: number; profile?: ScenarioGeneratorProfile };
-  storage?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number; consumptionMilliWatts: number; buildCost: number; occupiedArea: number };
+  storage?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number; idleMilliWatts: number; buildCost: number; occupiedArea: number };
   maxAdditionalGenerators?: number;
   maxAdditionalStorage?: number;
 }): PowerInfrastructurePlan | null {
@@ -135,7 +135,7 @@ export function optimizePowerInfrastructure(input: {
       Math.ceil(withoutStorage.peakDeficitMilliWatts / input.storage.dischargeMilliWatts - 1e-9));
     const maxStorage = estimatedStorage + (input.maxAdditionalStorage ?? 32);
     for (let storageDevices = estimatedStorage; storageDevices <= maxStorage; storageDevices++) {
-      const loadMilliWatts = input.loadMilliWatts + storageDevices * input.storage.consumptionMilliWatts;
+      const loadMilliWatts = input.loadMilliWatts + storageDevices * input.storage.idleMilliWatts;
       const envelope = evaluatePowerEnvelope({
         durationTicks: input.durationTicks, loadMilliWatts, sources,
         storage: {

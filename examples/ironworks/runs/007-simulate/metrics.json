@@ -24,7 +24,7 @@
   "consumed": {
     "plastic": 26
   },
-  "energyConsumedMilliJoules": 69930600,
+  "energyConsumedMilliJoules": 70600350,
   "energyStorage": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
       "capacityMilliJoules": 0,
@@ -53,7 +53,7 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
-  "finalScore": 119.74386066666668,
+  "finalScore": 119.73716316666668,
   "fuelConsumed": {},
   "idleTime": {
     "synth-chemical-basin-wind-turbine-1": 120000,
@@ -97,15 +97,15 @@
   "peakBeltItems": 4,
   "powerGrids": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
-      "curtailedMilliJoules": 74069400,
-      "demandMilliJoules": 69930600,
+      "curtailedMilliJoules": 73399650,
+      "demandMilliJoules": 70600350,
       "generatedMilliJoules": 144000000,
       "peakDeficitMilliWatts": 0,
-      "peakDemandMilliWatts": 624000,
+      "peakDemandMilliWatts": 627000,
       "peakGenerationMilliWatts": 1200000,
-      "peakSurplusMilliWatts": 1120000,
+      "peakSurplusMilliWatts": 1089000,
       "requiredStorageCapacityMilliJoules": 0,
-      "servedMilliJoules": 69930600,
+      "servedMilliJoules": 70600350,
       "unservedMilliJoules": 0
     }
   },
@@ -135,7 +135,7 @@
     "blocked": 0,
     "buildCost": -4.635,
     "constraintPenalty": 0,
-    "energy": -0.699306,
+    "energy": -0.7060035000000001,
     "occupiedArea": -14.600000000000001,
     "onTimeDelivery": 10,
     "throughput": 130,
@@ -144,7 +144,7 @@
   "throughputPerMinute": 13,
   "totalBuildCost": 9270,
   "transportCongestion": 0.035851851851851545,
-  "transportEnergyConsumedMilliJoules": 168600,
+  "transportEnergyConsumedMilliJoules": 606450,
   "transportFlows": {
     "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": {
       "averageInFlightItems": 0.8358333333333333,

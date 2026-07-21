@@ -210,7 +210,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const stackSize = Math.min(resourceStackSize, loaderPlan.stackCapacity, linePlan.stackCapacity, unloaderPlan.stackCapacity);
       const capacityPerMinute = stackSize * 60_000 / dispatchInterval;
       const buildCost = loader.economics.buildCost + line.economics.buildCost * distance + unloader.economics.buildCost;
-      const endpointPowerWatts = (loader.power.consumptionMilliWatts + unloader.power.consumptionMilliWatts) / 1_000;
+      const endpointPowerWatts = (loader.power.activeMilliWatts + unloader.power.activeMilliWatts) / 1_000;
       const score = buildCost * Math.max(.001, loaded.objective.weights.buildCost)
         + endpointPowerWatts * Math.max(.001, loaded.objective.weights.energy);
       return [{ loader, line, unloader, loaderDistance, unloaderDistance, stackSize, capacityPerMinute, score }];
@@ -272,7 +272,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const treatedItemsPerCycle = candidate.data.process.inputs.reduce((sum, amount) => sum + amount.count, 0) * candidate.data.mode.inputCycles;
       const treatmentDevicesPerCycle = treatedItemsPerCycle / (treatment.mode.itemCount * 60_000 / treatment.mode.durationTicks);
       return processCost + treatmentDevicesPerCycle * (treatment.asset.economics.buildCost * Math.max(.001, loaded.objective.weights.buildCost)
-        + treatment.asset.power.consumptionMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
+        + treatment.asset.power.activeMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
     },
   });
   const selections = new Map(demandPlan.processes.map((row) => {
@@ -438,8 +438,11 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         ...selection,
         score: (selection.loader.economics.buildCost + selection.line.economics.buildCost * distance + selection.unloader.economics.buildCost)
           * Math.max(.001, loaded.objective.weights.buildCost)
-          + (selection.loader.power.consumptionMilliWatts + selection.unloader.power.consumptionMilliWatts) / 1_000
-          * planned.requiredPerMinute / selection.capacityPerMinute * Math.max(.001, loaded.objective.weights.energy),
+          + (selection.loader.power.idleMilliWatts + selection.unloader.power.idleMilliWatts
+            + (Math.max(0, selection.loader.power.activeMilliWatts - selection.loader.power.idleMilliWatts)
+              + Math.max(0, selection.unloader.power.activeMilliWatts - selection.unloader.power.idleMilliWatts))
+            * Math.min(1, planned.requiredPerMinute / selection.capacityPerMinute)) / 1_000
+          * Math.max(.001, loaded.objective.weights.energy),
       }))
       .sort((a, b) => a.score - b.score || a.capacityPerMinute - b.capacityPerMinute
         || a.loader.id.localeCompare(b.loader.id) || a.line.id.localeCompare(b.line.id) || a.unloader.id.localeCompare(b.unloader.id));
@@ -880,18 +883,18 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const devicePower = (device: BlueprintDevice): number => {
     if (device.transportEndpoint) return 0;
     const asset = loaded.deviceAssets[device.asset]!;
-    if (!device.recipe || !asset.production) return asset.power.consumptionMilliWatts;
+    if (!device.recipe || !asset.production) return asset.power.activeMilliWatts;
     const mode = asset.production.modes.find((candidate) => candidate.id === device.recipe!.mode);
-    return mode ? productionPowerMilliWatts(asset, mode) : asset.power.consumptionMilliWatts;
+    return mode ? productionPowerMilliWatts(asset, mode) : asset.power.activeMilliWatts;
   };
   const ratedLoad: Record<string, number> = {};
   for (const device of blueprint.devices) add(ratedLoad, device.region, devicePower(device));
   for (const connection of plannedConnections) {
     const pipeline = selectedPipelines.get(connection.id)!;
-    add(ratedLoad, connection.from.region, pipeline.loader.power.consumptionMilliWatts + pipeline.unloader.power.consumptionMilliWatts);
+    add(ratedLoad, connection.from.region, pipeline.loader.power.activeMilliWatts + pipeline.unloader.power.activeMilliWatts);
   }
   const renewable = Object.values(loaded.deviceAssets).filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.distribution
-    && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts)
+    && asset.power.generation.outputMilliWatts > asset.power.activeMilliWatts)
     .sort((a, b) => (b.power.generation?.outputMilliWatts ?? 0) - (a.power.generation?.outputMilliWatts ?? 0) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   if (!renewable?.power.generation || renewable.power.generation.kind !== "renewable") throw new Error("Blueprint synthesis requires a project-local renewable power distributor");
   const storageAssets = Object.values(loaded.deviceAssets).filter((asset) => asset.power.storage && asset.power.distribution)
@@ -913,11 +916,11 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     for (const connection of plannedConnections.filter((item) => item.from.region === region.id)) {
       const physical = blueprint.connections.find((item) => item.id === connection.id)!;
       const pipeline = selectedPipelines.get(connection.id)!;
-      if (pipeline.loader.power.consumptionMilliWatts > 0) {
+      if (pipeline.loader.power.activeMilliWatts > 0) {
         const endpoint = blueprint.devices.find((device) => device.id === physical.logistics.loader.device)!;
         targets.push({ id: endpoint.id, point: { x: endpoint.position.x + .5, y: endpoint.position.y + .5 } });
       }
-      if (pipeline.unloader.power.consumptionMilliWatts > 0) {
+      if (pipeline.unloader.power.activeMilliWatts > 0) {
         const endpoint = blueprint.devices.find((device) => device.id === physical.logistics.unloader.device)!;
         targets.push({ id: endpoint.id, point: { x: endpoint.position.x + .5, y: endpoint.position.y + .5 } });
       }
@@ -963,7 +966,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         }) && Math.hypot(center.x - target.point.x, center.y - target.point.y) < nearest.distance - 1e-9);
       }
     }
-    const netGeneration = renewable.power.generation.outputMilliWatts - renewable.power.consumptionMilliWatts;
+    const netGeneration = renewable.power.generation.outputMilliWatts - renewable.power.activeMilliWatts;
     const capacityDevices = load > 0 ? Math.ceil(load / netGeneration - 1e-9) : 0;
     const loadCenter = uniqueTargets.length ? {
       x: uniqueTargets.reduce((sum, target) => sum + target.point.x, 0) / uniqueTargets.length,
@@ -980,7 +983,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
           ...(profile ? { profile } : {}),
         },
         ...(storage && storageAsset ? { storage: {
-          ...storage, consumptionMilliWatts: storageAsset.power.consumptionMilliWatts,
+          ...storage, idleMilliWatts: storageAsset.power.idleMilliWatts,
           buildCost: storageAsset.economics.buildCost,
           occupiedArea: storageAsset.geometry.footprint.width * storageAsset.geometry.footprint.height,
         } } : {}),

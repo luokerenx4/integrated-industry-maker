@@ -77,6 +77,10 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     }
   }
   for (const [id, asset] of Object.entries(devices)) {
+    if (asset.power.idleMilliWatts > asset.power.activeMilliWatts) issues.push({
+      path: `assets/devices/${id}/asset.json/power/idleMilliWatts`, code: "power.idle-exceeds-active",
+      message: `Idle power ${asset.power.idleMilliWatts} mW cannot exceed active power ${asset.power.activeMilliWatts} mW`,
+    });
     const bufferIds = new Set<string>();
     for (const [index, buffer] of asset.buffers.entries()) {
       if (bufferIds.has(buffer.id)) issues.push({ path: `assets/devices/${id}/asset.json/buffers/${index}/id`, code: "asset.duplicate-buffer", message: `Duplicate buffer '${buffer.id}'` });
@@ -268,7 +272,8 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     const region = members[0]!.region;
     const id = `grid-${region}-${members[0]!.id}`;
     grids[id] = {
-      id, region, distributors: members.map((device) => device.id), members: [], transportStages: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0,
+      id, region, distributors: members.map((device) => device.id), members: [], transportStages: [], productionMilliWatts: 0,
+      idleConsumptionMilliWatts: 0, ratedConsumptionMilliWatts: 0,
       storageDevices: [], storageCapacityMilliJoules: 0, storageChargeMilliWatts: 0, storageDischargeMilliWatts: 0,
     };
     return { id, members };
@@ -291,7 +296,8 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     device.powerGrid = grid.id;
     grid.members.push(device.id);
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
-    grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
+    grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
+    grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts ?? device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);
       grid.storageCapacityMilliJoules += device.storagePlan.capacityMilliJoules;
@@ -987,10 +993,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       if (stage.powerGrid && stage.device) {
         stage.device.powerGrid = stage.powerGrid;
         if (!powerGrids[stage.powerGrid]!.members.includes(stage.device.id)) powerGrids[stage.powerGrid]!.members.push(stage.device.id);
+        powerGrids[stage.powerGrid]!.idleConsumptionMilliWatts += stage.asset.power.idleMilliWatts;
       }
-      if (!stage.powerGrid || stage.asset.power.consumptionMilliWatts <= 0) continue;
+      if (!stage.powerGrid || stage.asset.power.activeMilliWatts <= 0) continue;
       powerGrids[stage.powerGrid]!.transportStages.push({ connection: connection.id, stage: stage.stage, device: stage.device!.id });
-      powerGrids[stage.powerGrid]!.ratedConsumptionMilliWatts += stage.asset.power.consumptionMilliWatts;
+      powerGrids[stage.powerGrid]!.ratedConsumptionMilliWatts += stage.asset.power.activeMilliWatts;
     }
   }
 
