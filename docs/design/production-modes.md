@@ -1,8 +1,8 @@
 # Production modes and exact jobs
 
-Status: treatment-aware modes with physical auxiliary-input ports implemented in engine version `inm-sim/0.38.0`.
+Status: treatment-aware modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.49.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
 ## Scope
 
@@ -37,7 +37,9 @@ job power   = ceil(D.basePower × M.powerMultiplier.numerator / M.powerMultiplie
 
 Amounts for the same `(buffer, Resource)` are aggregated after physical ports resolve to their backing buffers. One mode may declare each auxiliary Resource once. Auxiliary inputs must reference a project Resource, a declared production input port, and a Resource admitted by the asset, buffer, and port contracts. If an auxiliary Resource is also a Process input, both declarations must use the same port. A complete job—including the sum of all Resources sharing one buffer—must fit; the compiler does not split one job into fractional cycles.
 
-Each qualified operation retains its complete mode definition, exact duration, exact active power, priority, and buffer-bound quantities. A dedicated Device has one plan; a shared work center has an ordered plan list. Grid rated load uses the largest qualified active-power envelope because only one non-preemptive operation can run at a time.
+Each qualified operation retains its complete mode definition, exact duration, exact active power, priority, and buffer-bound quantities. A dedicated Device has one plan; a shared work center has an ordered plan list. Grid rated load uses the largest qualified productive or changeover power envelope because only one non-preemptive operation can run at a time.
+
+Process `setupGroup` and Device `production.changeover` are orthogonal to production modes. A mode still defines productive batch arithmetic; changing to another setup group creates a separate non-productive job with its own duration and power. See [[docs/design/equipment-changeover]].
 
 ## Runtime authority
 

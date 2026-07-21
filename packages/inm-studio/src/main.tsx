@@ -42,6 +42,7 @@ interface ProjectIndex {
 
 interface DeviceRecipe {
   process: string; mode: string; modeName: string; durationTicks: number; powerMilliWatts: number; priority?: number;
+  setupGroup?: string; changeoverDurationTicks?: number; changeoverPowerMilliWatts?: number;
   inputs: Array<{ resource: string; buffer: string; count: number; minimumTreatmentLevel?: number }>;
   outputs: Array<{ resource: string; buffer: string; count: number; treatmentLevel?: number }>;
 }
@@ -85,6 +86,7 @@ interface DeviceCatalogAsset {
       auxiliaryInputs: Array<{ resource: string; count: number; port: string }>;
       minimumInputTreatmentLevel: number;
     }>;
+    changeover?: { durationTicks: number; powerMilliWatts: number };
   };
   treatment?: {
     inputBuffer: string; outputBuffer: string; agentBuffer: string;
@@ -129,6 +131,7 @@ interface ProcessCatalogAsset {
   description: string;
   category: string;
   tags: string[];
+  setupGroup?: string;
   durationTicks: number;
   inputs: Array<{ resource: string; count: number }>;
   outputs: Array<{ resource: string; count: number }>;
@@ -192,6 +195,7 @@ interface Metrics {
   carrierReturns: number;
   stationFleets: Record<string, { network: string; station: string; carrierAsset: string; configuredCarriers: number; activeMissions: number; completedReturns: number; utilization: number }>;
   materialTreatment: { treated: Record<string, Record<string, number>>; agentsConsumed: Record<string, number> };
+  equipmentSetups: { totalChangeovers: number; totalSetupTicks: number; devices: Record<string, { group: string | null; changeovers: number; setupTicks: number }> };
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
@@ -225,6 +229,7 @@ interface IndustrialAnalysis {
   opaqueDevices: number;
   devices: Array<{
     device: string; asset: string; process: string; mode: string; inputCycles: number; outputCycles: number; minimumInputTreatmentLevel: number; category: string; cycleTicks: number; cyclesPerMinute: number;
+    setupGroup?: string; changeoverDurationTicks?: number; changeoverPowerMilliWatts?: number;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
     inputPorts: Record<string, string>; outputPorts: Record<string, string>; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number;
   }>;
@@ -398,12 +403,12 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
   for (const event of data.events) {
     if (event.tick > tick) break;
     visibleEvents.push(event);
-    if (event.device && event.type === "device.start") {
+    if (event.device && (event.type === "device.start" || event.type === "device.changeover-start")) {
       devices[event.device] = { status: "processing", progress: 0 };
       jobs.set(event.device, { durationTicks: event.durationTicks ?? 1, workedTicks: 0, resumedAt: event.tick });
-    } else if (event.device && (event.type === "device.finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
+    } else if (event.device && (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
       devices[event.device] = { status: event.type === "device.recover" && transportJobs.get(event.device)?.size ? "processing" : "idle", progress: 0 };
-      if (event.type === "device.finish" || event.type === "device.recover") jobs.delete(event.device);
+      if (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.recover") jobs.delete(event.device);
       if (event.type === "device.recover") for (const connection of data.connections) for (const endpoint of connection.endpoints) {
         if (endpoint.device === event.device) endpointPower[`${connection.id}:${endpoint.stage}`] = Boolean(endpoint.powerGrid);
       }
@@ -677,6 +682,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const idlePowerMilliWatts = production?.idlePowerMilliWatts ?? extraction?.idlePowerMilliWatts ?? treatment?.idlePowerMilliWatts ?? asset?.power.idleMilliWatts ?? 0;
   const powerMilliWatts = device.recipe?.powerMilliWatts ?? extraction?.powerMilliWatts ?? asset?.power.activeMilliWatts ?? 0;
   const utilization = data.metrics?.machineUtilization[device.id];
+  const setup = data.metrics?.equipmentSetups.devices[device.id];
   const statusTimes = data.metrics ? [
     ["IDLE", data.metrics.idleTime[device.id] ?? 0],
     ["WAIT", data.metrics.waitingInputTime[device.id] ?? 0],
@@ -699,6 +705,8 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>BUILD COST</small><b>{asset?.economics.buildCost.toLocaleString() ?? "—"}</b></span>
         <span><small>POWER PRIORITY</small><b>P{device.powerPriority}</b></span>
         <span><small>IDLE → ACTIVE POWER</small><b>{(idlePowerMilliWatts / 1000).toFixed(1)} → {(powerMilliWatts / 1000).toFixed(1)} W</b></span>
+        {setup && <span><small>FINAL SETUP</small><b>{setup.group ?? "UNCONFIGURED"}</b></span>}
+        {setup && <span><small>CHANGEOVERS</small><b>{setup.changeovers} · {formatTick(setup.setupTicks)}</b></span>}
       </div>
       {device.transportEndpoint && <div className="inspector-section"><div className="inspector-section-title"><span>TRANSPORT ATTACHMENT</span><b>{device.transportEndpoint.stage.toUpperCase()}</b></div><div className="inspector-inline"><strong>{device.transportEndpoint.connection}</strong><code>{device.transportEndpoint.distance} cell arm · belt-side anchor</code></div></div>}
       {configuredRecipes.length > 0 && <div className="inspector-section">
@@ -706,7 +714,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         {configuredRecipes.map((recipe) => {
           const rate = data.analysis.devices.find((item) => item.device === device.id && item.process === recipe.process && item.mode === recipe.mode);
           return <div key={`${recipe.process}/${recipe.mode}`}>
-            <div className="inspector-recipe-head"><strong>{recipe.process}</strong><code>P{recipe.priority ?? 0} · {recipe.durationTicks} ms / job · {rate?.cyclesPerMinute.toFixed(2) ?? "—"} max jobs/min</code></div>
+            <div className="inspector-recipe-head"><strong>{recipe.process}</strong><code>P{recipe.priority ?? 0} · {recipe.durationTicks} ms / job · {rate?.cyclesPerMinute.toFixed(2) ?? "—"} max jobs/min{recipe.setupGroup ? ` · setup ${recipe.setupGroup}` : ""}</code></div>
             <div className="inspector-recipe"><InspectorFlow label="INPUTS" amounts={recipe.inputs} /><i>→</i><InspectorFlow label="OUTPUTS" amounts={recipe.outputs} /></div>
           </div>;
         })}
@@ -855,7 +863,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>ACTIVE POWER</label><strong>{(selected.power.activeMilliWatts / 1000).toFixed(1)} W</strong></div>
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
-              {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputPorts.join(" + ")} → {selected.production.outputPorts.join(" + ")}</strong><span>physical ports</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}× speed</code></div>{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.minimumInputTreatmentLevel ? `all process inputs @${mode.minimumInputTreatmentLevel}+` : mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.port}`).join(" · ") || "untreated inputs"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
+              {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputPorts.join(" + ")} → {selected.production.outputPorts.join(" + ")}</strong><span>{selected.production.changeover ? `${selected.production.changeover.durationTicks} ms changeover` : "physical ports"}</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}× speed{selected.production.changeover ? ` · ${(selected.production.changeover.powerMilliWatts / 1000).toFixed(1)} W setup` : ""}</code></div>{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.minimumInputTreatmentLevel ? `all process inputs @${mode.minimumInputTreatmentLevel}+` : mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.port}`).join(" · ") || "untreated inputs"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
               {selected.treatment && <section className="asset-section"><h4>Material treatment</h4><div className="asset-table"><div><b>{selected.treatment.inputBuffer} → {selected.treatment.outputBuffer}</b><strong>agent @ {selected.treatment.agentBuffer}</strong><span>lot-preserving</span><code>{selected.treatment.modes.length} modes</code></div>{selected.treatment.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.itemCount} items → level {mode.level}</strong><span>{mode.agent.count} {mode.agent.resource}</span><code>{mode.durationTicks}ms</code></div>)}</div></section>}
               {selected.extraction && <section className="asset-section"><h4>Extraction</h4><div className="asset-table"><div><b>{selected.extraction.resources.join(", ")}</b><strong>{selected.extraction.itemsPerCycle} / {selected.extraction.cycleTicks}ms</strong><span>radius</span><code>{selected.extraction.radius} cells</code></div></div></section>}
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
@@ -884,6 +892,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               <div className="detail-grid">
                 <div><label>CATEGORY</label><strong>{selected.category}</strong></div>
                 <div><label>CYCLE</label><strong>{(selected.durationTicks / 1000).toFixed(2)} s</strong></div>
+                {selected.setupGroup && <div><label>SETUP GROUP</label><strong>{selected.setupGroup}</strong></div>}
                 <div><label>INPUT STREAMS</label><strong>{selected.inputs.length}</strong></div>
                 <div><label>OUTPUT STREAMS</label><strong>{selected.outputs.length}</strong></div>
               </div>
@@ -1215,7 +1224,7 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="LOTS COMPLETE" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released}`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /></>}<Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="LOTS COMPLETE" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released}`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /></>}<Metric label="CHANGEOVERS / SETUP" value={data.metrics ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>

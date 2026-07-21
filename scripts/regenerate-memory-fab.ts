@@ -42,17 +42,17 @@ for (const [id, name, description, color] of resources) {
 }
 
 const processes = [
-  ["pattern-cell-layer-1", "Pattern memory-cell layer 1", "lithography", 6_000, "blank-dram-wafer-lot", "patterned-cell-l1-lot"],
-  ["etch-cell-layer-1", "Etch memory-cell layer 1", "etch", 5_000, "patterned-cell-l1-lot", "etched-cell-l1-lot"],
-  ["deposit-dielectric-stack", "Deposit capacitor dielectric stack", "deposition", 7_000, "etched-cell-l1-lot", "dielectric-stack-lot"],
-  ["pattern-cell-layer-2", "Pattern memory-cell layer 2", "lithography", 6_000, "dielectric-stack-lot", "patterned-cell-l2-lot"],
-  ["etch-cell-layer-2", "Etch memory-cell layer 2", "etch", 5_000, "patterned-cell-l2-lot", "dram-wafer-lot"],
+  ["pattern-cell-layer-1", "Pattern memory-cell layer 1", "lithography", "photo-mask-l1", 6_000, "blank-dram-wafer-lot", "patterned-cell-l1-lot"],
+  ["etch-cell-layer-1", "Etch memory-cell layer 1", "etch", "etch-recipe-l1", 5_000, "patterned-cell-l1-lot", "etched-cell-l1-lot"],
+  ["deposit-dielectric-stack", "Deposit capacitor dielectric stack", "deposition", "ald-dielectric", 7_000, "etched-cell-l1-lot", "dielectric-stack-lot"],
+  ["pattern-cell-layer-2", "Pattern memory-cell layer 2", "lithography", "photo-mask-l2", 6_000, "dielectric-stack-lot", "patterned-cell-l2-lot"],
+  ["etch-cell-layer-2", "Etch memory-cell layer 2", "etch", "etch-recipe-l2", 5_000, "patterned-cell-l2-lot", "dram-wafer-lot"],
 ] as const;
-for (const [id, name, category, durationTicks, input, output] of processes) {
+for (const [id, name, category, setupGroup, durationTicks, input, output] of processes) {
   await json(join(project, "processes", `${id}.process.json`), {
     version: 1, id, name,
     description: `${name} as one qualified operation in the re-entrant DRAM front-end route.`,
-    category, tags: ["dram", "front-end", "re-entrant"], durationTicks,
+    category, tags: ["dram", "front-end", "re-entrant"], setupGroup, durationTicks,
     inputs: [{ resource: input, count: 1 }], outputs: [{ resource: output, count: 1 }],
   });
 }
@@ -75,6 +75,7 @@ async function workCenter(
   inputPorts: string[],
   outputPorts: string[],
   buildCost: number,
+  changeoverTicks?: number,
 ): Promise<void> {
   const buffers = [...new Set(ports.map((port) => port.buffer))].map((buffer) => ({
     id: buffer,
@@ -87,7 +88,10 @@ async function workCenter(
     tags: ["semiconductor", "work-center", category], capabilities: ["process"],
     geometry: { footprint: { width: 3, height: 3 }, rotatable: true, ports: ports.map((port) => ({ ...port, kind: "resource" })) },
     buffers,
-    production: { categories: [category], speed: { numerator: 1, denominator: 1 }, inputPorts, outputPorts, modes: [standardMode] },
+    production: {
+      categories: [category], speed: { numerator: 1, denominator: 1 }, inputPorts, outputPorts, modes: [standardMode],
+      ...(changeoverTicks ? { changeover: { durationTicks: changeoverTicks, powerMilliWatts: 180_000 } } : {}),
+    },
     runtime: { apiVersion: 1, entry: "runtime.ts" },
     power: { idleMilliWatts: 30_000, activeMilliWatts: 280_000 }, economics: { buildCost }, files: { visual: "visual.json" },
   });
@@ -99,13 +103,13 @@ await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified litho
   { id: "release-input", direction: "input", side: "west", offset: 1, buffer: "release-input" },
   { id: "reentrant-input", direction: "input", side: "north", offset: 1, buffer: "reentrant-input" },
   { id: "pattern-output", direction: "output", side: "east", offset: 1, buffer: "pattern-output" },
-], ["release-input", "reentrant-input"], ["pattern-output"], 18_000);
+], ["release-input", "reentrant-input"], ["pattern-output"], 18_000, 4_000);
 
 await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work center qualified for both memory-cell layers.", "etch", "#ed8b3a", [
   { id: "pattern-input", direction: "input", side: "west", offset: 1, buffer: "pattern-input" },
   { id: "loop-output", direction: "output", side: "east", offset: 1, buffer: "loop-output" },
   { id: "final-output", direction: "output", side: "south", offset: 1, buffer: "final-output" },
-], ["pattern-input"], ["loop-output", "final-output"], 12_000);
+], ["pattern-input"], ["loop-output", "final-output"], 12_000, 3_000);
 
 await workCenter("ald-deposition-bay", "ALD Deposition Bay", "Atomic-layer deposition work center for the DRAM capacitor dielectric stack.", "deposition", "#2cb6a0", [
   { id: "etch-input", direction: "input", side: "west", offset: 1, buffer: "etch-input" },
@@ -175,7 +179,7 @@ connect("etch-to-wafer-sort", { device: "etch-1", port: "final-output", side: "s
   { x: 18, y: 15 }, { x: 18, y: 16 }, { x: 18, y: 17 }, { x: 18, y: 18 }, { x: 17, y: 18 }, { x: 17, y: 19 }, { x: 17, y: 20 }, { x: 17, y: 21 },
 ]);
 
-const blueprint = { version: 1, revision: "memory-fab-reentrant-v1", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
+const blueprint = { version: 1, revision: "memory-fab-changeover-v2", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
 await json(join(project, "blueprints", "baseline.blueprint.json"), blueprint);
 await json(join(project, "blueprints", "experiment.blueprint.json"), blueprint);
 await json(join(project, "inm.json"), { version: 1, id: "memory-fab", name: "Re-entrant DRAM Memory Fab", defaultWorld: "cleanroom", defaultBlueprint: "baseline", defaultScenario: "production-window", defaultObjective: "dram-output" });
@@ -188,12 +192,13 @@ await json(join(project, "scenarios", "production-window.scenario.json"), {
     priority: index >= 9 ? 10 : index >= 6 ? 5 : 1,
     dueTick: 180_000 - index * 10_000,
   })),
+  initialSetups: { "lithography-1": "photo-mask-l1", "etch-1": "etch-recipe-l1" },
   initialEnergyMilliJoules: {}, failures: [],
 });
 await json(join(project, "objectives", "dram-output.objective.json"), {
   id: "dram-output", name: "Complete DRAM wafer lots with low WIP", targetResource: "dram-wafer-lot", targetRegion: "cleanroom", targetRatePerMinute: 3,
   constraints: { maxBuildCost: 80_000, maxOccupiedArea: 180, minProduction: 4 },
-  weights: { throughput: 20, onTimeDelivery: 20, energy: 0.005, buildCost: 0.05, occupiedArea: 0.05, wip: 1.5, blocked: 3, cycleTime: 2, tardiness: 4 },
+  weights: { throughput: 20, onTimeDelivery: 20, energy: 0.005, buildCost: 0.05, occupiedArea: 0.05, wip: 1.5, blocked: 3, cycleTime: 2, tardiness: 4, changeovers: 0.5 },
 });
 await json(join(project, "tests", "reentrant-flow.fixture.json"), {
   name: "reentrant DRAM route completes lots through shared lithography and etch bays", world: "cleanroom", blueprint: "baseline", scenario: "production-window", objective: "dram-output", seed: 42,
@@ -205,7 +210,9 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "metric", path: "lotFlow.released", equals: 12 },
     { kind: "metric", path: "lotFlow.completed", min: 4 },
     { kind: "metric", path: "lotFlow.meanCycleTimeTicks", min: 1 },
+    { kind: "metric", path: "equipmentSetups.totalChangeovers", min: 2 },
     { kind: "event", type: "device.start", present: true },
+    { kind: "event", type: "device.changeover-finish", present: true },
     { kind: "event", type: "lot.completed", present: true },
   ],
 });
@@ -217,8 +224,8 @@ await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
 
-await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The fixed benchmark compares it with \`baseline.blueprint.json\` under the same three-minute DRAM production window.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses an identity-preserving wafer lot within one step. The baseline uses authored operation order and FIFO lots. Coding Agents can test earliest-due-date, lot-priority, tool duplication, buffers, routes, or power by editing the candidate Blueprint only. Cycle time, queue time, tardiness, throughput, WIP, energy, cost, and area are all evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`.\n`);
-await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before delivery. Their identities survive processing and physical transport, so the evaluator measures complete cycle, queue, processing, transport, on-time, and tardiness behavior instead of inferring it from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe. Timing and capacity values are synthetic benchmark parameters.\n\nStart with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
+await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The fixed benchmark compares it with \`baseline.blueprint.json\` under the same three-minute DRAM production window.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses an identity-preserving wafer lot within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power. The baseline uses authored operation order and FIFO lots. Coding Agents can test earliest-due-date, \`minimize-changeover\`, lot-priority, tool duplication, buffers, routes, or power by editing the candidate Blueprint only. Cycle time, queue time, tardiness, changeovers, throughput, WIP, energy, cost, and area are all evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`.\n`);
+await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before delivery. Their identities survive processing and physical transport. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies the shared equipment, consumes power, and competes with due-date service. The evaluator measures complete cycle, queue, processing, transport, changeover, on-time, and tardiness behavior instead of inferring it from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe. Timing and capacity values are synthetic benchmark parameters.\n\nStart with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");
 
 const tsconfig = JSON.parse(await readFile(join(project, "assets", "tsconfig.json"), "utf8")) as Record<string, unknown>;

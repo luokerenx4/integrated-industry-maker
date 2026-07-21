@@ -26,6 +26,8 @@ export interface BlueprintMetricSnapshot {
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
   meanTardinessTicks: number;
+  totalChangeovers: number;
+  totalSetupTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -54,6 +56,8 @@ export interface BlueprintMetricDelta {
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
   meanTardinessTicks: number;
+  totalChangeovers: number;
+  totalSetupTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -204,6 +208,8 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
     meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,
     meanTardinessTicks: metrics.lotFlow.meanTardinessTicks,
+    totalChangeovers: metrics.equipmentSetups.totalChangeovers,
+    totalSetupTicks: metrics.equipmentSetups.totalSetupTicks,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
@@ -234,6 +240,8 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     p95CycleTimeTicks: after.p95CycleTimeTicks - before.p95CycleTimeTicks,
     meanQueueTimeTicks: after.meanQueueTimeTicks - before.meanQueueTimeTicks,
     meanTardinessTicks: after.meanTardinessTicks - before.meanTardinessTicks,
+    totalChangeovers: after.totalChangeovers - before.totalChangeovers,
+    totalSetupTicks: after.totalSetupTicks - before.totalSetupTicks,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,

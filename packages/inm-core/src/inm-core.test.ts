@@ -698,6 +698,9 @@ describe("blueprint compiler", () => {
     expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(12);
     expect(baseline.events.filter((event) => event.type === "device.start" && event.lotIds?.length)).not.toHaveLength(0);
     expect(baseline.events.filter((event) => event.type === "resource.depart" && event.transit.lotIds?.length)).not.toHaveLength(0);
+    expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 2, totalSetupTicks: 7_000 }));
+    expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(2);
+    expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(2);
 
     const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
@@ -705,15 +708,41 @@ describe("blueprint compiler", () => {
       device.policy = { ...device.policy, recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
     }
     const candidate = runUntil(compileFactoryProject(candidateSource), undefined, { seed: 42 });
-    expect(candidate.metrics.lotFlow.onTimeCompleted).toBe(12);
-    expect(candidate.metrics.lotFlow.meanTardinessTicks).toBe(0);
+    expect(candidate.metrics.lotFlow.onTimeCompleted).toBeGreaterThan(baseline.metrics.lotFlow.onTimeCompleted);
+    expect(candidate.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
     expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeLessThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
-    expect(candidate.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore + 10);
+    expect(candidate.metrics.equipmentSetups.totalChangeovers).toBeGreaterThan(baseline.metrics.equipmentSetups.totalChangeovers);
+    expect(candidate.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
+
+    const setupAwareSource = { ...source, blueprint: structuredClone(source.blueprint) };
+    for (const id of ["lithography-1", "etch-1"]) {
+      const device = setupAwareSource.blueprint.devices.find((item) => item.id === id)!;
+      device.policy = { ...device.policy, recipeDispatch: "minimize-changeover", lotDispatch: "earliest-due-date" };
+    }
+    const setupAware = runUntil(compileFactoryProject(setupAwareSource), undefined, { seed: 42 });
+    expect(setupAware.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
+    expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
+    expect(setupAware.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
 
     const invalid = { ...source, scenario: structuredClone(source.scenario) };
     invalid.scenario.initialLots = [];
     invalid.scenario.initialBuffers = { "lot-release": { storage: { "blank-dram-wafer-lot": 1 } } };
     expect(issueCodes(() => compileFactoryProject(invalid))).toContain("lot.explicit-required");
+
+    const invalidSetup = { ...source, scenario: structuredClone(source.scenario) };
+    invalidSetup.scenario.initialSetups = { ...invalidSetup.scenario.initialSetups, "lithography-1": "unknown-mask" };
+    expect(issueCodes(() => compileFactoryProject(invalidSetup))).toContain("production.setup-group-qualified");
+
+    const missingSetupGroup = { ...source, processes: structuredClone(source.processes) };
+    delete missingSetupGroup.processes["pattern-cell-layer-1"]!.setupGroup;
+    expect(issueCodes(() => compileFactoryProject(missingSetupGroup))).toContain("production.setup-group-required");
+
+    const cancelledSetupSource = { ...source, scenario: structuredClone(source.scenario) };
+    cancelledSetupSource.scenario.initialSetups = { ...cancelledSetupSource.scenario.initialSetups, "lithography-1": "photo-mask-l2" };
+    cancelledSetupSource.scenario.failures = [{ device: "lithography-1", atTick: 2_000, durationTicks: 5_000 }];
+    const cancelledSetup = runUntil(compileFactoryProject(cancelledSetupSource), undefined, { seed: 42 });
+    expect(cancelledSetup.events.filter((event) => event.type === "device.changeover-cancelled")).toHaveLength(1);
+    expect(cancelledSetup.events.filter((event) => event.type === "lot.scrapped")).toHaveLength(0);
 
     const failureSource = { ...source, scenario: structuredClone(source.scenario) };
     failureSource.scenario.failures = [{ device: "lithography-1", atTick: 3_000, durationTicks: 5_000 }];

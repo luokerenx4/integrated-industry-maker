@@ -2,11 +2,12 @@
 
 - Decision: **KEEP**
 - Score: **85.600**
-- Result hash: `d96d59a2bee26ac3054c7de1cd6bf06f7b3180689277a257b7936b8f6533ad50`
+- Result hash: `df86872b5a300aaef519052235deb0faef87e41254711de7c7585fb5a9a4850b`
 - Bottleneck: smelter-1
 - Throughput/min: 13.000
 - Tracked lots: 0 / 0 completed · 0 scrapped
 - Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
+- Equipment setup: 0 changeovers · 0.000 s work
 - Target rate: 12.000 gear/min (100.0% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
@@ -61,6 +62,7 @@
 {
   "blocked": -1.0946666666666667,
   "buildCost": -14.625,
+  "changeovers": 0,
   "constraintPenalty": 0,
   "cycleTime": 0,
   "energy": -2.621512,

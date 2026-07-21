@@ -1,8 +1,8 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, due-date dispatch, and cycle-time evaluation implemented in engine version `inm-sim/0.48.0`.
+Status: explicit WIP identity, due-date dispatch, setup-aware queueing, and cycle-time evaluation implemented in engine version `inm-sim/0.49.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
 ## Why identity is industrial state
 
@@ -56,7 +56,7 @@ Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean 
 
 ## Current boundary
 
-Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Batch formation, sequence-dependent setup, yield, inspection/rework, dynamically timed releases, and preventive maintenance remain later industrial layers.
+Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Batch formation, yield, inspection/rework, dynamically timed releases, chamber cleaning, and preventive maintenance remain later industrial layers. Sequence-dependent equipment setup is now explicit; see [[docs/design/equipment-changeover]].
 
 ## Verification
 

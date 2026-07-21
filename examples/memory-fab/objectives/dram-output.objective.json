@@ -18,6 +18,7 @@
     "wip": 1.5,
     "blocked": 3,
     "cycleTime": 2,
-    "tardiness": 4
+    "tardiness": 4,
+    "changeovers": 0.5
   }
 }

@@ -42,8 +42,18 @@
       "min": 1
     },
     {
+      "kind": "metric",
+      "path": "equipmentSetups.totalChangeovers",
+      "min": 2
+    },
+    {
       "kind": "event",
       "type": "device.start",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "device.changeover-finish",
       "present": true
     },
     {

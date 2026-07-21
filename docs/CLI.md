@@ -22,7 +22,7 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, production-mode/resource/physical-port/shared-buffer/job-capacity checks, per-region geometry/rotation checks, independent instance port-filter validation, exact connection Resource-allowlist checks, explicit sorter Device ownership/stage/position/rotation/range checks, explicit cardinal transport-path and shared-cell resolution, local/inter-zone station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, production-mode/resource/physical-port/shared-buffer/job-capacity checks, setup-group/changeover/initial-equipment-state checks, per-region geometry/rotation checks, independent instance port-filter validation, exact connection Resource-allowlist checks, explicit sorter Device ownership/stage/position/rotation/range checks, explicit cardinal transport-path and shared-cell resolution, local/inter-zone station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
@@ -30,7 +30,7 @@ Prints the selected world, finite deposits, project topology, region kinds/world
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
-Compiles Device Process/mode jobs and exact Resource-to-port bindings, required input treatment levels, configured treatment Device/agent rates, effective physical-port contracts, backing-buffer contracts and recipe partitions, compatible alternatives, the globally balanced target graph, extraction/deposit lifetime, renewable/fuel generation, accumulator envelopes, material/fuel balance, local and station logistics limits, each connection's authored Resource allowlist, dispatch policy/coverage, per-stage distance/duration/capacity, endpoint power assignment, and regional grid headroom without running a simulation. Storage remains separate from generation because it moves finite energy across time. Diagnostics retain exact industrial entities and `--json` is designed for optimization agents.
+Compiles Device Process/mode jobs and exact Resource-to-port bindings, setup groups and changeover envelopes, required input treatment levels, configured treatment Device/agent rates, effective physical-port contracts, backing-buffer contracts and recipe partitions, compatible alternatives, the globally balanced target graph, extraction/deposit lifetime, renewable/fuel generation, accumulator envelopes, material/fuel balance, local and station logistics limits, each connection's authored Resource allowlist, dispatch policy/coverage, per-stage distance/duration/capacity, endpoint power assignment, and regional grid headroom without running a simulation. Storage remains separate from generation because it moves finite energy across time. Sequence-dependent effective capacity remains simulation-owned. Diagnostics retain exact industrial entities and `--json` is designed for optimization agents.
 
 ### `inm plan <project-or-workspace-dir> [--project ID]`
 
@@ -44,7 +44,7 @@ inm plan examples/ironworks --json
 
 Compares two named Blueprint files as one controlled experiment. Both files are compiled against the same selected Resource, Process, and Device catalogs, World, Scenario, Objective, and deterministic seed; the command rejects a changed benchmark input instead of blending it into the Blueprint result.
 
-Human output groups stable-id changes by Device, local connection, logistics network, factory policy, and Blueprint metadata. It also prints an exact replayable RFC 6902 file patch, both capacity-plan states, and objective score, throughput, attainment, consumed/stored/unserved/curtailed energy, unpowered time, cost, area, and congestion deltas. `--json` returns the complete controlled-evaluation contract.
+Human output groups stable-id changes by Device, local connection, logistics network, factory policy, and Blueprint metadata. It also prints an exact replayable RFC 6902 file patch, both capacity-plan states, and objective score, throughput, attainment, lot cycle/service, changeover/setup work, consumed/stored/unserved/curtailed energy, unpowered time, cost, area, and congestion deltas. `--json` returns the complete controlled-evaluation contract.
 
 ```bash
 inm compare examples/ironworks \
@@ -85,7 +85,7 @@ Human output includes the optimized cycles/min, every selected cross-region Reso
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
-Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes tracked-lot completion/on-time service, mean/p95 cycle time, queue/process/transport time and tardiness when applicable; treated quantities by `Resource@level`; physical belt utilization; transport energy; storage; per-grid power; and measured connection flows. JSON metrics retain every lot-flow aggregate, treatment ledger, full power/storage ledgers, per-Device status time, and capacity-normalized sorter utilization. Active production/extraction/treatment jobs pause at a power boundary; explicit loader/unloader work also records stage start/finish and freezes its exact remaining time across a sorter failure.
+Runs the deterministic discrete-event simulator and writes or reuses an immutable run artifact. Human-readable output includes tracked-lot completion/on-time service, mean/p95 cycle time, queue/process/transport time and tardiness when applicable; equipment changeover count/current groups/setup work; treated quantities by `Resource@level`; physical belt utilization; transport energy; storage; per-grid power; and measured connection flows. JSON metrics retain every lot-flow aggregate, setup and treatment ledgers, full power/storage ledgers, per-Device status time, and capacity-normalized sorter utilization. Active production/changeover/extraction/treatment jobs pause at a power boundary; equipment failure cancels a changeover without consuming queued WIP, while explicit loader/unloader work freezes its exact remaining time across a sorter failure.
 
 ```bash
 inm simulate examples/ironworks \

@@ -99,6 +99,10 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       path: `assets/devices/${id}/asset.json/power/idleMilliWatts`, code: "power.idle-exceeds-active",
       message: `Idle power ${asset.power.idleMilliWatts} mW cannot exceed active power ${asset.power.activeMilliWatts} mW`,
     });
+    if (asset.production?.changeover && asset.production.changeover.powerMilliWatts < asset.power.idleMilliWatts) issues.push({
+      path: `assets/devices/${id}/asset.json/production/changeover/powerMilliWatts`, code: "production.changeover-power",
+      message: `Changeover power ${asset.production.changeover.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
+    });
     const bufferIds = new Set<string>();
     for (const [index, buffer] of asset.buffers.entries()) {
       if (bufferIds.has(buffer.id)) issues.push({ path: `assets/devices/${id}/asset.json/buffers/${index}/id`, code: "asset.duplicate-buffer", message: `Duplicate buffer '${buffer.id}'` });
@@ -337,7 +341,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
     grid.ratedConsumptionMilliWatts += device.processPlans.length
-      ? Math.max(...device.processPlans.map((plan) => plan.powerMilliWatts))
+      ? Math.max(...device.processPlans.map((plan) => Math.max(plan.powerMilliWatts, plan.changeoverPowerMilliWatts ?? 0)))
       : device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);
@@ -832,7 +836,16 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             outputs: compiledOutputs,
             priority: recipe.priority ?? 0,
             lotTransfers,
+            ...(definition.setupGroup ? { setupGroup: definition.setupGroup } : {}),
+            ...(asset.production.changeover ? {
+              changeoverDurationTicks: asset.production.changeover.durationTicks,
+              changeoverPowerMilliWatts: asset.production.changeover.powerMilliWatts,
+            } : {}),
           };
+          if (asset.production.changeover && !definition.setupGroup) issues.push({
+            path: `${recipePath}/process`, code: "production.setup-group-required",
+            message: `Setup-sensitive Device '${asset.id}' requires Process '${definition.id}' to declare setupGroup`,
+          });
           processPlans.push(compiledPlan);
           for (const [resource, portId] of [...Object.entries(recipe.inputs), ...Object.entries(recipe.outputs)]) {
             (portResources[portId] ??= new Set()).add(resource);
@@ -1234,6 +1247,17 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const resourceCapacity = buffer?.resourceCapacities?.[lot.resource];
     if (resourceCapacity !== undefined && (lotsPerResourceBuffer.get(resourceKey) ?? 0) > resourceCapacity) issues.push({
       path, code: "buffer.resource-capacity", message: `Initial '${lot.resource}' lots exceed buffer quota ${resourceCapacity}`,
+    });
+  }
+  for (const [deviceId, setupGroup] of Object.entries(loaded.scenario.initialSetups ?? {})) {
+    const path = `scenario/initialSetups/${deviceId}`;
+    const device = devices[deviceId];
+    if (!device) issues.push({ path, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` });
+    else if (!device.assetDef.production?.changeover) issues.push({
+      path, code: "production.changeover-required", message: `Device '${deviceId}' does not declare changeover work`,
+    });
+    else if (!device.processPlans.some((plan) => plan.setupGroup === setupGroup)) issues.push({
+      path, code: "production.setup-group-qualified", message: `Device '${deviceId}' is not qualified for setup group '${setupGroup}'`,
     });
   }
   const treatedTotals = new Map<string, number>();

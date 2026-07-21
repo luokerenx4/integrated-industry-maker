@@ -40,6 +40,11 @@
       "storedMilliJoules": 0
     }
   },
+  "equipmentSetups": {
+    "devices": {},
+    "totalChangeovers": 0,
+    "totalSetupTicks": 0
+  },
   "extracted": {
     "crude-oil": 60
   },
@@ -168,6 +173,7 @@
   "scoreBreakdown": {
     "blocked": 0,
     "buildCost": -5.1,
+    "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
     "energy": -0.75302875,

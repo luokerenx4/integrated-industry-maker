@@ -66,6 +66,11 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     const initialMilliJoules = project.scenario.initialEnergyMilliJoules?.[id] ?? 0;
     devices[id] = {
       status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds,
+      ...(project.devices[id]!.assetDef.production?.changeover ? { setup: {
+        group: project.scenario.initialSetups?.[id] ?? null,
+        changeovers: 0,
+        setupTicks: 0,
+      } } : {}),
       ...(storage ? { energyStorage: {
         capacityMilliJoules: storage.capacityMilliJoules,
         storedMilliJoules: initialMilliJoules,
@@ -1082,11 +1087,17 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
+  const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
+    plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device, plan.outputs);
   const selectProcessPlan = (device: CompiledDevice): CompiledDevice["processPlans"][number] | undefined => {
     const ranked = device.processPlans.map((plan, index) => ({ plan, index }));
     const policy = device.policy?.recipeDispatch ?? "authored-order";
     if (policy === "shortest-cycle") ranked.sort((left, right) => left.plan.durationTicks - right.plan.durationTicks || left.index - right.index);
     else if (policy === "highest-priority") ranked.sort((left, right) => right.plan.priority - left.plan.priority || left.index - right.index);
+    else if (policy === "minimize-changeover") {
+      const currentGroup = state.devices[device.id]!.setup?.group;
+      ranked.sort((left, right) => Number(right.plan.setupGroup === currentGroup) - Number(left.plan.setupGroup === currentGroup) || left.index - right.index);
+    }
     else if (policy === "oldest-lot" || policy === "earliest-due-date" || policy === "highest-lot-priority") {
       const candidateLot = (plan: CompiledDevice["processPlans"][number]) => {
         const lots = plan.inputs.filter((amount) => isTracked(amount.resource))
@@ -1107,14 +1118,55 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         return rightLot.priority - leftLot.priority || left.index - right.index;
       });
     }
-    const ready = ranked.find(({ plan }) => plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device, plan.outputs));
+    const ready = ranked.find(({ plan }) => processPlanReady(device, plan));
     return (ready ?? ranked[0])?.plan;
+  };
+  const requiresChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
+    const setup = state.devices[device.id]!.setup;
+    return Boolean(setup && plan.setupGroup && plan.changeoverDurationTicks !== undefined && plan.changeoverPowerMilliWatts !== undefined
+      && setup.group !== plan.setupGroup && processPlanReady(device, plan));
+  };
+  const tryStartChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
+    const runtime = state.devices[device.id]!;
+    const setup = runtime.setup;
+    if (!setup || !plan.setupGroup || plan.changeoverDurationTicks === undefined || plan.changeoverPowerMilliWatts === undefined) return false;
+    const required = plan.changeoverPowerMilliWatts;
+    const grid = device.powerGrid ?? null;
+    const available = grid ? availablePower(grid) - activePower(grid) : 0;
+    if (!canStartPoweredWork(device, required)) {
+      if (runtime.status !== "unpowered") emit({
+        type: "power.shortage", tick: state.tick, device: device.id, grid,
+        requiredMilliWatts: required,
+        availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, available) : 0,
+      });
+      setStatus(device.id, "unpowered");
+      return false;
+    }
+    const changeover = { from: setup.group, to: plan.setupGroup };
+    const job = {
+      operation: `changeover:${setup.group ?? "unconfigured"}->${plan.setupGroup}`,
+      startedAt: state.tick,
+      durationTicks: plan.changeoverDurationTicks,
+      remainingTicks: plan.changeoverDurationTicks,
+      workedTicks: 0,
+      resumedAt: state.tick,
+      powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
+      powerMilliWatts: required,
+      produce: [],
+      changeover,
+    };
+    setStatus(device.id, "processing");
+    mutateFactoryState(state, { kind: "job.start", device: device.id, job });
+    emit({ type: "device.changeover-start", tick: state.tick, device: device.id, ...changeover, durationTicks: plan.changeoverDurationTicks });
+    schedule(state.tick + plan.changeoverDurationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+    return true;
   };
   const tryEvaluate = (device: CompiledDevice): boolean => {
     const runtime = state.devices[device.id]!;
     if (runtime.status === "failed" || runtime.activeJob || device.transportEndpoint || device.assetDef.capabilities.includes("station")
       || (!runtime.idlePowered && device.assetDef.power.idleMilliWatts > 0)) return false;
     const selectedProcessPlan = selectProcessPlan(device);
+    if (selectedProcessPlan && requiresChangeover(device, selectedProcessPlan)) return tryStartChangeover(device, selectedProcessPlan);
     const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
       apiVersion: 1, tick: state.tick,
       device: { id: device.id, asset: device.asset, config: device.config ?? {} },
@@ -1423,6 +1475,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (event.kind === "complete") {
       if (event.generation !== generations[event.device] || state.devices[event.device]!.status !== "processing") continue;
       const runtime = state.devices[event.device]!; const job = runtime.activeJob!;
+      if (job.changeover) {
+        mutateFactoryState(state, { kind: "setup.finish", device: event.device, group: job.changeover.to, durationTicks: job.durationTicks });
+        setStatus(event.device, "idle");
+        mutateFactoryState(state, { kind: "job.finish", device: event.device });
+        emit({
+          type: "device.changeover-finish", tick: state.tick, device: event.device,
+          ...job.changeover, durationTicks: job.durationTicks,
+        });
+      } else {
       for (const output of job.produce) {
         const transfer = job.lotTransfers?.find((candidate) => candidate.output.buffer === output.buffer && candidate.output.resource === output.resource);
         if (isTracked(output.resource)) {
@@ -1448,6 +1509,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce),
         ...(job.lotTransfers?.length ? { lotIds: job.lotTransfers.flatMap((transfer) => transfer.lotIds) } : {}) });
+      }
     } else if (event.kind === "belt-step") {
       const transit = state.transports[event.connection]?.find((item) => item.id === event.transitId);
       if (!transit || transit.readyTick !== state.tick || transit.phase === "unloading") continue;
@@ -1580,6 +1642,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     } else if (event.kind === "breakdown") {
       generations[event.device]!++;
       const activeJob = state.devices[event.device]!.activeJob;
+      if (activeJob?.changeover) emit({
+        type: "device.changeover-cancelled", tick: state.tick, device: event.device,
+        ...activeJob.changeover, reason: "equipment-breakdown",
+      });
       if (activeJob?.extraction) mutateFactoryState(state, { kind: "resource.release", node: activeJob.extraction.node, count: activeJob.extraction.count });
       const scrappedLots = activeJob?.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
       if (scrappedLots.length) {

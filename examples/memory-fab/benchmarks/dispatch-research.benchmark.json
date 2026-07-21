@@ -21,13 +21,13 @@
   "lock": {
     "cases": {
       "production-window": {
-        "blueprintHash": "a417d436c059bb8a54ab82ab4cddc3b837657f05f5129a621d46c4d793cc2174",
-        "deviceCatalogHash": "7821bbe75a5a5f157377cf086ff1bfb6dc6d243b06b08369e8ffdaf529fb3120",
-        "engineVersion": "inm-sim/0.48.0",
-        "objectiveHash": "ef65c25919b353c7aa7f7c71959a8157c54cfc632e4a85b473c067221dbe534a",
-        "processCatalogHash": "da5020b790a508426f988a1d6fd2ce4e72ca78c052c964999f7d46281eff2167",
+        "blueprintHash": "7c4f350e6dd1bae39e5fbab3deed3bd49876fbdf1b91cda563f9b79ea9cccedf",
+        "deviceCatalogHash": "49a701dfe7695855ce89f740e5f9e3030252e35f5f74f7df25634e64772901a8",
+        "engineVersion": "inm-sim/0.49.0",
+        "objectiveHash": "e6204cca991da8e0f223a8cfa30d9e042a7f7414ed5796307ca060cff90eece0",
+        "processCatalogHash": "62fa3b2588688f50da5dfc239178ab6e3c2fda8379d26ee55f2d4d7c862cdf6f",
         "resourceCatalogHash": "6279b3172012bc93c23715db86a417b57f0141ad9e0fbfc5c184ab4b42484c36",
-        "scenarioHash": "32be8271259ce2c36a4293d9043311ca82b00b889bf3c58c4efd7dfd9706c452",
+        "scenarioHash": "45e2082fd6c57b5026acfc26a1acc1a36285297b13d298fcaede4c86eb78c782",
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       }
     },

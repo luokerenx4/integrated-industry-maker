@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": "memory-fab-reentrant-v1",
+  "revision": "memory-fab-changeover-v2",
   "devices": [
     {
       "id": "lot-release",

@@ -2,7 +2,7 @@
 
 Status: deterministic discrete-event runtime and immutable replay artifacts implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
 
 ## Scope
 
@@ -40,7 +40,7 @@ Power changes checkpoint work rather than canceling it. A production, extraction
 
 ## Events and metrics
 
-Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Lot-bearing Device and transport events carry exact ids, and `lot.completed` records cycle time and tardiness. Material treatment emits exact source/target levels and agent consumption; power boundary events record renewable output, satisfaction changes, accumulator full/depleted transitions, and exact hard-shortage restoration; station-energy events record blocked missions, departure spending, and full buffers. Metrics are derived from deterministic state/event integration and include lot completion/service/cycle/queue/process/transport/tardiness, treated quantities by `Resource@level`, treatment agents, throughput, delivery, generated/requested/served/unserved/curtailed grid energy, average/minimum satisfaction, peak power and contiguous deficit envelopes, fuel/storage, station initial/charged/spent/final energy, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
+Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Lot-bearing Device and transport events carry exact ids, and `lot.completed` records cycle time and tardiness. Setup-sensitive Devices emit changeover start/finish/cancellation with exact groups and duration. Material treatment emits exact source/target levels and agent consumption; power boundary events record renewable output, satisfaction changes, accumulator full/depleted transitions, and exact hard-shortage restoration; station-energy events record blocked missions, departure spending, and full buffers. Metrics are derived from deterministic state/event integration and include lot completion/service/cycle/queue/process/transport/tardiness, equipment changeovers/setup work, treated quantities by `Resource@level`, treatment agents, throughput, delivery, generated/requested/served/unserved/curtailed grid energy, average/minimum satisfaction, peak power and contiguous deficit envelopes, fuel/storage, station initial/charged/spent/final energy, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
 
 ## Immutable runs
 

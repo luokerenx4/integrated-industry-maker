@@ -103,7 +103,11 @@
         "auxiliaryInputs": [],
         "minimumInputTreatmentLevel": 0
       }
-    ]
+    ],
+    "changeover": {
+      "durationTicks": 4000,
+      "powerMilliWatts": 180000
+    }
   },
   "runtime": {
     "apiVersion": 1,

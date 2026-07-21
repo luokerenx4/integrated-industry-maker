@@ -26,6 +26,9 @@ export interface DeviceProductionRate {
   powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
+  setupGroup?: string;
+  changeoverDurationTicks?: number;
+  changeoverPowerMilliWatts?: number;
 }
 
 export interface RecipeOptionAnalysis {
@@ -400,6 +403,9 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       powerPriority: device.policy?.powerPriority ?? 0,
       idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
       powerMilliWatts: processPlan.powerMilliWatts,
+      ...(processPlan.setupGroup ? { setupGroup: processPlan.setupGroup } : {}),
+      ...(processPlan.changeoverDurationTicks === undefined ? {} : { changeoverDurationTicks: processPlan.changeoverDurationTicks }),
+      ...(processPlan.changeoverPowerMilliWatts === undefined ? {} : { changeoverPowerMilliWatts: processPlan.changeoverPowerMilliWatts }),
     });
     }
   }
@@ -640,7 +646,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
-      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch; per-operation rates are exclusive maxima`,
+      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}; per-operation rates are exclusive maxima`,
     });
   }
   const hasTreatmentSource = (device: string, buffer: string, resource: ResourceId, minimumLevel: number, visited = new Set<string>()): boolean => {

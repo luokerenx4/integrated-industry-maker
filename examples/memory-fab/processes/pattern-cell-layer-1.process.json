@@ -9,6 +9,7 @@
     "front-end",
     "re-entrant"
   ],
+  "setupGroup": "photo-mask-l1",
   "durationTicks": 6000,
   "inputs": [
     {

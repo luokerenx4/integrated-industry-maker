@@ -56,6 +56,8 @@ export interface IndustrialProcessManifest {
   description: string;
   category: string;
   tags: string[];
+  /** Recipe family retained by setup-sensitive equipment. Changing groups requires a physical changeover. */
+  setupGroup?: string;
   durationTicks: Tick;
   inputs: ProcessAmount[];
   outputs: ProcessAmount[];
@@ -132,6 +134,8 @@ export interface DeviceAssetManifest {
     inputPorts: PortId[];
     outputPorts: PortId[];
     modes: ProductionModeDefinition[];
+    /** Fixed equipment work required before executing a different Process setupGroup. */
+    changeover?: { durationTicks: Tick; powerMilliWatts: number };
   };
   extraction?: {
     resources: ResourceId[];
@@ -291,7 +295,7 @@ export interface IndustrialWorld {
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
-export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
+export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
 export type LotDispatchPolicy = "fifo" | "oldest-release" | "earliest-due-date" | "highest-priority";
 export interface BlueprintRecipe {
   process: ProcessId;
@@ -418,6 +422,8 @@ export interface Scenario {
     priority?: number;
     dueTick?: Tick;
   }>;
+  /** Scenario-owned setup state at tick zero for setup-sensitive production Devices. */
+  initialSetups?: Record<DeviceInstanceId, string>;
   /** Treated subsets of initialBuffers. Undeclared remainder is untreated level zero. */
   initialTreatments?: Array<{ device: DeviceInstanceId; buffer: BufferId; resource: ResourceId; level: number; count: number }>;
   initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
@@ -445,6 +451,8 @@ export interface Objective {
     cycleTime?: number;
     /** Penalty per minute of mean completed-lot tardiness. */
     tardiness?: number;
+    /** Penalty per completed equipment changeover. */
+    changeovers?: number;
   };
 }
 
@@ -495,6 +503,9 @@ export interface CompiledDevice extends BlueprintDevice {
     priority: number;
     /** Identity-preserving input/output pairs. Counts are always equal. */
     lotTransfers: Array<{ family: string; input: ResourceBufferQuantity; output: ResourceBufferQuantity }>;
+    setupGroup?: string;
+    changeoverDurationTicks?: Tick;
+    changeoverPowerMilliWatts?: number;
   };
   /** One entry per qualified operation. A singleton also appears as processPlan. */
   processPlans: Array<NonNullable<CompiledDevice["processPlan"]>>;
@@ -663,6 +674,7 @@ export interface ActiveDeviceJob {
   fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
   treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
   lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
+  changeover?: { from: string | null; to: string };
 }
 export type WorkLotStatus = "queued" | "processing" | "transport" | "completed" | "scrapped";
 export interface WorkLot {
@@ -696,6 +708,7 @@ export interface DeviceRuntimeState {
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   /** FIFO-preserving identities for Resources whose tracking kind is lot. */
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
+  setup?: { group: string | null; changeovers: number; setupTicks: Tick };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
@@ -778,6 +791,9 @@ export interface FactoryState {
 }
 
 export type FactoryEvent =
+  | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
+  | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
+  | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
@@ -827,6 +843,7 @@ export interface ScoreBreakdown {
   blocked: number;
   cycleTime: number;
   tardiness: number;
+  changeovers: number;
   constraintPenalty: number;
 }
 export interface FactoryMetrics {
@@ -901,6 +918,11 @@ export interface FactoryMetrics {
   materialTreatment: {
     treated: Record<ResourceId, Record<string, number>>;
     agentsConsumed: Record<ResourceId, number>;
+  };
+  equipmentSetups: {
+    totalChangeovers: number;
+    totalSetupTicks: Tick;
+    devices: Record<DeviceInstanceId, { group: string | null; changeovers: number; setupTicks: Tick }>;
   };
   totalBuildCost: number;
   occupiedArea: number;

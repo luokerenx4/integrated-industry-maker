@@ -1,6 +1,6 @@
 # Re-entrant DRAM memory fab
 
-This self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before delivery. Their identities survive processing and physical transport, so the evaluator measures complete cycle, queue, processing, transport, on-time, and tardiness behavior instead of inferring it from fungible inventory.
+This self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before delivery. Their identities survive processing and physical transport. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies the shared equipment, consumes power, and competes with due-date service. The evaluator measures complete cycle, queue, processing, transport, changeover, on-time, and tardiness behavior instead of inferring it from fungible inventory.
 
 The model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe. Timing and capacity values are synthetic benchmark parameters.
 

@@ -9,6 +9,7 @@
     "front-end",
     "re-entrant"
   ],
+  "setupGroup": "etch-recipe-l1",
   "durationTicks": 5000,
   "inputs": [
     {

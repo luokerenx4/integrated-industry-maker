@@ -72,6 +72,11 @@
       "storedMilliJoules": 0
     }
   },
+  "equipmentSetups": {
+    "devices": {},
+    "totalChangeovers": 0,
+    "totalSetupTicks": 0
+  },
   "extracted": {
     "coal": 40,
     "iron-ore": 74
@@ -324,6 +329,7 @@
   "scoreBreakdown": {
     "blocked": -2.305,
     "buildCost": -17.275,
+    "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
     "energy": -2.4908099999999997,

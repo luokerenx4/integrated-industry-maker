@@ -1,8 +1,8 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation- and lot-aware deterministic ready-WIP dispatch implemented in engine version `inm-sim/0.48.0`.
+Status: multi-operation qualification plus operation-, lot-, and setup-aware deterministic ready-WIP dispatch implemented in engine version `inm-sim/0.49.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
 ## Why this exists
 
@@ -24,13 +24,14 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 - `authored-order`: first ready operation in the `recipes` array;
 - `shortest-cycle`: shortest compiled duration among ready operations, with authored order as the tie-break;
 - `highest-priority`: largest recipe `priority` among ready operations, with authored order as the tie-break.
+- `minimize-changeover`: an operation matching the Device's current setup group wins, then authored order resolves ties;
 - `oldest-lot`: operation containing the earliest-released tracked lot;
 - `earliest-due-date`: operation containing the tracked lot with the earliest finite due tick;
 - `highest-lot-priority`: operation containing the tracked lot with the greatest authored priority.
 
 `lotDispatch` independently chooses the exact identities consumed after an operation wins: `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority`. Operation dispatch and lot dispatch are separate because a shared work center first chooses a route step and then chooses WIP within that step. See [[docs/design/lot-tracking]].
 
-Selection occurs only while the Device is idle. A ready operation has every exact input batch available and enough reserved output capacity. Work is non-preemptive after start. When nothing is ready, the highest-ranked operation is still exposed to the Device program so the normal waiting-input or blocked-output state remains observable.
+Selection occurs only while the Device is idle. A ready operation has every exact input batch available and enough reserved output capacity. If its Process setup group differs from setup-sensitive equipment state, the host completes the fixed powered changeover before material is consumed. Work is non-preemptive after start. When nothing is ready, the highest-ranked operation is still exposed to the Device program so the normal waiting-input or blocked-output state remains observable. See [[docs/design/equipment-changeover]].
 
 ## Runtime authority and determinism
 
@@ -42,7 +43,7 @@ The event stream records the selected Process id and tracked lot ids in `device.
 
 `inm analyze` emits one row per qualified operation. Its cycles/min value is an exclusive maximum: the rate if that operation owned the work center continuously. A `shared-work-center` diagnostic names the dispatch policy and warns that those maxima cannot run simultaneously. Material-balance and capacity planning enumerate every qualified operation, but the first implementation does not yet solve a coupled allocation variable across all operations on one physical Device. Locked event simulation is therefore the score authority for re-entrant work-center optimization.
 
-The next industrial layers should make that coupling richer rather than hide it: sequence-dependent setup and chamber cleaning, minimum/maximum batch formation, equipment qualification state, preventive maintenance and breakdown repair, stochastic-but-seeded yield, inspection, scrap, and rework routes.
+The next industrial layers should make that coupling richer rather than hide it: minimum/maximum batch formation, chamber cleaning consumables, qualification expiry, preventive maintenance and breakdown repair, stochastic-but-seeded yield, inspection, scrap, and rework routes.
 
 ## Memory-fab reference project
 

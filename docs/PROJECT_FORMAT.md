@@ -137,7 +137,8 @@ A combustible Resource declares how much energy one unit contains. The value is 
       "powerMultiplier": { "numerator": 1, "denominator": 1 },
       "minimumInputTreatmentLevel": 0,
       "auxiliaryInputs": []
-    }]
+    }],
+    "changeover": { "durationTicks": 3000, "powerMilliWatts": 120000 }
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "idleMilliWatts": 10000, "activeMilliWatts": 180000 },
@@ -146,7 +147,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
-Unlike the old single-behavior model, a Device declares descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, the physical `inputPorts`/`outputPorts` a recipe may configure, and at least one production mode. There is no implicit mode or compatibility fallback. Asset buffer `accepts` values are maximum capabilities. A blueprint instance may narrow an internal buffer with `bufferFilters` and independently narrow one physical ingress/egress with `portFilters`; an empty list closes that object. The selected recipe maps every Resource to a physical port and unused production ports carry nothing. Shared recipe buffers receive deterministic per-Resource capacity partitions so one material cannot starve another. Extractor output is narrowed to the Resource type of its bound deposits. The Device TypeScript program still owns the final local decision inside the compiled job contract.
+Unlike the old single-behavior model, a Device declares descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, the physical `inputPorts`/`outputPorts` a recipe may configure, and at least one production mode. Optional `production.changeover` declares the fixed duration and total active power of changing between Process setup groups. There is no implicit mode or compatibility fallback. Asset buffer `accepts` values are maximum capabilities. A blueprint instance may narrow an internal buffer with `bufferFilters` and independently narrow one physical ingress/egress with `portFilters`; an empty list closes that object. The selected recipe maps every Resource to a physical port and unused production ports carry nothing. Shared recipe buffers receive deterministic per-Resource capacity partitions so one material cannot starve another. Extractor output is narrowed to the Resource type of its bound deposits. The Device TypeScript program still owns the final local decision inside the compiled job contract.
 
 A treatment Device uses capability `treat`, three distinct material-input/material-output/agent buffers, and explicit modes:
 
@@ -394,13 +395,14 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
   "description": "Reduce iron ore into iron plate stock.",
   "category": "smelting",
   "tags": ["iron", "primary-processing"],
+  "setupGroup": "iron-reduction",
   "durationTicks": 4000,
   "inputs": [{ "resource": "iron-ore", "count": 2 }],
   "outputs": [{ "resource": "iron-plate", "count": 1 }]
 }
 ```
 
-The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed.
+The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. Optional `setupGroup` names retained equipment state; switching a setup-sensitive Device to a different group creates a separate powered changeover job. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed. See [[docs/design/equipment-changeover]].
 
 `inm analyze` also enumerates every project-local Process/mode pair compatible with each placed production Device. A deterministic binder preserves existing Resource assignments when possible, assigns new ingredients to distinct compatible buffers, and exposes the resulting recipe object as an optimization candidate. The selected production graph solves one target item as a global material balance over the active jobs, so coproducts, auxiliary inputs, and recycle loops retain their real topology. The CLI and research agent can compare alternatives before simulation while still using simulation and objective score as the final KEEP/REVERT authority.
 
@@ -533,7 +535,7 @@ A re-entrant work center uses `recipes` instead of `recipe`:
 }
 ```
 
-`recipe` and `recipes` are mutually exclusive. `recipeDispatch` accepts static operation rules (`authored-order`, `shortest-cycle`, `highest-priority`) and tracked-WIP rules (`oldest-lot`, `earliest-due-date`, `highest-lot-priority`); omission means `authored-order`. `lotDispatch` is `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority` and chooses identities within the winning operation. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties deterministically. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]] and [[docs/design/lot-tracking]].
+`recipe` and `recipes` are mutually exclusive. `recipeDispatch` accepts static operation rules (`authored-order`, `shortest-cycle`, `highest-priority`, `minimize-changeover`) and tracked-WIP rules (`oldest-lot`, `earliest-due-date`, `highest-lot-priority`); omission means `authored-order`. `minimize-changeover` prefers ready work in the Device's current setup group. `lotDispatch` is `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority` and chooses identities within the winning operation. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties deterministically. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], and [[docs/design/equipment-changeover]].
 
 Non-recipe Devices can configure ingress/egress independently:
 
@@ -621,6 +623,7 @@ Initial quantities address device and buffer explicitly:
   "initialLots": [
     { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "priority": 10, "dueTick": 90000 }
   ],
+  "initialSetups": { "lithography-1": "photo-mask-l1" },
   "initialTreatments": [
     { "device": "smelter-1", "buffer": "input", "resource": "iron-ore", "level": 1, "count": 2 }
   ],
@@ -655,6 +658,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `initialLots` is the only startup path for tracked Resources. Each lot id is unique and names its initial Device/buffer/Resource plus optional integer priority and due tick. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `initialLots`, duplicate identities, incompatible buffers, and capacity/quota overflow.
 
+`initialSetups` maps setup-sensitive Device ids to qualified Process setup groups at tick zero. An omitted Device starts unconfigured and must perform a first changeover when ready WIP arrives. Scenario setup is fixed benchmark input; a candidate Blueprint cannot edit the physical starting state.
+
 ```json
 {
   "id": "default",
@@ -672,12 +677,13 @@ Capacity planning integrates these curves against the Objective-derived constant
     "wip": 0.1,
     "blocked": 2,
     "cycleTime": 0,
-    "tardiness": 0
+    "tardiness": 0,
+    "changeovers": 0
   }
 }
 ```
 
-`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by released lots. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
+`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by released lots. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes each completed equipment reconfiguration. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
 ## Coding Agent benchmark
 
@@ -710,7 +716,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.48.0",
+        "engineVersion": "inm-sim/0.49.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

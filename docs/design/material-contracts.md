@@ -1,6 +1,6 @@
 # Material, recipe, port, and buffer contracts
 
-Status: multi-input/multi-output Processes, physical recipe-port binding, multi-operation work centers, independent instance port filters, shared-buffer recipe partitions, treatment-aware contracts, and opt-in lot identity implemented through engine version `inm-sim/0.48.0`.
+Status: multi-input/multi-output Processes, physical recipe-port binding, multi-operation work centers, setup groups, independent instance port filters, shared-buffer recipe partitions, treatment-aware contracts, and opt-in lot identity implemented through engine version `inm-sim/0.49.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
@@ -32,7 +32,7 @@ Omitting `bufferFilters[buffer]` preserves the asset maximum. An explicit list n
 
 ## Configurable recipes
 
-A Process is project-local source code with any number of distinct inputs and one or more outputs. A production-capable Device asset declares supported Process categories, a rational speed, allowed physical `inputPorts`/`outputPorts`, and one or more explicit production modes. A dedicated Blueprint Device uses `recipe`; a shared work center uses `recipes` to qualify several Process/mode operations. Every entry maps each Process Resource to an exact physical port. Mode-owned auxiliary Resources name their physical port in the asset; they never appear as hidden consumption. See [[docs/design/work-center-dispatch]] for ready-WIP selection.
+A Process is project-local source code with any number of distinct inputs and one or more outputs plus an optional equipment `setupGroup`. A production-capable Device asset declares supported Process categories, a rational speed, allowed physical `inputPorts`/`outputPorts`, one or more explicit production modes, and optionally a powered changeover envelope. A dedicated Blueprint Device uses `recipe`; a shared work center uses `recipes` to qualify several Process/mode operations. Every entry maps each Process Resource to an exact physical port. Mode-owned auxiliary Resources name their physical port in the asset; they never appear as hidden consumption. See [[docs/design/work-center-dispatch]] for ready-WIP selection and [[docs/design/equipment-changeover]] for setup state.
 
 Compilation rejects missing, extra, unknown, duplicate-operation, wrong-direction, asset-incompatible, buffer-filtered, or port-filtered bindings. It narrows every configured production port to the union of Resources mapped by its qualified operations; unused production ports carry nothing. Connections are checked against this compiled port contract, so an unqualified route stage cannot enter a wildcard work center. Every compiled Process plan resolves ports back to host-owned buffers for execution.
 

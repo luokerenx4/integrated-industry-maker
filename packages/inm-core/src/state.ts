@@ -36,6 +36,7 @@ export type FactoryStateMutation =
   | { kind: "carrier-return" }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
+  | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
   | { kind: "power.satisfaction"; grid: string; satisfactionPpm: number }
   | { kind: "progress"; device: string; progressTicks: Tick };
@@ -248,6 +249,14 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "carrier-return": state.carrierReturns += 1; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;
+    case "setup.finish": {
+      const setup = state.devices[mutation.device]!.setup;
+      if (!setup) throw new Error(`Device '${mutation.device}' does not track equipment setup`);
+      setup.group = mutation.group;
+      setup.changeovers++;
+      setup.setupTicks += mutation.durationTicks;
+      return;
+    }
     case "job.power": {
       const job = state.devices[mutation.device]!.activeJob;
       if (!job) throw new Error(`Device '${mutation.device}' has no active job to update`);

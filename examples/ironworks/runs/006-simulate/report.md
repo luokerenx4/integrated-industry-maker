@@ -2,11 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **122.079**
-- Result hash: `6ca59ff129d1d53eb25189e7ff9d0fdb57f2533b05e2e384f2f0e49f46f40e29`
+- Result hash: `5fe3a28f90134ac76bc5d7033f2cb29046078c6f0c4249cef8c0638d2a8820ae`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
 - Tracked lots: 0 / 0 completed · 0 scrapped
 - Lot service: 83.3% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
+- Equipment setup: 0 changeovers · 0.000 s work
 - Target rate: 24.000 gear/min (83.3% attained)
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
@@ -64,6 +65,7 @@ No configured accumulators.
 {
   "blocked": -3.2441666666666666,
   "buildCost": -18.685,
+  "changeovers": 0,
   "constraintPenalty": 0,
   "cycleTime": 0,
   "energy": -2.85101315,

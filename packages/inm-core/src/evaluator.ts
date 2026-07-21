@@ -125,6 +125,13 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   }));
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
   const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
+  const setupDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.setup)
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, { ...runtime.setup! }]));
+  const equipmentSetups: FactoryMetrics["equipmentSetups"] = {
+    totalChangeovers: Object.values(setupDevices).reduce((sum, setup) => sum + setup.changeovers, 0),
+    totalSetupTicks: Object.values(setupDevices).reduce((sum, setup) => sum + setup.setupTicks, 0),
+    devices: setupDevices,
+  };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
@@ -137,6 +144,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     blocked: -(Object.values(blockedOutputTime).reduce((a, b) => a + b, 0) / duration) * weights.blocked,
     cycleTime: -(lotFlow.meanCycleTimeTicks / 60_000) * (weights.cycleTime ?? 0),
     tardiness: -(lotFlow.meanTardinessTicks / 60_000) * (weights.tardiness ?? 0),
+    changeovers: -equipmentSetups.totalChangeovers * (weights.changeovers ?? 0),
     constraintPenalty: violations.length ? -1_000_000 : 0,
   };
   const finalScore = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0);
@@ -195,7 +203,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       minimumSatisfactionPpm: power.minimumSatisfactionPpm,
       requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
     }])),
-    materialTreatment: structuredClone(state.materialTreatment),
+    materialTreatment: structuredClone(state.materialTreatment), equipmentSetups,
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,

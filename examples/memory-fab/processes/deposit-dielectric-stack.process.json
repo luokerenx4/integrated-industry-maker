@@ -9,6 +9,7 @@
     "front-end",
     "re-entrant"
   ],
+  "setupGroup": "ald-dielectric",
   "durationTicks": 7000,
   "inputs": [
     {
