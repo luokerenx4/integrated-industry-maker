@@ -68,6 +68,7 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
   else if (event.type === "buffer.blocked") next.devices[event.device]!.runtimeStatus = "blocked-output";
   else if (event.type === "buffer.unblocked") next.devices[event.device]!.runtimeStatus = "idle";
   else if (event.type === "power.shortage") next.devices[event.device]!.runtimeStatus = "unpowered";
+  else if (event.type === "power.restored") next.devices[event.device]!.runtimeStatus = "processing";
   else if (event.type === "device.breakdown") next.devices[event.device]!.runtimeStatus = "failed";
   else if (event.type === "resource.depart") {
     const connection = project.connections[event.connection]!;

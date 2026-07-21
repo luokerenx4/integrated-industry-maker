@@ -135,6 +135,7 @@ export interface DeviceAssetManifest {
       | { kind: "renewable"; outputMilliWatts: number }
       | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: ResourceId[] };
     distribution?: { connectionRange: number; coverageRange: number };
+    storage?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
   };
   economics: { buildCost: number };
   files: { visual: string };
@@ -304,6 +305,7 @@ export interface Scenario {
   name: string;
   durationTicks: Tick;
   initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
+  initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
   failures?: ScenarioFailure[];
 }
 
@@ -375,6 +377,7 @@ export interface CompiledDevice extends BlueprintDevice {
   generationPlan?:
     | { kind: "renewable"; outputMilliWatts: number }
     | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: Array<{ resource: ResourceId; energyMilliJoules: number; durationTicks: Tick }> };
+  storagePlan?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
   powerGrid?: string;
 }
 export interface CompiledConnection extends BlueprintConnection {
@@ -454,6 +457,10 @@ export interface CompiledPowerGrid {
   transportStages: Array<{ connection: ConnectionId; stage: "loader" | "unloader" }>;
   productionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
+  storageDevices: DeviceInstanceId[];
+  storageCapacityMilliJoules: number;
+  storageChargeMilliWatts: number;
+  storageDischargeMilliWatts: number;
 }
 export interface CompiledFactoryProject {
   rootDir: string;
@@ -491,6 +498,9 @@ export interface ActiveDeviceJob {
   operation: string;
   startedAt: Tick;
   durationTicks: Tick;
+  remainingTicks: Tick;
+  workedTicks: Tick;
+  resumedAt: Tick;
   powerMilliWatts: number;
   produce: ResourceBufferQuantity[];
   extraction?: { node: string; count: number };
@@ -502,6 +512,7 @@ export interface DeviceRuntimeState {
   buffers: Record<BufferId, Record<ResourceId, number>>;
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
+  energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
 }
 export interface ResourceTransit {
   id: string;
@@ -534,7 +545,14 @@ export interface FactoryState {
   energy: {
     availableMilliWatts: number;
     consumedMilliJoules: number;
-    grids: Record<string, { availableMilliWatts: number; consumedMilliJoules: number }>;
+    grids: Record<string, {
+      availableMilliWatts: number;
+      consumedMilliJoules: number;
+      storedMilliJoules: number;
+      storageCapacityMilliJoules: number;
+      chargedMilliJoules: number;
+      dischargedMilliJoules: number;
+    }>;
     fuelConsumed: Record<ResourceId, number>;
   };
   completedOrders: number;
@@ -556,11 +574,14 @@ export type FactoryEvent =
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
-  | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
+  | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number; remainingTicks?: Tick; workedTicks?: Tick }
   | { type: "transport.power-shortage"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
   | { type: "transport.power-restored"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string }
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
   | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
+  | { type: "power.storage-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
+  | { type: "power.storage-depleted"; tick: Tick; device: DeviceInstanceId; grid: string }
+  | { type: "power.restored"; tick: Tick; device: DeviceInstanceId; grid: string; remainingTicks: Tick }
   | { type: "device.breakdown"; tick: Tick; device: DeviceInstanceId }
   | { type: "device.recover"; tick: Tick; device: DeviceInstanceId }
   | { type: "simulation.completed"; tick: Tick; reason: "until-tick" | "max-events" | "infeasible" };
@@ -584,6 +605,13 @@ export interface FactoryMetrics {
   completedOrders: number;
   onTimeDelivery: number;
   energyConsumedMilliJoules: number;
+  energyStorage: Record<string, {
+    initialMilliJoules: number;
+    storedMilliJoules: number;
+    capacityMilliJoules: number;
+    chargedMilliJoules: number;
+    dischargedMilliJoules: number;
+  }>;
   fuelConsumed: Record<ResourceId, number>;
   totalBuildCost: number;
   occupiedArea: number;
@@ -591,6 +619,7 @@ export interface FactoryMetrics {
   idleTime: Record<DeviceInstanceId, Tick>;
   waitingInputTime: Record<DeviceInstanceId, Tick>;
   blockedOutputTime: Record<DeviceInstanceId, Tick>;
+  unpoweredTime: Record<DeviceInstanceId, Tick>;
   averageWip: number;
   averageBeltItems: number;
   averageBlockedBeltItems: number;

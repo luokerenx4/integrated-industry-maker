@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **105.936**
-- Result hash: `227256cee3a8185926bf139838796f75f68902bbc4ddb3dbc249cf3f16405d88`
+- Result hash: `76782ac917417e679481d4740cf25483a050bd78623b8ac50ffcb3e7b0c9e044`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -11,6 +11,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 5
 - Powered transport energy: 362.000 J
+- Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -30,6 +31,10 @@
 | synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1 | 11.000 / 240.000 | 4.6% | 0 | 22 coal |
 | synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
 | synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
+
+## Grid storage
+
+No configured accumulators.
 
 ## Score breakdown
 

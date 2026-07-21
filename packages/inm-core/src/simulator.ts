@@ -14,6 +14,7 @@ type InternalEvent =
   | { kind: "arrive"; connection: string; transitId: string }
   | { kind: "station-arrive"; network: string; route: string; transitId: string }
   | { kind: "logistics-ready"; connection: string }
+  | { kind: "power-boundary"; grid: string; generation: number }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
 
@@ -28,14 +29,34 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     const buffers = Object.fromEntries(project.devices[id]!.assetDef.buffers.map((buffer) => [
       buffer.id, { ...(project.scenario.initialBuffers?.[id]?.[buffer.id] ?? {}) },
     ]));
-    devices[id] = { status: "idle", buffers };
+    const storage = project.devices[id]!.storagePlan;
+    const initialMilliJoules = project.scenario.initialEnergyMilliJoules?.[id] ?? 0;
+    devices[id] = {
+      status: "idle", buffers,
+      ...(storage ? { energyStorage: {
+        capacityMilliJoules: storage.capacityMilliJoules,
+        storedMilliJoules: initialMilliJoules,
+        initialMilliJoules,
+        chargedMilliJoules: 0,
+        dischargedMilliJoules: 0,
+      } } : {}),
+    };
   }
   const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as BeltTransit[]]));
   const logisticsTransports = Object.fromEntries(Object.keys(project.logisticsNetworks).sort().map((id) => [id, [] as ResourceTransit[]]));
-  const grids = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => [grid.id, {
-    availableMilliWatts: grid.members.reduce((sum, id) => sum + (project.devices[id]!.generationPlan?.kind === "renewable" ? project.devices[id]!.generationPlan.outputMilliWatts : 0), 0),
-    consumedMilliJoules: 0,
-  }]));
+  const grids = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => {
+    const renewable = grid.members.reduce((sum, id) => sum + (project.devices[id]!.generationPlan?.kind === "renewable" ? project.devices[id]!.generationPlan.outputMilliWatts : 0), 0);
+    const storedMilliJoules = grid.storageDevices.reduce((sum, id) => sum + (devices[id]!.energyStorage?.storedMilliJoules ?? 0), 0);
+    const discharge = grid.storageDevices.reduce((sum, id) => sum + ((devices[id]!.energyStorage?.storedMilliJoules ?? 0) > 0 ? project.devices[id]!.storagePlan!.dischargeMilliWatts : 0), 0);
+    return [grid.id, {
+      availableMilliWatts: renewable + discharge,
+      consumedMilliJoules: 0,
+      storedMilliJoules,
+      storageCapacityMilliJoules: grid.storageCapacityMilliJoules,
+      chargedMilliJoules: 0,
+      dischargedMilliJoules: 0,
+    }];
+  }));
   const availableMilliWatts = Object.values(grids).reduce((sum, grid) => sum + grid.availableMilliWatts, 0);
   const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => [node.id, { remaining: node.amount, reserved: 0, extracted: 0 }]));
   return { tick: 0, devices, resourceNodes, transports, logisticsTransports, produced: {}, consumed: {}, energy: { availableMilliWatts, consumedMilliJoules: 0, grids, fuelConsumed: {} }, completedOrders: 0 };
@@ -64,6 +85,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const stationDispatchCursors: Record<string, number> = {};
   const nextDispatchTick: Record<string, number> = Object.fromEntries(Object.keys(project.connections).map((id) => [id, state.tick]));
   const scheduledDispatchTick: Record<string, number | undefined> = {};
+  const scheduledPowerBoundaryTick: Record<string, number | undefined> = {};
+  const powerBoundaryGenerations: Record<string, number> = Object.fromEntries(Object.keys(project.powerGrids).map((id) => [id, 0]));
   const schedule = (tick: number, priority: number, value: InternalEvent) => queue.push({ tick, priority, sequence: sequence++, value });
   const scheduleLogisticsReady = (connection: string, tick: number) => {
     if (scheduledDispatchTick[connection] !== undefined && scheduledDispatchTick[connection]! <= tick) return;
@@ -99,14 +122,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   }, 0);
   const activePower = (grid?: string) => infrastructureBasePower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
     if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
-    return sum + (runtime.activeJob?.powerMilliWatts ?? 0);
+    return sum + (runtime.status === "processing" ? runtime.activeJob?.powerMilliWatts ?? 0 : 0);
   }, 0) + activeTransportPower(grid);
-  const availablePower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
+  const generationPower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
     if (grid !== undefined && device.powerGrid !== grid) return sum;
     if (state.devices[device.id]!.status === "failed") return sum;
     if (device.generationPlan?.kind === "renewable") return sum + device.generationPlan.outputMilliWatts;
     return sum + (state.devices[device.id]!.activeJob?.generationMilliWatts ?? 0);
   }, 0);
+  const storageDischargePower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
+    if (!device.storagePlan || (grid !== undefined && device.powerGrid !== grid) || state.devices[device.id]!.status === "failed") return sum;
+    return sum + ((state.devices[device.id]!.energyStorage?.storedMilliJoules ?? 0) > 1e-9 ? device.storagePlan.dischargeMilliWatts : 0);
+  }, 0);
+  const availablePower = (grid?: string) => generationPower(grid) + storageDischargePower(grid);
   const syncPowerAvailability = () => {
     for (const grid of Object.keys(project.powerGrids)) state.energy.grids[grid]!.availableMilliWatts = availablePower(grid);
     state.energy.availableMilliWatts = availablePower();
@@ -139,12 +167,69 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         + transits.filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0) * delta;
     }
     for (const grid of Object.keys(project.powerGrids).sort()) {
-      const available = availablePower(grid); const transportLoad = activeTransportPower(grid); const nonTransportLoad = activePower(grid) - transportLoad;
-      const consumedMilliJoules = Math.min(available, nonTransportLoad + transportLoad) * delta / 1000;
-      stats.transportEnergyConsumedMilliJoules += Math.min(transportLoad, Math.max(0, available - nonTransportLoad)) * delta / 1000;
+      const generated = generationPower(grid); const load = activePower(grid);
+      const storageDevices = project.powerGrids[grid]!.storageDevices.map((id) => project.devices[id]!)
+        .filter((device) => state.devices[device.id]!.status !== "failed").sort((a, b) => a.id.localeCompare(b.id));
+      let transferredMilliJoules = 0;
+      const deficitMilliJoules = Math.max(0, load - generated) * delta / 1000;
+      const surplusMilliJoules = Math.max(0, generated - load) * delta / 1000;
+      if (deficitMilliJoules > 0) {
+        let remaining = deficitMilliJoules;
+        for (const device of storageDevices) {
+          const storage = state.devices[device.id]!.energyStorage!; const before = storage.storedMilliJoules;
+          const amount = Math.min(remaining, before, device.storagePlan!.dischargeMilliWatts * delta / 1000);
+          if (amount <= 0) continue;
+          mutateFactoryState(state, { kind: "energy.storage", grid, device: device.id, deltaMilliJoules: -amount, mode: "discharge" });
+          transferredMilliJoules += amount; remaining -= amount;
+          if (before > 1e-9 && storage.storedMilliJoules <= 1e-9) emit({ type: "power.storage-depleted", tick, device: device.id, grid });
+        }
+      } else if (surplusMilliJoules > 0) {
+        let remaining = surplusMilliJoules;
+        for (const device of storageDevices) {
+          const storage = state.devices[device.id]!.energyStorage!; const before = storage.storedMilliJoules;
+          const headroom = storage.capacityMilliJoules - before;
+          const amount = Math.min(remaining, headroom, device.storagePlan!.chargeMilliWatts * delta / 1000);
+          if (amount <= 0) continue;
+          mutateFactoryState(state, { kind: "energy.storage", grid, device: device.id, deltaMilliJoules: amount, mode: "charge" });
+          remaining -= amount;
+          if (before < storage.capacityMilliJoules - 1e-9 && storage.storedMilliJoules >= storage.capacityMilliJoules - 1e-9) emit({ type: "power.storage-full", tick, device: device.id, grid, storedMilliJoules: storage.storedMilliJoules });
+        }
+      }
+      const deliveredPower = Math.min(load, generated + transferredMilliJoules * 1000 / delta);
+      const transportLoad = activeTransportPower(grid); const nonTransportLoad = load - transportLoad;
+      const consumedMilliJoules = deliveredPower * delta / 1000;
+      stats.transportEnergyConsumedMilliJoules += Math.min(transportLoad, Math.max(0, deliveredPower - nonTransportLoad)) * delta / 1000;
       if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
     }
     mutateFactoryState(state, { kind: "tick", tick }); stats.elapsedTicks = tick;
+  };
+  const nextPowerBoundaryDelay = (grid: string): number | undefined => {
+    const generated = generationPower(grid); const load = activePower(grid);
+    const devices = project.powerGrids[grid]!.storageDevices.map((id) => project.devices[id]!)
+      .filter((device) => state.devices[device.id]!.status !== "failed").sort((a, b) => a.id.localeCompare(b.id));
+    let remainingPower = Math.abs(generated - load);
+    if (remainingPower <= 0) return undefined;
+    const charging = generated > load; let delay = Number.POSITIVE_INFINITY;
+    for (const device of devices) {
+      const storage = state.devices[device.id]!.energyStorage!;
+      const rate = charging ? device.storagePlan!.chargeMilliWatts : device.storagePlan!.dischargeMilliWatts;
+      const availableEnergy = charging ? storage.capacityMilliJoules - storage.storedMilliJoules : storage.storedMilliJoules;
+      if (availableEnergy <= 1e-9) continue;
+      const allocatedPower = Math.min(rate, remainingPower);
+      if (allocatedPower > 0) delay = Math.min(delay, Math.max(1, Math.ceil(availableEnergy * 1000 / allocatedPower)));
+      remainingPower -= allocatedPower;
+      if (remainingPower <= 0) break;
+    }
+    return Number.isFinite(delay) ? delay : undefined;
+  };
+  const schedulePowerBoundaries = () => {
+    for (const grid of Object.keys(project.powerGrids).sort()) {
+      const delay = nextPowerBoundaryDelay(grid); const target = delay === undefined ? undefined : state.tick + delay;
+      if (scheduledPowerBoundaryTick[grid] === target) continue;
+      powerBoundaryGenerations[grid]!++;
+      scheduledPowerBoundaryTick[grid] = target;
+      if (target !== undefined) schedule(target, 2, { kind: "power-boundary", grid, generation: powerBoundaryGenerations[grid]! });
+    }
   };
   const accepts = (device: CompiledDevice, buffer: string, resource: string) => {
     const contract = device.buffers[buffer]!.accepts;
@@ -428,7 +513,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         setStatus(device.id, "unpowered"); return false;
       }
       mutateFactoryState(state, { kind: "resource.reserve", node: node.id, count: decision.count });
-      const job = { operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: required, produce, extraction: { node: node.id, count: decision.count } };
+      const job = {
+        operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
+        remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick,
+        powerMilliWatts: required, produce, extraction: { node: node.id, count: decision.count },
+      };
       setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
       emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
       schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
@@ -444,7 +533,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       applyConsume(device, [amount], false);
       mutateFactoryState(state, { kind: "fuel", resource: fuel.resource, count: 1 });
       const job = {
-        operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: 0, produce: [],
+        operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
+        remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick, powerMilliWatts: 0, produce: [],
         generationMilliWatts: plan.outputMilliWatts, fuel: { resource: fuel.resource, count: 1, energyMilliJoules: fuel.energyMilliJoules },
       };
       setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
@@ -477,7 +567,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       setStatus(device.id, "unpowered"); return false;
     }
     applyConsume(device, decision.consume, false);
-    const job = { operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks, powerMilliWatts: required, produce: structuredClone(decision.produce) };
+    const job = {
+      operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
+      remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick,
+      powerMilliWatts: required, produce: structuredClone(decision.produce),
+    };
     setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
     emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks });
     schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
@@ -485,7 +579,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const tryEvaluate = (device: CompiledDevice): boolean => {
     const runtime = state.devices[device.id]!;
-    if (runtime.status === "failed" || runtime.status === "processing" || device.assetDef.capabilities.includes("station")) return false;
+    if (runtime.status === "failed" || runtime.activeJob || device.assetDef.capabilities.includes("station")) return false;
     const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
       apiVersion: 1, tick: state.tick,
       device: { id: device.id, asset: device.asset, config: device.config ?? {} },
@@ -520,6 +614,43 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     });
     return tryDecision(device, decision);
   };
+  const rebalanceActiveJobPower = (): boolean => {
+    let changed = false;
+    for (const grid of Object.keys(project.powerGrids).sort()) {
+      let remainingPower = Math.max(0, availablePower(grid) - infrastructureBasePower(grid) - activeTransportPower(grid));
+      const jobs = project.powerGrids[grid]!.members.map((id) => project.devices[id]!).filter((device) => {
+        const runtime = state.devices[device.id]!;
+        return runtime.activeJob && runtime.status !== "failed" && !runtime.activeJob.generationMilliWatts;
+      }).sort((a, b) => a.id.localeCompare(b.id));
+      for (const device of jobs) {
+        const runtime = state.devices[device.id]!; const job = runtime.activeJob!; const required = job.powerMilliWatts;
+        if (required <= remainingPower) {
+          remainingPower -= required;
+          if (runtime.status === "unpowered") {
+            mutateFactoryState(state, { kind: "job.power", device: device.id, remainingTicks: job.remainingTicks, workedTicks: job.workedTicks, resumedAt: state.tick });
+            setStatus(device.id, "processing");
+            emit({ type: "power.restored", tick: state.tick, device: device.id, grid, remainingTicks: job.remainingTicks });
+            schedule(state.tick + job.remainingTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+            changed = true;
+          }
+          continue;
+        }
+        if (runtime.status !== "processing") continue;
+        const elapsed = Math.min(job.remainingTicks, Math.max(0, state.tick - job.resumedAt));
+        if (elapsed >= job.remainingTicks) continue;
+        const remainingTicks = job.remainingTicks - elapsed; const workedTicks = job.workedTicks + elapsed;
+        mutateFactoryState(state, { kind: "job.power", device: device.id, remainingTicks, workedTicks, resumedAt: state.tick });
+        generations[device.id]!++;
+        setStatus(device.id, "unpowered");
+        emit({
+          type: "power.shortage", tick: state.tick, device: device.id, grid,
+          requiredMilliWatts: required, availableMilliWatts: remainingPower, remainingTicks, workedTicks,
+        });
+        changed = true;
+      }
+    }
+    return changed;
+  };
   const settle = () => {
     let changed = true; let guard = 0;
     while (changed && guard++ < 100_000) {
@@ -528,13 +659,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       let generationChanged = false;
       for (const device of evaluationOrder.filter((item) => item.generationPlan)) if (tryEvaluate(device)) generationChanged = true;
       syncPowerAvailability();
+      const jobPowerChanged = rebalanceActiveJobPower();
       const stationPowerChanged = refreshInfrastructurePower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
-      changed = generationChanged || stationPowerChanged || physicalMoved || stationMoved;
+      changed = generationChanged || jobPowerChanged || stationPowerChanged || physicalMoved || stationMoved;
       for (const device of evaluationOrder.filter((item) => !item.generationPlan)) if (tryEvaluate(device)) changed = true;
     }
     syncPowerAvailability();
+    schedulePowerBoundaries();
     if (guard >= 100_000) throw new Error("Device scripts did not reach a stable state after 100000 actions at one tick");
   };
 
@@ -633,6 +766,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       emit({ type: "logistics.arrive", tick: state.tick, transit: { ...transit }, network: event.network, route: event.route });
     } else if (event.kind === "logistics-ready") {
       if (scheduledDispatchTick[event.connection] === state.tick) delete scheduledDispatchTick[event.connection];
+    } else if (event.kind === "power-boundary") {
+      if (event.generation !== powerBoundaryGenerations[event.grid] || scheduledPowerBoundaryTick[event.grid] !== state.tick) continue;
+      delete scheduledPowerBoundaryTick[event.grid];
     } else if (event.kind === "breakdown") {
       generations[event.device]!++;
       const activeJob = state.devices[event.device]!.activeJob;
@@ -648,7 +784,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   for (const id of Object.keys(project.devices)) {
     const runtime = state.devices[id]!; const durations = stats.durations[id] ??= {};
     durations[runtime.status] = (durations[runtime.status] ?? 0) + state.tick - statusSince[id]!;
-    if (runtime.status === "processing" && runtime.activeJob) mutateFactoryState(state, { kind: "progress", device: id, progressTicks: state.tick - runtime.activeJob.startedAt });
+    if (runtime.activeJob) {
+      const activeProgress = runtime.status === "processing" ? Math.min(runtime.activeJob.remainingTicks, Math.max(0, state.tick - runtime.activeJob.resumedAt)) : 0;
+      mutateFactoryState(state, { kind: "progress", device: id, progressTicks: runtime.activeJob.workedTicks + activeProgress });
+    }
   }
   const reason = publicEventCount >= maxEvents ? "max-events" : "until-tick";
   emit({ type: "simulation.completed", tick: state.tick, reason });

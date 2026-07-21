@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **119.744**
-- Result hash: `e58b72c74e20d5e59ff544da6501fc74ab67072e6e26c765d86657bbcc864c21`
+- Result hash: `79c8a58acc80c25a7a63247c2f5e6aecda0c16035c7e5f035d27ab6855669ba2`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
@@ -11,6 +11,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 4
 - Powered transport energy: 168.600 J
+- Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -25,6 +26,10 @@
 | synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1 | 28.000 / 240.000 | 11.7% | 0 | 56 refined-oil |
 | synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1 | 13.500 / 240.000 | 5.6% | 0 | 27 hydrogen |
 | synth-plastic-synth-make-plastic-1-to-synth-plastic-sink | 13.000 / 240.000 | 5.4% | 0 | 26 plastic |
+
+## Grid storage
+
+No configured accumulators.
 
 ## Score breakdown
 

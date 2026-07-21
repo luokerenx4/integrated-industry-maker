@@ -118,6 +118,11 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         }
       }
     }
+    if (asset.power.storage) {
+      if (!asset.capabilities.includes("power")) issues.push({ path: `assets/devices/${id}/asset.json/power/storage`, code: "capability.not-power", message: "Power storage requires power capability" });
+      if (!asset.power.distribution) issues.push({ path: `assets/devices/${id}/asset.json/power/distribution`, code: "power.distribution-required", message: "Power-storage devices must declare grid connection and coverage ranges" });
+      if (asset.power.generation) issues.push({ path: `assets/devices/${id}/asset.json/power`, code: "power.storage-generation-exclusive", message: "One Device asset cannot declare both generation and storage" });
+    }
     if (asset.logistics && !asset.capabilities.includes("transport")) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "capability.not-transport", message: "Logistics roles require transport capability" });
     if (asset.logistics && new Set(asset.logistics.roles).size !== asset.logistics.roles.length) issues.push({ path: `assets/devices/${id}/asset.json/logistics/roles`, code: "logistics.duplicate-role", message: "Logistics roles must be unique" });
     if (asset.logistics?.roles.includes("carrier") && !asset.logistics.carrierKinds) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-kinds-required", message: "Carrier role requires supported network kinds" });
@@ -172,7 +177,10 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     members.sort((a, b) => a.id.localeCompare(b.id));
     const region = members[0]!.region;
     const id = `grid-${region}-${members[0]!.id}`;
-    grids[id] = { id, region, distributors: members.map((device) => device.id), members: [], transportStages: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0 };
+    grids[id] = {
+      id, region, distributors: members.map((device) => device.id), members: [], transportStages: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0,
+      storageDevices: [], storageCapacityMilliJoules: 0, storageChargeMilliWatts: 0, storageDischargeMilliWatts: 0,
+    };
     return { id, members };
   }).sort((a, b) => a.id.localeCompare(b.id));
 
@@ -193,6 +201,12 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.members.push(device.id);
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts ?? device.assetDef.power.consumptionMilliWatts;
+    if (device.storagePlan) {
+      grid.storageDevices.push(device.id);
+      grid.storageCapacityMilliJoules += device.storagePlan.capacityMilliJoules;
+      grid.storageChargeMilliWatts += device.storagePlan.chargeMilliWatts;
+      grid.storageDischargeMilliWatts += device.storagePlan.dischargeMilliWatts;
+    }
   }
   return grids;
 }
@@ -448,6 +462,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     let processPlan: CompiledDevice["processPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
+    let storagePlan: CompiledDevice["storagePlan"];
     if (instance.recipe) {
       const recipe = instance.recipe;
       const definition = loaded.processes[recipe.process];
@@ -590,6 +605,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         }),
       };
     }
+    if (asset.power.storage) storagePlan = { ...asset.power.storage };
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
@@ -597,6 +613,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ...(processPlan ? { processPlan } : {}),
       ...(extractionPlan ? { extractionPlan } : {}),
       ...(generationPlan ? { generationPlan } : {}),
+      ...(storagePlan ? { storagePlan } : {}),
     };
   }
 
@@ -780,6 +797,12 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
       if (buffer && Object.values(inventory).reduce((sum, count) => sum + count, 0) > buffer.capacity) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "buffer.capacity", message: `Initial quantity exceeds buffer capacity ${buffer.capacity}` });
     }
+  }
+  for (const [deviceId, initialEnergy] of Object.entries(loaded.scenario.initialEnergyMilliJoules ?? {})) {
+    const device = devices[deviceId]; const path = `scenario/initialEnergyMilliJoules/${deviceId}`;
+    if (!device) issues.push({ path, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` });
+    else if (!device.storagePlan) issues.push({ path, code: "power.storage-required", message: `Device '${deviceId}' does not declare power storage` });
+    else if (initialEnergy > device.storagePlan.capacityMilliJoules) issues.push({ path, code: "power.storage-capacity", message: `Initial energy ${initialEnergy} mJ exceeds storage capacity ${device.storagePlan.capacityMilliJoules} mJ` });
   }
   for (const [index, failure] of (loaded.scenario.failures ?? []).entries()) if (!devices[failure.device]) issues.push({ path: `scenario/failures/${index}/device`, code: "reference.device-instance", message: `Unknown device instance '${failure.device}'` });
   if (issues.length) throw new InmValidationError(issues);

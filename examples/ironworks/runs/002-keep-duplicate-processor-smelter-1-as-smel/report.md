@@ -1,8 +1,8 @@
 # INM Run 002-keep-duplicate-processor-smelter-1-as-smel
 
 - Decision: **KEEP**
-- Score: **98.455**
-- Result hash: `a546180467cdd4cd7d97b74108d1d0b952cc2ae4771557a932e8ee4d1dc51182`
+- Score: **96.755**
+- Result hash: `e2374a4727d3a3fe7e6380d03aca9a72e1d25a45ff5aa2324174fc901567daeb`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -11,6 +11,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 7
 - Powered transport energy: 381.000 J
+- Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -33,15 +34,21 @@
 | coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 | coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 
+## Grid storage
+
+| Grid | Initial (MJ) | Final / capacity (MJ) | Charged (MJ) | Discharged (MJ) |
+| --- | ---: | ---: | ---: | ---: |
+| grid-forge-world-generator-1 | 0.000 | 3.600 / 3.600 | 3.600 | 0.000 |
+
 ## Score breakdown
 
 ```json
 {
   "blocked": -0.426,
-  "buildCost": -13.745,
+  "buildCost": -14.645,
   "constraintPenalty": 0,
   "energy": -2.24281,
-  "occupiedArea": -31,
+  "occupiedArea": -31.8,
   "onTimeDelivery": 10,
   "throughput": 140,
   "wip": -4.131316666666667

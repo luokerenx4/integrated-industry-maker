@@ -17,6 +17,15 @@
     "plastic": 26
   },
   "energyConsumedMilliJoules": 69930600,
+  "energyStorage": {
+    "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    }
+  },
   "extracted": {
     "crude-oil": 60
   },
@@ -165,6 +174,14 @@
       "loader": 0.11666666666666667,
       "unloader": 0.11666666666666667
     }
+  },
+  "unpoweredTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-make-plastic-1": 0,
+    "synth-plastic-sink": 0,
+    "synth-refine-crude-1": 0
   },
   "waitingInputTime": {
     "synth-chemical-basin-wind-turbine-1": 0,

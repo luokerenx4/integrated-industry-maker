@@ -14,7 +14,7 @@ The root route presents available projects. Selecting one establishes `/<project
 
 ## Project-local catalog
 
-The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, production modes and auxiliary inputs, runtime entry, transformations, transport properties, content hashes, and current instance/fleet counts.
+The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, production modes and auxiliary inputs, runtime entry, transformations, transport properties, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
 
 ## Industrial analysis
 
@@ -27,7 +27,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 - every Device instance's effective buffer capacity and accepted Resources;
 - local pipeline stages, measured Resource mix, capacity, utilization, blockage, and power;
 - station routes/fleet load;
-- regional power generation, demand, members, and headroom;
+- regional power generation, demand, members, headroom, accumulator capacity/rates, and selected-run stored energy;
 - compiler/static diagnostics.
 
 ## 3D replay
@@ -43,9 +43,9 @@ The Device inspector joins compiled and measured semantics in one local view:
 - runtime status, current job progress, and completed-run utilization;
 - asset identity, region, position, footprint, build cost, and active power;
 - selected Process/mode with exact input/output batches, buffers, duration, and nominal rate;
-- extraction or generation plan when present;
+- extraction, generation, or accumulator plan when present;
 - effective buffer acceptance and per-Resource quotas;
-- regional power-grid membership, generation, rated load, and headroom;
+- regional power-grid membership, generation, rated load, headroom, and storage envelope;
 - incoming/outgoing local connections and Device-scoped diagnostics.
 
 The connection inspector exposes source/target navigation, physical path/level, dispatch and travel clocks, stack limit, live cargo at the selected replay tick, loader/line/unloader assets and power state, measured stage utilization, delivered Resource mix, average in-flight inventory, and blockage. Each real belt cell owns a transparent picking volume matching its grid occupancy, so selection does not depend on a visually thin line's raycast tolerance.

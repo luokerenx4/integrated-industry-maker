@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **373.342**
-- Result hash: `fac56b03f254c38c253c4da4a994e6bebbc76905eb9edef904f9220eee9237af`
+- Result hash: `1c1f12a9f028c90a1594a628b954f776d680305c60b3d65b987a075d6d6d32c3`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Target rate: 10.000 hydrogen/min (100.0% attained)
@@ -11,6 +11,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 5
 - Powered transport energy: 248.500 J
+- Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -26,6 +27,10 @@
 | synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1 | 28.000 / 240.000 | 11.7% | 0 | 56 refined-oil |
 | synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1 | 14.000 / 240.000 | 5.8% | 0 | 28 hydrogen |
 | synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink | 13.000 / 240.000 | 5.4% | 0 | 26 graphite |
+
+## Grid storage
+
+No configured accumulators.
 
 ## Score breakdown
 

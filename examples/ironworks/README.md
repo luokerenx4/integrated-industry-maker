@@ -8,10 +8,10 @@ The baseline chain is intentionally under-provisioned:
 
 ```text
 finite iron veins → mining-machine → smelter → interstellar logistics → assembler → material-sink
-finite coal seam  → mining-machine → local belt → thermal generator → regional power grid
+finite coal seam  → mining-machine → local belt → thermal generator → regional power grid ↔ accumulator
 ```
 
-Each planet has its own self-contained coal-to-power loop. A startup coal unit boots the grid, after which the powered miner replenishes the thermal generator through an explicitly routed local belt. Coal's resource asset declares 70 MJ per unit, so a 1 kW generator contributes to its regional grid for exactly 70 seconds per burn. The iron miner can feed two smelters while its bound deposits last, but the blueprint starts with one. The built-in heuristic detects that bottleneck, finds collision-free transport paths, and adds a parallel smelter plus routed input/output branches; shared belt cells share real bandwidth. If it needs new local power capacity it chooses the project-local renewable wind turbine rather than inventing an unfueled thermal plant. The local catalog includes basic and higher-tier belt/sorter assets, so a measured saturated connection can be upgraded without importing shared content. It also includes a powered Splitter Device with round-robin, port-priority, merge-priority, and Resource-filter policies.
+Each planet has its own self-contained coal-to-power loop. A startup coal unit boots the grid, after which the powered miner replenishes the thermal generator through an explicitly routed local belt. Coal's resource asset declares 70 MJ per unit, so a 1 kW generator contributes to its regional grid for exactly 70 seconds per burn. Forge World places an initially empty project-local accumulator with a 3.6 MJ envelope; measured surplus charges it and later deficits can consume that stored energy. The local catalog also contains renewable generation, multiple belt/sorter tiers, and a powered Splitter Device without importing shared content.
 
 ```bash
 bun run inm validate examples/ironworks

@@ -49,6 +49,23 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
   return source;
 }
 
+async function accumulatorProjectSource(options: { wind?: boolean; initialEnergyMilliJoules?: number } = {}): Promise<LoadedFactoryProject> {
+  const source = await loaded();
+  const smelter = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!);
+  source.blueprint.devices = [
+    ...(options.wind ? [{ id: "wind-1", asset: "wind-turbine", region: "forge-world", position: { x: 2, y: 2 }, rotation: 0 as const }] : []),
+    { id: "accumulator-1", asset: "accumulator", region: "forge-world", position: { x: 5, y: 6 }, rotation: 0 },
+    smelter,
+  ];
+  source.blueprint.connections = [];
+  source.blueprint.logisticsNetworks = [];
+  source.scenario.durationTicks = 10_000;
+  source.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 4 } } };
+  source.scenario.initialEnergyMilliJoules = { "accumulator-1": options.initialEnergyMilliJoules ?? 810_000 };
+  source.scenario.failures = [];
+  return source;
+}
+
 describe("production mix optimization", () => {
   test("jointly solves a cyclic refinery and cracking chain instead of greedily overproducing", () => {
     const plan = optimizeResourceDemand({
@@ -321,7 +338,7 @@ describe("factory synthesis", () => {
 describe("blueprint compiler", () => {
   test("compiles the complete Ironworks project", async () => {
     const project = compileFactoryProject(await loaded());
-    expect(Object.keys(project.devices)).toHaveLength(12);
+    expect(Object.keys(project.devices)).toHaveLength(13);
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
@@ -363,6 +380,30 @@ describe("blueprint compiler", () => {
     expect(source.deviceAssets.smelter!.runtime.entry).toBe("runtime.ts");
     expect(source.deviceAssets.smelter!.runtimeSourceHash).toHaveLength(64);
     expect(typeof source.deviceAssets.smelter!.program.evaluate).toBe("function");
+    expect(source.deviceAssets.accumulator!.power.storage).toEqual({
+      capacityMilliJoules: 3_600_000, chargeMilliWatts: 400_000, dischargeMilliWatts: 400_000,
+    });
+  });
+
+  test("compiles grid storage and validates scenario startup energy", async () => {
+    const source = await accumulatorProjectSource();
+    const project = compileFactoryProject(source);
+    expect(project.devices["accumulator-1"]!.storagePlan).toEqual({
+      capacityMilliJoules: 3_600_000, chargeMilliWatts: 400_000, dischargeMilliWatts: 400_000,
+    });
+    expect(project.powerGrids["grid-forge-world-accumulator-1"]).toEqual(expect.objectContaining({
+      storageDevices: ["accumulator-1"], storageCapacityMilliJoules: 3_600_000,
+      storageChargeMilliWatts: 400_000, storageDischargeMilliWatts: 400_000,
+    }));
+
+    const overflowing = await accumulatorProjectSource({ initialEnergyMilliJoules: 3_600_001 });
+    expect(issueCodes(() => compileFactoryProject(overflowing))).toContain("power.storage-capacity");
+    const nonStorage = await accumulatorProjectSource();
+    nonStorage.scenario.initialEnergyMilliJoules = { "smelter-1": 1 };
+    expect(issueCodes(() => compileFactoryProject(nonStorage))).toContain("power.storage-required");
+    const hybrid = await accumulatorProjectSource();
+    hybrid.deviceAssets.accumulator!.power.generation = { kind: "renewable", outputMilliWatts: 1 };
+    expect(issueCodes(() => compileFactoryProject(hybrid))).toContain("power.storage-generation-exclusive");
   });
 
   test("fuel generators require resources with declared energy values", async () => {
@@ -658,7 +699,7 @@ describe("deterministic discrete-event simulation", () => {
   test("static production analysis exposes nominal material deficits before simulation", async () => {
     const analysis = analyzeProduction(await openFactoryProject(ironworks));
     const plate = analysis.resources.find((resource) => resource.resource === "iron-plate")!;
-    expect(analysis.declarativeDevices).toBe(8);
+    expect(analysis.declarativeDevices).toBe(9);
     expect(analysis.extractionDevices).toEqual(expect.arrayContaining([
       expect.objectContaining({ device: "ore-source-1", resource: "iron-ore", itemsPerMinute: 60 }),
       expect.objectContaining({ device: "coal-miner-forge", resource: "coal", itemsPerMinute: 60 }),
@@ -668,6 +709,10 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({ device: "generator-1", kind: "fuel", fuelResource: "coal", fuelPerMinute: 60_000 / 70_000 }),
       expect.objectContaining({ device: "generator-2", kind: "fuel", fuelResource: "coal", fuelPerMinute: 60_000 / 70_000 }),
     ]));
+    expect(analysis.storageDevices).toContainEqual(expect.objectContaining({
+      device: "storage-forge", capacityMilliJoules: 3_600_000, initialMilliJoules: 0,
+      chargeMilliWatts: 400_000, dischargeMilliWatts: 400_000,
+    }));
     expect(analysis.resourceNodes).toHaveLength(5);
     expect(plate.producedPerMinute).toBe(15);
     expect(plate.consumedPerMinute).toBe(40);
@@ -1079,12 +1124,59 @@ describe("deterministic discrete-event simulation", () => {
   });
 
   test("power shortage produces an event and unpowered state", async () => {
-    const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
+    const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1" && device.id !== "storage-forge");
     source.blueprint.connections = source.blueprint.connections.filter((connection) => connection.to.device !== "generator-1" && connection.from.device !== "generator-1");
     delete source.scenario.initialBuffers?.["generator-1"];
     const result = runUntil(compileFactoryProject(source), undefined, { seed: 42, untilTick: 10_000 });
     expect(result.events.some((event) => event.type === "power.shortage" && event.grid === null)).toBeTrue();
     expect(result.state.devices["ore-source-1"]!.status).toBe("unpowered");
+  });
+
+  test("renewable surplus charges grid storage continuously", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "smelter-1");
+    source.scenario.initialBuffers = {};
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 2_000 });
+    const grid = result.metrics.energyStorage["grid-forge-world-accumulator-1"]!;
+    expect(grid).toEqual({
+      initialMilliJoules: 0, storedMilliJoules: 800_000, capacityMilliJoules: 3_600_000,
+      chargedMilliJoules: 800_000, dischargedMilliJoules: 0,
+    });
+    expect(result.state.devices["accumulator-1"]!.energyStorage!.storedMilliJoules).toBe(800_000);
+  });
+
+  test("storage depletion pauses an active Device job without refunding its inputs", async () => {
+    const result = runUntil(compileFactoryProject(await accumulatorProjectSource()), undefined, { untilTick: 10_000 });
+    const smelter = result.state.devices["smelter-1"]!;
+    expect(result.metrics.produced["iron-plate"]).toBe(1);
+    expect(smelter.buffers.input).toEqual({});
+    expect(smelter.status).toBe("unpowered");
+    expect(smelter.activeJob).toEqual(expect.objectContaining({ remainingTicks: 3_500, workedTicks: 500 }));
+    expect(smelter.progressTicks).toBe(500);
+    expect(result.metrics.energyStorage["grid-forge-world-accumulator-1"]).toEqual(expect.objectContaining({
+      storedMilliJoules: 0, dischargedMilliJoules: 810_000,
+    }));
+    expect(result.metrics.unpoweredTime["smelter-1"]).toBe(5_500);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "power.storage-depleted", tick: 4_500, device: "accumulator-1" }),
+      expect.objectContaining({ type: "power.shortage", tick: 4_500, device: "smelter-1" }),
+    ]));
+  });
+
+  test("restored generation resumes the exact remaining Device work", async () => {
+    const source = await accumulatorProjectSource({ wind: true });
+    source.scenario.failures = [{ device: "wind-1", atTick: 0, durationTicks: 6_000 }];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 10_000 });
+    expect(result.metrics.produced["iron-plate"]).toBe(2);
+    expect(result.metrics.unpoweredTime["smelter-1"]).toBe(1_500);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "power.storage-depleted", tick: 4_500, device: "accumulator-1" }),
+      expect.objectContaining({ type: "power.restored", tick: 6_000, device: "smelter-1", remainingTicks: 3_500 }),
+      expect.objectContaining({ type: "device.finish", tick: 9_500, device: "smelter-1" }),
+    ]));
+    expect(result.metrics.energyStorage["grid-forge-world-accumulator-1"]).toEqual(expect.objectContaining({
+      storedMilliJoules: 1_600_000, chargedMilliJoules: 1_600_000, dischargedMilliJoules: 810_000,
+    }));
   });
 
   test("full output buffers block upstream", async () => {
@@ -1269,7 +1361,7 @@ describe("research boundary and experiment decisions", () => {
   });
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {
-    const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1");
+    const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1" && device.id !== "storage-forge");
     source.blueprint.connections = source.blueprint.connections.filter((connection) => connection.to.device !== "generator-1" && connection.from.device !== "generator-1");
     delete source.scenario.initialBuffers?.["generator-1"];
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });

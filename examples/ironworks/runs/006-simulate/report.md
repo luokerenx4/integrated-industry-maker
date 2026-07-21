@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **138.337**
-- Result hash: `52ac76d0c19cd902e60779b651055a1da256ca72662cae18e1651fc76d7270c2`
+- Result hash: `80b1d4fe72f2df78b827d4d7cd052b2839c7723707211efc934c4ec62e08de6c`
 - Bottleneck: synth-smelt-iron-2
 - Throughput/min: 20.000
 - Target rate: 24.000 gear/min (83.3% attained)
@@ -11,6 +11,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 10
 - Powered transport energy: 847.980 J
+- Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -36,6 +37,10 @@
 | synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
 | synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
 | synth-iron-plate-synth-smelt-iron-3-to-synth-iron-plate-merge-2 | 13.500 / 240.000 | 5.6% | 0 | 27 iron-plate |
+
+## Grid storage
+
+No configured accumulators.
 
 ## Score breakdown
 

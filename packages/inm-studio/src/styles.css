@@ -268,7 +268,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .pipeline-stages > i { color: #3f7568; text-align: center; font-style: normal; }
 .pipeline-card footer { display: flex; justify-content: space-between; color: #49656c; font: 7px var(--mono); }
 .power-grid-list { padding: 10px; }
-.power-grid-card { display: grid; grid-template-columns: minmax(130px, 1.4fr) repeat(3, .7fr); gap: 8px; align-items: center; padding: 10px; border: 1px solid #173039; border-radius: 6px; background: #071115; }
+.power-grid-card { display: grid; grid-template-columns: minmax(130px, 1.4fr) repeat(4, .7fr); gap: 8px; align-items: center; padding: 10px; border: 1px solid #173039; border-radius: 6px; background: #071115; }
 .power-grid-card > div:first-child strong, .power-grid-card > div:first-child code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .power-grid-card > div:first-child strong { color: #bccdd1; font: 9px var(--mono); }
 .power-grid-card > div:first-child code { margin-top: 4px; color: #506b72; font: 7px var(--mono); }

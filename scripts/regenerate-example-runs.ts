@@ -1,7 +1,7 @@
 import { cp, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
-import { researchFactory } from "../packages/inm-core/src/index";
+import { openFactoryProject, researchFactory, runUntil, writeRunArtifact, type ProjectSelection } from "../packages/inm-core/src/index";
 
 const projectDir = resolve(process.argv[2] ?? join(import.meta.dir, "..", "examples", "ironworks"));
 const iterations = Number.parseInt(process.argv[3] ?? "3", 10);
@@ -22,6 +22,18 @@ try {
     },
   });
   const result = await researchFactory(temporaryProject, { iterations, seed });
+  const demonstrations: Array<{ blueprint: string; selection: ProjectSelection }> = [
+    { blueprint: "synthesized", selection: { world: "main", blueprint: "synthesized", scenario: "cold-start", objective: "default" } },
+    { blueprint: "stacked-cargo", selection: { world: "main", blueprint: "stacked-cargo", scenario: "stacked-cargo", objective: "stacked-cargo" } },
+    { blueprint: "scaled-factory", selection: { world: "scaled", blueprint: "scaled-factory", scenario: "cold-start", objective: "scaled-production" } },
+    { blueprint: "chemical-factory", selection: { world: "chemical", blueprint: "chemical-factory", scenario: "chemical-cold-start", objective: "plastic-production" } },
+    { blueprint: "xray-cracking-factory", selection: { world: "chemical", blueprint: "xray-cracking-factory", scenario: "chemical-cold-start", objective: "hydrogen-production" } },
+  ];
+  for (const demonstration of demonstrations) {
+    const project = await openFactoryProject(temporaryProject, demonstration.selection);
+    const simulation = runUntil(project, undefined, { seed });
+    await writeRunArtifact(project, simulation, { label: "simulate", seed, decision: "BASELINE" });
+  }
   const generatedRuns = join(temporaryProject, "runs");
   await rename(targetRuns, backupRuns);
   try {
@@ -31,7 +43,7 @@ try {
     await rename(backupRuns, targetRuns);
     throw error;
   }
-  process.stdout.write(`Regenerated ${result.iterations.length + 1} immutable runs in ${targetRuns}\n`);
+  process.stdout.write(`Regenerated ${result.iterations.length + 1 + demonstrations.length} immutable runs in ${targetRuns}\n`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
 }

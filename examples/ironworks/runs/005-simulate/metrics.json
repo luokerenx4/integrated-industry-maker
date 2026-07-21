@@ -14,6 +14,15 @@
     "iron-ore": 8
   },
   "energyConsumedMilliJoules": 3750,
+  "energyStorage": {
+    "grid-forge-world-stack-power": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    }
+  },
   "extracted": {
     "coal": 0,
     "iron-ore": 0
@@ -110,6 +119,11 @@
       "loader": 0.125,
       "unloader": 0.125
     }
+  },
+  "unpoweredTime": {
+    "stack-power": 0,
+    "stack-source": 0,
+    "stack-target": 0
   },
   "waitingInputTime": {
     "stack-power": 0,

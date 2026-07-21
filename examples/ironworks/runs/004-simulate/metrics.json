@@ -25,6 +25,22 @@
     "gear": 28
   },
   "energyConsumedMilliJoules": 223162000,
+  "energyStorage": {
+    "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    },
+    "grid-forge-world-synth-forge-world-wind-turbine-1": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    }
+  },
   "extracted": {
     "coal": 30,
     "iron-ore": 90
@@ -316,6 +332,22 @@
       "loader": 0.04583333333333333,
       "unloader": 0.04583333333333333
     }
+  },
+  "unpoweredTime": {
+    "synth-assembly-world-wind-turbine-1": 0,
+    "synth-assembly-world-wind-turbine-2": 0,
+    "synth-coal-extractor-1": 0,
+    "synth-forge-gear-pair-1": 0,
+    "synth-forge-world-wind-turbine-1": 0,
+    "synth-forge-world-wind-turbine-2": 0,
+    "synth-gear-sink": 0,
+    "synth-iron-ore-extractor-1": 0,
+    "synth-iron-ore-split": 0,
+    "synth-iron-plate-assembly-world-station-demand-1": 0,
+    "synth-iron-plate-forge-world-station-supply-1": 0,
+    "synth-iron-plate-merge": 0,
+    "synth-smelt-iron-1": 0,
+    "synth-smelt-iron-2": 0
   },
   "waitingInputTime": {
     "synth-assembly-world-wind-turbine-1": 0,

@@ -32,7 +32,10 @@
             "resource": "gear"
           }
         ],
-        "startedAt": 118710
+        "remainingTicks": 4000,
+        "resumedAt": 118710,
+        "startedAt": 118710,
+        "workedTicks": 0
       },
       "buffers": {
         "input-primary": {
@@ -80,7 +83,10 @@
             "resource": "iron-ore"
           }
         ],
-        "startedAt": 119150
+        "remainingTicks": 1000,
+        "resumedAt": 119150,
+        "startedAt": 119150,
+        "workedTicks": 0
       },
       "buffers": {
         "output": {
@@ -106,7 +112,10 @@
             "resource": "iron-ore"
           }
         ],
-        "startedAt": 119200
+        "remainingTicks": 1000,
+        "resumedAt": 119200,
+        "startedAt": 119200,
+        "workedTicks": 0
       },
       "buffers": {
         "output": {
@@ -178,7 +187,10 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 117900
+        "remainingTicks": 4000,
+        "resumedAt": 117900,
+        "startedAt": 117900,
+        "workedTicks": 0
       },
       "buffers": {
         "input": {
@@ -201,7 +213,10 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 117150
+        "remainingTicks": 4000,
+        "resumedAt": 117150,
+        "startedAt": 117150,
+        "workedTicks": 0
       },
       "buffers": {
         "input": {
@@ -224,7 +239,10 @@
             "resource": "iron-plate"
           }
         ],
-        "startedAt": 119200
+        "remainingTicks": 4000,
+        "resumedAt": 119200,
+        "startedAt": 119200,
+        "workedTicks": 0
       },
       "buffers": {
         "input": {
@@ -243,11 +261,19 @@
     "grids": {
       "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
         "availableMilliWatts": 1200000,
-        "consumedMilliJoules": 103868380
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 103868380,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       },
       "grid-forge-world-synth-forge-world-wind-turbine-1": {
         "availableMilliWatts": 1800000,
-        "consumedMilliJoules": 170060900
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 170060900,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       }
     }
   },

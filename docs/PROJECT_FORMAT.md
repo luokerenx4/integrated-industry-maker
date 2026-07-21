@@ -183,7 +183,21 @@ A thermal generator instead names an input buffer and accepted fuel Resources:
 }
 ```
 
-The compiler converts fuel energy and rated output into an exact burn duration. The Device program receives this immutable plan and returns `generate`; the host consumes one delivered fuel unit, records it in metrics, and adds rated generation only while that job is active. Distributors within each other's connection range form an isolated power grid. A Device within a distributor's coverage range joins the nearest grid. Rated demand greater than grid generation, unfed fuel generators, and powered Devices outside every grid are reported by `inm analyze`; runtime power allocation and energy accounting are also isolated per grid. Loader and unloader assets use the same rule at their physical endpoint cells, so they are spatial grid consumers rather than free connection metadata.
+An accumulator declares physical energy capacity and independent charge/discharge limits. It must be a power-capable distributor and cannot also generate:
+
+```json
+"power": {
+  "consumptionMilliWatts": 0,
+  "distribution": { "connectionRange": 20, "coverageRange": 20 },
+  "storage": {
+    "capacityMilliJoules": 3600000,
+    "chargeMilliWatts": 400000,
+    "dischargeMilliWatts": 400000
+  }
+}
+```
+
+The compiler converts fuel energy and rated output into an exact burn duration. The Device program receives this immutable plan and returns `generate`; the host consumes one delivered fuel unit, records it in metrics, and adds rated generation only while that job is active. Distributors within each other's connection range form an isolated power grid. A Device within a distributor's coverage range joins the nearest grid. Rated demand greater than grid generation, unfed fuel generators, and powered Devices outside every grid are reported by `inm analyze`; accumulator discharge is intentionally excluded from steady-state headroom because it shifts finite energy rather than creating it. Runtime power allocation and energy accounting are isolated per grid. Surplus generation charges storage, deficits discharge it, and an exhausted grid pauses active production/extraction jobs with their inputs and remaining work intact until power returns. Loader and unloader assets use the same spatial rule at their physical endpoint cells.
 
 Station and carrier Devices remain ordinary project-local Device assets with explicit industrial roles. A station adds the `station` capability and binds all network slots to one internal buffer:
 
@@ -450,11 +464,16 @@ Initial quantities address device and buffer explicitly:
   "initialBuffers": {
     "smelter-1": { "input": { "iron-ore": 4 } }
   },
+  "initialEnergyMilliJoules": {
+    "accumulator-1": 1800000
+  },
   "failures": [
     { "device": "smelter-1", "atTick": 40000, "durationTicks": 15000 }
   ]
 }
 ```
+
+`initialEnergyMilliJoules` is keyed by placed storage Device id. Each value must be an integer from zero through that Device's compiled capacity. It is part of the Scenario hash and therefore of run identity. Omitted accumulators start empty.
 
 ```json
 {

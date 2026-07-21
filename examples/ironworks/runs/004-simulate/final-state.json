@@ -102,11 +102,19 @@
     "grids": {
       "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
         "availableMilliWatts": 1200000,
-        "consumedMilliJoules": 97914000
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 97914000,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       },
       "grid-forge-world-synth-forge-world-wind-turbine-1": {
         "availableMilliWatts": 1200000,
-        "consumedMilliJoules": 125248000
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 125248000,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       }
     }
   },

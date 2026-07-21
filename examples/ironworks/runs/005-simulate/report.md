@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `42d82fef6bdcb6f5832d42ff7a85b9b193eebeeb51a2b34bb297575b58ac4dd3`
+- Result hash: `b369036ec5689e0e656b0db3e2de1880ca5faa3e8ca7e3bb5a7bf41fe17ac931`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Target rate: 240.000 iron-ore/min (100.0% attained)
@@ -11,6 +11,7 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 8
 - Powered transport energy: 3.750 J
+- Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
 ## Capacity-plan gaps
@@ -22,6 +23,10 @@
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
 | stacked-link | 240.000 / 1920.000 | 12.5% | 0 | 8 iron-ore |
+
+## Grid storage
+
+No configured accumulators.
 
 ## Score breakdown
 

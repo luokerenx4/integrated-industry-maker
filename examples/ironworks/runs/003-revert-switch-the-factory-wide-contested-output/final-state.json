@@ -48,7 +48,10 @@
         "operation": "burn-coal",
         "powerMilliWatts": 0,
         "produce": [],
-        "startedAt": 70000
+        "remainingTicks": 70000,
+        "resumedAt": 70000,
+        "startedAt": 70000,
+        "workedTicks": 0
       },
       "buffers": {
         "fuel": {
@@ -70,7 +73,10 @@
         "operation": "burn-coal",
         "powerMilliWatts": 0,
         "produce": [],
-        "startedAt": 70000
+        "remainingTicks": 70000,
+        "resumedAt": 70000,
+        "startedAt": 70000,
+        "workedTicks": 0
       },
       "buffers": {
         "fuel": {
@@ -128,6 +134,17 @@
       },
       "status": "idle"
     },
+    "storage-forge": {
+      "buffers": {},
+      "energyStorage": {
+        "capacityMilliJoules": 3600000,
+        "chargedMilliJoules": 3600000,
+        "dischargedMilliJoules": 0,
+        "initialMilliJoules": 0,
+        "storedMilliJoules": 3600000
+      },
+      "status": "idle"
+    },
     "wind-assembly-recipe-line": {
       "buffers": {},
       "status": "idle"
@@ -138,7 +155,7 @@
     }
   },
   "energy": {
-    "availableMilliWatts": 3200000,
+    "availableMilliWatts": 3600000,
     "consumedMilliJoules": 224281000,
     "fuelConsumed": {
       "coal": 4
@@ -146,11 +163,19 @@
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 100872000
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 100872000,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       },
       "grid-forge-world-generator-1": {
-        "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 123409000
+        "availableMilliWatts": 2000000,
+        "chargedMilliJoules": 3600000,
+        "consumedMilliJoules": 123409000,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 3600000,
+        "storedMilliJoules": 3600000
       }
     }
   },

@@ -86,6 +86,7 @@ export const deviceAssetSchema = z.object({
       z.object({ kind: z.literal("fuel"), outputMilliWatts: positiveInt, fuelBuffer: id, fuels: z.array(id).min(1) }).strict(),
     ]).optional(),
     distribution: z.object({ connectionRange: positiveInt, coverageRange: positiveInt }).strict().optional(),
+    storage: z.object({ capacityMilliJoules: positiveInt, chargeMilliWatts: positiveInt, dischargeMilliWatts: positiveInt }).strict().optional(),
   }).strict(),
   economics: z.object({ buildCost: nonNegativeInt }).strict(),
   files: z.object({ visual: relativeAssetFile }).strict(),
@@ -154,6 +155,7 @@ export const blueprintSchema = z.object({
 export const scenarioSchema = z.object({
   id, name: z.string().min(1), durationTicks: positiveInt,
   initialBuffers: z.record(z.record(z.record(nonNegativeInt))).optional(),
+  initialEnergyMilliJoules: z.record(nonNegativeInt).optional(),
   failures: z.array(z.object({ device: id, atTick: nonNegativeInt, durationTicks: positiveInt }).strict()).optional(),
 }).strict();
 

@@ -70,6 +70,16 @@ export interface DevicePowerGenerationRate {
   burnTicks?: number;
 }
 
+export interface DevicePowerStorageRate {
+  device: string;
+  asset: string;
+  region: string;
+  capacityMilliJoules: number;
+  initialMilliJoules: number;
+  chargeMilliWatts: number;
+  dischargeMilliWatts: number;
+}
+
 export interface ResourceNodeAnalysis {
   node: string;
   region: string;
@@ -126,9 +136,14 @@ export interface PowerGridAnalysis {
   members: string[];
   transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>;
   generators: DevicePowerGenerationRate[];
+  storageDevices: DevicePowerStorageRate[];
   productionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
   headroomMilliWatts: number;
+  storageCapacityMilliJoules: number;
+  initialStoredMilliJoules: number;
+  storageChargeMilliWatts: number;
+  storageDischargeMilliWatts: number;
 }
 
 export interface StationNetworkAnalysis {
@@ -181,6 +196,7 @@ export interface ProductionAnalysis {
   productionGraph: ProductionDependencyGraph;
   extractionDevices: DeviceExtractionRate[];
   generationDevices: DevicePowerGenerationRate[];
+  storageDevices: DevicePowerStorageRate[];
   resourceNodes: ResourceNodeAnalysis[];
   resources: ResourceProductionBalance[];
   connections: ConnectionRateLimit[];
@@ -282,6 +298,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   const devices: DeviceProductionRate[] = [];
   const extractionDevices: DeviceExtractionRate[] = [];
   const generationDevices: DevicePowerGenerationRate[] = [];
+  const storageDevices: DevicePowerStorageRate[] = [];
   const produced: Record<ResourceId, number> = {};
   const consumed: Record<ResourceId, number> = {};
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
@@ -359,6 +376,18 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       device: device.id, asset: device.asset, region: device.region, kind: plan.kind,
       outputMilliWatts: plan.outputMilliWatts, fuelBuffer: plan.fuelBuffer,
       fuelResource: fuel.resource, fuelPerMinute, burnTicks: fuel.durationTicks,
+    });
+  }
+
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    const plan = device.storagePlan;
+    if (!plan) continue;
+    storageDevices.push({
+      device: device.id, asset: device.asset, region: device.region,
+      capacityMilliJoules: plan.capacityMilliJoules,
+      initialMilliJoules: project.scenario.initialEnergyMilliJoules?.[device.id] ?? 0,
+      chargeMilliWatts: plan.chargeMilliWatts,
+      dischargeMilliWatts: plan.dischargeMilliWatts,
     });
   }
 
@@ -460,10 +489,15 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     distributors: [...grid.distributors],
     members: [...grid.members],
     transportStages: structuredClone(grid.transportStages),
-    generators: generationDevices.filter((device) => grid.distributors.includes(device.device)),
+    generators: generationDevices.filter((device) => grid.members.includes(device.device)),
+    storageDevices: storageDevices.filter((device) => grid.storageDevices.includes(device.device)),
     productionMilliWatts: grid.productionMilliWatts,
     ratedConsumptionMilliWatts: grid.ratedConsumptionMilliWatts,
     headroomMilliWatts: grid.productionMilliWatts - grid.ratedConsumptionMilliWatts,
+    storageCapacityMilliJoules: grid.storageCapacityMilliJoules,
+    initialStoredMilliJoules: grid.storageDevices.reduce((sum, id) => sum + (project.scenario.initialEnergyMilliJoules?.[id] ?? 0), 0),
+    storageChargeMilliWatts: grid.storageChargeMilliWatts,
+    storageDischargeMilliWatts: grid.storageDischargeMilliWatts,
   }));
 
   const diagnostics: ProductionDiagnostic[] = [];
@@ -548,11 +582,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     }
   }
 
-  const declarativeDeviceIds = new Set([...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device), ...generationDevices.map((device) => device.device)]);
+  const declarativeDeviceIds = new Set([
+    ...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device),
+    ...generationDevices.map((device) => device.device), ...storageDevices.map((device) => device.device),
+  ]);
   return {
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, bufferContracts, recipeOptions, productionGraph, extractionDevices, generationDevices, resourceNodes,
+    devices, bufferContracts, recipeOptions, productionGraph, extractionDevices, generationDevices, storageDevices, resourceNodes,
     resources,
     connections,
     transportCells,

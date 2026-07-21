@@ -20,7 +20,7 @@ The runtime may not depend on wall clock, frame rate, object insertion order, br
 
 ## State ownership
 
-`mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation, per-grid energy, and metrics integrals.
+`mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation, per-Device/per-grid stored energy, and metrics integrals.
 
 Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `extract`, `generate`, `consume`, `wait`, or `none`. For production, the context carries the selected mode and complete job plan; `start` must match its operation, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation.
 
@@ -32,9 +32,11 @@ Destination capacity is reservation-based. Every local or station transit counts
 
 Station dispatch adds inventory policy without adding hidden state. Dispatchable supply is `resident − supplyReserve`; remote destination space is `demandTarget − resident − all inbound cargo`, further intersected with the normal buffer and Resource quota. Counting local inbound cargo gives local belts first claim on the replenishment headroom without applying the remote target to their own dispatch. When a finite fleet cannot serve every eligible route, the scheduler chooses higher demand priority, then higher supply priority. The existing route cursor breaks exact ties, preserving deterministic round-robin fairness. A full high-priority target automatically exposes the next eligible tier.
 
+Power interruption is also blocking, not cancellation. A production or extraction job carries `durationTicks`, accumulated `workedTicks`, current `remainingTicks`, and the tick at which its current powered segment resumed. A storage boundary or generation change can pause it by invalidating the scheduled completion generation and preserving the job object. Inputs remain consumed, extraction inventory remains reserved, and no output appears. Restoration schedules one new completion at `now + remainingTicks`. Final progress integrates only powered segments, so a long brownout cannot advance the material transformation. See [[docs/design/power]].
+
 ## Events and metrics
 
-Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Metrics are derived from deterministic state/event integration and include throughput, delivery, energy/fuel, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
+Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Power boundary events record accumulator full/depleted transitions; shortage/restoration events preserve paused-job progress for replay. Metrics are derived from deterministic state/event integration and include throughput, delivery, energy/fuel/storage, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
 
 ## Immutable runs
 
@@ -53,7 +55,7 @@ Studio viewing never creates a run. Only explicit CLI simulation/research workfl
 ## Verification
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "identical inputs|completed run|failure|blocked|deplete"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "identical inputs|completed run|failure|blocked|deplete|storage|restored generation"
 bun run inm simulate examples/ironworks --seed 42
 bun run inm runs examples/ironworks
 bun run test

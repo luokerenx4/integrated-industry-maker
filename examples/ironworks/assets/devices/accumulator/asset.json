@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "accumulator",
+  "name": "Grid Accumulator",
+  "description": "A deterministic grid battery that absorbs renewable surplus and supplies short power deficits.",
+  "tags": ["utility", "power", "storage"],
+  "capabilities": ["power"],
+  "geometry": { "footprint": { "width": 2, "height": 2 }, "rotatable": false, "ports": [] },
+  "buffers": [],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": {
+    "consumptionMilliWatts": 0,
+    "distribution": { "connectionRange": 20, "coverageRange": 20 },
+    "storage": {
+      "capacityMilliJoules": 3600000,
+      "chargeMilliWatts": 400000,
+      "dischargeMilliWatts": 400000
+    }
+  },
+  "economics": { "buildCost": 1800 },
+  "files": { "visual": "visual.json" }
+}

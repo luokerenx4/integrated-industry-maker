@@ -29,7 +29,10 @@
             "resource": "crude-oil"
           }
         ],
-        "startedAt": 120000
+        "remainingTicks": 2000,
+        "resumedAt": 120000,
+        "startedAt": 120000,
+        "workedTicks": 0
       },
       "buffers": {
         "output": {}
@@ -66,7 +69,10 @@
             "resource": "refined-oil"
           }
         ],
-        "startedAt": 117700
+        "remainingTicks": 4000,
+        "resumedAt": 117700,
+        "startedAt": 117700,
+        "workedTicks": 0
       },
       "buffers": {
         "crude-input": {
@@ -95,7 +101,10 @@
             "resource": "hydrogen"
           }
         ],
-        "startedAt": 119500
+        "remainingTicks": 4000,
+        "resumedAt": 119500,
+        "startedAt": 119500,
+        "workedTicks": 0
       },
       "buffers": {
         "graphite-output": {},
@@ -114,7 +123,11 @@
     "grids": {
       "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
         "availableMilliWatts": 1200000,
-        "consumedMilliJoules": 74518500
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 74518500,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       }
     }
   },

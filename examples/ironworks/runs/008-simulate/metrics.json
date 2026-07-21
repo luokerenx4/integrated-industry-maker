@@ -19,6 +19,15 @@
     "hydrogen": 78
   },
   "energyConsumedMilliJoules": 74518500,
+  "energyStorage": {
+    "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    }
+  },
   "extracted": {
     "crude-oil": 60
   },
@@ -190,6 +199,15 @@
       "loader": 0.11666666666666667,
       "unloader": 0.11666666666666667
     }
+  },
+  "unpoweredTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-graphite-surplus-sink": 0,
+    "synth-hydrogen-sink": 0,
+    "synth-refine-crude-1": 0,
+    "synth-xray-crack-oil-1": 0
   },
   "waitingInputTime": {
     "synth-chemical-basin-wind-turbine-1": 0,

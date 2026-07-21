@@ -33,6 +33,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const idleTime: Record<string, Tick> = {};
   const waitingInputTime: Record<string, Tick> = {};
   const blockedOutputTime: Record<string, Tick> = {};
+  const unpoweredTime: Record<string, Tick> = {};
   let bottleneckEntity: string | null = null; let bottleneckValue = -1;
   for (const id of Object.keys(project.devices).sort()) {
     const times = stats.durations[id] ?? {};
@@ -40,6 +41,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     idleTime[id] = times.idle ?? 0;
     waitingInputTime[id] = times["waiting-input"] ?? 0;
     blockedOutputTime[id] = times["blocked-output"] ?? 0;
+    unpoweredTime[id] = times.unpowered ?? 0;
     const value = machineUtilization[id]! * duration + blockedOutputTime[id]! * 0.5;
     const processCapable = project.devices[id]!.assetDef.capabilities.includes("process");
     if (processCapable && value > bottleneckValue) {
@@ -103,10 +105,21 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     extracted[node.resource] = (extracted[node.resource] ?? 0) + runtime.extracted;
     return [node.id, { initial: node.amount, remaining: runtime.remaining, reserved: runtime.reserved, extracted: runtime.extracted, depleted: runtime.remaining === 0 && runtime.reserved === 0 }];
   }));
+  const energyStorage = Object.fromEntries(Object.values(project.powerGrids).sort((a, b) => a.id.localeCompare(b.id)).map((grid) => {
+    const runtime = state.energy.grids[grid.id]!;
+    const initialMilliJoules = grid.storageDevices.reduce((sum, id) => sum + (state.devices[id]!.energyStorage?.initialMilliJoules ?? 0), 0);
+    return [grid.id, {
+      initialMilliJoules,
+      storedMilliJoules: runtime.storedMilliJoules,
+      capacityMilliJoules: runtime.storageCapacityMilliJoules,
+      chargedMilliJoules: runtime.chargedMilliJoules,
+      dischargedMilliJoules: runtime.dischargedMilliJoules,
+    }];
+  }));
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
-    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, fuelConsumed: { ...state.energy.fuelConsumed },
-    totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime,
+    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, fuelConsumed: { ...state.energy.fuelConsumed },
+    totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,

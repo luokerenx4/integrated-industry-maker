@@ -151,6 +151,10 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.generationDevices.map((device) => `  ${device.device.padEnd(24)} ${device.kind.padEnd(10)} ${(device.outputMilliWatts / 1000).toFixed(3).padStart(9)} W${device.fuelResource ? `  burn ${device.fuelPerMinute!.toFixed(3)} ${device.fuelResource}/min · ${device.burnTicks} ms/unit` : ""}`),
     ...(analysis.generationDevices.length ? [] : ["  none"]),
     "",
+    "Power storage",
+    ...analysis.storageDevices.map((device) => `  ${device.device.padEnd(24)} ${(device.initialMilliJoules / 1e6).toFixed(3).padStart(8)}/${(device.capacityMilliJoules / 1e6).toFixed(3)} MJ initial  charge ${(device.chargeMilliWatts / 1000).toFixed(3).padStart(9)} W  discharge ${(device.dischargeMilliWatts / 1000).toFixed(3).padStart(9)} W`),
+    ...(analysis.storageDevices.length ? [] : ["  none"]),
+    "",
     "Finite resource nodes",
     ...analysis.resourceNodes.map((node) => `  ${node.node.padEnd(24)} [${node.region}] ${node.amount.toString().padStart(7)} ${node.resource}  miners ${node.miners.join(", ") || "none"}  depletion ${node.estimatedDepletionMinutes === null ? "never" : `${node.estimatedDepletionMinutes.toFixed(3)} min`}`),
     "",
@@ -158,7 +162,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.resources.map((resource) => `  ${resource.resource.padEnd(20)} produce ${resource.producedPerMinute.toFixed(3).padStart(9)}/min  consume ${resource.consumedPerMinute.toFixed(3).padStart(9)}/min  net ${resource.netPerMinute.toFixed(3).padStart(9)}/min${resource.hasBoundarySupply ? "  [boundary supply]" : ""}${resource.hasBoundaryDemand ? "  [boundary demand]" : ""}`),
     "",
     "Power grids",
-    ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W  (${grid.members.length} devices + ${grid.transportStages.length} transport stages)`),
+    ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W${grid.storageCapacityMilliJoules ? `  storage ${(grid.initialStoredMilliJoules / 1e6).toFixed(3)}/${(grid.storageCapacityMilliJoules / 1e6).toFixed(3)} MJ @ +${(grid.storageChargeMilliWatts / 1000).toFixed(0)}/-${(grid.storageDischargeMilliWatts / 1000).toFixed(0)} W` : ""}  (${grid.members.length} devices + ${grid.transportStages.length} transport stages)`),
     "",
     "Logistics links",
     ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  stack×${connection.maxStackSize}  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.maxLevel ? ` / L${connection.maxLevel}` : ""}${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}[${stage.capacity} cargo, stack×${stage.stackCapacity}]${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
@@ -239,6 +243,8 @@ export async function compareCommand(
     `  throughput/min     ${fromMetrics.throughputPerMinute.toFixed(3).padStart(12)} → ${toMetrics.throughputPerMinute.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.throughputPerMinute)}`,
     `  target attainment  ${(fromMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}% → ${(toMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}%  Δ ${signed(comparison.delta.objectiveAttainment * 100, 1)}pp`,
     `  energy             ${(fromMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.energyConsumedMilliJoules / 1e6)} MJ`,
+    `  stored energy      ${(fromMetrics.storedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.storedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.storedMilliJoules / 1e6)} MJ`,
+    `  unpowered time     ${fromMetrics.unpoweredTicks.toFixed(0).padStart(12)} → ${toMetrics.unpoweredTicks.toFixed(0).padStart(12)} ticks  Δ ${signed(comparison.delta.unpoweredTicks, 0)}`,
     `  build cost         ${fromMetrics.totalBuildCost.toFixed(0).padStart(12)} → ${toMetrics.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
     `  occupied area      ${fromMetrics.occupiedArea.toFixed(0).padStart(12)} → ${toMetrics.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
     `  blocked belt items ${fromMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)} → ${toMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageBlockedBeltItems)}`,
@@ -254,7 +260,7 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
   const synthesis = synthesizeFactoryBlueprint(loaded);
   const outputPath = join(loaded.rootDir, "blueprints", `${options.output}.blueprint.json`);
   if (await pathExists(outputPath)) throw new Error(`Blueprint already exists: ${outputPath}`);
-  const verificationScenario = { ...loaded.scenario, initialBuffers: {}, failures: [] };
+  const verificationScenario = { ...loaded.scenario, initialBuffers: {}, initialEnergyMilliJoules: {}, failures: [] };
   const project = compileFactoryProject({ ...loaded, blueprint: synthesis.blueprint, scenario: verificationScenario });
   const plan = planProductionCapacity(project); const simulation = runUntil(project);
   await atomicWriteJson(outputPath, synthesis.blueprint);
@@ -306,6 +312,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     `Belts: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}% average occupancy · ${result.metrics.averageBlockedBeltItems.toFixed(2)} blocked items · ${result.metrics.peakBeltItems} peak items`,
     "Measured transport flows:", ...flowLines,
     `Transport endpoints: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J consumed`,
+    ...Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0).map(([grid, storage]) => `Storage ${grid}: ${(storage.storedMilliJoules / 1e6).toFixed(3)}/${(storage.capacityMilliJoules / 1e6).toFixed(3)} MJ · charged ${(storage.chargedMilliJoules / 1e6).toFixed(3)} MJ · discharged ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} MJ`),
     `Result hash: ${result.resultHash}`, "",
     ].join("\n"), false);
   }

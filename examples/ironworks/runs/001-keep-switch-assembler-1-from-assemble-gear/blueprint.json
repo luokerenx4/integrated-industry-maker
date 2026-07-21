@@ -407,6 +407,16 @@
       "rotation": 0
     },
     {
+      "asset": "accumulator",
+      "id": "storage-forge",
+      "position": {
+        "x": 15,
+        "y": 3
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
       "asset": "interstellar-logistics-station",
       "bufferFilters": {
         "storage": [
@@ -534,6 +544,6 @@
   "policies": {
     "dispatch": "round-robin"
   },
-  "revision": "79848538d0d446367bc8f9a58b65e810a6161de366078b64e9a3bd4d0353fd26",
+  "revision": "b4114cd0503e9dcd72ea48e8331c642cde2d841700d23b73b589b5c2793b7ee6",
   "version": 1
 }

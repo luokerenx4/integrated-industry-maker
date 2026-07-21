@@ -28,7 +28,11 @@
     "grids": {
       "grid-forge-world-stack-power": {
         "availableMilliWatts": 600000,
-        "consumedMilliJoules": 3750
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 3750,
+        "dischargedMilliJoules": 0,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
       }
     }
   },

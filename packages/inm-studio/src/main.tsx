@@ -83,6 +83,7 @@ interface DeviceCatalogAsset {
     consumptionMilliWatts: number;
     generation?: { kind: "renewable"; outputMilliWatts: number } | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: string; fuels: string[] };
     distribution?: { connectionRange: number; coverageRange: number };
+    storage?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
   };
   economics: { buildCost: number };
   visual: Visual;
@@ -135,6 +136,8 @@ interface FactoryEvent {
   grid?: string | null;
   requiredMilliWatts?: number;
   availableMilliWatts?: number;
+  remainingTicks?: number;
+  workedTicks?: number;
   network?: string;
   route?: string;
 }
@@ -143,6 +146,7 @@ interface Metrics {
   finalScore: number;
   throughputPerMinute: number;
   energyConsumedMilliJoules: number;
+  energyStorage: Record<string, { initialMilliJoules: number; storedMilliJoules: number; capacityMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number }>;
   fuelConsumed: Record<string, number>;
   totalBuildCost: number;
   occupiedArea: number;
@@ -166,6 +170,7 @@ interface Metrics {
   idleTime: Record<string, number>;
   waitingInputTime: Record<string, number>;
   blockedOutputTime: Record<string, number>;
+  unpoweredTime: Record<string, number>;
   scoreBreakdown: Record<string, number>;
 }
 
@@ -193,6 +198,7 @@ interface IndustrialAnalysis {
   };
   extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; powerMilliWatts: number }>;
   generationDevices: Array<{ device: string; asset: string; region: string; kind: "renewable" | "fuel"; outputMilliWatts: number; fuelBuffer?: string; fuelResource?: string; fuelPerMinute?: number; burnTicks?: number }>;
+  storageDevices: Array<{ device: string; asset: string; region: string; capacityMilliJoules: number; initialMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number }>;
   resourceNodes: Array<{ node: string; region: string; resource: string; amount: number; miners: string[]; nominalSharePerMinute: number; estimatedDepletionMinutes: number | null }>;
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
@@ -201,7 +207,13 @@ interface IndustrialAnalysis {
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
   transportCells: Array<{ cell: string; region: string; position: { x: number; y: number; level?: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
-  powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
+  powerGrids: Array<{
+    grid: string; region: string; distributors: string[]; members: string[];
+    transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>;
+    generators: IndustrialAnalysis["generationDevices"]; storageDevices: IndustrialAnalysis["storageDevices"];
+    productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number;
+    storageCapacityMilliJoules: number; initialStoredMilliJoules: number; storageChargeMilliWatts: number; storageDischargeMilliWatts: number;
+  }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
     routes: Array<{
@@ -308,7 +320,7 @@ async function responseJson<T>(response: Response): Promise<T> {
 function buildFrame(data: StudioData, tick: number): FactoryFrame {
   const devices = Object.fromEntries(data.devices.map((device) => [device.id, { status: "idle" as Status, progress: 0 }]));
   const endpointPower = Object.fromEntries(data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => [`${connection.id}:${endpoint.stage}`, Boolean(endpoint.powerGrid)])));
-  const starts = new Map<string, number>();
+  const jobs = new Map<string, { durationTicks: number; workedTicks: number; resumedAt?: number }>();
   const transits = new Map<string, TransitFrame>();
   const visibleEvents: FactoryEvent[] = [];
   for (const event of data.events) {
@@ -316,13 +328,23 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
     visibleEvents.push(event);
     if (event.device && event.type === "device.start") {
       devices[event.device] = { status: "processing", progress: 0 };
-      starts.set(event.device, event.tick);
+      jobs.set(event.device, { durationTicks: event.durationTicks ?? 1, workedTicks: 0, resumedAt: event.tick });
     } else if (event.device && (event.type === "device.finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
       devices[event.device] = { status: "idle", progress: 0 };
-      starts.delete(event.device);
+      if (event.type === "device.finish" || event.type === "device.recover") jobs.delete(event.device);
     } else if (event.device && event.type === "buffer.blocked") devices[event.device] = { status: "blocked-output", progress: 0 };
-    else if (event.device && event.type === "power.shortage") devices[event.device] = { status: "unpowered", progress: 0 };
-    else if (event.device && event.type === "device.breakdown") devices[event.device] = { status: "failed", progress: 0 };
+    else if (event.device && event.type === "power.shortage") {
+      const job = jobs.get(event.device);
+      if (job && event.workedTicks !== undefined) { job.workedTicks = event.workedTicks; delete job.resumedAt; }
+      devices[event.device] = { status: "unpowered", progress: job ? job.workedTicks / job.durationTicks : 0 };
+    } else if (event.device && event.type === "power.restored") {
+      const job = jobs.get(event.device);
+      if (job) { job.workedTicks = Math.max(job.workedTicks, job.durationTicks - (event.remainingTicks ?? job.durationTicks)); job.resumedAt = event.tick; }
+      devices[event.device] = { status: "processing", progress: job ? job.workedTicks / job.durationTicks : 0 };
+    } else if (event.device && event.type === "device.breakdown") {
+      devices[event.device] = { status: "failed", progress: 0 };
+      jobs.delete(event.device);
+    }
     else if (event.type === "transport.power-shortage" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = false;
     else if (event.type === "transport.power-restored" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = true;
     else if (event.type === "resource.depart" && event.transit && event.connection) {
@@ -344,11 +366,10 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
     } else if (event.type === "logistics.arrive" && event.transit) transits.delete(event.transit.id);
   }
   for (const device of data.devices) {
-    const start = starts.get(device.id);
-    const startEvent = data.events.findLast((event) => event.type === "device.start" && event.device === device.id && event.tick <= tick);
-    if (start !== undefined && devices[device.id]?.status === "processing") {
-      devices[device.id]!.progress = Math.min(1, (tick - start) / Math.max(1, startEvent?.durationTicks ?? 1));
-    }
+    const job = jobs.get(device.id);
+    if (!job) continue;
+    const activeTicks = devices[device.id]?.status === "processing" && job.resumedAt !== undefined ? Math.max(0, tick - job.resumedAt) : 0;
+    devices[device.id]!.progress = Math.min(1, (job.workedTicks + activeTicks) / Math.max(1, job.durationTicks));
   }
   for (const transit of transits.values()) {
     if (transit.kind === "station") {
@@ -544,6 +565,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const production = data.analysis.devices.find((item) => item.device === device.id);
   const extraction = data.analysis.extractionDevices.find((item) => item.device === device.id);
   const generation = data.analysis.generationDevices.find((item) => item.device === device.id);
+  const storage = data.analysis.storageDevices.find((item) => item.device === device.id);
   const buffers = data.analysis.bufferContracts.find((item) => item.device === device.id)?.buffers ?? [];
   const grid = data.analysis.powerGrids.find((item) => item.members.includes(device.id) || item.distributors.includes(device.id));
   const links = connectedSceneObjects(data, device.id).map((selection) => data.connections.find((connection) => connection.id === selection.id)!);
@@ -571,13 +593,14 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
       </div>}
       {extraction && <div className="inspector-section"><div className="inspector-section-title"><span>EXTRACTION</span><b>{extraction.resource}</b></div><div className="inspector-inline"><strong>{extraction.itemsPerMinute.toFixed(2)} /min</strong><code>{extraction.itemsPerCycle} items / {extraction.cycleTicks} ms</code></div><div className="inspector-chip-row">{extraction.nodes.map((node) => <span key={node}>{node}</span>)}</div></div>}
       {generation && <div className="inspector-section"><div className="inspector-section-title"><span>GENERATION</span><b>{generation.kind}</b></div><div className="inspector-inline"><strong>{(generation.outputMilliWatts / 1000).toFixed(1)} W</strong><code>{generation.fuelResource ? `${generation.fuelPerMinute?.toFixed(2)} ${generation.fuelResource}/min` : "continuous output"}</code></div></div>}
+      {storage && <div className="inspector-section"><div className="inspector-section-title"><span>GRID STORAGE</span><b>{data.metrics ? "MEASURED" : "CONFIGURED"}</b></div><div className="inspector-inline"><strong>{((data.metrics?.energyStorage[grid?.grid ?? ""]?.storedMilliJoules ?? storage.initialMilliJoules) / 1e6).toFixed(3)} / {(storage.capacityMilliJoules / 1e6).toFixed(3)} MJ</strong><code>initial {(storage.initialMilliJoules / 1e6).toFixed(3)} MJ · charge +{(storage.chargeMilliWatts / 1000).toFixed(0)} W · discharge −{(storage.dischargeMilliWatts / 1000).toFixed(0)} W</code></div></div>}
       <div className="inspector-section">
         <div className="inspector-section-title"><span>BUFFER CONTRACTS</span><b>{buffers.length}</b></div>
         <div className="inspector-buffer-list">{buffers.map((buffer) => <div key={buffer.buffer}><span><b>{buffer.buffer}</b><small>{buffer.role}</small></span><code>CAP {buffer.capacity}</code><p>{buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource} ≤ ${buffer.resourceCapacities[resource]}`).join(" · ") || "CLOSED"}</p></div>)}</div>
       </div>
       <div className="inspector-section">
         <div className="inspector-section-title"><span>POWER GRID</span><b>{grid ? "CONNECTED" : powerMilliWatts ? "DISCONNECTED" : "PASSIVE"}</b></div>
-        {grid ? <div className="inspector-grid"><strong>{grid.grid}</strong><code>{(grid.productionMilliWatts / 1000).toFixed(0)} W generation · {(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W rated load · {(grid.headroomMilliWatts / 1000).toFixed(0)} W headroom</code></div> : <small className="inspector-empty">NO GRID MEMBERSHIP</small>}
+        {grid ? <div className="inspector-grid"><strong>{grid.grid}</strong><code>{(grid.productionMilliWatts / 1000).toFixed(0)} W generation · {(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W rated load · {(grid.headroomMilliWatts / 1000).toFixed(0)} W headroom{grid.storageCapacityMilliJoules ? ` · ${(grid.storageCapacityMilliJoules / 1e6).toFixed(3)} MJ storage` : ""}</code></div> : <small className="inspector-empty">NO GRID MEMBERSHIP</small>}
       </div>
       <div className="inspector-section">
         <div className="inspector-section-title"><span>LOCAL CONNECTIONS</span><b>{links.length}</b></div>
@@ -707,6 +730,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
               {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
               {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "continuous"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "renewable"}</code></div></div></section>}
+              {selected.power.storage && <section className="asset-section"><h4>Power storage</h4><div className="asset-table"><div><b>{(selected.power.storage.capacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>+{(selected.power.storage.chargeMilliWatts / 1000).toFixed(0)} / −{(selected.power.storage.dischargeMilliWatts / 1000).toFixed(0)} W</strong><span>charge / discharge</span><code>deterministic grid buffer</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
               <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
@@ -840,7 +864,8 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>POWER GRIDS</span><b>RATED ENVELOPE</b></div>
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} DEVICES · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
+            const measuredStorage = data.metrics?.energyStorage[grid.grid];
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>
@@ -994,6 +1019,7 @@ function App() {
   const frame = buildFrame(data, tick);
   const recent = frame.visibleEvents.slice(-8).reverse();
   const selectedRun = data.runs.find((item) => item.name === run);
+  const storageTotals = Object.values(data.metrics?.energyStorage ?? {}).reduce((total, storage) => ({ stored: total.stored + storage.storedMilliJoules, capacity: total.capacity + storage.capacityMilliJoules }), { stored: 0, capacity: 0 });
   const chooseSceneObject = (next: StudioSelection) => setSelection((current) => selectStudioObject(current, next));
 
   return <main className={loading ? "syncing" : ""}>
@@ -1022,7 +1048,7 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>

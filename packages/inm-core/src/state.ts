@@ -15,10 +15,12 @@ export type FactoryStateMutation =
   | { kind: "resource.release"; node: string; count: number }
   | { kind: "resource.extracted"; node: string; count: number }
   | { kind: "energy"; grid: string; consumedMilliJoules: number }
+  | { kind: "energy.storage"; grid: string; device: string; deltaMilliJoules: number; mode: "charge" | "discharge" }
   | { kind: "fuel"; resource: string; count: number }
   | { kind: "orders"; count: number }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
+  | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick }
   | { kind: "progress"; device: string; progressTicks: Tick };
 
 /** The sole write path for runtime factory state. Asset scripts can return actions but cannot mutate this store. */
@@ -77,10 +79,35 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       state.energy.grids[mutation.grid]!.consumedMilliJoules += mutation.consumedMilliJoules;
       return;
     }
+    case "energy.storage": {
+      const storage = state.devices[mutation.device]!.energyStorage;
+      const grid = state.energy.grids[mutation.grid];
+      if (!storage || !grid) throw new Error(`Unknown power storage '${mutation.device}' on '${mutation.grid}'`);
+      const next = storage.storedMilliJoules + mutation.deltaMilliJoules;
+      if (next < -1e-6 || next > storage.capacityMilliJoules + 1e-6) throw new Error(`Power storage '${mutation.device}' energy would leave its physical capacity`);
+      const previous = storage.storedMilliJoules;
+      storage.storedMilliJoules = Math.max(0, Math.min(storage.capacityMilliJoules, next));
+      const appliedDelta = storage.storedMilliJoules - previous;
+      grid.storedMilliJoules = Math.max(0, Math.min(grid.storageCapacityMilliJoules, grid.storedMilliJoules + appliedDelta));
+      if (mutation.mode === "charge") {
+        storage.chargedMilliJoules += appliedDelta;
+        grid.chargedMilliJoules += appliedDelta;
+      } else {
+        storage.dischargedMilliJoules -= appliedDelta;
+        grid.dischargedMilliJoules -= appliedDelta;
+      }
+      return;
+    }
     case "fuel": state.energy.fuelConsumed[mutation.resource] = (state.energy.fuelConsumed[mutation.resource] ?? 0) + mutation.count; return;
     case "orders": state.completedOrders += mutation.count; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;
+    case "job.power": {
+      const job = state.devices[mutation.device]!.activeJob;
+      if (!job) throw new Error(`Device '${mutation.device}' has no active job to update`);
+      job.remainingTicks = mutation.remainingTicks; job.workedTicks = mutation.workedTicks; job.resumedAt = mutation.resumedAt;
+      return;
+    }
     case "progress": state.devices[mutation.device]!.progressTicks = mutation.progressTicks; return;
   }
 }

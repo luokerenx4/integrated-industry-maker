@@ -22,6 +22,10 @@ export interface BlueprintMetricSnapshot {
   objectiveAttainment: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
+  storedMilliJoules: number;
+  chargedMilliJoules: number;
+  dischargedMilliJoules: number;
+  unpoweredTicks: number;
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
@@ -38,6 +42,10 @@ export interface BlueprintMetricDelta {
   objectiveAttainment: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
+  storedMilliJoules: number;
+  chargedMilliJoules: number;
+  dischargedMilliJoules: number;
+  unpoweredTicks: number;
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
@@ -168,12 +176,17 @@ export function compareBlueprintSemantics(before: Blueprint, after: Blueprint): 
 }
 
 function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
+  const storage = Object.values(metrics.energyStorage);
   return {
     score: metrics.finalScore,
     throughputPerMinute: metrics.throughputPerMinute,
     objectiveAttainment: metrics.onTimeDelivery,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
+    storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
+    chargedMilliJoules: storage.reduce((sum, grid) => sum + grid.chargedMilliJoules, 0),
+    dischargedMilliJoules: storage.reduce((sum, grid) => sum + grid.dischargedMilliJoules, 0),
+    unpoweredTicks: Object.values(metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0),
     totalBuildCost: metrics.totalBuildCost,
     occupiedArea: metrics.occupiedArea,
     averageWip: metrics.averageWip,
@@ -192,6 +205,10 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     objectiveAttainment: after.objectiveAttainment - before.objectiveAttainment,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
+    storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,
+    chargedMilliJoules: after.chargedMilliJoules - before.chargedMilliJoules,
+    dischargedMilliJoules: after.dischargedMilliJoules - before.dischargedMilliJoules,
+    unpoweredTicks: after.unpoweredTicks - before.unpoweredTicks,
     totalBuildCost: after.totalBuildCost - before.totalBuildCost,
     occupiedArea: after.occupiedArea - before.occupiedArea,
     averageWip: after.averageWip - before.averageWip,
