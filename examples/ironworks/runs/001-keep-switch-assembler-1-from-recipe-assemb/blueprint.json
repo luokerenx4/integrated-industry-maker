@@ -25,11 +25,23 @@
         {
           "x": 5,
           "y": 10
+        },
+        {
+          "x": 6,
+          "y": 10
+        },
+        {
+          "x": 7,
+          "y": 10
+        },
+        {
+          "x": 8,
+          "y": 10
         }
       ],
       "to": {
-        "device": "smelter-1-split",
-        "port": "input-west"
+        "device": "smelter-1",
+        "port": "input"
       }
     },
     {
@@ -307,114 +319,6 @@
         "device": "assembler-1",
         "port": "input-secondary"
       }
-    },
-    {
-      "from": {
-        "device": "smelter-1-split",
-        "port": "output-east"
-      },
-      "id": "ore-to-smelter-smelter-1-split-original",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 8,
-          "y": 10
-        }
-      ],
-      "to": {
-        "device": "smelter-1",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "smelter-1-split",
-        "port": "output-north"
-      },
-      "id": "ore-to-smelter-smelter-1-split-parallel",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 7,
-          "y": 9
-        },
-        {
-          "x": 7,
-          "y": 8
-        },
-        {
-          "x": 8,
-          "y": 8
-        }
-      ],
-      "to": {
-        "device": "smelter-1-parallel",
-        "port": "input"
-      }
-    },
-    {
-      "from": {
-        "device": "smelter-1-parallel",
-        "port": "output"
-      },
-      "id": "plate-to-station-smelter-1-parallel",
-      "logistics": {
-        "line": {
-          "deviceAsset": "conveyor"
-        },
-        "loader": {
-          "deviceAsset": "sorter"
-        },
-        "unloader": {
-          "deviceAsset": "sorter"
-        }
-      },
-      "path": [
-        {
-          "x": 11,
-          "y": 8
-        },
-        {
-          "x": 11,
-          "y": 9
-        },
-        {
-          "x": 11,
-          "y": 10
-        },
-        {
-          "x": 12,
-          "y": 10
-        },
-        {
-          "x": 12,
-          "y": 9
-        }
-      ],
-      "to": {
-        "device": "station-supply",
-        "port": "input"
-      }
     }
   ],
   "devices": [
@@ -470,7 +374,7 @@
         "outputs": {
           "gear": "output"
         },
-        "process": "assemble-gear"
+        "process": "forge-gear-pair"
       },
       "region": "assembly-world",
       "rotation": 0
@@ -569,48 +473,6 @@
       "resourceNodes": [
         "coal-seam-assembly"
       ],
-      "rotation": 0
-    },
-    {
-      "asset": "smelter",
-      "id": "smelter-1-parallel",
-      "position": {
-        "x": 9,
-        "y": 8
-      },
-      "recipe": {
-        "inputs": {
-          "iron-ore": "input"
-        },
-        "outputs": {
-          "iron-plate": "output"
-        },
-        "process": "smelt-iron"
-      },
-      "region": "forge-world",
-      "rotation": 0
-    },
-    {
-      "asset": "splitter",
-      "id": "smelter-1-split",
-      "policy": {
-        "dispatch": "round-robin"
-      },
-      "position": {
-        "x": 6,
-        "y": 10
-      },
-      "region": "forge-world",
-      "rotation": 0
-    },
-    {
-      "asset": "wind-turbine",
-      "id": "wind-turbine-support",
-      "position": {
-        "x": 9,
-        "y": 12
-      },
-      "region": "forge-world",
       "rotation": 0
     }
   ],

@@ -293,6 +293,8 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 
 The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. The blueprint recipe selects one Process for a Device instance and explicitly maps every declared Resource to one of the Device's permitted input/output buffers. The compiler rejects missing, extra, incompatible, or unknown bindings before producing the exact buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
 
+`inm analyze` also enumerates every other project-local Process compatible with each placed production Device. A deterministic binder preserves existing Resource assignments when possible, assigns new ingredients to distinct compatible buffers, and exposes the resulting recipe object as an optimization candidate. The selected production graph recursively expands one target item through the active recipes into raw inputs, so the CLI and research agent can compare alternatives before simulation while still using simulation and objective score as the final KEEP/REVERT authority.
+
 ## World
 
 `worlds/<id>.world.json` declares immutable benchmark input: one or more regions plus finite resource nodes. A region is a `site`, `planet`, or `orbit`, owns an independent 2D factory floor, and has integer world coordinates used for long-range route distance. A resource node names a project Resource, region, cell, and positive initial amount. World contents have their own run hash and are outside the research patch boundary.

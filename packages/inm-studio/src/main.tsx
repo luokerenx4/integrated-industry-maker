@@ -159,6 +159,16 @@ interface IndustrialAnalysis {
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
     inputBindings: Record<string, string>; outputBindings: Record<string, string>; powerMilliWatts: number;
   }>;
+  recipeOptions: Array<{
+    device: string; asset: string; process: string; name: string; category: string; selected: boolean;
+    cycleTicks: number; cyclesPerMinute: number; inputs: Array<{ resource: string; count: number }>; outputs: Array<{ resource: string; count: number }>;
+    inputBindings: Record<string, string>; outputBindings: Record<string, string>; targetOutputPerMinute: number;
+  }>;
+  productionGraph: {
+    targetResource: string; rawInputsPerTarget: Record<string, number>;
+    steps: Array<{ device: string; process: string; cyclesPerTarget: number }>;
+    dependencies: Array<{ device: string; process: string; inputs: string[]; outputs: string[] }>;
+  };
   extractionDevices: Array<{ device: string; asset: string; resource: string; nodes: string[]; cycleTicks: number; itemsPerCycle: number; itemsPerMinute: number; powerMilliWatts: number }>;
   generationDevices: Array<{ device: string; asset: string; region: string; kind: "renewable" | "fuel"; outputMilliWatts: number; fuelBuffer?: string; fuelResource?: string; fuelPerMinute?: number; burnTicks?: number }>;
   resourceNodes: Array<{ node: string; region: string; resource: string; amount: number; miners: string[]; nominalSharePerMinute: number; estimatedDepletionMinutes: number | null }>;
@@ -549,6 +559,20 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             <div className="pipeline-head"><span><strong>{device.device}</strong><small>{device.asset} · {device.process}</small></span><b>{device.cyclesPerMinute.toFixed(2)} cycles/min</b></div>
             <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(device.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ") || "none"}</strong><code>{Object.entries(device.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(device.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{Object.entries(device.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span></div>
             <footer><span>CYCLE {device.cycleTicks}ms</span><span>{(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
+          </div>)}</div>
+        </section>
+        <section className="analysis-section logistics-analysis">
+          <div className="analysis-section-title"><span>PRODUCTION GRAPH</span><b>PER 1 {analysis.productionGraph.targetResource.toUpperCase()}</b></div>
+          <div className="pipeline-list"><div className="pipeline-card">
+            <div className="pipeline-head"><span><strong>{analysis.productionGraph.targetResource}</strong><small>selected recipe dependency chain</small></span><b>{Object.entries(analysis.productionGraph.rawInputsPerTarget).map(([resource, amount]) => `${amount.toFixed(2)} ${resource}`).join(" + ")}</b></div>
+            <div className="pipeline-stages">{analysis.productionGraph.steps.map((step, index) => <React.Fragment key={step.device}><span><small>{step.device}</small><strong>{step.process}</strong><code>{step.cyclesPerTarget.toFixed(2)} cycles / target</code></span>{index < analysis.productionGraph.steps.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+          </div></div>
+        </section>
+        <section className="analysis-section logistics-analysis">
+          <div className="analysis-section-title"><span>RECIPE ALTERNATIVES</span><b>AUTO-PATCH CANDIDATES</b></div>
+          <div className="pipeline-list">{analysis.recipeOptions.filter((option) => !option.selected).map((option) => <div className="pipeline-card" key={`${option.device}-${option.process}`}>
+            <div className="pipeline-head"><span><strong>{option.process}</strong><small>{option.device} · {option.name}</small></span><b>{option.targetOutputPerMinute.toFixed(2)} {analysis.productionGraph.targetResource}/min</b></div>
+            <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(option.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{option.inputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(option.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{option.outputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span></div>
           </div>)}</div>
         </section>
         <section className="analysis-section diagnostics-analysis">

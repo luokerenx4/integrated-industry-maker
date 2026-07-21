@@ -470,7 +470,7 @@
         "outputs": {
           "gear": "output"
         },
-        "process": "assemble-gear"
+        "process": "forge-gear-pair"
       },
       "region": "assembly-world",
       "rotation": 0
@@ -617,7 +617,7 @@
   "logisticsNetworks": [
     {
       "fleet": {
-        "count": 2,
+        "count": 1,
         "deviceAsset": "logistics-vessel"
       },
       "id": "interstellar-main",
@@ -647,8 +647,8 @@
     }
   ],
   "policies": {
-    "dispatch": "round-robin"
+    "dispatch": "fifo"
   },
-  "revision": "c7ca22c1d8b5529b5fca6cf34c0ac245593a199c57f1f2e0fdcfe8772bbbd36d",
+  "revision": "34c68a05b75b93ddbc2ed14252d297e132e643d76b7c7b61cc8ed12aa115decf",
   "version": 1
 }

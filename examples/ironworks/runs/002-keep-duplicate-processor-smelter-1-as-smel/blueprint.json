@@ -470,7 +470,7 @@
         "outputs": {
           "gear": "output"
         },
-        "process": "assemble-gear"
+        "process": "forge-gear-pair"
       },
       "region": "assembly-world",
       "rotation": 0
@@ -647,8 +647,8 @@
     }
   ],
   "policies": {
-    "dispatch": "fifo"
+    "dispatch": "round-robin"
   },
-  "revision": "c7ca22c1d8b5529b5fca6cf34c0ac245593a199c57f1f2e0fdcfe8772bbbd36d",
+  "revision": "1e966137c60f05eff54b2896cf06e5d1bddbe2bc408d9d27cacb08fb9c50fa5a",
   "version": 1
 }

@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **27.991**
-- Result hash: `d0b363f6738d080844aaf4c16dbea69b53ae09eed7c1eb14ab9acaf8ecd62353`
+- Result hash: `d5a7615a4f5e35e45553c3850e01c7120b6441ff91f5d6618efd2a497e45787c`
 - Bottleneck: smelter-1
 - Throughput/min: 6.000
 - Belt utilization: 2.1%

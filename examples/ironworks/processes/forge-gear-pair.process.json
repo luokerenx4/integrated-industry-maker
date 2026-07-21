@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "forge-gear-pair",
+  "name": "Forge Gear Pair",
+  "description": "Forge a paired gear blank with higher plate and additive efficiency at a longer cycle time.",
+  "category": "assembling",
+  "tags": ["iron", "component", "efficient"],
+  "durationTicks": 4000,
+  "inputs": [
+    { "resource": "iron-plate", "count": 3 },
+    { "resource": "coal", "count": 1 }
+  ],
+  "outputs": [
+    { "resource": "gear", "count": 2 }
+  ]
+}

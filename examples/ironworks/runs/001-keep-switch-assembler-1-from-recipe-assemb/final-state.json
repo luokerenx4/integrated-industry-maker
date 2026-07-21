@@ -1,7 +1,7 @@
 {
-  "completedOrders": 21,
+  "completedOrders": 16,
   "consumed": {
-    "gear": 21
+    "gear": 16
   },
   "devices": {
     "assembler-1": {
@@ -16,9 +16,11 @@
     },
     "coal-miner-assembly": {
       "buffers": {
-        "output": {}
+        "output": {
+          "coal": 8
+        }
       },
-      "status": "waiting-input"
+      "status": "blocked-output"
     },
     "coal-miner-forge": {
       "buffers": {
@@ -31,7 +33,7 @@
     "coal-splitter-assembly": {
       "buffers": {
         "storage": {
-          "coal": 6
+          "coal": 8
         }
       },
       "status": "idle"
@@ -81,10 +83,30 @@
       "status": "processing"
     },
     "ore-source-1": {
-      "buffers": {
-        "output": {}
+      "activeJob": {
+        "durationTicks": 1000,
+        "extraction": {
+          "count": 1,
+          "node": "iron-vein-3"
+        },
+        "operation": "extract-iron-ore",
+        "powerMilliWatts": 50000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-ore"
+          }
+        ],
+        "startedAt": 120000
       },
-      "status": "waiting-input"
+      "buffers": {
+        "output": {
+          "iron-ore": 7
+        }
+      },
+      "progressTicks": 0,
+      "status": "processing"
     },
     "output-1": {
       "buffers": {
@@ -93,28 +115,27 @@
       "status": "waiting-input"
     },
     "smelter-1": {
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "smelt-iron",
+        "powerMilliWatts": 180000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-plate"
+          }
+        ],
+        "startedAt": 119000
+      },
       "buffers": {
         "input": {
-          "iron-ore": 1
+          "iron-ore": 7
         },
         "output": {}
       },
-      "status": "waiting-input"
-    },
-    "smelter-1-parallel": {
-      "buffers": {
-        "input": {
-          "iron-ore": 1
-        },
-        "output": {}
-      },
-      "status": "waiting-input"
-    },
-    "smelter-1-split": {
-      "buffers": {
-        "storage": {}
-      },
-      "status": "idle"
+      "progressTicks": 1000,
+      "status": "processing"
     },
     "station-demand": {
       "buffers": {
@@ -133,42 +154,51 @@
     "wind-assembly-recipe-line": {
       "buffers": {},
       "status": "idle"
-    },
-    "wind-turbine-support": {
-      "buffers": {},
-      "status": "idle"
     }
   },
   "energy": {
-    "availableMilliWatts": 3200000,
-    "consumedMilliJoules": 225806000,
+    "availableMilliWatts": 2600000,
+    "consumedMilliJoules": 204891500,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 102397000
+        "consumedMilliJoules": 95380000
       },
       "grid-forge-world-generator-1": {
-        "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 123409000
+        "availableMilliWatts": 1000000,
+        "consumedMilliJoules": 109511500
       }
     }
   },
   "logisticsTransports": {
-    "interstellar-main": []
+    "interstellar-main": [
+      {
+        "arriveTick": 124160,
+        "count": 3,
+        "departTick": 112120,
+        "from": "station-supply",
+        "fromBuffer": "storage",
+        "id": "transit-000188",
+        "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
+        "resource": "iron-plate",
+        "to": "station-demand",
+        "toBuffer": "storage"
+      }
+    ]
   },
   "produced": {
-    "coal": 52,
-    "gear": 21,
-    "iron-ore": 90,
-    "iron-plate": 44
+    "coal": 49,
+    "gear": 16,
+    "iron-ore": 75,
+    "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 40,
-      "remaining": 0,
+      "extracted": 37,
+      "remaining": 3,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -187,9 +217,9 @@
       "reserved": 0
     },
     "iron-vein-3": {
-      "extracted": 30,
-      "remaining": 0,
-      "reserved": 0
+      "extracted": 15,
+      "remaining": 14,
+      "reserved": 1
     }
   },
   "tick": 120000,
@@ -199,11 +229,23 @@
     "coal-splitter-to-assembler": [],
     "coal-splitter-to-generator": [],
     "gear-to-output": [],
-    "ore-to-smelter": [],
-    "ore-to-smelter-smelter-1-split-original": [],
-    "ore-to-smelter-smelter-1-split-parallel": [],
+    "ore-to-smelter": [
+      {
+        "arriveTick": 120250,
+        "cellIndex": -1,
+        "count": 1,
+        "departTick": 119250,
+        "from": "ore-source-1",
+        "fromBuffer": "output",
+        "id": "transit-000200",
+        "phase": "unloading",
+        "readyTick": 120250,
+        "resource": "iron-ore",
+        "to": "smelter-1",
+        "toBuffer": "input"
+      }
+    ],
     "plate-to-station": [],
-    "plate-to-station-smelter-1-parallel": [],
     "station-to-assembler": []
   }
 }

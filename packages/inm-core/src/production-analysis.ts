@@ -1,4 +1,4 @@
-import type { CompiledFactoryProject, ResourceId } from "./types";
+import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
 
 export interface DeviceProductionRate {
   device: string;
@@ -12,6 +12,29 @@ export interface DeviceProductionRate {
   inputBindings: Record<ResourceId, string>;
   outputBindings: Record<ResourceId, string>;
   powerMilliWatts: number;
+}
+
+export interface RecipeOptionAnalysis {
+  device: string;
+  asset: string;
+  process: string;
+  name: string;
+  category: string;
+  selected: boolean;
+  cycleTicks: number;
+  cyclesPerMinute: number;
+  inputs: ProcessAmount[];
+  outputs: ProcessAmount[];
+  inputBindings: Record<ResourceId, string>;
+  outputBindings: Record<ResourceId, string>;
+  targetOutputPerMinute: number;
+}
+
+export interface ProductionDependencyGraph {
+  targetResource: ResourceId;
+  rawInputsPerTarget: Record<ResourceId, number>;
+  steps: Array<{ device: string; process: string; cyclesPerTarget: number }>;
+  dependencies: Array<{ device: string; process: string; inputs: ResourceId[]; outputs: ResourceId[] }>;
 }
 
 export interface DeviceExtractionRate {
@@ -129,6 +152,8 @@ export interface ProductionAnalysis {
   declarativeDevices: number;
   opaqueDevices: number;
   devices: DeviceProductionRate[];
+  recipeOptions: RecipeOptionAnalysis[];
+  productionGraph: ProductionDependencyGraph;
   extractionDevices: DeviceExtractionRate[];
   generationDevices: DevicePowerGenerationRate[];
   resourceNodes: ResourceNodeAnalysis[];
@@ -138,6 +163,66 @@ export interface ProductionAnalysis {
   stationNetworks: StationNetworkAnalysis[];
   powerGrids: PowerGridAnalysis[];
   diagnostics: ProductionDiagnostic[];
+}
+
+function bufferSupports(asset: DeviceAsset, bufferId: string, resource: ResourceId): boolean {
+  const buffer = asset.buffers.find((item) => item.id === bufferId);
+  return Boolean(buffer && (buffer.accepts.includes("*") || buffer.accepts.includes(resource)));
+}
+
+export function bindProcessRecipe(
+  asset: DeviceAsset,
+  process: IndustrialProcess,
+  preferred?: BlueprintDevice["recipe"],
+): { inputs: Record<ResourceId, string>; outputs: Record<ResourceId, string> } | null {
+  const production = asset.production;
+  if (!production || !production.categories.includes(process.category)) return null;
+  const bind = (amounts: ProcessAmount[], allowed: string[], preferredBindings: Record<ResourceId, string> | undefined) => {
+    const bindings: Record<ResourceId, string> = {};
+    const used = new Set<string>();
+    for (const amount of amounts) {
+      const preferredBuffer = preferredBindings?.[amount.resource];
+      const candidates = allowed.filter((buffer) => bufferSupports(asset, buffer, amount.resource))
+        .sort((a, b) => Number(used.has(a)) - Number(used.has(b)) || a.localeCompare(b));
+      const buffer = preferredBuffer && candidates.includes(preferredBuffer) ? preferredBuffer : candidates[0];
+      if (!buffer) return null;
+      bindings[amount.resource] = buffer;
+      used.add(buffer);
+    }
+    return bindings;
+  };
+  const inputs = bind(process.inputs, production.inputBuffers, preferred?.inputs);
+  const outputs = bind(process.outputs, production.outputBuffers, preferred?.outputs);
+  return inputs && outputs ? { inputs, outputs } : null;
+}
+
+function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
+  const rawInputsPerTarget: Record<ResourceId, number> = {};
+  const stepCycles = new Map<string, number>();
+  const expand = (resource: ResourceId, amount: number, visiting: Set<ResourceId>) => {
+    if (visiting.has(resource)) { add(rawInputsPerTarget, resource, amount); return; }
+    const producer = devices.filter((device) => (device.outputsPerMinute[resource] ?? 0) > 0)
+      .sort((a, b) => (b.outputsPerMinute[resource] ?? 0) - (a.outputsPerMinute[resource] ?? 0) || a.device.localeCompare(b.device))[0];
+    const plan = producer ? project.devices[producer.device]?.processPlan : undefined;
+    const output = plan?.outputs.find((item) => item.resource === resource);
+    if (!producer || !plan || !output) { add(rawInputsPerTarget, resource, amount); return; }
+    const cycles = amount / output.count;
+    stepCycles.set(producer.device, (stepCycles.get(producer.device) ?? 0) + cycles);
+    const next = new Set(visiting); next.add(resource);
+    for (const input of plan.inputs) expand(input.resource, input.count * cycles, next);
+  };
+  expand(project.objective.targetResource, 1, new Set());
+  return {
+    targetResource: project.objective.targetResource,
+    rawInputsPerTarget: Object.fromEntries(Object.entries(rawInputsPerTarget).sort(([a], [b]) => a.localeCompare(b))),
+    steps: [...stepCycles.entries()].map(([device, cyclesPerTarget]) => ({
+      device, process: project.devices[device]!.processPlan!.definition.id, cyclesPerTarget,
+    })).sort((a, b) => a.device.localeCompare(b.device)),
+    dependencies: devices.map((device) => ({
+      device: device.device, process: device.process,
+      inputs: Object.keys(device.inputBindings).sort(), outputs: Object.keys(device.outputBindings).sort(),
+    })),
+  };
 }
 
 function add(target: Record<string, number>, resource: string, value: number): void {
@@ -188,6 +273,24 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
     });
   }
+  const recipeOptions: RecipeOptionAnalysis[] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((device) => {
+    if (!device.assetDef.production) return [];
+    return Object.values(project.processes).sort((a, b) => a.id.localeCompare(b.id)).flatMap((process) => {
+      const bindings = bindProcessRecipe(device.assetDef, process, device.recipe);
+      if (!bindings) return [];
+      const cycleTicks = Math.max(1, Math.ceil(process.durationTicks * device.assetDef.production!.speed.denominator / device.assetDef.production!.speed.numerator));
+      const cyclesPerMinute = 60_000 / cycleTicks;
+      const targetOutput = process.outputs.find((amount) => amount.resource === project.objective.targetResource)?.count ?? 0;
+      return [{
+        device: device.id, asset: device.asset, process: process.id, name: process.name, category: process.category,
+        selected: device.processPlan?.definition.id === process.id, cycleTicks, cyclesPerMinute,
+        inputs: structuredClone(process.inputs), outputs: structuredClone(process.outputs),
+        inputBindings: bindings.inputs, outputBindings: bindings.outputs,
+        targetOutputPerMinute: targetOutput * cyclesPerMinute,
+      }];
+    });
+  });
+  const productionGraph = buildProductionGraph(project, devices);
 
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
     const plan = device.generationPlan;
@@ -386,7 +489,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   return {
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, extractionDevices, generationDevices, resourceNodes,
+    devices, recipeOptions, productionGraph, extractionDevices, generationDevices, resourceNodes,
     resources,
     connections,
     transportCells,

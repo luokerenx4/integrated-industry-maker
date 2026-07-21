@@ -1,11 +1,11 @@
 {
-  "averageBeltItems": 0.94,
+  "averageBeltItems": 0.9033333333333333,
   "averageBlockedBeltItems": 0,
-  "averageWip": 44.54141666666667,
-  "beltCellUtilization": 0.026857142857142857,
+  "averageWip": 45.50816666666667,
+  "beltCellUtilization": 0.02580952380952381,
   "blockedOutputTime": {
     "assembler-1": 0,
-    "coal-miner-assembly": 35100,
+    "coal-miner-assembly": 51640,
     "coal-miner-forge": 0,
     "coal-splitter-assembly": 0,
     "generator-1": 0,
@@ -21,16 +21,16 @@
     "wind-turbine-support": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 21,
+  "completedOrders": 28,
   "consumed": {
-    "gear": 21
+    "gear": 28
   },
-  "energyConsumedMilliJoules": 226469560,
+  "energyConsumedMilliJoules": 224263000,
   "extracted": {
     "coal": 52,
     "iron-ore": 90
   },
-  "finalScore": 70.33116273333334,
+  "finalScore": 104.98088666666669,
   "fuelConsumed": {
     "coal": 4
   },
@@ -53,7 +53,7 @@
   },
   "infeasibleReason": null,
   "machineUtilization": {
-    "assembler-1": 0.55,
+    "assembler-1": 0.4666666666666667,
     "coal-miner-assembly": 0.3333333333333333,
     "coal-miner-forge": 0.1,
     "coal-splitter-assembly": 0,
@@ -74,7 +74,7 @@
   "peakBeltItems": 4,
   "produced": {
     "coal": 52,
-    "gear": 22,
+    "gear": 28,
     "iron-ore": 90,
     "iron-plate": 44
   },
@@ -116,39 +116,39 @@
     }
   },
   "scoreBreakdown": {
-    "blocked": -0.585,
+    "blocked": -0.8606666666666667,
     "buildCost": -13.565,
     "constraintPenalty": 0,
-    "energy": -2.2646956,
+    "energy": -2.24263,
     "occupiedArea": -23.8,
     "onTimeDelivery": 10,
-    "throughput": 105,
-    "wip": -4.4541416666666676
+    "throughput": 140,
+    "wip": -4.550816666666667
   },
-  "throughputPerMinute": 10.5,
+  "throughputPerMinute": 14,
   "totalBuildCost": 27130,
-  "transportCongestion": 0.0915079365079361,
-  "transportEnergyConsumedMilliJoules": 369560,
+  "transportCongestion": 0.09054761904761859,
+  "transportEnergyConsumedMilliJoules": 363000,
   "transportStageUtilization": {
     "coal-assembly-to-splitter": {
-      "loader": 0.08333333333333333,
-      "unloader": 0.08333333333333333
+      "loader": 0.07291666666666667,
+      "unloader": 0.07291666666666667
     },
     "coal-forge-to-generator": {
       "loader": 0.010416666666666666,
       "unloader": 0.010416666666666666
     },
     "coal-splitter-to-assembler": {
-      "loader": 0.0625,
-      "unloader": 0.0625
+      "loader": 0.04583333333333333,
+      "unloader": 0.04583333333333333
     },
     "coal-splitter-to-generator": {
       "loader": 0.010416666666666666,
       "unloader": 0.010416666666666666
     },
     "gear-to-output": {
-      "loader": 0.04583333333333333,
-      "unloader": 0.044
+      "loader": 0.058333333333333334,
+      "unloader": 0.058333333333333334
     },
     "ore-to-smelter": {
       "loader": 0.1875,
@@ -176,8 +176,8 @@
     }
   },
   "waitingInputTime": {
-    "assembler-1": 54000,
-    "coal-miner-assembly": 44900,
+    "assembler-1": 64000,
+    "coal-miner-assembly": 28360,
     "coal-miner-forge": 108000,
     "coal-splitter-assembly": 0,
     "generator-1": 0,

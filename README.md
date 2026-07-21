@@ -31,12 +31,12 @@ The bundled experiment demonstrates the complete loop:
 
 ```text
 000 dual-input recipe baseline    score 27.991
-001 smelter + routed branches     score 70.331  KEEP
-002 switch arbitration to FIFO    score 70.331  REVERT
-003 add station carrier           score 69.663  REVERT
+001 efficient gear-pair recipe    score 47.891  KEEP
+002 smelter + routed branches     score 104.981 KEEP
+003 switch arbitration to FIFO    score 104.981 REVERT
 ```
 
-The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates. On Assembly World, a recipe-configured assembler consumes iron plate and coal through two independently bound input buffers. A placed splitter sends locally mined coal toward both generation and the secondary recipe input, while a renewable generator supports the expanded line. Physical links, powered loader/unloader endpoints, and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint recipes, machinery, and logistics but cannot manufacture deposits or alter world geometry. Every candidate is validated against the same world, compiled, simulated, benchmarked, and kept only when it improves the objective.
+The default world and blueprint form an executable two-planet example. A TypeScript-driven mining machine on Forge World binds three finite iron veins, reserves and extracts their inventory, then feeds smelting and an interstellar station; a reusable logistics vessel carries batched iron plate across world coordinates. On Assembly World, a recipe-configured assembler consumes iron plate and coal through two independently bound input buffers. A placed splitter sends locally mined coal toward both generation and the secondary recipe input, while a renewable generator supports the expanded line. Static analysis expands one gear through the selected production graph into `4 iron-ore + 1 coal`, discovers a compatible gear-pair recipe with a generated binding object, and exposes both to the optimizer. The research loop first changes the recipe and then adds routed smelting capacity, accepting each edit only after deterministic simulation improves the objective. Physical links, powered loader/unloader endpoints, and power grids are region-local, while an interstellar station network must cross regions. The heuristic can edit blueprint recipes, machinery, and logistics but cannot manufacture deposits or alter world geometry.
 
 ## CLI
 

@@ -427,10 +427,33 @@ function exploratoryStationCandidates(input: ResearchInput): StrategyCandidate[]
   });
 }
 
+function recipeCandidates(input: ResearchInput): StrategyCandidate[] {
+  return input.production.recipeOptions.flatMap((option) => {
+    if (option.selected || option.targetOutputPerMinute <= 0) return [];
+    const current = input.production.recipeOptions.find((candidate) => candidate.device === option.device && candidate.selected);
+    if (!current || option.targetOutputPerMinute <= current.targetOutputPerMinute + 1e-9) return [];
+    const deviceIndex = input.blueprint.devices.findIndex((device) => device.id === option.device);
+    if (deviceIndex < 0) return [];
+    const key = `recipe:${option.device}:${option.process}`;
+    return [{ key, proposal: {
+      strategy: key,
+      hypothesis: `Switch \`${option.device}\` from recipe \`${current.process}\` to \`${option.process}\` because nominal ${input.project.objective.targetResource} capacity rises from ${current.targetOutputPerMinute.toFixed(3)} to ${option.targetOutputPerMinute.toFixed(3)}/min.`,
+      expectedEffect: "Test a project-local alternative recipe with explicit Resource-to-buffer bindings through the same deterministic simulation and score gate.",
+      patch: [{ op: "replace" as const, path: `/devices/${deviceIndex}/recipe`, value: {
+        process: option.process, inputs: option.inputBindings, outputs: option.outputBindings,
+      } }],
+    } }];
+  }).sort((a, b) => {
+    const left = input.production.recipeOptions.find((option) => a.key === `recipe:${option.device}:${option.process}`)!;
+    const right = input.production.recipeOptions.find((option) => b.key === `recipe:${option.device}:${option.process}`)!;
+    return right.targetOutputPerMinute - left.targetOutputPerMinute || a.key.localeCompare(b.key);
+  });
+}
+
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
-    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...stationCandidates(input)];
+    const candidates: StrategyCandidate[] = [...powerCandidates(input), ...logisticsCandidates(input), ...stationCandidates(input), ...recipeCandidates(input)];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;
     for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {

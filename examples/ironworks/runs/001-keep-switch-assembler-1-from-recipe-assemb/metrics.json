@@ -1,0 +1,171 @@
+{
+  "averageBeltItems": 0.6625,
+  "averageBlockedBeltItems": 0,
+  "averageWip": 52.964333333333336,
+  "beltCellUtilization": 0.020703125,
+  "blockedOutputTime": {
+    "assembler-1": 0,
+    "coal-miner-assembly": 83000,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 45000,
+    "output-1": 0,
+    "smelter-1": 0,
+    "station-demand": 0,
+    "station-supply": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "bottleneckEntity": "smelter-1",
+  "completedOrders": 16,
+  "consumed": {
+    "gear": 16
+  },
+  "energyConsumedMilliJoules": 204891500,
+  "extracted": {
+    "coal": 49,
+    "iron-ore": 75
+  },
+  "finalScore": 47.891318333333345,
+  "fuelConsumed": {
+    "coal": 4
+  },
+  "idleTime": {
+    "assembler-1": 0,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 120000,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "output-1": 0,
+    "smelter-1": 0,
+    "station-demand": 120000,
+    "station-supply": 120000,
+    "wind-assembly-recipe-line": 120000
+  },
+  "infeasibleReason": null,
+  "machineUtilization": {
+    "assembler-1": 0.26666666666666666,
+    "coal-miner-assembly": 0.30833333333333335,
+    "coal-miner-forge": 0.1,
+    "coal-splitter-assembly": 0,
+    "generator-1": 1,
+    "generator-2": 1,
+    "ore-source-1": 0.625,
+    "output-1": 0,
+    "smelter-1": 0.975,
+    "station-demand": 0,
+    "station-supply": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "occupiedArea": 104,
+  "onTimeDelivery": 1,
+  "peakBeltItems": 4,
+  "produced": {
+    "coal": 49,
+    "gear": 16,
+    "iron-ore": 75,
+    "iron-plate": 29
+  },
+  "resourceNodes": {
+    "coal-seam-assembly": {
+      "depleted": false,
+      "extracted": 37,
+      "initial": 40,
+      "remaining": 3,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "depleted": true,
+      "extracted": 12,
+      "initial": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-1": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "depleted": false,
+      "extracted": 15,
+      "initial": 30,
+      "remaining": 14,
+      "reserved": 1
+    }
+  },
+  "scoreBreakdown": {
+    "blocked": -2.1333333333333333,
+    "buildCost": -11.83,
+    "constraintPenalty": 0,
+    "energy": -2.048915,
+    "occupiedArea": -20.8,
+    "onTimeDelivery": 10,
+    "throughput": 80,
+    "wip": -5.296433333333334
+  },
+  "throughputPerMinute": 8,
+  "totalBuildCost": 23660,
+  "transportCongestion": 0.11488425925925926,
+  "transportEnergyConsumedMilliJoules": 191500,
+  "transportStageUtilization": {
+    "coal-assembly-to-splitter": {
+      "loader": 0.06041666666666667,
+      "unloader": 0.06041666666666667
+    },
+    "coal-forge-to-generator": {
+      "loader": 0.010416666666666666,
+      "unloader": 0.010416666666666666
+    },
+    "coal-splitter-to-assembler": {
+      "loader": 0.03333333333333333,
+      "unloader": 0.03333333333333333
+    },
+    "coal-splitter-to-generator": {
+      "loader": 0.010416666666666666,
+      "unloader": 0.010416666666666666
+    },
+    "gear-to-output": {
+      "loader": 0.03333333333333333,
+      "unloader": 0.03333333333333333
+    },
+    "ore-to-smelter": {
+      "loader": 0.14166666666666666,
+      "unloader": 0.13958333333333334
+    },
+    "plate-to-station": {
+      "loader": 0.06041666666666667,
+      "unloader": 0.06041666666666667
+    },
+    "station-to-assembler": {
+      "loader": 0.05,
+      "unloader": 0.05
+    }
+  },
+  "waitingInputTime": {
+    "assembler-1": 88000,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 108000,
+    "coal-splitter-assembly": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "output-1": 120000,
+    "smelter-1": 3000,
+    "station-demand": 0,
+    "station-supply": 0,
+    "wind-assembly-recipe-line": 0
+  }
+}

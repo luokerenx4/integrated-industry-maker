@@ -1,12 +1,14 @@
 {
-  "completedOrders": 21,
+  "completedOrders": 28,
   "consumed": {
-    "gear": 21
+    "gear": 28
   },
   "devices": {
     "assembler-1": {
       "buffers": {
-        "input-primary": {},
+        "input-primary": {
+          "iron-plate": 2
+        },
         "input-secondary": {
           "coal": 8
         },
@@ -16,7 +18,9 @@
     },
     "coal-miner-assembly": {
       "buffers": {
-        "output": {}
+        "output": {
+          "coal": 5
+        }
       },
       "status": "waiting-input"
     },
@@ -31,7 +35,7 @@
     "coal-splitter-assembly": {
       "buffers": {
         "storage": {
-          "coal": 5
+          "coal": 8
         }
       },
       "status": "idle"
@@ -139,14 +143,14 @@
   },
   "energy": {
     "availableMilliWatts": 3200000,
-    "consumedMilliJoules": 226469560,
+    "consumedMilliJoules": 224263000,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
-        "consumedMilliJoules": 103060560
+        "consumedMilliJoules": 100854000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1600000,
@@ -159,7 +163,7 @@
   },
   "produced": {
     "coal": 52,
-    "gear": 22,
+    "gear": 28,
     "iron-ore": 90,
     "iron-plate": 44
   },
@@ -196,22 +200,7 @@
     "coal-forge-to-generator": [],
     "coal-splitter-to-assembler": [],
     "coal-splitter-to-generator": [],
-    "gear-to-output": [
-      {
-        "arriveTick": 120220,
-        "cellIndex": -1,
-        "count": 1,
-        "departTick": 119220,
-        "from": "assembler-1",
-        "fromBuffer": "output",
-        "id": "transit-000377",
-        "phase": "unloading",
-        "readyTick": 120220,
-        "resource": "gear",
-        "to": "output-1",
-        "toBuffer": "input"
-      }
-    ],
+    "gear-to-output": [],
     "ore-to-smelter": [],
     "ore-to-smelter-smelter-1-split-original": [],
     "ore-to-smelter-smelter-1-split-parallel": [],
