@@ -1,0 +1,14 @@
+{
+  "id": "production-window",
+  "name": "Three-minute DRAM Production Window",
+  "durationTicks": 180000,
+  "initialBuffers": {
+    "lot-release": {
+      "storage": {
+        "blank-dram-wafer-lot": 12
+      }
+    }
+  },
+  "initialEnergyMilliJoules": {},
+  "failures": []
+}

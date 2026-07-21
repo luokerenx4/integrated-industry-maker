@@ -2,7 +2,7 @@
 
 Status: treatment-aware modes with physical auxiliary-input ports implemented in engine version `inm-sim/0.38.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
 ## Scope
 
@@ -10,7 +10,7 @@ This subsystem owns Device-declared production modes, blueprint mode selection, 
 
 ## Authoring contract
 
-Every production-capable Device asset has a non-empty `production.modes` array. Every blueprint recipe has a required `mode` id. There is no default, alias, migration, or fallback because INM is in early development and the selected mode is part of the industrial design.
+Every production-capable Device asset has a non-empty `production.modes` array. Every blueprint `recipe` or `recipes` entry has a required `mode` id. There is no default, alias, migration, or fallback because INM is in early development and the selected mode is part of the industrial design.
 
 A mode declares:
 
@@ -37,7 +37,7 @@ job power   = ceil(D.basePower × M.powerMultiplier.numerator / M.powerMultiplie
 
 Amounts for the same `(buffer, Resource)` are aggregated after physical ports resolve to their backing buffers. One mode may declare each auxiliary Resource once. Auxiliary inputs must reference a project Resource, a declared production input port, and a Resource admitted by the asset, buffer, and port contracts. If an auxiliary Resource is also a Process input, both declarations must use the same port. A complete job—including the sum of all Resources sharing one buffer—must fit; the compiler does not split one job into fractional cycles.
 
-The compiled plan retains the complete mode definition, exact duration, exact active power, and buffer-bound quantities. Grid rated load uses this selected power rather than the Device base value.
+Each qualified operation retains its complete mode definition, exact duration, exact active power, priority, and buffer-bound quantities. A dedicated Device has one plan; a shared work center has an ordered plan list. Grid rated load uses the largest qualified active-power envelope because only one non-preemptive operation can run at a time.
 
 ## Runtime authority
 

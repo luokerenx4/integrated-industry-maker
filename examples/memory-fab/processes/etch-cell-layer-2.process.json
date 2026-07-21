@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "etch-cell-layer-2",
+  "name": "Etch memory-cell layer 2",
+  "description": "Etch memory-cell layer 2 as one qualified operation in the re-entrant DRAM front-end route.",
+  "category": "etch",
+  "tags": [
+    "dram",
+    "front-end",
+    "re-entrant"
+  ],
+  "durationTicks": 5000,
+  "inputs": [
+    {
+      "resource": "patterned-cell-l2-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "dram-wafer-lot",
+      "count": 1
+    }
+  ]
+}

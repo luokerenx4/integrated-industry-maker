@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "deposit-dielectric-stack",
+  "name": "Deposit capacitor dielectric stack",
+  "description": "Deposit capacitor dielectric stack as one qualified operation in the re-entrant DRAM front-end route.",
+  "category": "deposition",
+  "tags": [
+    "dram",
+    "front-end",
+    "re-entrant"
+  ],
+  "durationTicks": 7000,
+  "inputs": [
+    {
+      "resource": "etched-cell-l1-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "dielectric-stack-lot",
+      "count": 1
+    }
+  ]
+}

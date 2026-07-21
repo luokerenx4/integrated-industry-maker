@@ -1,0 +1,35 @@
+{
+  "name": "reentrant DRAM route completes lots through shared lithography and etch bays",
+  "world": "cleanroom",
+  "blueprint": "baseline",
+  "scenario": "production-window",
+  "objective": "dram-output",
+  "seed": 42,
+  "assertions": [
+    {
+      "kind": "metric",
+      "path": "produced.dram-wafer-lot",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "throughputPerMinute",
+      "min": 1
+    },
+    {
+      "kind": "metric",
+      "path": "machineUtilization.lithography-1",
+      "min": 0.2
+    },
+    {
+      "kind": "metric",
+      "path": "machineUtilization.etch-1",
+      "min": 0.2
+    },
+    {
+      "kind": "event",
+      "type": "device.start",
+      "present": true
+    }
+  ]
+}

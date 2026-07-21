@@ -14,6 +14,7 @@ Read the relevant linked document before changing a subsystem:
 - Resources, configurable recipes, ports, buffers, and instance filters: [[docs/design/material-contracts]]
 - Treated material lots, treatment Devices/agents, grade-aware dispatch, and synthesis: [[docs/design/material-treatment]]
 - Standard, accelerated, and productive job semantics: [[docs/design/production-modes]]
+- Multi-operation equipment qualification, re-entrant routes, and ready-WIP dispatch: [[docs/design/work-center-dispatch]]
 - Physical belts, sorters, junctions, stacking, and station fleets: [[docs/design/logistics]]
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]

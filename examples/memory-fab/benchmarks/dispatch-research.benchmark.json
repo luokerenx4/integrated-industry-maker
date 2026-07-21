@@ -1,0 +1,38 @@
+{
+  "acceptance": {
+    "maximumCaseScoreRegression": 0,
+    "minimumAggregateScoreDelta": 0.001,
+    "requireCandidateCapacityReady": false
+  },
+  "baselineBlueprint": "baseline",
+  "candidateBlueprint": "experiment",
+  "cases": [
+    {
+      "id": "production-window",
+      "name": "Fixed three-minute production window",
+      "objective": "dram-output",
+      "scenario": "production-window",
+      "seed": 42,
+      "weight": 1,
+      "world": "cleanroom"
+    }
+  ],
+  "id": "dispatch-research",
+  "lock": {
+    "cases": {
+      "production-window": {
+        "blueprintHash": "0892a43691da448343588399325013041b95b199315143448ac639cb6986a3e6",
+        "deviceCatalogHash": "7821bbe75a5a5f157377cf086ff1bfb6dc6d243b06b08369e8ffdaf529fb3120",
+        "engineVersion": "inm-sim/0.47.0",
+        "objectiveHash": "050d52bec06465666020e2a5b6f6a8ab3fddf830f456eca929e13e990ba6e843",
+        "processCatalogHash": "da5020b790a508426f988a1d6fd2ce4e72ca78c052c964999f7d46281eff2167",
+        "resourceCatalogHash": "1f6dd7d7fba5ae7aa882c6be97c147bbd2cb0c98dfcd60e5d3766738a6b260f8",
+        "scenarioHash": "8937a76a481e1008b73dae77368213cf156b2e87464206b03c1be252965a8ffa",
+        "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
+      }
+    },
+    "contractHash": "57e76d65f5b7a9f757dadeacf39c857ad554dd4c1e9e3ceb070fbc566e9662f9"
+  },
+  "name": "DRAM Re-entrant Work-Center Dispatch Research",
+  "version": 1
+}

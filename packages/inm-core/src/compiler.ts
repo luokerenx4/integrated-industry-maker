@@ -1,7 +1,7 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
   BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, CompiledTransportCell, DeviceAsset,
-  DispatchPolicy, IndustrialProcess, ProjectHashes, ResourceAsset, ResourceId, ValidationIssue, WorldResourceNode,
+  DispatchPolicy, IndustrialProcess, ProjectHashes, ResourceAsset, ResourceBufferQuantity, ResourceId, ValidationIssue, WorldResourceNode,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
@@ -316,8 +316,9 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.members.push(device.id);
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
-    grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts
-      ?? (device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts);
+    grid.ratedConsumptionMilliWatts += device.processPlans.length
+      ? Math.max(...device.processPlans.map((plan) => plan.powerMilliWatts))
+      : device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);
       grid.storageCapacityMilliJoules += device.storagePlan.capacityMilliJoules;
@@ -684,41 +685,50 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
     }
     let processPlan: CompiledDevice["processPlan"];
+    const processPlans: CompiledDevice["processPlans"] = [];
     let treatmentPlan: CompiledDevice["treatmentPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
     let storagePlan: CompiledDevice["storagePlan"];
     let stationEnergyPlan: CompiledDevice["stationEnergyPlan"];
-    if (instance.recipe) {
-      const recipe = instance.recipe;
+    if (instance.recipe && instance.recipes) {
+      issues.push({ path, code: "production.recipe-exclusive", message: "Device must declare either recipe or recipes, not both" });
+    }
+    const authoredRecipes = instance.recipes ?? (instance.recipe ? [instance.recipe] : []);
+    if (authoredRecipes.length) {
+      const seenOperations = new Set<string>();
+      const portResources: Record<string, Set<ResourceId>> = {};
+      const bufferRequirements: Record<string, Map<ResourceId, ResourceBufferQuantity>> = {};
+      for (const [recipeIndex, recipe] of authoredRecipes.entries()) {
+      const recipePath = instance.recipes ? `${path}/recipes/${recipeIndex}` : `${path}/recipe`;
       const definition = loaded.processes[recipe.process];
-      if (!definition) issues.push({ path: `${path}/recipe/process`, code: "reference.process", message: `Unknown process '${recipe.process}'` });
-      if (!asset.production) issues.push({ path: `${path}/recipe`, code: "production.unsupported", message: `Device asset '${asset.id}' does not support declarative recipes` });
+      if (!definition) issues.push({ path: `${recipePath}/process`, code: "reference.process", message: `Unknown process '${recipe.process}'` });
+      if (!asset.production) issues.push({ path: recipePath, code: "production.unsupported", message: `Device asset '${asset.id}' does not support declarative recipes` });
       if (definition && asset.production) {
         let bindingValid = true;
         const mode = asset.production.modes.find((item) => item.id === recipe.mode);
         if (!mode) {
-          issues.push({ path: `${path}/recipe/mode`, code: "production-mode.unknown", message: `Device '${asset.id}' does not define production mode '${recipe.mode}'` });
+          issues.push({ path: `${recipePath}/mode`, code: "production-mode.unknown", message: `Device '${asset.id}' does not define production mode '${recipe.mode}'` });
           bindingValid = false;
         }
         if (!asset.production.categories.includes(definition.category)) {
-          issues.push({ path: `${path}/recipe/process`, code: "production.category", message: `Device '${asset.id}' does not support process category '${definition.category}'` });
+          issues.push({ path: `${recipePath}/process`, code: "production.category", message: `Device '${asset.id}' does not support process category '${definition.category}'` });
           bindingValid = false;
         }
         const compiledInputs = [] as NonNullable<CompiledDevice["processPlan"]>["inputs"];
         const compiledOutputs = [] as NonNullable<CompiledDevice["processPlan"]>["outputs"];
         const compiledBindings = { inputs: {} as Record<ResourceId, string>, outputs: {} as Record<ResourceId, string> };
         for (const [side, amounts, bindings, allowedPorts, compiled, resolvedBindings] of [
-          ["inputs", definition.inputs, instance.recipe.inputs, asset.production.inputPorts, compiledInputs, compiledBindings.inputs],
-          ["outputs", definition.outputs, instance.recipe.outputs, asset.production.outputPorts, compiledOutputs, compiledBindings.outputs],
+          ["inputs", definition.inputs, recipe.inputs, asset.production.inputPorts, compiledInputs, compiledBindings.inputs],
+          ["outputs", definition.outputs, recipe.outputs, asset.production.outputPorts, compiledOutputs, compiledBindings.outputs],
         ] as const) {
           const expected = new Set(amounts.map((amount) => amount.resource));
           for (const resource of Object.keys(bindings).sort()) if (!expected.has(resource)) {
-            issues.push({ path: `${path}/recipe/${side}/${resource}`, code: "recipe.extra-binding", message: `Recipe binds '${resource}' on ${side}, but process '${definition.id}' does not declare it` });
+            issues.push({ path: `${recipePath}/${side}/${resource}`, code: "recipe.extra-binding", message: `Recipe binds '${resource}' on ${side}, but process '${definition.id}' does not declare it` });
             bindingValid = false;
           }
           for (const amount of amounts) {
-            const bindingPath = `${path}/recipe/${side}/${amount.resource}`;
+            const bindingPath = `${recipePath}/${side}/${amount.resource}`;
             const portId = bindings[amount.resource];
             if (!portId) {
               issues.push({ path: bindingPath, code: "recipe.binding-required", message: `Process '${definition.id}' requires a ${side} binding for '${amount.resource}'` });
@@ -749,11 +759,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             const buffer = port ? effectiveBuffers[port.buffer] : undefined;
             const processBinding = recipe.inputs[input.resource];
             if (processBinding && processBinding !== input.port) {
-              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.ambiguous-port", message: `Production mode '${mode.id}' requires '${input.resource}' through '${input.port}', but the process binds it to '${processBinding}'` });
+              issues.push({ path: `${recipePath}/mode`, code: "production-mode.ambiguous-port", message: `Production mode '${mode.id}' requires '${input.resource}' through '${input.port}', but the process binds it to '${processBinding}'` });
               bindingValid = false;
             }
             if (port && !acceptsResource(port.accepts, input.resource)) {
-              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.resource-filter", message: `Production mode '${mode.id}' requires '${input.resource}' through port '${input.port}', but the instance filter excludes it` });
+              issues.push({ path: `${recipePath}/mode`, code: "production-mode.resource-filter", message: `Production mode '${mode.id}' requires '${input.resource}' through port '${input.port}', but the instance filter excludes it` });
               bindingValid = false;
             }
             if (port && buffer) compiledBindings.inputs[input.resource] = port.buffer;
@@ -767,42 +777,53 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
               const required = amountsInBuffer.reduce((sum, amount) => sum + amount.count, 0);
               const capacity = effectiveBuffers[bufferId]?.capacity;
               if (capacity !== undefined && required > capacity) {
-                issues.push({ path: `${path}/recipe/mode`, code: "production-mode.job-capacity", message: `Production mode '${mode.id}' requires ${required} total items in shared buffer '${bufferId}', exceeding capacity ${capacity}` });
+                issues.push({ path: `${recipePath}/mode`, code: "production-mode.job-capacity", message: `Production mode '${mode.id}' requires ${required} total items in shared buffer '${bufferId}', exceeding capacity ${capacity}` });
                 bindingValid = false;
               }
             }
           }
         }
-        const productionPorts = [...asset.production.inputPorts, ...asset.production.outputPorts]
-          .flatMap((portId) => effectivePorts.find((port) => port.id === portId) ?? []);
-        for (const port of productionPorts) {
-          const resources = [
-            ...Object.entries(recipe.inputs).filter(([, portId]) => portId === port.id).map(([resource]) => resource),
-            ...Object.entries(recipe.outputs).filter(([, portId]) => portId === port.id).map(([resource]) => resource),
-            ...(mode?.auxiliaryInputs.filter((input) => input.port === port.id).map((input) => input.resource) ?? []),
-          ];
-          port.accepts = [...new Set(resources)].sort();
-        }
-        for (const bufferId of [...new Set(productionPorts.map((port) => port.buffer))]) {
-          const amounts = recipeBufferRequirements(bufferId, compiledInputs, compiledOutputs);
-          const resources = amounts.map((amount) => amount.resource);
-          const buffer = effectiveBuffers[bufferId]!;
-          effectiveBuffers[bufferId] = {
-            ...buffer,
-            accepts: [...new Set(resources)].sort(),
-            ...(amounts.length ? { resourceCapacities: partitionRecipeBuffer(buffer.capacity, amounts) } : {}),
-          };
-        }
         if (bindingValid && mode) {
-          processPlan = {
+          const operationKey = `${definition.id}\0${mode.id}`;
+          if (seenOperations.has(operationKey)) {
+            issues.push({ path: recipePath, code: "production.duplicate-operation", message: `Qualified operation '${definition.id}/${mode.id}' is declared more than once` });
+          }
+          seenOperations.add(operationKey);
+          const compiledPlan = {
             definition, mode,
             durationTicks: productionDurationTicks(definition, asset, mode),
             powerMilliWatts: productionPowerMilliWatts(asset, mode),
             inputs: compiledInputs,
             outputs: compiledOutputs,
+            priority: recipe.priority ?? 0,
           };
+          processPlans.push(compiledPlan);
+          for (const [resource, portId] of [...Object.entries(recipe.inputs), ...Object.entries(recipe.outputs)]) {
+            (portResources[portId] ??= new Set()).add(resource);
+          }
+          for (const input of mode.auxiliaryInputs) (portResources[input.port] ??= new Set()).add(input.resource);
+          for (const amount of [...compiledInputs, ...compiledOutputs]) {
+            const byResource = bufferRequirements[amount.buffer] ??= new Map();
+            const existing = byResource.get(amount.resource);
+            if (!existing || existing.count < amount.count) byResource.set(amount.resource, { ...amount });
+          }
         }
       }
+      }
+      for (const [portId, resources] of Object.entries(portResources)) {
+        const port = effectivePorts.find((item) => item.id === portId);
+        if (port) port.accepts = [...resources].sort();
+      }
+      for (const [bufferId, byResource] of Object.entries(bufferRequirements)) {
+        const buffer = effectiveBuffers[bufferId]!;
+        const amounts = [...byResource.values()];
+        effectiveBuffers[bufferId] = {
+          ...buffer,
+          accepts: [...byResource.keys()].sort(),
+          ...(amounts.length ? { resourceCapacities: partitionRecipeBuffer(buffer.capacity, amounts) } : {}),
+        };
+      }
+      processPlan = processPlans[0];
     } else if (asset.production) {
       issues.push({ path: `${path}/recipe`, code: "production.recipe-required", message: `Device asset '${asset.id}' requires a blueprint recipe with explicit Resource-to-port bindings` });
     }
@@ -881,6 +902,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ...instance, assetDef: asset, footprint,
       ports: effectivePorts.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
       buffers: effectiveBuffers,
+      processPlans,
       ...(processPlan ? { processPlan } : {}),
       ...(treatmentPlan ? { treatmentPlan } : {}),
       ...(extractionPlan ? { extractionPlan } : {}),

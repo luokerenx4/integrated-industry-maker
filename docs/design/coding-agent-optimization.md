@@ -2,7 +2,7 @@
 
 Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Product model
 
@@ -67,6 +67,8 @@ JSON output contains every case score, capacity state and gap, aggregate score, 
 A single Scenario rewards brittle layouts. A benchmark case suite represents an operating envelope: ordinary production, a timed equipment outage, intermittent regional power, demand variation, depleted feedstock, or another project-specific disturbance. Aggregate improvement is insufficient when a safety-critical case regresses beyond its configured allowance. This is the first bridge from a factory-game optimizer toward real production engineering: the Blueprint is evaluated as a control/design program under several declared conditions.
 
 The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. Blueprint-authored `policies.powerAllocation`, per-Device `policy.powerPriority`, station charging/high-speed policies, generation, and storage are part of the editable control program. The focused `power-priority` benchmark locks hard allocation under a 240 kW grid cap and proves that exactly three priority edits protect an assembler plus its explicit loader/unloader. The `power-satisfaction` benchmark keeps proportional allocation and proves that adding an ordinary renewable Device improves shared satisfaction and delivery without editing the harness. The `station-energy` benchmark begins with source charging below the carrier mission demand and accepts the one-policy repair that restores the station route. The `high-speed-transport` benchmark limits route batch size and accepts expedited line haul only when its shorter turnaround outweighs its extra energy. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
+
+The bundled [[examples/memory-fab]] program applies the same loop to a re-entrant DRAM route. One wafer lot revisits shared lithography and etch work centers. The candidate begins identical to baseline, and a known two-policy edit prioritizes later route stages, reduces WIP/cycle delay, and clears the locked score gate. This makes equipment qualification and WIP dispatch reviewable Blueprint code instead of an invisible scheduler setting.
 
 ## Source of truth
 

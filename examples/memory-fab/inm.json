@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "memory-fab",
+  "name": "Re-entrant DRAM Memory Fab",
+  "defaultWorld": "cleanroom",
+  "defaultBlueprint": "baseline",
+  "defaultScenario": "production-window",
+  "defaultObjective": "dram-output"
+}

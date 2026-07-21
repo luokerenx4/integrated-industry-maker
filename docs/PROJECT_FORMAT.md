@@ -46,6 +46,8 @@ factory/
   processes/<id>.process.json
   worlds/<id>.world.json
   blueprints/<id>.blueprint.json
+  benchmarks/<id>.benchmark.json
+  AUTORESEARCH.md
   scenarios/<id>.scenario.json
   objectives/<id>.objective.json
   tests/<name>.fixture.json
@@ -396,7 +398,7 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 }
 ```
 
-The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. The blueprint recipe selects one Process for a Device instance and explicitly maps every declared Resource to one of the Device's permitted input/output buffers. The compiler rejects missing, extra, incompatible, or unknown bindings before producing the exact buffer-bound plan. Process content has its own catalog hash and therefore invalidates cached runs when changed.
+The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed.
 
 `inm analyze` also enumerates every project-local Process/mode pair compatible with each placed production Device. A deterministic binder preserves existing Resource assignments when possible, assigns new ingredients to distinct compatible buffers, and exposes the resulting recipe object as an optimization candidate. The selected production graph solves one target item as a global material balance over the active jobs, so coproducts, auxiliary inputs, and recycle loops retain their real topology. The CLI and research agent can compare alternatives before simulation while still using simulation and objective score as the final KEEP/REVERT authority.
 
@@ -499,6 +501,37 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
 ```
 
 `recipe.process` and required `recipe.mode` are engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-port contracts, so two instances of one generic assembler may select different Processes, modes, and physical material assignments. For `iron-plate + coal → gear`, each input can use an independent port even if both ports share one internal buffer. Auxiliary mode inputs name a Device port and join the same physical job; if an auxiliary Resource is also a Process input, both quantities must use that port and are aggregated. `config` remains optional device-owned data for specialized machines and is passed to the asset's `validateConfig()` hook.
+
+A re-entrant work center uses `recipes` instead of `recipe`:
+
+```json
+{
+  "id": "lithography-1",
+  "asset": "lithography-bay",
+  "region": "cleanroom",
+  "position": { "x": 8, "y": 12 },
+  "rotation": 0,
+  "recipes": [
+    {
+      "process": "pattern-cell-layer-1",
+      "mode": "qualified",
+      "priority": 1,
+      "inputs": { "blank-dram-wafer-lot": "release-input" },
+      "outputs": { "patterned-cell-l1-lot": "pattern-output" }
+    },
+    {
+      "process": "pattern-cell-layer-2",
+      "mode": "qualified",
+      "priority": 10,
+      "inputs": { "dielectric-stack-lot": "reentrant-input" },
+      "outputs": { "patterned-cell-l2-lot": "pattern-output" }
+    }
+  ],
+  "policy": { "recipeDispatch": "highest-priority" }
+}
+```
+
+`recipe` and `recipes` are mutually exclusive. `recipeDispatch` is `authored-order`, `shortest-cycle`, or `highest-priority`; omission means `authored-order`. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties by authored array order. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. See [[docs/design/work-center-dispatch]].
 
 Non-recipe Devices can configure ingress/egress independently:
 
@@ -686,4 +719,4 @@ Ids use lowercase kebab-case. Cases must have unique ids, non-negative integer s
 
 The `lock` is written only by an explicit `inm benchmark --lock`. `contractHash` covers every benchmark field except the lock itself, including the candidate filename but not its content. Each case lock captures the complete compiled baseline identity. Normal evaluation rejects missing locks, contract edits, case-set edits, engine changes, and any catalog/World/baseline/Scenario/Objective drift. The candidate Blueprint is the sole variable.
 
-The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks).
+The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks); shared work-center qualification and re-entrant flow are demonstrated in [[examples/memory-fab]].

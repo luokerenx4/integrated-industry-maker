@@ -658,6 +658,34 @@ describe("blueprint compiler", () => {
     expect(analyzeProduction(compileFactoryProject(alternative)).productionGraph.rawInputsPerTarget).toEqual({ coal: .5, "iron-ore": 3 });
   });
 
+  test("shared work centers qualify multiple operations and dispatch ready WIP deterministically", async () => {
+    const source = await loaded();
+    const assembler = structuredClone(source.blueprint.devices.find((device) => device.id === "assembler-1")!);
+    delete assembler.recipe;
+    assembler.recipes = [
+      { process: "assemble-gear", mode: "standard", priority: 1, inputs: { "iron-plate": "input-primary", coal: "input-secondary" }, outputs: { gear: "output" } },
+      { process: "forge-gear-pair", mode: "standard", priority: 10, inputs: { "iron-plate": "input-primary", coal: "input-secondary" }, outputs: { gear: "output" } },
+    ];
+    assembler.policy = { ...assembler.policy, recipeDispatch: "highest-priority" };
+    source.blueprint.devices = [
+      assembler,
+      { id: "wind-test", asset: "wind-turbine", region: assembler.region, position: { x: 4, y: 6 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.durationTicks = 4_500;
+    source.scenario.initialBuffers = { "assembler-1": { "input-primary": { "iron-plate": 5 }, "input-secondary": { coal: 2 } } };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    expect(project.devices["assembler-1"]!.processPlans.map((plan) => plan.definition.id)).toEqual(["assemble-gear", "forge-gear-pair"]);
+    expect(project.devices["assembler-1"]!.ports.find((port) => port.id === "input-primary")!.accepts).toEqual(["iron-plate"]);
+    const result = runUntil(project, undefined, { seed: 42 });
+    expect(result.events.find((event) => event.type === "device.start" && event.device === "assembler-1")).toEqual(expect.objectContaining({ operation: "forge-gear-pair" }));
+    expect(result.state.produced.gear).toBe(2);
+    expect(analyzeProduction(project).devices.filter((device) => device.device === "assembler-1")).toHaveLength(2);
+  });
+
   test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {
     const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
     expect(issueCodes(() => compileFactoryProject(unknown))).toContain("production-mode.unknown");

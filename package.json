@@ -12,9 +12,10 @@
     "power-examples:regenerate": "bun scripts/regenerate-power-priority-example.ts",
     "station-energy:regenerate": "bun scripts/regenerate-station-energy-example.ts",
     "high-speed-transport:regenerate": "bun scripts/regenerate-high-speed-transport-example.ts",
+    "memory-fab:regenerate": "bun scripts/regenerate-memory-fab.ts",
     "runs:regenerate": "bun scripts/regenerate-example-runs.ts",
     "test": "bun run docs:check && bun run typecheck && bun test packages/inm-core packages/inm-cli packages/inm-studio && bun run inm test examples/ironworks",
-    "typecheck": "bunx tsc -p packages/inm-core/tsconfig.json --noEmit && bunx tsc -p packages/inm-cli/tsconfig.json --noEmit && bunx tsc -p packages/inm-studio/tsconfig.json --noEmit && bunx tsc -p examples/ironworks/assets/tsconfig.json --noEmit",
+    "typecheck": "bunx tsc -p packages/inm-core/tsconfig.json --noEmit && bunx tsc -p packages/inm-cli/tsconfig.json --noEmit && bunx tsc -p packages/inm-studio/tsconfig.json --noEmit && bunx tsc -p examples/ironworks/assets/tsconfig.json --noEmit && bunx tsc -p examples/memory-fab/assets/tsconfig.json --noEmit",
     "studio": "bun run inm studio examples/ironworks"
   },
   "devDependencies": {

@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "patterned-cell-l2-lot",
+  "name": "Patterned Cell L2 Lot",
+  "description": "Re-entrant wafer lot after the second lithography pass.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "wip"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

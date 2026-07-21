@@ -222,7 +222,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -304,10 +304,10 @@ export function bindProcessPorts(
 
 function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
   const candidates = devices.flatMap((producer) => {
-    const processPlan = project.devices[producer.device]?.processPlan;
+    const processPlan = project.devices[producer.device]?.processPlans.find((plan) => plan.definition.id === producer.process && plan.mode.id === producer.mode);
     const amounts = processPlan ? plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets) : undefined;
     return processPlan ? [{
-      key: producer.device,
+      key: `${producer.device}:${producer.process}:${producer.mode}`,
       inputs: amounts!.inputs,
       outputs: amounts!.outputs,
       data: { producer, processPlan },
@@ -345,7 +345,7 @@ function add(target: Record<string, number>, resource: string, value: number): v
 function declaredBoundaryResources(project: CompiledFactoryProject): Set<ResourceId> {
   const resources = new Set<ResourceId>();
   for (const device of Object.values(project.devices)) {
-    if (device.processPlan || !device.assetDef.capabilities.includes("consume")) continue;
+    if (device.processPlans.length || !device.assetDef.capabilities.includes("consume")) continue;
     for (const port of device.ports.filter((item) => item.direction === "input")) {
       for (const resource of device.buffers[port.buffer]!.accepts) if (resource !== "*") resources.add(resource);
     }
@@ -365,40 +365,43 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   const produced: Record<ResourceId, number> = {};
   const consumed: Record<ResourceId, number> = {};
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
-    if (!device.processPlan) continue;
-    const cyclesPerMinute = 60_000 / device.processPlan.durationTicks;
+    for (const [planIndex, processPlan] of device.processPlans.entries()) {
+    const cyclesPerMinute = 60_000 / processPlan.durationTicks;
+    const nominalShare = 1 / device.processPlans.length;
     const inputsPerMinute: Record<ResourceId, number> = {};
     const outputsPerMinute: Record<ResourceId, number> = {};
-    for (const amount of device.processPlan.inputs) {
+    for (const amount of processPlan.inputs) {
       add(inputsPerMinute, amount.resource, amount.count * cyclesPerMinute);
-      add(consumed, amount.resource, amount.count * cyclesPerMinute);
+      add(consumed, amount.resource, amount.count * cyclesPerMinute * nominalShare);
     }
-    for (const amount of device.processPlan.outputs) {
+    for (const amount of processPlan.outputs) {
       add(outputsPerMinute, amount.resource, amount.count * cyclesPerMinute);
-      add(produced, amount.resource, amount.count * cyclesPerMinute);
+      add(produced, amount.resource, amount.count * cyclesPerMinute * nominalShare);
     }
+    const authoredRecipe = (device.recipes ?? (device.recipe ? [device.recipe] : []))[planIndex];
     devices.push({
       device: device.id,
       asset: device.asset,
-      process: device.processPlan.definition.id,
-      mode: device.processPlan.mode.id,
-      inputCycles: device.processPlan.mode.inputCycles,
-      outputCycles: device.processPlan.mode.outputCycles,
-      minimumInputTreatmentLevel: device.processPlan.mode.minimumInputTreatmentLevel,
-      category: device.processPlan.definition.category,
-      cycleTicks: device.processPlan.durationTicks,
+      process: processPlan.definition.id,
+      mode: processPlan.mode.id,
+      inputCycles: processPlan.mode.inputCycles,
+      outputCycles: processPlan.mode.outputCycles,
+      minimumInputTreatmentLevel: processPlan.mode.minimumInputTreatmentLevel,
+      category: processPlan.definition.category,
+      cycleTicks: processPlan.durationTicks,
       cyclesPerMinute,
       inputsPerMinute,
       outputsPerMinute,
       inputPorts: {
-        ...(device.recipe?.inputs ?? {}),
-        ...Object.fromEntries(device.processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
+        ...(authoredRecipe?.inputs ?? {}),
+        ...Object.fromEntries(processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
       },
-      outputPorts: { ...(device.recipe?.outputs ?? {}) },
+      outputPorts: { ...(authoredRecipe?.outputs ?? {}) },
       powerPriority: device.policy?.powerPriority ?? 0,
       idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
-      powerMilliWatts: device.processPlan.powerMilliWatts,
+      powerMilliWatts: processPlan.powerMilliWatts,
     });
+    }
   }
   const recipeOptions: RecipeOptionAnalysis[] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((device) => {
     if (!device.assetDef.production) return [];
@@ -416,7 +419,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       return [{
         device: device.id, asset: device.asset, process: process.id, mode: mode.id, modeName: mode.name,
         minimumInputTreatmentLevel: mode.minimumInputTreatmentLevel, name: process.name, category: process.category,
-        selected: device.processPlan?.definition.id === process.id && device.processPlan.mode.id === mode.id, cycleTicks, cyclesPerMinute,
+        selected: device.processPlans.some((plan) => plan.definition.id === process.id && plan.mode.id === mode.id), cycleTicks, cyclesPerMinute,
         inputs: amounts.inputs, outputs: amounts.outputs,
         inputPorts, outputPorts: bindings.outputs,
         targetOutputPerMinute: targetOutput * cyclesPerMinute, powerPriority: device.policy?.powerPriority ?? 0,
@@ -544,7 +547,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     capacityStacksPerMinute: 60_000 / cell.dispatchIntervalTicks,
   }));
 
-  const deviceRates = new Map(devices.map((device) => [device.device, device]));
+  const deviceRates = new Map<string, { inputsPerMinute: Record<ResourceId, number>; outputsPerMinute: Record<ResourceId, number> }>();
+  for (const rate of devices) {
+    const aggregate = deviceRates.get(rate.device) ?? { inputsPerMinute: {}, outputsPerMinute: {} };
+    for (const [resource, value] of Object.entries(rate.inputsPerMinute)) aggregate.inputsPerMinute[resource] = Math.max(aggregate.inputsPerMinute[resource] ?? 0, value);
+    for (const [resource, value] of Object.entries(rate.outputsPerMinute)) aggregate.outputsPerMinute[resource] = Math.max(aggregate.outputsPerMinute[resource] ?? 0, value);
+    deviceRates.set(rate.device, aggregate);
+  }
   const stationNetworks: StationNetworkAnalysis[] = Object.values(project.logisticsNetworks).sort((a, b) => a.id.localeCompare(b.id)).map((network) => {
     const routeRows = network.routes.map((route) => ({
       route: route.id,
@@ -628,6 +637,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }));
 
   const diagnostics: ProductionDiagnostic[] = [];
+  for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
+    diagnostics.push({
+      code: "shared-work-center", severity: "info", device: device.id,
+      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} dispatch; per-operation rates are exclusive maxima`,
+    });
+  }
   const hasTreatmentSource = (device: string, buffer: string, resource: ResourceId, minimumLevel: number, visited = new Set<string>()): boolean => {
     const key = `${device}\0${buffer}\0${resource}`;
     if (visited.has(key)) return false;
@@ -670,11 +685,11 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }
 
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
-    for (const input of device.processPlan?.inputs ?? []) {
+    for (const plan of device.processPlans) for (const input of plan.inputs) {
       const minimumLevel = input.minimumTreatmentLevel ?? 0;
       if (minimumLevel > 0 && !hasTreatmentSource(device.id, input.buffer, input.resource, minimumLevel)) diagnostics.push({
         code: "treatment-input-unfed", severity: "warning", resource: input.resource, device: device.id,
-        message: `${device.id} mode ${device.processPlan!.mode.id} requires ${input.resource}@${minimumLevel}+ in ${input.buffer}, but no upstream treatment path can supply it`,
+        message: `${device.id} mode ${plan.mode.id} requires ${input.resource}@${minimumLevel}+ in ${input.buffer}, but no upstream treatment path can supply it`,
       });
     }
     const treatment = device.treatmentPlan;
@@ -749,14 +764,15 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }
 
   for (const device of Object.values(project.devices)) {
-    if (!device.processPlan) continue;
-    for (const [resource, demand] of Object.entries(devices.find((item) => item.device === device.id)!.inputsPerMinute)) {
+    if (!device.processPlans.length) continue;
+    const rates = deviceRates.get(device.id)!;
+    for (const [resource, demand] of Object.entries(rates.inputsPerMinute)) {
       const inbound = Object.values(project.connections).filter((connection) => connection.to.device === device.id && connection.resources.includes(resource)
         && (connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes("*") || connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes(resource)));
       const capacity = inbound.reduce((sum, connection) => sum + connectionCapacityPerMinute(connection, resource), 0);
       if (capacity + 1e-9 < demand) diagnostics.push({ code: "input-logistics", severity: "warning", resource, device: device.id, message: `${device.id} needs ${demand.toFixed(3)} ${resource}/min but inbound links carry at most ${capacity.toFixed(3)}/min` });
     }
-    for (const [resource, supply] of Object.entries(devices.find((item) => item.device === device.id)!.outputsPerMinute)) {
+    for (const [resource, supply] of Object.entries(rates.outputsPerMinute)) {
       const outbound = Object.values(project.connections).filter((connection) => connection.from.device === device.id && connection.resources.includes(resource)
         && (connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes("*") || connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes(resource)));
       const capacity = outbound.reduce((sum, connection) => sum + connectionCapacityPerMinute(connection, resource), 0);

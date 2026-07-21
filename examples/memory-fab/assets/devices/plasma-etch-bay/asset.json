@@ -1,0 +1,122 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "plasma-etch-bay",
+  "name": "Plasma Etch Bay",
+  "description": "A shared etch work center qualified for both memory-cell layers.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "etch"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "pattern-input",
+        "direction": "input",
+        "side": "west",
+        "offset": 1,
+        "buffer": "pattern-input",
+        "kind": "resource"
+      },
+      {
+        "id": "loop-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "loop-output",
+        "kind": "resource"
+      },
+      {
+        "id": "final-output",
+        "direction": "output",
+        "side": "south",
+        "offset": 1,
+        "buffer": "final-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "pattern-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "loop-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "final-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "categories": [
+      "etch"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "pattern-input"
+    ],
+    "outputPorts": [
+      "loop-output",
+      "final-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 30000,
+    "activeMilliWatts": 280000
+  },
+  "economics": {
+    "buildCost": 12000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

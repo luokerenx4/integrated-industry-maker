@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "dram-wafer-lot",
+  "name": "Completed DRAM Wafer Lot",
+  "description": "Completed front-end DRAM wafer lot delivered to wafer sort and downstream packaging.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "finished"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "dram-output",
+  "name": "Complete DRAM wafer lots with low WIP",
+  "targetResource": "dram-wafer-lot",
+  "targetRegion": "cleanroom",
+  "targetRatePerMinute": 3,
+  "constraints": {
+    "maxBuildCost": 80000,
+    "maxOccupiedArea": 180,
+    "minProduction": 4
+  },
+  "weights": {
+    "throughput": 20,
+    "onTimeDelivery": 20,
+    "energy": 0.005,
+    "buildCost": 0.05,
+    "occupiedArea": 0.05,
+    "wip": 1.5,
+    "blocked": 3
+  }
+}

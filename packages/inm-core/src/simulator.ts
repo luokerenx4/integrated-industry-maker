@@ -842,7 +842,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
     }
   };
-  const tryDecision = (device: CompiledDevice, decision: DeviceProgramDecision): boolean => {
+  const tryDecision = (
+    device: CompiledDevice,
+    decision: DeviceProgramDecision,
+    selectedProcessPlan?: CompiledDevice["processPlans"][number],
+  ): boolean => {
     const runtime = state.devices[device.id]!;
     if (decision.kind === "none") { setStatus(device.id, "idle"); return false; }
     if (decision.kind === "wait") {
@@ -951,8 +955,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (!decision.consume.every((amount) => amountAvailable(device, amount))) { setStatus(device.id, "waiting-input"); return false; }
     if (decision.kind === "consume") { applyConsume(device, decision.consume, true); setStatus(device.id, "idle"); return true; }
     if (!allAmountsKnown(device, decision.produce)) throw new Error(`Device program '${device.asset}' referenced an unknown output resource or buffer`);
-    if (device.processPlan) {
-      const plan = device.processPlan;
+    if (selectedProcessPlan) {
+      const plan = selectedProcessPlan;
       const required = decision.powerMilliWatts ?? device.assetDef.power.activeMilliWatts;
       if (decision.operation !== plan.definition.id || decision.durationTicks !== plan.durationTicks
         || !sameAmounts(decision.consume, plan.inputs) || !sameAmounts(decision.produce, plan.outputs) || required !== plan.powerMilliWatts) {
@@ -981,29 +985,38 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
+  const selectProcessPlan = (device: CompiledDevice): CompiledDevice["processPlans"][number] | undefined => {
+    const ranked = device.processPlans.map((plan, index) => ({ plan, index }));
+    const policy = device.policy?.recipeDispatch ?? "authored-order";
+    if (policy === "shortest-cycle") ranked.sort((left, right) => left.plan.durationTicks - right.plan.durationTicks || left.index - right.index);
+    else if (policy === "highest-priority") ranked.sort((left, right) => right.plan.priority - left.plan.priority || left.index - right.index);
+    const ready = ranked.find(({ plan }) => plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device, plan.outputs));
+    return (ready ?? ranked[0])?.plan;
+  };
   const tryEvaluate = (device: CompiledDevice): boolean => {
     const runtime = state.devices[device.id]!;
     if (runtime.status === "failed" || runtime.activeJob || device.transportEndpoint || device.assetDef.capabilities.includes("station")
       || (!runtime.idlePowered && device.assetDef.power.idleMilliWatts > 0)) return false;
+    const selectedProcessPlan = selectProcessPlan(device);
     const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
       apiVersion: 1, tick: state.tick,
       device: { id: device.id, asset: device.asset, config: device.config ?? {} },
       buffers: runtime.buffers,
       materialBatches: runtime.materialBatches,
-      ...(device.processPlan ? { process: {
-        id: device.processPlan.definition.id,
-        name: device.processPlan.definition.name,
-        category: device.processPlan.definition.category,
-        durationTicks: device.processPlan.durationTicks,
+      ...(selectedProcessPlan ? { process: {
+        id: selectedProcessPlan.definition.id,
+        name: selectedProcessPlan.definition.name,
+        category: selectedProcessPlan.definition.category,
+        durationTicks: selectedProcessPlan.durationTicks,
         mode: {
-          id: device.processPlan.mode.id,
-          name: device.processPlan.mode.name,
-          inputCycles: device.processPlan.mode.inputCycles,
-          outputCycles: device.processPlan.mode.outputCycles,
+          id: selectedProcessPlan.mode.id,
+          name: selectedProcessPlan.mode.name,
+          inputCycles: selectedProcessPlan.mode.inputCycles,
+          outputCycles: selectedProcessPlan.mode.outputCycles,
         },
-        powerMilliWatts: device.processPlan.powerMilliWatts,
-        inputs: device.processPlan.inputs,
-        outputs: device.processPlan.outputs,
+        powerMilliWatts: selectedProcessPlan.powerMilliWatts,
+        inputs: selectedProcessPlan.inputs,
+        outputs: selectedProcessPlan.outputs,
       } } : {}),
       ...(device.treatmentPlan ? { treatment: {
         id: device.treatmentPlan.mode.id,
@@ -1032,7 +1045,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         fuels: device.generationPlan.fuels,
       } } : {}),
     });
-    return tryDecision(device, decision);
+    return tryDecision(device, decision, selectedProcessPlan);
   };
   const rebalanceActivePower = (): boolean => {
     let changed = false;

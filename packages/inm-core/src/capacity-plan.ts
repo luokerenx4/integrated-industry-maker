@@ -123,25 +123,23 @@ function add(target: Record<string, number>, key: string, value: number): void {
 export function planProductionCapacity(project: CompiledFactoryProject): ProductionCapacityPlan {
   const targetRatePerMinute = project.objective.targetRatePerMinute;
   const scenarioMinutes = project.scenario.durationTicks / 60_000;
-  const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => {
-    const processPlan = template.processPlan;
-    if (!processPlan) return [];
+  const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => template.processPlans.map((processPlan) => {
     const amounts = plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets);
     const candidate = {
       key: `${processPlan.definition.id}:${template.asset}:${processPlan.mode.id}`,
       inputs: amounts.inputs,
       outputs: amounts.outputs,
-      data: template,
+      data: { template, processPlan },
     };
-    return [[candidate.key, candidate] as const];
-  })).values()];
+    return [candidate.key, candidate] as const;
+  }))).values()];
   const producedResources = new Set(processCandidates.flatMap((candidate) => candidate.outputs.map((output) => output.resource)));
   const inputResources = new Set(processCandidates.flatMap((candidate) => candidate.inputs.map((input) => input.resource)));
   const rawResourceIds = Object.keys(project.resources).filter((resource) => Object.values(project.resourceNodes).some((node) => node.resource === resource)
     || (inputResources.has(resource) && !producedResources.has(resource)));
   const demandPlan = optimizeResourceDemand({
     targetResource: project.objective.targetResource, targetRatePerMinute, candidates: processCandidates, rawResources: rawResourceIds,
-    candidateCost: (candidate) => candidate.data.assetDef.economics.buildCost * candidate.data.processPlan!.durationTicks / 60_000,
+    candidateCost: (candidate) => candidate.data.template.assetDef.economics.buildCost * candidate.data.processPlan.durationTicks / 60_000,
     rawResourceCost: (resource) => {
       const reserve = Object.values(project.resourceNodes).filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
       return reserve > 0 ? 1 + targetRatePerMinute / reserve : 1;
@@ -150,14 +148,15 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   const rawProcessDemand = demandPlan.rawDemandPerMinute;
 
   const processes: ProcessCapacityRequirement[] = demandPlan.processes.map((row) => {
-    const template = row.candidate.data;
+    const template = row.candidate.data.template;
     const primaryOutput = row.candidate.outputs.find((amount) => amount.resource === row.primaryResource)!;
-    const plan = template.processPlan!;
+    const plan = row.candidate.data.processPlan;
     const matching = Object.values(project.devices).filter((device) => device.asset === template.asset
-      && device.processPlan?.definition.id === plan.definition.id && device.processPlan.mode.id === plan.mode.id);
+      && device.processPlans.some((candidate) => candidate.definition.id === plan.definition.id && candidate.mode.id === plan.mode.id));
     const configuredCapacityPerMinute = matching.reduce((sum, device) => {
-      const output = device.processPlan!.outputs.find((amount) => amount.resource === row.primaryResource)?.count ?? 0;
-      return sum + output * 60_000 / device.processPlan!.durationTicks;
+      const matchingPlan = device.processPlans.find((candidate) => candidate.definition.id === plan.definition.id && candidate.mode.id === plan.mode.id)!;
+      const output = matchingPlan.outputs.find((amount) => amount.resource === row.primaryResource)?.count ?? 0;
+      return sum + output * 60_000 / matchingPlan.durationTicks;
     }, 0);
     const capacityPerMachine = primaryOutput.count * 60_000 / plan.durationTicks;
     const cyclesPerMachine = 60_000 / plan.durationTicks;
@@ -178,7 +177,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const treatment = selectMaterialTreatment(project.deviceAssets, requirement.minimumInputTreatmentLevel);
     const template = project.devices[requirement.templateDevice]!;
     if (!treatment) return [];
-    const processInputs = new Map(template.processPlan!.definition.inputs.map((amount) => [amount.resource, amount.count * template.processPlan!.mode.inputCycles]));
+    const processPlan = template.processPlans.find((plan) => plan.definition.id === requirement.process && plan.mode.id === requirement.mode)!;
+    const processInputs = new Map(processPlan.definition.inputs.map((amount) => [amount.resource, amount.count * processPlan.mode.inputCycles]));
     return [...processInputs.entries()].map(([resource, perCycle]) => {
       const requiredItemsPerMinute = perCycle * requirement.requiredCyclesPerMinute;
       const requiredAgentPerMinute = requiredItemsPerMinute * treatment.mode.agent.count / treatment.mode.itemCount;
@@ -223,11 +223,12 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
 
   const transport: TransportCapacityRequirement[] = processes.flatMap((requirement) => {
     const devices = Object.values(project.devices).filter((device) => device.asset === requirement.asset
-      && device.processPlan?.definition.id === requirement.process && device.processPlan.mode.id === requirement.mode);
+      && device.processPlans.some((plan) => plan.definition.id === requirement.process && plan.mode.id === requirement.mode));
     const ids = new Set(devices.map((device) => device.id));
     const rows: TransportCapacityRequirement[] = [];
     const template = project.devices[requirement.templateDevice]!;
-    const machineInputs = effectiveProductionAmounts(template.processPlan!.definition, template.processPlan!.mode).inputs;
+    const processPlan = template.processPlans.find((plan) => plan.definition.id === requirement.process && plan.mode.id === requirement.mode)!;
+    const machineInputs = effectiveProductionAmounts(processPlan.definition, processPlan.mode).inputs;
     const machineInputRates: Record<ResourceId, number> = {};
     for (const amount of machineInputs) add(machineInputRates, amount.resource, amount.count * requirement.requiredCyclesPerMinute);
     for (const [resource, requiredItemsPerMinute] of Object.entries(machineInputRates)) {

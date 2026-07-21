@@ -2,7 +2,7 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production system as a folder of immutable world definitions, finite resource deposits, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple industrial zones, each with its own factory floor, deposits, distance-aware sorter arms, explicitly routed multi-level transport cells, and power topology. The complete system can be validated, statically balanced across extraction, materials, shared-capacity belt paths, shortage-aware junction policies, station-owned inter-zone carrier fleets, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production system as a folder of immutable world definitions, finite resource deposits, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple industrial zones, each with its own factory floor, deposits, distance-aware sorter arms, explicitly routed multi-level transport cells, and power topology. One physical work center may qualify several operations and dispatch ready WIP across a re-entrant route. The complete system can be validated, statically balanced across extraction, materials, shared-capacity equipment and belt paths, shortage-aware junction policies, station-owned inter-zone carrier fleets, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 Material preparation is physical factory state. Treatment Devices consume project-local agents to raise exact cargo lots to a declared level; belts and station carriers preserve that level, higher production modes require it at their inputs, and synthesis builds the treatment equipment, agent production, logistics, and power together. There is no hidden “productivity bonus” consumption inside a machine.
 
@@ -27,6 +27,10 @@ bun run inm research examples/ironworks --iterations 3 --seed 42
 
 # Or give a Coding Agent one Blueprint file and a locked three-case score
 bun run inm benchmark examples/ironworks --benchmark autoresearch
+
+# Or optimize WIP dispatch in a re-entrant DRAM memory-fab route
+bun run inm analyze examples/memory-fab
+bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 
 # Or synthesize a complete factory from a blank blueprint and the Objective
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output synthesized
@@ -110,7 +114,7 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - An **objective** defines hard constraints and a transparent weighted score.
 - A **benchmark** locks a baseline and several weighted World/Scenario/Objective/seed cases while leaving exactly one candidate Blueprint editable. Its aggregate score and per-case gates provide the keep/discard authority for a Coding Agent.
 
-See [project format](docs/PROJECT_FORMAT.md) and the complete [Ironworks example](examples/ironworks).
+See [project format](docs/PROJECT_FORMAT.md), the complete [Ironworks example](examples/ironworks), and the re-entrant [DRAM memory-fab example](examples/memory-fab).
 
 ## Architecture
 

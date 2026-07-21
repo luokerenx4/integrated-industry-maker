@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "dielectric-stack-lot",
+  "name": "Dielectric Stack Lot",
+  "description": "Wafer lot with the deposited capacitor dielectric stack, routed back to lithography.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "wip"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

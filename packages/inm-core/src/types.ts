@@ -289,6 +289,17 @@ export interface IndustrialWorld {
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
+export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority";
+export interface BlueprintRecipe {
+  process: ProcessId;
+  mode: string;
+  /** Higher values win when recipeDispatch is highest-priority. */
+  priority?: number;
+  /** Exact physical port selected for each Process input Resource. */
+  inputs: Record<ResourceId, PortId>;
+  /** Exact physical port selected for each Process output Resource. */
+  outputs: Record<ResourceId, PortId>;
+}
 export interface BlueprintDevice {
   id: DeviceInstanceId;
   asset: DeviceAssetId;
@@ -301,14 +312,9 @@ export interface BlueprintDevice {
     stage: "loader" | "unloader";
     distance: number;
   };
-  recipe?: {
-    process: ProcessId;
-    mode: string;
-    /** Exact physical port selected for each Process input Resource. */
-    inputs: Record<ResourceId, PortId>;
-    /** Exact physical port selected for each Process output Resource. */
-    outputs: Record<ResourceId, PortId>;
-  };
+  recipe?: BlueprintRecipe;
+  /** Qualified operations available to a shared industrial work center. */
+  recipes?: BlueprintRecipe[];
   treatment?: { mode: string };
   /** Instance-level Resource contracts. Each entry narrows the corresponding asset buffer; an empty list disables that buffer. */
   bufferFilters?: Record<BufferId, ResourceId[]>;
@@ -318,6 +324,8 @@ export interface BlueprintDevice {
   config?: Record<string, unknown>;
   policy?: {
     dispatch?: DispatchPolicy;
+    /** Deterministic selection among ready qualified operations. */
+    recipeDispatch?: RecipeDispatchPolicy;
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
@@ -466,7 +474,10 @@ export interface CompiledDevice extends BlueprintDevice {
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
+    priority: number;
   };
+  /** One entry per qualified operation. A singleton also appears as processPlan. */
+  processPlans: Array<NonNullable<CompiledDevice["processPlan"]>>;
   treatmentPlan?: {
     mode: MaterialTreatmentModeDefinition;
     inputBuffer: BufferId;

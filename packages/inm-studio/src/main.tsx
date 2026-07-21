@@ -40,6 +40,12 @@ interface ProjectIndex {
   projects: ProjectSummary[];
 }
 
+interface DeviceRecipe {
+  process: string; mode: string; modeName: string; durationTicks: number; powerMilliWatts: number; priority?: number;
+  inputs: Array<{ resource: string; buffer: string; count: number; minimumTreatmentLevel?: number }>;
+  outputs: Array<{ resource: string; buffer: string; count: number; treatmentLevel?: number }>;
+}
+
 interface Device {
   id: string;
   assetId: string;
@@ -52,7 +58,8 @@ interface Device {
   footprint: { width: number; height: number };
   visual: Visual;
   transportEndpoint?: { connection: string; stage: "loader" | "unloader"; distance: number };
-  recipe?: { process: string; mode: string; modeName: string; durationTicks: number; powerMilliWatts: number; inputs: Array<{ resource: string; buffer: string; count: number; minimumTreatmentLevel?: number }>; outputs: Array<{ resource: string; buffer: string; count: number; treatmentLevel?: number }> };
+  recipe?: DeviceRecipe;
+  recipes?: DeviceRecipe[];
   treatment?: { mode: string; modeName: string; level: number; durationTicks: number; itemCount: number; inputBuffer: string; outputBuffer: string; agentBuffer: string; agentResource: string; agentCount: number };
   resourceContracts: Record<string, string[]>;
 }
@@ -530,7 +537,7 @@ function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelec
       ? <><mesh castShadow><cylinderGeometry args={[.18, .24, .18, 16]} /><meshStandardMaterial color={color} metalness={.7} roughness={.25} emissive={frame.status === "unpowered" ? "#761424" : "#102a31"} /></mesh><mesh position={[0, .13, 0]}><boxGeometry args={[.48, .12, .18]} /><meshStandardMaterial color={color} metalness={.72} roughness={.22} /></mesh></>
       : <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />}
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    {(!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={device.transportEndpoint ? .16 : .28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{device.transportEndpoint ? `${device.transportEndpoint.stage.toUpperCase()} · ${STATUS_LABELS[frame.status]}` : STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process} / {device.recipe.mode}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>}
+    {(!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={device.transportEndpoint ? .16 : .28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{device.transportEndpoint ? `${device.transportEndpoint.stage.toUpperCase()} · ${STATUS_LABELS[frame.status]}` : STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{(device.recipes?.length ?? 0) > 1 ? `${device.recipes!.length} QUALIFIED OPS` : `${device.recipe.process} / ${device.recipe.mode}`}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>}
   </group>;
 }
 
@@ -649,6 +656,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const runtime = frame.devices[device.id] ?? { status: "idle" as Status, progress: 0 };
   const asset = data.assets.devices.find((item) => item.id === device.assetId);
   const production = data.analysis.devices.find((item) => item.device === device.id);
+  const configuredRecipes = device.recipes ?? (device.recipe ? [device.recipe] : []);
   const extraction = data.analysis.extractionDevices.find((item) => item.device === device.id);
   const treatment = data.analysis.treatmentDevices.find((item) => item.device === device.id);
   const generation = data.analysis.generationDevices.find((item) => item.device === device.id);
@@ -685,10 +693,15 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>IDLE → ACTIVE POWER</small><b>{(idlePowerMilliWatts / 1000).toFixed(1)} → {(powerMilliWatts / 1000).toFixed(1)} W</b></span>
       </div>
       {device.transportEndpoint && <div className="inspector-section"><div className="inspector-section-title"><span>TRANSPORT ATTACHMENT</span><b>{device.transportEndpoint.stage.toUpperCase()}</b></div><div className="inspector-inline"><strong>{device.transportEndpoint.connection}</strong><code>{device.transportEndpoint.distance} cell arm · belt-side anchor</code></div></div>}
-      {device.recipe && <div className="inspector-section">
-        <div className="inspector-section-title"><span>CONFIGURED PROCESS</span><b>{device.recipe.modeName}</b></div>
-        <div className="inspector-recipe-head"><strong>{device.recipe.process}</strong><code>{device.recipe.durationTicks} ms / job · {production?.cyclesPerMinute.toFixed(2) ?? "—"} jobs/min</code></div>
-        <div className="inspector-recipe"><InspectorFlow label="INPUTS" amounts={device.recipe.inputs} /><i>→</i><InspectorFlow label="OUTPUTS" amounts={device.recipe.outputs} /></div>
+      {configuredRecipes.length > 0 && <div className="inspector-section">
+        <div className="inspector-section-title"><span>{configuredRecipes.length > 1 ? "QUALIFIED OPERATIONS" : "CONFIGURED PROCESS"}</span><b>{configuredRecipes.length}</b></div>
+        {configuredRecipes.map((recipe) => {
+          const rate = data.analysis.devices.find((item) => item.device === device.id && item.process === recipe.process && item.mode === recipe.mode);
+          return <div key={`${recipe.process}/${recipe.mode}`}>
+            <div className="inspector-recipe-head"><strong>{recipe.process}</strong><code>P{recipe.priority ?? 0} · {recipe.durationTicks} ms / job · {rate?.cyclesPerMinute.toFixed(2) ?? "—"} max jobs/min</code></div>
+            <div className="inspector-recipe"><InspectorFlow label="INPUTS" amounts={recipe.inputs} /><i>→</i><InspectorFlow label="OUTPUTS" amounts={recipe.outputs} /></div>
+          </div>;
+        })}
       </div>}
       {device.treatment && treatment && <div className="inspector-section"><div className="inspector-section-title"><span>MATERIAL TREATMENT</span><b>{device.treatment.modeName}</b></div><div className="inspector-inline"><strong>{device.treatment.itemCount} items → @{device.treatment.level}</strong><code>{device.treatment.durationTicks} ms · {treatment.itemsPerMinute.toFixed(2)} items/min</code></div><div className="inspector-inline"><strong>{device.treatment.agentCount}× {device.treatment.agentResource}</strong><code>{device.treatment.agentBuffer} · {treatment.agentPerMinute.toFixed(2)}/min</code></div></div>}
       {extraction && <div className="inspector-section"><div className="inspector-section-title"><span>EXTRACTION</span><b>{extraction.resource}</b></div><div className="inspector-inline"><strong>{extraction.itemsPerMinute.toFixed(2)} /min</strong><code>{extraction.itemsPerCycle} items / {extraction.cycleTicks} ms</code></div><div className="inspector-chip-row">{extraction.nodes.map((node) => <span key={node}>{node}</span>)}</div></div>}

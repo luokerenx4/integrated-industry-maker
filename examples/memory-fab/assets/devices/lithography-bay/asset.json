@@ -1,0 +1,122 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "lithography-bay",
+  "name": "Lithography Bay",
+  "description": "A scarce qualified lithography work center revisited by the same wafer route.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "lithography"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "release-input",
+        "direction": "input",
+        "side": "west",
+        "offset": 1,
+        "buffer": "release-input",
+        "kind": "resource"
+      },
+      {
+        "id": "reentrant-input",
+        "direction": "input",
+        "side": "north",
+        "offset": 1,
+        "buffer": "reentrant-input",
+        "kind": "resource"
+      },
+      {
+        "id": "pattern-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "pattern-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "release-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "reentrant-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "pattern-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "categories": [
+      "lithography"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "release-input",
+      "reentrant-input"
+    ],
+    "outputPorts": [
+      "pattern-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 30000,
+    "activeMilliWatts": 280000
+  },
+  "economics": {
+    "buildCost": 18000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

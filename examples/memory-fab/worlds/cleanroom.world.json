@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "cleanroom",
+  "name": "DRAM Front-End Cleanroom",
+  "regions": [
+    {
+      "id": "cleanroom",
+      "name": "Memory Fab Cleanroom",
+      "kind": "industrial-zone",
+      "coordinates": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "bounds": {
+        "width": 40,
+        "height": 30
+      }
+    }
+  ],
+  "resourceNodes": []
+}

@@ -1,0 +1,20 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "wind-turbine",
+  "name": "Wind Turbine",
+  "description": "A lower-output renewable generator used when a blueprint needs local power without a fuel route.",
+  "tags": ["utility", "power", "renewable"],
+  "capabilities": ["power"],
+  "geometry": { "footprint": { "width": 2, "height": 2 }, "rotatable": false, "ports": [] },
+  "buffers": [],
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": {
+    "idleMilliWatts": 0,
+    "activeMilliWatts": 0,
+    "generation": { "kind": "renewable", "outputMilliWatts": 600000 },
+    "distribution": { "connectionRange": 20, "coverageRange": 20 }
+  },
+  "economics": { "buildCost": 1400 },
+  "files": { "visual": "visual.json" }
+}

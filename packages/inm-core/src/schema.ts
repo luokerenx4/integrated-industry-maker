@@ -134,9 +134,16 @@ export const blueprintSchema = z.object({
     }).strict().optional(),
     recipe: z.object({
       process: id, mode: id,
+      priority: z.number().int().optional(),
       inputs: z.record(id),
       outputs: z.record(id),
     }).strict().optional(),
+    recipes: z.array(z.object({
+      process: id, mode: id,
+      priority: z.number().int().optional(),
+      inputs: z.record(id),
+      outputs: z.record(id),
+    }).strict()).min(1).optional(),
     treatment: z.object({ mode: id }).strict().optional(),
     bufferFilters: z.record(z.array(id)).optional(),
     portFilters: z.record(z.array(id)).optional(),
@@ -144,6 +151,7 @@ export const blueprintSchema = z.object({
     config: z.record(z.unknown()).optional(),
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
+      recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority"]).optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),
       highSpeedTransport: z.object({ enabled: z.boolean(), minimumDistance: nonNegativeInt }).strict().optional(),

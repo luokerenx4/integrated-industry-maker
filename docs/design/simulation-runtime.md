@@ -2,7 +2,7 @@
 
 Status: deterministic discrete-event runtime and immutable replay artifacts implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
 
 ## Scope
 
@@ -22,7 +22,7 @@ The runtime may not depend on wall clock, frame rate, object insertion order, br
 
 `mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation and carrier-energy ledgers, per-Device/per-grid stored energy, and metrics integrals.
 
-Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `treat`, `extract`, `generate`, `consume`, `wait`, or `none`. For production and treatment, the context carries the selected mode and complete job plan; the returned action must match its operation, material levels, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist and whose treatment level satisfies downstream demand, even when both endpoint buffers accept a wider set.
+Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `treat`, `extract`, `generate`, `consume`, `wait`, or `none`. For a shared work center, the host first ranks qualified operations, selects the first whose exact inputs are resident and outputs have reserved capacity, then exposes only that immutable plan in `context.process`. For production and treatment, the returned action must match its selected operation, material levels, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist and whose treatment level satisfies downstream demand, even when both endpoint buffers accept a wider set.
 
 ## Failures and blocking
 

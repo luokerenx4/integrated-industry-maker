@@ -196,6 +196,16 @@ async function loadStudioData(projectId: string, runName?: string) {
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
         outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
       } } : {}),
+      ...(device.processPlans.length ? { recipes: device.processPlans.map((plan) => ({
+        process: plan.definition.id,
+        mode: plan.mode.id,
+        modeName: plan.mode.name,
+        durationTicks: plan.durationTicks,
+        powerMilliWatts: plan.powerMilliWatts,
+        priority: plan.priority,
+        inputs: plan.inputs.map((amount) => ({ ...amount })),
+        outputs: plan.outputs.map((amount) => ({ ...amount })),
+      })) } : {}),
       ...(device.treatmentPlan ? { treatment: {
         mode: device.treatmentPlan.mode.id,
         modeName: device.treatmentPlan.mode.name,

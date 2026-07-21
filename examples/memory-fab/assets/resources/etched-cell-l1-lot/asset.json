@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "etched-cell-l1-lot",
+  "name": "Etched Cell L1 Lot",
+  "description": "Wafer lot after the first plasma etch pass.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "wip"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "pattern-cell-layer-2",
+  "name": "Pattern memory-cell layer 2",
+  "description": "Pattern memory-cell layer 2 as one qualified operation in the re-entrant DRAM front-end route.",
+  "category": "lithography",
+  "tags": [
+    "dram",
+    "front-end",
+    "re-entrant"
+  ],
+  "durationTicks": 6000,
+  "inputs": [
+    {
+      "resource": "dielectric-stack-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "patterned-cell-l2-lot",
+      "count": 1
+    }
+  ]
+}

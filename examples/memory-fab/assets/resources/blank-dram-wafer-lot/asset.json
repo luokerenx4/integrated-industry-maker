@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "blank-dram-wafer-lot",
+  "name": "Blank DRAM Wafer Lot",
+  "description": "Released 300 mm wafer lot awaiting the first memory-cell patterning pass.",
+  "tags": [
+    "semiconductor",
+    "wafer-lot",
+    "wip"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "lot",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

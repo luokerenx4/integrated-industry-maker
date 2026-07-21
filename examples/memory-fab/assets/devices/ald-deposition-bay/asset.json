@@ -1,0 +1,105 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "ald-deposition-bay",
+  "name": "ALD Deposition Bay",
+  "description": "Atomic-layer deposition work center for the DRAM capacitor dielectric stack.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "deposition"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "etch-input",
+        "direction": "input",
+        "side": "west",
+        "offset": 1,
+        "buffer": "etch-input",
+        "kind": "resource"
+      },
+      {
+        "id": "return-output",
+        "direction": "output",
+        "side": "north",
+        "offset": 1,
+        "buffer": "return-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "etch-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "return-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "categories": [
+      "deposition"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "etch-input"
+    ],
+    "outputPorts": [
+      "return-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 30000,
+    "activeMilliWatts": 280000
+  },
+  "economics": {
+    "buildCost": 15000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}
