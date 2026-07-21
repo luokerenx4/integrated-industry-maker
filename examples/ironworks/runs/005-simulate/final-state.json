@@ -73,6 +73,9 @@
   "highSpeedMissions": 0,
   "logisticsMissions": {},
   "logisticsTransports": {},
+  "lotReleaseControl": {
+    "open": true
+  },
   "lots": {},
   "materialTreatment": {
     "agentsConsumed": {},

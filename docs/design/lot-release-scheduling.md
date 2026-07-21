@@ -1,8 +1,8 @@
 # Scheduled lot release and fab starts
 
-Status: Scenario-owned lot availability times, explicit pre-release state, capacity-gated fab admission, release events, cadence/delay metrics, and locked benchmark coverage implemented through engine version `inm-sim/0.52.0`.
+Status: Scenario-owned lot availability times, explicit pre-release state, capacity- and policy-gated fab admission, release events, cadence/delay metrics, and locked benchmark coverage implemented through engine version `inm-sim/0.53.0`.
 
-Related: [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/wip-release-control]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why release time is industrial state
 
@@ -34,7 +34,7 @@ This is a clean replacement for the former tick-zero-only `initialLots` field. T
 
 Every declaration creates a `scheduled` `WorkLot` with `plannedReleaseTick`, no buffer inventory, and a release-boundary location. At its planned tick it becomes eligible for admission. Admission is atomic only when the destination buffer and Resource quota can hold one more lot, including already reserved inbound cargo.
 
-If the boundary is full, the lot remains scheduled outside the fab and is retried after later deterministic state changes. On admission the engine records the actual `releasedAtTick`, changes the lot to `queued`, inserts its identity and material count together, and emits `lot.released` with planned tick and measured delay. Several lots at one tick are considered as one release wave before ordinary factory settling.
+If the boundary is full, or a Blueprint CONWIP controller has no open card, the lot remains scheduled outside the fab and is retried after later deterministic state changes. Physical capacity is evaluated before control policy so delay has one attributable cause. On admission the engine records the actual `releasedAtTick`, changes the lot to `queued`, inserts its identity and material count together, and emits `lot.released` with planned tick, measured delay, control kind, and prior active WIP. Several lots at one tick are considered as one release wave before ordinary factory settling. See [[docs/design/wip-release-control]].
 
 Cycle accounting starts at actual admission:
 
@@ -46,7 +46,7 @@ Planned-to-actual release delay remains separate, so an overloaded entry boundar
 
 ## Evaluation and Coding Agent boundary
 
-`releaseFlow` reports scheduled, released, pending, planned/actual span, mean planned/actual interval, and mean/maximum admission delay. CLI simulation, locked benchmark cases, immutable reports, Blueprint comparisons, and Studio show the same values.
+`releaseFlow` reports scheduled, released, pending, planned/actual span, mean planned/actual interval, mean/maximum admission delay, control thresholds, peak active lots, and capacity/controller blocked lots and lot-ticks. CLI simulation, locked benchmark cases, immutable reports, Blueprint comparisons, and Studio show the same values.
 
 For tracked Objectives, on-time attainment uses all scheduled lots as its denominator. A Blueprint is therefore penalized when it cannot admit planned work before the horizon; withholding release cannot improve the score. Yield metrics use actually released lots, while WIP excludes work still outside the fab.
 
@@ -58,7 +58,7 @@ The memory-fab schedules twelve named lots six seconds apart across a sixty-six-
 
 ## Current boundary
 
-The current model supports deterministic availability times and capacity-gated admission. It does not yet model release windows, target-WIP controllers, CONWIP/kanban policies, campaign starts, order cancellation, split/merge genealogy, or a Blueprint-authored release controller. Those are future control layers; they should consume this explicit scheduled state rather than mutate Scenario files.
+The current model supports deterministic availability times, physical admission, and a factory-wide Blueprint CONWIP controller. It does not yet model release windows, per-family kanban, campaign starts, order cancellation, or split/merge genealogy. Those future layers must consume this explicit scheduled state rather than mutate Scenario files.
 
 ## Verification
 
@@ -68,4 +68,3 @@ bun run inm simulate examples/memory-fab --blueprint baseline
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 bun run inm test examples/memory-fab
 ```
-

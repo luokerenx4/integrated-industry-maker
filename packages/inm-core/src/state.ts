@@ -1,10 +1,12 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
   | { kind: "status"; device: string; status: DeviceStatus }
   | { kind: "idle-power"; device: string; powered: boolean }
   | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number }
+  | { kind: "lot.release-control"; open: boolean }
+  | { kind: "lot.release-block"; lotId: string; reason: LotReleaseBlockReason | null }
   | { kind: "lot.release"; lotId: string; device: string; buffer: string }
   | { kind: "lot.depart"; lotIds: string[]; device: string; buffer: string; nextStatus: "processing" | "transport"; nextLocation: { kind: "device"; device: string } | { kind: "transit"; transit: string } }
   | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
@@ -77,6 +79,15 @@ function setLotStatus(lot: WorkLot, tick: Tick, status: WorkLotStatus, location:
   lot.location = location;
 }
 
+function setLotReleaseBlock(lot: WorkLot, tick: Tick, reason: LotReleaseBlockReason | null): void {
+  const previous = lot.releaseWait.reason;
+  if (previous === reason) return;
+  if (previous) lot.releaseWait.ticks[previous] += tick - lot.releaseWait.sinceTick;
+  lot.releaseWait.reason = reason;
+  lot.releaseWait.sinceTick = tick;
+  if (reason && !lot.releaseWait.encountered.includes(reason)) lot.releaseWait.encountered.push(reason);
+}
+
 function removeLotFromBuffer(state: FactoryState, lot: WorkLot, device: string, buffer: string): void {
   if (lot.status !== "queued" || lot.location.kind !== "buffer" || lot.location.device !== device || lot.location.buffer !== buffer) {
     throw new Error(`Lot '${lot.id}' is not queued in ${device}/${buffer}`);
@@ -99,6 +110,14 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       mutateBufferQuantity(state, mutation.device, mutation.buffer, mutation.resource, mutation.delta, mutation.treatmentLevel);
       return;
     }
+    case "lot.release-control": state.lotReleaseControl.open = mutation.open; return;
+    case "lot.release-block": {
+      const lot = state.lots[mutation.lotId];
+      if (!lot) throw new Error(`Unknown lot '${mutation.lotId}'`);
+      if (lot.status !== "scheduled") throw new Error(`Lot '${lot.id}' is not awaiting release`);
+      setLotReleaseBlock(lot, state.tick, mutation.reason);
+      return;
+    }
     case "lot.release": {
       const lot = state.lots[mutation.lotId];
       if (!lot) throw new Error(`Unknown lot '${mutation.lotId}'`);
@@ -106,6 +125,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (lot.location.device !== mutation.device || lot.location.buffer !== mutation.buffer) throw new Error(`Lot '${lot.id}' has a different release location`);
       const runtime = state.devices[mutation.device]!;
       if (!runtime.buffers[mutation.buffer]) throw new Error(`Unknown buffer for ${mutation.device}/${mutation.buffer}`);
+      setLotReleaseBlock(lot, state.tick, null);
       lot.releasedAtTick = state.tick;
       setLotStatus(lot, state.tick, "queued", { kind: "buffer", device: mutation.device, buffer: mutation.buffer });
       const ids = runtime.lotIds[mutation.buffer] ??= {};

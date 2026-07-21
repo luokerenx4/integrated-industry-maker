@@ -27,6 +27,11 @@ export interface BlueprintMetricSnapshot {
   meanActualReleaseIntervalTicks: number;
   meanReleaseDelayTicks: number;
   maximumReleaseDelayTicks: number;
+  peakActiveLots: number;
+  capacityBlockedLots: number;
+  capacityBlockedTicks: number;
+  controlBlockedLots: number;
+  controlBlockedTicks: number;
   scrappedLots: number;
   onTimeLots: number;
   goodYield: number;
@@ -72,6 +77,11 @@ export interface BlueprintMetricDelta {
   meanActualReleaseIntervalTicks: number;
   meanReleaseDelayTicks: number;
   maximumReleaseDelayTicks: number;
+  peakActiveLots: number;
+  capacityBlockedLots: number;
+  capacityBlockedTicks: number;
+  controlBlockedLots: number;
+  controlBlockedTicks: number;
   scrappedLots: number;
   onTimeLots: number;
   goodYield: number;
@@ -239,6 +249,11 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     meanActualReleaseIntervalTicks: metrics.releaseFlow.meanActualIntervalTicks,
     meanReleaseDelayTicks: metrics.releaseFlow.meanReleaseDelayTicks,
     maximumReleaseDelayTicks: metrics.releaseFlow.maximumReleaseDelayTicks,
+    peakActiveLots: metrics.releaseFlow.peakActiveLots,
+    capacityBlockedLots: metrics.releaseFlow.capacityBlockedLots,
+    capacityBlockedTicks: metrics.releaseFlow.capacityBlockedTicks,
+    controlBlockedLots: metrics.releaseFlow.controlBlockedLots,
+    controlBlockedTicks: metrics.releaseFlow.controlBlockedTicks,
     scrappedLots: metrics.lotFlow.scrapped,
     onTimeLots: metrics.lotFlow.onTimeCompleted,
     goodYield: metrics.qualityFlow.goodYield,
@@ -286,6 +301,11 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     meanActualReleaseIntervalTicks: after.meanActualReleaseIntervalTicks - before.meanActualReleaseIntervalTicks,
     meanReleaseDelayTicks: after.meanReleaseDelayTicks - before.meanReleaseDelayTicks,
     maximumReleaseDelayTicks: after.maximumReleaseDelayTicks - before.maximumReleaseDelayTicks,
+    peakActiveLots: after.peakActiveLots - before.peakActiveLots,
+    capacityBlockedLots: after.capacityBlockedLots - before.capacityBlockedLots,
+    capacityBlockedTicks: after.capacityBlockedTicks - before.capacityBlockedTicks,
+    controlBlockedLots: after.controlBlockedLots - before.controlBlockedLots,
+    controlBlockedTicks: after.controlBlockedTicks - before.controlBlockedTicks,
     scrappedLots: after.scrappedLots - before.scrappedLots,
     onTimeLots: after.onTimeLots - before.onTimeLots,
     goodYield: after.goodYield - before.goodYield,

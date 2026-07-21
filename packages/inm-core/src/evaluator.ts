@@ -8,6 +8,7 @@ export interface SimulationStats {
   beltItemArea: number;
   beltBlockedArea: number;
   peakBeltItems: number;
+  peakActiveLots: number;
   transportStageActiveArea: Record<string, { loader: number; unloader: number }>;
   connectionOccupancyArea: Record<string, number>;
   connectionBlockedArea: Record<string, number>;
@@ -55,6 +56,10 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const plannedReleaseTicks = targetLots.map((lot) => lot.plannedReleaseTick).sort((a, b) => a - b);
   const actualReleaseTicks = releasedTargetLots.map((lot) => lot.releasedAtTick!).sort((a, b) => a - b);
   const releaseDelays = targetLots.map((lot) => Math.max(0, (lot.releasedAtTick ?? state.tick) - lot.plannedReleaseTick));
+  const releaseBlockedTicks = (lot: (typeof targetLots)[number], reason: keyof (typeof lot.releaseWait.ticks)): number =>
+    lot.releaseWait.ticks[reason] + (lot.releaseWait.reason === reason ? Math.max(0, state.tick - lot.releaseWait.sinceTick) : 0);
+  const capacityReasons = ["buffer-capacity", "resource-capacity"] as const;
+  const releasePolicy = project.blueprint.policies.lotRelease;
   const lotFlow: FactoryMetrics["lotFlow"] = {
     family: targetFamily,
     scheduled: targetLots.length,
@@ -83,6 +88,15 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     meanActualIntervalTicks: mean(intervals(actualReleaseTicks)),
     meanReleaseDelayTicks: mean(releaseDelays),
     maximumReleaseDelayTicks: releaseDelays.length ? Math.max(...releaseDelays) : 0,
+    control: releasePolicy ? "conwip" : "open-loop",
+    maximumWip: releasePolicy?.maximumWip ?? null,
+    reopenAtWip: releasePolicy?.reopenAtWip ?? null,
+    dispatch: releasePolicy?.dispatch ?? null,
+    peakActiveLots: stats.peakActiveLots,
+    capacityBlockedLots: targetLots.filter((lot) => capacityReasons.some((reason) => lot.releaseWait.encountered.includes(reason))).length,
+    capacityBlockedTicks: targetLots.reduce((sum, lot) => sum + capacityReasons.reduce((lotSum, reason) => lotSum + releaseBlockedTicks(lot, reason), 0), 0),
+    controlBlockedLots: targetLots.filter((lot) => lot.releaseWait.encountered.includes("conwip-limit")).length,
+    controlBlockedTicks: targetLots.reduce((sum, lot) => sum + releaseBlockedTicks(lot, "conwip-limit"), 0),
   };
   const defectFreeCompleted = completedTargetLots.filter((lot) => lot.quality.defects.length === 0).length;
   const firstPassCompleted = completedTargetLots.filter((lot) => lot.quality.reworkCycles === 0 && lot.quality.defects.length === 0).length;

@@ -106,6 +106,10 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
       priority: definition.priority ?? 0,
       plannedReleaseTick: definition.releaseTick,
       ...(definition.dueTick === undefined ? {} : { dueTick: definition.dueTick }),
+      releaseWait: {
+        reason: null, sinceTick: definition.releaseTick,
+        ticks: { "buffer-capacity": 0, "resource-capacity": 0, "conwip-limit": 0 }, encountered: [],
+      },
       routeStep: 0,
       quality: {
         defects: [], appliedExcursions: [], inspections: 0, passes: 0,
@@ -139,7 +143,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
   const availableMilliWatts = Object.values(grids).reduce((sum, grid) => sum + grid.availableMilliWatts, 0);
   const resourceNodes = Object.fromEntries(Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => [node.id, { remaining: node.amount, reserved: 0, extracted: 0 }]));
   return {
-    tick: 0, devices, lots, resourceNodes, transports, logisticsTransports, logisticsMissions, produced: {}, consumed: {},
+    tick: 0, devices, lots, lotReleaseControl: { open: true }, resourceNodes, transports, logisticsTransports, logisticsMissions, produced: {}, consumed: {},
     energy: { availableMilliWatts, consumedMilliJoules: 0, grids, fuelConsumed: {} }, completedOrders: 0, highSpeedMissions: 0,
     carrierMissions: 0, carrierReturns: 0,
     materialTreatment: { treated: {}, agentsConsumed: {} },
@@ -164,7 +168,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
-    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
+    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {}, stationFleetBusyArea: {}, stationFleetCompletedReturns: {},
     lotProcessBatches: {},
@@ -196,6 +200,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const scheduledDispatchTick: Record<string, number | undefined> = {};
   const scheduledPowerBoundaryTick: Record<string, number | undefined> = {};
   const eligibleLotReleases = new Set<string>();
+  const releasePolicy = project.blueprint.policies.lotRelease;
+  const activeLotWip = () => Object.values(state.lots)
+    .filter((lot) => lot.releasedAtTick !== undefined && lot.status !== "completed" && lot.status !== "scrapped").length;
+  const updatePeakActiveLots = () => { stats.peakActiveLots = Math.max(stats.peakActiveLots, activeLotWip()); };
+  const compareEligibleLots = (leftId: string, rightId: string): number => {
+    const left = state.lots[leftId]!; const right = state.lots[rightId]!;
+    if (releasePolicy?.dispatch === "earliest-due-date") {
+      const due = (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER);
+      if (due) return due;
+    } else if (releasePolicy?.dispatch === "highest-priority") {
+      const priority = right.priority - left.priority;
+      if (priority) return priority;
+    }
+    return left.plannedReleaseTick - right.plannedReleaseTick || left.id.localeCompare(right.id);
+  };
   const powerBoundaryGenerations: Record<string, number> = Object.fromEntries(Object.keys(project.powerGrids).map((id) => [id, 0]));
   const schedule = (tick: number, priority: number, value: InternalEvent) => queue.push({ tick, priority, sequence: sequence++, value });
   const scheduleLogisticsReady = (connection: string, tick: number) => {
@@ -206,6 +225,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const emit = (event: FactoryEvent) => {
     if (event.type === "power.shortage") unmetPowerDemand[event.device] = event.requiredMilliWatts;
     events.push(event); publicEventCount++;
+  };
+  const setReleaseControlOpen = (open: boolean): boolean => {
+    if (!releasePolicy || state.lotReleaseControl.open === open) return false;
+    mutateFactoryState(state, { kind: "lot.release-control", open });
+    emit({
+      type: open ? "lot.release-control-opened" : "lot.release-control-closed", tick: state.tick,
+      activeWip: activeLotWip(), reopenAtWip: releasePolicy.reopenAtWip, maximumWip: releasePolicy.maximumWip,
+    });
+    return true;
   };
   const setStatus = (device: string, status: DeviceRuntimeState["status"]) => {
     const runtime = state.devices[device]!;
@@ -372,6 +400,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const wip = Object.values(state.devices).reduce((sum, runtime) => sum + deviceQuantity(runtime), 0)
       + Object.values(state.transports).flat().reduce((sum, transit) => sum + transit.count, 0)
       + Object.values(state.logisticsTransports).flat().reduce((sum, transit) => sum + transit.count, 0);
+    updatePeakActiveLots();
     const beltTransits = Object.values(state.transports).flat().filter((transit) => transit.phase === "belt");
     const occupiedBeltCells = beltTransits.length;
     const beltItems = beltTransits.reduce((sum, transit) => sum + transit.count, 0);
@@ -1502,23 +1531,43 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     let changed = true; let guard = 0;
     while (changed && guard++ < 100_000) {
       syncPowerAvailability();
+      let releaseControlChanged = false;
+      if (releasePolicy && !state.lotReleaseControl.open && activeLotWip() <= releasePolicy.reopenAtWip) {
+        releaseControlChanged = setReleaseControlOpen(true);
+      }
       let lotsReleased = false;
-      for (const id of [...eligibleLotReleases].sort()) {
+      for (const id of [...eligibleLotReleases].sort(compareEligibleLots)) {
         const lot = state.lots[id];
         if (!lot || lot.status !== "scheduled" || lot.location.kind !== "release") { eligibleLotReleases.delete(id); continue; }
         const device = project.devices[lot.location.device]!;
         const buffer = device.buffers[lot.location.buffer]!;
         const inventory = state.devices[device.id]!.buffers[buffer.id]!;
         const resourceCapacity = buffer.resourceCapacities?.[lot.resource];
-        if (quantity(inventory) + incomingQuantity(device.id, buffer.id) >= buffer.capacity) continue;
-        if (resourceCapacity !== undefined && (inventory[lot.resource] ?? 0) + incomingQuantity(device.id, buffer.id, lot.resource) >= resourceCapacity) continue;
+        const blockRelease = (reason: "buffer-capacity" | "resource-capacity" | "conwip-limit") => {
+          if (lot.releaseWait.reason === reason) return;
+          mutateFactoryState(state, { kind: "lot.release-block", lotId: id, reason });
+          emit({
+            type: "lot.release-blocked", tick: state.tick, device: device.id, buffer: buffer.id, lot: id, reason,
+            activeWip: activeLotWip(), maximumWip: reason === "conwip-limit" ? releasePolicy!.maximumWip : null,
+          });
+        };
+        if (quantity(inventory) + incomingQuantity(device.id, buffer.id) >= buffer.capacity) { blockRelease("buffer-capacity"); continue; }
+        if (resourceCapacity !== undefined && (inventory[lot.resource] ?? 0) + incomingQuantity(device.id, buffer.id, lot.resource) >= resourceCapacity) { blockRelease("resource-capacity"); continue; }
+        const activeWipBeforeRelease = activeLotWip();
+        if (releasePolicy && (activeWipBeforeRelease >= releasePolicy.maximumWip || !state.lotReleaseControl.open)) {
+          if (activeWipBeforeRelease >= releasePolicy.maximumWip) releaseControlChanged = setReleaseControlOpen(false) || releaseControlChanged;
+          blockRelease("conwip-limit"); continue;
+        }
         mutateFactoryState(state, { kind: "lot.release", lotId: id, device: device.id, buffer: buffer.id });
         eligibleLotReleases.delete(id);
         emit({
           type: "lot.released", tick: state.tick, device: device.id, buffer: buffer.id, lot: id,
           family: lot.family, resource: lot.resource, plannedReleaseTick: lot.plannedReleaseTick,
           releaseDelayTicks: state.tick - lot.plannedReleaseTick,
+          releaseControl: releasePolicy ? "conwip" : "open-loop", activeWipBeforeRelease,
         });
+        updatePeakActiveLots();
+        if (releasePolicy && activeLotWip() >= releasePolicy.maximumWip) releaseControlChanged = setReleaseControlOpen(false) || releaseControlChanged;
         lotsReleased = true;
       }
       const evaluationOrder = Object.values(project.devices).sort((a, b) => Number(Boolean(b.generationPlan)) - Number(Boolean(a.generationPlan)) || comparePowerRank(a, b));
@@ -1529,7 +1578,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const jobPowerChanged = proportionalPower ? rebalanceProportionalPower() : rebalanceActivePower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
-      changed = lotsReleased || generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
+      changed = releaseControlChanged || lotsReleased || generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
       for (const device of evaluationOrder.filter((item) => !item.generationPlan)) if (tryEvaluate(device)) changed = true;
     }
     syncPowerAvailability();

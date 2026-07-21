@@ -1257,6 +1257,12 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     loaded.blueprint.policies?.dispatch ?? "fifo", issues,
   );
 
+  const lotReleasePolicy = loaded.blueprint.policies.lotRelease;
+  if (lotReleasePolicy && lotReleasePolicy.reopenAtWip >= lotReleasePolicy.maximumWip) issues.push({
+    path: "blueprint/policies/lotRelease/reopenAtWip", code: "lot.release-control-threshold",
+    message: `CONWIP reopen threshold ${lotReleasePolicy.reopenAtWip} must be below maximum WIP ${lotReleasePolicy.maximumWip}`,
+  });
+
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
   if (!regions[loaded.objective.targetRegion]) issues.push({ path: "objective/targetRegion", code: "reference.region", message: `Unknown target region '${loaded.objective.targetRegion}'` });
   for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {

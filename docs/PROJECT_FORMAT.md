@@ -188,9 +188,17 @@ A Blueprint selects one grid-allocation policy for the whole factory:
 ```json
 "policies": {
   "dispatch": "shortage-first",
-  "powerAllocation": "proportional"
+  "powerAllocation": "proportional",
+  "lotRelease": {
+    "kind": "conwip",
+    "maximumWip": 11,
+    "reopenAtWip": 6,
+    "dispatch": "earliest-due-date"
+  }
 }
 ```
+
+`lotRelease` is optional. Omission means open-loop admission after the fixed Scenario release tick and physical boundary check. `conwip` counts every released, non-completed, non-scrapped tracked lot factory-wide. It admits while open until `maximumWip`, closes, and reopens only when active WIP falls to or below `reopenAtWip`; the reopen threshold must be non-negative and strictly below the positive maximum. Eligible lots use `fifo`, `earliest-due-date`, or `highest-priority` dispatch with deterministic planned-tick/id ties. This policy is candidate Blueprint code; it cannot change Scenario arrivals or due dates. See [[docs/design/wip-release-control]].
 
 `proportional` gives every healthy connected consumer the same integer parts-per-million satisfaction, calculated from available power divided by requested power. Production, extraction, treatment, and explicit sorter loading/unloading advance at that fraction of nominal speed; belt travel does not consume power and keeps its nominal speed. `priority-load-shedding` instead serves complete Device envelopes in priority order and pauses rejected work exactly.
 
@@ -675,7 +683,7 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 
-`lotReleases` is the only Scenario entry path for tracked Resources. Each lot id is unique and names its release Device/buffer/Resource, required absolute `releaseTick`, optional integer priority, and optional due tick. A scheduled lot exists as identity but occupies no factory buffer or WIP before its release tick. Admission waits when the target buffer or Resource quota is full; actual release time and delay are measured. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `lotReleases`, duplicate identities, incompatible buffers, releases outside the Scenario, due dates before release, and buffers unable to hold one lot. See [[docs/design/lot-release-scheduling]].
+`lotReleases` is the only Scenario entry path for tracked Resources. Each lot id is unique and names its release Device/buffer/Resource, required absolute `releaseTick`, optional integer priority, and optional due tick. A scheduled lot exists as identity but occupies no factory buffer or WIP before its release tick. Admission waits when the target buffer or Resource quota is full or when the Blueprint CONWIP controller is closed; actual release time, delay, blocking cause, and controller state are measured. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `lotReleases`, duplicate identities, incompatible buffers, releases outside the Scenario, due dates before release, and buffers unable to hold one lot. See [[docs/design/lot-release-scheduling]] and [[docs/design/wip-release-control]].
 
 `initialSetups` maps setup-sensitive Device ids to qualified Process setup groups at tick zero. An omitted Device starts unconfigured and must perform a first changeover when ready WIP arrives. Scenario setup is fixed benchmark input; a candidate Blueprint cannot edit the physical starting state.
 
@@ -739,7 +747,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.52.0",
+        "engineVersion": "inm-sim/0.53.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

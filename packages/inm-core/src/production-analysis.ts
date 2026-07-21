@@ -225,7 +225,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "lot-release-schedule" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "lot-release-schedule" | "lot-release-control" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -667,6 +667,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     diagnostics.push({
       code: "lot-release-schedule", severity: "info",
       message: `${releaseTicks.length} identity-preserving lots are scheduled across ${releaseTicks.at(-1)! - releaseTicks[0]!} ms with ${meanReleaseInterval.toFixed(1)} ms mean planned interval; admission remains buffer-capacity gated`,
+    });
+    const control = project.blueprint.policies.lotRelease;
+    diagnostics.push({
+      code: "lot-release-control", severity: "info",
+      message: control
+        ? `Blueprint uses CONWIP admission with maximum ${control.maximumWip} active lots, reopening at ${control.reopenAtWip}, and ${control.dispatch} eligible-lot dispatch`
+        : "Blueprint uses open-loop lot admission; every eligible lot enters as soon as the physical release boundary has capacity",
     });
   }
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) for (const plan of device.processPlans) {

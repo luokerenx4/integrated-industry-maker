@@ -256,13 +256,22 @@
   },
   "releaseFlow": {
     "actualSpanTicks": 0,
+    "capacityBlockedLots": 0,
+    "capacityBlockedTicks": 0,
+    "control": "open-loop",
+    "controlBlockedLots": 0,
+    "controlBlockedTicks": 0,
+    "dispatch": null,
     "maximumReleaseDelayTicks": 0,
+    "maximumWip": null,
     "meanActualIntervalTicks": 0,
     "meanPlannedIntervalTicks": 0,
     "meanReleaseDelayTicks": 0,
+    "peakActiveLots": 0,
     "pending": 0,
     "plannedSpanTicks": 0,
     "released": 0,
+    "reopenAtWip": null,
     "scheduled": 0
   },
   "resourceNodes": {

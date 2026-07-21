@@ -591,6 +591,9 @@
       }
     ]
   },
+  "lotReleaseControl": {
+    "open": true
+  },
   "lots": {},
   "materialTreatment": {
     "agentsConsumed": {

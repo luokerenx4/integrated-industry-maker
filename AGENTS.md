@@ -17,6 +17,7 @@ Read the relevant linked document before changing a subsystem:
 - Multi-operation equipment qualification, re-entrant routes, and ready-WIP dispatch: [[docs/design/work-center-dispatch]]
 - Identity-preserving WIP lots, due dates, and cycle-time evaluation: [[docs/design/lot-tracking]]
 - Scheduled lot availability, fab admission, cadence, and release-delay evaluation: [[docs/design/lot-release-scheduling]]
+- Blueprint CONWIP, release waves, WIP cards, and causal admission blocking: [[docs/design/wip-release-control]]
 - Fixed-size tracked-lot batches, formation wait, and Blueprint recipe alternatives: [[docs/design/batch-processing]]
 - Sequence-dependent setup groups, powered changeovers, and setup-aware dispatch: [[docs/design/equipment-changeover]]
 - Latent lot defects, inline inspection, selective rework, scrap, yield, and quality escapes: [[docs/design/quality-flow]]

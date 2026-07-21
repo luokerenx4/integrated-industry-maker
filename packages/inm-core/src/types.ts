@@ -315,6 +315,16 @@ export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
 export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
 export type LotDispatchPolicy = "fifo" | "oldest-release" | "earliest-due-date" | "highest-priority";
+export type LotReleaseDispatchPolicy = "fifo" | "earliest-due-date" | "highest-priority";
+export interface ConwipReleasePolicy {
+  kind: "conwip";
+  /** Maximum released, non-terminal tracked lots admitted anywhere in the factory. */
+  maximumWip: number;
+  /** A closed controller opens again only at or below this WIP, allowing deterministic replenishment waves. */
+  reopenAtWip: number;
+  /** Deterministic arbitration when more eligible lots exist than open WIP slots. */
+  dispatch: LotReleaseDispatchPolicy;
+}
 export interface BlueprintRecipe {
   process: ProcessId;
   mode: string;
@@ -413,7 +423,12 @@ export interface Blueprint {
   devices: BlueprintDevice[];
   connections: BlueprintConnection[];
   logisticsNetworks: BlueprintLogisticsNetwork[];
-  policies: { dispatch?: DispatchPolicy; powerAllocation: PowerAllocationPolicy };
+  policies: {
+    dispatch?: DispatchPolicy;
+    powerAllocation: PowerAllocationPolicy;
+    /** Omit for open-loop admission as soon as the Scenario release and physical boundary permit it. */
+    lotRelease?: ConwipReleasePolicy;
+  };
 }
 
 export interface ScenarioFailure { device: DeviceInstanceId; atTick: Tick; durationTicks: Tick }
@@ -721,6 +736,7 @@ export interface ActiveDeviceJob {
     | { kind: "rework"; lotIds: string[]; repairs: string[] };
 }
 export type WorkLotStatus = "scheduled" | "queued" | "processing" | "transport" | "completed" | "scrapped";
+export type LotReleaseBlockReason = "buffer-capacity" | "resource-capacity" | "conwip-limit";
 export interface WorkLot {
   id: string;
   family: string;
@@ -729,6 +745,12 @@ export interface WorkLot {
   priority: number;
   plannedReleaseTick: Tick;
   releasedAtTick?: Tick;
+  releaseWait: {
+    reason: LotReleaseBlockReason | null;
+    sinceTick: Tick;
+    ticks: Record<LotReleaseBlockReason, Tick>;
+    encountered: LotReleaseBlockReason[];
+  };
   dueTick?: Tick;
   routeStep: number;
   quality: {
@@ -815,6 +837,7 @@ export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
   lots: Record<string, WorkLot>;
+  lotReleaseControl: { open: boolean };
   resourceNodes: Record<string, { remaining: number; reserved: number; extracted: number }>;
   transports: Record<ConnectionId, BeltTransit[]>;
   logisticsTransports: Record<string, ResourceTransit[]>;
@@ -846,7 +869,10 @@ export interface FactoryState {
 }
 
 export type FactoryEvent =
-  | { type: "lot.released"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; family: string; resource: ResourceId; plannedReleaseTick: Tick; releaseDelayTicks: Tick }
+  | { type: "lot.released"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; family: string; resource: ResourceId; plannedReleaseTick: Tick; releaseDelayTicks: Tick; releaseControl: "open-loop" | "conwip"; activeWipBeforeRelease: number }
+  | { type: "lot.release-blocked"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; reason: LotReleaseBlockReason; activeWip: number; maximumWip: number | null }
+  | { type: "lot.release-control-opened"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
+  | { type: "lot.release-control-closed"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
@@ -943,6 +969,15 @@ export interface FactoryMetrics {
     meanActualIntervalTicks: number;
     meanReleaseDelayTicks: number;
     maximumReleaseDelayTicks: number;
+    control: "open-loop" | "conwip";
+    maximumWip: number | null;
+    reopenAtWip: number | null;
+    dispatch: LotReleaseDispatchPolicy | null;
+    peakActiveLots: number;
+    capacityBlockedLots: number;
+    capacityBlockedTicks: Tick;
+    controlBlockedLots: number;
+    controlBlockedTicks: Tick;
   };
   qualityFlow: {
     inspectedLots: number;

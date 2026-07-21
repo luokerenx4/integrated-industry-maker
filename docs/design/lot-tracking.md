@@ -1,6 +1,6 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, scheduled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.52.0`.
+Status: explicit WIP identity, scheduled and controlled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.53.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
@@ -14,7 +14,7 @@ A Resource opts into identity with `tracking: { kind: "lot", family }`. Differen
 
 Tracked Resources must be discrete. Every Process that touches a tracked family transforms exactly one tracked input Resource into exactly one tracked output Resource with an equal count. A production mode must preserve that equality after applying `inputCycles` and `outputCycles`. Tracked Resources cannot be auxiliary inputs, fuels, or fungible world deposits.
 
-Scenario work is declared through `lotReleases`, never by placing a tracked Resource count in `initialBuffers`. Every entry names a stable kebab-case id, Device, buffer, current Resource, required planned release tick, optional integer priority, and optional due tick. Compilation checks identity uniqueness, Resource tracking, physical buffer acceptance, horizon, and one-lot capacity. See [[docs/design/lot-release-scheduling]].
+Scenario work is declared through `lotReleases`, never by placing a tracked Resource count in `initialBuffers`. Every entry names a stable kebab-case id, Device, buffer, current Resource, required planned release tick, optional integer priority, and optional due tick. Compilation checks identity uniqueness, Resource tracking, physical buffer acceptance, horizon, and one-lot capacity. A Blueprint may then gate eligible identities through [[docs/design/wip-release-control]] without editing Scenario workload. See [[docs/design/lot-release-scheduling]].
 
 ## Runtime authority
 

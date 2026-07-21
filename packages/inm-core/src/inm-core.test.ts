@@ -704,6 +704,8 @@ describe("blueprint compiler", () => {
     expect(baseline.metrics.releaseFlow).toEqual(expect.objectContaining({
       scheduled: 12, released: 12, pending: 0, plannedSpanTicks: 66_000, actualSpanTicks: 66_000,
       meanPlannedIntervalTicks: 6_000, meanActualIntervalTicks: 6_000, meanReleaseDelayTicks: 0, maximumReleaseDelayTicks: 0,
+      control: "open-loop", maximumWip: null, reopenAtWip: null, dispatch: null, peakActiveLots: 12,
+      capacityBlockedLots: 0, capacityBlockedTicks: 0, controlBlockedLots: 0, controlBlockedTicks: 0,
     }));
     expect(baseline.metrics.qualityFlow).toEqual(expect.objectContaining({
       inspectedLots: 12, totalInspections: 14, passedInspections: 11, rejectedInspections: 2,
@@ -745,6 +747,26 @@ describe("blueprint compiler", () => {
     const blockedRelease = runUntil(compileFactoryProject(blockedReleaseSource), undefined, { seed: 42, untilTick: 1_000 });
     expect(blockedRelease.metrics.releaseFlow).toEqual(expect.objectContaining({ scheduled: 12, released: 1, pending: 11 }));
     expect(blockedRelease.metrics.releaseFlow.meanReleaseDelayTicks).toBeGreaterThan(0);
+    expect(blockedRelease.metrics.releaseFlow).toEqual(expect.objectContaining({
+      capacityBlockedLots: 11, capacityBlockedTicks: 11_000, controlBlockedLots: 0, controlBlockedTicks: 0,
+    }));
+    expect(blockedRelease.events.filter((event) => event.type === "lot.release-blocked" && event.reason === "buffer-capacity")).toHaveLength(11);
+
+    const controlledSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    controlledSource.blueprint.policies.lotRelease = {
+      kind: "conwip", maximumWip: 5, reopenAtWip: 2, dispatch: "earliest-due-date",
+    };
+    const controlled = runUntil(compileFactoryProject(controlledSource), undefined, { seed: 42 });
+    expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
+      control: "conwip", maximumWip: 5, reopenAtWip: 2, dispatch: "earliest-due-date", peakActiveLots: 5,
+      controlBlockedLots: 7, controlBlockedTicks: 539_800, capacityBlockedLots: 0,
+    }));
+    expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
+    expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(3);
+    expect(controlled.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.releaseControl === "conwip" && event.activeWipBeforeRelease < 5)).toBeTrue();
+    expect(controlled.events.filter((event) => event.type === "lot.released" && event.tick === 76_900).map((event) => event.type === "lot.released" ? event.lot : "")).toEqual([
+      "dram-lot-12", "dram-lot-11", "dram-lot-10",
+    ]);
 
     const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
@@ -790,6 +812,10 @@ describe("blueprint compiler", () => {
     const dueBeforeRelease = { ...source, scenario: structuredClone(source.scenario) };
     dueBeforeRelease.scenario.lotReleases![0]!.releaseTick = dueBeforeRelease.scenario.lotReleases![0]!.dueTick! + 1;
     expect(issueCodes(() => compileFactoryProject(dueBeforeRelease))).toContain("lot.due-before-release");
+
+    const invalidReleaseControl = { ...source, blueprint: structuredClone(source.blueprint) };
+    invalidReleaseControl.blueprint.policies.lotRelease = { kind: "conwip", maximumWip: 5, reopenAtWip: 5, dispatch: "fifo" };
+    expect(issueCodes(() => compileFactoryProject(invalidReleaseControl))).toContain("lot.release-control-threshold");
 
     const invalidSetup = { ...source, scenario: structuredClone(source.scenario) };
     invalidSetup.scenario.initialSetups = { ...invalidSetup.scenario.initialSetups, "lithography-1": "unknown-mask" };
