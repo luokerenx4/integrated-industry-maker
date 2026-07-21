@@ -202,9 +202,9 @@ export const blueprintSchema = z.object({
 export const scenarioSchema = z.object({
   id, name: z.string().min(1), durationTicks: positiveInt,
   initialBuffers: z.record(z.record(z.record(nonNegativeInt))).optional(),
-  initialLots: z.array(z.object({
+  lotReleases: z.array(z.object({
     id, device: id, buffer: id, resource: id,
-    priority: z.number().int().optional(), dueTick: nonNegativeInt.optional(),
+    releaseTick: nonNegativeInt, priority: z.number().int().optional(), dueTick: nonNegativeInt.optional(),
   }).strict()).optional(),
   initialSetups: z.record(id).optional(),
   qualityExcursions: z.array(z.object({

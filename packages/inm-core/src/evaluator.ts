@@ -42,18 +42,28 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const targetFamily = project.resources[project.objective.targetResource]?.tracking?.family ?? null;
   const targetLots = targetFamily ? Object.values(state.lots).filter((lot) => lot.family === targetFamily) : [];
-  const completedTargetLots = targetLots.filter((lot) => lot.status === "completed" && lot.resource === project.objective.targetResource && lot.completedAtTick !== undefined);
+  const releasedTargetLots = targetLots.filter((lot) => lot.releasedAtTick !== undefined);
+  const completedTargetLots = releasedTargetLots.filter((lot) => lot.status === "completed" && lot.resource === project.objective.targetResource && lot.completedAtTick !== undefined);
   const mean = (values: number[]): number => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  const intervals = (ticks: number[]): number[] => {
+    const sorted = [...ticks].sort((a, b) => a - b);
+    return sorted.slice(1).map((tick, index) => tick - sorted[index]!);
+  };
   const elapsed = (lot: (typeof targetLots)[number], status: "queued" | "processing" | "transport" | "completed" | "scrapped"): number => lot.status === status ? state.tick - lot.statusSinceTick : 0;
-  const cycleTimes = completedTargetLots.map((lot) => lot.completedAtTick! - lot.releasedAtTick).sort((a, b) => a - b);
+  const cycleTimes = completedTargetLots.map((lot) => lot.completedAtTick! - lot.releasedAtTick!).sort((a, b) => a - b);
   const tardiness = completedTargetLots.map((lot) => Math.max(0, lot.completedAtTick! - (lot.dueTick ?? lot.completedAtTick!))).sort((a, b) => a - b);
+  const plannedReleaseTicks = targetLots.map((lot) => lot.plannedReleaseTick).sort((a, b) => a - b);
+  const actualReleaseTicks = releasedTargetLots.map((lot) => lot.releasedAtTick!).sort((a, b) => a - b);
+  const releaseDelays = targetLots.map((lot) => Math.max(0, (lot.releasedAtTick ?? state.tick) - lot.plannedReleaseTick));
   const lotFlow: FactoryMetrics["lotFlow"] = {
     family: targetFamily,
-    released: targetLots.length,
+    scheduled: targetLots.length,
+    released: releasedTargetLots.length,
+    pendingRelease: targetLots.length - releasedTargetLots.length,
     completed: completedTargetLots.length,
-    scrapped: targetLots.filter((lot) => lot.status === "scrapped").length,
+    scrapped: releasedTargetLots.filter((lot) => lot.status === "scrapped").length,
     onTimeCompleted: completedTargetLots.filter((lot) => lot.dueTick === undefined || lot.completedAtTick! <= lot.dueTick).length,
-    inProgress: targetLots.filter((lot) => lot.status !== "completed" && lot.status !== "scrapped").length,
+    inProgress: releasedTargetLots.filter((lot) => lot.status !== "completed" && lot.status !== "scrapped").length,
     meanCycleTimeTicks: mean(cycleTimes),
     p95CycleTimeTicks: cycleTimes.length ? cycleTimes[Math.max(0, Math.ceil(cycleTimes.length * .95) - 1)]! : 0,
     maximumCycleTimeTicks: cycleTimes.at(-1) ?? 0,
@@ -63,23 +73,34 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     meanTardinessTicks: mean(tardiness),
     maximumTardinessTicks: tardiness.at(-1) ?? 0,
   };
+  const releaseFlow: FactoryMetrics["releaseFlow"] = {
+    scheduled: targetLots.length,
+    released: releasedTargetLots.length,
+    pending: targetLots.length - releasedTargetLots.length,
+    plannedSpanTicks: plannedReleaseTicks.length ? plannedReleaseTicks.at(-1)! - plannedReleaseTicks[0]! : 0,
+    actualSpanTicks: actualReleaseTicks.length ? actualReleaseTicks.at(-1)! - actualReleaseTicks[0]! : 0,
+    meanPlannedIntervalTicks: mean(intervals(plannedReleaseTicks)),
+    meanActualIntervalTicks: mean(intervals(actualReleaseTicks)),
+    meanReleaseDelayTicks: mean(releaseDelays),
+    maximumReleaseDelayTicks: releaseDelays.length ? Math.max(...releaseDelays) : 0,
+  };
   const defectFreeCompleted = completedTargetLots.filter((lot) => lot.quality.defects.length === 0).length;
   const firstPassCompleted = completedTargetLots.filter((lot) => lot.quality.reworkCycles === 0 && lot.quality.defects.length === 0).length;
   const qualityFlow: FactoryMetrics["qualityFlow"] = {
-    inspectedLots: targetLots.filter((lot) => lot.quality.inspections > 0).length,
-    totalInspections: targetLots.reduce((sum, lot) => sum + lot.quality.inspections, 0),
-    passedInspections: targetLots.reduce((sum, lot) => sum + lot.quality.passes, 0),
-    rejectedInspections: targetLots.reduce((sum, lot) => sum + lot.quality.rejections, 0),
-    scrapDispositions: targetLots.reduce((sum, lot) => sum + lot.quality.scrapDispositions, 0),
-    reworkedLots: targetLots.filter((lot) => lot.quality.reworkCycles > 0).length,
-    totalReworkCycles: targetLots.reduce((sum, lot) => sum + lot.quality.reworkCycles, 0),
+    inspectedLots: releasedTargetLots.filter((lot) => lot.quality.inspections > 0).length,
+    totalInspections: releasedTargetLots.reduce((sum, lot) => sum + lot.quality.inspections, 0),
+    passedInspections: releasedTargetLots.reduce((sum, lot) => sum + lot.quality.passes, 0),
+    rejectedInspections: releasedTargetLots.reduce((sum, lot) => sum + lot.quality.rejections, 0),
+    scrapDispositions: releasedTargetLots.reduce((sum, lot) => sum + lot.quality.scrapDispositions, 0),
+    reworkedLots: releasedTargetLots.filter((lot) => lot.quality.reworkCycles > 0).length,
+    totalReworkCycles: releasedTargetLots.reduce((sum, lot) => sum + lot.quality.reworkCycles, 0),
     defectFreeCompleted,
     firstPassCompleted,
     escapedDefects: completedTargetLots.filter((lot) => lot.quality.defects.length > 0).length,
-    activeDefects: targetLots.filter((lot) => lot.status !== "completed" && lot.status !== "scrapped")
+    activeDefects: releasedTargetLots.filter((lot) => lot.status !== "completed" && lot.status !== "scrapped")
       .reduce((sum, lot) => sum + lot.quality.defects.length, 0),
-    goodYield: targetLots.length ? defectFreeCompleted / targetLots.length : 0,
-    firstPassYield: targetLots.length ? firstPassCompleted / targetLots.length : 0,
+    goodYield: releasedTargetLots.length ? defectFreeCompleted / releasedTargetLots.length : 0,
+    firstPassYield: releasedTargetLots.length ? firstPassCompleted / releasedTargetLots.length : 0,
   };
   const batchOperations = Object.fromEntries(Object.entries(stats.lotProcessBatches)
     .filter(([, operation]) => operation.expectedLotsPerJob > 1)
@@ -239,7 +260,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, releaseFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

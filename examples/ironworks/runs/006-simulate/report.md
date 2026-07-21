@@ -3,10 +3,11 @@
 - Decision: **BASELINE**
 - Blueprint: `scaled-factory`
 - Score: **122.079**
-- Result hash: `08d89db23715003cb7cfd5c2802595a1fd073d4613ee4cffb2b41b02158bb184`
+- Result hash: `8a4cef6cc02da378600924e87c7cc1b2283636a7f6c09a621d00a6eb98963ddb`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
-- Tracked lots: 0 / 0 completed · 0 scrapped
+- Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
+- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Lot service: 83.3% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot

@@ -156,7 +156,9 @@
     "meanTransportTimeTicks": 0,
     "onTimeCompleted": 0,
     "p95CycleTimeTicks": 0,
+    "pendingRelease": 0,
     "released": 0,
+    "scheduled": 0,
     "scrapped": 0
   },
   "machineUtilization": {
@@ -247,6 +249,17 @@
     "scrapDispositions": 0,
     "totalInspections": 0,
     "totalReworkCycles": 0
+  },
+  "releaseFlow": {
+    "actualSpanTicks": 0,
+    "maximumReleaseDelayTicks": 0,
+    "meanActualIntervalTicks": 0,
+    "meanPlannedIntervalTicks": 0,
+    "meanReleaseDelayTicks": 0,
+    "pending": 0,
+    "plannedSpanTicks": 0,
+    "released": 0,
+    "scheduled": 0
   },
   "resourceNodes": {
     "coal-seam-assembly": {

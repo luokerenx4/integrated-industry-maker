@@ -21,6 +21,12 @@ export interface BlueprintMetricSnapshot {
   throughputPerMinute: number;
   objectiveAttainment: number;
   completedLots: number;
+  scheduledLots: number;
+  releasedLots: number;
+  pendingReleaseLots: number;
+  meanActualReleaseIntervalTicks: number;
+  meanReleaseDelayTicks: number;
+  maximumReleaseDelayTicks: number;
   scrappedLots: number;
   onTimeLots: number;
   goodYield: number;
@@ -60,6 +66,12 @@ export interface BlueprintMetricDelta {
   throughputPerMinute: number;
   objectiveAttainment: number;
   completedLots: number;
+  scheduledLots: number;
+  releasedLots: number;
+  pendingReleaseLots: number;
+  meanActualReleaseIntervalTicks: number;
+  meanReleaseDelayTicks: number;
+  maximumReleaseDelayTicks: number;
   scrappedLots: number;
   onTimeLots: number;
   goodYield: number;
@@ -221,6 +233,12 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     throughputPerMinute: metrics.throughputPerMinute,
     objectiveAttainment: metrics.onTimeDelivery,
     completedLots: metrics.lotFlow.completed,
+    scheduledLots: metrics.releaseFlow.scheduled,
+    releasedLots: metrics.releaseFlow.released,
+    pendingReleaseLots: metrics.releaseFlow.pending,
+    meanActualReleaseIntervalTicks: metrics.releaseFlow.meanActualIntervalTicks,
+    meanReleaseDelayTicks: metrics.releaseFlow.meanReleaseDelayTicks,
+    maximumReleaseDelayTicks: metrics.releaseFlow.maximumReleaseDelayTicks,
     scrappedLots: metrics.lotFlow.scrapped,
     onTimeLots: metrics.lotFlow.onTimeCompleted,
     goodYield: metrics.qualityFlow.goodYield,
@@ -262,6 +280,12 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     throughputPerMinute: after.throughputPerMinute - before.throughputPerMinute,
     objectiveAttainment: after.objectiveAttainment - before.objectiveAttainment,
     completedLots: after.completedLots - before.completedLots,
+    scheduledLots: after.scheduledLots - before.scheduledLots,
+    releasedLots: after.releasedLots - before.releasedLots,
+    pendingReleaseLots: after.pendingReleaseLots - before.pendingReleaseLots,
+    meanActualReleaseIntervalTicks: after.meanActualReleaseIntervalTicks - before.meanActualReleaseIntervalTicks,
+    meanReleaseDelayTicks: after.meanReleaseDelayTicks - before.meanReleaseDelayTicks,
+    maximumReleaseDelayTicks: after.maximumReleaseDelayTicks - before.maximumReleaseDelayTicks,
     scrappedLots: after.scrappedLots - before.scrappedLots,
     onTimeLots: after.onTimeLots - before.onTimeLots,
     goodYield: after.goodYield - before.goodYield,

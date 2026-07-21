@@ -431,12 +431,13 @@ export interface Scenario {
   name: string;
   durationTicks: Tick;
   initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
-  /** Explicit identity-preserving WIP released at tick zero. Tracked Resources may not appear in initialBuffers. */
-  initialLots?: Array<{
+  /** Scenario-owned identity-preserving lot availability schedule. Tracked Resources may not appear in initialBuffers. */
+  lotReleases?: Array<{
     id: string;
     device: DeviceInstanceId;
     buffer: BufferId;
     resource: ResourceId;
+    releaseTick: Tick;
     priority?: number;
     dueTick?: Tick;
   }>;
@@ -719,14 +720,15 @@ export interface ActiveDeviceJob {
     | { kind: "inspection"; lotIds: string[]; detectedDefects: string[]; result: "pass" | "reject" | "scrap" }
     | { kind: "rework"; lotIds: string[]; repairs: string[] };
 }
-export type WorkLotStatus = "queued" | "processing" | "transport" | "completed" | "scrapped";
+export type WorkLotStatus = "scheduled" | "queued" | "processing" | "transport" | "completed" | "scrapped";
 export interface WorkLot {
   id: string;
   family: string;
   resource: ResourceId;
   treatmentLevel: number;
   priority: number;
-  releasedAtTick: Tick;
+  plannedReleaseTick: Tick;
+  releasedAtTick?: Tick;
   dueTick?: Tick;
   routeStep: number;
   quality: {
@@ -744,6 +746,7 @@ export interface WorkLot {
   processTicks: Tick;
   transportTicks: Tick;
   location:
+    | { kind: "release"; device: DeviceInstanceId; buffer: BufferId }
     | { kind: "buffer"; device: DeviceInstanceId; buffer: BufferId }
     | { kind: "device"; device: DeviceInstanceId }
     | { kind: "transit"; transit: string }
@@ -843,6 +846,7 @@ export interface FactoryState {
 }
 
 export type FactoryEvent =
+  | { type: "lot.released"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; family: string; resource: ResourceId; plannedReleaseTick: Tick; releaseDelayTicks: Tick }
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
@@ -913,7 +917,9 @@ export interface FactoryMetrics {
   onTimeDelivery: number;
   lotFlow: {
     family: string | null;
+    scheduled: number;
     released: number;
+    pendingRelease: number;
     completed: number;
     scrapped: number;
     onTimeCompleted: number;
@@ -926,6 +932,17 @@ export interface FactoryMetrics {
     meanTransportTimeTicks: number;
     meanTardinessTicks: number;
     maximumTardinessTicks: number;
+  };
+  releaseFlow: {
+    scheduled: number;
+    released: number;
+    pending: number;
+    plannedSpanTicks: number;
+    actualSpanTicks: number;
+    meanPlannedIntervalTicks: number;
+    meanActualIntervalTicks: number;
+    meanReleaseDelayTicks: number;
+    maximumReleaseDelayTicks: number;
   };
   qualityFlow: {
     inspectedLots: number;

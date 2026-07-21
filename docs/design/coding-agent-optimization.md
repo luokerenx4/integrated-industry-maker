@@ -2,7 +2,7 @@
 
 Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Product model
 

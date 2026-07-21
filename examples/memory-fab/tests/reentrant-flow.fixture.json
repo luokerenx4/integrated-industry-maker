@@ -33,6 +33,21 @@
     },
     {
       "kind": "metric",
+      "path": "releaseFlow.pending",
+      "equals": 0
+    },
+    {
+      "kind": "metric",
+      "path": "releaseFlow.meanPlannedIntervalTicks",
+      "equals": 6000
+    },
+    {
+      "kind": "metric",
+      "path": "releaseFlow.meanReleaseDelayTicks",
+      "equals": 0
+    },
+    {
+      "kind": "metric",
       "path": "lotFlow.completed",
       "min": 4
     },
@@ -79,6 +94,11 @@
     {
       "kind": "event",
       "type": "device.start",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.released",
       "present": true
     },
     {

@@ -266,6 +266,9 @@ export async function compareCommand(
     `  throughput/min     ${fromMetrics.throughputPerMinute.toFixed(3).padStart(12)} → ${toMetrics.throughputPerMinute.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.throughputPerMinute)}`,
     `  target attainment  ${(fromMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}% → ${(toMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}%  Δ ${signed(comparison.delta.objectiveAttainment * 100, 1)}pp`,
     ...(fromMetrics.completedLots || toMetrics.completedLots ? [
+      `  released lots      ${`${fromMetrics.releasedLots}/${fromMetrics.scheduledLots}`.padStart(12)} → ${`${toMetrics.releasedLots}/${toMetrics.scheduledLots}`.padStart(12)}  Δ ${signed(comparison.delta.releasedLots, 0)}`,
+      `  release interval   ${(fromMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3).padStart(12)} → ${(toMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanActualReleaseIntervalTicks / 1000)} s`,
+      `  release delay      ${(fromMetrics.meanReleaseDelayTicks / 1000).toFixed(3).padStart(12)} → ${(toMetrics.meanReleaseDelayTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanReleaseDelayTicks / 1000)} s`,
       `  completed lots     ${fromMetrics.completedLots.toFixed(0).padStart(12)} → ${toMetrics.completedLots.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.completedLots, 0)}`,
       `  scrapped lots      ${fromMetrics.scrappedLots.toFixed(0).padStart(12)} → ${toMetrics.scrappedLots.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.scrappedLots, 0)}`,
       `  on-time lots       ${fromMetrics.onTimeLots.toFixed(0).padStart(12)} → ${toMetrics.onTimeLots.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.onTimeLots, 0)}`,
@@ -301,7 +304,7 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
   const verificationScenario = {
     ...loaded.scenario,
     initialBuffers: {},
-    initialLots: [],
+    lotReleases: [],
     initialSetups: {},
     initialEnergyMilliJoules: {},
     failures: [],
@@ -355,7 +358,8 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
     `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
     ...(result.metrics.lotFlow.family ? [
-      `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released} completed · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
+      `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released}/${result.metrics.lotFlow.scheduled} completed/released/scheduled · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
+      `Release flow: ${(result.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(3)} s planned interval · ${(result.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(3)} s actual · ${(result.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(3)} s mean delay · ${result.metrics.releaseFlow.pending} pending`,
       `Lot time: ${(result.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(3)} s queue · ${(result.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(3)} s processing · ${(result.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(3)} s transport · ${(result.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(3)} s tardiness`,
       `Quality: ${(result.metrics.qualityFlow.goodYield * 100).toFixed(1)}% good yield · ${(result.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}% first-pass · ${result.metrics.qualityFlow.totalInspections} inspections · ${result.metrics.qualityFlow.totalReworkCycles} rework · ${result.metrics.qualityFlow.scrapDispositions} scrap dispositions · ${result.metrics.qualityFlow.escapedDefects} escapes`,
       ...(result.metrics.batchFlow.batchOperations ? [`Batch processing: ${result.metrics.batchFlow.jobs} jobs · ${result.metrics.batchFlow.lots} lots · ${result.metrics.batchFlow.averageLotsPerJob.toFixed(2)} lots/job · ${(result.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(3)} s mean device wait/lot`] : []),
@@ -440,6 +444,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
       ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
         `    lots ${item.baselineMetrics.completedLots}/${item.baselineMetrics.onTimeLots} complete/on-time → ${item.candidateMetrics.completedLots}/${item.candidateMetrics.onTimeLots} · mean cycle ${(item.baselineMetrics.meanCycleTimeTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanCycleTimeTicks / 1000).toFixed(3)} s · tardiness ${(item.baselineMetrics.meanTardinessTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanTardinessTicks / 1000).toFixed(3)} s`,
+        `    release ${item.baselineMetrics.releasedLots}/${item.baselineMetrics.scheduledLots} released · ${(item.baselineMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s interval / ${(item.baselineMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s delay → ${item.candidateMetrics.releasedLots}/${item.candidateMetrics.scheduledLots} · ${(item.candidateMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s / ${(item.candidateMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s`,
         `    quality ${(item.baselineMetrics.goodYield * 100).toFixed(1)}% good / ${(item.baselineMetrics.firstPassYield * 100).toFixed(1)}% FP / ${item.baselineMetrics.qualityEscapes} escapes / ${item.baselineMetrics.reworkCycles} rework → ${(item.candidateMetrics.goodYield * 100).toFixed(1)}% / ${(item.candidateMetrics.firstPassYield * 100).toFixed(1)}% / ${item.candidateMetrics.qualityEscapes} / ${item.candidateMetrics.reworkCycles}`,
         ...(item.baselineMetrics.batchJobs || item.candidateMetrics.batchJobs ? [`    batch ${item.baselineMetrics.batchJobs} jobs / ${item.baselineMetrics.averageLotsPerBatch.toFixed(2)} lots/job / ${(item.baselineMetrics.meanBatchQueueWaitTicksPerLot / 1000).toFixed(3)} s wait → ${item.candidateMetrics.batchJobs} / ${item.candidateMetrics.averageLotsPerBatch.toFixed(2)} / ${(item.candidateMetrics.meanBatchQueueWaitTicksPerLot / 1000).toFixed(3)} s`] : []),
         `    setup ${item.baselineMetrics.totalChangeovers} changeovers / ${(item.baselineMetrics.totalSetupTicks / 1000).toFixed(3)} s → ${item.candidateMetrics.totalChangeovers} / ${(item.candidateMetrics.totalSetupTicks / 1000).toFixed(3)} s`,

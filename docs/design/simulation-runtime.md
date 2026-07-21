@@ -2,7 +2,7 @@
 
 Status: deterministic discrete-event runtime and immutable replay artifacts implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-dispatch]], [[docs/design/lot-tracking]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
 
 ## Scope
 

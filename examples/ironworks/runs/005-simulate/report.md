@@ -3,10 +3,11 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.090**
-- Result hash: `7f822c387f2b9d100de782515515022acf409f8c15bb849b97c4ff38d29cfed1`
+- Result hash: `20011cd4d9425c8ee95f01b1867b900040af03f4ad245e48d48b1947d8ebc948`
 - Bottleneck: none
 - Throughput/min: 240.000
-- Tracked lots: 0 / 0 completed · 0 scrapped
+- Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
+- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Lot service: 100.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot

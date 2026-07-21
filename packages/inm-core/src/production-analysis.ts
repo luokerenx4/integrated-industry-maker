@@ -225,7 +225,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "lot-release-schedule" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -658,6 +658,15 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
       message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}; per-operation rates are exclusive maxima`,
+    });
+  }
+  const releaseTicks = (project.scenario.lotReleases ?? []).map((lot) => lot.releaseTick).sort((a, b) => a - b);
+  if (releaseTicks.length) {
+    const releaseIntervals = releaseTicks.slice(1).map((tick, index) => tick - releaseTicks[index]!);
+    const meanReleaseInterval = releaseIntervals.length ? releaseIntervals.reduce((sum, ticks) => sum + ticks, 0) / releaseIntervals.length : 0;
+    diagnostics.push({
+      code: "lot-release-schedule", severity: "info",
+      message: `${releaseTicks.length} identity-preserving lots are scheduled across ${releaseTicks.at(-1)! - releaseTicks[0]!} ms with ${meanReleaseInterval.toFixed(1)} ms mean planned interval; admission remains buffer-capacity gated`,
     });
   }
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) for (const plan of device.processPlans) {

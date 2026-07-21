@@ -2,7 +2,7 @@
 
 Status: fixed-size tracked-lot batches, full-batch start gating, per-job identity conservation, batch wait metrics, CLI/run/Studio observability, and Blueprint-selectable batch alternatives implemented through engine version `inm-sim/0.51.0`.
 
-Related: [[docs/design/lot-tracking]], [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/lot-tracking]], [[docs/design/lot-release-scheduling]], [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why a batch is industrial state
 
@@ -58,7 +58,7 @@ The immutable baseline selects fixed batch anneal. The candidate Blueprint selec
 
 ## Current boundary
 
-The implemented contract is deliberately fixed and full-batch only. There is no authored minimum/maximum range, timeout release, partial batch, incompatible-product grouping rule, carrier identity, chamber slot model, overlapping load/process/unload phase, or dynamic lot release yet. Those should be added as explicit industrial state when a benchmark requires them, not inferred inside Device scripts.
+The implemented contract is deliberately fixed and full-batch only. Scenario-owned dynamic lot release is explicit in [[docs/design/lot-release-scheduling]], but there is no authored minimum/maximum batch range, batch timeout, partial batch, incompatible-product grouping rule, carrier identity, chamber slot model, or overlapping load/process/unload phase yet. Those should be added as explicit industrial state when a benchmark requires them, not inferred inside Device scripts.
 
 ## Verification
 

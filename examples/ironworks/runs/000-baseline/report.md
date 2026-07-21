@@ -3,10 +3,11 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **5.138**
-- Result hash: `e310c4e2a9055d8211a42044a889ddb7fac6afb66a10bf870d62da7e0f073eb4`
+- Result hash: `67e959e0fc2a4c9d4085e5091ad57b97649098ce8a32c8495c67e7e692a64daa`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
-- Tracked lots: 0 / 0 completed · 0 scrapped
+- Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
+- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Lot service: 37.5% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot

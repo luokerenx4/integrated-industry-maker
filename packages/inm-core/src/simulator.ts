@@ -10,6 +10,7 @@ import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
 
 type InternalEvent =
+  | { kind: "lot-release"; lotIds: string[] }
   | { kind: "complete"; device: string; generation: number }
   | { kind: "belt-step"; connection: string; transitId: string }
   | { kind: "arrive"; connection: string; transitId: string }
@@ -95,35 +96,27 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     batches[String(treatment.level)] = (batches[String(treatment.level)] ?? 0) + treatment.count;
   }
   const lots: FactoryState["lots"] = {};
-  for (const definition of project.scenario.initialLots ?? []) {
+  for (const definition of project.scenario.lotReleases ?? []) {
     const resource = project.resources[definition.resource]!;
-    const runtime = devices[definition.device]!;
-    const inventory = runtime.buffers[definition.buffer]!;
-    const batches = runtime.materialBatches[definition.buffer] ??= {};
-    const levels = batches[definition.resource] ??= {};
-    const ids = runtime.lotIds[definition.buffer] ??= {};
-    (ids[definition.resource] ??= []).push(definition.id);
-    inventory[definition.resource] = (inventory[definition.resource] ?? 0) + 1;
-    levels["0"] = (levels["0"] ?? 0) + 1;
     lots[definition.id] = {
       id: definition.id,
       family: resource.tracking!.family,
       resource: definition.resource,
       treatmentLevel: 0,
       priority: definition.priority ?? 0,
-      releasedAtTick: 0,
+      plannedReleaseTick: definition.releaseTick,
       ...(definition.dueTick === undefined ? {} : { dueTick: definition.dueTick }),
       routeStep: 0,
       quality: {
         defects: [], appliedExcursions: [], inspections: 0, passes: 0,
         rejections: 0, scrapDispositions: 0, reworkCycles: 0,
       },
-      status: "queued",
+      status: "scheduled",
       statusSinceTick: 0,
       queueTicks: 0,
       processTicks: 0,
       transportTicks: 0,
-      location: { kind: "buffer", device: definition.device, buffer: definition.buffer },
+      location: { kind: "release", device: definition.device, buffer: definition.buffer },
     };
   }
   const transports = Object.fromEntries(Object.keys(project.connections).sort().map((id) => [id, [] as BeltTransit[]]));
@@ -202,6 +195,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const nextDispatchTick: Record<string, number> = Object.fromEntries(Object.keys(project.connections).map((id) => [id, state.tick]));
   const scheduledDispatchTick: Record<string, number | undefined> = {};
   const scheduledPowerBoundaryTick: Record<string, number | undefined> = {};
+  const eligibleLotReleases = new Set<string>();
   const powerBoundaryGenerations: Record<string, number> = Object.fromEntries(Object.keys(project.powerGrids).map((id) => [id, 0]));
   const schedule = (tick: number, priority: number, value: InternalEvent) => queue.push({ tick, priority, sequence: sequence++, value });
   const scheduleLogisticsReady = (connection: string, tick: number) => {
@@ -531,10 +525,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (policy === "fifo") return ids;
     return ids.sort((leftId, rightId) => {
       const left = state.lots[leftId]!; const right = state.lots[rightId]!;
-      if (policy === "oldest-release") return left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id);
+      if (policy === "oldest-release") return left.releasedAtTick! - right.releasedAtTick! || left.id.localeCompare(right.id);
       if (policy === "earliest-due-date") return (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER)
-        || left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id);
-      return right.priority - left.priority || left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id);
+        || left.releasedAtTick! - right.releasedAtTick! || left.id.localeCompare(right.id);
+      return right.priority - left.priority || left.releasedAtTick! - right.releasedAtTick! || left.id.localeCompare(right.id);
     });
   };
   const takeLotIds = (device: CompiledDevice, buffer: string, resource: string, count: number, treatmentLevel?: number): string[] => {
@@ -922,7 +916,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           mutateFactoryState(state, { kind: "lot.complete", lotIds, device: device.id, buffer: amount.buffer });
           for (const id of lotIds) {
             const lot = state.lots[id]!;
-            const cycleTicks = state.tick - lot.releasedAtTick;
+            const cycleTicks = state.tick - lot.releasedAtTick!;
             const tardinessTicks = Math.max(0, state.tick - (lot.dueTick ?? state.tick));
             emit({ type: "lot.completed", tick: state.tick, device: device.id, lot: id, family: lot.family, resource: amount.resource, cycleTicks, tardinessTicks });
           }
@@ -1175,7 +1169,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           .flatMap((amount) => rankedLotIds(device, amount.buffer, amount.resource)
             .filter((id) => state.lots[id]!.treatmentLevel >= (amount.minimumTreatmentLevel ?? 0))).map((id) => state.lots[id]!);
         lots.sort((left, right) => policy === "oldest-lot"
-          ? left.releasedAtTick - right.releasedAtTick || left.id.localeCompare(right.id)
+          ? left.releasedAtTick! - right.releasedAtTick! || left.id.localeCompare(right.id)
           : policy === "earliest-due-date"
             ? (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id)
             : right.priority - left.priority || left.id.localeCompare(right.id));
@@ -1184,7 +1178,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ranked.sort((left, right) => {
         const leftLot = candidateLot(left.plan); const rightLot = candidateLot(right.plan);
         if (!leftLot || !rightLot) return Number(Boolean(rightLot)) - Number(Boolean(leftLot)) || left.index - right.index;
-        if (policy === "oldest-lot") return leftLot.releasedAtTick - rightLot.releasedAtTick || left.index - right.index;
+        if (policy === "oldest-lot") return leftLot.releasedAtTick! - rightLot.releasedAtTick! || left.index - right.index;
         if (policy === "earliest-due-date") return (leftLot.dueTick ?? Number.MAX_SAFE_INTEGER) - (rightLot.dueTick ?? Number.MAX_SAFE_INTEGER) || left.index - right.index;
         return rightLot.priority - leftLot.priority || left.index - right.index;
       });
@@ -1508,6 +1502,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     let changed = true; let guard = 0;
     while (changed && guard++ < 100_000) {
       syncPowerAvailability();
+      let lotsReleased = false;
+      for (const id of [...eligibleLotReleases].sort()) {
+        const lot = state.lots[id];
+        if (!lot || lot.status !== "scheduled" || lot.location.kind !== "release") { eligibleLotReleases.delete(id); continue; }
+        const device = project.devices[lot.location.device]!;
+        const buffer = device.buffers[lot.location.buffer]!;
+        const inventory = state.devices[device.id]!.buffers[buffer.id]!;
+        const resourceCapacity = buffer.resourceCapacities?.[lot.resource];
+        if (quantity(inventory) + incomingQuantity(device.id, buffer.id) >= buffer.capacity) continue;
+        if (resourceCapacity !== undefined && (inventory[lot.resource] ?? 0) + incomingQuantity(device.id, buffer.id, lot.resource) >= resourceCapacity) continue;
+        mutateFactoryState(state, { kind: "lot.release", lotId: id, device: device.id, buffer: buffer.id });
+        eligibleLotReleases.delete(id);
+        emit({
+          type: "lot.released", tick: state.tick, device: device.id, buffer: buffer.id, lot: id,
+          family: lot.family, resource: lot.resource, plannedReleaseTick: lot.plannedReleaseTick,
+          releaseDelayTicks: state.tick - lot.plannedReleaseTick,
+        });
+        lotsReleased = true;
+      }
       const evaluationOrder = Object.values(project.devices).sort((a, b) => Number(Boolean(b.generationPlan)) - Number(Boolean(a.generationPlan)) || comparePowerRank(a, b));
       let generationChanged = false;
       for (const device of evaluationOrder.filter((item) => item.generationPlan)) if (tryEvaluate(device)) generationChanged = true;
@@ -1516,7 +1529,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const jobPowerChanged = proportionalPower ? rebalanceProportionalPower() : rebalanceActivePower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
-      changed = generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
+      changed = lotsReleased || generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
       for (const device of evaluationOrder.filter((item) => !item.generationPlan)) if (tryEvaluate(device)) changed = true;
     }
     syncPowerAvailability();
@@ -1528,6 +1541,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(failure.atTick, 0, { kind: "breakdown", device: failure.device });
     schedule(failure.atTick + failure.durationTicks, 1, { kind: "recover", device: failure.device });
   }
+  const releaseGroups = new Map<number, string[]>();
+  for (const lot of project.scenario.lotReleases ?? []) {
+    const group = releaseGroups.get(lot.releaseTick) ?? [];
+    group.push(lot.id);
+    releaseGroups.set(lot.releaseTick, group);
+  }
+  for (const [releaseTick, lotIds] of [...releaseGroups].sort(([left], [right]) => left - right)) schedule(releaseTick, 2, { kind: "lot-release", lotIds: lotIds.sort() });
   for (const deviceId of Object.values(project.devices).filter((device) => device.generationPlan?.kind === "renewable" && renewableProfileFor(project, device.id)).map((device) => device.id).sort()) {
     const device = project.devices[deviceId]!; const output = generatorOutputAt(project, deviceId, state.tick);
     emit({
@@ -1543,7 +1563,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (item.tick > untilTick) break;
     queue.pop(); measureUntil(item.tick);
     const event = item.value;
-    if (event.kind === "complete") {
+    if (event.kind === "lot-release") {
+      for (const id of event.lotIds) if (state.lots[id]?.status === "scheduled") eligibleLotReleases.add(id);
+    } else if (event.kind === "complete") {
       if (event.generation !== generations[event.device] || state.devices[event.device]!.status !== "processing") continue;
       const runtime = state.devices[event.device]!; const job = runtime.activeJob!;
       if (job.changeover) {
@@ -1780,7 +1802,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
       mutateFactoryState(state, { kind: "idle-power", device: event.device, powered: false });
       setStatus(event.device, "failed"); emit({ type: "device.breakdown", tick: state.tick, device: event.device });
-    } else {
+    } else if (event.kind === "recover") {
       setStatus(event.device, "idle"); emit({ type: "device.recover", tick: state.tick, device: event.device });
       for (const [key, work] of Object.entries(pausedTransportWork).sort(([left], [right]) => left.localeCompare(right))) {
         if (work.device !== event.device || work.reason !== "failure") continue;
@@ -1798,6 +1820,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         delete pausedTransportWork[key];
         syncTransportEndpointStatus(project.connections[work.connection]!, work.stage);
       }
+    } else {
+      event satisfies never;
     }
     settle();
   }

@@ -5,6 +5,7 @@ export type FactoryStateMutation =
   | { kind: "status"; device: string; status: DeviceStatus }
   | { kind: "idle-power"; device: string; powered: boolean }
   | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number }
+  | { kind: "lot.release"; lotId: string; device: string; buffer: string }
   | { kind: "lot.depart"; lotIds: string[]; device: string; buffer: string; nextStatus: "processing" | "transport"; nextLocation: { kind: "device"; device: string } | { kind: "transit"; transit: string } }
   | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
   | { kind: "lot.complete"; lotIds: string[]; device: string; buffer: string }
@@ -96,6 +97,20 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "idle-power": state.devices[mutation.device]!.idlePowered = mutation.powered; return;
     case "buffer": {
       mutateBufferQuantity(state, mutation.device, mutation.buffer, mutation.resource, mutation.delta, mutation.treatmentLevel);
+      return;
+    }
+    case "lot.release": {
+      const lot = state.lots[mutation.lotId];
+      if (!lot) throw new Error(`Unknown lot '${mutation.lotId}'`);
+      if (lot.status !== "scheduled" || lot.location.kind !== "release") throw new Error(`Lot '${lot.id}' is not awaiting release`);
+      if (lot.location.device !== mutation.device || lot.location.buffer !== mutation.buffer) throw new Error(`Lot '${lot.id}' has a different release location`);
+      const runtime = state.devices[mutation.device]!;
+      if (!runtime.buffers[mutation.buffer]) throw new Error(`Unknown buffer for ${mutation.device}/${mutation.buffer}`);
+      lot.releasedAtTick = state.tick;
+      setLotStatus(lot, state.tick, "queued", { kind: "buffer", device: mutation.device, buffer: mutation.buffer });
+      const ids = runtime.lotIds[mutation.buffer] ??= {};
+      (ids[lot.resource] ??= []).push(lot.id);
+      mutateBufferQuantity(state, mutation.device, mutation.buffer, lot.resource, 1, lot.treatmentLevel);
       return;
     }
     case "lot.depart": {

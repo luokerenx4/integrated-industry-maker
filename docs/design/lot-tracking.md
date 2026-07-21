@@ -1,8 +1,8 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.51.0`.
+Status: explicit WIP identity, scheduled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.52.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
 ## Why identity is industrial state
 
@@ -14,11 +14,11 @@ A Resource opts into identity with `tracking: { kind: "lot", family }`. Differen
 
 Tracked Resources must be discrete. Every Process that touches a tracked family transforms exactly one tracked input Resource into exactly one tracked output Resource with an equal count. A production mode must preserve that equality after applying `inputCycles` and `outputCycles`. Tracked Resources cannot be auxiliary inputs, fuels, or fungible world deposits.
 
-Scenario startup WIP is declared through `initialLots`, never by placing a tracked Resource count in `initialBuffers`. Every entry names a stable kebab-case id, Device, buffer, current Resource, optional integer priority, and optional due tick. Compilation checks identity uniqueness, Resource tracking, physical buffer acceptance, total capacity, and Resource quota.
+Scenario work is declared through `lotReleases`, never by placing a tracked Resource count in `initialBuffers`. Every entry names a stable kebab-case id, Device, buffer, current Resource, required planned release tick, optional integer priority, and optional due tick. Compilation checks identity uniqueness, Resource tracking, physical buffer acceptance, horizon, and one-lot capacity. See [[docs/design/lot-release-scheduling]].
 
 ## Runtime authority
 
-`FactoryState.lots` is the identity authority. Each lot records family, current Resource and treatment level, release/due ticks, priority, route step, status, physical location, and accumulated queue, process, and transport ticks. Device buffers retain FIFO identity arrays in addition to aggregate counts. Every lot mutation updates the identity store and the existing buffer/material totals together.
+`FactoryState.lots` is the identity authority. Each lot records family, current Resource and treatment level, planned/actual release and due ticks, priority, route step, status, physical location, and accumulated queue, process, and transport ticks. Before admission it is explicitly `scheduled` and occupies no factory buffer. Device buffers retain FIFO identity arrays in addition to aggregate counts. Every admitted-lot mutation updates the identity store and the existing buffer/material totals together.
 
 The valid lifecycle is:
 
@@ -50,13 +50,13 @@ Shared work-center `recipeDispatch` also accepts `oldest-lot`, `earliest-due-dat
 
 ## Evaluation
 
-For the Objective target Resource's tracked family, runtime metrics report released/completed/scrapped/in-progress lots, on-time count, mean/p95/maximum cycle time, mean queue/process/transport time, and mean/maximum tardiness. `onTimeDelivery` becomes on-time completed lots divided by released lots, so scrapped lots remain in the denominator. Untracked Objectives retain rate-attainment semantics.
+For the Objective target Resource's tracked family, runtime metrics report scheduled/released/pending/completed/scrapped/in-progress lots, release cadence and admission delay, on-time count, mean/p95/maximum cycle time, mean queue/process/transport time, and mean/maximum tardiness. `onTimeDelivery` becomes on-time completed lots divided by scheduled lots, so delayed admission, in-progress, and scrapped work remain in the denominator. Untracked Objectives retain rate-attainment semantics.
 
 Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean minute. Throughput, WIP, energy, build cost, area, and blocking remain simultaneous terms, so a Coding Agent cannot improve due-date service by silently ignoring factory economics.
 
 ## Current boundary
 
-Lots are released only at Scenario tick zero. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]]. Dynamic releases, partial/timeout batches, chamber cleaning, preventive maintenance, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
+Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]]. Release controllers, partial/timeout batches, chamber cleaning, preventive maintenance, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
 
 ## Verification
 

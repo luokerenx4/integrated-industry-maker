@@ -636,8 +636,8 @@ Initial quantities address device and buffer explicitly:
   "initialBuffers": {
     "smelter-1": { "input": { "iron-ore": 4 } }
   },
-  "initialLots": [
-    { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "priority": 10, "dueTick": 90000 }
+  "lotReleases": [
+    { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "releaseTick": 0, "priority": 10, "dueTick": 90000 }
   ],
   "initialSetups": { "lithography-1": "photo-mask-l1" },
   "qualityExcursions": [
@@ -675,7 +675,7 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 
-`initialLots` is the only startup path for tracked Resources. Each lot id is unique and names its initial Device/buffer/Resource plus optional integer priority and due tick. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `initialLots`, duplicate identities, incompatible buffers, and capacity/quota overflow.
+`lotReleases` is the only Scenario entry path for tracked Resources. Each lot id is unique and names its release Device/buffer/Resource, required absolute `releaseTick`, optional integer priority, and optional due tick. A scheduled lot exists as identity but occupies no factory buffer or WIP before its release tick. Admission waits when the target buffer or Resource quota is full; actual release time and delay are measured. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `lotReleases`, duplicate identities, incompatible buffers, releases outside the Scenario, due dates before release, and buffers unable to hold one lot. See [[docs/design/lot-release-scheduling]].
 
 `initialSetups` maps setup-sensitive Device ids to qualified Process setup groups at tick zero. An omitted Device starts unconfigured and must perform a first changeover when ready WIP arrives. Scenario setup is fixed benchmark input; a candidate Blueprint cannot edit the physical starting state.
 
@@ -706,7 +706,7 @@ Capacity planning integrates these curves against the Objective-derived constant
 }
 ```
 
-`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by released lots. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
+`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by all Scenario-scheduled lots, so blocked or delayed admission cannot improve service by withholding work. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
 ## Coding Agent benchmark
 
@@ -739,7 +739,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.51.0",
+        "engineVersion": "inm-sim/0.52.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

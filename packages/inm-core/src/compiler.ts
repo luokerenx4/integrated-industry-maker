@@ -1267,7 +1267,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       if (!buffer) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "reference.buffer", message: `Unknown buffer '${bufferId}'` });
       for (const resource of Object.keys(inventory)) {
         if (!loaded.resources[resource]) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
-        else if (loaded.resources[resource]!.tracking) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "lot.explicit-required", message: `Tracked Resource '${resource}' must be declared as explicit initialLots` });
+        else if (loaded.resources[resource]!.tracking) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "lot.explicit-required", message: `Tracked Resource '${resource}' must be declared through lotReleases` });
         else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "buffer.resource-contract", message: `Buffer '${bufferId}' does not accept '${resource}'` });
         const resourceCapacity = buffer?.resourceCapacities?.[resource];
         if (resourceCapacity !== undefined && inventory[resource]! > resourceCapacity) issues.push({
@@ -1279,10 +1279,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
   }
   const lotIds = new Set<string>();
-  const lotsPerBuffer = new Map<string, number>();
-  const lotsPerResourceBuffer = new Map<string, number>();
-  for (const [index, lot] of (loaded.scenario.initialLots ?? []).entries()) {
-    const path = `scenario/initialLots/${index}`;
+  for (const [index, lot] of (loaded.scenario.lotReleases ?? []).entries()) {
+    const path = `scenario/lotReleases/${index}`;
     if (lotIds.has(lot.id)) issues.push({ path: `${path}/id`, code: "lot.duplicate-id", message: `Lot '${lot.id}' is declared more than once` });
     lotIds.add(lot.id);
     const device = devices[lot.device];
@@ -1292,20 +1290,18 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${lot.buffer}'` });
     if (!resource) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${lot.resource}'` });
     else if (!resource.tracking) issues.push({ path: `${path}/resource`, code: "lot.tracking-required", message: `Resource '${lot.resource}' is not configured for lot tracking` });
+    if (lot.releaseTick > loaded.scenario.durationTicks) issues.push({
+      path: `${path}/releaseTick`, code: "lot.release-outside-scenario", message: `Lot '${lot.id}' releases after Scenario duration ${loaded.scenario.durationTicks}`,
+    });
+    if (lot.dueTick !== undefined && lot.dueTick < lot.releaseTick) issues.push({
+      path: `${path}/dueTick`, code: "lot.due-before-release", message: `Lot '${lot.id}' is due before its planned release`,
+    });
     if (buffer && resource && !buffer.accepts.includes("*") && !buffer.accepts.includes(lot.resource)) issues.push({
       path: `${path}/resource`, code: "buffer.resource-contract", message: `Buffer '${lot.buffer}' does not accept '${lot.resource}'`,
     });
-    const bufferKey = `${lot.device}\0${lot.buffer}`;
-    const resourceKey = `${bufferKey}\0${lot.resource}`;
-    lotsPerBuffer.set(bufferKey, (lotsPerBuffer.get(bufferKey) ?? 0) + 1);
-    lotsPerResourceBuffer.set(resourceKey, (lotsPerResourceBuffer.get(resourceKey) ?? 0) + 1);
-    const fungibleInitial = Object.values(loaded.scenario.initialBuffers?.[lot.device]?.[lot.buffer] ?? {}).reduce((sum, count) => sum + count, 0);
-    if (buffer && (lotsPerBuffer.get(bufferKey) ?? 0) + fungibleInitial > buffer.capacity) issues.push({
-      path, code: "buffer.capacity", message: `Initial lots exceed buffer '${lot.buffer}' capacity ${buffer.capacity}`,
-    });
     const resourceCapacity = buffer?.resourceCapacities?.[lot.resource];
-    if (resourceCapacity !== undefined && (lotsPerResourceBuffer.get(resourceKey) ?? 0) > resourceCapacity) issues.push({
-      path, code: "buffer.resource-capacity", message: `Initial '${lot.resource}' lots exceed buffer quota ${resourceCapacity}`,
+    if (resourceCapacity !== undefined && resourceCapacity < 1) issues.push({
+      path, code: "buffer.resource-capacity", message: `Release buffer quota for '${lot.resource}' cannot hold one lot`,
     });
   }
   const excursionIds = new Set<string>();
@@ -1318,9 +1314,9 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     else if (!Object.values(devices).some((device) => device.processPlans.some((plan) => plan.definition.id === excursion.process))) issues.push({
       path: `${path}/process`, code: "quality.process-not-qualified", message: `No Blueprint Device is qualified to run excursion Process '${excursion.process}'`,
     });
-    if (!lotIds.has(excursion.lot)) issues.push({ path: `${path}/lot`, code: "quality.unknown-lot", message: `Unknown initial lot '${excursion.lot}'` });
+    if (!lotIds.has(excursion.lot)) issues.push({ path: `${path}/lot`, code: "quality.unknown-lot", message: `Unknown scheduled lot '${excursion.lot}'` });
     if (new Set(excursion.defects).size !== excursion.defects.length) issues.push({ path: `${path}/defects`, code: "quality.duplicate-defect", message: `Quality excursion '${excursion.id}' declares a defect class more than once` });
-    const lotDefinition = loaded.scenario.initialLots?.find((lot) => lot.id === excursion.lot);
+    const lotDefinition = loaded.scenario.lotReleases?.find((lot) => lot.id === excursion.lot);
     const lotFamily = lotDefinition ? loaded.resources[lotDefinition.resource]?.tracking?.family : undefined;
     const processFamilies = process ? new Set([...process.inputs, ...process.outputs].flatMap((amount) => {
       const family = loaded.resources[amount.resource]?.tracking?.family;
