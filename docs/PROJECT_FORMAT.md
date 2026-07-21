@@ -124,8 +124,8 @@ A combustible Resource declares how much energy one unit contains. The value is 
   "production": {
     "categories": ["smelting"],
     "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffers": ["input"],
-    "outputBuffers": ["output"],
+    "inputPorts": ["input"],
+    "outputPorts": ["output"],
     "modes": [{
       "id": "standard", "name": "Standard",
       "inputCycles": 1, "outputCycles": 1,
@@ -142,7 +142,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
-Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, the set of physical input/output buffers that a recipe may configure, and at least one production mode. There is no implicit standard mode and no compatibility fallback: every mode is asset data and every blueprint recipe selects one by id. Modes are defined in [[docs/design/production-modes]]. Asset-level `accepts` values are maximum capabilities. A blueprint instance may narrow any buffer with `bufferFilters`; an empty list closes that buffer. The selected recipe then narrows its listed buffers again to the Resources actually bound there, and unused recipe buffers accept nothing. Extractor output is narrowed to the Resource type of its bound deposits. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision inside the exact compiled job contract.
+Unlike the old single-behavior model, a Device declares descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, the physical `inputPorts`/`outputPorts` a recipe may configure, and at least one production mode. There is no implicit mode or compatibility fallback. Asset buffer `accepts` values are maximum capabilities. A blueprint instance may narrow an internal buffer with `bufferFilters` and independently narrow one physical ingress/egress with `portFilters`; an empty list closes that object. The selected recipe maps every Resource to a physical port and unused production ports carry nothing. Shared recipe buffers receive deterministic per-Resource capacity partitions so one material cannot starve another. Extractor output is narrowed to the Resource type of its bound deposits. The Device TypeScript program still owns the final local decision inside the compiled job contract.
 
 A treatment Device uses capability `treat`, three distinct material-input/material-output/agent buffers, and explicit modes:
 
@@ -423,7 +423,19 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
 }
 ```
 
-`recipe.process` and required `recipe.mode` are engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes or modes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. Auxiliary mode inputs already name a Device buffer and are compiled into the same physical job; if an auxiliary Resource is also a Process input, both quantities must use the same buffer and are aggregated. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
+`recipe.process` and required `recipe.mode` are engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-port contracts, so two instances of one generic assembler may select different Processes, modes, and physical material assignments. For `iron-plate + coal → gear`, each input can use an independent port even if both ports share one internal buffer. Auxiliary mode inputs name a Device port and join the same physical job; if an auxiliary Resource is also a Process input, both quantities must use that port and are aggregated. `config` remains optional device-owned data for specialized machines and is passed to the asset's `validateConfig()` hook.
+
+Non-recipe Devices can configure ingress/egress independently:
+
+```json
+"portFilters": {
+  "input-west": ["iron-ore"],
+  "input-south": ["coal"],
+  "output-east": ["gear"]
+}
+```
+
+A port filter may only narrow its backing buffer. Connections are validated against the compiled port contract rather than the broader internal buffer contract.
 
 A treatment Device instance instead selects its required mode with `"treatment": { "mode": "mk2" }`. Its `bufferFilters` should narrow wildcard material buffers to the intended Resource and its agent buffer to the declared agent. Synthesis always writes these exact filters.
 

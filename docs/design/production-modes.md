@@ -1,6 +1,6 @@
 # Production modes and exact jobs
 
-Status: treatment-aware modes implemented in engine version `inm-sim/0.35.0`.
+Status: treatment-aware modes with physical auxiliary-input ports implemented in engine version `inm-sim/0.38.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
@@ -19,7 +19,7 @@ A mode declares:
 - `durationMultiplier`: an exact positive rational applied after Device base speed;
 - `powerMultiplier`: an exact positive rational applied to Device base consumption;
 - `minimumInputTreatmentLevel`: the minimum grade accepted for every Process input;
-- `auxiliaryInputs`: project Resource quantities consumed once per job from named physical input buffers.
+- `auxiliaryInputs`: project Resource quantities consumed once per job through named physical input ports.
 
 Modes belong to the Device asset because they describe what that machine can do. Processes remain project-local material transformations and do not know which machines or operating regimes execute them.
 
@@ -35,7 +35,7 @@ job time    = ceil(P.duration × D.speed.denominator / D.speed.numerator
 job power   = ceil(D.basePower × M.powerMultiplier.numerator / M.powerMultiplier.denominator)
 ```
 
-Amounts for the same `(buffer, Resource)` are aggregated. One mode may declare each auxiliary Resource once. Auxiliary inputs must reference a project Resource, a declared production input buffer, and a Resource admitted by both the asset maximum and instance filter. If an auxiliary Resource is also a Process input, both declarations must resolve to the same buffer. A complete job must fit every involved buffer; the compiler does not split one job into fractional cycles.
+Amounts for the same `(buffer, Resource)` are aggregated after physical ports resolve to their backing buffers. One mode may declare each auxiliary Resource once. Auxiliary inputs must reference a project Resource, a declared production input port, and a Resource admitted by the asset, buffer, and port contracts. If an auxiliary Resource is also a Process input, both declarations must use the same port. A complete job—including the sum of all Resources sharing one buffer—must fit; the compiler does not split one job into fractional cycles.
 
 The compiled plan retains the complete mode definition, exact duration, exact active power, and buffer-bound quantities. Grid rated load uses this selected power rather than the Device base value.
 

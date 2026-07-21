@@ -21,8 +21,8 @@ export interface DeviceProductionRate {
   cyclesPerMinute: number;
   inputsPerMinute: Record<ResourceId, number>;
   outputsPerMinute: Record<ResourceId, number>;
-  inputBindings: Record<ResourceId, string>;
-  outputBindings: Record<ResourceId, string>;
+  inputPorts: Record<ResourceId, string>;
+  outputPorts: Record<ResourceId, string>;
   powerMilliWatts: number;
 }
 
@@ -40,8 +40,8 @@ export interface RecipeOptionAnalysis {
   cyclesPerMinute: number;
   inputs: ProcessAmount[];
   outputs: ProcessAmount[];
-  inputBindings: Record<ResourceId, string>;
-  outputBindings: Record<ResourceId, string>;
+  inputPorts: Record<ResourceId, string>;
+  outputPorts: Record<ResourceId, string>;
   targetOutputPerMinute: number;
   powerMilliWatts: number;
 }
@@ -221,6 +221,10 @@ export interface ProductionAnalysis {
     device: string; asset: string;
     buffers: Array<{ buffer: string; role: string; capacity: number; accepts: ResourceId[] | ["*"]; resourceCapacities?: Record<ResourceId, number> }>;
   }>;
+  portContracts: Array<{
+    device: string; asset: string;
+    ports: Array<{ port: string; direction: "input" | "output"; buffer: string; accepts: ResourceId[] | ["*"] }>;
+  }>;
   recipeOptions: RecipeOptionAnalysis[];
   productionGraph: ProductionDependencyGraph;
   extractionDevices: DeviceExtractionRate[];
@@ -236,18 +240,27 @@ export interface ProductionAnalysis {
   diagnostics: ProductionDiagnostic[];
 }
 
-function bufferSupports(asset: DeviceAsset, bufferId: string, resource: ResourceId, filters?: BlueprintDevice["bufferFilters"]): boolean {
-  const buffer = asset.buffers.find((item) => item.id === bufferId);
+function portSupports(
+  asset: DeviceAsset,
+  portId: string,
+  resource: ResourceId,
+  bufferFilters?: BlueprintDevice["bufferFilters"],
+  portFilters?: BlueprintDevice["portFilters"],
+): boolean {
+  const port = asset.geometry.ports.find((item) => item.id === portId);
+  const buffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
   if (!buffer || (!buffer.accepts.includes("*") && !buffer.accepts.includes(resource))) return false;
-  const configured = filters?.[bufferId];
-  return !configured || configured.includes(resource);
+  const configuredBuffer = bufferFilters?.[buffer.id];
+  const configuredPort = portFilters?.[portId];
+  return (!configuredBuffer || configuredBuffer.includes(resource)) && (!configuredPort || configuredPort.includes(resource));
 }
 
-export function bindProcessRecipe(
+export function bindProcessPorts(
   asset: DeviceAsset,
   process: IndustrialProcess,
   preferred?: BlueprintDevice["recipe"],
-  filters?: BlueprintDevice["bufferFilters"],
+  bufferFilters?: BlueprintDevice["bufferFilters"],
+  portFilters?: BlueprintDevice["portFilters"],
 ): { inputs: Record<ResourceId, string>; outputs: Record<ResourceId, string> } | null {
   const production = asset.production;
   if (!production || !production.categories.includes(process.category)) return null;
@@ -255,18 +268,18 @@ export function bindProcessRecipe(
     const bindings: Record<ResourceId, string> = {};
     const used = new Set<string>();
     for (const amount of amounts) {
-      const preferredBuffer = preferredBindings?.[amount.resource];
-      const candidates = allowed.filter((buffer) => bufferSupports(asset, buffer, amount.resource, filters))
+      const preferredPort = preferredBindings?.[amount.resource];
+      const candidates = allowed.filter((port) => portSupports(asset, port, amount.resource, bufferFilters, portFilters))
         .sort((a, b) => Number(used.has(a)) - Number(used.has(b)) || a.localeCompare(b));
-      const buffer = preferredBuffer && candidates.includes(preferredBuffer) ? preferredBuffer : candidates[0];
-      if (!buffer) return null;
-      bindings[amount.resource] = buffer;
-      used.add(buffer);
+      const port = preferredPort && candidates.includes(preferredPort) ? preferredPort : candidates[0];
+      if (!port) return null;
+      bindings[amount.resource] = port;
+      used.add(port);
     }
     return bindings;
   };
-  const inputs = bind(process.inputs, production.inputBuffers, preferred?.inputs);
-  const outputs = bind(process.outputs, production.outputBuffers, preferred?.outputs);
+  const inputs = bind(process.inputs, production.inputPorts, preferred?.inputs);
+  const outputs = bind(process.outputs, production.outputPorts, preferred?.outputs);
   return inputs && outputs ? { inputs, outputs } : null;
 }
 
@@ -301,7 +314,7 @@ function buildProductionGraph(project: CompiledFactoryProject, devices: DevicePr
     })).sort((a, b) => a.device.localeCompare(b.device)),
     dependencies: devices.map((device) => ({
       device: device.device, process: device.process, mode: device.mode,
-      inputs: Object.keys(device.inputBindings).sort(), outputs: Object.keys(device.outputBindings).sort(),
+      inputs: Object.keys(device.inputPorts).sort(), outputs: Object.keys(device.outputPorts).sort(),
     })),
   };
 }
@@ -358,30 +371,33 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       cyclesPerMinute,
       inputsPerMinute,
       outputsPerMinute,
-      inputBindings: Object.fromEntries(device.processPlan.inputs.map((amount) => [amount.resource, amount.buffer])),
-      outputBindings: Object.fromEntries(device.processPlan.outputs.map((amount) => [amount.resource, amount.buffer])),
+      inputPorts: {
+        ...(device.recipe?.inputs ?? {}),
+        ...Object.fromEntries(device.processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
+      },
+      outputPorts: { ...(device.recipe?.outputs ?? {}) },
       powerMilliWatts: device.processPlan.powerMilliWatts,
     });
   }
   const recipeOptions: RecipeOptionAnalysis[] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((device) => {
     if (!device.assetDef.production) return [];
     return Object.values(project.processes).sort((a, b) => a.id.localeCompare(b.id)).flatMap((process) => device.assetDef.production!.modes.flatMap((mode) => {
-      const bindings = bindProcessRecipe(device.assetDef, process, device.recipe, device.bufferFilters);
+      const bindings = bindProcessPorts(device.assetDef, process, device.recipe, device.bufferFilters, device.portFilters);
       if (!bindings) return [];
-      if (mode.auxiliaryInputs.some((input) => !bufferSupports(device.assetDef, input.buffer, input.resource, device.bufferFilters))) return [];
-      if (mode.auxiliaryInputs.some((input) => bindings.inputs[input.resource] !== undefined && bindings.inputs[input.resource] !== input.buffer)) return [];
+      if (mode.auxiliaryInputs.some((input) => !portSupports(device.assetDef, input.port, input.resource, device.bufferFilters, device.portFilters))) return [];
+      if (mode.auxiliaryInputs.some((input) => bindings.inputs[input.resource] !== undefined && bindings.inputs[input.resource] !== input.port)) return [];
       const amounts = effectiveProductionAmounts(process, mode);
       const cycleTicks = productionDurationTicks(process, device.assetDef, mode);
       const cyclesPerMinute = 60_000 / cycleTicks;
       const targetOutput = amounts.outputs.find((amount) => amount.resource === project.objective.targetResource)?.count ?? 0;
-      const inputBindings = { ...bindings.inputs };
-      for (const input of mode.auxiliaryInputs) inputBindings[input.resource] = input.buffer;
+      const inputPorts = { ...bindings.inputs };
+      for (const input of mode.auxiliaryInputs) inputPorts[input.resource] = input.port;
       return [{
         device: device.id, asset: device.asset, process: process.id, mode: mode.id, modeName: mode.name,
         minimumInputTreatmentLevel: mode.minimumInputTreatmentLevel, name: process.name, category: process.category,
         selected: device.processPlan?.definition.id === process.id && device.processPlan.mode.id === mode.id, cycleTicks, cyclesPerMinute,
         inputs: amounts.inputs, outputs: amounts.outputs,
-        inputBindings, outputBindings: bindings.outputs,
+        inputPorts, outputPorts: bindings.outputs,
         targetOutputPerMinute: targetOutput * cyclesPerMinute, powerMilliWatts: productionPowerMilliWatts(device.assetDef, mode),
       }];
     }));
@@ -406,6 +422,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     buffers: Object.values(device.buffers).sort((a, b) => a.id.localeCompare(b.id)).map((buffer) => ({
       buffer: buffer.id, role: buffer.role, capacity: buffer.capacity, accepts: [...buffer.accepts] as ResourceId[] | ["*"],
       ...(buffer.resourceCapacities ? { resourceCapacities: { ...buffer.resourceCapacities } } : {}),
+    })),
+  }));
+  const portContracts: ProductionAnalysis["portContracts"] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).map((device) => ({
+    device: device.id, asset: device.asset,
+    ports: [...device.ports].sort((a, b) => a.id.localeCompare(b.id)).map((port) => ({
+      port: port.id, direction: port.direction, buffer: port.buffer, accepts: [...port.accepts] as ResourceId[] | ["*"],
     })),
   }));
 
@@ -688,7 +710,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   return {
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, bufferContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
+    devices, bufferContracts, portContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
     resources,
     connections,
     transportCells,

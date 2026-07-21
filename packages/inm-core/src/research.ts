@@ -595,9 +595,9 @@ function recipeCandidates(input: ResearchInput): StrategyCandidate[] {
     return [{ key, proposal: {
       strategy: key,
       hypothesis: `Switch \`${option.device}\` from \`${current.process}/${current.mode}\` to \`${option.process}/${option.mode}\` because nominal ${input.project.objective.targetResource} capacity rises from ${current.targetOutputPerMinute.toFixed(3)} to ${option.targetOutputPerMinute.toFixed(3)}/min.`,
-      expectedEffect: "Test a project-local alternative recipe with explicit Resource-to-buffer bindings through the same deterministic simulation and score gate.",
+      expectedEffect: "Test a project-local alternative recipe with explicit Resource-to-physical-port bindings through the same deterministic simulation and score gate.",
       patch: [{ op: "replace" as const, path: `/devices/${deviceIndex}/recipe`, value: {
-        process: option.process, mode: option.mode, inputs: option.inputBindings, outputs: option.outputBindings,
+        process: option.process, mode: option.mode, inputs: option.inputPorts, outputs: option.outputPorts,
       } }],
     } }];
   }).sort((a, b) => {

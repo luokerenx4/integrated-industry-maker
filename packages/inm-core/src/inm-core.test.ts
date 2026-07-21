@@ -541,16 +541,34 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(incompatible))).toContain("production.category");
   });
 
-  test("recipe bindings configure each physical input buffer and must cover the selected process exactly", async () => {
+  test("recipe bindings configure each physical port and must cover the selected process exactly", async () => {
     const missing = await loaded(); delete missing.blueprint.devices[2]!.recipe!.inputs.coal;
     expect(issueCodes(() => compileFactoryProject(missing))).toContain("recipe.binding-required");
     const extra = await loaded(); extra.blueprint.devices[2]!.recipe!.inputs["iron-ore"] = "input-primary";
     expect(issueCodes(() => compileFactoryProject(extra))).toContain("recipe.extra-binding");
     const wrongRole = await loaded(); wrongRole.blueprint.devices[2]!.recipe!.inputs.coal = "output";
-    expect(issueCodes(() => compileFactoryProject(wrongRole))).toContain("recipe.buffer-role");
+    expect(issueCodes(() => compileFactoryProject(wrongRole))).toContain("recipe.port-role");
     const project = compileFactoryProject(await loaded());
-    expect(project.connections["station-to-assembler"]!.toDevice.buffers["input-primary"]!.accepts).toEqual(["iron-plate"]);
-    expect(project.connections["coal-splitter-to-assembler"]!.toDevice.buffers["input-secondary"]!.accepts).toEqual(["coal"]);
+    expect(project.devices["assembler-1"]!.ports.find((port) => port.id === "input-primary")!.accepts).toEqual(["iron-plate"]);
+    expect(project.devices["assembler-1"]!.ports.find((port) => port.id === "input-secondary")!.accepts).toEqual(["coal"]);
+    const crossedLane = await loaded();
+    crossedLane.blueprint.connections.find((connection) => connection.id === "coal-splitter-to-assembler")!.to.port = "input-primary";
+    expect(issueCodes(() => compileFactoryProject(crossedLane))).toContain("connection.target-resource-contract");
+    const portFiltered = await loaded();
+    portFiltered.blueprint.devices[2]!.portFilters = { "input-secondary": ["iron-plate"] };
+    expect(issueCodes(() => compileFactoryProject(portFiltered))).toContain("recipe.resource-filter");
+    const sharedBuffer = await loaded();
+    sharedBuffer.deviceAssets.assembler!.geometry.ports.find((port) => port.id === "input-secondary")!.buffer = "input-primary";
+    const sharedProject = compileFactoryProject(sharedBuffer);
+    expect(sharedProject.devices["assembler-1"]!.buffers["input-primary"]!.accepts).toEqual(["coal", "iron-plate"]);
+    expect(sharedProject.devices["assembler-1"]!.buffers["input-primary"]!.resourceCapacities).toEqual({ coal: 3, "iron-plate": 5 });
+    expect(sharedProject.devices["assembler-1"]!.ports.find((port) => port.id === "input-primary")!.accepts).toEqual(["iron-plate"]);
+    expect(sharedProject.devices["assembler-1"]!.ports.find((port) => port.id === "input-secondary")!.accepts).toEqual(["coal"]);
+    expect(runUntil(sharedProject, undefined, { seed: 42 }).metrics.throughputPerMinute).toBeGreaterThan(0);
+    const undersizedSharedBuffer = await loaded();
+    undersizedSharedBuffer.deviceAssets.assembler!.geometry.ports.find((port) => port.id === "input-secondary")!.buffer = "input-primary";
+    undersizedSharedBuffer.deviceAssets.assembler!.buffers.find((buffer) => buffer.id === "input-primary")!.capacity = 2;
+    expect(issueCodes(() => compileFactoryProject(undersizedSharedBuffer))).toContain("production-mode.job-capacity");
     const alternative = await loaded(); alternative.blueprint.devices[2]!.recipe!.process = "forge-gear-pair";
     expect(analyzeProduction(compileFactoryProject(alternative)).productionGraph.rawInputsPerTarget).toEqual({ coal: .5, "iron-ore": 3 });
   });
@@ -562,7 +580,7 @@ describe("blueprint compiler", () => {
     const filtered = await loaded();
     filtered.blueprint.devices[2]!.recipe!.mode = "productive";
     filtered.deviceAssets.assembler!.production!.modes.find((mode) => mode.id === "productive")!.auxiliaryInputs = [
-      { resource: "coal", count: 1, buffer: "input-secondary" },
+      { resource: "coal", count: 1, port: "input-secondary" },
     ];
     filtered.blueprint.devices[2]!.bufferFilters = { "input-primary": ["iron-plate"], "input-secondary": ["iron-plate"], output: ["gear"] };
     expect(issueCodes(() => compileFactoryProject(filtered))).toContain("production-mode.resource-filter");
@@ -806,7 +824,7 @@ describe("deterministic discrete-event simulation", () => {
     ]);
     expect(analysis.recipeOptions).toContainEqual(expect.objectContaining({
       device: "assembler-1", process: "forge-gear-pair", selected: false, targetOutputPerMinute: 30,
-      inputBindings: { "iron-plate": "input-primary", coal: "input-secondary" }, outputBindings: { gear: "output" },
+      inputPorts: { "iron-plate": "input-primary", coal: "input-secondary" }, outputPorts: { gear: "output" },
     }));
     expect(analysis.recipeOptions).toContainEqual(expect.objectContaining({
       device: "assembler-1", process: "assemble-gear", mode: "productive", selected: false,

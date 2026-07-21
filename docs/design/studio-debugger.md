@@ -14,7 +14,7 @@ The root route presents available projects. Selecting one establishes `/<project
 
 ## Project-local catalog
 
-The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, production modes and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
+The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, physical production ports, buffer maxima, production modes and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
 
 ## Industrial analysis
 
@@ -24,7 +24,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 - finite deposits and depletion;
 - material balance and dependency graph;
 - configured Process/mode jobs, input treatment requirements, treatment Device/agent capacity, and mode-aware alternatives;
-- every Device instance's effective buffer capacity and accepted Resources;
+- every Device instance's effective physical-port direction/backing-buffer/material contract plus buffer capacity, accepted Resources, and per-Resource partitions;
 - local pipeline Resource allowlists, effective dispatch policy, per-Resource destination coverage profiles, stages, measured Resource mix, capacity, utilization, blockage, and power;
 - station routes/fleet load, effective network policy, authored priority tier, downstream coverage batch, and Objective depth;
 - regional rated generation/demand/members/headroom, accumulator capacity/rates, and selected-run generated, requested, unserved, stored, and contiguous-deficit energy;
@@ -42,9 +42,9 @@ The Device inspector joins compiled and measured semantics in one local view:
 
 - runtime status, current job progress, and completed-run utilization;
 - asset identity, region, position, footprint, build cost, and active power;
-- selected Process/mode with exact input/output batches, buffers, duration, and nominal rate;
+- selected Process/mode with exact input/output batches, physical port bindings, backing buffers, duration, and nominal rate;
 - extraction, generation, or accumulator plan when present;
-- effective buffer acceptance and per-Resource quotas;
+- effective physical-port acceptance plus buffer acceptance and per-Resource quotas;
 - regional power-grid membership, generation, rated load, headroom, and storage envelope;
 - incoming/outgoing local connections and Device-scoped diagnostics.
 
@@ -67,7 +67,7 @@ bun test packages/inm-studio
 bun run inm studio examples/ironworks --port 4178 --no-open
 ```
 
-Browser QA should verify `/`, `/<project-id>`, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, buffer contracts, responsive inspector layout, and console errors. Merely confirming that the HTTP server responds does not prove the UI.
+Browser QA should verify `/`, `/<project-id>`, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. Merely confirming that the HTTP server responds does not prove the UI.
 
 ## Change checklist
 

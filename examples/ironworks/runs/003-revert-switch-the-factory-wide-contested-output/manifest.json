@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-07-21T10:21:49.382Z",
+  "createdAt": "2026-07-21T10:48:29.474Z",
   "decision": "REVERT",
-  "engineVersion": "inm-sim/0.37.0",
+  "engineVersion": "inm-sim/0.38.0",
   "hashes": {
     "blueprintHash": "1089a184a9075d401bdca01caf4b2cbb7ed4dcfda9e1ef94295c59d1f5091b3f",
-    "deviceCatalogHash": "3a6fbfa259e3d664f7f652d4ea84f61e7bfd8b6f3f21fdd2d15c7138f28e5f93",
-    "engineVersion": "inm-sim/0.37.0",
+    "deviceCatalogHash": "c19e99219cec2681c0f229c2dc74c6bbf2d5a62ae32e7a92be23869bbc54b286",
+    "engineVersion": "inm-sim/0.38.0",
     "objectiveHash": "5d8a5b20d9be8d398d33fe8ecea0ea7487f02e4dbdca25d114494382f6576331",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
     "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
@@ -13,8 +13,8 @@
     "worldHash": "84faa3bff5fc242f00c3bb0dd43f60513425b2c9b3cff374da2a415a7110bb00"
   },
   "parentRun": "002-keep-duplicate-processor-smelter-1-as-smel",
-  "resultHash": "ebb82faf432a6b0709f6bcb8d98d480d78d74ae187551bcca8c8eac86d36ae7b",
-  "runKey": "8713da10ae571a01fb6eff4411af5a4541cd185d5515b187f4e7264f08442718",
+  "resultHash": "546972291fef521d1c2018ad8a151a36155993ad0801b1f07ee1feb912d363fe",
+  "runKey": "9e02960b991936568add7d7d0b1051039edaef03e69d6cf13be37e7d4c400d72",
   "seed": 42,
   "selection": {
     "objective": "default",

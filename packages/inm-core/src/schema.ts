@@ -59,12 +59,12 @@ export const deviceAssetSchema = z.object({
   production: z.object({
     categories: z.array(id).min(1),
     speed: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
-    inputBuffers: z.array(id).min(1), outputBuffers: z.array(id).min(1),
+    inputPorts: z.array(id).min(1), outputPorts: z.array(id).min(1),
     modes: z.array(z.object({
       id, name: z.string().min(1), inputCycles: positiveInt, outputCycles: positiveInt,
       durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
       powerMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
-      auxiliaryInputs: z.array(z.object({ resource: id, count: positiveInt, buffer: id }).strict()),
+      auxiliaryInputs: z.array(z.object({ resource: id, count: positiveInt, port: id }).strict()),
       minimumInputTreatmentLevel: nonNegativeInt,
     }).strict()).min(1),
   }).strict().optional(),
@@ -129,6 +129,7 @@ export const blueprintSchema = z.object({
     }).strict().optional(),
     treatment: z.object({ mode: id }).strict().optional(),
     bufferFilters: z.record(z.array(id)).optional(),
+    portFilters: z.record(z.array(id)).optional(),
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({

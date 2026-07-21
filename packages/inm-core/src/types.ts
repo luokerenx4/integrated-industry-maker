@@ -5,6 +5,7 @@ export type DeviceAssetId = string;
 export type DeviceInstanceId = string;
 export type ConnectionId = string;
 export type BufferId = string;
+export type PortId = string;
 
 export interface ResourceVisual {
   shape: "box" | "sphere" | "cylinder";
@@ -94,8 +95,8 @@ export interface ProductionModeDefinition {
   durationMultiplier: { numerator: number; denominator: number };
   /** Multiplier applied to Device base active power. */
   powerMultiplier: { numerator: number; denominator: number };
-  /** Extra project Resources consumed once per mode job in fixed physical buffers. */
-  auxiliaryInputs: Array<{ resource: ResourceId; count: number; buffer: BufferId }>;
+  /** Extra project Resources consumed once per mode job through fixed physical ports. */
+  auxiliaryInputs: Array<{ resource: ResourceId; count: number; port: PortId }>;
   /** Every Process input batch must have at least this treatment level. Zero accepts untreated material. */
   minimumInputTreatmentLevel: number;
 }
@@ -126,8 +127,8 @@ export interface DeviceAssetManifest {
   production?: {
     categories: string[];
     speed: { numerator: number; denominator: number };
-    inputBuffers: BufferId[];
-    outputBuffers: BufferId[];
+    inputPorts: PortId[];
+    outputPorts: PortId[];
     modes: ProductionModeDefinition[];
   };
   extraction?: {
@@ -280,12 +281,16 @@ export interface BlueprintDevice {
   recipe?: {
     process: ProcessId;
     mode: string;
-    inputs: Record<ResourceId, BufferId>;
-    outputs: Record<ResourceId, BufferId>;
+    /** Exact physical port selected for each Process input Resource. */
+    inputs: Record<ResourceId, PortId>;
+    /** Exact physical port selected for each Process output Resource. */
+    outputs: Record<ResourceId, PortId>;
   };
   treatment?: { mode: string };
   /** Instance-level Resource contracts. Each entry narrows the corresponding asset buffer; an empty list disables that buffer. */
   bufferFilters?: Record<BufferId, ResourceId[]>;
+  /** Instance-level ingress/egress contracts. Each entry narrows one physical port independently. */
+  portFilters?: Record<PortId, ResourceId[]>;
   resourceNodes?: string[];
   config?: Record<string, unknown>;
   policy?: {
@@ -413,10 +418,14 @@ export interface CompiledDeviceBuffer extends DeviceBufferDefinition {
   /** Optional Resource-specific quotas, compiled from semantics such as station slots. */
   resourceCapacities?: Record<ResourceId, number>;
 }
+export interface CompiledDevicePort extends DevicePort {
+  /** Effective Resource contract after asset, buffer, instance-port, and recipe narrowing. */
+  accepts: ResourceId[] | ["*"];
+}
 export interface CompiledDevice extends BlueprintDevice {
   assetDef: DeviceAsset;
   footprint: { width: number; height: number };
-  ports: DevicePort[];
+  ports: CompiledDevicePort[];
   buffers: Record<BufferId, CompiledDeviceBuffer>;
   processPlan?: {
     definition: IndustrialProcess;

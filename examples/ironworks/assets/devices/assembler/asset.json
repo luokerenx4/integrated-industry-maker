@@ -3,7 +3,7 @@
   "type": "device",
   "id": "assembler",
   "name": "Assembler",
-  "description": "A programmable assembly cell whose recipe assigns each material to a physical input buffer.",
+  "description": "A programmable assembly cell whose recipe assigns each material to a physical input port.",
   "tags": ["assembly", "processing"],
   "capabilities": ["process"],
   "geometry": {
@@ -23,8 +23,8 @@
   "production": {
     "categories": ["assembling"],
     "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffers": ["input-primary", "input-secondary"],
-    "outputBuffers": ["output"],
+    "inputPorts": ["input-primary", "input-secondary"],
+    "outputPorts": ["output"],
     "modes": [
       {
         "id": "standard", "name": "Standard",

@@ -22,7 +22,7 @@
   ],
   "production": {
     "categories": ["refining"], "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffers": ["crude-input"], "outputBuffers": ["liquid-output", "gas-output"],
+    "inputPorts": ["crude-input"], "outputPorts": ["liquid-output", "gas-output"],
     "modes": [{
       "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
       "durationMultiplier": { "numerator": 1, "denominator": 1 },

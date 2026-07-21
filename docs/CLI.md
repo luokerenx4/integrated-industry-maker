@@ -22,7 +22,7 @@ Changes the workspace default project. It does not move, merge, or share project
 
 ### `inm validate <project-or-workspace-dir> [--project ID]`
 
-Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, production-mode/resource/buffer/job-capacity checks, per-region geometry/rotation checks, port validation, exact connection Resource-allowlist checks, sorter endpoint-range/distance checks, explicit cardinal transport-path and shared-cell resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
+Runs schema validation, immutable world and finite resource-node resolution, extractor binding/range checks, production-mode/resource/physical-port/shared-buffer/job-capacity checks, per-region geometry/rotation checks, independent instance port-filter validation, exact connection Resource-allowlist checks, sorter endpoint-range/distance checks, explicit cardinal transport-path and shared-cell resolution, planetary/interstellar station topology and carrier compatibility checks, regional power-grid compilation, and project compilation. `--json` returns structured errors with exact paths and codes.
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
@@ -30,7 +30,7 @@ Prints the selected world, finite deposits, project topology, region kinds/world
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
-Compiles Device Process/mode jobs and Resource-to-buffer bindings, required input treatment levels, configured treatment Device/agent rates, effective buffer contracts, compatible alternatives, the globally balanced target graph, extraction/deposit lifetime, renewable/fuel generation, accumulator capacity/startup energy/charge/discharge envelopes, material/fuel balance, local and station logistics limits, each connection's authored Resource allowlist, treatment-aware local and shared-fleet dispatch policies, per-Resource/route target kind, downstream links, batch coverage and Objective depth, per-stage distance/duration/capacity, endpoint power assignment, and region-qualified steady-state grid headroom without running a simulation. Storage remains separate from generation because it moves finite energy across time. Diagnostics retain exact industrial entities and `--json` is designed for optimization agents.
+Compiles Device Process/mode jobs and exact Resource-to-port bindings, required input treatment levels, configured treatment Device/agent rates, effective physical-port contracts, backing-buffer contracts and recipe partitions, compatible alternatives, the globally balanced target graph, extraction/deposit lifetime, renewable/fuel generation, accumulator envelopes, material/fuel balance, local and station logistics limits, each connection's authored Resource allowlist, dispatch policy/coverage, per-stage distance/duration/capacity, endpoint power assignment, and regional grid headroom without running a simulation. Storage remains separate from generation because it moves finite energy across time. Diagnostics retain exact industrial entities and `--json` is designed for optimization agents.
 
 ### `inm plan <project-or-workspace-dir> [--project ID]`
 
@@ -130,11 +130,11 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 
 Launches the local read-only 3D runtime debugger. `/` is a project launcher; choosing a project navigates to the stable `/<project-id>` route, so refresh, browser history, and copied links retain project identity. There is no project switcher inside the runtime sidebar—return to the launcher to open another project.
 
-The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from Process definitions and exposes geometry, ports, buffers, runtime, transformations, transport limits, generation/storage/distribution envelopes, content hashes, and instance counts. Every request is project-qualified and root-confined.
+The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from Process definitions and exposes geometry, production ports, buffers, modes, runtime, transformations, transport limits, generation/storage/distribution envelopes, content hashes, and instance counts. Every request is project-qualified and root-confined.
 
-The adjacent Analysis view recompiles the selected run Blueprint and presents target-rate gaps, configured jobs and buffer mappings, material/logistics/station diagnostics, generator/fuel envelopes, rated generation/load/headroom, accumulator capacity/rates, and selected-run stored energy per grid. The 3D view renders the same event-backed industrial state.
+The adjacent Analysis view recompiles the selected run Blueprint and presents target-rate gaps, configured Resource-to-port jobs, effective port and backing-buffer contracts, recipe material partitions, material/logistics/station diagnostics, generator/fuel envelopes, rated generation/load/headroom, accumulator capacity/rates, and selected-run stored energy per grid. The 3D view renders the same event-backed industrial state.
 
-Clicking a Device opens a scoped inspector for runtime status, recipe/mode batches, buffer contracts, extraction/generation/storage plan, power-grid membership, diagnostics, and connected links. Clicking a belt cell opens its physical connection inspector. Selection and Studio remain read-only.
+Clicking a Device opens a scoped inspector for runtime status, recipe/mode batches, physical port contracts, buffer contracts/quotas, extraction/generation/storage plan, power-grid membership, diagnostics, and connected links. Clicking a belt cell opens its physical connection inspector. Selection and Studio remain read-only.
 
 Studio can replay semantic events, scrub time, change speed, inspect status and metrics, and refresh when project files change. It cannot create, move, rotate, connect, or delete blueprint entities.
 

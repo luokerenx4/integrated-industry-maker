@@ -24,7 +24,7 @@
   ],
   "production": {
     "categories": ["cracking"], "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffers": ["oil-input", "hydrogen-input"], "outputBuffers": ["hydrogen-output", "graphite-output"],
+    "inputPorts": ["oil-input", "hydrogen-input"], "outputPorts": ["hydrogen-output", "graphite-output"],
     "modes": [{
       "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
       "durationMultiplier": { "numerator": 1, "denominator": 1 },

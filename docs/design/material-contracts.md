@@ -1,6 +1,6 @@
-# Material, recipe, and buffer contracts
+# Material, recipe, port, and buffer contracts
 
-Status: treatment-aware material contracts implemented through engine version `inm-sim/0.35.0`.
+Status: multi-input/multi-output Processes, physical recipe-port binding, independent instance port filters, shared-buffer recipe partitions, and treatment-aware material contracts implemented through engine version `inm-sim/0.38.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
@@ -18,19 +18,23 @@ Material acceptance is narrowed in layers; later layers may never expand earlier
 Resource catalog
   → Device asset buffer accepts (maximum capability)
   → Blueprint Device bufferFilters (instance configuration)
-  → recipe binding / bound extractor Resource / configured fuels / station Resource slots
-  → compiled effective buffer contract
+  → physical Device ports
+  → Blueprint Device portFilters (independent ingress/egress configuration)
+  → recipe Resource-to-port binding / bound extractor Resource / configured fuels / station Resource slots
+  → compiled effective port and buffer contracts
   → Blueprint connection resources (exact lane allowlist)
   → station slots, initial inventory, and runtime actions
 ```
 
-Omitting `bufferFilters[buffer]` preserves the asset maximum. An explicit list narrows it. An empty list closes the buffer. `*` is legal only in the asset maximum; an instance filter names concrete project Resources.
+Omitting `bufferFilters[buffer]` preserves the asset maximum. An explicit list narrows every path into that internal buffer; an empty list closes it. `portFilters[port]` then independently narrows one physical ingress or egress without expanding its backing buffer. An empty port list closes only that port. `*` is legal only in the asset maximum; instance filters name concrete project Resources.
 
 ## Configurable recipes
 
-A Process is project-local source code with any number of distinct inputs and one or more outputs. A production-capable Device asset declares supported Process categories, a rational speed, allowed input/output buffers, and one or more explicit production modes. Each Blueprint Device instance selects one Process plus one mode and explicitly maps every Process Resource to a physical buffer. Mode-owned auxiliary Resources name their physical buffer in the asset; they never appear as hidden consumption.
+A Process is project-local source code with any number of distinct inputs and one or more outputs. A production-capable Device asset declares supported Process categories, a rational speed, allowed physical `inputPorts`/`outputPorts`, and one or more explicit production modes. Each Blueprint Device instance selects one Process plus one mode and maps every Process Resource to an exact physical port. Mode-owned auxiliary Resources name their physical port in the asset; they never appear as hidden consumption.
 
-Compilation rejects missing, extra, unknown, wrong-role, asset-incompatible, or instance-filtered bindings. It then narrows every production buffer to the exact Resources mapped there; unused recipe buffers accept nothing. One generic assembler asset can therefore represent many recipes without runtime conditionals or a global recipe database.
+Compilation rejects missing, extra, unknown, wrong-direction, asset-incompatible, buffer-filtered, or port-filtered bindings. It narrows every configured production port to exactly its mapped Resources; unused production ports carry nothing. Connections are checked against this compiled port contract, so a coal lane cannot be attached to the iron-plate port even when both ports share one internal buffer. The compiled Process plan resolves ports back to host-owned buffers for execution.
+
+When several recipe Resources resolve to one buffer, the compiler creates deterministic per-Resource capacity partitions. Each Resource receives at least one complete job quantity and the remaining capacity is divided proportionally with stable Resource-id tie breaking. Total quotas never exceed physical buffer capacity. This prevents one abundant input or coproduct from occupying the whole shared buffer and starving another required material.
 
 ## Non-recipe devices
 
@@ -41,14 +45,14 @@ The same instance filter applies to storage, consumers, junctions, stations, min
 - a fuel generator exposes only supported fuels admitted by its effective fuel buffer;
 - Scenario initial inventory must satisfy the effective contract, total buffer capacity, and any per-Resource quota;
 - a splitter policy filter must be admitted by its internal buffer;
-- every belt connection declares a non-empty exact Resource allowlist; each entry must exist and satisfy both endpoint buffer contracts;
+- every belt connection declares a non-empty exact Resource allowlist; each entry must exist and satisfy both endpoint port contracts;
 - runtime dispatch intersects mixed source inventory with that immutable connection allowlist and reserves both total and per-Resource destination capacity.
 
 The connection list is never inferred from endpoint compatibility. A wildcard storage buffer can feed several lanes with different intent, and the intent remains visible in the Blueprint diff. Listing several Resources deliberately creates a mixed-material lane; listing one produces a dedicated lane. The compiler rejects duplicates, unknown Resources, and entries excluded by either endpoint.
 
 ## Capacity contracts
 
-Every compiled buffer has one total capacity inherited from its Device asset. Some industrial semantics add stricter per-Resource capacities without changing the asset package. Station slots are the first such semantic: `{ resource, mode, capacity }` compiles into `resourceCapacities[resource]` on the station's backing buffer.
+Every compiled buffer has one total capacity inherited from its Device asset. Industrial semantics add stricter per-Resource capacities without changing the asset package. Recipe partitions reserve shared machine-buffer capacity by material; station slots compile authored `{ resource, mode, capacity }` limits onto the station buffer.
 
 For a Resource `r`, writable capacity is the minimum of:
 
@@ -69,7 +73,7 @@ Blueprint synthesis writes exact filters for extractors, single-Resource junctio
 
 ## Observability
 
-`inm analyze` exposes `bufferContracts` for every compiled Device and the exact Resource allowlist for every local connection. Human output lists buffer role, total capacity, accepted Resources, `Resource≤quota` where present, and lane filters next to transport capacity. Station routes expose source and destination slot capacities. Studio renders the same Device contracts, labels 3D Devices with compiled material names, and shows the connection filter in both Analysis and the connection inspector.
+`inm analyze` exposes both `portContracts` and `bufferContracts` for every compiled Device plus the exact Resource allowlist for every local connection. Human output shows Resource-to-port recipe bindings, each physical port's direction/backing buffer/material contract, buffer role/total capacity, and `Resource≤quota` partitions. Studio renders the same contracts in Analysis and the Device inspector.
 
 ## Source of truth
 
@@ -81,10 +85,10 @@ Blueprint synthesis writes exact filters for extractors, single-Resource junctio
 
 ## Verification
 
-Compiler tests cover invalid filters across recipes, extraction, station slots, policies, initial inventory, and connection allowlists. Runtime tests put coal and gear on one wildcard source and target pair and prove that a `gear`-only connection leaves coal behind. Synthesis tests require exact filters on miners, stations, junctions, sinks, and every generated lane.
+Compiler tests cover invalid filters across recipe ports, buffers, extraction, station slots, policies, initial inventory, and connection allowlists. A shared-buffer test gives one assembler two independently configured input ports, proves the compiler partitions the backing buffer, rejects a crossed material lane, and executes production without starvation. Runtime tests also prove that a `gear`-only connection leaves coal behind. Synthesis tests require exact bindings/filters on machines, miners, stations, junctions, sinks, and every generated lane.
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "buffer filter|connection Resource filter|multi-input|coproduct"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "recipe bindings|buffer filter|connection Resource filter|multi-input|coproduct"
 bun run inm analyze examples/ironworks
 bun run inm test examples/ironworks
 ```

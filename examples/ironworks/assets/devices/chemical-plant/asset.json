@@ -22,7 +22,7 @@
   ],
   "production": {
     "categories": ["chemical"], "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffers": ["liquid-input", "gas-input"], "outputBuffers": ["output"],
+    "inputPorts": ["liquid-input", "gas-input"], "outputPorts": ["output"],
     "modes": [{
       "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
       "durationMultiplier": { "numerator": 1, "denominator": 1 },

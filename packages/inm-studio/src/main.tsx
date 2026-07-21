@@ -69,11 +69,11 @@ interface DeviceCatalogAsset {
   };
   buffers: Array<{ id: string; role: string; capacity: number; accepts: string[] }>;
   production?: {
-    categories: string[]; speed: { numerator: number; denominator: number }; inputBuffers: string[]; outputBuffers: string[];
+    categories: string[]; speed: { numerator: number; denominator: number }; inputPorts: string[]; outputPorts: string[];
     modes: Array<{
       id: string; name: string; inputCycles: number; outputCycles: number;
       durationMultiplier: { numerator: number; denominator: number }; powerMultiplier: { numerator: number; denominator: number };
-      auxiliaryInputs: Array<{ resource: string; count: number; buffer: string }>;
+      auxiliaryInputs: Array<{ resource: string; count: number; port: string }>;
       minimumInputTreatmentLevel: number;
     }>;
   };
@@ -195,16 +195,20 @@ interface IndustrialAnalysis {
   devices: Array<{
     device: string; asset: string; process: string; mode: string; inputCycles: number; outputCycles: number; minimumInputTreatmentLevel: number; category: string; cycleTicks: number; cyclesPerMinute: number;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
-    inputBindings: Record<string, string>; outputBindings: Record<string, string>; powerMilliWatts: number;
+    inputPorts: Record<string, string>; outputPorts: Record<string, string>; powerMilliWatts: number;
   }>;
   bufferContracts: Array<{
     device: string; asset: string;
     buffers: Array<{ buffer: string; role: string; capacity: number; accepts: string[]; resourceCapacities?: Record<string, number> }>;
   }>;
+  portContracts: Array<{
+    device: string; asset: string;
+    ports: Array<{ port: string; direction: "input" | "output"; buffer: string; accepts: string[] }>;
+  }>;
   recipeOptions: Array<{
     device: string; asset: string; process: string; mode: string; modeName: string; minimumInputTreatmentLevel: number; name: string; category: string; selected: boolean;
     cycleTicks: number; cyclesPerMinute: number; inputs: Array<{ resource: string; count: number }>; outputs: Array<{ resource: string; count: number }>;
-    inputBindings: Record<string, string>; outputBindings: Record<string, string>; targetOutputPerMinute: number; powerMilliWatts: number;
+    inputPorts: Record<string, string>; outputPorts: Record<string, string>; targetOutputPerMinute: number; powerMilliWatts: number;
   }>;
   productionGraph: {
     targetResource: string; rawInputsPerTarget: Record<string, number>; coproductSurplusPerTarget: Record<string, number>;
@@ -603,6 +607,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const generation = data.analysis.generationDevices.find((item) => item.device === device.id);
   const storage = data.analysis.storageDevices.find((item) => item.device === device.id);
   const buffers = data.analysis.bufferContracts.find((item) => item.device === device.id)?.buffers ?? [];
+  const ports = data.analysis.portContracts.find((item) => item.device === device.id)?.ports ?? [];
   const grid = data.analysis.powerGrids.find((item) => item.members.includes(device.id) || item.distributors.includes(device.id));
   const links = connectedSceneObjects(data, device.id).map((selection) => data.connections.find((connection) => connection.id === selection.id)!);
   const diagnostics = data.analysis.diagnostics.filter((diagnostic) => diagnostic.device === device.id);
@@ -634,6 +639,10 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
       <div className="inspector-section">
         <div className="inspector-section-title"><span>BUFFER CONTRACTS</span><b>{buffers.length}</b></div>
         <div className="inspector-buffer-list">{buffers.map((buffer) => <div key={buffer.buffer}><span><b>{buffer.buffer}</b><small>{buffer.role}</small></span><code>CAP {buffer.capacity}</code><p>{buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource} ≤ ${buffer.resourceCapacities[resource]}`).join(" · ") || "CLOSED"}</p></div>)}</div>
+      </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>PHYSICAL PORT CONTRACTS</span><b>{ports.length}</b></div>
+        <div className="inspector-buffer-list">{ports.map((port) => <div key={port.port}><span><b>{port.port}</b><small>{port.direction} → {port.buffer}</small></span><p>{port.accepts.join(" · ") || "CLOSED"}</p></div>)}</div>
       </div>
       <div className="inspector-section">
         <div className="inspector-section-title"><span>POWER GRID</span><b>{grid ? "CONNECTED" : powerMilliWatts ? "DISCONNECTED" : "PASSIVE"}</b></div>
@@ -766,7 +775,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>POWER</label><strong>{(selected.power.consumptionMilliWatts / 1000).toFixed(0)} W</strong></div>
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
-              {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputBuffers.join(" + ")} → {selected.production.outputBuffers.join(" + ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div>{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.minimumInputTreatmentLevel ? `all process inputs @${mode.minimumInputTreatmentLevel}+` : mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.buffer}`).join(" · ") || "untreated inputs"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
+              {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputPorts.join(" + ")} → {selected.production.outputPorts.join(" + ")}</strong><span>physical ports</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}× speed</code></div>{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.minimumInputTreatmentLevel ? `all process inputs @${mode.minimumInputTreatmentLevel}+` : mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.port}`).join(" · ") || "untreated inputs"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
               {selected.treatment && <section className="asset-section"><h4>Material treatment</h4><div className="asset-table"><div><b>{selected.treatment.inputBuffer} → {selected.treatment.outputBuffer}</b><strong>agent @ {selected.treatment.agentBuffer}</strong><span>lot-preserving</span><code>{selected.treatment.modes.length} modes</code></div>{selected.treatment.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.itemCount} items → level {mode.level}</strong><span>{mode.agent.count} {mode.agent.resource}</span><code>{mode.durationTicks}ms</code></div>)}</div></section>}
               {selected.extraction && <section className="asset-section"><h4>Extraction</h4><div className="asset-table"><div><b>{selected.extraction.resources.join(", ")}</b><strong>{selected.extraction.itemsPerCycle} / {selected.extraction.cycleTicks}ms</strong><span>radius</span><code>{selected.extraction.radius} cells</code></div></div></section>}
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
@@ -862,10 +871,10 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           </div>)}</div>
         </section>
         <section className="analysis-section logistics-analysis">
-          <div className="analysis-section-title"><span>CONFIGURED RECIPES</span><b>RESOURCE → BUFFER</b></div>
+          <div className="analysis-section-title"><span>CONFIGURED RECIPES</span><b>RESOURCE → PHYSICAL PORT</b></div>
           <div className="pipeline-list">{analysis.devices.map((device) => <div className="pipeline-card" key={device.device}>
             <div className="pipeline-head"><span><strong>{device.device}</strong><small>{device.asset} · {device.process} / {device.mode}</small></span><b>{device.cyclesPerMinute.toFixed(2)} cycles/min</b></div>
-            <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(device.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ") || "none"}</strong><code>{Object.entries(device.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(device.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{Object.entries(device.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span></div>
+            <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(device.inputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ") || "none"}</strong><code>{Object.entries(device.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(device.outputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ")}</strong><code>{Object.entries(device.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</code></span></div>
             <footer><span>JOB {device.inputCycles}× INPUT / {device.outputCycles}× OUTPUT · {device.cycleTicks}ms{device.minimumInputTreatmentLevel ? ` · INPUTS @${device.minimumInputTreatmentLevel}+` : ""}</span><span>{(device.powerMilliWatts / 1000).toFixed(0)} W</span></footer>
           </div>)}</div>
         </section>
@@ -882,6 +891,12 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             <strong>{device.device}<small>{buffer.buffer}</small></strong><span>{buffer.role}</span><span>{buffer.capacity}</span><b>{buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource} ≤ ${buffer.resourceCapacities[resource]}`).join(" + ") || "CLOSED"}</b><small>{device.asset}</small>
           </div>))}</div>
         </section>
+        <section className="analysis-section material-analysis">
+          <div className="analysis-section-title"><span>INSTANCE PORT CONTRACTS</span><b>PHYSICAL INGRESS / EGRESS</b></div>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>DEVICE / PORT</span><span>DIRECTION</span><span>BUFFER</span><span>CARRIES</span></div>{analysis.portContracts.flatMap((device) => device.ports.map((port) => <div key={`${device.device}-${port.port}`}>
+            <strong>{device.device}<small>{port.port}</small></strong><span>{port.direction}</span><span>{port.buffer}</span><b>{port.accepts.join(" + ") || "CLOSED"}</b><small>{device.asset}</small>
+          </div>))}</div>
+        </section>
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>PRODUCTION GRAPH</span><b>PER 1 {analysis.productionGraph.targetResource.toUpperCase()}</b></div>
           <div className="pipeline-list"><div className="pipeline-card">
@@ -893,7 +908,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>RECIPE ALTERNATIVES</span><b>AUTO-PATCH CANDIDATES</b></div>
           <div className="pipeline-list">{analysis.recipeOptions.filter((option) => !option.selected).map((option) => <div className="pipeline-card" key={`${option.device}-${option.process}-${option.mode}`}>
             <div className="pipeline-head"><span><strong>{option.process} / {option.modeName}</strong><small>{option.device} · {option.name} · {(option.powerMilliWatts / 1000).toFixed(0)} W</small></span><b>{option.targetOutputPerMinute.toFixed(2)} {analysis.productionGraph.targetResource}/min</b></div>
-            <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(option.inputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{option.inputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(option.outputBindings).map(([resource, buffer]) => `${resource} → ${buffer}`).join(" + ")}</strong><code>{option.outputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span></div>
+            <div className="pipeline-stages"><span><small>inputs</small><strong>{Object.entries(option.inputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ")}</strong><code>{option.inputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span><i>⇒</i><span><small>outputs</small><strong>{Object.entries(option.outputPorts).map(([resource, port]) => `${resource} → ${port}`).join(" + ")}</strong><code>{option.outputs.map((amount) => `${amount.count} ${amount.resource}`).join(" + ")}</code></span></div>
           </div>)}</div>
         </section>
         <section className="analysis-section diagnostics-analysis">

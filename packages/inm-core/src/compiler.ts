@@ -9,6 +9,60 @@ import { ENGINE_VERSION, hashValue } from "./utils";
 import { externalPortCellAtDistance, rotatePortSide, rotatedFootprint, transportCellId } from "./routing";
 import { compileProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 
+function acceptsResource(accepts: readonly string[], resource: ResourceId): boolean {
+  return accepts.includes("*") || accepts.includes(resource);
+}
+
+function intersectResourceContracts(left: readonly string[], right: readonly string[]): Array<ResourceId | "*"> {
+  if (left.includes("*") && right.includes("*")) return ["*"];
+  if (left.includes("*")) return [...right];
+  if (right.includes("*")) return [...left];
+  return left.filter((resource) => right.includes(resource)).sort();
+}
+
+function narrowDevicePortsToBuffers(device: Pick<CompiledDevice, "ports" | "buffers">): void {
+  for (const port of device.ports) {
+    port.accepts = intersectResourceContracts(port.accepts, device.buffers[port.buffer]?.accepts ?? []) as ResourceId[] | ["*"];
+  }
+}
+
+function partitionRecipeBuffer(capacity: number, amounts: Array<{ resource: ResourceId; count: number }>): Record<ResourceId, number> {
+  const totals: Record<ResourceId, number> = {};
+  for (const amount of amounts) totals[amount.resource] = (totals[amount.resource] ?? 0) + amount.count;
+  const ordered = Object.entries(totals).map(([resource, count]) => ({ resource, count }))
+    .sort((left, right) => left.resource.localeCompare(right.resource));
+  const minimum = ordered.reduce((sum, amount) => sum + amount.count, 0);
+  if (!ordered.length || minimum > capacity) return {};
+  const remaining = capacity - minimum;
+  const quotas = Object.fromEntries(ordered.map((amount) => [
+    amount.resource,
+    amount.count + Math.floor(remaining * amount.count / minimum),
+  ]));
+  let unassigned = capacity - Object.values(quotas).reduce((sum, value) => sum + value, 0);
+  for (const amount of ordered) {
+    if (unassigned-- <= 0) break;
+    quotas[amount.resource]! += 1;
+  }
+  return quotas;
+}
+
+function recipeBufferRequirements(
+  buffer: string,
+  inputs: Array<{ buffer: string; resource: ResourceId; count: number }>,
+  outputs: Array<{ buffer: string; resource: ResourceId; count: number }>,
+): Array<{ resource: ResourceId; count: number }> {
+  const sideTotals = (amounts: typeof inputs): Record<ResourceId, number> => {
+    const totals: Record<ResourceId, number> = {};
+    for (const amount of amounts.filter((candidate) => candidate.buffer === buffer)) {
+      totals[amount.resource] = (totals[amount.resource] ?? 0) + amount.count;
+    }
+    return totals;
+  };
+  const inputTotals = sideTotals(inputs); const outputTotals = sideTotals(outputs);
+  return [...new Set([...Object.keys(inputTotals), ...Object.keys(outputTotals)])].sort()
+    .map((resource) => ({ resource, count: Math.max(inputTotals[resource] ?? 0, outputTotals[resource] ?? 0) }));
+}
+
 function validateAssets(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const [id, process] of Object.entries(processes)) {
@@ -44,21 +98,18 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     }
     if (asset.production) {
       if (!asset.capabilities.includes("process")) issues.push({ path: `assets/devices/${id}/asset.json/production`, code: "capability.not-process", message: "Production specification requires process capability" });
-      for (const [side, bufferIds, direction, forbiddenRole] of [
-        ["inputBuffers", asset.production.inputBuffers, "input", "output"],
-        ["outputBuffers", asset.production.outputBuffers, "output", "input"],
+      for (const [side, portIds, direction] of [
+        ["inputPorts", asset.production.inputPorts, "input"],
+        ["outputPorts", asset.production.outputPorts, "output"],
       ] as const) {
         const seen = new Set<string>();
-        for (const [bufferIndex, bufferId] of bufferIds.entries()) {
-          const path = `assets/devices/${id}/asset.json/production/${side}/${bufferIndex}`;
-          if (seen.has(bufferId)) issues.push({ path, code: "production.duplicate-buffer", message: `Production ${side} lists '${bufferId}' more than once` });
-          seen.add(bufferId);
-          const buffer = asset.buffers.find((item) => item.id === bufferId);
-          if (!buffer) issues.push({ path, code: "reference.buffer", message: `Unknown production buffer '${bufferId}'` });
-          else if (buffer.role === forbiddenRole) issues.push({ path, code: "production.buffer-role", message: `Production ${direction} buffer '${bufferId}' cannot be ${forbiddenRole}-only` });
-          if (!asset.geometry.ports.some((port) => port.direction === direction && port.buffer === bufferId)) {
-            issues.push({ path, code: "production.buffer-port", message: `Production ${direction} buffer '${bufferId}' requires a matching ${direction} port` });
-          }
+        for (const [portIndex, portId] of portIds.entries()) {
+          const path = `assets/devices/${id}/asset.json/production/${side}/${portIndex}`;
+          if (seen.has(portId)) issues.push({ path, code: "production.duplicate-port", message: `Production ${side} lists '${portId}' more than once` });
+          seen.add(portId);
+          const port = asset.geometry.ports.find((item) => item.id === portId);
+          if (!port) issues.push({ path, code: "reference.port", message: `Unknown production port '${portId}'` });
+          else if (port.direction !== direction) issues.push({ path, code: "production.port-direction", message: `Production ${side} port '${portId}' must be an ${direction} port` });
         }
       }
       const modeIds = new Set<string>();
@@ -72,11 +123,12 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
           if (auxiliaryResources.has(input.resource)) issues.push({ path: inputPath, code: "production-mode.duplicate-input", message: `Production mode '${mode.id}' declares auxiliary Resource '${input.resource}' more than once` });
           auxiliaryResources.add(input.resource);
           if (!resources[input.resource]) issues.push({ path: `${inputPath}/resource`, code: "reference.resource", message: `Unknown auxiliary Resource '${input.resource}'` });
-          const buffer = asset.buffers.find((item) => item.id === input.buffer);
-          if (!buffer) issues.push({ path: `${inputPath}/buffer`, code: "reference.buffer", message: `Unknown auxiliary input buffer '${input.buffer}'` });
+          const port = asset.geometry.ports.find((item) => item.id === input.port);
+          const buffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
+          if (!port) issues.push({ path: `${inputPath}/port`, code: "reference.port", message: `Unknown auxiliary input port '${input.port}'` });
           else {
-            if (!asset.production.inputBuffers.includes(input.buffer)) issues.push({ path: `${inputPath}/buffer`, code: "production-mode.buffer-role", message: `Auxiliary input buffer '${input.buffer}' is not a production input buffer` });
-            if (!buffer.accepts.includes("*") && !buffer.accepts.includes(input.resource)) issues.push({ path: `${inputPath}/resource`, code: "production-mode.resource-contract", message: `Buffer '${input.buffer}' does not accept auxiliary Resource '${input.resource}'` });
+            if (!asset.production.inputPorts.includes(input.port)) issues.push({ path: `${inputPath}/port`, code: "production-mode.port-role", message: `Auxiliary input port '${input.port}' is not a production input port` });
+            if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(input.resource)) issues.push({ path: `${inputPath}/resource`, code: "production-mode.resource-contract", message: `Port '${input.port}' does not accept auxiliary Resource '${input.resource}'` });
           }
         }
       }
@@ -490,14 +542,48 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
       effectiveBuffers[bufferId] = { ...effectiveBuffers[bufferId]!, accepts: [...new Set(accepted)].sort() };
     }
+    const effectivePorts = asset.geometry.ports.map((port) => ({
+      ...port,
+      accepts: [...(effectiveBuffers[port.buffer]?.accepts ?? [])],
+    })) as CompiledDevice["ports"];
+    for (const [portId, resources] of Object.entries(instance.portFilters ?? {}).sort(([left], [right]) => left.localeCompare(right))) {
+      const filterPath = `${path}/portFilters/${portId}`;
+      const port = effectivePorts.find((item) => item.id === portId);
+      const assetPort = asset.geometry.ports.find((item) => item.id === portId);
+      const maximumBuffer = assetPort ? asset.buffers.find((item) => item.id === assetPort.buffer) : undefined;
+      const effectiveBuffer = assetPort ? effectiveBuffers[assetPort.buffer] : undefined;
+      if (!port || !maximumBuffer || !effectiveBuffer) {
+        issues.push({ path: filterPath, code: "reference.port", message: `Unknown filtered port '${portId}' on Device '${asset.id}'` });
+        continue;
+      }
+      const accepted: ResourceId[] = []; const seen = new Set<ResourceId>();
+      for (const [resourceIndex, resource] of resources.entries()) {
+        const resourcePath = `${filterPath}/${resourceIndex}`;
+        if (seen.has(resource)) issues.push({ path: resourcePath, code: "port-filter.duplicate-resource", message: `Port filter '${portId}' lists '${resource}' more than once` });
+        seen.add(resource);
+        if (!loaded.resources[resource]) {
+          issues.push({ path: resourcePath, code: "reference.resource", message: `Unknown filtered Resource '${resource}'` });
+          continue;
+        }
+        if (!maximumBuffer.accepts.includes("*") && !maximumBuffer.accepts.includes(resource)) {
+          issues.push({ path: resourcePath, code: "port-filter.resource-contract", message: `Port '${portId}' on '${asset.id}' cannot be configured to carry '${resource}'` });
+          continue;
+        }
+        if (!effectiveBuffer.accepts.includes("*") && !effectiveBuffer.accepts.includes(resource)) {
+          issues.push({ path: resourcePath, code: "port-filter.buffer-contract", message: `Port '${portId}' cannot expand configured buffer '${port.buffer}' to carry '${resource}'` });
+          continue;
+        }
+        accepted.push(resource);
+      }
+      port.accepts = [...new Set(accepted)].sort();
+    }
     if (instance.policy?.filter) {
-      const port = asset.geometry.ports.find((item) => item.id === instance.policy!.filter!.outputPort);
-      const buffer = port ? effectiveBuffers[port.buffer] : undefined;
+      const port = effectivePorts.find((item) => item.id === instance.policy!.filter!.outputPort);
       const maximumBuffer = port ? asset.buffers.find((item) => item.id === port.buffer) : undefined;
       const resource = instance.policy.filter.resource;
       const permittedByAsset = maximumBuffer?.accepts.includes("*") || maximumBuffer?.accepts.includes(resource);
-      if (buffer && permittedByAsset && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) {
-        issues.push({ path: `${path}/policy/filter/resource`, code: "policy.filter-resource-filter", message: `Output port '${port!.id}' instance filter excludes policy Resource '${resource}'` });
+      if (port && permittedByAsset && !acceptsResource(port.accepts, resource)) {
+        issues.push({ path: `${path}/policy/filter/resource`, code: "policy.filter-resource-filter", message: `Output port '${port.id}' instance filter excludes policy Resource '${resource}'` });
       }
     }
     let processPlan: CompiledDevice["processPlan"];
@@ -523,9 +609,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         }
         const compiledInputs = [] as NonNullable<CompiledDevice["processPlan"]>["inputs"];
         const compiledOutputs = [] as NonNullable<CompiledDevice["processPlan"]>["outputs"];
-        for (const [side, amounts, bindings, allowedBuffers, compiled] of [
-          ["inputs", definition.inputs, instance.recipe.inputs, asset.production.inputBuffers, compiledInputs],
-          ["outputs", definition.outputs, instance.recipe.outputs, asset.production.outputBuffers, compiledOutputs],
+        const compiledBindings = { inputs: {} as Record<ResourceId, string>, outputs: {} as Record<ResourceId, string> };
+        for (const [side, amounts, bindings, allowedPorts, compiled, resolvedBindings] of [
+          ["inputs", definition.inputs, instance.recipe.inputs, asset.production.inputPorts, compiledInputs, compiledBindings.inputs],
+          ["outputs", definition.outputs, instance.recipe.outputs, asset.production.outputPorts, compiledOutputs, compiledBindings.outputs],
         ] as const) {
           const expected = new Set(amounts.map((amount) => amount.resource));
           for (const resource of Object.keys(bindings).sort()) if (!expected.has(resource)) {
@@ -534,61 +621,79 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
           }
           for (const amount of amounts) {
             const bindingPath = `${path}/recipe/${side}/${amount.resource}`;
-            const bufferId = bindings[amount.resource];
-            if (!bufferId) {
+            const portId = bindings[amount.resource];
+            if (!portId) {
               issues.push({ path: bindingPath, code: "recipe.binding-required", message: `Process '${definition.id}' requires a ${side} binding for '${amount.resource}'` });
               bindingValid = false;
               continue;
             }
-            const buffer = asset.buffers.find((item) => item.id === bufferId);
-            if (!buffer) {
-              issues.push({ path: bindingPath, code: "reference.buffer", message: `Unknown recipe buffer '${bufferId}'` });
+            const port = effectivePorts.find((item) => item.id === portId);
+            if (!port) {
+              issues.push({ path: bindingPath, code: "reference.port", message: `Unknown recipe port '${portId}'` });
               bindingValid = false;
               continue;
             }
-            if (!allowedBuffers.includes(bufferId)) {
-              issues.push({ path: bindingPath, code: "recipe.buffer-role", message: `Buffer '${bufferId}' is not declared as one of '${asset.id}' ${side}` });
+            if (!allowedPorts.includes(portId)) {
+              issues.push({ path: bindingPath, code: "recipe.port-role", message: `Port '${portId}' is not declared as one of '${asset.id}' production ${side}` });
               bindingValid = false;
             }
-            if (!buffer.accepts.includes("*") && !buffer.accepts.includes(amount.resource)) {
-              issues.push({ path: bindingPath, code: "recipe.resource-contract", message: `Buffer '${bufferId}' cannot accept '${amount.resource}' for process '${definition.id}'` });
-              bindingValid = false;
-            } else if (instance.bufferFilters?.[bufferId] && !effectiveBuffers[bufferId]!.accepts.includes(amount.resource)) {
-              issues.push({ path: bindingPath, code: "recipe.resource-filter", message: `Buffer filter '${bufferId}' excludes '${amount.resource}' required by process '${definition.id}'` });
+            if (!acceptsResource(port.accepts, amount.resource)) {
+              issues.push({ path: bindingPath, code: "recipe.resource-filter", message: `Port '${portId}' cannot accept '${amount.resource}' for process '${definition.id}'` });
               bindingValid = false;
             }
-            compiled.push({ buffer: bufferId, ...amount });
+            resolvedBindings[amount.resource] = port.buffer;
+            compiled.push({ buffer: port.buffer, ...amount });
           }
         }
         if (mode) {
           for (const input of mode.auxiliaryInputs) {
-            const buffer = effectiveBuffers[input.buffer];
+            const port = effectivePorts.find((item) => item.id === input.port);
+            const buffer = port ? effectiveBuffers[port.buffer] : undefined;
             const processBinding = recipe.inputs[input.resource];
-            if (processBinding && processBinding !== input.buffer) {
-              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.ambiguous-buffer", message: `Production mode '${mode.id}' requires '${input.resource}' in '${input.buffer}', but the process binds it to '${processBinding}'` });
+            if (processBinding && processBinding !== input.port) {
+              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.ambiguous-port", message: `Production mode '${mode.id}' requires '${input.resource}' through '${input.port}', but the process binds it to '${processBinding}'` });
               bindingValid = false;
             }
-            if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(input.resource)) {
-              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.resource-filter", message: `Production mode '${mode.id}' requires '${input.resource}' in buffer '${input.buffer}', but the instance filter excludes it` });
+            if (port && !acceptsResource(port.accepts, input.resource)) {
+              issues.push({ path: `${path}/recipe/mode`, code: "production-mode.resource-filter", message: `Production mode '${mode.id}' requires '${input.resource}' through port '${input.port}', but the instance filter excludes it` });
               bindingValid = false;
             }
+            if (port && buffer) compiledBindings.inputs[input.resource] = port.buffer;
           }
           if (bindingValid) {
-            const amounts = compileProductionAmounts(definition, mode, recipe);
+            const amounts = compileProductionAmounts(definition, mode, compiledBindings);
             compiledInputs.splice(0, compiledInputs.length, ...amounts.inputs);
             compiledOutputs.splice(0, compiledOutputs.length, ...amounts.outputs);
-            for (const amount of [...compiledInputs, ...compiledOutputs]) {
-              const capacity = effectiveBuffers[amount.buffer]?.capacity;
-              if (capacity !== undefined && amount.count > capacity) {
-                issues.push({ path: `${path}/recipe/mode`, code: "production-mode.job-capacity", message: `Production mode '${mode.id}' requires ${amount.count} '${amount.resource}' in buffer '${amount.buffer}', exceeding capacity ${capacity}` });
+            for (const bufferId of [...new Set([...compiledInputs, ...compiledOutputs].map((amount) => amount.buffer))]) {
+              const amountsInBuffer = recipeBufferRequirements(bufferId, compiledInputs, compiledOutputs);
+              const required = amountsInBuffer.reduce((sum, amount) => sum + amount.count, 0);
+              const capacity = effectiveBuffers[bufferId]?.capacity;
+              if (capacity !== undefined && required > capacity) {
+                issues.push({ path: `${path}/recipe/mode`, code: "production-mode.job-capacity", message: `Production mode '${mode.id}' requires ${required} total items in shared buffer '${bufferId}', exceeding capacity ${capacity}` });
                 bindingValid = false;
               }
             }
           }
         }
-        for (const bufferId of [...new Set([...asset.production.inputBuffers, ...asset.production.outputBuffers])]) {
-          const resources = [...compiledInputs, ...compiledOutputs].filter((amount) => amount.buffer === bufferId).map((amount) => amount.resource);
-          effectiveBuffers[bufferId] = { ...effectiveBuffers[bufferId]!, accepts: [...new Set(resources)].sort() };
+        const productionPorts = [...asset.production.inputPorts, ...asset.production.outputPorts]
+          .flatMap((portId) => effectivePorts.find((port) => port.id === portId) ?? []);
+        for (const port of productionPorts) {
+          const resources = [
+            ...Object.entries(recipe.inputs).filter(([, portId]) => portId === port.id).map(([resource]) => resource),
+            ...Object.entries(recipe.outputs).filter(([, portId]) => portId === port.id).map(([resource]) => resource),
+            ...(mode?.auxiliaryInputs.filter((input) => input.port === port.id).map((input) => input.resource) ?? []),
+          ];
+          port.accepts = [...new Set(resources)].sort();
+        }
+        for (const bufferId of [...new Set(productionPorts.map((port) => port.buffer))]) {
+          const amounts = recipeBufferRequirements(bufferId, compiledInputs, compiledOutputs);
+          const resources = amounts.map((amount) => amount.resource);
+          const buffer = effectiveBuffers[bufferId]!;
+          effectiveBuffers[bufferId] = {
+            ...buffer,
+            accepts: [...new Set(resources)].sort(),
+            ...(amounts.length ? { resourceCapacities: partitionRecipeBuffer(buffer.capacity, amounts) } : {}),
+          };
         }
         if (bindingValid && mode) {
           processPlan = {
@@ -601,7 +706,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         }
       }
     } else if (asset.production) {
-      issues.push({ path: `${path}/recipe`, code: "production.recipe-required", message: `Device asset '${asset.id}' requires a blueprint recipe with explicit resource-to-buffer bindings` });
+      issues.push({ path: `${path}/recipe`, code: "production.recipe-required", message: `Device asset '${asset.id}' requires a blueprint recipe with explicit Resource-to-port bindings` });
     }
     if (instance.treatment) {
       if (!asset.treatment) issues.push({ path: `${path}/treatment`, code: "treatment.unsupported", message: `Device asset '${asset.id}' does not support material treatment` });
@@ -672,7 +777,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (asset.power.storage) storagePlan = { ...asset.power.storage };
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
-      ports: asset.geometry.ports.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
+      ports: effectivePorts.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
       buffers: effectiveBuffers,
       ...(processPlan ? { processPlan } : {}),
       ...(treatmentPlan ? { treatmentPlan } : {}),
@@ -680,6 +785,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ...(generationPlan ? { generationPlan } : {}),
       ...(storagePlan ? { storagePlan } : {}),
     };
+    narrowDevicePortsToBuffers(devices[instance.id]!);
   }
 
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
@@ -691,6 +797,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   }
 
   compileStationSlotContracts(loaded.blueprint.logisticsNetworks, devices, loaded.resources, issues);
+  for (const device of Object.values(devices)) narrowDevicePortsToBuffers(device);
   const powerGrids = compilePowerGrids(devices);
 
   const connections: Record<string, CompiledConnection> = {};
@@ -728,8 +835,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (fromPort.direction !== "output") issues.push({ path: `${path}/from/port`, code: "port.direction", message: "Connection must start at an output port" });
     if (toPort.direction !== "input") issues.push({ path: `${path}/to/port`, code: "port.direction", message: "Connection must end at an input port" });
     if (fromPort.kind !== toPort.kind) issues.push({ path, code: "port.kind", message: `Incompatible port kinds '${fromPort.kind}' and '${toPort.kind}'` });
-    const sourceResources = from.buffers[fromPort.buffer]?.accepts ?? [];
-    const targetResources = to.buffers[toPort.buffer]?.accepts ?? [];
+    const sourceResources = fromPort.accepts;
+    const targetResources = toPort.accepts;
     const compatibleResources: ResourceId[] = [];
     const seenConnectionResources = new Set<ResourceId>();
     if (!connection.resources.length) issues.push({ path: `${path}/resources`, code: "connection.resources-required", message: `Connection '${connection.id}' must declare at least one transported Resource` });
@@ -744,8 +851,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         issues.push({ path: resourcePath, code: "reference.resource", message: `Unknown connection Resource '${resource}'` });
         continue;
       }
-      const sourceAccepts = sourceResources.includes("*") || sourceResources.includes(resource);
-      const targetAccepts = targetResources.includes("*") || targetResources.includes(resource);
+      const sourceAccepts = acceptsResource(sourceResources, resource);
+      const targetAccepts = acceptsResource(targetResources, resource);
       if (!sourceAccepts) issues.push({ path: resourcePath, code: "connection.source-resource-contract", message: `Source '${from.id}.${fromPort.id}' cannot provide '${resource}'` });
       if (!targetAccepts) issues.push({ path: resourcePath, code: "connection.target-resource-contract", message: `Target '${to.id}.${toPort.id}' cannot accept '${resource}'` });
       if (sourceAccepts && targetAccepts) compatibleResources.push(resource);

@@ -2,7 +2,7 @@ import type {
   Blueprint, BlueprintDevice, BlueprintLogisticsNetwork, DeviceAsset, GridPosition, IndustrialProcess, ProductionModeDefinition, ResourceId,
 } from "./types";
 import type { LoadedFactoryProject } from "./loader";
-import { bindProcessRecipe } from "./production-analysis";
+import { bindProcessPorts } from "./production-analysis";
 import { externalPortCell, findBlueprintConnectionPath, rotatedFootprint } from "./routing";
 import { planDeviceTransport } from "./device-runtime";
 import { optimizeSpatialResourceDemand } from "./production-demand";
@@ -225,9 +225,9 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     return Math.max(...capacities);
   };
   const baseProcessCandidates = Object.values(loaded.processes).flatMap((process) => Object.values(loaded.deviceAssets).flatMap((asset) => {
-    const binding = bindProcessRecipe(asset, process); if (!binding || !asset.production) return [];
+    const binding = bindProcessPorts(asset, process); if (!binding || !asset.production) return [];
     return asset.production.modes.filter((mode) => !mode.auxiliaryInputs.some((amount) => binding.inputs[amount.resource] !== undefined
-      && binding.inputs[amount.resource] !== amount.buffer)).map((mode) => {
+      && binding.inputs[amount.resource] !== amount.port)).map((mode) => {
       const machineAmounts = effectiveProductionAmounts(process, mode);
       const amounts = plannedProductionAmounts(process, mode, loaded.deviceAssets);
       const primary = [...amounts.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!;
@@ -372,17 +372,16 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   for (const [resource, endpoints] of extractorEndpoints) producers.set(resource, [...endpoints]);
   for (const selection of selections.values()) for (const instance of selection.instances) {
     for (const output of selection.effectiveOutputs) {
-      const outputBuffer = selection.outputs[output.resource]!;
       (producers.get(output.resource) ?? producers.set(output.resource, []).get(output.resource)!).push({
-        device: instance.id, port: portForBuffer(selection.asset, "output", outputBuffer), region: instance.region,
+        device: instance.id, port: selection.outputs[output.resource]!, region: instance.region,
         ratePerMinute: output.count * selection.requiredCyclesPerMinute / selection.machines,
       });
     }
     const treatedResources = new Set(selection.treatment ? selection.process.inputs.map((input) => input.resource) : []);
     for (const input of selection.machineInputs.filter((amount) => !treatedResources.has(amount.resource))) {
-      const buffer = selection.mode.auxiliaryInputs.find((amount) => amount.resource === input.resource)?.buffer ?? selection.inputs[input.resource]!;
+      const port = selection.mode.auxiliaryInputs.find((amount) => amount.resource === input.resource)?.port ?? selection.inputs[input.resource]!;
       (consumers.get(input.resource) ?? consumers.set(input.resource, []).get(input.resource)!).push({
-        device: instance.id, port: portForBuffer(selection.asset, "input", buffer), region: instance.region,
+        device: instance.id, port, region: instance.region,
         ratePerMinute: input.count * selection.requiredCyclesPerMinute / selection.machines,
       });
     }
@@ -392,9 +391,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const treatmentCapacity = treatment.mode.itemCount * 60_000 / treatment.mode.durationTicks;
       const count = Math.max(1, Math.ceil(materialRate / treatmentCapacity - 1e-9));
       const sources: Endpoint[] = [];
-      const targetBuffer = selection.inputs[processInput.resource]!;
       const targets: Endpoint[] = [{
-        device: instance.id, port: portForBuffer(selection.asset, "input", targetBuffer), region: instance.region, ratePerMinute: materialRate,
+        device: instance.id, port: selection.inputs[processInput.resource]!, region: instance.region, ratePerMinute: materialRate,
       }];
       for (let index = 0; index < count; index++) {
         const asset = treatment.asset; const mode = treatment.mode;

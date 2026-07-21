@@ -40,7 +40,7 @@ export function compileProductionAmounts(
         buffer: bindings.inputs[amount.resource]!, resource: amount.resource, count: amount.count * mode.inputCycles,
         minimumTreatmentLevel: mode.minimumInputTreatmentLevel,
       })),
-      ...mode.auxiliaryInputs.map((amount) => ({ buffer: amount.buffer, resource: amount.resource, count: amount.count })),
+      ...mode.auxiliaryInputs.map((amount) => ({ buffer: bindings.inputs[amount.resource]!, resource: amount.resource, count: amount.count })),
     ]),
     outputs: mergeBufferAmounts(process.outputs.map((amount) => ({ buffer: bindings.outputs[amount.resource]!, resource: amount.resource, count: amount.count * mode.outputCycles, treatmentLevel: 0 }))),
   };

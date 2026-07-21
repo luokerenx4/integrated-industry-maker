@@ -21,8 +21,8 @@
   "production": {
     "categories": ["smelting"],
     "speed": { "numerator": 1, "denominator": 1 },
-    "inputBuffers": ["input"],
-    "outputBuffers": ["output"],
+    "inputPorts": ["input"],
+    "outputPorts": ["output"],
     "modes": [{
       "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
       "durationMultiplier": { "numerator": 1, "denominator": 1 },

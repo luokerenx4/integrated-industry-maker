@@ -32,7 +32,7 @@ The capacity plan turns that solution into required Process machines, treatment 
 
 `synthesizeFactoryBlueprint()` starts with an empty Blueprint and only project-local definitions. Its regional material balance decides where upstream Processes run and which Resource crosses each boundary. It then:
 
-1. selects compatible Process/Device/mode triples and exact multi-Resource bindings;
+1. selects compatible Process/Device/mode triples and exact multi-Resource-to-physical-port bindings;
 2. sizes machines by cycle rate and physical port/lane capacity;
 3. inserts treatment Devices, agent production, and separately routed graded outputs for selected modes;
 4. binds finite deposits and places extractors;
@@ -45,7 +45,7 @@ The capacity plan turns that solution into required Process machines, treatment 
 11. jointly selects a zero-unserved-energy generator/storage bundle under the Scenario curve, then synthesizes one connected spatial power component;
 12. compiles, plans, cold-start simulates, and atomically writes the Blueprint.
 
-The generated factory has no synthetic capacity: every port, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default and writes it onto every generated shared-fleet network, so local fan-out and planetary/interstellar contention respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
+The generated factory has no synthetic capacity: every port, backing buffer partition, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default and writes it onto every generated shared-fleet network, so local fan-out and planetary/interstellar contention respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
 
 ## Research boundary
 
