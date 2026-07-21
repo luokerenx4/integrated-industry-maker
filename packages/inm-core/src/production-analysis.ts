@@ -1,4 +1,5 @@
-import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
+import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
+import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, type ConnectionDispatchProfile } from "./dispatch-priority";
 import { connectionCapacityPerMinute, maximumConnectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
@@ -104,6 +105,8 @@ export interface ConnectionRateLimit {
   from: string;
   to: string;
   resources: ResourceId[];
+  dispatchPolicy: DispatchPolicy;
+  dispatchProfiles: ConnectionDispatchProfile[];
   capacityItemsPerMinute: number;
   capacityByResource: Record<ResourceId, number>;
   stackSizeByResource: Record<ResourceId, number>;
@@ -419,11 +422,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     hasBoundaryDemand: boundaryDemand.has(resource),
   }));
 
+  const criticalDepths = resourceCriticalDepth(project);
   const connections = Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id)).map((connection) => ({
     connection: connection.id,
     from: connection.from.device,
     to: connection.to.device,
     resources: [...connection.resources],
+    dispatchPolicy: effectiveDispatchPolicy(project, connection),
+    dispatchProfiles: connectionDispatchProfiles(project, connection, criticalDepths),
     capacityItemsPerMinute: maximumConnectionCapacityPerMinute(connection),
     capacityByResource: Object.fromEntries(Object.keys(connection.stackSizeByResource).map((resource) => [resource, connectionCapacityPerMinute(connection, resource)])),
     stackSizeByResource: { ...connection.stackSizeByResource }, maxStackSize: connection.maxStackSize,

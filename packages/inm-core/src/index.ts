@@ -11,6 +11,7 @@ export * from "./utils";
 export * from "./rng";
 export * from "./state";
 export * from "./device-runtime";
+export * from "./dispatch-priority";
 export * from "./workspace";
 export * from "./production-analysis";
 export * from "./capacity-plan";

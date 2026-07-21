@@ -574,8 +574,8 @@
     }
   ],
   "policies": {
-    "dispatch": "round-robin"
+    "dispatch": "shortage-first"
   },
-  "revision": "4da400d5a87bb7d24649c3f3fe3449dffd17da5ceda671c52165da8e06f553ab",
+  "revision": "4ff9a7829dfe627058f771841b73db8ef139b0614ec581fd181e87f12c6deadf",
   "version": 1
 }

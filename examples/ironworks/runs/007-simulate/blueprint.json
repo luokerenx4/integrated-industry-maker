@@ -412,7 +412,7 @@
   ],
   "logisticsNetworks": [],
   "policies": {
-    "dispatch": "round-robin"
+    "dispatch": "shortage-first"
   },
   "version": 1
 }

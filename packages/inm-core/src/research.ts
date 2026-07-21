@@ -431,7 +431,8 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
 
 function policyCandidates(input: ResearchInput): StrategyCandidate[] {
   const current = input.blueprint.policies?.dispatch ?? "fifo";
-  const next = current === "fifo" ? "round-robin" : "fifo";
+  const policies = ["fifo", "round-robin", "shortage-first"] as const;
+  const next = policies[(policies.indexOf(current) + 1) % policies.length]!;
   const operation: JsonPatchOperation = input.blueprint.policies?.dispatch
     ? { op: "replace", path: "/policies/dispatch", value: next }
     : input.blueprint.policies
@@ -440,7 +441,7 @@ function policyCandidates(input: ResearchInput): StrategyCandidate[] {
   return [{ key: `dispatch:${next}`, proposal: {
     strategy: `dispatch:${next}`,
     hypothesis: `Switch the factory-wide contested-output policy from ${current} to ${next}.`,
-    expectedEffect: "Test whether deterministic output arbitration reduces starvation or blockage in the measured topology.",
+    expectedEffect: "Test whether deterministic output arbitration reduces starvation or blockage in the measured topology; shortage-first uses destination batch coverage and objective critical depth.",
     patch: [operation],
   } }];
 }

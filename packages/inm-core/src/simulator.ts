@@ -1,6 +1,7 @@
 import { DeterministicPriorityQueue } from "./priority-queue";
 import { evaluateFactory, type SimulationStats } from "./evaluator";
 import { evaluateDeviceProgram } from "./device-runtime";
+import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth } from "./dispatch-priority";
 import type {
   BeltTransit, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
   ResourceBufferQuantity, ResourceTransit, SimulationResult,
@@ -67,6 +68,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const maxEvents = options.maxEvents ?? 1_000_000;
   const seed = options.seed ?? 0;
   const state: FactoryState = structuredClone(initialState);
+  const criticalDepths = resourceCriticalDepth(project);
+  const dispatchProfiles = Object.fromEntries(Object.values(project.connections).map((connection) => [
+    connection.id, connectionDispatchProfiles(project, connection, criticalDepths),
+  ]));
   const events: FactoryEvent[] = [];
   const queue = new DeterministicPriorityQueue<InternalEvent>();
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
@@ -301,16 +306,42 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     emit({ type: "resource.belt-unblocked", tick: state.tick, transit: { ...transit }, connection: connectionId });
   };
 
+  const dispatchResourceCandidates = (connection: CompiledFactoryProject["connections"][string]) => {
+    const sourceBuffer = state.devices[connection.from.device]!.buffers[connection.fromPort.buffer]!;
+    const targetBuffer = state.devices[connection.to.device]!.buffers[connection.toPort.buffer]!;
+    const filter = connection.fromDevice.policy?.filter;
+    const candidates = dispatchProfiles[connection.id]!.flatMap((profile) => {
+      if ((sourceBuffer[profile.resource] ?? 0) <= 0 || !accepts(connection.toDevice, connection.toPort.buffer, profile.resource)
+        || freeBufferCapacity(connection.to.device, connection.toPort.buffer, profile.resource) <= 0) return [];
+      if (filter && (connection.from.port === filter.outputPort ? profile.resource !== filter.resource : profile.resource === filter.resource)) return [];
+      const residentAndInbound = (targetBuffer[profile.resource] ?? 0)
+        + incomingQuantity(connection.to.device, connection.toPort.buffer, profile.resource);
+      return [{ ...profile, coverage: residentAndInbound / profile.coverageUnit }];
+    });
+    if (effectiveDispatchPolicy(project, connection) !== "shortage-first") return candidates.sort((a, b) => a.resource.localeCompare(b.resource));
+    return candidates.sort((a, b) => a.coverage - b.coverage
+      || (a.criticalDepth ?? Number.MAX_SAFE_INTEGER) - (b.criticalDepth ?? Number.MAX_SAFE_INTEGER)
+      || a.resource.localeCompare(b.resource));
+  };
+
   const dispatch = (): boolean => {
     let moved = false;
     const sourceIds = [...new Set(Object.values(project.connections).map((connection) => connection.from.device))].sort();
     const sourceOrderedConnections = sourceIds.flatMap((sourceId) => {
       const outgoing = Object.values(project.connections).filter((connection) => connection.from.device === sourceId).sort((a, b) => a.id.localeCompare(b.id));
       const outputPriority = project.devices[sourceId]!.policy?.outputPriority;
-      if (outputPriority) return outgoing.sort((a, b) => Number(b.from.port === outputPriority) - Number(a.from.port === outputPriority) || a.id.localeCompare(b.id));
-      if (outgoing.length < 2 || (project.devices[sourceId]!.policy?.dispatch ?? project.blueprint.policies?.dispatch ?? "fifo") === "fifo") return outgoing;
+      if (outgoing.length < 2) return outgoing;
+      const policy = effectiveDispatchPolicy(project, outgoing[0]!);
+      if (policy === "fifo") return outgoing.sort((a, b) => Number(b.from.port === outputPriority) - Number(a.from.port === outputPriority) || a.id.localeCompare(b.id));
       const cursor = dispatchCursors[sourceId] ?? 0;
-      return [...outgoing.slice(cursor % outgoing.length), ...outgoing.slice(0, cursor % outgoing.length)];
+      const rotated = [...outgoing.slice(cursor % outgoing.length), ...outgoing.slice(0, cursor % outgoing.length)];
+      if (policy === "round-robin") return rotated.sort((a, b) => Number(b.from.port === outputPriority) - Number(a.from.port === outputPriority));
+      return rotated.map((connection) => ({ connection, rank: dispatchResourceCandidates(connection)[0] }))
+        .sort((a, b) => Number(b.connection.from.port === outputPriority) - Number(a.connection.from.port === outputPriority)
+          || Number(Boolean(b.rank)) - Number(Boolean(a.rank))
+          || (a.rank?.coverage ?? Number.POSITIVE_INFINITY) - (b.rank?.coverage ?? Number.POSITIVE_INFINITY)
+          || (a.rank?.criticalDepth ?? Number.MAX_SAFE_INTEGER) - (b.rank?.criticalDepth ?? Number.MAX_SAFE_INTEGER))
+        .map((item) => item.connection);
     });
     const orderedConnections = sourceOrderedConnections.map((connection, index) => ({
       connection, index,
@@ -323,12 +354,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if ((usesPersistentPower(connection.fromDevice) && sourceState.status === "unpowered") || (usesPersistentPower(connection.toDevice) && targetState.status === "unpowered")) continue;
       const loader = transportStage(connection, "loader");
       if (state.transports[connection.id]!.filter((transit) => transit.phase === "loading").length >= loader.capacity) continue;
-      const filter = connection.fromDevice.policy?.filter;
-      const resource = Object.keys(sourceBuffer).sort().find((id) => {
-        if (!connection.resources.includes(id) || (sourceBuffer[id] ?? 0) <= 0 || !accepts(connection.toDevice, connection.toPort.buffer, id)) return false;
-        if (!filter) return true;
-        return connection.from.port === filter.outputPort ? id === filter.resource : id !== filter.resource;
-      });
+      const resource = dispatchResourceCandidates(connection)[0]?.resource;
       if (!resource) continue;
       const readyTick = nextDispatchTick[connection.id]!;
       if (state.tick < readyTick) {
@@ -356,7 +382,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       nextDispatchTick[connection.id] = state.tick + connection.loaderDispatchIntervalTicks;
       scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
       moved = true;
-      if ((connection.fromDevice.policy?.dispatch ?? project.blueprint.policies?.dispatch) === "round-robin") {
+      if (effectiveDispatchPolicy(project, connection) !== "fifo") {
         const count = Object.values(project.connections).filter((item) => item.from.device === connection.from.device).length;
         dispatchCursors[connection.from.device] = ((dispatchCursors[connection.from.device] ?? 0) + 1) % count;
       }

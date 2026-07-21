@@ -752,6 +752,14 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 590_000 }),
       expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 8_000 }),
     ]);
+    expect(analysis.connections.find((connection) => connection.connection === "ore-to-smelter")).toEqual(expect.objectContaining({
+      dispatchPolicy: "round-robin",
+      dispatchProfiles: [{ resource: "iron-ore", targetKind: "process", coverageUnit: 2, criticalDepth: 1 }],
+    }));
+    expect(analysis.connections.find((connection) => connection.connection === "coal-splitter-to-generator")).toEqual(expect.objectContaining({
+      dispatchPolicy: "shortage-first",
+      dispatchProfiles: [{ resource: "coal", targetKind: "fuel", coverageUnit: 1, criticalDepth: 0 }],
+    }));
   });
   test("target-rate planning sizes recipes, extraction, logistics, station fleets, power, and finite reserves", async () => {
     const project = await openFactoryProject(ironworks);
@@ -1045,6 +1053,81 @@ describe("deterministic discrete-event simulation", () => {
     ]);
     expect(result.state.devices["target-east"]!.buffers.storage!["iron-ore"]).toBe(1);
     expect(result.state.devices["target-north"]!.buffers.storage!.coal).toBe(1);
+  });
+
+  test("shortage-first dispatch feeds the least-covered downstream buffer deterministically", async () => {
+    const source = await loaded();
+    source.deviceAssets.splitter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "source", asset: "splitter", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0 },
+      { id: "stocked", asset: "buffer", region: "forge-world", position: { x: 10, y: 4 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
+      { id: "starved", asset: "buffer", region: "forge-world", position: { x: 7, y: 2 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
+    ];
+    const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
+    source.blueprint.connections = [
+      { id: "a-stocked", from: { device: "source", port: "output-east" }, to: { device: "stocked", port: "input" }, resources: ["iron-ore"], path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
+      { id: "z-starved", from: { device: "source", port: "output-north" }, to: { device: "starved", port: "input" }, resources: ["iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
+    ];
+    source.blueprint.logisticsNetworks = [];
+    source.blueprint.policies = { dispatch: "shortage-first" };
+    source.scenario.initialBuffers = {
+      source: { storage: { "iron-ore": 1 } },
+      stocked: { storage: { "iron-ore": 5 } },
+    };
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    const first = runUntil(project, undefined, { untilTick: 100 });
+    const second = runUntil(project, undefined, { untilTick: 100 });
+    expect(first.events.filter((event) => event.type === "resource.depart").map((event) => event.connection)).toEqual(["z-starved"]);
+    expect(first).toEqual(second);
+  });
+
+  test("shortage-first dispatch chooses the least-covered Resource on a shared lane and counts inbound cargo", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target", asset: "buffer", region: "forge-world", position: { x: 6, y: 0 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "mixed-lane", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
+      resources: ["coal", "gear"],
+      path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
+    }];
+    source.blueprint.logisticsNetworks = [];
+    source.blueprint.policies = { dispatch: "shortage-first" };
+    source.scenario.initialBuffers = {
+      source: { storage: { coal: 1, gear: 2 } },
+    };
+    source.scenario.failures = [];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 300 });
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.transit.resource)).toEqual(["gear", "coal"]);
+  });
+
+  test("explicit output priority overrides shortage-first dispatch", async () => {
+    const source = await loaded();
+    source.deviceAssets.splitter!.power.consumptionMilliWatts = 0;
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "source", asset: "splitter", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0, policy: { dispatch: "shortage-first", outputPriority: "output-east" } },
+      { id: "preferred", asset: "buffer", region: "forge-world", position: { x: 10, y: 4 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
+      { id: "starved", asset: "buffer", region: "forge-world", position: { x: 7, y: 2 }, rotation: 0, bufferFilters: { storage: ["iron-ore"] } },
+    ];
+    const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
+    source.blueprint.connections = [
+      { id: "preferred-lane", from: { device: "source", port: "output-east" }, to: { device: "preferred", port: "input" }, resources: ["iron-ore"], path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
+      { id: "starved-lane", from: { device: "source", port: "output-north" }, to: { device: "starved", port: "input" }, resources: ["iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
+    ];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = {
+      source: { storage: { "iron-ore": 1 } },
+      preferred: { storage: { "iron-ore": 5 } },
+    };
+    source.scenario.failures = [];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 100 });
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.connection)).toEqual(["preferred-lane"]);
   });
 
   test("connection Resource filters admit only the declared material from a mixed source", async () => {

@@ -160,7 +160,7 @@ function assignJunctionPorts(
 }
 
 export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): BlueprintSynthesisResult {
-  const blueprint: Blueprint = { version: 1, devices: [], connections: [], logisticsNetworks: [], policies: { dispatch: "round-robin" } };
+  const blueprint: Blueprint = { version: 1, devices: [], connections: [], logisticsNetworks: [], policies: { dispatch: "shortage-first" } };
   const targetResource = loaded.objective.targetResource;
   const targetRate = loaded.objective.targetRatePerMinute;
   const consumerAssetFor = (resource: ResourceId) => Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("consume") && asset.geometry.ports.some((port) => {

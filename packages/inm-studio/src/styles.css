@@ -127,9 +127,11 @@ main.syncing::after { content: ""; position: fixed; z-index: 20; left: 0; top: 7
 .inspector-section-title { min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 9px; border-bottom: 1px solid #142b31; color: #839ca3; font: 7px var(--mono); letter-spacing: .1em; }
 .inspector-section-title b { overflow: hidden; color: #4f756c; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .inspector-recipe-head, .inspector-inline, .inspector-grid { padding: 10px; }
+.inspector-inline { display: grid; gap: 4px; }
 .inspector-recipe-head strong, .inspector-recipe-head code, .inspector-grid strong, .inspector-grid code { display: block; }
 .inspector-recipe-head strong, .inspector-inline strong, .inspector-grid strong { color: #c4d8dc; font: 10px var(--mono); }
-.inspector-recipe-head code, .inspector-inline code, .inspector-grid code { margin-top: 4px; color: #56737a; font: 8px var(--mono); line-height: 1.45; }
+.inspector-recipe-head code, .inspector-grid code { margin-top: 4px; }
+.inspector-recipe-head code, .inspector-inline code, .inspector-grid code { color: #56737a; font: 8px var(--mono); line-height: 1.45; }
 .inspector-recipe { display: grid; grid-template-columns: 1fr 22px 1fr; align-items: center; gap: 4px; padding: 0 9px 10px; }
 .inspector-recipe > i { color: #4dd9b4; text-align: center; font-style: normal; }
 .inspector-flow { min-height: 62px; padding: 7px; border: 1px solid #142a30; border-radius: 5px; background: #071014; }

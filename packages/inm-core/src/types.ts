@@ -236,6 +236,7 @@ export interface IndustrialWorld {
   resourceNodes: WorldResourceNode[];
 }
 export type Rotation = 0 | 90 | 180 | 270;
+export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export interface BlueprintDevice {
   id: DeviceInstanceId;
   asset: DeviceAssetId;
@@ -253,7 +254,7 @@ export interface BlueprintDevice {
   resourceNodes?: string[];
   config?: Record<string, unknown>;
   policy?: {
-    dispatch?: "fifo" | "round-robin";
+    dispatch?: DispatchPolicy;
     inputPriority?: string;
     outputPriority?: string;
     filter?: { resource: ResourceId; outputPort: string };
@@ -303,7 +304,7 @@ export interface Blueprint {
   devices: BlueprintDevice[];
   connections: BlueprintConnection[];
   logisticsNetworks: BlueprintLogisticsNetwork[];
-  policies?: { dispatch?: "fifo" | "round-robin" };
+  policies?: { dispatch?: DispatchPolicy };
 }
 
 export interface ScenarioFailure { device: DeviceInstanceId; atTick: Tick; durationTicks: Tick }

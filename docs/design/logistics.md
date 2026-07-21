@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics, exact connection Resource filters, distance-aware sorter spans, stacking, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.32.0`.
+Status: physical local logistics, exact connection Resource filters, distance-aware sorter spans, stacking, shortage-aware dispatch, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.33.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -35,15 +35,29 @@ The cells between a Device edge and a farther belt endpoint belong to the sorter
 
 Cargo progresses through `loading`, `belt`, and `unloading` phases. A busy cell or unloader produces explicit backpressure rather than an approximate throughput penalty.
 
+## Local dispatch policy
+
+Every Blueprint has one default local dispatch policy, and a source Device may override it. `fifo` uses stable connection and Resource ids. `round-robin` rotates eligible outgoing connections after each successful departure. `shortage-first` makes the physical network demand-aware without adding a hidden mutable controller.
+
+For each eligible `(connection, Resource)` pair, the runtime divides destination resident plus already-inbound inventory by a compiled coverage unit:
+
+- a Process input uses its exact configured input batch;
+- a fuel input and Objective consumer use one unit;
+- a generic buffer uses its per-Resource quota or total buffer capacity.
+
+Lower coverage dispatches first. Equal coverage prefers a destination closer to the selected Objective in the compiled production dependency graph; zero means the destination Process directly produces the target Resource, while `null` is outside that graph. Exact ties retain the deterministic round-robin cursor. The same ordering chooses between several Resources sharing one authored connection, so a mixed lane does not continually load an already-covered material while another accepted material is empty.
+
+An explicit source `outputPriority` or destination `inputPriority` remains an operator override above automatic shortage ordering. A junction Resource filter remains absolute. Capacity, power, allowlists, filters, and destination reservations still decide eligibility before any policy can rank a candidate.
+
 ## Junctions
 
-A transport-junction is a real powered Device with an internal buffer and multiple ports. Dispatch may be FIFO or round-robin; input/output port priorities and a Resource-to-output filter are instance policies. Synthesis creates deterministic merge/split trees, assigns single-use physical ports, conserves planned rate on every edge, and writes an exact Resource filter on every junction.
+A transport-junction is a real powered Device with an internal buffer and multiple ports. It uses the same FIFO, round-robin, or shortage-first policy as any source Device; input/output port priorities and a Resource-to-output filter are instance policies. Synthesis creates deterministic merge/split trees, assigns single-use physical ports, conserves planned rate on every edge, writes an exact Resource filter on every junction, and may retain round-robin on symmetric generated trees even when the factory default is shortage-first.
 
 ## Synthesis and parallel capacity
 
 A physical port and local lane may not exceed the best project-local pipeline capacity. When demand is higher, synthesis creates more processor/extractor/consumer endpoints, independently routed lanes, and parallel station pairs. It never reports one fictional over-capacity trunk.
 
-For each planned local flow, synthesis writes a one-Resource lane allowlist, then enumerates every supported loader/unloader span together with ground and raised belt routes. It executes the candidate endpoint and line runtimes at their actual distances, rejects candidates below required items/min, scores project-local build and energy cost, and globally reserves a conflict-free set of belt cells. A longer sorter arm may remove belt cells and improve compactness, but its distance-dependent cycle can force a faster or stacked tier; the selected Resource, distances, and assets are written into the generated Blueprint and synthesis report.
+For each planned local flow, synthesis writes a one-Resource lane allowlist and selects `shortage-first` as the factory default, then enumerates every supported loader/unloader span together with ground and raised belt routes. It executes the candidate endpoint and line runtimes at their actual distances, rejects candidates below required items/min, scores project-local build and energy cost, and globally reserves a conflict-free set of belt cells. A longer sorter arm may remove belt cells and improve compactness, but its distance-dependent cycle can force a faster or stacked tier; the selected Resource, distances, and assets are written into the generated Blueprint and synthesis report.
 
 ## Station logistics
 
@@ -81,7 +95,7 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 
 ## Telemetry
 
-Every connection reports its authored Resource allowlist plus each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 
@@ -94,7 +108,7 @@ Every connection reports its authored Resource allowlist plus each stage's physi
 ## Verification
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|connection Resource filter|sorter span|endpoint reach|stack|junction|station|parallel lanes"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|connection Resource filter|sorter span|endpoint reach|stack|junction|station|parallel lanes|shortage-first|output priority"
 bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --blueprint stacked-cargo --scenario stacked-cargo --objective stacked-cargo
 ```
@@ -104,4 +118,3 @@ Any logistics change must test nominal capacity and event-level physical movemen
 ## Known next gaps
 
 - Dedicated vertical lift/elevator semantics beyond level-changing routed cells.
-- Dynamic priorities driven by downstream shortage and production criticality.

@@ -123,7 +123,7 @@ export const blueprintSchema = z.object({
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({
-      dispatch: z.enum(["fifo", "round-robin"]).optional(),
+      dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
       inputPriority: id.optional(),
       outputPriority: id.optional(),
       filter: z.object({ resource: id, outputPort: id }).strict().optional(),
@@ -151,7 +151,7 @@ export const blueprintSchema = z.object({
       }).strict()),
     }).strict()).min(2),
   }).strict()),
-  policies: z.object({ dispatch: z.enum(["fifo", "round-robin"]).optional() }).strict().optional(),
+  policies: z.object({ dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional() }).strict().optional(),
 }).strict();
 
 export const scenarioSchema = z.object({

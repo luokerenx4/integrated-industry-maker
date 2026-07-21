@@ -147,14 +147,14 @@ A transport junction is a placed Device with the `transport-junction` capability
 
 ```json
 "policy": {
-  "dispatch": "round-robin",
+  "dispatch": "shortage-first",
   "inputPriority": "input-west",
   "outputPriority": "output-east",
   "filter": { "resource": "coal", "outputPort": "output-north" }
 }
 ```
 
-Priorities name real ports and filters name a project Resource plus a real output port, so the compiler rejects stale or impossible routing contracts. A filtered Resource uses only the filtered output; other Resources use the remaining outputs.
+`dispatch` is exactly one of `fifo`, `round-robin`, or `shortage-first`. FIFO uses stable ids; round-robin rotates successful departures; shortage-first ranks destination resident-plus-inbound inventory in units of its configured Process input batch, fuel/Objective unit, or buffer capacity and uses Objective dependency depth as its next tie-break. Priorities name real ports and override automatic ordering. Filters name a project Resource plus a real output port, so the compiler rejects stale or impossible routing contracts. A filtered Resource uses only the filtered output; other Resources use the remaining outputs.
 
 Each port binds to exactly one named buffer. Input ports cannot bind to output-only buffers, output ports cannot bind to input-only buffers, and buffer resource contracts are compiler-checked. An `internal` buffer may be bound to both directions, which is useful for storage and cross-docking devices.
 
@@ -391,6 +391,7 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
       "id": "ore-to-smelter",
       "from": { "device": "ore-source-1", "port": "output" },
       "to": { "device": "smelter-1", "port": "input" },
+      "resources": ["iron-ore"],
       "path": [{ "x": 4, "y": 10 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }, { "x": 9, "y": 10 }],
       "logistics": {
         "loader": { "deviceAsset": "sorter", "distance": 1 },
@@ -400,11 +401,13 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
     }
   ],
   "logisticsNetworks": [],
-  "policies": { "dispatch": "round-robin" }
+  "policies": { "dispatch": "shortage-first" }
 }
 ```
 
 `recipe.process` and required `recipe.mode` are engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes or modes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. Auxiliary mode inputs already name a Device buffer and are compiled into the same physical job; if an auxiliary Resource is also a Process input, both quantities must use the same buffer and are aggregated. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
+
+Every connection requires a non-empty exact `resources` allowlist. When several Resources share one connection under shortage-first dispatch, the same coverage comparison selects which Resource enters the loader. `policies.dispatch` is the factory default; a source Device's `policy.dispatch` overrides it. There is no compatibility alias or implicit migration for older policy values.
 
 Every Device instance—not only a recipe machine—may configure accepted Resources without editing its asset package:
 

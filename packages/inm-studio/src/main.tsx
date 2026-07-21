@@ -204,6 +204,8 @@ interface IndustrialAnalysis {
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number; maxLevel: number;
     resources: string[];
+    dispatchPolicy: "fifo" | "round-robin" | "shortage-first";
+    dispatchProfiles: Array<{ resource: string; targetKind: "objective" | "process" | "fuel" | "buffer"; coverageUnit: number; criticalDepth: number | null }>;
     capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
@@ -639,6 +641,7 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
       <div className="inspector-section">
         <div className="inspector-section-title"><span>MATERIAL FILTER</span><b>EXACT ALLOWLIST</b></div>
         <div className="inspector-chip-row">{connection.resources.map((resource) => <span key={resource}>{resource}</span>)}</div>
+        <div className="inspector-inline"><strong>{analysis?.dispatchPolicy ?? "—"}</strong><code>{analysis?.dispatchProfiles.map((profile) => `${profile.resource} · ${profile.targetKind} · ${profile.coverageUnit}/batch · depth ${profile.criticalDepth ?? "—"}`).join(" | ")}</code></div>
       </div>
       <div className="inspector-facts">
         <span><small>TRAVEL</small><b>{analysis?.travelTicks ?? "—"} ms</b></span>
@@ -857,7 +860,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             return <div className="pipeline-card" key={connection.connection}>
               <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to} · FILTER {connection.resources.join(" + ")}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
               <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.distance} cells · {stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
-              <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.maxLevel ? ` · LEVEL ${connection.maxLevel}` : ""}{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
+              <footer><span>{connection.dispatchPolicy.toUpperCase()}{connection.dispatchPolicy === "shortage-first" ? ` · ${connection.dispatchProfiles.map((profile) => `${profile.resource}:${profile.targetKind}/D${profile.criticalDepth ?? "-"}`).join(" + ")}` : ""}</span><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.maxLevel ? ` · LEVEL ${connection.maxLevel}` : ""}{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
             </div>;
           })}</div>
         </section>
