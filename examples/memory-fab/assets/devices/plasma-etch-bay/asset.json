@@ -115,7 +115,23 @@
     "maintenance": {
       "maximumJobs": 8,
       "durationTicks": 7000,
-      "powerMilliWatts": 200000
+      "powerMilliWatts": 200000,
+      "drift": [
+        {
+          "afterJobs": 6,
+          "durationMultiplier": {
+            "numerator": 6,
+            "denominator": 5
+          },
+          "powerMultiplier": {
+            "numerator": 6,
+            "denominator": 5
+          },
+          "defects": [
+            "particle-contamination"
+          ]
+        }
+      ]
     }
   },
   "runtime": {

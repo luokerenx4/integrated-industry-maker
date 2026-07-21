@@ -35,6 +35,9 @@ interface SearchRow {
   opportunistic: number[];
   cancelled: number[];
   maintenanceTicks: number[];
+  driftedJobs: number[];
+  driftedLots: number[];
+  driftDefects: number[];
 }
 
 const projectDir = resolve(import.meta.dir, "../examples/memory-fab");
@@ -105,6 +108,9 @@ for (const lithography of [null, 6, 7] as const) {
         opportunistic: metrics.map((item) => item.equipmentMaintenance.totalOpportunistic),
         cancelled: metrics.map((item) => item.equipmentMaintenance.totalCancelled),
         maintenanceTicks: metrics.map((item) => item.equipmentMaintenance.totalMaintenanceTicks),
+        driftedJobs: metrics.map((item) => item.equipmentMaintenance.totalDriftedJobs),
+        driftedLots: metrics.map((item) => item.equipmentMaintenance.totalDriftedLots),
+        driftDefects: metrics.map((item) => item.equipmentMaintenance.totalDriftDefects),
       });
     }
   }
@@ -117,13 +123,14 @@ rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || (left.inspection ?? 99) - (right.inspection ?? 99));
 
 console.log(`# incumbent aggregate=${incumbentAggregate.toFixed(6)} · 27 maintenance policies · case gate=${definition.acceptance.maximumCaseScoreRegression.toFixed(3)}`);
-console.log("verdict\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tlithography\tetch\tinspection\tcase-scores\tcompleted\ton-time\tmandatory\topportunistic\tcancelled\tmaintenance-ticks");
+console.log("verdict\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tlithography\tetch\tinspection\tcase-scores\tcompleted\ton-time\tmandatory\topportunistic\tcancelled\tmaintenance-ticks\tdrifted-jobs\tdrifted-lots\tdrift-defects");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : row.aggregateDelta === 0 ? "INCUMBENT" : "REJECT",
   row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
   row.lithography ?? "off", row.etch ?? "off", row.inspection ?? "off",
   row.scores.map((value) => value.toFixed(3)).join(","), row.completedLots.join(","), row.onTimeLots.join(","),
   row.mandatory.join(","), row.opportunistic.join(","), row.cancelled.join(","), row.maintenanceTicks.join(","),
+  row.driftedJobs.join(","), row.driftedLots.join(","), row.driftDefects.join(","),
 ].join("\t"));
 
 const best = rows[0];

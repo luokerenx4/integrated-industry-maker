@@ -89,7 +89,15 @@ export const deviceAssetSchema = z.object({
       minimumInputTreatmentLevel: nonNegativeInt,
     }).strict()).min(1),
     changeover: z.object({ durationTicks: positiveInt, powerMilliWatts: nonNegativeInt }).strict().optional(),
-    maintenance: z.object({ maximumJobs: positiveInt, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt }).strict().optional(),
+    maintenance: z.object({
+      maximumJobs: positiveInt, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
+      drift: z.array(z.object({
+        afterJobs: positiveInt,
+        durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
+        powerMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
+        defects: z.array(id),
+      }).strict()).min(1).optional(),
+    }).strict().optional(),
   }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,

@@ -26,6 +26,8 @@ type InternalEvent =
 export interface RunOptions { untilTick?: number; maxEvents?: number; seed?: number }
 
 const POWER_SATISFACTION_SCALE = 1_000_000;
+const scaledCeil = (value: number, multiplier: { numerator: number; denominator: number }): number =>
+  Math.ceil(value * multiplier.numerator / multiplier.denominator);
 
 function quantity(inventory: Record<string, number>): number { return Object.values(inventory).reduce((sum, count) => sum + count, 0); }
 function deviceQuantity(state: DeviceRuntimeState): number { return Object.values(state.buffers).reduce((sum, inventory) => sum + quantity(inventory), 0); }
@@ -84,6 +86,9 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         opportunistic: 0,
         cancelled: 0,
         maintenanceTicks: 0,
+        driftedJobs: 0,
+        driftedLots: 0,
+        driftDefects: 0,
       } } : {}),
       ...(storage ? { energyStorage: {
         capacityMilliJoules: storage.capacityMilliJoules,
@@ -1162,6 +1167,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         throw new Error(`Device program '${device.asset}' must execute compiled process '${plan.definition.id}' mode '${plan.mode.id}' exactly`);
       }
     }
+    const equipmentDrift = selectedProcessPlan && runtime.maintenance
+      ? device.assetDef.production?.maintenance?.drift?.filter((stage) => runtime.maintenance!.jobsSinceMaintenance >= stage.afterJobs).at(-1)
+      : undefined;
+    const effectiveDurationTicks = equipmentDrift ? scaledCeil(decision.durationTicks, equipmentDrift.durationMultiplier) : decision.durationTicks;
+    const nominalPowerMilliWatts = decision.powerMilliWatts ?? device.assetDef.power.activeMilliWatts;
+    const required = equipmentDrift ? scaledCeil(nominalPowerMilliWatts, equipmentDrift.powerMultiplier) : nominalPowerMilliWatts;
     const inspectionExecution = selectedProcessPlan?.quality?.kind === "inspection"
       ? resolveInspectionExecution(device, selectedProcessPlan) : undefined;
     const capacityOutputs = inspectionExecution ? [inspectionExecution.output] : decision.produce;
@@ -1169,7 +1180,6 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
       return false;
     }
-    const required = decision.powerMilliWatts ?? device.assetDef.power.activeMilliWatts;
     const grid = device.powerGrid ?? null;
     const available = grid ? availablePower(grid) - activePower(grid) : 0;
     if (!canStartPoweredWork(device, required)) {
@@ -1225,12 +1235,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       };
     }
     const job = {
-      operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
-      remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
+      operation: decision.operation, startedAt: state.tick, durationTicks: effectiveDurationTicks,
+      remainingTicks: effectiveDurationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
       powerMilliWatts: required, produce: actualProduce,
       ...(lotTransfers.length ? { lotTransfers } : {}),
       ...(quality ? { quality } : {}),
       ...(selectedProcessPlan && runtime.maintenance ? { production: true as const } : {}),
+      ...(equipmentDrift ? { equipmentDrift: {
+        afterJobs: equipmentDrift.afterJobs,
+        jobsSinceMaintenance: runtime.maintenance!.jobsSinceMaintenance,
+        durationMultiplier: { ...equipmentDrift.durationMultiplier },
+        powerMultiplier: { ...equipmentDrift.powerMultiplier },
+        defects: [...equipmentDrift.defects],
+      } } : {}),
     };
     const jobLotIds = lotTransfers.flatMap((transfer) => transfer.lotIds);
     if (selectedProcessPlan && jobLotIds.length) {
@@ -1246,9 +1263,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       operation.maximumLotsPerJob = Math.max(operation.maximumLotsPerJob, jobLotIds.length);
     }
     setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
-    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks,
+    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: effectiveDurationTicks,
       ...(jobLotIds.length ? { lotIds: jobLotIds } : {}) });
-    schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+    schedule(state.tick + effectiveDurationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
@@ -1907,6 +1924,26 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           });
         }
       }
+      const driftLotIds = job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
+      let driftDefectsIntroduced = 0;
+      if (job.equipmentDrift) {
+        for (const id of driftLotIds) {
+          const before = new Set(state.lots[id]!.quality.defects);
+          driftDefectsIntroduced += job.equipmentDrift.defects.filter((defect) => !before.has(defect)).length;
+        }
+        if (job.equipmentDrift.defects.length && driftLotIds.length) mutateFactoryState(state, {
+          kind: "lot.quality-excursion", lotIds: driftLotIds,
+          excursion: `equipment-drift:${event.device}:${job.operation}:${job.startedAt}`,
+          defects: job.equipmentDrift.defects,
+        });
+        emit({
+          type: "device.process-drift", tick: state.tick, device: event.device, process: job.operation,
+          lotIds: [...driftLotIds], afterJobs: job.equipmentDrift.afterJobs,
+          jobsSinceMaintenance: job.equipmentDrift.jobsSinceMaintenance,
+          durationTicks: job.durationTicks, powerMilliWatts: job.powerMilliWatts,
+          defects: [...job.equipmentDrift.defects],
+        });
+      }
       if (job.extraction) {
         const node = project.resourceNodes[job.extraction.node]!;
         mutateFactoryState(state, { kind: "resource.extracted", node: node.id, count: job.extraction.count });
@@ -1918,7 +1955,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         mutateFactoryState(state, { kind: "treatment.complete", resource: job.treatment.resource, level: job.treatment.toLevel, count: job.treatment.count });
         emit({ type: "material.treated", tick: state.tick, device: event.device, ...job.treatment });
       }
-      if (job.production) mutateFactoryState(state, { kind: "production.finish", device: event.device });
+      if (job.production) mutateFactoryState(state, {
+        kind: "production.finish", device: event.device,
+        ...(job.equipmentDrift ? { driftedLots: driftLotIds.length, driftDefects: driftDefectsIntroduced } : {}),
+      });
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce),
         ...(job.lotTransfers?.length ? { lotIds: job.lotTransfers.flatMap((transfer) => transfer.lotIds) } : {}) });

@@ -136,7 +136,13 @@ async function workCenter(
   outputPorts: string[],
   buildCost: number,
   changeoverTicks?: number,
-  maintenance?: { maximumJobs: number; durationTicks: number; powerMilliWatts: number },
+  maintenance?: {
+    maximumJobs: number; durationTicks: number; powerMilliWatts: number;
+    drift?: Array<{
+      afterJobs: number; durationMultiplier: { numerator: number; denominator: number };
+      powerMultiplier: { numerator: number; denominator: number }; defects: string[];
+    }>;
+  },
   equipment?: { footprint: { width: number; height: number }; idleMilliWatts: number; activeMilliWatts: number },
 ): Promise<void> {
   const buffers = [...new Set(ports.map((port) => port.buffer))].map((buffer) => ({
@@ -167,14 +173,30 @@ await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified litho
   { id: "reentrant-input", direction: "input", side: "north", offset: 1, buffer: "reentrant-input" },
   { id: "pattern-output", direction: "output", side: "east", offset: 1, buffer: "pattern-output" },
 ], ["release-input", "reentrant-input"], ["pattern-output"], 18_000, 4_000,
-{ maximumJobs: 8, durationTicks: 9_000, powerMilliWatts: 220_000 });
+{
+  maximumJobs: 8, durationTicks: 9_000, powerMilliWatts: 220_000,
+  drift: [{
+    afterJobs: 6,
+    durationMultiplier: { numerator: 5, denominator: 4 },
+    powerMultiplier: { numerator: 11, denominator: 10 },
+    defects: ["critical-dimension"],
+  }],
+});
 
 await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work center qualified for both memory-cell layers.", "etch", ["etch-cell-layer-1", "etch-cell-layer-2"], "#ed8b3a", [
   { id: "pattern-input", direction: "input", side: "west", offset: 1, buffer: "pattern-input" },
   { id: "loop-output", direction: "output", side: "east", offset: 1, buffer: "loop-output" },
   { id: "final-output", direction: "output", side: "south", offset: 1, buffer: "final-output" },
 ], ["pattern-input"], ["loop-output", "final-output"], 12_000, 3_000,
-{ maximumJobs: 8, durationTicks: 7_000, powerMilliWatts: 200_000 });
+{
+  maximumJobs: 8, durationTicks: 7_000, powerMilliWatts: 200_000,
+  drift: [{
+    afterJobs: 6,
+    durationMultiplier: { numerator: 6, denominator: 5 },
+    powerMultiplier: { numerator: 6, denominator: 5 },
+    defects: ["particle-contamination"],
+  }],
+});
 
 await workCenter("ald-deposition-bay", "ALD Deposition Bay", "Atomic-layer deposition work center for the DRAM capacitor dielectric stack.", "deposition", ["deposit-dielectric-stack"], "#2cb6a0", [
   { id: "etch-input", direction: "input", side: "west", offset: 1, buffer: "etch-input" },
@@ -424,16 +446,20 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "metric", path: "equipmentSetups.totalChangeovers", min: 2 },
     { kind: "metric", path: "equipmentMaintenance.totalMandatory", min: 1 },
     { kind: "metric", path: "equipmentMaintenance.totalMaintenanceTicks", min: 1 },
+    { kind: "metric", path: "equipmentMaintenance.totalDriftedJobs", min: 1 },
+    { kind: "metric", path: "equipmentMaintenance.totalDriftedLots", min: 1 },
+    { kind: "metric", path: "equipmentMaintenance.totalDriftDefects", min: 1 },
     { kind: "metric", path: "qualityFlow.rejectedInspections", min: 2 },
     { kind: "metric", path: "qualityFlow.totalReworkCycles", min: 2 },
     { kind: "metric", path: "qualityFlow.scrapDispositions", min: 1 },
-    { kind: "metric", path: "qualityFlow.escapedDefects", equals: 1 },
+    { kind: "metric", path: "qualityFlow.escapedDefects", equals: 0 },
     { kind: "metric", path: "batchFlow.jobs", min: 4 },
     { kind: "metric", path: "batchFlow.averageLotsPerJob", equals: 3 },
     { kind: "event", type: "device.start", present: true },
     { kind: "event", type: "lot.released", present: true },
     { kind: "event", type: "device.changeover-finish", present: true },
     { kind: "event", type: "device.maintenance-finish", present: true },
+    { kind: "event", type: "device.process-drift", present: true },
     { kind: "event", type: "lot.completed", present: true },
     { kind: "event", type: "lot.quality-excursion", present: true },
     { kind: "event", type: "lot.inspected", present: true },
@@ -466,7 +492,7 @@ for (const request of [
   specializedProject = compileFactoryProject(specializedSource);
 }
 for (const device of specializedProject.blueprint.devices) {
-  const minimumJobs = /^lithography-\d+$/.test(device.id) ? 7
+  const minimumJobs = /^etch-\d+$/.test(device.id) ? 6
     : device.id === "inspection-1" ? 3 : undefined;
   if (minimumJobs !== undefined) device.policy = {
     ...device.policy, preventiveMaintenance: { minimumJobs },
@@ -475,7 +501,7 @@ for (const device of specializedProject.blueprint.devices) {
 specializedSource = { ...specializedSource, blueprint: specializedProject.blueprint };
 specializedProject = compileFactoryProject(specializedSource);
 await json(join(project, "blueprints", "experiment.blueprint.json"), {
-  ...specializedProject.blueprint, revision: "memory-fab-qtime-maintenance-v2",
+  ...specializedProject.blueprint, revision: "memory-fab-process-drift-maintenance-v3",
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
 
@@ -494,11 +520,11 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
-    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. The assets require lithography and etch maintenance no later than eight completed jobs and inspection maintenance no later than five. Once Q-time became evaluator-owned physics, a fresh 27-policy sweep selected lithography maintenance after seven jobs, inspection after three, and mandatory-only etch maintenance. Across the locked envelope the candidate raises aggregate score from `16.967452` to `31.765837` (`+14.798384`), and every case improves; the minimum case delta is `+12.529236`. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains five kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, and opportunistic preventive maintenance. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift: after six jobs, lithography and etch work becomes slower, consumes more power, and may introduce process defects until maintenance resets the counter. A fresh 27-policy sweep selected mandatory-only lithography, etch maintenance after six jobs, and inspection maintenance after three. Across the locked envelope the candidate raises aggregate score from `-0.522450` to `28.110498` (`+28.632949`), and every case improves; the minimum case delta is `+18.031765`. Continue from this candidate rather than resetting it.",
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Q-time changed its optimum: the previous 7/7/4 lithography/etch/inspection policy scores `30.467190`, while the new 7/off/3 policy scores `31.765837` (`+1.298647`) and clears every case gate. Against mandatory-only maintenance at `30.855063`, the selected policy adds `+0.910774`.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures: deep-only, rapid-only, deep+deep, deep+rapid, and rapid+rapid variants across capital layouts, equipment-specific maintenance, and lot dispatch. Device assets now own mandatory exact Process qualifications, so the project-local `rapid-metrology-cell` may execute the four-second standard optical screen but never the eight-second deep electrical inspection merely because both share the `inspection` category. A second deep bay totals `156260` against the fixed `140000` limit; deep+rapid clears inspection Q-time but still totals `140760`. Rapid-only is feasible at `117350` and is the best new alternative at `30.540497`, but remains `1.225340` behind the `31.765837` incumbent because latent electrical defects can escape standard inspection. All 56 variants are rejected, so the checked-in candidate retains one deep bay.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier shared-tool sweeps are retained as historical negative evidence: stronger WIP scores missed the case gate, and campaigns did not beat that incumbent robustly. Because physical specialization changes the queueing regime, rerun them against the current candidate before adopting a controller. The checked-in candidate still uses neither CONWIP nor setup campaigns.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement. This search produced the current specialized candidate.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Under deterministic process drift, the selected policy is lithography off / etch 6 / inspection 3. It scores `28.110498`, leaves four drifted jobs and two newly introduced drift defects in every case, and clears the per-case gate. That remaining exposure is deliberate: eliminating it costs more availability than the current objective returns.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures: deep-only, rapid-only, deep+deep, deep+rapid, and rapid+rapid variants across capital layouts, equipment-specific maintenance, and lot dispatch. Device assets own mandatory exact Process qualifications, so the project-local `rapid-metrology-cell` may execute the four-second standard optical screen but never the eight-second deep electrical inspection merely because both share the `inspection` category. Re-run this search after changing equipment physics; its prior 56-variant rejection remains historical evidence rather than a timeless result.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
@@ -518,7 +544,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
-    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools. Lithography, etch, and inspection assets also own synthetic usage-based maintenance limits and fixed work; the Blueprint may only choose an earlier idle-window threshold, never shorten or skip the physical maintenance.",
+    "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools. Lithography, etch, and inspection assets own synthetic usage-based maintenance limits and fixed work; lithography and etch also become slower, draw more power, and introduce declared defects after six jobs until maintenance resets their usage state. The Blueprint may only choose an earlier idle-window threshold, never weaken this equipment physics.",
   )
   .replace(
     "peak active lots, physical/controller blocked lot-time",

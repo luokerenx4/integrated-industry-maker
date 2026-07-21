@@ -184,8 +184,19 @@ export interface DeviceAssetManifest {
     modes: ProductionModeDefinition[];
     /** Fixed equipment work required before executing a different Process setupGroup. */
     changeover?: { durationTicks: Tick; powerMilliWatts: number };
-    /** Evaluator-owned usage limit and fixed physical work for restoring this production Device. */
-    maintenance?: { maximumJobs: number; durationTicks: Tick; powerMilliWatts: number };
+    /** Evaluator-owned usage limit, deterministic process drift, and fixed physical restoration work. */
+    maintenance?: {
+      maximumJobs: number;
+      durationTicks: Tick;
+      powerMilliWatts: number;
+      /** Active stage is the greatest afterJobs threshold reached before a production job starts. */
+      drift?: Array<{
+        afterJobs: number;
+        durationMultiplier: { numerator: number; denominator: number };
+        powerMultiplier: { numerator: number; denominator: number };
+        defects: string[];
+      }>;
+    };
   };
   extraction?: {
     resources: ResourceId[];
@@ -780,6 +791,14 @@ export interface ActiveDeviceJob {
   maintenance?: { cause: "mandatory" | "opportunistic" };
   /** Only successfully completed jobs with this marker consume the maintenance usage budget. */
   production?: true;
+  /** Evaluator-owned wear state captured when this production job started. */
+  equipmentDrift?: {
+    afterJobs: number;
+    jobsSinceMaintenance: number;
+    durationMultiplier: { numerator: number; denominator: number };
+    powerMultiplier: { numerator: number; denominator: number };
+    defects: string[];
+  };
   quality?:
     | { kind: "inspection"; lotIds: string[]; detectedDefects: string[]; result: "pass" | "reject" | "scrap" }
     | { kind: "rework"; lotIds: string[]; repairs: string[] };
@@ -861,6 +880,9 @@ export interface DeviceRuntimeState {
     opportunistic: number;
     cancelled: number;
     maintenanceTicks: Tick;
+    driftedJobs: number;
+    driftedLots: number;
+    driftDefects: number;
   };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
@@ -957,6 +979,7 @@ export type FactoryEvent =
   | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
   | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
   | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; reason: "equipment-breakdown" }
+  | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
@@ -1190,6 +1213,9 @@ export interface FactoryMetrics {
     totalOpportunistic: number;
     totalCancelled: number;
     totalMaintenanceTicks: Tick;
+    totalDriftedJobs: number;
+    totalDriftedLots: number;
+    totalDriftDefects: number;
     devices: Record<DeviceInstanceId, {
       jobsSinceMaintenance: number;
       completed: number;
@@ -1197,6 +1223,9 @@ export interface FactoryMetrics {
       opportunistic: number;
       cancelled: number;
       maintenanceTicks: Tick;
+      driftedJobs: number;
+      driftedLots: number;
+      driftDefects: number;
     }>;
   };
   totalBuildCost: number;

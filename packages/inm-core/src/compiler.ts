@@ -13,6 +13,11 @@ function acceptsResource(accepts: readonly string[], resource: ResourceId): bool
   return accepts.includes("*") || accepts.includes(resource);
 }
 
+function maximumDriftPower(asset: DeviceAsset, nominalMilliWatts: number): number {
+  return Math.max(nominalMilliWatts, ...(asset.production?.maintenance?.drift ?? []).map((stage) =>
+    Math.ceil(nominalMilliWatts * stage.powerMultiplier.numerator / stage.powerMultiplier.denominator)));
+}
+
 function intersectResourceContracts(left: readonly string[], right: readonly string[]): Array<ResourceId | "*"> {
   if (left.includes("*") && right.includes("*")) return ["*"];
   if (left.includes("*")) return [...right];
@@ -135,6 +140,54 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       path: `assets/devices/${id}/asset.json/production/maintenance/powerMilliWatts`, code: "production.maintenance-power",
       message: `Maintenance power ${asset.production.maintenance.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
     });
+    const driftStages = asset.production?.maintenance?.drift ?? [];
+    let previousDriftThreshold = 0;
+    let previousDurationMultiplier = { numerator: 1, denominator: 1 };
+    let previousPowerMultiplier = { numerator: 1, denominator: 1 };
+    let previousDriftDefects = new Set<string>();
+    for (const [driftIndex, drift] of driftStages.entries()) {
+      const path = `assets/devices/${id}/asset.json/production/maintenance/drift/${driftIndex}`;
+      if (drift.afterJobs <= previousDriftThreshold) issues.push({
+        path: `${path}/afterJobs`, code: "production.drift-order",
+        message: `Equipment drift thresholds must be strictly increasing; ${drift.afterJobs} follows ${previousDriftThreshold}`,
+      });
+      previousDriftThreshold = drift.afterJobs;
+      if (drift.afterJobs >= asset.production!.maintenance!.maximumJobs) issues.push({
+        path: `${path}/afterJobs`, code: "production.drift-threshold",
+        message: `Equipment drift after ${drift.afterJobs} jobs is unreachable before mandatory maintenance at ${asset.production!.maintenance!.maximumJobs}`,
+      });
+      if (new Set(drift.defects).size !== drift.defects.length) issues.push({
+        path: `${path}/defects`, code: "production.drift-duplicate-defect",
+        message: `Equipment drift stage after ${drift.afterJobs} jobs declares a defect class more than once`,
+      });
+      const durationImproves = drift.durationMultiplier.numerator < drift.durationMultiplier.denominator;
+      const powerImproves = drift.powerMultiplier.numerator < drift.powerMultiplier.denominator;
+      if (durationImproves || powerImproves) issues.push({
+        path, code: "production.drift-improvement",
+        message: `Equipment degradation cannot improve duration or power below the clean-state 1/1 multiplier`,
+      });
+      const durationRegresses = drift.durationMultiplier.numerator * previousDurationMultiplier.denominator
+        < previousDurationMultiplier.numerator * drift.durationMultiplier.denominator;
+      const powerRegresses = drift.powerMultiplier.numerator * previousPowerMultiplier.denominator
+        < previousPowerMultiplier.numerator * drift.powerMultiplier.denominator;
+      if (durationRegresses || powerRegresses) issues.push({
+        path, code: "production.drift-regression",
+        message: `Later equipment degradation stages cannot reduce an earlier duration or power multiplier`,
+      });
+      const missingPreviousDefects = [...previousDriftDefects].filter((defect) => !drift.defects.includes(defect));
+      if (missingPreviousDefects.length) issues.push({
+        path: `${path}/defects`, code: "production.drift-defect-loss",
+        message: `Later equipment degradation stages must retain earlier defects: ${missingPreviousDefects.join(", ")}`,
+      });
+      const changesDuration = drift.durationMultiplier.numerator !== drift.durationMultiplier.denominator;
+      const changesPower = drift.powerMultiplier.numerator !== drift.powerMultiplier.denominator;
+      if (!changesDuration && !changesPower && !drift.defects.length) issues.push({
+        path, code: "production.drift-no-effect", message: `Equipment drift stage after ${drift.afterJobs} jobs has no physical effect`,
+      });
+      previousDurationMultiplier = drift.durationMultiplier;
+      previousPowerMultiplier = drift.powerMultiplier;
+      previousDriftDefects = new Set(drift.defects);
+    }
     const bufferIds = new Set<string>();
     for (const [index, buffer] of asset.buffers.entries()) {
       if (bufferIds.has(buffer.id)) issues.push({ path: `assets/devices/${id}/asset.json/buffers/${index}/id`, code: "asset.duplicate-buffer", message: `Duplicate buffer '${buffer.id}'` });
@@ -468,7 +521,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
     grid.ratedConsumptionMilliWatts += device.processPlans.length
       ? Math.max(device.assetDef.production?.maintenance?.powerMilliWatts ?? 0,
-        ...device.processPlans.map((plan) => Math.max(plan.powerMilliWatts, plan.changeoverPowerMilliWatts ?? 0)))
+        ...device.processPlans.map((plan) => Math.max(maximumDriftPower(device.assetDef, plan.powerMilliWatts), plan.changeoverPowerMilliWatts ?? 0)))
       : device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);

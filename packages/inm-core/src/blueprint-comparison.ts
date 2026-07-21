@@ -61,6 +61,9 @@ export interface BlueprintMetricSnapshot {
   totalOpportunisticMaintenance: number;
   totalMaintenanceCancelled: number;
   totalMaintenanceTicks: number;
+  totalDriftedJobs: number;
+  totalDriftedLots: number;
+  totalDriftDefects: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -124,6 +127,9 @@ export interface BlueprintMetricDelta {
   totalOpportunisticMaintenance: number;
   totalMaintenanceCancelled: number;
   totalMaintenanceTicks: number;
+  totalDriftedJobs: number;
+  totalDriftedLots: number;
+  totalDriftDefects: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -311,6 +317,9 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalOpportunisticMaintenance: metrics.equipmentMaintenance.totalOpportunistic,
     totalMaintenanceCancelled: metrics.equipmentMaintenance.totalCancelled,
     totalMaintenanceTicks: metrics.equipmentMaintenance.totalMaintenanceTicks,
+    totalDriftedJobs: metrics.equipmentMaintenance.totalDriftedJobs,
+    totalDriftedLots: metrics.equipmentMaintenance.totalDriftedLots,
+    totalDriftDefects: metrics.equipmentMaintenance.totalDriftDefects,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
@@ -376,6 +385,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalOpportunisticMaintenance: after.totalOpportunisticMaintenance - before.totalOpportunisticMaintenance,
     totalMaintenanceCancelled: after.totalMaintenanceCancelled - before.totalMaintenanceCancelled,
     totalMaintenanceTicks: after.totalMaintenanceTicks - before.totalMaintenanceTicks,
+    totalDriftedJobs: after.totalDriftedJobs - before.totalDriftedJobs,
+    totalDriftedLots: after.totalDriftedLots - before.totalDriftedLots,
+    totalDriftDefects: after.totalDriftDefects - before.totalDriftDefects,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,

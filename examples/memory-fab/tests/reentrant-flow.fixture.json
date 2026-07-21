@@ -88,6 +88,21 @@
     },
     {
       "kind": "metric",
+      "path": "equipmentMaintenance.totalDriftedJobs",
+      "min": 1
+    },
+    {
+      "kind": "metric",
+      "path": "equipmentMaintenance.totalDriftedLots",
+      "min": 1
+    },
+    {
+      "kind": "metric",
+      "path": "equipmentMaintenance.totalDriftDefects",
+      "min": 1
+    },
+    {
+      "kind": "metric",
       "path": "qualityFlow.rejectedInspections",
       "min": 2
     },
@@ -104,7 +119,7 @@
     {
       "kind": "metric",
       "path": "qualityFlow.escapedDefects",
-      "equals": 1
+      "equals": 0
     },
     {
       "kind": "metric",
@@ -134,6 +149,11 @@
     {
       "kind": "event",
       "type": "device.maintenance-finish",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "device.process-drift",
       "present": true
     },
     {

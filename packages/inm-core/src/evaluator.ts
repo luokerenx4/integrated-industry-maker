@@ -257,6 +257,9 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     totalOpportunistic: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.opportunistic, 0),
     totalCancelled: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.cancelled, 0),
     totalMaintenanceTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.maintenanceTicks, 0),
+    totalDriftedJobs: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftedJobs, 0),
+    totalDriftedLots: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftedLots, 0),
+    totalDriftDefects: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.driftDefects, 0),
     devices: maintenanceDevices,
   };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);

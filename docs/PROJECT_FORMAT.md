@@ -167,7 +167,17 @@ A combustible Resource declares how much energy one unit contains. The value is 
       "auxiliaryInputs": []
     }],
     "changeover": { "durationTicks": 3000, "powerMilliWatts": 120000 },
-    "maintenance": { "maximumJobs": 8, "durationTicks": 9000, "powerMilliWatts": 220000 }
+    "maintenance": {
+      "maximumJobs": 8,
+      "durationTicks": 9000,
+      "powerMilliWatts": 220000,
+      "drift": [{
+        "afterJobs": 6,
+        "durationMultiplier": { "numerator": 5, "denominator": 4 },
+        "powerMultiplier": { "numerator": 11, "denominator": 10 },
+        "defects": ["critical-dimension"]
+      }]
+    }
   },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "idleMilliWatts": 10000, "activeMilliWatts": 180000 },
@@ -176,7 +186,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
-Unlike the old single-behavior model, a Device declares descriptive capabilities and any number of ports and buffers. A process Device declares a mandatory exact list of project-local `processes`, compatible Process categories, an exact rational speed multiplier, the physical `inputPorts`/`outputPorts` a recipe may configure, and at least one production mode. The exact list is the equipment-qualification matrix: category equality alone never authorizes a recipe. Unknown, duplicate, or category-inconsistent qualifications are invalid. Optional `production.changeover` declares the fixed duration and total active power of changing between Process setup groups. Optional `production.maintenance` declares the maximum successfully completed production jobs before fixed powered maintenance is required. There is no implicit mode or compatibility fallback. Asset buffer `accepts` values are maximum capabilities. A blueprint instance may narrow an internal buffer with `bufferFilters` and independently narrow one physical ingress/egress with `portFilters`; an empty list closes that object. The selected recipe maps every Resource to a physical port and unused production ports carry nothing. Shared recipe buffers receive deterministic per-Resource capacity partitions so one material cannot starve another. Extractor output is narrowed to the Resource type of its bound deposits. The Device TypeScript program still owns the final local decision inside the compiled job contract. See [[docs/design/usage-based-maintenance]].
+Unlike the old single-behavior model, a Device declares descriptive capabilities and any number of ports and buffers. A process Device declares a mandatory exact list of project-local `processes`, compatible Process categories, an exact rational speed multiplier, the physical `inputPorts`/`outputPorts` a recipe may configure, and at least one production mode. The exact list is the equipment-qualification matrix: category equality alone never authorizes a recipe. Unknown, duplicate, or category-inconsistent qualifications are invalid. Optional `production.changeover` declares the fixed duration and total active power of changing between Process setup groups. Optional `production.maintenance` declares the maximum successfully completed production jobs before fixed powered maintenance is required. Its ordered `drift` stages may apply exact duration/power multipliers and lot defects after a usage threshold until maintenance resets the counter; later stages are monotonic degradation states, not improvements, and retain earlier defect classes. There is no implicit mode or compatibility fallback. Asset buffer `accepts` values are maximum capabilities. A blueprint instance may narrow an internal buffer with `bufferFilters` and independently narrow one physical ingress/egress with `portFilters`; an empty list closes that object. The selected recipe maps every Resource to a physical port and unused production ports carry nothing. Shared recipe buffers receive deterministic per-Resource capacity partitions so one material cannot starve another. Extractor output is narrowed to the Resource type of its bound deposits. The Device TypeScript program still owns the final local decision inside the compiled job contract. See [[docs/design/usage-based-maintenance]].
 
 A treatment Device uses capability `treat`, three distinct material-input/material-output/agent buffers, and explicit modes:
 

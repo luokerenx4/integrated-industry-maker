@@ -46,7 +46,7 @@ export type FactoryStateMutation =
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
-  | { kind: "production.finish"; device: string }
+  | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
   | { kind: "maintenance.finish"; device: string; cause: "mandatory" | "opportunistic"; durationTicks: Tick }
   | { kind: "maintenance.cancel"; device: string }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
@@ -381,6 +381,11 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.jobsSinceMaintenance++;
+      if (mutation.driftedLots !== undefined) {
+        maintenance.driftedJobs++;
+        maintenance.driftedLots += mutation.driftedLots;
+        maintenance.driftDefects += mutation.driftDefects ?? 0;
+      }
       return;
     }
     case "maintenance.finish": {

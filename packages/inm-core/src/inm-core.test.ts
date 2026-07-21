@@ -752,11 +752,54 @@ describe("blueprint compiler", () => {
       totalCompleted: 1, totalMandatory: 1, totalCancelled: 1, totalMaintenanceTicks: 3_000,
     }));
 
+    const driftSource = await maintenanceSource(3);
+    driftSource.deviceAssets.smelter!.production!.maintenance!.drift = [{
+      afterJobs: 1,
+      durationMultiplier: { numerator: 2, denominator: 1 },
+      powerMultiplier: { numerator: 3, denominator: 2 },
+      defects: [],
+    }];
+    const drifted = runUntil(compileFactoryProject(driftSource), undefined, { untilTick: 21_000 });
+    expect(drifted.events.flatMap((event) => event.type === "device.start" && event.device === "smelter-1"
+      ? [event.durationTicks] : [])).toEqual([4_000, 8_000, 8_000]);
+    expect(drifted.events.filter((event) => event.type === "device.process-drift")).toEqual([
+      expect.objectContaining({ tick: 12_000, device: "smelter-1", process: "smelt-iron", afterJobs: 1, jobsSinceMaintenance: 1, durationTicks: 8_000, powerMilliWatts: 270_000, lotIds: [] }),
+      expect.objectContaining({ tick: 20_000, device: "smelter-1", process: "smelt-iron", afterJobs: 1, jobsSinceMaintenance: 2, durationTicks: 8_000, powerMilliWatts: 270_000, lotIds: [] }),
+    ]);
+    expect(drifted.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
+      totalDriftedJobs: 2, totalDriftedLots: 0, totalDriftDefects: 0,
+    }));
+
     const invalidPolicy = await maintenanceSource(3, 4);
     expect(issueCodes(() => compileFactoryProject(invalidPolicy))).toContain("production.maintenance-threshold");
     const invalidPower = await maintenanceSource(3);
     invalidPower.deviceAssets.smelter!.production!.maintenance!.powerMilliWatts = 9_999;
     expect(issueCodes(() => compileFactoryProject(invalidPower))).toContain("production.maintenance-power");
+    const invalidDrift = await maintenanceSource(3);
+    invalidDrift.deviceAssets.smelter!.production!.maintenance!.drift = [{
+      afterJobs: 3,
+      durationMultiplier: { numerator: 1, denominator: 1 },
+      powerMultiplier: { numerator: 1, denominator: 1 },
+      defects: [],
+    }];
+    expect(issueCodes(() => compileFactoryProject(invalidDrift))).toEqual(expect.arrayContaining([
+      "production.drift-threshold", "production.drift-no-effect",
+    ]));
+    const nonMonotonicDrift = await maintenanceSource(4);
+    nonMonotonicDrift.deviceAssets.smelter!.production!.maintenance!.drift = [{
+      afterJobs: 1,
+      durationMultiplier: { numerator: 2, denominator: 1 },
+      powerMultiplier: { numerator: 3, denominator: 2 },
+      defects: ["chamber-particle"],
+    }, {
+      afterJobs: 2,
+      durationMultiplier: { numerator: 3, denominator: 2 },
+      powerMultiplier: { numerator: 1, denominator: 2 },
+      defects: [],
+    }];
+    expect(issueCodes(() => compileFactoryProject(nonMonotonicDrift))).toEqual(expect.arrayContaining([
+      "production.drift-improvement", "production.drift-regression", "production.drift-defect-loss",
+    ]));
     const missingContract = await loaded();
     missingContract.blueprint.devices.find((device) => device.id === "smelter-1")!.policy = { preventiveMaintenance: { minimumJobs: 1 } };
     expect(issueCodes(() => compileFactoryProject(missingContract))).toContain("production.maintenance-required");
@@ -772,17 +815,17 @@ describe("blueprint compiler", () => {
     const lots = Object.values(baseline.state.lots).sort((left, right) => left.id.localeCompare(right.id));
     expect(lots).toHaveLength(12);
     expect(lots.every((lot) => lot.releasedAtTick === lot.plannedReleaseTick)).toBeTrue();
-    expect(lots.filter((lot) => lot.status === "completed")).toHaveLength(11);
+    expect(lots.filter((lot) => lot.status === "completed")).toHaveLength(6);
     expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.resource === "qualified-dram-wafer-lot" && lot.route.terminal === "complete" && lot.route.completedSteps >= 7)).toBeTrue();
     expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.completedAtTick! - lot.releasedAtTick! === lot.queueTicks + lot.processTicks + lot.transportTicks)).toBeTrue();
-    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 11, scrapped: 1, onTimeCompleted: 6 }));
+    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 6, scrapped: 6, onTimeCompleted: 4 }));
     expect(baseline.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({
-      family: "dram-wafer", scheduled: 12, completed: 11, scrapped: 1, inProgress: 0,
-      transitions: 94, reentrantTransitions: 5, queueTimeViolations: 4, violatedLots: 4,
+      family: "dram-wafer", scheduled: 12, completed: 6, scrapped: 6, inProgress: 0,
+      transitions: 104, reentrantTransitions: 10, queueTimeViolations: 7, violatedLots: 7,
     }));
-    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["anneal-dielectric-stack"]).toEqual(expect.objectContaining({ queueTimeMaximumTicks: 20_000, maximumQueueTicks: 22_900, queueTimeViolations: 1 }));
-    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["pattern-cell-layer-2"]).toEqual(expect.objectContaining({ queueTimeMaximumTicks: 45_000, maximumQueueTicks: 56_000, queueTimeViolations: 3 }));
-    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]).toEqual(expect.objectContaining({ visits: 17, starts: 17, activeLots: 0, queueTimeMaximumTicks: 35_000, queueTimeViolations: 0 }));
+    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["anneal-dielectric-stack"]).toEqual(expect.objectContaining({ queueTimeMaximumTicks: 20_000, maximumQueueTicks: 25_900, queueTimeViolations: 1 }));
+    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["pattern-cell-layer-2"]).toEqual(expect.objectContaining({ queueTimeMaximumTicks: 45_000, maximumQueueTicks: 62_000, queueTimeViolations: 6 }));
+    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]).toEqual(expect.objectContaining({ visits: 22, starts: 22, activeLots: 0, queueTimeMaximumTicks: 35_000, queueTimeViolations: 0 }));
     expect(baseline.metrics.releaseFlow).toEqual(expect.objectContaining({
       scheduled: 12, released: 12, pending: 0, plannedSpanTicks: 66_000, actualSpanTicks: 66_000,
       meanPlannedIntervalTicks: 6_000, meanActualIntervalTicks: 6_000, meanReleaseDelayTicks: 0, maximumReleaseDelayTicks: 0,
@@ -791,33 +834,35 @@ describe("blueprint compiler", () => {
       serviceLevelOpenings: 0,
     }));
     expect(baseline.metrics.qualityFlow).toEqual(expect.objectContaining({
-      inspectedLots: 12, totalInspections: 17, passedInspections: 11, rejectedInspections: 5,
-      scrapDispositions: 1, reworkedLots: 5, totalReworkCycles: 5, defectFreeCompleted: 10,
-      firstPassCompleted: 6, escapedDefects: 1, goodYield: 10 / 12, firstPassYield: 6 / 12,
+      inspectedLots: 12, totalInspections: 22, passedInspections: 6, rejectedInspections: 10,
+      scrapDispositions: 6, reworkedLots: 10, totalReworkCycles: 10, defectFreeCompleted: 6,
+      firstPassCompleted: 2, escapedDefects: 0, goodYield: 6 / 12, firstPassYield: 2 / 12,
     }));
-    expect(baseline.state.lots["dram-lot-03"]!.quality).toEqual(expect.objectContaining({ defects: [], reworkCycles: 1, inspections: 2 }));
+    expect(baseline.state.lots["dram-lot-03"]!.quality).toEqual(expect.objectContaining({ defects: ["particle-contamination"], reworkCycles: 1, inspections: 2, scrapDispositions: 1 }));
     expect(baseline.state.lots["dram-lot-08"]!.quality).toEqual(expect.objectContaining({ defects: ["particle-contamination"], reworkCycles: 1, scrapDispositions: 1 }));
-    expect(baseline.state.lots["dram-lot-11"]!.quality).toEqual(expect.objectContaining({ defects: ["latent-electrical"], passes: 1 }));
-    expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(11);
+    expect(baseline.state.lots["dram-lot-11"]!.quality).toEqual(expect.objectContaining({ defects: ["latent-electrical", "particle-contamination"], scrapDispositions: 1 }));
+    expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(6);
     expect(baseline.events.filter((event) => event.type === "lot.released").map((event) => event.tick)).toEqual(Array.from({ length: 12 }, (_, index) => index * 6_000));
     expect(baseline.events.filter((event) => event.type === "lot.quality-excursion")).toHaveLength(3);
-    expect(baseline.events.filter((event) => event.type === "lot.inspected")).toHaveLength(17);
-    expect(baseline.events.filter((event) => event.type === "lot.reworked")).toHaveLength(5);
-    expect(baseline.events.filter((event) => event.type === "lot.route-advanced")).toHaveLength(94);
-    expect(baseline.events.filter((event) => event.type === "lot.route-advanced" && event.reentrant)).toHaveLength(5);
-    expect(baseline.events.filter((event) => event.type === "lot.queue-time-violation")).toHaveLength(4);
-    expect(baseline.events.filter((event) => event.type === "lot.scrapped" && event.reason === "quality-rejection")).toHaveLength(1);
+    expect(baseline.events.filter((event) => event.type === "lot.inspected")).toHaveLength(22);
+    expect(baseline.events.filter((event) => event.type === "lot.reworked")).toHaveLength(10);
+    expect(baseline.events.filter((event) => event.type === "lot.route-advanced")).toHaveLength(104);
+    expect(baseline.events.filter((event) => event.type === "lot.route-advanced" && event.reentrant)).toHaveLength(10);
+    expect(baseline.events.filter((event) => event.type === "lot.queue-time-violation")).toHaveLength(7);
+    expect(baseline.events.filter((event) => event.type === "lot.scrapped" && event.reason === "quality-rejection")).toHaveLength(6);
     expect(baseline.events.filter((event) => event.type === "device.start" && event.lotIds?.length)).not.toHaveLength(0);
     expect(baseline.events.filter((event) => event.type === "resource.depart" && event.transit.lotIds?.length)).not.toHaveLength(0);
     expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 2, totalSetupTicks: 7_000 }));
     expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(2);
     expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(2);
     expect(baseline.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
-      totalCompleted: 7, totalMandatory: 7, totalOpportunistic: 0, totalMaintenanceTicks: 50_000,
+      totalCompleted: 8, totalMandatory: 8, totalOpportunistic: 0, totalMaintenanceTicks: 56_000,
+      totalDriftedJobs: 12, totalDriftedLots: 12, totalDriftDefects: 10,
     }));
-    expect(baseline.events.filter((event) => event.type === "device.maintenance-start")).toHaveLength(7);
+    expect(baseline.events.filter((event) => event.type === "device.maintenance-start")).toHaveLength(8);
+    expect(baseline.events.filter((event) => event.type === "device.process-drift")).toHaveLength(12);
     expect(baseline.metrics.batchFlow).toEqual(expect.objectContaining({
-      batchOperations: 1, jobs: 4, lots: 12, averageLotsPerJob: 3, meanQueueWaitTicksPerLot: 25_000 / 3,
+      batchOperations: 1, jobs: 4, lots: 12, averageLotsPerJob: 3, meanQueueWaitTicksPerLot: 26_500 / 3,
     }));
     expect(baseline.metrics.batchFlow.operations["furnace-1:batch-anneal-dielectric-stack:qualified"]).toEqual(expect.objectContaining({
       expectedLotsPerJob: 3, jobs: 4, lots: 12, averageLotsPerJob: 3, maximumLotsPerJob: 3,
@@ -833,7 +878,7 @@ describe("blueprint compiler", () => {
     intermediateRelease.scenario.lotReleases![0]!.resource = "dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(intermediateRelease))).toContain("route.release-entry");
     const queueBoundarySource = await loadFactoryProject(memoryFab);
-    queueBoundarySource.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.maximumTicks = 22_900;
+    queueBoundarySource.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.maximumTicks = 25_900;
     const queueBoundary = runUntil(compileFactoryProject(queueBoundarySource), undefined, { seed: 42 });
     expect(queueBoundary.events.filter((event) => event.type === "lot.queue-time-violation" && event.step === "anneal-dielectric-stack")).toHaveLength(0);
     const duplicateQueueDefect = await loadFactoryProject(memoryFab);
@@ -864,13 +909,13 @@ describe("blueprint compiler", () => {
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
       control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
       dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
-      controlBlockedLots: 7, controlBlockedTicks: 579_800, capacityBlockedLots: 0,
+      released: 11, pending: 1, controlBlockedLots: 7, controlBlockedTicks: 686_700, capacityBlockedLots: 0,
     }));
     expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
-    expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(3);
+    expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(2);
     expect(controlled.events.filter((event) => event.type === "lot.release-control-opened").every((event) => event.type === "lot.release-control-opened" && event.cause === "reopen-threshold")).toBeTrue();
     expect(controlled.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.releaseControl === "conwip" && event.activeWipBeforeRelease < 5)).toBeTrue();
-    expect(controlled.events.filter((event) => event.type === "lot.released" && event.tick === 76_900).map((event) => event.type === "lot.released" ? event.lot : "")).toEqual([
+    expect(controlled.events.filter((event) => event.type === "lot.released" && event.tick === 96_700).map((event) => event.type === "lot.released" ? event.lot : "")).toEqual([
       "dram-lot-12", "dram-lot-11", "dram-lot-10",
     ]);
 
@@ -892,12 +937,12 @@ describe("blueprint compiler", () => {
     }
     candidateSource.blueprint.devices.find((item) => item.id === "furnace-1")!.recipe!.process = "rapid-anneal-dielectric-stack";
     const candidate = runUntil(compileFactoryProject(candidateSource), undefined, { seed: 42 });
-    expect(candidate.metrics.lotFlow.onTimeCompleted).toBeGreaterThan(baseline.metrics.lotFlow.onTimeCompleted);
+    expect(candidate.metrics.lotFlow.onTimeCompleted).toBeLessThan(baseline.metrics.lotFlow.onTimeCompleted);
     expect(candidate.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
     expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeGreaterThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
     expect(candidate.metrics.batchFlow.jobs).toBe(0);
     expect(candidate.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
-    expect(candidate.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
+    expect(candidate.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
     const setupAwareSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
@@ -907,7 +952,7 @@ describe("blueprint compiler", () => {
     const setupAware = runUntil(compileFactoryProject(setupAwareSource), undefined, { seed: 42 });
     expect(setupAware.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(setupAware.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
+    expect(setupAware.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
     const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     for (const id of ["lithography-1", "etch-1"]) minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy = {
@@ -943,9 +988,9 @@ describe("blueprint compiler", () => {
     deepInspectionSource.blueprint.devices.find((device) => device.id === "inspection-1")!.recipe!.process = "inspect-final-pattern-deep";
     const deepInspection = runUntil(compileFactoryProject(deepInspectionSource), undefined, { seed: 42 });
     expect(deepInspection.metrics.qualityFlow.escapedDefects).toBe(0);
-    expect(deepInspection.metrics.qualityFlow.scrapDispositions).toBe(2);
-    expect(deepInspection.metrics.lotFlow).toEqual(expect.objectContaining({ completed: 6, inProgress: 4 }));
-    expect(deepInspection.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({ queueTimeViolations: 8, violatedLots: 6 }));
+    expect(deepInspection.metrics.qualityFlow.scrapDispositions).toBe(3);
+    expect(deepInspection.metrics.lotFlow).toEqual(expect.objectContaining({ completed: 2, inProgress: 7 }));
+    expect(deepInspection.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({ queueTimeViolations: 12, violatedLots: 10 }));
     expect(deepInspection.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
     const invalid = { ...source, scenario: structuredClone(source.scenario) };
@@ -997,8 +1042,8 @@ describe("blueprint compiler", () => {
     const failureSource = { ...source, scenario: structuredClone(source.scenario) };
     failureSource.scenario.failures = [{ device: "lithography-1", atTick: 3_000, durationTicks: 5_000 }];
     const interrupted = runUntil(compileFactoryProject(failureSource), undefined, { seed: 42 });
-    expect(interrupted.metrics.lotFlow.scrapped).toBe(2);
-    expect(Object.values(interrupted.state.lots).filter((lot) => lot.status === "scrapped")).toHaveLength(2);
+    expect(interrupted.metrics.lotFlow.scrapped).toBe(5);
+    expect(Object.values(interrupted.state.lots).filter((lot) => lot.status === "scrapped")).toHaveLength(5);
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
   });
 

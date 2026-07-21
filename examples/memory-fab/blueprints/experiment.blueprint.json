@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": "memory-fab-qtime-maintenance-v2",
+  "revision": "memory-fab-process-drift-maintenance-v3",
   "devices": [
     {
       "id": "lot-release",
@@ -42,10 +42,7 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10,
-        "preventiveMaintenance": {
-          "minimumJobs": 7
-        }
+        "powerPriority": 10
       }
     },
     {
@@ -73,7 +70,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 9
+        "powerPriority": 9,
+        "preventiveMaintenance": {
+          "minimumJobs": 6
+        }
       }
     },
     {
@@ -281,10 +281,7 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 10,
-        "preventiveMaintenance": {
-          "minimumJobs": 7
-        }
+        "powerPriority": 10
       }
     },
     {
@@ -312,7 +309,10 @@
       "policy": {
         "recipeDispatch": "earliest-due-date",
         "lotDispatch": "earliest-due-date",
-        "powerPriority": 9
+        "powerPriority": 9,
+        "preventiveMaintenance": {
+          "minimumJobs": 6
+        }
       }
     },
     {
