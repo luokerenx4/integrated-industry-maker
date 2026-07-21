@@ -15,9 +15,15 @@
     ]
   },
   "buffers": [{ "id": "storage", "role": "internal", "capacity": 200, "accepts": ["*"] }],
-  "logisticsStation": { "networkKinds": ["planetary"], "buffer": "storage", "slots": 4 },
+  "logisticsStation": {
+    "networkKinds": ["planetary"],
+    "buffer": "storage",
+    "slots": 4,
+    "energyCapacityMilliJoules": 3000000,
+    "maximumChargeMilliWatts": 200000
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "idleMilliWatts": 400000, "activeMilliWatts": 400000 },
+  "power": { "idleMilliWatts": 400000, "activeMilliWatts": 600000 },
   "economics": { "buildCost": 2500 },
   "files": { "visual": "visual.json" }
 }

@@ -248,7 +248,9 @@ Station and carrier Devices remain ordinary project-local Device assets with exp
   "logisticsStation": {
     "networkKinds": ["planetary"],
     "buffer": "storage",
-    "slots": 4
+    "slots": 4,
+    "energyCapacityMilliJoules": 3000000,
+    "maximumChargeMilliWatts": 200000
   }
 }
 ```
@@ -260,12 +262,16 @@ A reusable carrier declares the `carrier` logistics role and its supported netwo
   "capabilities": ["transport"],
   "logistics": {
     "roles": ["carrier"],
-    "carrierKinds": ["planetary"]
+    "carrierKinds": ["planetary"],
+    "missionEnergy": {
+      "baseMilliJoules": 100000,
+      "milliJoulesPerDistance": 5000
+    }
   }
 }
 ```
 
-Its `planTransport()` result defines per-trip batch capacity and occupied travel time. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
+Its `planTransport()` result defines per-trip batch capacity and occupied travel time. `missionEnergy` defines the energy removed from the source station at departure. The carrier is not placed as a blueprint Device instance; a station network owns a finite count of that asset and its build cost.
 
 ## Explicit local transport paths
 
@@ -547,6 +553,8 @@ For shortage-first, station inventory is measured in real downstream units. The 
 
 The compiler matches supply and demand slots for the same Resource, validates region topology, carrier kind, slot and batch capacity, then builds deterministic station-to-station routes. Route distance is the Manhattan distance between region world coordinates plus each station's local position; the carrier runtime turns that distance into trip duration and raw cargo capacity. Effective route batch capacity is the minimum of carrier capacity, supply capacity after reserve, and demand target, and static fleet planning uses that same bounded rate. `storage` slots participate in inventory but neither advertise nor request a route. At runtime every departure reserves one carrier until arrival; the shared fleet therefore limits all routes in the network together. Destination free space counts both total buffer occupancy and the Resource slot's resident plus in-flight quantity, including cargo arriving by local belt. Station failures or unavailable same-region power block new departures, while already-departed cargo remains in transit. Fleet assets, in-flight quantities, persistent station power, WIP, and congestion all participate in evaluation.
 
+Every placed station must explicitly configure `policy.stationChargeMilliWatts`, from zero through the station asset's `maximumChargeMilliWatts`. Charging is a real regional-grid load and fills the station's independent carrier-energy buffer; it is neither hidden in idle power nor inferred from the fleet. A route mission costs `baseMilliJoules + distance × milliJoulesPerDistance` once at source departure. Insufficient stored energy blocks departure until an exact charging boundary, while incoming carriers never draw destination energy. Static route capacity is bounded by fleet travel and configured source-station charging.
+
 ## Scenario and objective
 
 Initial quantities address device and buffer explicitly:
@@ -563,7 +571,8 @@ Initial quantities address device and buffer explicitly:
     { "device": "smelter-1", "buffer": "input", "resource": "iron-ore", "level": 1, "count": 2 }
   ],
   "initialEnergyMilliJoules": {
-    "accumulator-1": 1800000
+    "accumulator-1": 1800000,
+    "station-supply": 12000000
   },
   "renewableProfiles": [
     {
@@ -582,7 +591,7 @@ Initial quantities address device and buffer explicitly:
 }
 ```
 
-`initialEnergyMilliJoules` is keyed by placed storage Device id. Each value must be an integer from zero through that Device's compiled capacity. It is part of the Scenario hash and therefore of run identity. Omitted accumulators start empty.
+`initialEnergyMilliJoules` is keyed by a placed accumulator or logistics-station Device id. Each value must be an integer from zero through that Device's compiled energy capacity. It is part of the Scenario hash and therefore of run identity. Omitted energy buffers start empty.
 
 `renewableProfiles` are periodic, piecewise-constant environmental curves. Each profile applies to every renewable Device in its `region`, optionally narrowed to one Device `asset`; this includes Devices later added to a candidate Blueprint. The first point must start at zero, later `atTick` values are strictly increasing and below `periodTicks`, and integer `outputPermille` is limited to 0–1000 of asset-rated output. Overlapping profiles for one Device are invalid. Omitted matches run at rated output.
 
@@ -643,7 +652,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.43.0",
+        "engineVersion": "inm-sim/0.44.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

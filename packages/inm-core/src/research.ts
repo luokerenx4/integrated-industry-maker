@@ -563,6 +563,29 @@ function stationCandidates(input: ResearchInput): StrategyCandidate[] {
   return candidates;
 }
 
+function stationChargeCandidates(input: ResearchInput): StrategyCandidate[] {
+  const candidates: StrategyCandidate[] = [];
+  for (const requirement of input.capacityPlan.stationNetworks.filter((item) => item.additionalChargeMilliWatts > 0)) {
+    const network = input.project.logisticsNetworks[requirement.network];
+    if (!network) continue;
+    for (const source of [...new Set(network.routes.filter((route) => route.resource === requirement.resource).map((route) => route.from))].sort()) {
+      const device = input.project.devices[source]!; const index = input.blueprint.devices.findIndex((item) => item.id === source);
+      const maximum = device.assetDef.logisticsStation!.maximumChargeMilliWatts;
+      const current = device.stationEnergyPlan!.chargeMilliWatts;
+      const next = Math.min(maximum, current + requirement.additionalChargeMilliWatts);
+      if (index < 0 || next <= current) continue;
+      const key = `station-charge:${source}:${current}->${next}`;
+      candidates.push({ key, proposal: {
+        strategy: key,
+        hypothesis: `Raise \`${source}\` carrier charging from ${(current / 1000).toFixed(3)} W to ${(next / 1000).toFixed(3)} W because \`${requirement.network}\` is energy-limited to ${requirement.energyLimitedItemsPerMinute.toFixed(3)} ${requirement.resource}/min.`,
+        expectedEffect: "Shorten carrier launch waits while exposing the extra station draw to the same regional power evaluator.",
+        patch: [{ op: "replace", path: `/devices/${index}/policy/stationChargeMilliWatts`, value: next }],
+      } });
+    }
+  }
+  return candidates;
+}
+
 function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
   const bufferAsset = Object.values(input.project.deviceAssets).find((asset) => asset.capabilities.includes("store"));
   if (!bufferAsset) return [];
@@ -702,7 +725,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
-      ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input),
+      ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input), ...stationChargeCandidates(input),
       ...recipeCandidates(input), ...plannedCapacityCandidates(input),
     ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));

@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: explicit sorter Devices, physical local logistics, proportional power satisfaction, power-priority preemption, and treatment-aware dispatch implemented through `inm-sim/0.43.0`.
+Status: explicit sorter Devices, physical local logistics, station carrier-energy buffers, proportional power satisfaction, power-priority preemption, and treatment-aware dispatch implemented through `inm-sim/0.44.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -67,7 +67,7 @@ Loader and unloader attachments are Device instances, not connection attributes.
 
 ## Station logistics
 
-A station asset declares supported network kinds, one internal backing buffer, and a maximum slot count. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; shared-fleet dispatch policy is network-local and falls back to the Blueprint factory policy when omitted.
+A station asset declares supported network kinds, one internal material buffer, a maximum slot count, a carrier-energy capacity, and maximum charging power. Every placed station explicitly selects `policy.stationChargeMilliWatts`; that request is an ordinary load on its regional grid until its independent energy buffer is full. A Blueprint network configures each Resource slot with a supply, demand, or storage mode, an independent positive capacity, and an optional minimum dispatch batch. Supply and demand slots may also configure an integer priority plus an inventory policy. The slot capacity contract is instance state even when the same station participates in several networks; shared-fleet dispatch policy is network-local and falls back to the Blueprint factory policy when omitted.
 
 The compiler collects slots globally by station instance before compiling local connections. For each station:
 
@@ -102,14 +102,17 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 - Interstellar routes cross regions.
 - World plus local coordinates determine route distance.
 - Carrier `planTransport()` determines batch capacity and travel time.
+- Carrier `missionEnergy` determines one source-side departure cost from route distance.
 - Effective route batch capacity includes the source reserve and destination target; planning and analysis use this effective value.
 - A departing batch reserves a fleet member and destination Resource quota until arrival.
 - All routes in a network share that fleet.
-- Power/failure gates departures; in-flight cargo remains explicit.
+- Source-station energy, power, and failure gate departures; a mission spends energy exactly once and in-flight cargo remains explicit.
+
+Charging and dispatch use exact event boundaries. If a station is below a route's mission cost, `logistics.energy-shortage` exposes the blocked route and the scheduler wakes at the first tick when grid-delivered charge reaches that cost. Departure emits `logistics.energy-spent`; reaching capacity emits `logistics.energy-full`. Destination stations do not pay for incoming missions. Capacity analysis reports both fleet-limited and charging-limited items/min, and the research loop can edit the explicit station charging policy when it is the bottleneck.
 
 ## Telemetry
 
-Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's explicit Device id, power priority, physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Device metrics preserve sorter idle, processing, unpowered, and failed intervals independently from capacity-normalized stage utilization. Station analysis records the effective network dispatch policy and, for every matched route, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, effective carrier batch range, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection reports its authored Resource allowlist, effective dispatch policy, compiled target kind/coverage unit/critical depth for every allowed Resource, plus each stage's explicit Device id, power priority, physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Device metrics preserve sorter idle, processing, unpowered, and failed intervals independently from capacity-normalized stage utilization. Station analysis records the effective network dispatch policy, configured charging, measured energy ledger, and, for every matched route, mission energy, source/destination slot capacities, reserve/target policy, demand/supply priority, downstream connections, target kind, coverage batch, Objective depth, fleet and energy capacity, load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 

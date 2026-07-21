@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **373.334**
-- Result hash: `72d906facb4f0b348a45958aa1faf63f1016b89849b0aecd36dec03940666723`
+- Result hash: `68c3c5be2b3479b7ca7f0ef572597008f62fb2320a6ffb0af518eadc1719f54e`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Target rate: 10.000 hydrogen/min (100.0% attained)
@@ -35,6 +35,10 @@
 ## Grid storage
 
 No configured accumulators.
+
+## Station carrier energy
+
+No configured logistics stations.
 
 ## Score breakdown
 

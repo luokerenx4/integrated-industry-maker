@@ -22,8 +22,8 @@
     "cases": {
       "constrained-grid": {
         "blueprintHash": "f476dabcae46ea892507b143f0481af35c2f0a3a2d0730614148bacdd7b0bcec",
-        "deviceCatalogHash": "0fd6303a7671c365f2934dc2408c3bd0d44288984417c5d080d0384d10d96285",
-        "engineVersion": "inm-sim/0.43.0",
+        "deviceCatalogHash": "ffb90ef1b0a487958dd4d713856f27cfd9b474d57a5500da5b4f96cc784bfc2e",
+        "engineVersion": "inm-sim/0.44.0",
         "objectiveHash": "ac40f2a1778652293f2c2fd6e30915d5936465779cd7cb962c5e5157160b9480",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",

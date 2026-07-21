@@ -143,6 +143,7 @@
     "throughput": 130,
     "wip": -0.32183333333333336
   },
+  "stationEnergy": {},
   "throughputPerMinute": 13,
   "totalBuildCost": 9270,
   "transportCongestion": 0.035851851851851545,

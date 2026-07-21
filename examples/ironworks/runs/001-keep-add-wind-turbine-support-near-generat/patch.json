@@ -1,0 +1,16 @@
+[
+  {
+    "op": "add",
+    "path": "/devices/-",
+    "value": {
+      "asset": "wind-turbine",
+      "id": "wind-turbine-support",
+      "position": {
+        "x": 8,
+        "y": 1
+      },
+      "region": "forge-world",
+      "rotation": 0
+    }
+  }
+]

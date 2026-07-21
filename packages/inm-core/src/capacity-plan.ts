@@ -76,9 +76,12 @@ export interface StationCapacityRequirement {
   routes: string[];
   requiredItemsPerMinute: number;
   perCarrierItemsPerMinute: number;
+  energyLimitedItemsPerMinute: number;
+  configuredItemsPerMinute: number;
   requiredCarriers: number;
   configuredCarriers: number;
   additionalCarriers: number;
+  additionalChargeMilliWatts: number;
 }
 
 export interface PowerCapacityRequirement {
@@ -281,10 +284,19 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
         candidateRoute.resource === resource && candidateRoute.fromRegion === route.fromRegion && candidateRoute.toRegion === route.toRegion)).length));
       const requiredItemsPerMinute = processes.reduce((sum, process) => sum + (process.inputsPerMinute[resource] ?? 0), 0) / parallelNetworks;
       const perCarrierItemsPerMinute = Math.max(0, ...routes.map((route) => route.capacity * 60_000 / route.travelTicks));
+      const energyLimitedItemsPerMinute = Math.max(0, ...routes.map((route) => {
+        const charge = project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts;
+        return charge * 60 / route.missionEnergyMilliJoules * route.capacity;
+      }));
       const requiredCarriers = perCarrierItemsPerMinute > 0 ? Math.ceil(requiredItemsPerMinute / perCarrierItemsPerMinute - 1e-9) : 0;
+      const configuredItemsPerMinute = Math.min(network.fleetSize * perCarrierItemsPerMinute, energyLimitedItemsPerMinute);
+      const requiredChargeMilliWatts = Math.max(0, ...routes.map((route) => requiredItemsPerMinute / route.capacity * route.missionEnergyMilliJoules / 60));
+      const configuredChargeMilliWatts = Math.max(0, ...routes.map((route) => project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts));
       return {
         network: network.id, resource, routes: routes.map((route) => route.id).sort(), requiredItemsPerMinute, perCarrierItemsPerMinute,
+        energyLimitedItemsPerMinute, configuredItemsPerMinute,
         requiredCarriers, configuredCarriers: network.fleetSize, additionalCarriers: Math.max(0, requiredCarriers - network.fleetSize),
+        additionalChargeMilliWatts: Math.max(0, Math.ceil(requiredChargeMilliWatts - configuredChargeMilliWatts - 1e-9)),
       };
     });
   }).sort((a, b) => a.network.localeCompare(b.network) || a.resource.localeCompare(b.resource));
@@ -299,7 +311,9 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     if (template) add(requiredPowerByRegion, template.region, (raw.configuredExtractors + raw.additionalExtractors) * template.assetDef.power.activeMilliWatts);
   }
   for (const device of Object.values(project.devices)) if (device.assetDef.capabilities.includes("station") || device.assetDef.capabilities.includes("transport-junction")) {
-    add(requiredPowerByRegion, device.region, device.assetDef.power.activeMilliWatts);
+    add(requiredPowerByRegion, device.region, device.stationEnergyPlan
+      ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts
+      : device.assetDef.power.activeMilliWatts);
   }
   for (const connection of Object.values(project.connections)) for (const stage of connection.logisticsStages) {
     if (stage.region) add(requiredPowerByRegion, stage.region, stage.asset.power.activeMilliWatts);
@@ -347,6 +361,10 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   }
   for (const link of transport) if (link.capacityDeficitPerMinute > 1e-9) gaps.push({ kind: "transport", entity: `${link.process}:${link.direction}:${link.resource}`, message: `${link.process} ${link.direction} transport for ${link.resource} is short by ${link.capacityDeficitPerMinute.toFixed(3)}/min` });
   for (const network of stationNetworks) if (network.additionalCarriers > 0) gaps.push({ kind: "station", entity: network.network, message: `${network.network} needs ${network.requiredCarriers} carriers for ${network.resource}; add ${network.additionalCarriers}` });
+  for (const network of stationNetworks) if (network.additionalChargeMilliWatts > 0) gaps.push({
+    kind: "station", entity: network.network,
+    message: `${network.network} carrier energy limits ${network.resource} to ${network.energyLimitedItemsPerMinute.toFixed(3)}/min; add ${(network.additionalChargeMilliWatts / 1000).toFixed(3)} W station charge power`,
+  });
   for (const region of power) {
     if (region.headroomMilliWatts < 0) gaps.push({ kind: "power", entity: region.region, message: `${region.region} needs ${(-region.headroomMilliWatts / 1000).toFixed(3)} W additional rated generation` });
     else if (region.scenarioUnservedMilliJoules > 1e-6) gaps.push({

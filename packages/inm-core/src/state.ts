@@ -17,6 +17,8 @@ export type FactoryStateMutation =
   | { kind: "resource.extracted"; node: string; count: number }
   | { kind: "energy"; grid: string; consumedMilliJoules: number }
   | { kind: "energy.storage"; grid: string; device: string; deltaMilliJoules: number; mode: "charge" | "discharge" }
+  | { kind: "station.energy"; device: string; deltaMilliJoules: number; mode: "charge" | "spend" }
+  | { kind: "station.charge-satisfaction"; device: string; satisfactionPpm: number }
   | { kind: "fuel"; resource: string; count: number }
   | { kind: "treatment.agent"; resource: string; count: number }
   | { kind: "treatment.complete"; resource: string; level: number; count: number }
@@ -112,6 +114,19 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       }
       return;
     }
+    case "station.energy": {
+      const energy = state.devices[mutation.device]!.stationEnergy;
+      if (!energy) throw new Error(`Unknown station energy buffer '${mutation.device}'`);
+      const next = energy.storedMilliJoules + mutation.deltaMilliJoules;
+      if (next < -1e-6 || next > energy.capacityMilliJoules + 1e-6) throw new Error(`Station '${mutation.device}' energy would leave its physical capacity`);
+      const previous = energy.storedMilliJoules;
+      energy.storedMilliJoules = Math.max(0, Math.min(energy.capacityMilliJoules, next));
+      const appliedDelta = energy.storedMilliJoules - previous;
+      if (mutation.mode === "charge") energy.chargedMilliJoules += appliedDelta;
+      else energy.spentMilliJoules -= appliedDelta;
+      return;
+    }
+    case "station.charge-satisfaction": state.devices[mutation.device]!.stationEnergy!.chargeSatisfactionPpm = mutation.satisfactionPpm; return;
     case "fuel": state.energy.fuelConsumed[mutation.resource] = (state.energy.fuelConsumed[mutation.resource] ?? 0) + mutation.count; return;
     case "treatment.agent": state.materialTreatment.agentsConsumed[mutation.resource] = (state.materialTreatment.agentsConsumed[mutation.resource] ?? 0) + mutation.count; return;
     case "treatment.complete": {

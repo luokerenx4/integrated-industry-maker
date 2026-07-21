@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **119.737**
-- Result hash: `596423c7df65c46f5e2181393b40ffded56245deab6f6a9c2d122a799cef8058`
+- Result hash: `ce84d71e648c71e8806965c68d466cb3835f4c9d3a785edfdcea3df79bd8fd8d`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
@@ -34,6 +34,10 @@
 ## Grid storage
 
 No configured accumulators.
+
+## Station carrier energy
+
+No configured logistics stations.
 
 ## Score breakdown
 

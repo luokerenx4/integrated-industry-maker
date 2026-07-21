@@ -190,6 +190,7 @@ export interface StationNetworkAnalysis {
   fleetSize: number;
   stations: number;
   estimatedCarrierLoad: number;
+  stationEnergy: Array<{ device: string; region: string; capacityMilliJoules: number; chargeMilliWatts: number }>;
   routes: Array<{
     route: string;
     resource: ResourceId;
@@ -207,13 +208,15 @@ export interface StationNetworkAnalysis {
     carrierBatchCapacity: number;
     batchCapacity: number;
     travelTicks: number;
+    missionEnergyMilliJoules: number;
     capacityItemsPerMinute: number;
+    energyLimitedItemsPerMinute: number;
     dispatchProfile: StationDispatchProfile;
   }>;
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -554,7 +557,9 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       carrierBatchCapacity: route.carrierCapacity,
       batchCapacity: route.capacity,
       travelTicks: route.travelTicks,
+      missionEnergyMilliJoules: route.missionEnergyMilliJoules,
       capacityItemsPerMinute: route.capacity * 60_000 / route.travelTicks,
+      energyLimitedItemsPerMinute: project.devices[route.from]!.stationEnergyPlan!.chargeMilliWatts * 60 / route.missionEnergyMilliJoules * route.capacity,
       dispatchProfile: stationRouteDispatchProfile(project, route, criticalDepths),
     }));
     let estimatedCarrierLoad = 0;
@@ -574,6 +579,15 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       fleetSize: network.fleetSize,
       stations: network.stations.length,
       estimatedCarrierLoad,
+      stationEnergy: network.stations.map((station) => {
+        const device = project.devices[station.device]!;
+        return {
+          device: device.id,
+          region: device.region,
+          capacityMilliJoules: device.stationEnergyPlan!.capacityMilliJoules,
+          chargeMilliWatts: device.stationEnergyPlan!.chargeMilliWatts,
+        };
+      }).sort((a, b) => a.device.localeCompare(b.device)),
       routes: routeRows,
     };
   });
@@ -708,6 +722,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     code: "station-fleet-deficit", severity: "warning", network: network.network,
     message: `${network.network} needs about ${network.estimatedCarrierLoad.toFixed(2)} carriers for its directly connected process demand but configures ${network.fleetSize}`,
   });
+  for (const network of stationNetworks) for (const route of network.routes) {
+    const downstreamDemand = Object.values(project.connections).filter((connection) => connection.from.device === route.to && connection.resources.includes(route.resource))
+      .reduce((sum, connection) => sum + (deviceRates.get(connection.to.device)?.inputsPerMinute[route.resource] ?? 0), 0);
+    if (downstreamDemand > route.energyLimitedItemsPerMinute + 1e-9) diagnostics.push({
+      code: "station-energy-deficit", severity: "warning", network: network.network, device: route.from, resource: route.resource,
+      message: `${route.from} charging limits ${network.network} to ${route.energyLimitedItemsPerMinute.toFixed(3)} ${route.resource}/min for ${downstreamDemand.toFixed(3)}/min downstream demand`,
+    });
+  }
 
   for (const device of Object.values(project.devices)) {
     if (!device.processPlan) continue;

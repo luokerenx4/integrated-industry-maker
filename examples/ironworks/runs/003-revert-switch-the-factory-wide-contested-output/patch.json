@@ -1,7 +1,0 @@
-[
-  {
-    "op": "replace",
-    "path": "/policies/dispatch",
-    "value": "fifo"
-  }
-]

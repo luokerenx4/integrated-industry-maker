@@ -440,6 +440,9 @@
         ]
       },
       "id": "station-supply",
+      "policy": {
+        "stationChargeMilliWatts": 300000
+      },
       "position": {
         "x": 13,
         "y": 8
@@ -455,6 +458,9 @@
         ]
       },
       "id": "station-demand",
+      "policy": {
+        "stationChargeMilliWatts": 300000
+      },
       "position": {
         "x": 1,
         "y": 8

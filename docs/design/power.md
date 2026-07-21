@@ -1,6 +1,6 @@
 # Spatial power design
 
-Status: connected regional grids, proportional satisfaction and priority load shedding, explicit idle/active Device envelopes and sorter loads, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.43.0`.
+Status: connected regional grids, proportional satisfaction and priority load shedding, explicit idle/active Device envelopes, sorter loads and station charging, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.44.0`.
 
 Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
@@ -64,6 +64,8 @@ For every interval between scheduled events, the runtime measures a constant gen
 
 Idle baselines, active Device jobs, persistent infrastructure, and active loader/unloader stages draw from their own compiled grid. In proportional mode, every satisfaction change first checkpoints full-speed-equivalent work already completed, invalidates the old completion event, and schedules a new exact completion from the remaining work at the new fraction. Production, extraction, and treatment therefore slow and recover without restarting or consuming inputs twice. In priority mode, allocation uses authored `powerPriority` and then stable Device id across both standby and active deltas. Rejected work is checkpointed, paused as `unpowered`, and resumed for exactly its remaining ticks when capacity returns. Fuel-generation jobs do not consume grid power and therefore are not paused by their own output loss. A failed Device still follows failure semantics: its active job ends, and an extraction reservation is released.
 
+Station carrier charging is a dynamic grid load separate from the station's idle envelope. A Blueprint explicitly chooses the charge request up to the asset maximum. Proportional grids deliver the current satisfaction fraction; priority grids allocate the complete request using the station Device's `powerPriority`. Delivered energy fills a station-local buffer until full, and carrier missions remove an exact distance-dependent amount at source departure. The scheduler wakes when the buffer first reaches a waiting mission cost or its physical capacity, so charging does not depend on unrelated factory events.
+
 A disconnected or zero-supply loader cannot advance cargo and propagates belt backpressure. Proportional satisfaction stretches powered loading and unloading duration with the same checkpoint/reschedule rule as production; the passive belt-travel phase stays at nominal speed. Priority preemption and failure preserve the exact remaining stage duration, so restoration resumes the same transit rather than restarting it. Endpoint restoration remains separate from Device-job restoration because transport stages are transient infrastructure activity rather than material-transforming jobs.
 
 ## Static and measured meaning
@@ -74,7 +76,7 @@ The target-rate capacity plan adds a temporal design envelope without pretending
 
 Runtime metrics expose final/capacity energy plus cumulative charged/discharged energy per grid and `unpoweredTime` per Device. They also integrate generated, requested, served, unserved, and curtailed energy, peak generation/demand/deficit/surplus power, the largest contiguous raw deficit-energy episode, and average/minimum grid satisfaction. Requested demand retains a Device's rejected power request while it is unpowered, so shortage cannot disappear from measurement merely because work slowed or could not start.
 
-`power.storage-full` and `power.storage-depleted` identify physical boundaries. `power.satisfaction-changed` records grid demand, available power, and the new parts-per-million fraction. In priority mode, `power.shortage` covers rejected standby or active demand and optionally carries worked/remaining job ticks, `power.standby-restored` records standby recovery, `power.restored` carries the remaining active duration used for replay, and `transport.power-shortage` / `transport.power-restored` expose exact endpoint interruption. `power.generation-changed` exposes environmental boundaries. CLI simulation, immutable reports, Blueprint comparison, research, and Studio consume these same values; analysis displays allocation mode and every Device/logistics-stage priority.
+`power.storage-full` and `power.storage-depleted` identify accumulator boundaries. `logistics.energy-full`, `logistics.energy-shortage`, and `logistics.energy-spent` expose station carrier-energy boundaries and mission cost. `power.satisfaction-changed` records grid demand, available power, and the new parts-per-million fraction. In priority mode, `power.shortage` covers rejected standby or active demand and optionally carries worked/remaining job ticks, `power.standby-restored` records standby recovery, `power.restored` carries the remaining active duration used for replay, and `transport.power-shortage` / `transport.power-restored` expose exact endpoint interruption. `power.generation-changed` exposes environmental boundaries. CLI simulation, immutable reports, Blueprint comparison, research, and Studio consume these same values; analysis displays allocation mode and every Device/logistics-stage priority.
 
 ## Measured storage research
 
@@ -126,4 +128,5 @@ The power tests prove idle energy while waiting, active totals without double-co
 
 - Joint measured generator-plus-storage research bundles for grids that need both changes at once.
 - Non-renewable generator selection during synthesis when fuel economics are favorable.
-- Satisfaction-aware station carrier travel and dispatch power instead of scaling only its persistent Device envelope.
+- Joint allocation planning for several routes competing for one station's charging budget.
+- Carrier range, warper consumption, and technology-dependent mission economics.

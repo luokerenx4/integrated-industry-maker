@@ -8,7 +8,11 @@
   "capabilities": ["transport"],
   "geometry": { "footprint": { "width": 1, "height": 2 }, "rotatable": true, "ports": [] },
   "buffers": [],
-  "logistics": { "roles": ["carrier"], "carrierKinds": ["interstellar"] },
+  "logistics": {
+    "roles": ["carrier"],
+    "carrierKinds": ["interstellar"],
+    "missionEnergy": { "baseMilliJoules": 500000, "milliJoulesPerDistance": 20000 }
+  },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "idleMilliWatts": 0, "activeMilliWatts": 0 },
   "economics": { "buildCost": 2000 },

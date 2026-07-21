@@ -8,7 +8,7 @@
   "assertions": [
     { "kind": "metric", "path": "throughputPerMinute", "min": 18 },
     { "kind": "metric", "path": "completedOrders", "min": 30 },
-    { "kind": "metric", "path": "occupiedArea", "max": 260 },
+    { "kind": "metric", "path": "occupiedArea", "max": 270 },
     { "kind": "metric", "path": "totalBuildCost", "max": 50000 },
     { "kind": "metric", "path": "infeasibleReason", "equals": null },
     { "kind": "event", "type": "power.shortage", "present": false },

@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `660a52ffe7f04f658f7b04fe651b29123bf84ec5182aab6c7f2b709d4479a259`
+- Result hash: `919f0d10d82c0d69dcf8e9dac9e67b293088d1083c3d1cb3240949179d54c2bc`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Target rate: 240.000 iron-ore/min (100.0% attained)
@@ -31,6 +31,10 @@
 ## Grid storage
 
 No configured accumulators.
+
+## Station carrier energy
+
+No configured logistics stations.
 
 ## Score breakdown
 

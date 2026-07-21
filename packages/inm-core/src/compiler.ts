@@ -216,7 +216,9 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     if (asset.logistics && !asset.capabilities.includes("transport")) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "capability.not-transport", message: "Logistics roles require transport capability" });
     if (asset.logistics && new Set(asset.logistics.roles).size !== asset.logistics.roles.length) issues.push({ path: `assets/devices/${id}/asset.json/logistics/roles`, code: "logistics.duplicate-role", message: "Logistics roles must be unique" });
     if (asset.logistics?.roles.includes("carrier") && !asset.logistics.carrierKinds) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-kinds-required", message: "Carrier role requires supported network kinds" });
+    if (asset.logistics?.roles.includes("carrier") && !asset.logistics.missionEnergy) issues.push({ path: `assets/devices/${id}/asset.json/logistics/missionEnergy`, code: "logistics.carrier-energy-required", message: "Carrier role requires an explicit mission-energy model" });
     if (asset.logistics?.carrierKinds && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-role-required", message: "Carrier kinds require carrier role" });
+    if (asset.logistics?.missionEnergy && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/missionEnergy`, code: "logistics.carrier-role-required", message: "Mission energy requires the carrier role" });
     const endpointRoles = asset.logistics?.roles.some((role) => role === "loader" || role === "unloader") ?? false;
     if (endpointRoles && !asset.logistics?.endpointRange) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-range-required", message: "Loader and unloader roles require an explicit physical endpoint range" });
     if (!endpointRoles && asset.logistics?.endpointRange) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-role-required", message: "Endpoint range requires a loader or unloader role" });
@@ -229,6 +231,11 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       const buffer = asset.buffers.find((item) => item.id === asset.logisticsStation!.buffer);
       if (!buffer) issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation/buffer`, code: "reference.buffer", message: `Unknown station buffer '${asset.logisticsStation.buffer}'` });
       else if (buffer.role !== "internal") issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation/buffer`, code: "station.buffer-role", message: "Station buffer must use internal role for local input and output" });
+      const chargingEnvelope = asset.power.activeMilliWatts - asset.power.idleMilliWatts;
+      if (asset.logisticsStation.maximumChargeMilliWatts > chargingEnvelope) issues.push({
+        path: `assets/devices/${id}/asset.json/logisticsStation/maximumChargeMilliWatts`, code: "station.charge-power-envelope",
+        message: `Station maximum charge ${asset.logisticsStation.maximumChargeMilliWatts} mW exceeds its ${chargingEnvelope} mW active-minus-idle power envelope`,
+      });
     }
     if (asset.capabilities.includes("station") && !asset.logisticsStation) issues.push({ path: `assets/devices/${id}/asset.json/logisticsStation`, code: "station.spec-required", message: "Station capability requires logisticsStation specification" });
   }
@@ -297,7 +304,8 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.members.push(device.id);
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
-    grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts ?? device.assetDef.power.activeMilliWatts;
+    grid.ratedConsumptionMilliWatts += device.processPlan?.powerMilliWatts
+      ?? (device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts);
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);
       grid.storageCapacityMilliJoules += device.storagePlan.capacityMilliJoules;
@@ -434,7 +442,7 @@ function compileLogisticsNetworks(
     const stationRegions = new Set(validStations.map((station) => station.device.region));
     if (definition.kind === "planetary" && stationRegions.size > 1) issues.push({ path: `${path}/stations`, code: "station.planetary-cross-region", message: `Planetary network '${definition.id}' cannot cross regions` });
     if (definition.kind === "interstellar" && stationRegions.size < 2) issues.push({ path: `${path}/stations`, code: "station.interstellar-single-region", message: `Interstellar network '${definition.id}' must include stations in at least two regions` });
-    if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind)) continue;
+    if (!fleetAsset?.logistics?.roles.includes("carrier") || !fleetAsset.logistics.carrierKinds?.includes(definition.kind) || !fleetAsset.logistics.missionEnergy) continue;
     const routes: CompiledLogisticsNetwork["routes"] = [];
     for (const supply of validStations) for (const supplySlot of supply.definition.slots.filter((slot) => slot.mode === "supply")) {
       for (const demand of validStations) for (const demandSlot of demand.definition.slots.filter((slot) => slot.mode === "demand" && slot.resource === supplySlot.resource)) {
@@ -463,6 +471,8 @@ function compileLogisticsNetworks(
           supplyReserve, demandTarget,
           supplyPriority: supplySlot.priority ?? 0, demandPriority: demandSlot.priority ?? 0,
           minimumBatch, distance, carrierCapacity: plan.capacity, capacity, travelTicks: plan.durationTicks,
+          missionEnergyMilliJoules: fleetAsset.logistics.missionEnergy!.baseMilliJoules
+            + distance * fleetAsset.logistics.missionEnergy!.milliJoulesPerDistance,
         });
       }
     }
@@ -534,6 +544,20 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       const port = asset.geometry.ports.find((item) => item.id === instance.policy!.outputPriority);
       if (!port || port.direction !== "output") issues.push({ path: `${path}/policy/outputPriority`, code: "policy.output-priority-port", message: `Output priority must name an output port on '${asset.id}'` });
     }
+    const stationSpec = asset.logisticsStation;
+    const stationCharge = instance.policy?.stationChargeMilliWatts;
+    if (stationSpec && stationCharge === undefined) issues.push({
+      path: `${path}/policy/stationChargeMilliWatts`, code: "station.charge-power-required",
+      message: `Station '${instance.id}' requires an explicit Blueprint charge-power setting`,
+    });
+    if (!stationSpec && stationCharge !== undefined) issues.push({
+      path: `${path}/policy/stationChargeMilliWatts`, code: "station.charge-policy-device",
+      message: `Device '${instance.id}' is not a logistics station`,
+    });
+    if (stationSpec && stationCharge !== undefined && stationCharge > stationSpec.maximumChargeMilliWatts) issues.push({
+      path: `${path}/policy/stationChargeMilliWatts`, code: "station.charge-power-maximum",
+      message: `Station charge ${stationCharge} mW exceeds '${asset.id}' maximum ${stationSpec.maximumChargeMilliWatts} mW`,
+    });
     if (instance.policy?.filter) {
       const port = asset.geometry.ports.find((item) => item.id === instance.policy!.filter!.outputPort);
       if (!port || port.direction !== "output") issues.push({ path: `${path}/policy/filter/outputPort`, code: "policy.filter-output-port", message: `Filter must name an output port on '${asset.id}'` });
@@ -615,6 +639,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
     let storagePlan: CompiledDevice["storagePlan"];
+    let stationEnergyPlan: CompiledDevice["stationEnergyPlan"];
     if (instance.recipe) {
       const recipe = instance.recipe;
       const definition = loaded.processes[recipe.process];
@@ -799,6 +824,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       };
     }
     if (asset.power.storage) storagePlan = { ...asset.power.storage };
+    if (asset.logisticsStation && instance.policy?.stationChargeMilliWatts !== undefined) stationEnergyPlan = {
+      capacityMilliJoules: asset.logisticsStation.energyCapacityMilliJoules,
+      chargeMilliWatts: instance.policy.stationChargeMilliWatts,
+    };
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: effectivePorts.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
@@ -808,6 +837,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ...(extractionPlan ? { extractionPlan } : {}),
       ...(generationPlan ? { generationPlan } : {}),
       ...(storagePlan ? { storagePlan } : {}),
+      ...(stationEnergyPlan ? { stationEnergyPlan } : {}),
     };
     narrowDevicePortsToBuffers(devices[instance.id]!);
   }
@@ -1088,8 +1118,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   for (const [deviceId, initialEnergy] of Object.entries(loaded.scenario.initialEnergyMilliJoules ?? {})) {
     const device = devices[deviceId]; const path = `scenario/initialEnergyMilliJoules/${deviceId}`;
     if (!device) issues.push({ path, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` });
-    else if (!device.storagePlan) issues.push({ path, code: "power.storage-required", message: `Device '${deviceId}' does not declare power storage` });
-    else if (initialEnergy > device.storagePlan.capacityMilliJoules) issues.push({ path, code: "power.storage-capacity", message: `Initial energy ${initialEnergy} mJ exceeds storage capacity ${device.storagePlan.capacityMilliJoules} mJ` });
+    else if (!device.storagePlan && !device.stationEnergyPlan) issues.push({ path, code: "power.energy-buffer-required", message: `Device '${deviceId}' does not declare grid storage or station energy` });
+    else {
+      const capacity = device.storagePlan?.capacityMilliJoules ?? device.stationEnergyPlan!.capacityMilliJoules;
+      if (initialEnergy > capacity) issues.push({ path, code: "power.energy-capacity", message: `Initial energy ${initialEnergy} mJ exceeds energy capacity ${capacity} mJ` });
+    }
   }
   for (const [profileIndex, profile] of (loaded.scenario.renewableProfiles ?? []).entries()) {
     const path = `scenario/renewableProfiles/${profileIndex}`;

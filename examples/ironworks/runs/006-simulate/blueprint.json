@@ -1329,6 +1329,9 @@
         ]
       },
       "id": "synth-iron-plate-forge-world-station-supply-1",
+      "policy": {
+        "stationChargeMilliWatts": 300000
+      },
       "position": {
         "x": 15,
         "y": 11
@@ -1344,6 +1347,9 @@
         ]
       },
       "id": "synth-iron-plate-assembly-world-station-demand-1",
+      "policy": {
+        "stationChargeMilliWatts": 300000
+      },
       "position": {
         "x": 1,
         "y": 12
@@ -1922,6 +1928,16 @@
     },
     {
       "asset": "wind-turbine",
+      "id": "synth-forge-world-wind-turbine-3",
+      "position": {
+        "x": 6,
+        "y": 12
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
       "id": "synth-assembly-world-wind-turbine-1",
       "position": {
         "x": 0,
@@ -1946,6 +1962,16 @@
       "position": {
         "x": 5,
         "y": 9
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "synth-assembly-world-wind-turbine-4",
+      "position": {
+        "x": 4,
+        "y": 1
       },
       "region": "assembly-world",
       "rotation": 0

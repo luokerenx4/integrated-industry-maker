@@ -807,7 +807,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   for (const transport of demandPlan.transports) {
     const { resource, fromRegion: sourceRegion, toRegion: targetRegion, requiredPerMinute: requiredRate } = transport;
-    if (!stationAsset?.logisticsStation || !carrier) throw new Error(`Cross-region '${resource}' flow requires project-local interstellar station and carrier assets`);
+    if (!stationAsset?.logisticsStation || !carrier?.logistics?.missionEnergy) throw new Error(`Cross-region '${resource}' flow requires project-local interstellar station and carrier assets with mission energy`);
     const sourceRegionDef = loaded.world.regions.find((item) => item.id === sourceRegion)!;
     const targetRegionDef = loaded.world.regions.find((item) => item.id === targetRegion)!;
     const preferredY = (region: string, endpoints: Endpoint[]): number => {
@@ -817,28 +817,52 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     };
     const supplyPort = stationAsset.geometry.ports.find((port) => port.direction === "input")!;
     const demandPort = stationAsset.geometry.ports.find((port) => port.direction === "output")!;
-    const distance = Math.max(1, Math.ceil(Math.hypot(
-      sourceRegionDef.coordinates.x - targetRegionDef.coordinates.x,
-      sourceRegionDef.coordinates.y - targetRegionDef.coordinates.y,
-      sourceRegionDef.coordinates.z - targetRegionDef.coordinates.z,
-    )));
-    const stationPairs = Math.max(1, Math.ceil(requiredRate / maximumLocalCapacity(resource) - 1e-9));
-    for (let index = 0; index < stationPairs; index++) {
-      const laneRate = requiredRate / stationPairs;
+    const minimumStationPairs = Math.max(1, Math.ceil(requiredRate / maximumLocalCapacity(resource) - 1e-9));
+    const stationPairs: Array<{
+      supply: BlueprintDevice;
+      demand: BlueprintDevice;
+      distance: number;
+      carrierCapacity: number;
+      carrierDurationTicks: number;
+      energyCapacityPerMinute: number;
+    }> = [];
+    while (true) {
+      const index = stationPairs.length;
       const stationFilters = filtersForResource(stationAsset, resource, [stationAsset.logisticsStation.buffer]);
       const supply: BlueprintDevice = {
         id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply-${index + 1}`), asset: stationAsset.id, region: sourceRegion,
         position: { x: 0, y: 0 }, rotation: 0, bufferFilters: structuredClone(stationFilters),
+        policy: { stationChargeMilliWatts: stationAsset.logisticsStation.maximumChargeMilliWatts },
       };
       const demand: BlueprintDevice = {
         id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand-${index + 1}`), asset: stationAsset.id, region: targetRegion,
         position: { x: 0, y: 0 }, rotation: 0, bufferFilters: structuredClone(stationFilters),
+        policy: { stationChargeMilliWatts: stationAsset.logisticsStation.maximumChargeMilliWatts },
       };
       placeDevice(loaded, blueprint, supply, {
         x: sourceRegionDef.bounds.width - stationAsset.geometry.footprint.width - 1,
         y: preferredY(sourceRegion, producers.get(resource) ?? []) + index * 4,
       });
       placeDevice(loaded, blueprint, demand, { x: 1, y: preferredY(targetRegion, consumers.get(resource) ?? []) + index * 4 });
+      const distance = Math.max(1,
+        Math.abs(sourceRegionDef.coordinates.x + supply.position.x - targetRegionDef.coordinates.x - demand.position.x)
+        + Math.abs(sourceRegionDef.coordinates.y - targetRegionDef.coordinates.y)
+        + Math.abs(sourceRegionDef.coordinates.z + supply.position.y - targetRegionDef.coordinates.z - demand.position.y),
+      );
+      const previewId = safeId(`synth-${resource}-${sourceRegion}-to-${targetRegion}-lane-${index + 1}`);
+      const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: previewId, stage: "carrier", distance });
+      const missionEnergyMilliJoules = carrier.logistics.missionEnergy.baseMilliJoules
+        + distance * carrier.logistics.missionEnergy.milliJoulesPerDistance;
+      stationPairs.push({
+        supply, demand, distance, carrierCapacity: plan.capacity, carrierDurationTicks: plan.durationTicks,
+        energyCapacityPerMinute: stationAsset.logisticsStation.maximumChargeMilliWatts * 60 / missionEnergyMilliJoules * plan.capacity,
+      });
+      const minimumPairEnergyCapacity = Math.min(...stationPairs.map((pair) => pair.energyCapacityPerMinute));
+      if (stationPairs.length >= minimumStationPairs && stationPairs.length * minimumPairEnergyCapacity + 1e-9 >= requiredRate) break;
+    }
+    for (const [index, pair] of stationPairs.entries()) {
+      const { supply, demand, distance, carrierCapacity, carrierDurationTicks } = pair;
+      const laneRate = requiredRate / stationPairs.length;
       (consumers.get(resource) ?? consumers.set(resource, []).get(resource)!).push({
         device: supply.id, port: supplyPort.id, region: sourceRegion, ratePerMinute: laneRate,
       });
@@ -846,8 +870,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         device: demand.id, port: demandPort.id, region: targetRegion, ratePerMinute: laneRate,
       });
       const networkId = safeId(`synth-${resource}-${sourceRegion}-to-${targetRegion}-lane-${index + 1}`);
-      const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: networkId, stage: "carrier", distance });
-      const perCarrierRate = plan.capacity * 60_000 / plan.durationTicks;
+      const perCarrierRate = carrierCapacity * 60_000 / carrierDurationTicks;
       const carriers = Math.max(1, Math.ceil(laneRate / perCarrierRate - 1e-9));
       const slotCapacity = stationAsset.buffers.find((buffer) => buffer.id === stationAsset.logisticsStation!.buffer)!.capacity;
       const network: BlueprintLogisticsNetwork = {

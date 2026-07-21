@@ -130,9 +130,21 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       dischargedMilliJoules: runtime.dischargedMilliJoules,
     }];
   }));
+  const stationEnergy = Object.fromEntries(Object.values(project.devices).filter((device) => device.stationEnergyPlan)
+    .sort((a, b) => a.id.localeCompare(b.id)).map((device) => {
+      const energy = state.devices[device.id]!.stationEnergy!;
+      return [device.id, {
+        initialMilliJoules: energy.initialMilliJoules,
+        storedMilliJoules: energy.storedMilliJoules,
+        capacityMilliJoules: energy.capacityMilliJoules,
+        chargedMilliJoules: energy.chargedMilliJoules,
+        spentMilliJoules: energy.spentMilliJoules,
+        configuredChargeMilliWatts: device.stationEnergyPlan!.chargeMilliWatts,
+      }];
+    }));
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
-    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, fuelConsumed: { ...state.energy.fuelConsumed },
+    completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

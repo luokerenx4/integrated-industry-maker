@@ -83,6 +83,8 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   });
   const storageRows = Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0)
     .map(([grid, storage]) => `| ${grid} | ${(storage.initialMilliJoules / 1e6).toFixed(3)} | ${(storage.storedMilliJoules / 1e6).toFixed(3)} / ${(storage.capacityMilliJoules / 1e6).toFixed(3)} | ${(storage.chargedMilliJoules / 1e6).toFixed(3)} | ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} |`);
+  const stationEnergyRows = Object.entries(result.metrics.stationEnergy)
+    .map(([device, energy]) => `| ${device} | ${(energy.initialMilliJoules / 1e6).toFixed(3)} | ${(energy.storedMilliJoules / 1e6).toFixed(3)} / ${(energy.capacityMilliJoules / 1e6).toFixed(3)} | ${(energy.configuredChargeMilliWatts / 1000).toFixed(3)} | ${(energy.chargedMilliJoules / 1e6).toFixed(3)} | ${(energy.spentMilliJoules / 1e6).toFixed(3)} |`);
   const totalUnpoweredTicks = Object.values(result.metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0);
   const treatedMaterials = Object.entries(result.metrics.materialTreatment.treated)
     .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
@@ -110,7 +112,11 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     ...(storageRows.length ? [
       "| Grid | Initial (MJ) | Final / capacity (MJ) | Charged (MJ) | Discharged (MJ) |",
       "| --- | ---: | ---: | ---: | ---: |", ...storageRows,
-    ] : ["No configured accumulators."]), "", "## Score breakdown", "",
+    ] : ["No configured accumulators."]), "", "## Station carrier energy", "",
+    ...(stationEnergyRows.length ? [
+      "| Station | Initial (MJ) | Final / capacity (MJ) | Charge cap (W) | Charged (MJ) | Missions (MJ) |",
+      "| --- | ---: | ---: | ---: | ---: | ---: |", ...stationEnergyRows,
+    ] : ["No configured logistics stations."]), "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",
   ].join("\n");
   await atomicWrite(join(runDir, "report.md"), report);

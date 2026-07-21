@@ -66,7 +66,7 @@ JSON output contains every case score, capacity state and gap, aggregate score, 
 
 A single Scenario rewards brittle layouts. A benchmark case suite represents an operating envelope: ordinary production, a timed equipment outage, intermittent regional power, demand variation, depleted feedstock, or another project-specific disturbance. Aggregate improvement is insufficient when a safety-critical case regresses beyond its configured allowance. This is the first bridge from a factory-game optimizer toward real production engineering: the Blueprint is evaluated as a control/design program under several declared conditions.
 
-The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. Blueprint-authored `policies.powerAllocation`, per-Device `policy.powerPriority`, generation, and storage are part of the editable control program. The focused `power-priority` benchmark locks hard allocation under a 240 kW grid cap and proves that exactly three priority edits protect an assembler plus its explicit loader/unloader. The `power-satisfaction` benchmark keeps proportional allocation and proves that adding an ordinary renewable Device improves shared satisfaction and delivery without editing the harness. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
+The bundled Ironworks program keeps the candidate initially byte-equivalent to its baseline and evaluates 720,000 deterministic ticks across normal production, a smelter outage, and variable regional wind. Blueprint-authored `policies.powerAllocation`, per-Device `policy.powerPriority`, station `policy.stationChargeMilliWatts`, generation, and storage are part of the editable control program. The focused `power-priority` benchmark locks hard allocation under a 240 kW grid cap and proves that exactly three priority edits protect an assembler plus its explicit loader/unloader. The `power-satisfaction` benchmark keeps proportional allocation and proves that adding an ordinary renewable Device improves shared satisfaction and delivery without editing the harness. The `station-energy` benchmark begins with source charging below the carrier mission demand and accepts the one-policy repair that restores the station route. The Coding Agent instructions are in `examples/ironworks/AUTORESEARCH.md`.
 
 ## Source of truth
 
@@ -83,6 +83,7 @@ bun run inm benchmark examples/ironworks --benchmark autoresearch
 bun run inm benchmark examples/ironworks --benchmark autoresearch --json
 bun run inm benchmark examples/ironworks --benchmark power-priority
 bun run inm benchmark examples/ironworks --benchmark power-satisfaction
+bun run inm benchmark examples/ironworks --benchmark station-energy
 ```
 
 Tests must prove unchanged-baseline scoring, fixed tick accounting, lock drift rejection, and explicit relocking. Broader engine changes that alter any locked content require a reviewed `--lock` update.

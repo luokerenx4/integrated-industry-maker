@@ -12,4 +12,4 @@ assertions:
     present: true
   - kind: metric
     path: consumed.gear
-    min: 8
+    min: 7

@@ -84,8 +84,8 @@ interface DeviceCatalogAsset {
     modes: Array<{ id: string; name: string; level: number; durationTicks: number; itemCount: number; agent: { resource: string; count: number } }>;
   };
   extraction?: { resources: string[]; radius: number; outputBuffer: string; cycleTicks: number; itemsPerCycle: number };
-  logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar">; endpointRange?: { minimum: number; maximum: number } };
-  logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number };
+  logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar">; missionEnergy?: { baseMilliJoules: number; milliJoulesPerDistance: number }; endpointRange?: { minimum: number; maximum: number } };
+  logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number; energyCapacityMilliJoules: number; maximumChargeMilliWatts: number };
   runtime: { apiVersion: 1; entry: string };
   power: {
     idleMilliWatts: number;
@@ -152,6 +152,9 @@ interface FactoryEvent {
   outputMilliWatts?: number;
   outputPermille?: number;
   satisfactionPpm?: number;
+  requiredMilliJoules?: number;
+  storedMilliJoules?: number;
+  energyMilliJoules?: number;
   network?: string;
   route?: string;
 }
@@ -161,6 +164,7 @@ interface Metrics {
   throughputPerMinute: number;
   energyConsumedMilliJoules: number;
   energyStorage: Record<string, { initialMilliJoules: number; storedMilliJoules: number; capacityMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number }>;
+  stationEnergy: Record<string, { initialMilliJoules: number; storedMilliJoules: number; capacityMilliJoules: number; chargedMilliJoules: number; spentMilliJoules: number; configuredChargeMilliWatts: number }>;
   powerGrids: Record<string, {
     generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
     peakGenerationMilliWatts: number; peakDemandMilliWatts: number; peakDeficitMilliWatts: number; peakSurplusMilliWatts: number;
@@ -250,10 +254,11 @@ interface IndustrialAnalysis {
   }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; dispatchPolicy: "fifo" | "round-robin" | "shortage-first"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
+    stationEnergy: Array<{ device: string; region: string; capacityMilliJoules: number; chargeMilliWatts: number }>;
     routes: Array<{
       route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string;
       fromSlotCapacity: number; toSlotCapacity: number; supplyReserve: number; demandTarget: number; supplyPriority: number; demandPriority: number;
-      minimumBatch: number; carrierBatchCapacity: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number;
+      minimumBatch: number; carrierBatchCapacity: number; batchCapacity: number; travelTicks: number; missionEnergyMilliJoules: number; capacityItemsPerMinute: number; energyLimitedItemsPerMinute: number;
       dispatchProfile: { resource: string; targetKind: "objective" | "process" | "fuel" | "buffer"; coverageUnit: number; criticalDepth: number | null; minimumTreatmentLevel: number; downstreamConnections: string[] };
     }>;
   }>;
@@ -278,7 +283,7 @@ interface CapacityPlan {
     finiteReserve: number; lifetimeMinutes: number | null; scenarioDemand: number; reserveAfterScenario: number;
   }>;
   transport: Array<{ direction: "input" | "output"; process: string; resource: string; devices: string[]; connections: string[]; requiredItemsPerMinute: number; configuredCapacityPerMinute: number; capacityDeficitPerMinute: number }>;
-  stationNetworks: Array<{ network: string; resource: string; routes: string[]; requiredItemsPerMinute: number; perCarrierItemsPerMinute: number; requiredCarriers: number; configuredCarriers: number; additionalCarriers: number }>;
+  stationNetworks: Array<{ network: string; resource: string; routes: string[]; requiredItemsPerMinute: number; perCarrierItemsPerMinute: number; energyLimitedItemsPerMinute: number; configuredItemsPerMinute: number; requiredCarriers: number; configuredCarriers: number; additionalCarriers: number; additionalChargeMilliWatts: number }>;
   power: Array<{
     region: string; requiredMilliWatts: number; configuredGenerationMilliWatts: number; headroomMilliWatts: number;
     scenarioGeneratedMilliJoules: number; scenarioDemandMilliJoules: number; scenarioUnservedMilliJoules: number; scenarioCurtailedMilliJoules: number;
@@ -831,7 +836,8 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
               {selected.logistics?.endpointRange && <section className="asset-section"><h4>Endpoint reach</h4><div className="asset-table"><div><b>{selected.logistics.endpointRange.minimum}–{selected.logistics.endpointRange.maximum} cells</b><strong>distance-aware transfer</strong><span>loader / unloader</span><code>throughput comes from runtime.ts</code></div></div></section>}
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
-              {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
+              {selected.logistics?.missionEnergy && <section className="asset-section"><h4>Mission energy</h4><div className="asset-table"><div><b>{(selected.logistics.missionEnergy.baseMilliJoules / 1e6).toFixed(3)} MJ base</b><strong>+{(selected.logistics.missionEnergy.milliJoulesPerDistance / 1e6).toFixed(3)} MJ / distance</strong><span>charged at departure</span></div></div></section>}
+              {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div><div><b>{(selected.logisticsStation.energyCapacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>{(selected.logisticsStation.maximumChargeMilliWatts / 1000).toFixed(0)} W max charge</strong><span>carrier energy</span></div></div></section>}
               {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "Scenario-profiled environment"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "rated renewable"}</code></div></div></section>}
               {selected.power.storage && <section className="asset-section"><h4>Power storage</h4><div className="asset-table"><div><b>{(selected.power.storage.capacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>+{(selected.power.storage.chargeMilliWatts / 1000).toFixed(0)} / −{(selected.power.storage.dischargeMilliWatts / 1000).toFixed(0)} W</strong><span>charge / discharge</span><code>deterministic grid buffer</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
@@ -981,7 +987,10 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>STATION NETWORKS</span><b>SUPPLY → SHARED FLEET → DEMAND</b></div>
           <div className="station-network-list">{analysis.stationNetworks.length ? analysis.stationNetworks.map((network) => <div className="station-network-card" key={network.network}>
             <div className="pipeline-head"><span><strong>{network.network}</strong><small>{network.kind} · {network.stations} stations · load {network.estimatedCarrierLoad.toFixed(2)}</small></span><b>{network.dispatchPolicy.toUpperCase()} · {network.fleetSize}× {network.fleetAsset}</b></div>
-            <div className="station-route-list">{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}{route.dispatchProfile.minimumTreatmentLevel ? `@${route.dispatchProfile.minimumTreatmentLevel}+` : ""}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}, keep {route.supplyReserve}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}, target {route.demandTarget}] · P{route.demandPriority}/{route.supplyPriority}</small><small>{route.dispatchProfile.targetKind} · {route.dispatchProfile.coverageUnit}/batch · depth {route.dispatchProfile.criticalDepth ?? "—"}{route.dispatchProfile.downstreamConnections.length ? ` · via ${route.dispatchProfile.downstreamConnections.join(" + ")}` : ""}</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
+            <div className="station-route-list">{network.stationEnergy.map((station) => {
+              const measured = data.metrics?.stationEnergy[station.device];
+              return <div key={`energy-${station.device}`}><span><b>{station.device}</b><small>{station.region} · CARRIER ENERGY BUFFER</small></span><code>{((measured?.storedMilliJoules ?? 0) / 1e6).toFixed(2)} / {(station.capacityMilliJoules / 1e6).toFixed(2)} MJ · {(station.chargeMilliWatts / 1000).toFixed(0)} W CHARGE</code></div>;
+            })}{network.routes.length ? network.routes.map((route) => <div key={route.route}><span><b>{route.resource}{route.dispatchProfile.minimumTreatmentLevel ? `@${route.dispatchProfile.minimumTreatmentLevel}+` : ""}</b><small>{route.from}@{route.fromRegion} [{route.fromSlotCapacity}, keep {route.supplyReserve}] → {route.to}@{route.toRegion} [{route.toSlotCapacity}, target {route.demandTarget}] · P{route.demandPriority}/{route.supplyPriority}</small><small>{route.dispatchProfile.targetKind} · {route.dispatchProfile.coverageUnit}/batch · depth {route.dispatchProfile.criticalDepth ?? "—"}{route.dispatchProfile.downstreamConnections.length ? ` · via ${route.dispatchProfile.downstreamConnections.join(" + ")}` : ""} · energy cap {route.energyLimitedItemsPerMinute.toFixed(1)}/min</small></span><code>{route.minimumBatch}-{route.batchCapacity}{route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""} / {route.travelTicks}ms · {(route.missionEnergyMilliJoules / 1e6).toFixed(2)} MJ</code></div>) : <small>NO MATCHED ROUTES</small>}</div>
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
         </section>
         <section className="analysis-section power-analysis">
@@ -1145,6 +1154,7 @@ function App() {
   const recent = frame.visibleEvents.slice(-8).reverse();
   const selectedRun = data.runs.find((item) => item.name === run);
   const storageTotals = Object.values(data.metrics?.energyStorage ?? {}).reduce((total, storage) => ({ stored: total.stored + storage.storedMilliJoules, capacity: total.capacity + storage.capacityMilliJoules }), { stored: 0, capacity: 0 });
+  const stationMissionEnergy = Object.values(data.metrics?.stationEnergy ?? {}).reduce((sum, energy) => sum + energy.spentMilliJoules, 0);
   const minimumGridSatisfaction = data.metrics && Object.keys(data.metrics.powerGrids).length
     ? Math.min(...Object.values(data.metrics.powerGrids).map((grid) => grid.minimumSatisfactionPpm)) / 10_000 : null;
   const chooseSceneObject = (next: StudioSelection) => setSelection((current) => selectStudioObject(current, next));
@@ -1175,7 +1185,7 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>

@@ -82,10 +82,12 @@ export const deviceAssetSchema = z.object({
   logistics: z.object({
     roles: z.array(z.enum(["loader", "line", "unloader", "carrier"])).min(1),
     carrierKinds: z.array(z.enum(["planetary", "interstellar"])).min(1).optional(),
+    missionEnergy: z.object({ baseMilliJoules: nonNegativeInt, milliJoulesPerDistance: nonNegativeInt }).strict().optional(),
     endpointRange: z.object({ minimum: positiveInt, maximum: positiveInt }).strict().optional(),
   }).strict().optional(),
   logisticsStation: z.object({
     networkKinds: z.array(z.enum(["planetary", "interstellar"])).min(1), buffer: id, slots: positiveInt,
+    energyCapacityMilliJoules: positiveInt, maximumChargeMilliWatts: positiveInt,
   }).strict().optional(),
   runtime: z.object({ apiVersion: z.literal(1), entry: runtimeEntry }).strict(),
   power: z.object({
@@ -139,6 +141,7 @@ export const blueprintSchema = z.object({
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
       powerPriority: nonNegativeInt.optional(),
+      stationChargeMilliWatts: nonNegativeInt.optional(),
       inputPriority: id.optional(),
       outputPriority: id.optional(),
       filter: z.object({ resource: id, outputPort: id }).strict().optional(),

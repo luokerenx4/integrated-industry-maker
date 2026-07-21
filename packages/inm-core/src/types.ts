@@ -147,10 +147,18 @@ export interface DeviceAssetManifest {
   logistics?: {
     roles: LogisticsRole[];
     carrierKinds?: Array<"planetary" | "interstellar">;
+    /** Energy removed from the departing station for one carrier mission. */
+    missionEnergy?: { baseMilliJoules: number; milliJoulesPerDistance: number };
     /** Physical grid span supported when this asset is used as a loader or unloader. */
     endpointRange?: { minimum: number; maximum: number };
   };
-  logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: BufferId; slots: number };
+  logisticsStation?: {
+    networkKinds: Array<"planetary" | "interstellar">;
+    buffer: BufferId;
+    slots: number;
+    energyCapacityMilliJoules: number;
+    maximumChargeMilliWatts: number;
+  };
   runtime: { apiVersion: 1; entry: string };
   power: {
     /** Connected standby draw while the Device is not doing active work. */
@@ -307,6 +315,8 @@ export interface BlueprintDevice {
     dispatch?: DispatchPolicy;
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
+    /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
+    stationChargeMilliWatts?: number;
     inputPriority?: string;
     outputPriority?: string;
     filter?: { resource: ResourceId; outputPort: string };
@@ -465,6 +475,7 @@ export interface CompiledDevice extends BlueprintDevice {
     | { kind: "renewable"; outputMilliWatts: number }
     | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: Array<{ resource: ResourceId; energyMilliJoules: number; durationTicks: Tick }> };
   storagePlan?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
+  stationEnergyPlan?: { capacityMilliJoules: number; chargeMilliWatts: number };
   powerGrid?: string;
 }
 export interface CompiledConnection extends BlueprintConnection {
@@ -529,6 +540,7 @@ export interface CompiledLogisticsRoute {
   /** Effective batch capacity after intersecting carrier and both station slots. */
   capacity: number;
   travelTicks: Tick;
+  missionEnergyMilliJoules: number;
 }
 export interface CompiledLogisticsNetwork {
   id: string;
@@ -611,6 +623,14 @@ export interface DeviceRuntimeState {
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
+  stationEnergy?: {
+    capacityMilliJoules: number;
+    storedMilliJoules: number;
+    initialMilliJoules: number;
+    chargedMilliJoules: number;
+    spentMilliJoules: number;
+    chargeSatisfactionPpm: number;
+  };
 }
 export interface ResourceTransit {
   id: string;
@@ -677,6 +697,9 @@ export type FactoryEvent =
   | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "logistics.depart"; tick: Tick; transit: ResourceTransit; network: string; route: string }
   | { type: "logistics.arrive"; tick: Tick; transit: ResourceTransit; network: string; route: string }
+  | { type: "logistics.energy-shortage"; tick: Tick; device: DeviceInstanceId; network: string; route: string; requiredMilliJoules: number; storedMilliJoules: number }
+  | { type: "logistics.energy-spent"; tick: Tick; device: DeviceInstanceId; network: string; route: string; energyMilliJoules: number; storedMilliJoules: number }
+  | { type: "logistics.energy-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
   | { type: "material.treated"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; fromLevel: number; toLevel: number; agentResource: ResourceId; agentCount: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
@@ -721,6 +744,14 @@ export interface FactoryMetrics {
     capacityMilliJoules: number;
     chargedMilliJoules: number;
     dischargedMilliJoules: number;
+  }>;
+  stationEnergy: Record<string, {
+    initialMilliJoules: number;
+    storedMilliJoules: number;
+    capacityMilliJoules: number;
+    chargedMilliJoules: number;
+    spentMilliJoules: number;
+    configuredChargeMilliWatts: number;
   }>;
   powerGrids: Record<string, {
     generatedMilliJoules: number;

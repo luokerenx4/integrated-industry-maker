@@ -1,8 +1,8 @@
 # INM Run 004-simulate
 
 - Decision: **BASELINE**
-- Score: **55.938**
-- Result hash: `62e110d76cb3ac6a4d62a920e35f3ac688b0d0584f803090b1c0f2f390cbc71c`
+- Score: **52.485**
+- Result hash: `463332a0be1803cde46016dd984827e3484da93b078628dbfcb1f730a35e1563`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Target rate: 12.000 gear/min (100.0% attained)
@@ -43,15 +43,22 @@
 
 No configured accumulators.
 
+## Station carrier energy
+
+| Station | Initial (MJ) | Final / capacity (MJ) | Charge cap (W) | Charged (MJ) | Missions (MJ) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| synth-iron-plate-assembly-world-station-demand-1 | 0.000 | 12.000 / 12.000 | 300.000 | 12.000 | 0.000 |
+| synth-iron-plate-forge-world-station-supply-1 | 0.000 | 10.270 / 12.000 | 300.000 | 33.270 | 23.000 |
+
 ## Score breakdown
 
 ```json
 {
   "blocked": -2.305,
-  "buildCost": -15.875,
+  "buildCost": -17.275,
   "constraintPenalty": 0,
-  "energy": -2.152518,
-  "occupiedArea": -46.2,
+  "energy": -2.6052210000000002,
+  "occupiedArea": -47.800000000000004,
   "onTimeDelivery": 10,
   "throughput": 120,
   "wip": -7.529541666666667
