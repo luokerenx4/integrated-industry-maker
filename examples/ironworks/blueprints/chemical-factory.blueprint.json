@@ -67,6 +67,7 @@
           "y": 11
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-refine-crude-1",
         "port": "crude-input"
@@ -171,6 +172,7 @@
           "y": 8
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-make-plastic-1",
         "port": "gas-input"
@@ -250,6 +252,7 @@
           "y": 9
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-make-plastic-1",
         "port": "liquid-input"
@@ -282,6 +285,7 @@
           "y": 8
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-plastic-sink",
         "port": "input"

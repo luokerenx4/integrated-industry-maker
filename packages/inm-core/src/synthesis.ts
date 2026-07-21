@@ -23,7 +23,16 @@ interface ProcessSelection {
 }
 
 interface Endpoint { device: string; port: string; region: string; ratePerMinute?: number }
-interface PlannedConnection { id: string; resource: ResourceId; from: Endpoint; to: Endpoint }
+interface PlannedConnection { id: string; resource: ResourceId; from: Endpoint; to: Endpoint; requiredPerMinute: number }
+
+interface LogisticsPipelineSelection {
+  loader: DeviceAsset;
+  line: DeviceAsset;
+  unloader: DeviceAsset;
+  stackSize: number;
+  capacityPerMinute: number;
+  score: number;
+}
 
 export interface BlueprintSynthesisResult {
   blueprint: Blueprint;
@@ -35,6 +44,10 @@ export interface BlueprintSynthesisResult {
   extraction: Array<{ resource: ResourceId; asset: string; region: string; machines: number; nodes: string[] }>;
   plannedTransports: Array<{ resource: ResourceId; fromRegion: string; toRegion: string; requiredPerMinute: number; costPerItem: number }>;
   optimization: { rawCost: number; processCost: number; logisticsCost: number };
+  localLogistics: Array<{
+    connection: string; resource: ResourceId; requiredPerMinute: number; capacityPerMinute: number;
+    loader: string; line: string; unloader: string; stackSize: number;
+  }>;
   stationNetworks: Array<{ network: string; resource: ResourceId; fromRegion: string; toRegion: string; carriers: number }>;
   power: Array<{ region: string; asset: string; devices: number; generationMilliWatts: number; ratedLoadMilliWatts: number }>;
 }
@@ -293,20 +306,50 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const stationSummary: BlueprintSynthesisResult["stationNetworks"] = [];
   const junctionAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("transport-junction"))
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const loader = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("loader"))
-    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const line = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"))
-    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const unloader = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"))
-    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  if (!loader || !line || !unloader) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
-  const connectionFor = (planned: PlannedConnection) => ({
-    id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
-    logistics: { loader: { deviceAsset: loader.id }, line: { deviceAsset: line.id }, unloader: { deviceAsset: unloader.id } },
-  });
+  const loaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("loader"));
+  const lines = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"));
+  const unloaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"));
+  if (!loaders.length || !lines.length || !unloaders.length) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
+  const pipelineFor = (planned: PlannedConnection, distance: number): LogisticsPipelineSelection => {
+    const resourceStackSize = loaded.resources[planned.resource]!.transport.stackSize;
+    const selections = loaders.flatMap((loader) => lines.flatMap((line) => unloaders.flatMap((unloader) => {
+      const loaderPlan = planDeviceTransport(loader.id, loader.program, { apiVersion: 1, connection: planned.id, stage: "loader", distance: 1 });
+      const linePlan = planDeviceTransport(line.id, line.program, { apiVersion: 1, connection: planned.id, stage: "line", distance });
+      const unloaderPlan = planDeviceTransport(unloader.id, unloader.program, { apiVersion: 1, connection: planned.id, stage: "unloader", distance: 1 });
+      if (linePlan.capacity !== distance) return [];
+      const dispatchInterval = Math.max(
+        Math.ceil(loaderPlan.durationTicks / loaderPlan.capacity),
+        Math.ceil(linePlan.durationTicks / linePlan.capacity),
+        Math.ceil(unloaderPlan.durationTicks / unloaderPlan.capacity),
+      );
+      const stackSize = Math.min(resourceStackSize, loaderPlan.stackCapacity, linePlan.stackCapacity, unloaderPlan.stackCapacity);
+      const capacityPerMinute = stackSize * 60_000 / dispatchInterval;
+      if (capacityPerMinute + 1e-9 < planned.requiredPerMinute) return [];
+      const buildCost = loader.economics.buildCost + line.economics.buildCost * distance + unloader.economics.buildCost;
+      const endpointPowerWatts = (loader.power.consumptionMilliWatts + unloader.power.consumptionMilliWatts) / 1_000;
+      const utilization = planned.requiredPerMinute / capacityPerMinute;
+      const score = buildCost * Math.max(.001, loaded.objective.weights.buildCost)
+        + endpointPowerWatts * utilization * Math.max(.001, loaded.objective.weights.energy);
+      return [{ loader, line, unloader, stackSize, capacityPerMinute, score }];
+    }))).sort((a, b) => a.score - b.score || a.capacityPerMinute - b.capacityPerMinute
+      || a.loader.id.localeCompare(b.loader.id) || a.line.id.localeCompare(b.line.id) || a.unloader.id.localeCompare(b.unloader.id));
+    if (!selections[0]) {
+      throw new Error(`No project-local logistics pipeline can carry ${planned.requiredPerMinute.toFixed(3)} '${planned.resource}'/min on connection '${planned.id}'`);
+    }
+    return selections[0];
+  };
+  const selectedPipelines = new Map<string, LogisticsPipelineSelection>();
+  const connectionFor = (planned: PlannedConnection, distance: number) => {
+    const pipeline = pipelineFor(planned, distance);
+    return {
+      id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
+      stackSize: pipeline.stackSize,
+      logistics: { loader: { deviceAsset: pipeline.loader.id }, line: { deviceAsset: pipeline.line.id }, unloader: { deviceAsset: pipeline.unloader.id } },
+    };
+  };
   const reserveRoutes = (plans: PlannedConnection[]): void => {
     const rows = plans.map((planned) => {
-      const connection = connectionFor(planned); const paths: GridPosition[][] = [];
+      const connection = connectionFor(planned, 1); const paths: GridPosition[][] = [];
       const pathKeys = new Set<string>();
       for (const elevated of [false, true]) {
         const blockerKeys = new Set<string>([""]); const blockerQueue: GridPosition[][] = [[]]; let attempts = 0;
@@ -344,7 +387,11 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       return false;
     };
     if (!select(0)) throw new Error(`Cannot find a conflict-free belt layout for ${plans.length} synthesized '${plans[0]?.resource ?? "material"}' flows after exploring ${explored} route combinations`);
-    for (const planned of plans) blueprint.connections.push({ ...connectionFor(planned), path: routed.get(planned.id)! });
+    for (const planned of plans) {
+      const path = routed.get(planned.id)!; const pipeline = pipelineFor(planned, path.length);
+      selectedPipelines.set(planned.id, pipeline);
+      blueprint.connections.push({ ...connectionFor(planned, path.length), path });
+    }
   };
   const connectLocal = (resource: ResourceId, sourceEndpoints: Endpoint[], targetEndpoints: Endpoint[]): void => {
     const plannedStart = plannedConnections.length;
@@ -414,6 +461,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const directTargets = best!.targets;
       sourceEndpoints.forEach((source, index) => plannedConnections.push({
         id: safeId(`synth-${resource}-${source.device}-to-${directTargets[index]!.device}`), resource, from: source, to: directTargets[index]!,
+        requiredPerMinute: Math.min(source.ratePerMinute ?? Number.POSITIVE_INFINITY, directTargets[index]!.ratePerMinute ?? Number.POSITIVE_INFINITY),
       }));
       reserveRoutes(plannedConnections.slice(plannedStart));
       return;
@@ -433,8 +481,12 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
           const from = centroid(group);
           const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
           const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), group, [targetEndpoints[0]!]);
-          group.forEach((source, index) => plannedConnections.push({ id: safeId(`synth-${resource}-${source.device}-to-${junction.id}`), resource, from: source, to: { device: junction.id, port: assigned.inputs[index]!, region } }));
-          next.push({ device: junction.id, port: assigned.outputs[0]!, region });
+          group.forEach((source, index) => plannedConnections.push({
+            id: safeId(`synth-${resource}-${source.device}-to-${junction.id}`), resource, from: source,
+            to: { device: junction.id, port: assigned.inputs[index]!, region, ratePerMinute: source.ratePerMinute },
+            requiredPerMinute: source.ratePerMinute ?? 0,
+          }));
+          next.push({ device: junction.id, port: assigned.outputs[0]!, region, ratePerMinute: group.reduce((sum, endpoint) => sum + (endpoint.ratePerMinute ?? 0), 0) });
         }
         level = next;
       }
@@ -457,8 +509,12 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
           const toward = centroid(group);
           const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
           const assigned = placeJunction(junction, { x: Math.round((from.x * 2 + toward.x) / 3), y: Math.round((from.y * 2 + toward.y) / 3) }, rotationForFlow(from, toward), [source], group);
-          group.forEach((target, index) => plannedConnections.push({ id: safeId(`synth-${resource}-${junction.id}-to-${target.device}`), resource, from: { device: junction.id, port: assigned.outputs[index]!, region }, to: target }));
-          next.push({ device: junction.id, port: assigned.inputs[0]!, region });
+          group.forEach((target, index) => plannedConnections.push({
+            id: safeId(`synth-${resource}-${junction.id}-to-${target.device}`), resource,
+            from: { device: junction.id, port: assigned.outputs[index]!, region, ratePerMinute: target.ratePerMinute }, to: target,
+            requiredPerMinute: target.ratePerMinute ?? 0,
+          }));
+          next.push({ device: junction.id, port: assigned.inputs[0]!, region, ratePerMinute: group.reduce((sum, endpoint) => sum + (endpoint.ratePerMinute ?? 0), 0) });
         }
         level = next;
       }
@@ -467,7 +523,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
 
     const effectiveSource = merge(sourceEndpoints);
     const effectiveTarget = split(targetEndpoints, effectiveSource);
-    plannedConnections.push({ id: safeId(`synth-${resource}-${effectiveSource.device}-to-${effectiveTarget.device}`), resource, from: effectiveSource, to: effectiveTarget });
+    plannedConnections.push({
+      id: safeId(`synth-${resource}-${effectiveSource.device}-to-${effectiveTarget.device}`), resource, from: effectiveSource, to: effectiveTarget,
+      requiredPerMinute: Math.min(effectiveSource.ratePerMinute ?? Number.POSITIVE_INFINITY, effectiveTarget.ratePerMinute ?? Number.POSITIVE_INFINITY),
+    });
     reserveRoutes(plannedConnections.slice(plannedStart));
   };
 
@@ -537,7 +596,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
 
   const ratedLoad: Record<string, number> = {};
   for (const device of blueprint.devices) add(ratedLoad, device.region, loaded.deviceAssets[device.asset]!.power.consumptionMilliWatts);
-  for (const connection of plannedConnections) add(ratedLoad, connection.from.region, loader.power.consumptionMilliWatts + unloader.power.consumptionMilliWatts);
+  for (const connection of plannedConnections) {
+    const pipeline = selectedPipelines.get(connection.id)!;
+    add(ratedLoad, connection.from.region, pipeline.loader.power.consumptionMilliWatts + pipeline.unloader.power.consumptionMilliWatts);
+  }
   const renewable = Object.values(loaded.deviceAssets).filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.distribution)
     .sort((a, b) => (b.power.generation?.outputMilliWatts ?? 0) - (a.power.generation?.outputMilliWatts ?? 0) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   if (!renewable?.power.generation || renewable.power.generation.kind !== "renewable") throw new Error("Blueprint synthesis requires a project-local renewable power distributor");
@@ -568,6 +630,14 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     extraction: extractionSummary,
     plannedTransports: demandPlan.transports.map(({ resource, fromRegion, toRegion, requiredPerMinute, costPerItem }) => ({ resource, fromRegion, toRegion, requiredPerMinute, costPerItem })),
     optimization: { rawCost: demandPlan.rawCost, processCost: demandPlan.processCost, logisticsCost: demandPlan.logisticsCost },
+    localLogistics: plannedConnections.map((connection) => {
+      const pipeline = selectedPipelines.get(connection.id)!;
+      return {
+        connection: connection.id, resource: connection.resource, requiredPerMinute: connection.requiredPerMinute,
+        capacityPerMinute: pipeline.capacityPerMinute, loader: pipeline.loader.id, line: pipeline.line.id,
+        unloader: pipeline.unloader.id, stackSize: pipeline.stackSize,
+      };
+    }),
     stationNetworks: stationSummary, power: powerSummary,
   };
 }

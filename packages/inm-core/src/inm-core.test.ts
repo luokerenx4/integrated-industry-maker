@@ -116,6 +116,9 @@ describe("factory synthesis", () => {
     expect(first.plannedTransports).toEqual([{
       resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 18, costPerItem: 100,
     }]);
+    expect(first.localLogistics.find((connection) => connection.resource === "gear")).toEqual(expect.objectContaining({
+      requiredPerMinute: 12, capacityPerMinute: 240, loader: "sorter", line: "conveyor", unloader: "sorter", stackSize: 1,
+    }));
 
     const project = compileFactoryProject({ ...source, blueprint: first.blueprint });
     expect(planProductionCapacity(project).ready).toBeTrue();
@@ -164,6 +167,30 @@ describe("factory synthesis", () => {
     expect(synthesis.plannedTransports).toEqual([expect.objectContaining({
       resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 9,
     })]);
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    expect(planProductionCapacity(project).ready).toBeTrue();
+    expect(runUntil(project).metrics.infeasibleReason).toBeNull();
+  });
+
+  test("selects project-local stacked logistics tiers for high-throughput synthesized flows", async () => {
+    const source = await loadFactoryProject(ironworks, { blueprint: "blank", scenario: "cold-start" });
+    source.objective.targetRatePerMinute = 200;
+    source.objective.constraints = { maxBuildCost: 100_000, maxOccupiedArea: 300, minProduction: 5 };
+    for (const node of source.world.resourceNodes) node.amount = 2_000;
+    source.deviceAssets["mining-machine"]!.extraction!.cycleTicks = 100;
+    source.deviceAssets.smelter!.production!.speed.numerator = 10;
+    source.deviceAssets.assembler!.production!.speed.numerator = 10;
+
+    const synthesis = synthesizeFactoryBlueprint(source);
+    const trunk = synthesis.localLogistics.find((connection) => connection.resource === "iron-ore" && connection.requiredPerMinute === 600)!;
+    expect(trunk).toEqual(expect.objectContaining({
+      capacityPerMinute: 1_920, loader: "stack-sorter", line: "conveyor", unloader: "stack-sorter", stackSize: 4,
+    }));
+    expect(synthesis.localLogistics.every((connection) => connection.capacityPerMinute + 1e-9 >= connection.requiredPerMinute)).toBeTrue();
+    expect(synthesis.blueprint.connections.find((connection) => connection.id === trunk.connection)!.logistics).toEqual({
+      loader: { deviceAsset: "stack-sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter" },
+    });
 
     const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
     expect(planProductionCapacity(project).ready).toBeTrue();

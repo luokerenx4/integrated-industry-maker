@@ -67,6 +67,7 @@
           "y": 9
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-refine-crude-1",
         "port": "crude-input"
@@ -227,6 +228,7 @@
           "y": 11
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-graphite-surplus-sink",
         "port": "input"
@@ -291,6 +293,7 @@
           "y": 6
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-xray-crack-oil-1",
         "port": "oil-input"
@@ -380,6 +383,7 @@
           "y": 5
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-xray-crack-oil-1",
         "port": "hydrogen-input"
@@ -416,6 +420,7 @@
           "y": 8
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-hydrogen-sink",
         "port": "input"

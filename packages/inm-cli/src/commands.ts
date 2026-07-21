@@ -201,6 +201,7 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
     devices: synthesis.blueprint.devices.length, connections: synthesis.blueprint.connections.length,
     pathCells: synthesis.blueprint.connections.reduce((sum, connection) => sum + connection.path.length, 0),
     stationNetworks: synthesis.stationNetworks, plannedTransports: synthesis.plannedTransports, optimization: synthesis.optimization,
+    localLogistics: synthesis.localLogistics,
     selectedProcesses: synthesis.selectedProcesses, extraction: synthesis.extraction, power: synthesis.power,
     planReady: plan.ready, planGaps: plan.gaps, measured: {
       throughputPerMinute: simulation.metrics.throughputPerMinute, occupiedArea: simulation.metrics.occupiedArea,
@@ -214,6 +215,8 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
     "Optimized process mix:",
     ...synthesis.selectedProcesses.map((process) => `  ${process.process.padEnd(22)} ${process.requiredCyclesPerMinute.toFixed(3)} cycles/min · ${Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ") || "no inputs"} → ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ")}`),
     ...(synthesis.plannedTransports.length ? ["Optimized inter-region flows:", ...synthesis.plannedTransports.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3)}/min · ${flow.fromRegion} → ${flow.toRegion}`)] : []),
+    "Capacity-aware local logistics:",
+    ...synthesis.localLogistics.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3).padStart(8)}/${flow.capacityPerMinute.toFixed(3)} items/min · stack×${flow.stackSize} · ${flow.loader} → ${flow.line} → ${flow.unloader}`),
     `Factory: ${summary.devices} devices · ${summary.connections} connections / ${summary.pathCells} belt cells · ${summary.stationNetworks.length} station network${summary.stationNetworks.length === 1 ? "" : "s"}`,
     `Capacity plan: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`,
     `Cold-start measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${synthesis.target.resource}/min · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,

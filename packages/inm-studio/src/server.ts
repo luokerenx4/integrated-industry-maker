@@ -6,7 +6,6 @@ import {
   analyzeProduction,
   blueprintSchema,
   compileFactoryProject,
-  findCachedRun,
   listRuns,
   listWorkspaceProjects,
   loadFactoryProject,
@@ -18,8 +17,6 @@ import {
   planProductionCapacity,
   readJson,
   resolveProjectDirectory,
-  runUntil,
-  writeRunArtifact,
 } from "@inm/core";
 
 const { values, positionals } = parseArgs({
@@ -107,13 +104,6 @@ async function loadProjectIndex() {
   return { name, workspace: workspaceMode, projects: summaries };
 }
 
-async function ensureBaseline(projectDir: string) {
-  const project = await openFactoryProject(projectDir);
-  const result = runUntil(project, undefined, { seed: 42 });
-  const cached = await findCachedRun(projectDir, result.runKey);
-  if (!cached) await writeRunArtifact(project, result, { label: "studio-baseline", seed: 42, decision: "BASELINE" });
-}
-
 function layoutRegions(regions: Array<{ id: string; name: string; kind: "site" | "planet" | "orbit"; coordinates: { x: number; y: number; z: number }; bounds: { width: number; height: number } }>) {
   let cursorX = 0;
   const layouts = regions.map((region) => {
@@ -133,7 +123,6 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "site" |
 
 async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
-  await ensureBaseline(projectDir);
   const runs = await listRuns(projectDir);
   const selected = runs.find((run) => run.name === runName)
     ?? runs.findLast((run) => run.manifest.decision === "KEEP")

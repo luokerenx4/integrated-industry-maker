@@ -59,6 +59,7 @@
           "y": 6
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-forge-gear-pair-1",
         "port": "input-secondary"
@@ -107,6 +108,7 @@
           "y": 13
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-ore-merge",
         "port": "input-south"
@@ -163,6 +165,7 @@
           "y": 11
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-ore-merge",
         "port": "input-west"
@@ -199,6 +202,7 @@
           "y": 20
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-smelt-iron-3",
         "port": "input"
@@ -351,6 +355,7 @@
           "y": 14
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-smelt-iron-2",
         "port": "input"
@@ -445,6 +450,7 @@
           "y": 15
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-ore-split",
         "port": "input-west"
@@ -489,6 +495,7 @@
           "y": 8
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-smelt-iron-1",
         "port": "input"
@@ -521,6 +528,7 @@
           "y": 13
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-ore-split-2",
         "port": "input-south"
@@ -557,6 +565,7 @@
           "y": 7
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-forge-gear-pair-1",
         "port": "input-primary"
@@ -616,6 +625,7 @@
           "y": 12
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-plate-merge",
         "port": "input-west"
@@ -665,6 +675,7 @@
           "y": 14
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-plate-merge",
         "port": "input-south"
@@ -729,6 +740,7 @@
           "y": 14
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-plate-merge-2",
         "port": "input-west"
@@ -783,6 +795,7 @@
           "y": 16
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-plate-merge-2",
         "port": "input-south"
@@ -815,6 +828,7 @@
           "y": 15
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-iron-plate-forge-world-station-supply",
         "port": "input"
@@ -847,6 +861,7 @@
           "y": 7
         }
       ],
+      "stackSize": 1,
       "to": {
         "device": "synth-gear-sink",
         "port": "input"
