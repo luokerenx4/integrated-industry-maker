@@ -88,7 +88,7 @@ const blueprint: Blueprint = {
     },
   }],
   logisticsNetworks: [],
-  policies: { dispatch: "fifo" },
+  policies: { dispatch: "fifo", powerAllocation: "priority-load-shedding" },
 };
 
 const scenario: Scenario = {
@@ -142,13 +142,58 @@ const benchmark: BlueprintBenchmarkManifest = {
   },
 };
 
+const satisfactionBlueprint: Blueprint = {
+  ...structuredClone(blueprint),
+  policies: { dispatch: "fifo", powerAllocation: "proportional" },
+};
+
+const satisfactionScenario: Scenario = {
+  ...structuredClone(scenario),
+  id: "power-satisfaction",
+  name: "Proportional Grid Satisfaction",
+  durationTicks: 14_000,
+  renewableProfiles: [{
+    region: "assembly-world",
+    asset: "wind-turbine",
+    periodTicks: 14_000,
+    points: [{ atTick: 0, outputPermille: 400 }],
+  }],
+};
+
+const satisfactionBenchmark: BlueprintBenchmarkManifest = {
+  version: 1,
+  id: "power-satisfaction",
+  name: "DSP-Style Proportional Grid Satisfaction",
+  baselineBlueprint: "power-satisfaction-base",
+  candidateBlueprint: "power-satisfaction-candidate",
+  cases: [{
+    id: "undersupplied-grid",
+    name: "Whole-factory slowdown under a 240 kW grid cap",
+    world: "main",
+    scenario: "power-satisfaction",
+    objective: "power-priority",
+    seed: 42,
+    weight: 1,
+  }],
+  acceptance: {
+    minimumAggregateScoreDelta: 0.001,
+    maximumCaseScoreRegression: 0,
+    requireCandidateCapacityReady: false,
+  },
+};
+
 await Promise.all([
   atomicWriteJson(join(projectDir, "blueprints", "power-priority-base.blueprint.json"), blueprint),
   atomicWriteJson(join(projectDir, "blueprints", "power-priority-candidate.blueprint.json"), blueprint),
   atomicWriteJson(join(projectDir, "scenarios", "power-priority.scenario.json"), scenario),
   atomicWriteJson(join(projectDir, "objectives", "power-priority.objective.json"), objective),
   atomicWriteJson(join(projectDir, "benchmarks", "power-priority.benchmark.json"), benchmark),
+  atomicWriteJson(join(projectDir, "blueprints", "power-satisfaction-base.blueprint.json"), satisfactionBlueprint),
+  atomicWriteJson(join(projectDir, "blueprints", "power-satisfaction-candidate.blueprint.json"), satisfactionBlueprint),
+  atomicWriteJson(join(projectDir, "scenarios", "power-satisfaction.scenario.json"), satisfactionScenario),
+  atomicWriteJson(join(projectDir, "benchmarks", "power-satisfaction.benchmark.json"), satisfactionBenchmark),
 ]);
 await lockBlueprintBenchmark(projectDir, "power-priority");
+await lockBlueprintBenchmark(projectDir, "power-satisfaction");
 
-process.stdout.write("Regenerated and locked the explicit-sorter power-priority benchmark fixture.\n");
+process.stdout.write("Regenerated and locked the explicit-sorter priority and proportional-satisfaction benchmark fixtures.\n");

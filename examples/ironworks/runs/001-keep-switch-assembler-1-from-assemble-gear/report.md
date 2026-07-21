@@ -2,10 +2,12 @@
 
 - Decision: **KEEP**
 - Score: **43.233**
-- Result hash: `5fd0fab4e4fb60dace2c3dce3466f274939e8e092f89e86a51a28d7cf62d38bd`
+- Result hash: `1c083077a0e93bdba683cd3ae945c3bec13cf8f8c7cb91e304ab43d263b46f5f`
 - Bottleneck: smelter-1
 - Throughput/min: 8.000
 - Target rate: 12.000 gear/min (66.7% attained)
+- Power allocation: proportional
+- Minimum grid satisfaction: 100%
 - Capacity plan: 2 GAPS
 - Belt utilization: 1.8%
 - Average blocked belt items: 0.000

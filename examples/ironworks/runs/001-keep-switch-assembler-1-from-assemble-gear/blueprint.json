@@ -799,8 +799,9 @@
     }
   ],
   "policies": {
-    "dispatch": "shortage-first"
+    "dispatch": "shortage-first",
+    "powerAllocation": "proportional"
   },
-  "revision": "e9fb992559239ef66b3dc576798cf59a7870063af561ff963ac8dbab74c7fde5",
+  "revision": "a4354d3fec6962947055ced04cb1df4a70f5d947aa9392f7ac531b751156b043",
   "version": 1
 }

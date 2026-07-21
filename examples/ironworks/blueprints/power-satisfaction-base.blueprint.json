@@ -224,7 +224,7 @@
   "logisticsNetworks": [],
   "policies": {
     "dispatch": "fifo",
-    "powerAllocation": "priority-load-shedding"
+    "powerAllocation": "proportional"
   },
   "version": 1
 }

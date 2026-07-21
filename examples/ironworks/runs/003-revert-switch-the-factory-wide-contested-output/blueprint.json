@@ -1165,8 +1165,9 @@
     }
   ],
   "policies": {
-    "dispatch": "fifo"
+    "dispatch": "fifo",
+    "powerAllocation": "proportional"
   },
-  "revision": "7ee284be6bc94878a03e8057b67e392c48901e329147dc0066e5d91d393e4452",
+  "revision": "d7889d0ae4f81b759ec9fd12e0ac078e63732f8f10af0cd63a1b516c3f401a7a",
   "version": 1
 }

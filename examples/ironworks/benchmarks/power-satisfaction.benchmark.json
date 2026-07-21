@@ -4,35 +4,35 @@
     "minimumAggregateScoreDelta": 0.001,
     "requireCandidateCapacityReady": false
   },
-  "baselineBlueprint": "power-priority-base",
-  "candidateBlueprint": "power-priority-candidate",
+  "baselineBlueprint": "power-satisfaction-base",
+  "candidateBlueprint": "power-satisfaction-candidate",
   "cases": [
     {
-      "id": "constrained-grid",
-      "name": "Critical line under a 240 kW grid cap",
+      "id": "undersupplied-grid",
+      "name": "Whole-factory slowdown under a 240 kW grid cap",
       "objective": "power-priority",
-      "scenario": "power-priority",
+      "scenario": "power-satisfaction",
       "seed": 42,
       "weight": 1,
       "world": "main"
     }
   ],
-  "id": "power-priority",
+  "id": "power-satisfaction",
   "lock": {
     "cases": {
-      "constrained-grid": {
-        "blueprintHash": "f476dabcae46ea892507b143f0481af35c2f0a3a2d0730614148bacdd7b0bcec",
+      "undersupplied-grid": {
+        "blueprintHash": "c6d7b533b010c370b5a5b9e356e22e0c72e9e83f78c57321ff84d453f45fe064",
         "deviceCatalogHash": "0fd6303a7671c365f2934dc2408c3bd0d44288984417c5d080d0384d10d96285",
         "engineVersion": "inm-sim/0.43.0",
         "objectiveHash": "ac40f2a1778652293f2c2fd6e30915d5936465779cd7cb962c5e5157160b9480",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
-        "scenarioHash": "49e796d649a6d7f52ca33b856f8c2d512af3e818f12c14a52ed7521a5187850a",
+        "scenarioHash": "a6cc6796e40d05a262b7fb7b1023e1fabb2cb4b7d12f76a3bfa9ce96b96808cc",
         "worldHash": "84faa3bff5fc242f00c3bb0dd43f60513425b2c9b3cff374da2a415a7110bb00"
       }
     },
-    "contractHash": "ad60c5d9bff47ae205be0022abae7f5ccf069159d40c76f27528efcef91c849f"
+    "contractHash": "921e3e0f340dbd887630bd540819d14b966437f9eb862e776b706192f2487c5b"
   },
-  "name": "Explicit Sorter and Critical Load Priority",
+  "name": "DSP-Style Proportional Grid Satisfaction",
   "version": 1
 }

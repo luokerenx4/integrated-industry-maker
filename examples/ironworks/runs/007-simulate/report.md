@@ -2,10 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **119.737**
-- Result hash: `e6102d9ccfc69d6aafb02d8fadbbcdff9d6859756f0794c68ff525d20d90758a`
+- Result hash: `596423c7df65c46f5e2181393b40ffded56245deab6f6a9c2d122a799cef8058`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
+- Power allocation: proportional
+- Minimum grid satisfaction: 100%
 - Capacity plan: READY
 - Belt utilization: 3.6%
 - Average blocked belt items: 0.000

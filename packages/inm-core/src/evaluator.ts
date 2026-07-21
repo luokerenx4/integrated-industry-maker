@@ -20,6 +20,7 @@ export interface SimulationStats {
     generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
     peakGenerationMilliWatts: number; peakDemandMilliWatts: number; peakDeficitMilliWatts: number; peakSurplusMilliWatts: number;
     currentDeficitEpisodeMilliJoules: number; requiredStorageCapacityMilliJoules: number;
+    satisfactionPpmArea: number; minimumSatisfactionPpm: number;
   }>;
   transportEnergyConsumedMilliJoules: number;
   elapsedTicks: number;
@@ -137,6 +138,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,
       peakGenerationMilliWatts: power.peakGenerationMilliWatts, peakDemandMilliWatts: power.peakDemandMilliWatts,
       peakDeficitMilliWatts: power.peakDeficitMilliWatts, peakSurplusMilliWatts: power.peakSurplusMilliWatts,
+      averageSatisfactionPpm: power.satisfactionPpmArea / duration,
+      minimumSatisfactionPpm: power.minimumSatisfactionPpm,
       requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
     }])),
     materialTreatment: structuredClone(state.materialTreatment),

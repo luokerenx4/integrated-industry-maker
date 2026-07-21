@@ -203,6 +203,7 @@
         },
         "operation": "extract-iron-ore",
         "powerMilliWatts": 50000,
+        "powerSatisfactionPpm": 1000000,
         "produce": [
           {
             "buffer": "output",
@@ -474,6 +475,7 @@
         "durationTicks": 4000,
         "operation": "smelt-iron",
         "powerMilliWatts": 180000,
+        "powerSatisfactionPpm": 1000000,
         "produce": [
           {
             "buffer": "output",
@@ -510,6 +512,7 @@
         "durationTicks": 4000,
         "operation": "smelt-iron",
         "powerMilliWatts": 180000,
+        "powerSatisfactionPpm": 1000000,
         "produce": [
           {
             "buffer": "output",
@@ -552,6 +555,7 @@
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 117978250,
         "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       },
@@ -560,6 +564,7 @@
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 137218125,
         "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       }

@@ -25,6 +25,7 @@
         },
         "operation": "extract-crude-oil",
         "powerMilliWatts": 80000,
+        "powerSatisfactionPpm": 1000000,
         "produce": [
           {
             "buffer": "output",
@@ -76,6 +77,7 @@
         "durationTicks": 4000,
         "operation": "make-plastic",
         "powerMilliWatts": 240000,
+        "powerSatisfactionPpm": 1000000,
         "produce": [
           {
             "buffer": "output",
@@ -136,6 +138,7 @@
         "durationTicks": 4000,
         "operation": "refine-crude",
         "powerMilliWatts": 300000,
+        "powerSatisfactionPpm": 1000000,
         "produce": [
           {
             "buffer": "gas-output",
@@ -198,6 +201,7 @@
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 70600350,
         "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       }

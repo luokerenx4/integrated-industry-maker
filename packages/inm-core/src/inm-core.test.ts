@@ -97,6 +97,7 @@ async function stationProjectSource(): Promise<LoadedFactoryProject> {
 
 async function accumulatorProjectSource(options: { wind?: boolean; initialEnergyMilliJoules?: number } = {}): Promise<LoadedFactoryProject> {
   const source = await loaded();
+  source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "priority-load-shedding" };
   const smelter = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!);
   source.blueprint.devices = [
     ...(options.wind ? [{ id: "wind-1", asset: "wind-turbine", region: "forge-world", position: { x: 2, y: 2 }, rotation: 0 as const }] : []),
@@ -1051,6 +1052,7 @@ describe("deterministic discrete-event simulation", () => {
 
   test("powered transport endpoints stop and recover with their local grid", async () => {
     const source = await loaded();
+    source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "priority-load-shedding" };
     source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 11_000 };
     source.deviceAssets.splitter!.power.idleMilliWatts = 10_000;
     source.deviceAssets.splitter!.power.activeMilliWatts = 10_000;
@@ -1328,7 +1330,7 @@ describe("deterministic discrete-event simulation", () => {
       { id: "z-starved", from: { device: "source", port: "output-north" }, to: { device: "starved", port: "input" }, resources: ["iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
     ]);
     source.blueprint.logisticsNetworks = [];
-    source.blueprint.policies = { dispatch: "shortage-first" };
+    source.blueprint.policies = { dispatch: "shortage-first", powerAllocation: "proportional" };
     source.scenario.initialBuffers = {
       source: { storage: { "iron-ore": 1 } },
       stocked: { storage: { "iron-ore": 5 } },
@@ -1356,7 +1358,7 @@ describe("deterministic discrete-event simulation", () => {
       logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }]);
     source.blueprint.logisticsNetworks = [];
-    source.blueprint.policies = { dispatch: "shortage-first" };
+    source.blueprint.policies = { dispatch: "shortage-first", powerAllocation: "proportional" };
     source.scenario.initialBuffers = {
       source: { storage: { coal: 1, gear: 2 } },
     };
@@ -1677,6 +1679,7 @@ describe("deterministic discrete-event simulation", () => {
 
   test("explicit sorter power priority preempts and resumes lower-ranked stage work", async () => {
     const source = await loaded();
+    source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "priority-load-shedding" };
     source.deviceAssets.sorter!.power.idleMilliWatts = 500;
     source.deviceAssets.sorter!.power.activeMilliWatts = 10_000;
     source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 25_000 };
@@ -1720,6 +1723,84 @@ describe("deterministic discrete-event simulation", () => {
     }));
     expect(result.events.find((event) => event.type === "resource.arrive")?.connection).toBe("lane-b");
     expect(result.state.devices["lane-a-loader"]!.status).not.toBe("failed");
+  });
+
+  test("proportional grid satisfaction slows every production job instead of shedding one", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "proportional" };
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 180_000 };
+    const smelter = source.blueprint.devices.find((device) => device.id === "smelter-1")!;
+    source.blueprint.devices = [
+      source.blueprint.devices.find((device) => device.id === "wind-1")!,
+      { ...structuredClone(smelter), id: "smelter-a", position: { x: 5, y: 6 } },
+      { ...structuredClone(smelter), id: "smelter-b", position: { x: 9, y: 6 } },
+    ];
+    source.scenario.initialBuffers = {
+      "smelter-a": { input: { "iron-ore": 2 } },
+      "smelter-b": { input: { "iron-ore": 2 } },
+    };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 8_000 });
+    expect(result.events.filter((event) => event.type === "device.finish").map((event) => [event.tick, event.device])).toEqual([
+      [8_000, "smelter-a"], [8_000, "smelter-b"],
+    ]);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "power.satisfaction-changed", tick: 0, demandMilliWatts: 360_000, availableMilliWatts: 180_000, satisfactionPpm: 500_000,
+    }));
+    const grid = Object.values(result.metrics.powerGrids)[0]!;
+    expect(grid.averageSatisfactionPpm).toBe(500_000);
+    expect(grid.minimumSatisfactionPpm).toBe(500_000);
+    expect(grid.demandMilliJoules).toBe(2_880_000);
+    expect(grid.servedMilliJoules).toBe(1_440_000);
+  });
+
+  test("proportional work is checkpointed exactly across a renewable generation boundary", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "proportional" };
+    source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "accumulator-1");
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 180_000 };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [{
+      region: "forge-world", asset: "wind-turbine", periodTicks: 10_000,
+      points: [{ atTick: 0, outputPermille: 1_000 }, { atTick: 2_000, outputPermille: 500 }],
+    }];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 6_000 });
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "power.satisfaction-changed", tick: 2_000, demandMilliWatts: 180_000, availableMilliWatts: 90_000, satisfactionPpm: 500_000,
+    }));
+    expect(result.events.find((event) => event.type === "device.finish")).toEqual(expect.objectContaining({ tick: 6_000, device: "smelter-1" }));
+    expect(result.state.devices["smelter-1"]!.buffers.output).toEqual({ "iron-plate": 1 });
+  });
+
+  test("proportional grid satisfaction stretches explicit sorter loading and unloading", async () => {
+    const source = await loaded();
+    source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "proportional" };
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 10_000;
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 5_000 };
+    source.blueprint.devices = [
+      { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target", asset: "buffer", region: "forge-world", position: { x: 4, y: 0 }, rotation: 0 },
+      { id: "wind", asset: "wind-turbine", region: "forge-world", position: { x: 8, y: 8 }, rotation: 0 },
+    ];
+    setTestConnections(source, [{
+      id: "scaled-lane", from: { device: "source", port: "output" }, to: { device: "target", port: "input" }, resources: ["iron-ore"],
+      path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
+    }]);
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [];
+    source.scenario.failures = [];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 1_300 });
+    expect(result.events.filter((event) => event.type === "transport.stage-finish").map((event) => [event.tick, event.stage])).toEqual([
+      [500, "loader"], [1_300, "unloader"],
+    ]);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "resource.unload-start", tick: 800 }));
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "resource.arrive", tick: 1_300 }));
+    expect(result.events.filter((event) => event.type === "power.satisfaction-changed" && event.satisfactionPpm === 500_000)).toHaveLength(2);
   });
 
   test("renewable surplus charges grid storage continuously", async () => {
@@ -1922,7 +2003,7 @@ describe("deterministic discrete-event simulation", () => {
         },
         { id: "wind-1", asset: "wind-turbine", region: "assembly-world", position: { x: 10, y: 3 }, rotation: 0 },
       ],
-      connections: [], logisticsNetworks: [], policies: { dispatch: "shortage-first" },
+      connections: [], logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "proportional" },
     };
     const connection: TestConnectionSpec = {
       id: "coated-plate-to-assembler",
@@ -2251,6 +2332,27 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(prioritized.scoreDelta).toBeGreaterThan(1_000_000);
     expect(prioritized.patch).toHaveLength(3);
     expect(prioritized.changes.every((change) => change.kind === "device" && change.fields?.includes("policy"))).toBeTrue();
+  });
+
+  test("lets a coding agent improve proportional satisfaction by editing only the Blueprint", async () => {
+    const unchanged = await evaluateBlueprintBenchmark(ironworks, "power-satisfaction");
+    expect(unchanged.verdict).toBe("UNCHANGED");
+    expect(unchanged.totalSimulationTicks).toBe(28_000);
+
+    const dir = await projectCopy();
+    const candidatePath = join(dir, "blueprints/power-satisfaction-candidate.blueprint.json");
+    const candidate = JSON.parse(await readFile(candidatePath, "utf8")) as Blueprint;
+    candidate.devices.push({
+      id: "z-satisfaction-wind-2", asset: "wind-turbine", region: "assembly-world",
+      position: { x: 12, y: 4 }, rotation: 0,
+    });
+    await writeFile(candidatePath, `${stableStringify(candidate, 2)}\n`);
+
+    const expanded = await evaluateBlueprintBenchmark(dir, "power-satisfaction");
+    expect(expanded.verdict).toBe("KEEP");
+    expect(expanded.accepted).toBeTrue();
+    expect(expanded.scoreDelta).toBeGreaterThan(1_000_000);
+    expect(expanded.patch).toEqual([expect.objectContaining({ op: "add", path: "/devices/-" })]);
   });
 });
 

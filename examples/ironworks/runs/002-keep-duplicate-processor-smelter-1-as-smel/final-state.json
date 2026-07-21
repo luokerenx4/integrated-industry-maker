@@ -149,6 +149,7 @@
         "generationMilliWatts": 1000000,
         "operation": "burn-coal",
         "powerMilliWatts": 0,
+        "powerSatisfactionPpm": 1000000,
         "produce": [],
         "remainingTicks": 70000,
         "resumedAt": 70000,
@@ -182,6 +183,7 @@
         "generationMilliWatts": 1000000,
         "operation": "burn-coal",
         "powerMilliWatts": 0,
+        "powerSatisfactionPpm": 1000000,
         "produce": [],
         "remainingTicks": 70000,
         "resumedAt": 70000,
@@ -400,6 +402,7 @@
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 102428500,
         "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       },
@@ -408,6 +411,7 @@
         "chargedMilliJoules": 3600000,
         "consumedMilliJoules": 125260750,
         "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 3600000,
         "storedMilliJoules": 3600000
       }

@@ -23,7 +23,8 @@ export type FactoryStateMutation =
   | { kind: "orders"; count: number }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
-  | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick }
+  | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
+  | { kind: "power.satisfaction"; grid: string; satisfactionPpm: number }
   | { kind: "progress"; device: string; progressTicks: Tick };
 
 /** The sole write path for runtime factory state. Asset scripts can return actions but cannot mutate this store. */
@@ -91,6 +92,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       state.energy.grids[mutation.grid]!.consumedMilliJoules += mutation.consumedMilliJoules;
       return;
     }
+    case "power.satisfaction": state.energy.grids[mutation.grid]!.satisfactionPpm = mutation.satisfactionPpm; return;
     case "energy.storage": {
       const storage = state.devices[mutation.device]!.energyStorage;
       const grid = state.energy.grids[mutation.grid];
@@ -124,6 +126,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       const job = state.devices[mutation.device]!.activeJob;
       if (!job) throw new Error(`Device '${mutation.device}' has no active job to update`);
       job.remainingTicks = mutation.remainingTicks; job.workedTicks = mutation.workedTicks; job.resumedAt = mutation.resumedAt;
+      job.powerSatisfactionPpm = mutation.powerSatisfactionPpm;
       return;
     }
     case "progress": state.devices[mutation.device]!.progressTicks = mutation.progressTicks; return;

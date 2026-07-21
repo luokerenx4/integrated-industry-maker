@@ -94,6 +94,8 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Score: **${result.metrics.finalScore.toFixed(3)}**`, `- Result hash: \`${result.resultHash}\``,
     `- Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`, `- Throughput/min: ${result.metrics.throughputPerMinute.toFixed(3)}`,
     `- Target rate: ${capacityPlan.targetRatePerMinute.toFixed(3)} ${capacityPlan.targetResource}/min (${(result.metrics.onTimeDelivery * 100).toFixed(1)}% attained)`,
+    `- Power allocation: ${project.blueprint.policies.powerAllocation}`,
+    `- Minimum grid satisfaction: ${Math.min(1_000_000, ...Object.values(result.metrics.powerGrids).map((grid) => grid.minimumSatisfactionPpm)) / 10_000}%`,
     `- Capacity plan: ${capacityPlan.ready ? "READY" : `${capacityPlan.gaps.length} GAP${capacityPlan.gaps.length === 1 ? "" : "S"}`}`,
     `- Belt utilization: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}%`, `- Average blocked belt items: ${result.metrics.averageBlockedBeltItems.toFixed(3)}`, `- Peak belt items: ${result.metrics.peakBeltItems}`,
     `- Powered transport energy: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J`,

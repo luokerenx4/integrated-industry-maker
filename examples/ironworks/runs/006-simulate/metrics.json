@@ -266,9 +266,11 @@
   "peakBeltItems": 16,
   "powerGrids": {
     "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
+      "averageSatisfactionPpm": 1000000,
       "curtailedMilliJoules": 98021750,
       "demandMilliJoules": 117978250,
       "generatedMilliJoules": 216000000,
+      "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
       "peakDemandMilliWatts": 1276000,
       "peakGenerationMilliWatts": 1800000,
@@ -278,9 +280,11 @@
       "unservedMilliJoules": 0
     },
     "grid-forge-world-synth-forge-world-wind-turbine-1": {
+      "averageSatisfactionPpm": 1000000,
       "curtailedMilliJoules": 6781875,
       "demandMilliJoules": 137218125,
       "generatedMilliJoules": 144000000,
+      "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
       "peakDemandMilliWatts": 1162000,
       "peakGenerationMilliWatts": 1200000,

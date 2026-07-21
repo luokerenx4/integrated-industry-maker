@@ -2,10 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **187.411**
-- Result hash: `79dd3793428571db12dc63d0991314ba9c51c8650bb71461431c3ec46ac36913`
+- Result hash: `557660aa629c683461cb69daf7e7e86b4a5d2030c332173e8a95da6a6c840176`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 26.000
 - Target rate: 24.000 gear/min (100.0% attained)
+- Power allocation: proportional
+- Minimum grid satisfaction: 100%
 - Capacity plan: READY
 - Belt utilization: 3.0%
 - Average blocked belt items: 0.173

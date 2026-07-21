@@ -139,6 +139,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
   const lines = [
     `${project.manifest.name} · nominal production analysis`,
     `Coverage: ${analysis.declarativeDevices} declarative industrial devices, ${analysis.opaqueDevices} opaque/boundary devices`,
+    `Power allocation: ${analysis.powerAllocation}`,
     "",
     "Device rates",
     ...analysis.extractionDevices.map((device) => `  ${device.device.padEnd(24)} extract ${device.resource.padEnd(15)} ${device.itemsPerMinute.toFixed(3)} items/min from ${device.nodes.join(", ")} · P${device.powerPriority} · ${(device.idlePowerMilliWatts / 1000).toFixed(3)} W idle / ${(device.powerMilliWatts / 1000).toFixed(3)} W active`),
@@ -335,7 +336,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     ...materialTreatmentSummary(result.metrics),
     "Measured transport flows:", ...flowLines,
     `Transport endpoints: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J consumed`,
-    ...Object.entries(result.metrics.powerGrids).map(([grid, power]) => `Power ${grid}: generated ${(power.generatedMilliJoules / 1e6).toFixed(3)} MJ · demand ${(power.demandMilliJoules / 1e6).toFixed(3)} MJ · unserved ${(power.unservedMilliJoules / 1e6).toFixed(3)} MJ · curtailed ${(power.curtailedMilliJoules / 1e6).toFixed(3)} MJ · peak deficit ${(power.peakDeficitMilliWatts / 1000).toFixed(3)} W · storage envelope ${(power.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ`),
+    ...Object.entries(result.metrics.powerGrids).map(([grid, power]) => `Power ${grid}: generated ${(power.generatedMilliJoules / 1e6).toFixed(3)} MJ · demand ${(power.demandMilliJoules / 1e6).toFixed(3)} MJ · unserved ${(power.unservedMilliJoules / 1e6).toFixed(3)} MJ · satisfaction avg ${(power.averageSatisfactionPpm / 10_000).toFixed(1)}% / min ${(power.minimumSatisfactionPpm / 10_000).toFixed(1)}% · curtailed ${(power.curtailedMilliJoules / 1e6).toFixed(3)} MJ · peak deficit ${(power.peakDeficitMilliWatts / 1000).toFixed(3)} W · storage envelope ${(power.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ`),
     ...Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0).map(([grid, storage]) => `Storage ${grid}: ${(storage.storedMilliJoules / 1e6).toFixed(3)}/${(storage.capacityMilliJoules / 1e6).toFixed(3)} MJ · charged ${(storage.chargedMilliJoules / 1e6).toFixed(3)} MJ · discharged ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} MJ`),
     `Result hash: ${result.resultHash}`, "",
     ].join("\n"), false);

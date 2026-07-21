@@ -25,7 +25,7 @@ The fixed harness is `benchmarks/autoresearch.benchmark.json`. It compares that 
 Repeat until interrupted:
 
 1. Inspect the current Blueprint, the last benchmark output, capacity gaps, and semantic diff.
-2. Form one industrial hypothesis: topology, machine count, recipe/mode, sorter tier/span, belt path, stacking, station fleet/policy, Device `powerPriority`, power coverage/storage, or resilience.
+2. Form one industrial hypothesis: topology, machine count, recipe/mode, sorter tier/span, belt path, stacking, station fleet/policy, grid `powerAllocation`, Device `powerPriority`, power coverage/storage, or resilience.
 3. Edit only `blueprints/autoresearch.blueprint.json`. Do not edit the baseline, benchmark, assets, Processes, Worlds, Scenarios, Objectives, engine, evaluator, or tests.
 4. Commit the candidate edit so the experiment has a stable identity.
 5. Run:
@@ -42,3 +42,5 @@ Repeat until interrupted:
 The loop is deliberately file-native. The Coding Agent owns the experiment idea and Blueprint edit; INM owns parsing, industrial invariants, fixed-case simulation, scoring, and the keep/discard evidence.
 
 For a minimal power-control exercise, use `benchmarks/power-priority.benchmark.json`. Its candidate starts identical to the stopped baseline. Edit only `blueprints/power-priority-candidate.blueprint.json`; protecting `z-critical-assembler` and both `z-critical-link-*` sorter Devices demonstrates that priorities cover the complete physical line, not just the recipe machine.
+
+For a DSP-style shared-grid exercise, use `benchmarks/power-satisfaction.benchmark.json`. Edit only `blueprints/power-satisfaction-candidate.blueprint.json`; it begins underpowered in `proportional` mode, so adding connected generation improves the satisfaction and speed of the assembler and both explicit sorter stages together.

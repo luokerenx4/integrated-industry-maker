@@ -132,6 +132,7 @@
   ],
   "logisticsNetworks": [],
   "policies": {
-    "dispatch": "fifo"
+    "dispatch": "fifo",
+    "powerAllocation": "proportional"
   }
 }

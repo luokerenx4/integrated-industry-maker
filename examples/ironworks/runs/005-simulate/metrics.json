@@ -62,9 +62,11 @@
   "peakBeltItems": 8,
   "powerGrids": {
     "grid-forge-world-stack-power": {
+      "averageSatisfactionPpm": 1000000,
       "curtailedMilliJoules": 1193000,
       "demandMilliJoules": 7000,
       "generatedMilliJoules": 1200000,
+      "minimumSatisfactionPpm": 1000000,
       "peakDeficitMilliWatts": 0,
       "peakDemandMilliWatts": 6000,
       "peakGenerationMilliWatts": 600000,

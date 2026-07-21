@@ -53,6 +53,7 @@
         "chargedMilliJoules": 0,
         "consumedMilliJoules": 7000,
         "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
       }

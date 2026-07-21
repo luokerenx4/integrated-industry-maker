@@ -2,10 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **373.334**
-- Result hash: `7d6c53d3d745cd0b16ed65193ab75496a2559c668de3c6cd9d4bd6790753c111`
+- Result hash: `72d906facb4f0b348a45958aa1faf63f1016b89849b0aecd36dec03940666723`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Target rate: 10.000 hydrogen/min (100.0% attained)
+- Power allocation: proportional
+- Minimum grid satisfaction: 100%
 - Capacity plan: READY
 - Belt utilization: 3.1%
 - Average blocked belt items: 0.000

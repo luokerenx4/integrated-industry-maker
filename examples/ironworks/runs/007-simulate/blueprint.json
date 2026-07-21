@@ -524,7 +524,8 @@
   ],
   "logisticsNetworks": [],
   "policies": {
-    "dispatch": "shortage-first"
+    "dispatch": "shortage-first",
+    "powerAllocation": "proportional"
   },
   "version": 1
 }

@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-07-21T12:57:37.386Z",
+  "createdAt": "2026-07-21T13:22:02.745Z",
   "decision": "REVERT",
-  "engineVersion": "inm-sim/0.42.0",
+  "engineVersion": "inm-sim/0.43.0",
   "hashes": {
-    "blueprintHash": "60010c41b9559fd201617ecfffa925c42631b8c8bc4bbf71dd5ed402b5c444aa",
+    "blueprintHash": "2a7261d9cac4b7614f6d103b89a8281f9011f11422750f3f4700e9cfff84d7c5",
     "deviceCatalogHash": "0fd6303a7671c365f2934dc2408c3bd0d44288984417c5d080d0384d10d96285",
-    "engineVersion": "inm-sim/0.42.0",
+    "engineVersion": "inm-sim/0.43.0",
     "objectiveHash": "5d8a5b20d9be8d398d33fe8ecea0ea7487f02e4dbdca25d114494382f6576331",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
     "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
@@ -13,8 +13,8 @@
     "worldHash": "84faa3bff5fc242f00c3bb0dd43f60513425b2c9b3cff374da2a415a7110bb00"
   },
   "parentRun": "002-keep-duplicate-processor-smelter-1-as-smel",
-  "resultHash": "a0845f0d3026914765deb93dcf418812ef0c75cb0eb49be1c882ecb53ca860df",
-  "runKey": "1de7bb9009f2792660a71bfa7441a76c44bede56cbf8e9fd2f16146b06491e7c",
+  "resultHash": "6d3bb64863a2a81284bb507df5b2afbae178a3c5c44ebbaffa5735d5a6176da7",
+  "runKey": "8e0b2a85ccfb9c59fa11520f608746d0e05050e1af864059dcaf9256380f869d",
   "seed": 42,
   "selection": {
     "objective": "default",

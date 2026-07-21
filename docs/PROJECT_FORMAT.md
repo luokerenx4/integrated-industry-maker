@@ -178,13 +178,24 @@ Each port binds to exactly one named buffer. Input ports cannot bind to output-o
 
 Power consumption and generation use integer milliwatts. Every Device declares an idle baseline and an active total. `activeMilliWatts` includes the idle baseline; the two values are never added together, and idle may not exceed active. A connected healthy Device receives idle power before it may wait, process, extract, treat, or move cargo. Renewable generation is continuously available while its Device is healthy:
 
-A Blueprint instance may declare a hard load-shedding rank independently from its asset:
+A Blueprint selects one grid-allocation policy for the whole factory:
+
+```json
+"policies": {
+  "dispatch": "shortage-first",
+  "powerAllocation": "proportional"
+}
+```
+
+`proportional` gives every healthy connected consumer the same integer parts-per-million satisfaction, calculated from available power divided by requested power. Production, extraction, treatment, and explicit sorter loading/unloading advance at that fraction of nominal speed; belt travel does not consume power and keeps its nominal speed. `priority-load-shedding` instead serves complete Device envelopes in priority order and pauses rejected work exactly.
+
+In `priority-load-shedding` mode, a Blueprint instance may declare a hard load-shedding rank independently from its asset:
 
 ```json
 "policy": { "powerPriority": 10 }
 ```
 
-`powerPriority` is a non-negative integer. Higher values receive both standby and active power before lower values; stable Device id resolves equal values, and omission means zero. A high-priority active job reserves its complete envelope, so lower-priority always-on infrastructure can be shed. This policy applies equally to processors, extractors, junctions, stations, and explicit sorter endpoint Devices.
+`powerPriority` is a non-negative integer. Higher values receive both standby and active power before lower values; stable Device id resolves equal values, and omission means zero. A high-priority active job reserves its complete envelope, so lower-priority always-on infrastructure can be shed. This policy applies equally to processors, extractors, junctions, stations, and explicit sorter endpoint Devices. It has no allocation effect in `proportional` mode.
 
 ```json
 "power": {
@@ -632,7 +643,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "contractHash": "<sha256>",
     "cases": {
       "normal-production": {
-        "engineVersion": "inm-sim/0.42.0",
+        "engineVersion": "inm-sim/0.43.0",
         "resourceCatalogHash": "<sha256>",
         "processCatalogHash": "<sha256>",
         "deviceCatalogHash": "<sha256>",

@@ -1,4 +1,4 @@
-import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, ProcessAmount, ResourceId } from "./types";
+import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, PowerAllocationPolicy, ProcessAmount, ResourceId } from "./types";
 import {
   connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile,
   type ConnectionDispatchProfile, type StationDispatchProfile,
@@ -223,6 +223,7 @@ export interface ProductionDiagnostic {
 }
 
 export interface ProductionAnalysis {
+  powerAllocation: PowerAllocationPolicy;
   declarativeDevices: number;
   opaqueDevices: number;
   devices: DeviceProductionRate[];
@@ -729,6 +730,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     ...generationDevices.map((device) => device.device), ...storageDevices.map((device) => device.device),
   ]);
   return {
+    powerAllocation: project.blueprint.policies.powerAllocation,
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
     devices, bufferContracts, portContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,

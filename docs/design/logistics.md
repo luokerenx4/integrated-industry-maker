@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: explicit sorter Devices, physical local logistics, power-priority preemption, and treatment-aware dispatch implemented through `inm-sim/0.42.0`.
+Status: explicit sorter Devices, physical local logistics, proportional power satisfaction, power-priority preemption, and treatment-aware dispatch implemented through `inm-sim/0.43.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -63,7 +63,7 @@ For each planned local flow, synthesis writes a one-Resource lane allowlist and 
 
 ## Explicit sorter runtime
 
-Loader and unloader attachments are Device instances, not connection attributes. Their active cargo entities drive the Device's `processing` status and exact status-duration metrics; power loss drives `unpowered`; a Scenario failure drives `failed`. Every stage emits `transport.stage-start` and `transport.stage-finish` with the endpoint Device and transit identity, so replay and optimization do not have to infer ownership from a lane. If a sorter fails or loses its authored power-priority contest in the middle of loading or unloading, the runtime freezes the exact remaining stage time and resumes that same transit after recovery or capacity release. New work cannot enter an unavailable endpoint, and active power excludes failed or unserved stages while requested grid demand retains blocked work. `transport.power-shortage` and `transport.power-restored` identify power interruption independently from equipment failure.
+Loader and unloader attachments are Device instances, not connection attributes. Their active cargo entities drive the Device's `processing` status and exact status-duration metrics; zero power drives `unpowered`; a Scenario failure drives `failed`. Every stage emits `transport.stage-start` and `transport.stage-finish` with the endpoint Device and transit identity, so replay and optimization do not have to infer ownership from a lane. Under proportional allocation, a sorter's loading or unloading duration scales by grid satisfaction; every change checkpoints exact full-speed-equivalent work and reschedules the same transit, while the passive belt-travel phase remains unchanged. Under priority load shedding, a sorter that loses its authored contest freezes exact remaining stage time and resumes after capacity release. New work cannot enter an unavailable endpoint, and requested grid demand retains blocked or slowed work. `transport.power-shortage` and `transport.power-restored` identify hard interruption independently from equipment failure.
 
 ## Station logistics
 

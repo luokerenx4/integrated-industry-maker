@@ -166,7 +166,10 @@ export const blueprintSchema = z.object({
       }).strict()),
     }).strict()).min(2),
   }).strict()),
-  policies: z.object({ dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional() }).strict().optional(),
+  policies: z.object({
+    dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
+    powerAllocation: z.enum(["proportional", "priority-load-shedding"]),
+  }).strict(),
 }).strict();
 
 export const scenarioSchema = z.object({

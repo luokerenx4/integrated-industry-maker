@@ -275,6 +275,7 @@ export interface IndustrialWorld {
 }
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
+export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
 export interface BlueprintDevice {
   id: DeviceInstanceId;
   asset: DeviceAssetId;
@@ -359,7 +360,7 @@ export interface Blueprint {
   devices: BlueprintDevice[];
   connections: BlueprintConnection[];
   logisticsNetworks: BlueprintLogisticsNetwork[];
-  policies?: { dispatch?: DispatchPolicy };
+  policies: { dispatch?: DispatchPolicy; powerAllocation: PowerAllocationPolicy };
 }
 
 export interface ScenarioFailure { device: DeviceInstanceId; atTick: Tick; durationTicks: Tick }
@@ -591,6 +592,8 @@ export interface ActiveDeviceJob {
   remainingTicks: Tick;
   workedTicks: Tick;
   resumedAt: Tick;
+  /** Full-speed work multiplier currently assigned by the grid, in parts per million. */
+  powerSatisfactionPpm: number;
   powerMilliWatts: number;
   produce: ResourceBufferQuantity[];
   extraction?: { node: string; count: number };
@@ -643,6 +646,7 @@ export interface FactoryState {
     consumedMilliJoules: number;
     grids: Record<string, {
       availableMilliWatts: number;
+      satisfactionPpm: number;
       consumedMilliJoules: number;
       storedMilliJoules: number;
       storageCapacityMilliJoules: number;
@@ -684,6 +688,7 @@ export type FactoryEvent =
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
   | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
   | { type: "power.generation-changed"; tick: Tick; device: DeviceInstanceId; grid: string; ratedMilliWatts: number; outputMilliWatts: number; outputPermille: number }
+  | { type: "power.satisfaction-changed"; tick: Tick; grid: string; demandMilliWatts: number; availableMilliWatts: number; satisfactionPpm: number }
   | { type: "power.storage-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
   | { type: "power.storage-depleted"; tick: Tick; device: DeviceInstanceId; grid: string }
   | { type: "power.restored"; tick: Tick; device: DeviceInstanceId; grid: string; remainingTicks: Tick }
@@ -727,6 +732,8 @@ export interface FactoryMetrics {
     peakDemandMilliWatts: number;
     peakDeficitMilliWatts: number;
     peakSurplusMilliWatts: number;
+    averageSatisfactionPpm: number;
+    minimumSatisfactionPpm: number;
     /** Largest contiguous raw energy deficit observed between renewable-surplus intervals. */
     requiredStorageCapacityMilliJoules: number;
   }>;

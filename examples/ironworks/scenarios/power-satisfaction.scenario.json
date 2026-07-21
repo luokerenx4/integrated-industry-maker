@@ -1,0 +1,29 @@
+{
+  "durationTicks": 14000,
+  "failures": [],
+  "id": "power-satisfaction",
+  "initialBuffers": {
+    "z-critical-assembler": {
+      "input-primary": {
+        "iron-plate": 8
+      },
+      "input-secondary": {
+        "coal": 4
+      }
+    }
+  },
+  "name": "Proportional Grid Satisfaction",
+  "renewableProfiles": [
+    {
+      "asset": "wind-turbine",
+      "periodTicks": 14000,
+      "points": [
+        {
+          "atTick": 0,
+          "outputPermille": 400
+        }
+      ],
+      "region": "assembly-world"
+    }
+  ]
+}

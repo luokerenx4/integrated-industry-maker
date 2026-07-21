@@ -619,14 +619,12 @@ function bufferCandidates(input: ResearchInput): StrategyCandidate[] {
 }
 
 function policyCandidates(input: ResearchInput): StrategyCandidate[] {
-  const current = input.blueprint.policies?.dispatch ?? "fifo";
+  const current = input.blueprint.policies.dispatch ?? "fifo";
   const policies = ["fifo", "round-robin", "shortage-first"] as const;
   const next = policies[(policies.indexOf(current) + 1) % policies.length]!;
-  const operation: JsonPatchOperation = input.blueprint.policies?.dispatch
+  const operation: JsonPatchOperation = input.blueprint.policies.dispatch
     ? { op: "replace", path: "/policies/dispatch", value: next }
-    : input.blueprint.policies
-      ? { op: "add", path: "/policies/dispatch", value: next }
-      : { op: "add", path: "/policies", value: { dispatch: next } };
+    : { op: "add", path: "/policies/dispatch", value: next };
   return [{ key: `dispatch:${next}`, proposal: {
     strategy: `dispatch:${next}`,
     hypothesis: `Switch the factory-wide contested-output policy from ${current} to ${next}.`,

@@ -4,6 +4,7 @@
   "connections": [],
   "logisticsNetworks": [],
   "policies": {
-    "dispatch": "round-robin"
+    "dispatch": "round-robin",
+    "powerAllocation": "proportional"
   }
 }

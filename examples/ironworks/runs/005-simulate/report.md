@@ -2,10 +2,12 @@
 
 - Decision: **BASELINE**
 - Score: **245.090**
-- Result hash: `9d5d67662cfdf61ead59b703a838e3f2be29f24d1f5438e3652dcc866fdd0a0f`
+- Result hash: `660a52ffe7f04f658f7b04fe651b29123bf84ec5182aab6c7f2b709d4479a259`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Target rate: 240.000 iron-ore/min (100.0% attained)
+- Power allocation: proportional
+- Minimum grid satisfaction: 100%
 - Capacity plan: 1 GAP
 - Belt utilization: 10.0%
 - Average blocked belt items: 0.000
