@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import "./styles.css";
+import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 
 type Status = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 type AssetKind = "devices" | "resources" | "processes";
@@ -161,6 +162,10 @@ interface Metrics {
   consumed: Record<string, number>;
   extracted: Record<string, number>;
   resourceNodes: Record<string, { initial: number; remaining: number; reserved: number; extracted: number; depleted: boolean }>;
+  machineUtilization: Record<string, number>;
+  idleTime: Record<string, number>;
+  waitingInputTime: Record<string, number>;
+  blockedOutputTime: Record<string, number>;
   scoreBreakdown: Record<string, number>;
 }
 
@@ -264,6 +269,7 @@ interface StudioData {
 
 interface DeviceFrame { status: Status; progress: number }
 interface TransitFrame { id: string; material: string; count: number; progress: number; path: string; kind: "belt" | "station"; position?: { x: number; y: number; level?: number }; blocked?: boolean }
+interface FactoryFrame { devices: Record<string, DeviceFrame>; transits: TransitFrame[]; endpointPower: Record<string, boolean>; visibleEvents: FactoryEvent[] }
 
 const STATUS_COLORS: Record<Status, string> = {
   idle: "#64748b",
@@ -299,7 +305,7 @@ async function responseJson<T>(response: Response): Promise<T> {
   return value;
 }
 
-function buildFrame(data: StudioData, tick: number): { devices: Record<string, DeviceFrame>; transits: TransitFrame[]; endpointPower: Record<string, boolean>; visibleEvents: FactoryEvent[] } {
+function buildFrame(data: StudioData, tick: number): FactoryFrame {
   const devices = Object.fromEntries(data.devices.map((device) => [device.id, { status: "idle" as Status, progress: 0 }]));
   const endpointPower = Object.fromEntries(data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => [`${connection.id}:${endpoint.stage}`, Boolean(endpoint.powerGrid)])));
   const starts = new Map<string, number>();
@@ -400,13 +406,22 @@ function DeviceBody({ projectId, device, height, color, processing }: { projectI
   return <RoundedBox args={[device.footprint.width * .88, height, device.footprint.height * .88]} radius={.12} smoothness={4} castShadow receiveShadow>{material}</RoundedBox>;
 }
 
-function FactoryDevice({ projectId, device, frame, bottleneck }: { projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean }) {
+function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelect }: {
+  projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean; selected: boolean; onSelect: () => void;
+}) {
   const height = device.visual.height ?? 1.25;
   const baseColor = device.visual.color ?? "#475569";
   const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
   const position: [number, number, number] = [device.position.x + device.footprint.width / 2, height / 2, device.position.y + device.footprint.height / 2];
-  return <group position={position} rotation={[0, -device.rotation * Math.PI / 180, 0]}>
+  return <group
+    position={position}
+    rotation={[0, -device.rotation * Math.PI / 180, 0]}
+    onClick={(event) => { event.stopPropagation(); onSelect(); }}
+    onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
+    onPointerOut={() => { document.body.style.cursor = "default"; }}
+  >
     {bottleneck && <mesh position={[0, .03 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .7, Math.max(device.footprint.width, device.footprint.height) * .88, 48]} /><meshBasicMaterial color="#ffcf5c" transparent opacity={.8} /></mesh>}
+    {selected && <mesh position={[0, .025 - height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(device.footprint.width, device.footprint.height) * .58, Math.max(device.footprint.width, device.footprint.height) * .98, 64]} /><meshBasicMaterial color="#55f2c5" transparent opacity={.95} depthTest={false} /></mesh>}
     <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
     <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={.28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{device.recipe.process} / {device.recipe.mode}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>
@@ -426,7 +441,9 @@ function ResourceDeposit({ data, node, remaining }: { data: StudioData; node: St
   </group>;
 }
 
-function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
+function FactoryWorld({ data, tick, selection, onSelection }: {
+  data: StudioData; tick: number; selection: StudioSelection | null; onSelection: (selection: StudioSelection) => void;
+}) {
   const frame = useMemo(() => buildFrame(data, tick), [data, tick]);
   const nodeRemaining = useMemo(() => {
     const remaining = Object.fromEntries(data.resourceNodes.map((node) => [node.id, node.amount]));
@@ -444,7 +461,30 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
     </group>)}
     {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}
-    {data.connections.map((connection) => <Line key={connection.id} points={connection.points.map((point) => [point.x, .16 + point.level * .65, point.y])} color={connection.points.some((point) => point.level > 0) ? "#65a8b7" : "#4f7680"} lineWidth={3} transparent opacity={.9} />)}
+    {data.connections.map((connection) => {
+      const selected = selection?.kind === "connection" && selection.id === connection.id;
+      const choose = () => onSelection({ kind: "connection", id: connection.id });
+      return <group key={connection.id}>
+        <Line
+          points={connection.points.map((point) => [point.x, .16 + point.level * .65, point.y])}
+          color={selected ? "#5ff2c8" : connection.points.some((point) => point.level > 0) ? "#65a8b7" : "#4f7680"}
+          lineWidth={selected ? 7 : 3}
+          transparent
+          opacity={selected ? 1 : .9}
+          onClick={(event) => { event.stopPropagation(); choose(); }}
+        />
+        {connection.points.slice(1, -1).map((point, index) => <mesh
+          key={index}
+          position={[point.x, .16 + point.level * .65, point.y]}
+          onClick={(event) => { event.stopPropagation(); choose(); }}
+          onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
+          onPointerOut={() => { document.body.style.cursor = "default"; }}
+        >
+          <boxGeometry args={[.78, .28, .78]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>)}
+      </group>;
+    })}
     {data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => { const powered = frame.endpointPower[`${connection.id}:${endpoint.stage}`]; return <group key={`${connection.id}-${endpoint.stage}`}>
       <Line points={[[endpoint.from.x, .28 + endpoint.from.level * .65, endpoint.from.y], [endpoint.to.x, .28 + endpoint.to.level * .65, endpoint.to.y]]} color={powered ? endpoint.stage === "loader" ? "#f5b84b" : "#5dd7ff" : "#ff5d68"} lineWidth={2.5} />
       <mesh position={[endpoint.position.x, .3, endpoint.position.y]} rotation={[0, Math.atan2(endpoint.to.x - endpoint.from.x, endpoint.to.y - endpoint.from.y), 0]} castShadow>
@@ -452,7 +492,15 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       </mesh>
     </group>; }))}
     {data.logisticsRoutes.map((route) => <Line key={route.id} points={[[route.from.x, .32, route.from.y], [route.to.x, .32, route.to.y]]} color="#55c9df" lineWidth={1.5} dashed dashScale={2.4} dashSize={.45} gapSize={.28} transparent opacity={.7} />)}
-    {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
+    {data.devices.map((device) => <FactoryDevice
+      key={device.id}
+      projectId={data.projectId}
+      device={device}
+      frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }}
+      bottleneck={data.metrics?.bottleneckEntity === device.id}
+      selected={selection?.kind === "device" && selection.id === device.id}
+      onSelect={() => onSelection({ kind: "device", id: device.id })}
+    />)}
     {frame.transits.map((transit) => {
       const connection = [...data.connections, ...data.logisticsRoutes].find((item) => item.id === transit.path)!;
       const position = transit.position ?? ("points" in connection ? pointAlongPath(connection.points, transit.progress) : pointAlongPath([connection.from, connection.to], transit.progress));
@@ -475,6 +523,129 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
 
 function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return <div className={`metric ${accent ? "accent" : ""}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function InspectorHeader({ kind, id, title, subtitle, onClose }: { kind: string; id: string; title: string; subtitle: string; onClose: () => void }) {
+  return <header className="scene-inspector-header">
+    <div><span>{kind}</span><h2>{title}</h2><code>{id}</code><p>{subtitle}</p></div>
+    <button aria-label="Close inspector" onClick={onClose}>×</button>
+  </header>;
+}
+
+function InspectorFlow({ label, amounts }: { label: string; amounts: Array<{ resource: string; buffer: string; count: number }> }) {
+  return <div className="inspector-flow"><label>{label}</label>{amounts.length ? amounts.map((amount) => <div key={`${amount.buffer}-${amount.resource}`}><b>{amount.count}× {amount.resource}</b><code>{amount.buffer}</code></div>) : <small>NONE</small>}</div>;
+}
+
+function DeviceInspector({ data, frame, device, onClose, onSelection }: {
+  data: StudioData; frame: FactoryFrame; device: Device; onClose: () => void; onSelection: (selection: StudioSelection) => void;
+}) {
+  const runtime = frame.devices[device.id] ?? { status: "idle" as Status, progress: 0 };
+  const asset = data.assets.devices.find((item) => item.id === device.assetId);
+  const production = data.analysis.devices.find((item) => item.device === device.id);
+  const extraction = data.analysis.extractionDevices.find((item) => item.device === device.id);
+  const generation = data.analysis.generationDevices.find((item) => item.device === device.id);
+  const buffers = data.analysis.bufferContracts.find((item) => item.device === device.id)?.buffers ?? [];
+  const grid = data.analysis.powerGrids.find((item) => item.members.includes(device.id) || item.distributors.includes(device.id));
+  const links = connectedSceneObjects(data, device.id).map((selection) => data.connections.find((connection) => connection.id === selection.id)!);
+  const diagnostics = data.analysis.diagnostics.filter((diagnostic) => diagnostic.device === device.id);
+  const powerMilliWatts = device.recipe?.powerMilliWatts ?? extraction?.powerMilliWatts ?? asset?.power.consumptionMilliWatts ?? 0;
+  const utilization = data.metrics?.machineUtilization[device.id];
+  return <section className="scene-inspector" aria-label={`Device inspector: ${device.id}`}>
+    <InspectorHeader kind="DEVICE INSTANCE" id={device.id} title={device.name} subtitle={`${device.assetId} · ${device.region}`} onClose={onClose} />
+    <div className="scene-inspector-scroll">
+      <div className="inspector-status-row">
+        <span className={`inspector-status ${runtime.status}`}><i style={{ background: STATUS_COLORS[runtime.status] }} />{STATUS_LABELS[runtime.status]}</span>
+        <span><b>{(runtime.progress * 100).toFixed(0)}%</b><small>JOB PROGRESS</small></span>
+        <span><b>{utilization === undefined ? "—" : `${(utilization * 100).toFixed(1)}%`}</b><small>RUN UTILIZATION</small></span>
+      </div>
+      <div className="inspector-facts">
+        <span><small>POSITION</small><b>{device.position.x.toFixed(0)}, {device.position.y.toFixed(0)} · {device.rotation}°</b></span>
+        <span><small>FOOTPRINT</small><b>{device.footprint.width} × {device.footprint.height}</b></span>
+        <span><small>BUILD COST</small><b>{asset?.economics.buildCost.toLocaleString() ?? "—"}</b></span>
+        <span><small>ACTIVE POWER</small><b>{(powerMilliWatts / 1000).toFixed(1)} W</b></span>
+      </div>
+      {device.recipe && <div className="inspector-section">
+        <div className="inspector-section-title"><span>CONFIGURED PROCESS</span><b>{device.recipe.modeName}</b></div>
+        <div className="inspector-recipe-head"><strong>{device.recipe.process}</strong><code>{device.recipe.durationTicks} ms / job · {production?.cyclesPerMinute.toFixed(2) ?? "—"} jobs/min</code></div>
+        <div className="inspector-recipe"><InspectorFlow label="INPUTS" amounts={device.recipe.inputs} /><i>→</i><InspectorFlow label="OUTPUTS" amounts={device.recipe.outputs} /></div>
+      </div>}
+      {extraction && <div className="inspector-section"><div className="inspector-section-title"><span>EXTRACTION</span><b>{extraction.resource}</b></div><div className="inspector-inline"><strong>{extraction.itemsPerMinute.toFixed(2)} /min</strong><code>{extraction.itemsPerCycle} items / {extraction.cycleTicks} ms</code></div><div className="inspector-chip-row">{extraction.nodes.map((node) => <span key={node}>{node}</span>)}</div></div>}
+      {generation && <div className="inspector-section"><div className="inspector-section-title"><span>GENERATION</span><b>{generation.kind}</b></div><div className="inspector-inline"><strong>{(generation.outputMilliWatts / 1000).toFixed(1)} W</strong><code>{generation.fuelResource ? `${generation.fuelPerMinute?.toFixed(2)} ${generation.fuelResource}/min` : "continuous output"}</code></div></div>}
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>BUFFER CONTRACTS</span><b>{buffers.length}</b></div>
+        <div className="inspector-buffer-list">{buffers.map((buffer) => <div key={buffer.buffer}><span><b>{buffer.buffer}</b><small>{buffer.role}</small></span><code>CAP {buffer.capacity}</code><p>{buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource} ≤ ${buffer.resourceCapacities[resource]}`).join(" · ") || "CLOSED"}</p></div>)}</div>
+      </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>POWER GRID</span><b>{grid ? "CONNECTED" : powerMilliWatts ? "DISCONNECTED" : "PASSIVE"}</b></div>
+        {grid ? <div className="inspector-grid"><strong>{grid.grid}</strong><code>{(grid.productionMilliWatts / 1000).toFixed(0)} W generation · {(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W rated load · {(grid.headroomMilliWatts / 1000).toFixed(0)} W headroom</code></div> : <small className="inspector-empty">NO GRID MEMBERSHIP</small>}
+      </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>LOCAL CONNECTIONS</span><b>{links.length}</b></div>
+        <div className="inspector-link-list">{links.map((connection) => {
+          const outgoing = connection.fromDevice === device.id; const flow = data.metrics?.transportFlows[connection.id];
+          return <button key={connection.id} onClick={() => onSelection({ kind: "connection", id: connection.id })}><span><i>{outgoing ? "OUT" : "IN"}</i><b>{connection.id}</b><small>{connection.fromDevice} → {connection.toDevice}</small></span><code>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)}/min` : "inspect →"}</code></button>;
+        })}{!links.length && <small className="inspector-empty">NO LOCAL CONNECTIONS</small>}</div>
+      </div>
+      {diagnostics.length > 0 && <div className="inspector-section inspector-diagnostics"><div className="inspector-section-title"><span>DIAGNOSTICS</span><b>{diagnostics.length}</b></div>{diagnostics.map((diagnostic, index) => <div key={`${diagnostic.code}-${index}`}><code>{diagnostic.code}</code><p>{diagnostic.message}</p></div>)}</div>}
+    </div>
+  </section>;
+}
+
+function ConnectionInspector({ data, frame, connection, onClose, onSelection }: {
+  data: StudioData; frame: FactoryFrame; connection: StudioData["connections"][number]; onClose: () => void; onSelection: (selection: StudioSelection) => void;
+}) {
+  const analysis = data.analysis.connections.find((item) => item.connection === connection.id);
+  const flow = data.metrics?.transportFlows[connection.id];
+  const stageUtilization = data.metrics?.transportStageUtilization[connection.id];
+  const liveCargo = frame.transits.filter((transit) => transit.kind === "belt" && transit.path === connection.id);
+  const diagnostics = data.analysis.diagnostics.filter((diagnostic) => diagnostic.connection === connection.id);
+  return <section className="scene-inspector connection-inspector" aria-label={`Connection inspector: ${connection.id}`}>
+    <InspectorHeader kind="PHYSICAL CONNECTION" id={connection.id} title={`${connection.fromDevice} → ${connection.toDevice}`} subtitle={`${analysis?.pathCells ?? connection.points.length - 2} belt cells · ${analysis?.maxLevel ? `raised to L${analysis.maxLevel}` : "ground route"}`} onClose={onClose} />
+    <div className="scene-inspector-scroll">
+      <div className="inspector-status-row connection-kpis">
+        <span><b>{flow ? flow.deliveredItemsPerMinute.toFixed(2) : "—"}</b><small>DELIVERED / MIN</small></span>
+        <span><b>{analysis?.capacityItemsPerMinute.toFixed(2) ?? "—"}</b><small>CAPACITY / MIN</small></span>
+        <span><b>{flow ? `${(flow.utilization * 100).toFixed(1)}%` : "—"}</b><small>UTILIZATION</small></span>
+      </div>
+      <div className="inspector-endpoints">
+        <button onClick={() => onSelection({ kind: "device", id: connection.fromDevice })}><small>SOURCE</small><b>{connection.fromDevice}</b></button><i>→</i><button onClick={() => onSelection({ kind: "device", id: connection.toDevice })}><small>TARGET</small><b>{connection.toDevice}</b></button>
+      </div>
+      <div className="inspector-facts">
+        <span><small>TRAVEL</small><b>{analysis?.travelTicks ?? "—"} ms</b></span>
+        <span><small>DISPATCH</small><b>{analysis?.dispatchIntervalTicks ?? "—"} ms</b></span>
+        <span><small>STACK</small><b>×{analysis?.maxStackSize ?? 1}</b></span>
+        <span><small>LIVE CARGO</small><b>{liveCargo.reduce((sum, transit) => sum + transit.count, 0)}</b></span>
+      </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>PIPELINE STAGES</span><b>POWER + CAPACITY</b></div>
+        <div className="inspector-stage-list">{analysis?.stages.map((stage) => {
+          const endpointPowered = stage.stage === "line" ? true : frame.endpointPower[`${connection.id}:${stage.stage}`];
+          const utilization = stage.stage === "loader" ? stageUtilization?.loader : stage.stage === "unloader" ? stageUtilization?.unloader : flow?.utilization;
+          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.asset}</b><code>{stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`}{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
+        })}</div>
+      </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>MEASURED MATERIAL FLOW</span><b>{flow?.deliveredItems ?? 0} ITEMS</b></div>
+        <div className="inspector-material-list">{flow && Object.keys(flow.deliveredByResource).length ? Object.entries(flow.deliveredByResource).map(([resource, count]) => <div key={resource}><b>{resource}</b><span>{count} delivered</span><code>{flow.departedByResource[resource] ?? 0} departed</code></div>) : <small className="inspector-empty">NO MEASURED DELIVERIES</small>}</div>
+      </div>
+      <div className="inspector-section">
+        <div className="inspector-section-title"><span>CONGESTION</span><b>{flow?.blockedItemTicks ?? 0} BLOCKED ITEM-TICKS</b></div>
+        <div className="inspector-inline"><strong>{flow ? `${(flow.blockedFraction * 100).toFixed(2)}% blocked` : "NO RUN"}</strong><code>{flow ? `${flow.averageInFlightItems.toFixed(2)} average in flight` : "Select a completed run for telemetry"}</code></div>
+      </div>
+      {diagnostics.length > 0 && <div className="inspector-section inspector-diagnostics"><div className="inspector-section-title"><span>DIAGNOSTICS</span><b>{diagnostics.length}</b></div>{diagnostics.map((diagnostic, index) => <div key={`${diagnostic.code}-${index}`}><code>{diagnostic.code}</code><p>{diagnostic.message}</p></div>)}</div>}
+    </div>
+  </section>;
+}
+
+function SceneInspector({ data, frame, selection, onClose, onSelection }: {
+  data: StudioData; frame: FactoryFrame; selection: StudioSelection; onClose: () => void; onSelection: (selection: StudioSelection) => void;
+}) {
+  if (selection.kind === "device") {
+    const device = data.devices.find((item) => item.id === selection.id);
+    return device ? <DeviceInspector data={data} frame={frame} device={device} onClose={onClose} onSelection={onSelection} /> : null;
+  }
+  const connection = data.connections.find((item) => item.id === selection.id);
+  return connection ? <ConnectionInspector data={data} frame={frame} connection={connection} onClose={onClose} onSelection={onSelection} /> : null;
 }
 
 function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset }) {
@@ -710,6 +881,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [selection, setSelection] = useState<StudioSelection | null>(null);
   const runRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
   const requestSequence = useRef(0);
@@ -728,6 +900,7 @@ function App() {
       const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`));
       if (sequence !== requestSequence.current) return;
       setData(next);
+      setSelection((current) => normalizeStudioSelection(next, current));
       setRun(next.selectedRun);
       runRef.current = next.selectedRun;
       projectRef.current = next.projectId;
@@ -747,6 +920,7 @@ function App() {
     setRouteProject(projectId);
     setAssetsOpen(false);
     setAnalysisOpen(false);
+    setSelection(null);
     setError(null);
     if (!projectId) {
       requestSequence.current += 1;
@@ -763,6 +937,7 @@ function App() {
       setRouteProject(projectId);
       setAssetsOpen(false);
       setAnalysisOpen(false);
+      setSelection(null);
       if (!projectId) setData(null);
     };
     window.addEventListener("popstate", popstate);
@@ -783,6 +958,11 @@ function App() {
   useEffect(() => {
     document.title = data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
   }, [data, index]);
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => { if (event.key === "Escape") setSelection(null); };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, []);
 
   const maxTick = data?.events.at(-1)?.tick ?? 0;
   useEffect(() => {
@@ -814,6 +994,7 @@ function App() {
   const frame = buildFrame(data, tick);
   const recent = frame.visibleEvents.slice(-8).reverse();
   const selectedRun = data.runs.find((item) => item.name === run);
+  const chooseSceneObject = (next: StudioSelection) => setSelection((current) => selectStudioObject(current, next));
 
   return <main className={loading ? "syncing" : ""}>
     <header className="project-header">
@@ -832,15 +1013,17 @@ function App() {
     </header>
     <section className="workspace">
       <div className="viewport">
-        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} /></Suspense></Canvas>
+        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={() => setSelection(null)}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} REGIONS</b></div>
         <div className="scene-stats"><span><b>{data.regions.length}</b> REGIONS</span><span><b>{data.devices.length}</b> MACHINES</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
+        {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
+        {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={() => setSelection(null)} onSelection={chooseSceneObject} />}
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
         <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
-        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p></div>
+        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>
     </section>
