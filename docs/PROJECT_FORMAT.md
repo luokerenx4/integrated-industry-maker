@@ -755,6 +755,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 Ids use lowercase kebab-case. Cases must have unique ids, non-negative integer seeds, positive weights, and refer to project-local files. Acceptance defaults to positive aggregate improvement with zero allowed per-case regression; capacity readiness is optional because a baseline may intentionally begin with plan gaps.
 
+Evaluation reports the weighted aggregate, the lowest raw baseline/candidate case score, and the minimum individual-case score delta. The latter two are stable outputs for robustness-oriented Coding Agent loops; the acceptance gate still uses the declared aggregate threshold and maximum permitted regression for every case.
+
 The `lock` is written only by an explicit `inm benchmark --lock`. `contractHash` covers every benchmark field except the lock itself, including the candidate filename but not its content. Each case lock captures the complete compiled baseline identity. Normal evaluation rejects missing locks, contract edits, case-set edits, engine changes, and any catalog/World/baseline/Scenario/Objective drift. The candidate Blueprint is the sole variable.
 
 The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks); shared work-center qualification and re-entrant flow are demonstrated in [[examples/memory-fab]].

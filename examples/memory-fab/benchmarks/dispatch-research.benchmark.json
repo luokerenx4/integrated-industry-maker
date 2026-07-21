@@ -1,6 +1,6 @@
 {
   "acceptance": {
-    "maximumCaseScoreRegression": 0,
+    "maximumCaseScoreRegression": 2,
     "minimumAggregateScoreDelta": 0.001,
     "requireCandidateCapacityReady": false
   },
@@ -8,10 +8,37 @@
   "candidateBlueprint": "experiment",
   "cases": [
     {
-      "id": "production-window",
-      "name": "Fixed four-minute quality production window",
+      "id": "steady-production",
+      "name": "Excursion-free production",
+      "objective": "dram-output",
+      "scenario": "steady-production",
+      "seed": 42,
+      "weight": 1,
+      "world": "cleanroom"
+    },
+    {
+      "id": "mixed-quality",
+      "name": "Mixed repair, scrap, and escape workload",
       "objective": "dram-output",
       "scenario": "production-window",
+      "seed": 42,
+      "weight": 2,
+      "world": "cleanroom"
+    },
+    {
+      "id": "quality-excursion",
+      "name": "Systematic quality excursion",
+      "objective": "dram-output",
+      "scenario": "quality-excursion",
+      "seed": 42,
+      "weight": 2,
+      "world": "cleanroom"
+    },
+    {
+      "id": "lithography-interruption",
+      "name": "Timed lithography interruption",
+      "objective": "dram-output",
+      "scenario": "lithography-interruption",
       "seed": 42,
       "weight": 1,
       "world": "cleanroom"
@@ -20,19 +47,49 @@
   "id": "dispatch-research",
   "lock": {
     "cases": {
-      "production-window": {
+      "lithography-interruption": {
         "blueprintHash": "3ba99d2dc86c1eed6333e69320ce84d44c2fd1fae880aedd1b1f7d5308f5191e",
         "deviceCatalogHash": "64a3e7e2b8c86fadd18efaf939b5e7f12c0a6e5c581e346f2a798088c5eea3b5",
         "engineVersion": "inm-sim/0.50.0",
         "objectiveHash": "62ec0cceb4c269ddf29e43360a9823cec83356dc9ccd6eea713acf4e5c4e911d",
         "processCatalogHash": "e458917c81193c45d617ab2b00aaa6fa917ec19b56596566a92087dc14bb92a1",
         "resourceCatalogHash": "6eca5d6a1df1ba2deb5ee8c859e6629e8c51a163eaefc128bb4c55e871d7ef72",
-        "scenarioHash": "c9a5944a4c9f830c810bea01eb3f10e68a984c3f34d8cf2671ca0194c54e4cff",
+        "scenarioHash": "51e872d1d2df198ae7cd737768e941488754c2befbd63b0cb9934fb5db655408",
+        "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
+      },
+      "mixed-quality": {
+        "blueprintHash": "3ba99d2dc86c1eed6333e69320ce84d44c2fd1fae880aedd1b1f7d5308f5191e",
+        "deviceCatalogHash": "64a3e7e2b8c86fadd18efaf939b5e7f12c0a6e5c581e346f2a798088c5eea3b5",
+        "engineVersion": "inm-sim/0.50.0",
+        "objectiveHash": "62ec0cceb4c269ddf29e43360a9823cec83356dc9ccd6eea713acf4e5c4e911d",
+        "processCatalogHash": "e458917c81193c45d617ab2b00aaa6fa917ec19b56596566a92087dc14bb92a1",
+        "resourceCatalogHash": "6eca5d6a1df1ba2deb5ee8c859e6629e8c51a163eaefc128bb4c55e871d7ef72",
+        "scenarioHash": "194605e56362c23a878504ffd8823a8722e4eab4c6952f6c46a3cc57f41c5b2d",
+        "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
+      },
+      "quality-excursion": {
+        "blueprintHash": "3ba99d2dc86c1eed6333e69320ce84d44c2fd1fae880aedd1b1f7d5308f5191e",
+        "deviceCatalogHash": "64a3e7e2b8c86fadd18efaf939b5e7f12c0a6e5c581e346f2a798088c5eea3b5",
+        "engineVersion": "inm-sim/0.50.0",
+        "objectiveHash": "62ec0cceb4c269ddf29e43360a9823cec83356dc9ccd6eea713acf4e5c4e911d",
+        "processCatalogHash": "e458917c81193c45d617ab2b00aaa6fa917ec19b56596566a92087dc14bb92a1",
+        "resourceCatalogHash": "6eca5d6a1df1ba2deb5ee8c859e6629e8c51a163eaefc128bb4c55e871d7ef72",
+        "scenarioHash": "3f2ccfb3268080bbe0f2acec0cf40fea479d31bc0ffc63ad57e99869daea7356",
+        "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
+      },
+      "steady-production": {
+        "blueprintHash": "3ba99d2dc86c1eed6333e69320ce84d44c2fd1fae880aedd1b1f7d5308f5191e",
+        "deviceCatalogHash": "64a3e7e2b8c86fadd18efaf939b5e7f12c0a6e5c581e346f2a798088c5eea3b5",
+        "engineVersion": "inm-sim/0.50.0",
+        "objectiveHash": "62ec0cceb4c269ddf29e43360a9823cec83356dc9ccd6eea713acf4e5c4e911d",
+        "processCatalogHash": "e458917c81193c45d617ab2b00aaa6fa917ec19b56596566a92087dc14bb92a1",
+        "resourceCatalogHash": "6eca5d6a1df1ba2deb5ee8c859e6629e8c51a163eaefc128bb4c55e871d7ef72",
+        "scenarioHash": "ddcfae03e43f55f337e7970f4c6be18e549eb7c1728626862ba47a2af379bd1d",
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       }
     },
-    "contractHash": "563a3e2d3691d14fc8d436985a75fdb4ce628acfd1aae59deb775983cb4dc22c"
+    "contractHash": "be511c6c04ba68e38b5290bf952e34a17d9f09f12f0ba8c050566b830af635e2"
   },
-  "name": "DRAM Re-entrant Work-Center Dispatch Research",
+  "name": "DRAM Multi-condition Blueprint Research",
   "version": 1
 }

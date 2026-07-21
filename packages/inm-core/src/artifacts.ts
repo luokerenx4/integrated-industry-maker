@@ -28,7 +28,7 @@ export interface RunManifest {
   resultHash: string;
   engineVersion: string;
   hashes: CompiledFactoryProject["hashes"];
-  selection: { world: string; scenario: string; objective: string };
+  selection: { world: string; blueprint: string; scenario: string; objective: string };
   seed: number;
   decision: "BASELINE" | "KEEP" | "REVERT";
   parentRun?: string;
@@ -59,7 +59,8 @@ export async function listRuns(projectDir: string): Promise<RunSummary[]> {
 }
 
 export async function findCachedRun(projectDir: string, runKey: string): Promise<RunSummary | undefined> {
-  return (await listRuns(projectDir)).find((run) => run.manifest.runKey === runKey && run.manifest.decision !== "REVERT");
+  return (await listRuns(projectDir)).find((run) => run.manifest.selection.blueprint
+    && run.manifest.runKey === runKey && run.manifest.decision !== "REVERT");
 }
 
 export async function writeRunArtifact(project: CompiledFactoryProject, result: SimulationResult, options: RunArtifactOptions): Promise<RunSummary> {
@@ -93,6 +94,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const capacityPlan = planProductionCapacity(project);
   const report = [
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
+    `- Blueprint: \`${project.selection.blueprint}\``,
     `- Score: **${result.metrics.finalScore.toFixed(3)}**`, `- Result hash: \`${result.resultHash}\``,
     `- Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`, `- Throughput/min: ${result.metrics.throughputPerMinute.toFixed(3)}`,
     `- Tracked lots: ${result.metrics.lotFlow.completed} / ${result.metrics.lotFlow.released} completed · ${result.metrics.lotFlow.scrapped} scrapped${result.metrics.lotFlow.family ? ` in family \`${result.metrics.lotFlow.family}\`` : ""}`,
@@ -129,7 +131,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const manifest: RunManifest = {
     version: 1, status: "completed", createdAt: new Date().toISOString(), runKey: result.runKey,
     resultHash: result.resultHash, engineVersion: project.hashes.engineVersion, hashes: project.hashes,
-    selection: { world: project.world.id, scenario: project.scenario.id, objective: project.objective.id },
+    selection: { ...project.selection },
     seed: options.seed, decision: options.decision ?? "BASELINE", ...(options.parentRun ? { parentRun: basename(options.parentRun) } : {}),
   };
   await atomicWriteJson(join(runDir, "manifest.json"), manifest);

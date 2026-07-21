@@ -2580,6 +2580,22 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect((await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash).not.toBe(previousLock);
   }, 20_000);
 
+  test("keeps a due-date dispatch improvement across the locked memory-fab operating envelope", async () => {
+    const result = await evaluateBlueprintBenchmark(memoryFab, "dispatch-research");
+    expect(result.verdict).toBe("KEEP");
+    expect(result.accepted).toBeTrue();
+    expect(result.cases.map((item) => item.id)).toEqual([
+      "steady-production", "mixed-quality", "quality-excursion", "lithography-interruption",
+    ]);
+    expect(result.totalSimulationTicks).toBe(1_920_000);
+    expect(result.cases.every((item) => item.scoreDelta > 0)).toBeTrue();
+    expect(result.minimumCaseScoreDelta).toBeCloseTo(Math.min(...result.cases.map((item) => item.scoreDelta)), 8);
+    expect(result.worstCaseCandidateScore).toBeGreaterThan(result.worstCaseBaselineScore);
+    expect(result.scoreDelta).toBeGreaterThan(9);
+    expect(result.cases.every((item) => item.candidateMetrics.qualityEscapes === 0)).toBeTrue();
+    expect(result.changes).toHaveLength(3);
+  });
+
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {
     const unchanged = await evaluateBlueprintBenchmark(ironworks, "power-priority");
     expect(unchanged.verdict).toBe("UNCHANGED");
@@ -2689,6 +2705,7 @@ describe("artifacts and renderer-independent projection", () => {
     const dir = await projectCopy(); const project = await openFactoryProject(dir); const result = runUntil(project, undefined, { seed: 42 });
     const run = await writeRunArtifact(project, result, { label: "replay", seed: 42 });
     expect(await verifyRunReplay(project, run, runUntil(project, undefined, { seed: 42 }))).toBeTrue();
+    expect(run.manifest.selection).toEqual({ world: "main", blueprint: "main", scenario: "baseline", objective: "default" });
     expect((await listRuns(dir))[0]!.manifest.status).toBe("completed");
     expect(JSON.parse(await readFile(join(run.path, "metrics.json"), "utf8")).scoreBreakdown).toBeDefined();
   });

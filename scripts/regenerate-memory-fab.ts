@@ -271,26 +271,56 @@ connect("inspection-to-scrap", { device: "inspection-1", port: "scrap-output", s
 ]);
 
 const blueprint = { version: 1, revision: "memory-fab-quality-v3", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
+const experimentBlueprint = structuredClone(blueprint);
+for (const device of experimentBlueprint.devices) if (["lithography-1", "etch-1"].includes(String(device.id))) {
+  device.policy = { ...(device.policy as Record<string, unknown>), recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
+}
+const experimentInspection = experimentBlueprint.devices.find((device) => device.id === "inspection-1");
+if (experimentInspection?.recipe && typeof experimentInspection.recipe === "object") {
+  (experimentInspection.recipe as Record<string, unknown>).process = "inspect-final-pattern-deep";
+}
 await json(join(project, "blueprints", "baseline.blueprint.json"), blueprint);
-await json(join(project, "blueprints", "experiment.blueprint.json"), blueprint);
+await json(join(project, "blueprints", "experiment.blueprint.json"), experimentBlueprint);
 await json(join(project, "inm.json"), { version: 1, id: "memory-fab", name: "Re-entrant DRAM Memory Fab", defaultWorld: "cleanroom", defaultBlueprint: "baseline", defaultScenario: "production-window", defaultObjective: "dram-output" });
 await json(join(project, "worlds", "cleanroom.world.json"), { version: 1, id: "cleanroom", name: "DRAM Front-End Cleanroom", regions: [{ id: "cleanroom", name: "Memory Fab Cleanroom", kind: "industrial-zone", coordinates: { x: 0, y: 0, z: 0 }, bounds: { width: 40, height: 30 } }], resourceNodes: [] });
-await json(join(project, "scenarios", "production-window.scenario.json"), {
-  id: "production-window", name: "Four-minute DRAM Quality Production Window", durationTicks: 240_000,
-  initialLots: Array.from({ length: 12 }, (_, index) => ({
+
+const initialLots = Array.from({ length: 12 }, (_, index) => ({
     id: `dram-lot-${String(index + 1).padStart(2, "0")}`,
     device: "lot-release", buffer: "storage", resource: "blank-dram-wafer-lot",
     priority: index >= 9 ? 10 : index >= 6 ? 5 : 1,
     dueTick: 240_000 - index * 10_000,
-  })),
-  initialSetups: { "lithography-1": "photo-mask-l1", "etch-1": "etch-recipe-l1" },
-  qualityExcursions: [
-    { id: "cd-excursion-lot-03", process: "etch-cell-layer-2", lot: "dram-lot-03", defects: ["critical-dimension"] },
-    { id: "particle-excursion-lot-08", process: "etch-cell-layer-2", lot: "dram-lot-08", defects: ["particle-contamination"] },
-    { id: "latent-electrical-lot-11", process: "etch-cell-layer-2", lot: "dram-lot-11", defects: ["latent-electrical"] },
-  ],
-  initialEnergyMilliJoules: {}, failures: [],
-});
+  }));
+const initialSetups = { "lithography-1": "photo-mask-l1", "etch-1": "etch-recipe-l1" };
+const mixedExcursions = [
+  { id: "cd-excursion-lot-03", process: "etch-cell-layer-2", lot: "dram-lot-03", defects: ["critical-dimension"] },
+  { id: "particle-excursion-lot-08", process: "etch-cell-layer-2", lot: "dram-lot-08", defects: ["particle-contamination"] },
+  { id: "latent-electrical-lot-11", process: "etch-cell-layer-2", lot: "dram-lot-11", defects: ["latent-electrical"] },
+];
+
+async function scenario(
+  id: string,
+  name: string,
+  qualityExcursions: Array<{ id: string; process: string; lot: string; defects: string[] }>,
+  failures: Array<{ device: string; atTick: number; durationTicks: number }> = [],
+): Promise<void> {
+  await json(join(project, "scenarios", `${id}.scenario.json`), {
+    id, name, durationTicks: 240_000, initialLots, initialSetups, qualityExcursions, initialEnergyMilliJoules: {}, failures,
+  });
+}
+
+await scenario("steady-production", "Four-minute excursion-free DRAM production window", []);
+await scenario("production-window", "Four-minute mixed-quality DRAM production window", mixedExcursions);
+await scenario("quality-excursion", "Four-minute systematic DRAM quality-excursion window", [
+  { id: "cd-excursion-lot-02", process: "etch-cell-layer-2", lot: "dram-lot-02", defects: ["critical-dimension"] },
+  { id: "cd-excursion-lot-05", process: "etch-cell-layer-2", lot: "dram-lot-05", defects: ["critical-dimension"] },
+  { id: "particle-excursion-lot-07", process: "etch-cell-layer-2", lot: "dram-lot-07", defects: ["particle-contamination"] },
+  { id: "particle-excursion-lot-10", process: "etch-cell-layer-2", lot: "dram-lot-10", defects: ["particle-contamination"] },
+  { id: "latent-electrical-lot-08", process: "etch-cell-layer-2", lot: "dram-lot-08", defects: ["latent-electrical"] },
+  { id: "latent-electrical-lot-11", process: "etch-cell-layer-2", lot: "dram-lot-11", defects: ["latent-electrical"] },
+]);
+await scenario("lithography-interruption", "Four-minute mixed-quality window with a lithography interruption", mixedExcursions, [
+  { device: "lithography-1", atTick: 60_000, durationTicks: 30_000 },
+]);
 await json(join(project, "objectives", "dram-output.objective.json"), {
   id: "dram-output", name: "Deliver qualified DRAM wafer lots with controlled quality loss", targetResource: "qualified-dram-wafer-lot", targetRegion: "cleanroom", targetRatePerMinute: 2.5,
   constraints: { maxBuildCost: 140_000, maxOccupiedArea: 320, minProduction: 4 },
@@ -324,15 +354,20 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
   ],
 });
 await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
-  version: 1, id: "dispatch-research", name: "DRAM Re-entrant Work-Center Dispatch Research",
+  version: 1, id: "dispatch-research", name: "DRAM Multi-condition Blueprint Research",
   baselineBlueprint: "baseline", candidateBlueprint: "experiment",
-  cases: [{ id: "production-window", name: "Fixed four-minute quality production window", world: "cleanroom", scenario: "production-window", objective: "dram-output", seed: 42, weight: 1 }],
-  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 0, requireCandidateCapacityReady: false },
+  cases: [
+    { id: "steady-production", name: "Excursion-free production", world: "cleanroom", scenario: "steady-production", objective: "dram-output", seed: 42, weight: 1 },
+    { id: "mixed-quality", name: "Mixed repair, scrap, and escape workload", world: "cleanroom", scenario: "production-window", objective: "dram-output", seed: 42, weight: 2 },
+    { id: "quality-excursion", name: "Systematic quality excursion", world: "cleanroom", scenario: "quality-excursion", objective: "dram-output", seed: 42, weight: 2 },
+    { id: "lithography-interruption", name: "Timed lithography interruption", world: "cleanroom", scenario: "lithography-interruption", objective: "dram-output", seed: 42, weight: 1 },
+  ],
+  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 2, requireCandidateCapacityReady: false },
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
 
-await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The fixed benchmark compares it with \`baseline.blueprint.json\` under the same four-minute DRAM quality-production window.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses an identity-preserving wafer lot within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The baseline uses standard inspection, authored operation order, and FIFO lots. Replacing \`inspect-final-pattern-standard\` with \`inspect-final-pattern-deep\` in the candidate catches the latent electrical defect but consumes more inspection time and scraps another lot. Coding Agents may also test due-date dispatch, \`minimize-changeover\`, tool duplication, parallel inspection, buffers, routes, or power by editing the candidate Blueprint only. Yield, first-pass yield, quality escapes, rework, scrap, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`.\n`);
-await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before inline inspection. Their identities and latent defect state survive processing and physical transport. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise a repairable critical-dimension defect, terminal particle contamination, and a latent electrical defect missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nThe evaluator measures good and first-pass yield, inspection count, rework, scrap, quality escape, complete cycle, queue, processing, transport, changeover, on-time service, and tardiness instead of inferring them from fungible inventory. The model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters.\n\nStart with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
+await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses an identity-preserving wafer lot within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses standard inspection, authored operation order, and FIFO lots.\n\nThe checked-in candidate contains two kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, followed by deep inspection. Due-date dispatch improves every case, especially recovery after the lithography interruption, while deliberately paying more changeover work. Deep inspection catches latent electrical defects, consumes more inspection/rework time, and converts otherwise escaped lots into terminal scrap; the current Objective values that containment above maximum shipment count. Continue from this candidate rather than resetting it.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, buffers, routes, or power by editing the candidate Blueprint only. Yield, first-pass yield, quality escapes, rework, scrap, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
+await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots carry priority and due dates through lithography → etch → deposition, then return to the same lithography and etch work centers before inline inspection. Their identities and latent defect state survive processing and physical transport. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise repairable critical-dimension defects, terminal particle contamination, and latent electrical defects missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nThe locked Coding Agent benchmark evaluates one candidate Blueprint across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption. This prevents a layout or policy from winning only by memorizing one defect schedule. The evaluator measures good and first-pass yield, inspection count, rework, scrap, quality escape, complete cycle, queue, processing, transport, changeover, on-time service, tardiness, and per-case score instead of inferring them from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters. Start with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, \`bun run inm benchmark examples/memory-fab --benchmark dispatch-research\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");
 
 const tsconfig = JSON.parse(await readFile(join(project, "assets", "tsconfig.json"), "utf8")) as Record<string, unknown>;

@@ -13,6 +13,7 @@ import { readJson } from "./utils";
 
 export interface LoadedFactoryProject {
   rootDir: string;
+  selection: { world: string; blueprint: string; scenario: string; objective: string };
   manifest: InmManifest;
   resources: Record<string, ResourceAsset>;
   processes: Record<string, IndustrialProcess>;
@@ -160,5 +161,9 @@ export async function loadFactoryProject(projectDir: string, selection: ProjectS
     parseFile<Scenario>(join(rootDir, "scenarios", `${scenarioId}.scenario.json`), "scenario"),
     parseFile<Objective>(join(rootDir, "objectives", `${objectiveId}.objective.json`), "objective"),
   ]);
-  return { rootDir, manifest, resources, processes, deviceAssets, world, blueprint, scenario, objective };
+  return {
+    rootDir,
+    selection: { world: worldId, blueprint: blueprintId, scenario: scenarioId, objective: objectiveId },
+    manifest, resources, processes, deviceAssets, world, blueprint, scenario, objective,
+  };
 }

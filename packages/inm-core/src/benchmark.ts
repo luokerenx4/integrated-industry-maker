@@ -57,6 +57,9 @@ export interface BlueprintBenchmarkResult {
   baselineScore: number;
   candidateScore: number;
   scoreDelta: number;
+  worstCaseBaselineScore: number;
+  worstCaseCandidateScore: number;
+  minimumCaseScoreDelta: number;
   verdict: "KEEP" | "DISCARD" | "UNCHANGED";
   accepted: boolean;
   reasons: string[];
@@ -158,6 +161,9 @@ export async function evaluateBlueprintBenchmark(projectDir: string, benchmarkId
   }
   const baselineScore = weightedBaseline / totalWeight; const candidateScore = weightedCandidate / totalWeight;
   const scoreDelta = candidateScore - baselineScore; const reasons: string[] = [];
+  const worstCaseBaselineScore = Math.min(...cases.map((item) => item.baselineScore));
+  const worstCaseCandidateScore = Math.min(...cases.map((item) => item.candidateScore));
+  const minimumCaseScoreDelta = Math.min(...cases.map((item) => item.scoreDelta));
   if (scoreDelta + 1e-12 < manifest.acceptance.minimumAggregateScoreDelta) reasons.push(
     `aggregate score delta ${scoreDelta.toFixed(6)} is below required ${manifest.acceptance.minimumAggregateScoreDelta.toFixed(6)}`,
   );
@@ -172,7 +178,7 @@ export async function evaluateBlueprintBenchmark(projectDir: string, benchmarkId
     benchmark: manifest.id, name: manifest.name,
     baselineBlueprint: manifest.baselineBlueprint, candidateBlueprint: manifest.candidateBlueprint,
     baselineBlueprintHash: comparisons[0]!.from.blueprintHash, candidateBlueprintHash: comparisons[0]!.to.blueprintHash,
-    baselineScore, candidateScore, scoreDelta,
+    baselineScore, candidateScore, scoreDelta, worstCaseBaselineScore, worstCaseCandidateScore, minimumCaseScoreDelta,
     verdict: Math.abs(scoreDelta) <= 1e-9 ? "UNCHANGED" : accepted ? "KEEP" : "DISCARD",
     accepted, reasons, totalSimulationTicks, cases,
     patch: comparisons[0]!.patch, changes: comparisons[0]!.changes,

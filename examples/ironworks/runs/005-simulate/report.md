@@ -1,6 +1,7 @@
 # INM Run 005-simulate
 
 - Decision: **BASELINE**
+- Blueprint: `stacked-cargo`
 - Score: **245.090**
 - Result hash: `ae8bb8b18afcf084e79f2c164af3cbf55812100e051eac2bbdbb575cc8e93df7`
 - Bottleneck: none

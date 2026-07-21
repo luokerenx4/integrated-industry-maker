@@ -1,6 +1,7 @@
 # INM Run 006-simulate
 
 - Decision: **BASELINE**
+- Blueprint: `scaled-factory`
 - Score: **122.079**
 - Result hash: `98ea4b25b1ac800915e43fb205eb8746e8a610b238a323c441709c04a1953885`
 - Bottleneck: synth-smelt-iron-1

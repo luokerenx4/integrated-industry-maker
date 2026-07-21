@@ -86,7 +86,7 @@ async function loadProjectIndex() {
       countProcessFiles(summary.path),
       listRuns(summary.path),
     ]);
-    const runs = allRuns.filter((run) => run.manifest.engineVersion === ENGINE_VERSION);
+    const runs = allRuns.filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
     return {
       id: summary.id,
       name: summary.name,
@@ -125,10 +125,10 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "industr
 
 async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
-  const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION);
+  const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
   const selected = runs.find((run) => run.name === runName)
     ?? runs.findLast((run) => run.manifest.decision === "KEEP")
-    ?? runs[0];
+    ?? runs.at(-1);
   const loaded = await loadFactoryProject(projectDir, selected?.manifest.selection);
   const runBlueprint = selected
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
@@ -350,6 +350,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       name: run.name,
       score: run.score,
       decision: run.manifest.decision,
+      blueprint: run.manifest.selection.blueprint,
       resultHash: run.manifest.resultHash,
     })),
   };

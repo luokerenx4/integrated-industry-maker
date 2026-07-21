@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-07-21T16:56:35.279Z",
+  "createdAt": "2026-07-21T17:16:39.279Z",
   "decision": "BASELINE",
   "engineVersion": "inm-sim/0.50.0",
   "hashes": {
@@ -16,6 +16,7 @@
   "runKey": "b120243960381b526eff3610c929e218e4054749dadf9c362308f2fafaacb7ab",
   "seed": 42,
   "selection": {
+    "blueprint": "xray-cracking-factory",
     "objective": "hydrogen-production",
     "scenario": "chemical-cold-start",
     "world": "chemical"

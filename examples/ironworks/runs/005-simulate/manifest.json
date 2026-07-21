@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-07-21T16:56:32.152Z",
+  "createdAt": "2026-07-21T17:16:36.005Z",
   "decision": "BASELINE",
   "engineVersion": "inm-sim/0.50.0",
   "hashes": {
@@ -16,6 +16,7 @@
   "runKey": "7a274ae2f3ae85824493bb6173e2444890900f1daac2d283973202b65d388578",
   "seed": 42,
   "selection": {
+    "blueprint": "stacked-cargo",
     "objective": "stacked-cargo",
     "scenario": "stacked-cargo",
     "world": "main"

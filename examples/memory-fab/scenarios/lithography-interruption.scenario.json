@@ -1,6 +1,6 @@
 {
-  "id": "production-window",
-  "name": "Four-minute mixed-quality DRAM production window",
+  "id": "lithography-interruption",
+  "name": "Four-minute mixed-quality window with a lithography interruption",
   "durationTicks": 240000,
   "initialLots": [
     {
@@ -131,5 +131,11 @@
     }
   ],
   "initialEnergyMilliJoules": {},
-  "failures": []
+  "failures": [
+    {
+      "device": "lithography-1",
+      "atTick": 60000,
+      "durationTicks": 30000
+    }
+  ]
 }

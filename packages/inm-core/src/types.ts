@@ -667,6 +667,7 @@ export interface CompiledPowerGrid {
 }
 export interface CompiledFactoryProject {
   rootDir: string;
+  selection: { world: string; blueprint: string; scenario: string; objective: string };
   manifest: InmManifest;
   resources: Record<ResourceId, ResourceAsset>;
   processes: Record<ProcessId, IndustrialProcess>;

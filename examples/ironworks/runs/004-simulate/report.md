@@ -1,6 +1,7 @@
 # INM Run 004-simulate
 
 - Decision: **BASELINE**
+- Blueprint: `synthesized`
 - Score: **52.511**
 - Result hash: `189aae3775f584cf498b59019fe9e8f047587d3ce0325cc9caf11fa6251906d3`
 - Bottleneck: synth-smelt-iron-1

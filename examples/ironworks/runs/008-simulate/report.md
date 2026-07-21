@@ -1,6 +1,7 @@
 # INM Run 008-simulate
 
 - Decision: **BASELINE**
+- Blueprint: `xray-cracking-factory`
 - Score: **373.334**
 - Result hash: `edf4b94eeed0cd78cc05c85f5922648e4caed6595b634f55fccb1fc3926da8f5`
 - Bottleneck: synth-refine-crude-1

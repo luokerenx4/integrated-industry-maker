@@ -1,6 +1,6 @@
 {
-  "id": "production-window",
-  "name": "Four-minute mixed-quality DRAM production window",
+  "id": "steady-production",
+  "name": "Four-minute excursion-free DRAM production window",
   "durationTicks": 240000,
   "initialLots": [
     {
@@ -104,32 +104,7 @@
     "lithography-1": "photo-mask-l1",
     "etch-1": "etch-recipe-l1"
   },
-  "qualityExcursions": [
-    {
-      "id": "cd-excursion-lot-03",
-      "process": "etch-cell-layer-2",
-      "lot": "dram-lot-03",
-      "defects": [
-        "critical-dimension"
-      ]
-    },
-    {
-      "id": "particle-excursion-lot-08",
-      "process": "etch-cell-layer-2",
-      "lot": "dram-lot-08",
-      "defects": [
-        "particle-contamination"
-      ]
-    },
-    {
-      "id": "latent-electrical-lot-11",
-      "process": "etch-cell-layer-2",
-      "lot": "dram-lot-11",
-      "defects": [
-        "latent-electrical"
-      ]
-    }
-  ],
+  "qualityExcursions": [],
   "initialEnergyMilliJoules": {},
   "failures": []
 }

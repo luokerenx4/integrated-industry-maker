@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-07-21T16:56:29.886Z",
+  "createdAt": "2026-07-21T17:16:33.664Z",
   "decision": "KEEP",
   "engineVersion": "inm-sim/0.50.0",
   "hashes": {
@@ -17,6 +17,7 @@
   "runKey": "cee56996e19cf658669d39beba59c21c1a13fc1523a73bddf84dd6069b93c26b",
   "seed": 42,
   "selection": {
+    "blueprint": "main",
     "objective": "default",
     "scenario": "baseline",
     "world": "main"

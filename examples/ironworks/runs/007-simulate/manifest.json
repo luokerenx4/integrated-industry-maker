@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-07-21T16:56:35.007Z",
+  "createdAt": "2026-07-21T17:16:38.996Z",
   "decision": "BASELINE",
   "engineVersion": "inm-sim/0.50.0",
   "hashes": {
@@ -16,6 +16,7 @@
   "runKey": "58a97973b0eb71ce5e713375323fbbde082286589977c5ba66c55dc4cb0a08e7",
   "seed": 42,
   "selection": {
+    "blueprint": "chemical-factory",
     "objective": "plastic-production",
     "scenario": "chemical-cold-start",
     "world": "chemical"

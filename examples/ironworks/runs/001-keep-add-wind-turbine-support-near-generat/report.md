@@ -1,6 +1,7 @@
 # INM Run 001-keep-add-wind-turbine-support-near-generat
 
 - Decision: **KEEP**
+- Blueprint: `main`
 - Score: **8.707**
 - Result hash: `05969556617d7ca4ec5adaa5be89d82a12ed73c3d4df2a04066f465d3bb8feee`
 - Bottleneck: smelter-1

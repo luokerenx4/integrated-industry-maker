@@ -1,6 +1,7 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
+- Blueprint: `main`
 - Score: **5.138**
 - Result hash: `e4cc6139913c81ab18f3b5d2e428ff63a2bd62f247b2430f702cf9b511eef4b7`
 - Bottleneck: smelter-1

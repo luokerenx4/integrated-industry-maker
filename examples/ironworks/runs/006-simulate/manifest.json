@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-07-21T16:56:34.838Z",
+  "createdAt": "2026-07-21T17:16:38.824Z",
   "decision": "BASELINE",
   "engineVersion": "inm-sim/0.50.0",
   "hashes": {
@@ -16,6 +16,7 @@
   "runKey": "cdd2527923abe03d8f338888356cc49bdd1896573d0042c0ddf17fcc036e2d6d",
   "seed": 42,
   "selection": {
+    "blueprint": "scaled-factory",
     "objective": "scaled-production",
     "scenario": "cold-start",
     "world": "scaled"

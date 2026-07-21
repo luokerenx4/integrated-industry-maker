@@ -1,6 +1,7 @@
 # INM Run 007-simulate
 
 - Decision: **BASELINE**
+- Blueprint: `chemical-factory`
 - Score: **119.737**
 - Result hash: `8f376301cb32a510929086c50cf140c7f3455e4410cb39823cd1ab0507e54aeb`
 - Bottleneck: synth-refine-crude-1

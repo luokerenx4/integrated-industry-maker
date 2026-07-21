@@ -1,6 +1,7 @@
 # INM Run 002-keep-switch-assembler-1-from-assemble-gear
 
 - Decision: **KEEP**
+- Blueprint: `main`
 - Score: **30.404**
 - Result hash: `073bb71d8579289d6b940073e91ff9567c343904ef8a7f0443e4a285e7cf11c0`
 - Bottleneck: smelter-1

@@ -1,6 +1,7 @@
 # INM Run 003-keep-duplicate-processor-smelter-1-as-smel
 
 - Decision: **KEEP**
+- Blueprint: `main`
 - Score: **85.600**
 - Result hash: `98556e47f82dc8f2a94c1614eb70afa4e99c55a83c80f4ed169aa2deb63aed23`
 - Bottleneck: smelter-1

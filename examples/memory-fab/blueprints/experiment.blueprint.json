@@ -51,8 +51,8 @@
         }
       ],
       "policy": {
-        "recipeDispatch": "authored-order",
-        "lotDispatch": "fifo",
+        "recipeDispatch": "earliest-due-date",
+        "lotDispatch": "earliest-due-date",
         "powerPriority": 10
       }
     },
@@ -90,8 +90,8 @@
         }
       ],
       "policy": {
-        "recipeDispatch": "authored-order",
-        "lotDispatch": "fifo",
+        "recipeDispatch": "earliest-due-date",
+        "lotDispatch": "earliest-due-date",
         "powerPriority": 9
       }
     },
@@ -128,7 +128,7 @@
       },
       "rotation": 0,
       "recipe": {
-        "process": "inspect-final-pattern-standard",
+        "process": "inspect-final-pattern-deep",
         "mode": "qualified",
         "inputs": {
           "dram-wafer-lot": "wafer-input"
