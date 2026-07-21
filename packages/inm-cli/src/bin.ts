@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, compareCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
@@ -27,6 +27,7 @@ PROJECT COMMANDS
   inspect <path>              Show assets, topology, objective, hashes, and runs
   analyze <path>              Compile nominal process rates and material balance
   plan <path>                 Size the factory for the objective target rate
+  compare <path>              Diff and evaluate two Blueprint files
   synthesize <path>           Generate a complete blueprint from the objective
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
@@ -38,6 +39,8 @@ COMMON OPTIONS
   --project <id>              Project inside a workspace (default from workspace)
   --world <id>                World name (default from project inm.json)
   --blueprint <id>            Blueprint name (default from project inm.json)
+  --from-blueprint <id>       Comparison baseline Blueprint
+  --to-blueprint <id>         Comparison candidate Blueprint
   --scenario <id>             Scenario name (default from project inm.json)
   --objective <id>            Objective name (default from project inm.json)
   --seed <n>                  Deterministic seed (default 42)
@@ -102,6 +105,17 @@ async function main(): Promise<void> {
     const { values, positionals } = parseArgs({ args, options: { ...common, output: { type: "string", default: "synthesized" } }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]", values.project);
     return synthesizeCommand(projectDir, selectionOf(values), { output: values.output!, json: values.json });
+  }
+  if (subcommand === "compare") {
+    const { values, positionals } = parseArgs({ args, options: {
+      ...projectOption, world: common.world, scenario: common.scenario, objective: common.objective, json: common.json,
+      "from-blueprint": { type: "string" }, "to-blueprint": { type: "string" }, seed: { type: "string", default: "42" },
+    }, allowPositionals: true });
+    if (!values["from-blueprint"] || !values["to-blueprint"]) throw new Error("Usage: inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID [--seed N]");
+    const projectDir = await selectedProject(positionals, "inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID", values.project);
+    return compareCommand(projectDir, { world: values.world, scenario: values.scenario, objective: values.objective }, {
+      fromBlueprint: values["from-blueprint"], toBlueprint: values["to-blueprint"], seed: Number(values.seed), json: values.json,
+    });
   }
   if (subcommand === "simulate") {
     const { values, positionals } = parseArgs({ args, options: { ...common, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });

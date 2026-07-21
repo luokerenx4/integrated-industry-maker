@@ -40,6 +40,24 @@ Treats the Objective's required target rate as an industrial specification. The 
 inm plan examples/ironworks --json
 ```
 
+### `inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID [--project ID] [--seed N]`
+
+Compares two named Blueprint files as one controlled experiment. Both files are compiled against the same selected Resource, Process, and Device catalogs, World, Scenario, Objective, and deterministic seed; the command rejects a changed benchmark input instead of blending it into the Blueprint result.
+
+Human output groups stable-id changes by Device, local connection, logistics network, factory policy, and Blueprint metadata. It also prints an exact replayable RFC 6902 file patch, both target-rate capacity-plan states, objective score and throughput/attainment/energy/cost/area/congestion deltas, bottlenecks, and an `IMPROVED`, `REGRESSED`, or `UNCHANGED` verdict. `--json` returns the complete patches, semantic before/after values, capacity plans, metric snapshots, deltas, hashes, seed, and verdict for a coding agent.
+
+```bash
+inm compare examples/ironworks \
+  --from-blueprint synthesized \
+  --to-blueprint scaled-factory \
+  --world scaled \
+  --scenario cold-start \
+  --objective scaled-production \
+  --seed 42
+```
+
+The command is strictly read-only: it never edits a Blueprint and never creates or reuses a run artifact. Use `inm simulate` to persist a chosen candidate. The two Blueprints must both execute successfully under the selected Scenario; a failure names the side that could not be evaluated. The detailed invariant is in [[docs/design/blueprint-comparison]].
+
 ### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
 
 Creates a new complete blueprint from the selected Objective rather than editing the input blueprint. The deterministic synthesizer considers every compatible project-local Process and Device, solves a globally raw-efficient continuous process mix (including alternatives, coproducts, and recycle loops), then expands it across `(Resource, region)` balances. Regional raw variables are capped by the selected Scenario's finite reserve lifetime; inter-region variables are costed by world-coordinate distance. The final Process and boundary consumer are anchored to the Objective's required `targetRegion` while upstream Processes may move, so the solver explicitly chooses which intermediate crosses each planetary boundary. It then sizes machine and extractor counts, binds multi-input/multi-output recipes and finite deposits, inserts direct rate-matched flows or arbitrary-size merge/split junction trees and cross-region station fleets, and propagates required items/min across every local edge. For each connection it evaluates all compatible project-local loader/line/unloader combinations through their TypeScript `planTransport()` hooks and Resource stack limits, selecting the lowest weighted-cost pipeline that meets the flow. After belt routing, every powered Device and loader/unloader endpoint becomes a spatial power target. The synthesizer inserts connected renewable distributor chains until all targets are covered, then adds connected generation capacity until rated regional demand is met. It compiles the result, runs the target-rate capacity plan, and performs a cold-start simulation before atomically writing `blueprints/<output>.blueprint.json`. Existing files are never overwritten.
@@ -118,4 +136,4 @@ Studio can replay semantic events, scrub time, change speed, inspect status and 
 
 ## Selection and output
 
-Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `analyze`, `plan`, `synthesize`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.
+Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `analyze`, `plan`, `synthesize`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. `compare` accepts the same benchmark selectors but replaces `--blueprint` with required `--from-blueprint` and `--to-blueprint` ids. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.

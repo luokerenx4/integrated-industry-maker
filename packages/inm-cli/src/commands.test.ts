@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { listWorkspaceProjects, openFactoryProject, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
-import { projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
+import { listRuns, listWorkspaceProjects, openFactoryProject, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-workspace-")); const workspace = join(parent, "engine");
@@ -41,4 +41,20 @@ test("synthesize command writes a new compileable blueprint and refuses overwrit
   const project = await openFactoryProject(projectDir, { blueprint: "generated-test", scenario: "cold-start" });
   expect(planProductionCapacity(project).ready).toBeTrue();
   expect(synthesizeCommand(projectDir, { blueprint: "blank", scenario: "cold-start" }, { output: "generated-test", json: false })).rejects.toThrow("Blueprint already exists");
+});
+
+test("compare command evaluates two Blueprints without writing a run artifact", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-compare-")); const projectDir = join(parent, "ironworks");
+  await cp(resolve(import.meta.dir, "../../../examples/ironworks"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") });
+  const mainPath = join(projectDir, "blueprints", "main.blueprint.json"); const candidatePath = join(projectDir, "blueprints", "candidate.blueprint.json");
+  const candidate = JSON.parse(await readFile(mainPath, "utf8"));
+  candidate.devices.find((device: { id: string }) => device.id === "assembler-1").recipe.mode = "accelerated";
+  await writeFile(candidatePath, `${JSON.stringify(candidate, null, 2)}\n`);
+  const mainBefore = await readFile(mainPath, "utf8"); const candidateBefore = await readFile(candidatePath, "utf8");
+
+  await compareCommand(projectDir, {}, { fromBlueprint: "main", toBlueprint: "candidate", seed: 42, json: false });
+
+  expect(await listRuns(projectDir)).toHaveLength(0);
+  expect(await readFile(mainPath, "utf8")).toBe(mainBefore);
+  expect(await readFile(candidatePath, "utf8")).toBe(candidateBefore);
 });

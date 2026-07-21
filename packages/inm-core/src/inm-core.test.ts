@@ -3,7 +3,7 @@ import { cp, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyResearchPatch, compileFactoryProject, createFactorySceneModel,
+  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel,
   findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
   type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
@@ -1209,6 +1209,28 @@ describe("deterministic discrete-event simulation", () => {
 });
 
 describe("research boundary and experiment decisions", () => {
+  test("Blueprint comparison produces an exact patch and deterministic industrial impact", async () => {
+    const source = await loaded(); const before = compileFactoryProject(source);
+    const candidate = structuredClone(source.blueprint); const assembler = candidate.devices.find((device) => device.id === "assembler-1");
+    if (!assembler?.recipe) throw new Error("assembler-1 recipe missing from test fixture");
+    assembler.recipe.mode = "accelerated";
+    const after = compileFactoryProject({ ...source, blueprint: candidate });
+    const comparison = compareFactoryBlueprints(before, after, { seed: 42, fromLabel: "main", toLabel: "accelerated" });
+
+    expect(stableStringify(applyBlueprintPatch(before.blueprint, comparison.patch))).toBe(stableStringify(after.blueprint));
+    expect(comparison.changes).toEqual([expect.objectContaining({ kind: "device", id: "assembler-1", action: "changed", fields: ["recipe.mode"] })]);
+    expect(comparison.to.capacityPlan.processes.some((process) => process.mode === "accelerated")).toBeTrue();
+    expect(comparison.delta.score).toBeGreaterThan(0);
+    expect(comparison.verdict).toBe("IMPROVED");
+    expect(compareFactoryBlueprints(before, after, { seed: 42 }).delta).toEqual(comparison.delta);
+  });
+
+  test("Blueprint comparison rejects a benchmark or seed change", async () => {
+    const baseline = await openFactoryProject(ironworks); const otherScenario = await openFactoryProject(ironworks, { scenario: "machine-failure" });
+    expect(() => compareFactoryBlueprints(baseline, otherScenario)).toThrow("Scenario differs");
+    expect(() => compareFactoryBlueprints(baseline, baseline, { seed: -1 })).toThrow("non-negative safe integer");
+  });
+
   test("patches can optimize logistics networks but cannot edit world assets, scenarios, objectives, or regions", () => {
     expect(() => validateResearchPatch([{ op: "replace", path: "/logisticsNetworks/0/fleet/count", value: 2 }])).not.toThrow();
     for (const path of ["/assets/resources/iron-ore", "/assets/devices/smelter", "/scenarios/baseline", "/objectives/default", "/world/regions/0/bounds/width", "/resourceNodes/0/amount"]) {

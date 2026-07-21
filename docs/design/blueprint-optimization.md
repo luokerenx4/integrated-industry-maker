@@ -1,8 +1,8 @@
 # Blueprint synthesis and optimization loop
 
-Status: target-rate planning, full blueprint synthesis, bounded research, and CLI evaluation loop implemented.
+Status: target-rate planning, full blueprint synthesis, bounded research, explicit comparison, and CLI evaluation loop implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-comparison]], [[docs/CLI]].
 
 ## Product model
 
@@ -19,6 +19,8 @@ inspect files and compiled diagnostics
 ```
 
 AI edits project files and invokes the same CLI as a human. It does not manipulate the 3D scene or receive a permissive execution path.
+
+Before keeping an edit, `inm compare` can isolate two named Blueprint files under one World, Scenario, Objective, catalog set, and seed. It returns the exact file patch, industrial semantic changes, both capacity plans, and deterministic score/metric deltas without modifying either Blueprint or writing a run artifact. See [[docs/design/blueprint-comparison]] for the comparison contract.
 
 ## Capacity planning
 
@@ -55,6 +57,7 @@ Each candidate is applied to a copy, schema-validated, compiled, simulated, scor
 - Capacity plan: `packages/inm-core/src/capacity-plan.ts`
 - Synthesis: `packages/inm-core/src/synthesis.ts`
 - Research/patch boundary: `packages/inm-core/src/research.ts`
+- Blueprint comparison: `packages/inm-core/src/blueprint-comparison.ts`
 - Evaluation: `packages/inm-core/src/evaluator.ts`
 - CLI orchestration: `packages/inm-cli/src/commands.ts`
 
@@ -65,6 +68,7 @@ bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-star
 bun run inm validate examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm plan examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm simulate examples/ironworks --blueprint scratch --scenario cold-start
+bun run inm compare examples/ironworks --from-blueprint synthesized --to-blueprint scaled-factory --world scaled --scenario cold-start --objective scaled-production --seed 42
 bun run inm research examples/ironworks --iterations 3 --seed 42
 ```
 
@@ -74,4 +78,3 @@ Tests must prove both static readiness and executable material delivery. A plan 
 
 - Richer search beyond deterministic heuristics and continuous process placement.
 - Joint placement/routing/power optimization instead of staged deterministic construction.
-- Explicit Blueprint diff/explain output designed for external coding agents.

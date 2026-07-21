@@ -341,6 +341,8 @@ The filename must match `id`; every resource is compiler-resolved. Inputs and ou
 
 Every Device instance belongs to exactly one region from the selected world. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region and explicitly select loader, line, and unloader Device assets. Extractors must explicitly bind reachable, same-region nodes supported by their asset.
 
+Blueprint files are independently named candidate programs. `inm compare` can transform one complete file into another with an exact RFC 6902 patch while also reporting changes by stable entity id. Array positions are patch mechanics; Device, connection, and logistics-network ids are the semantic identity used in explanations. Comparison fixes catalogs, World, Scenario, Objective, and seed so its metric delta belongs to the Blueprint edit alone. See [[docs/design/blueprint-comparison]].
+
 ```json
 {
   "version": 1,

@@ -17,6 +17,7 @@ Read the relevant linked document before changing a subsystem:
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]
+- Exact Blueprint patches, semantic changes, and controlled before/after evaluation: [[docs/design/blueprint-comparison]]
 - Project launcher, stable routes, asset catalog, analysis, and 3D replay: [[docs/design/studio-debugger]]
 - Canonical on-disk schemas and examples: [[docs/PROJECT_FORMAT]]
 - Command behavior and machine-readable output: [[docs/CLI]]

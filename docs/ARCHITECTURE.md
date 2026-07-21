@@ -129,6 +129,8 @@ Before simulation, `planProductionCapacity()` treats `Objective.targetRatePerMin
 
 Hard constraints produce a visible infeasibility reason and penalty. Soft weights remain explicit in the objective file and their individual contributions are written to `metrics.json`; the final score is never a black box.
 
+Blueprint comparison is a controlled evaluation boundary, not a second scoring path. `compareFactoryBlueprints()` requires equal Resource, Process, and Device catalog hashes plus equal World, Scenario, and Objective hashes, then plans and simulates both compiled Blueprints with the same seed. It emits an exact RFC 6902 transformation, stable-id semantic changes, capacity plans, metric snapshots/deltas, and a verdict based only on Objective score. The operation is pure with respect to project files and run history. This makes an edit explainable before it is persisted as an immutable run. See [[docs/design/blueprint-comparison]].
+
 ## Research boundary
 
 Research proposals use RFC 6902-style `add`, `remove`, and `replace` operations. Permission validation accepts only paths rooted at:

@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, compileFactoryProject, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, openFactoryProject, pathExists,
+  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, openFactoryProject, pathExists,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
@@ -10,6 +10,20 @@ import {
 
 export interface OutputOptions { json?: boolean }
 const write = (value: unknown, json: boolean) => process.stdout.write(json ? `${stableStringify(value, 2)}\n` : String(value));
+
+function signed(value: number, digits = 3): string {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
+function fieldValue(value: unknown, field: string): unknown {
+  return field.split(".").reduce<unknown>((current, segment) => current && typeof current === "object" ? (current as Record<string, unknown>)[segment] : undefined, value);
+}
+
+function compactValue(value: unknown): string {
+  if (value === undefined) return "∅";
+  const serialized = stableStringify(value);
+  return serialized.length > 90 ? `${serialized.slice(0, 87)}…` : serialized;
+}
 
 async function requireEmptyTarget(target: string): Promise<void> {
   try {
@@ -186,6 +200,51 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
     ...plan.power.map((power) => `  ${power.region.padEnd(24)} need ${(power.requiredMilliWatts / 1000).toFixed(3).padStart(9)} W  generation ${(power.configuredGenerationMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(power.headroomMilliWatts / 1000).toFixed(3)} W`),
     "", plan.gaps.length ? "Plan gaps" : "Plan gaps: none",
     ...plan.gaps.map((gap) => `  ! [${gap.kind}] ${gap.message}`), "",
+  ].join("\n"), false);
+}
+
+export async function compareCommand(
+  projectDir: string,
+  selection: Omit<ProjectSelection, "blueprint">,
+  options: { fromBlueprint: string; toBlueprint: string; seed: number; json: boolean },
+): Promise<void> {
+  if (options.fromBlueprint === options.toBlueprint) throw new Error("Compared Blueprint ids must be different");
+  const from = await openFactoryProject(projectDir, { ...selection, blueprint: options.fromBlueprint });
+  const to = await openFactoryProject(projectDir, { ...selection, blueprint: options.toBlueprint });
+  const comparison = compareFactoryBlueprints(from, to, { seed: options.seed, fromLabel: options.fromBlueprint, toLabel: options.toBlueprint });
+  if (options.json) {
+    write({ command: "compare", project: from.manifest.name, ...comparison }, true);
+    return;
+  }
+  const changeLines = comparison.changes.flatMap((change) => {
+    const marker = change.action === "added" ? "+" : change.action === "removed" ? "-" : "~";
+    if (change.action !== "changed") return [`  ${marker} ${change.kind.padEnd(18)} ${change.id}`];
+    const details = change.fields.map((field) => `${field}: ${compactValue(fieldValue(change.before, field))} → ${compactValue(fieldValue(change.after, field))}`);
+    return [`  ${marker} ${change.kind.padEnd(18)} ${change.id}`, ...details.map((detail) => `      ${detail}`)];
+  });
+  const patchLines = comparison.patch.map((operation) => `  ${operation.op.padEnd(7)} ${operation.path}${operation.op === "remove" ? "" : ` = ${compactValue(operation.value)}`}`);
+  const fromMetrics = comparison.from.metrics; const toMetrics = comparison.to.metrics;
+  write([
+    `${from.manifest.name} · Blueprint comparison`,
+    `FROM ${comparison.from.label} ${comparison.from.blueprintHash.slice(0, 12)} → TO ${comparison.to.label} ${comparison.to.blueprintHash.slice(0, 12)}`,
+    `Benchmark: ${from.world.id} / ${from.scenario.id} / ${from.objective.id} · seed ${comparison.seed}`, "",
+    `Semantic changes (${comparison.changes.length})`, ...(changeLines.length ? changeLines : ["  none"]), "",
+    `Replayable RFC 6902 patch (${comparison.patch.length})`, ...(patchLines.length ? patchLines : ["  none"]), "",
+    "Target-rate capacity",
+    `  FROM ${comparison.from.capacityPlan.ready ? "READY" : `${comparison.from.capacityPlan.gaps.length} GAPS`} · TO ${comparison.to.capacityPlan.ready ? "READY" : `${comparison.to.capacityPlan.gaps.length} GAPS`}`,
+    ...comparison.to.capacityPlan.gaps.map((gap) => `  ! TO [${gap.kind}] ${gap.message}`),
+    ...(comparison.to.capacityPlan.gaps.length ? [] : ["  TO has no capacity gaps"]), "",
+    "Deterministic evaluation",
+    `  score              ${fromMetrics.score.toFixed(3).padStart(12)} → ${toMetrics.score.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.score)}`,
+    `  throughput/min     ${fromMetrics.throughputPerMinute.toFixed(3).padStart(12)} → ${toMetrics.throughputPerMinute.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.throughputPerMinute)}`,
+    `  target attainment  ${(fromMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}% → ${(toMetrics.objectiveAttainment * 100).toFixed(1).padStart(11)}%  Δ ${signed(comparison.delta.objectiveAttainment * 100, 1)}pp`,
+    `  energy             ${(fromMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} → ${(toMetrics.energyConsumedMilliJoules / 1e6).toFixed(3).padStart(12)} MJ  Δ ${signed(comparison.delta.energyConsumedMilliJoules / 1e6)} MJ`,
+    `  build cost         ${fromMetrics.totalBuildCost.toFixed(0).padStart(12)} → ${toMetrics.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
+    `  occupied area      ${fromMetrics.occupiedArea.toFixed(0).padStart(12)} → ${toMetrics.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
+    `  blocked belt items ${fromMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)} → ${toMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageBlockedBeltItems)}`,
+    `  bottleneck         ${(fromMetrics.bottleneckEntity ?? "none").padStart(12)} → ${(toMetrics.bottleneckEntity ?? "none").padStart(12)}`, "",
+    `VERDICT: ${comparison.verdict} (${signed(comparison.delta.score)} objective score)`,
+    "No run artifact was written; compare is a read-only evaluation.", "",
   ].join("\n"), false);
 }
 
