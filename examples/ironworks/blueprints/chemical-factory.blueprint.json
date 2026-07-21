@@ -11,10 +11,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -84,10 +86,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -189,10 +193,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -269,10 +275,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -305,11 +313,11 @@
           "hydrogen": "gas-input",
           "refined-oil": "liquid-input"
         },
+        "mode": "standard",
         "outputs": {
           "plastic": "output"
         },
-        "process": "make-plastic",
-        "mode": "standard"
+        "process": "make-plastic"
       },
       "region": "chemical-basin",
       "rotation": 0
@@ -325,12 +333,12 @@
         "inputs": {
           "crude-oil": "crude-input"
         },
+        "mode": "standard",
         "outputs": {
           "hydrogen": "gas-output",
           "refined-oil": "liquid-output"
         },
-        "process": "refine-crude",
-        "mode": "standard"
+        "process": "refine-crude"
       },
       "region": "chemical-basin",
       "rotation": 0

@@ -21,16 +21,31 @@
       "status": "blocked-output"
     },
     "synth-forge-gear-pair-1": {
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "forge-gear-pair",
+        "powerMilliWatts": 330000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 4,
+            "resource": "gear"
+          }
+        ],
+        "remainingTicks": 4000,
+        "resumedAt": 117990,
+        "startedAt": 117990,
+        "workedTicks": 0
+      },
       "buffers": {
-        "input-primary": {
-          "iron-plate": 2
-        },
+        "input-primary": {},
         "input-secondary": {
           "coal": 8
         },
         "output": {}
       },
-      "status": "waiting-input"
+      "progressTicks": 2010,
+      "status": "processing"
     },
     "synth-forge-world-wind-turbine-1": {
       "buffers": {},
@@ -47,16 +62,33 @@
       "status": "waiting-input"
     },
     "synth-iron-ore-extractor-1": {
-      "buffers": {
-        "output": {}
+      "activeJob": {
+        "durationTicks": 1000,
+        "extraction": {
+          "count": 1,
+          "node": "iron-vein-3"
+        },
+        "operation": "extract-iron-ore",
+        "powerMilliWatts": 50000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-ore"
+          }
+        ],
+        "remainingTicks": 1000,
+        "resumedAt": 119200,
+        "startedAt": 119200,
+        "workedTicks": 0
       },
-      "status": "waiting-input"
-    },
-    "synth-iron-ore-split": {
       "buffers": {
-        "storage": {}
+        "output": {
+          "iron-ore": 6
+        }
       },
-      "status": "idle"
+      "progressTicks": 800,
+      "status": "processing"
     },
     "synth-iron-plate-assembly-world-station-demand-1": {
       "buffers": {
@@ -66,44 +98,48 @@
     },
     "synth-iron-plate-forge-world-station-supply-1": {
       "buffers": {
-        "storage": {}
-      },
-      "status": "idle"
-    },
-    "synth-iron-plate-merge": {
-      "buffers": {
-        "storage": {}
+        "storage": {
+          "iron-plate": 1
+        }
       },
       "status": "idle"
     },
     "synth-smelt-iron-1": {
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "smelt-iron",
+        "powerMilliWatts": 180000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-plate"
+          }
+        ],
+        "remainingTicks": 4000,
+        "resumedAt": 119200,
+        "startedAt": 119200,
+        "workedTicks": 0
+      },
       "buffers": {
         "input": {
-          "iron-ore": 1
+          "iron-ore": 6
         },
         "output": {}
       },
-      "status": "waiting-input"
-    },
-    "synth-smelt-iron-2": {
-      "buffers": {
-        "input": {
-          "iron-ore": 1
-        },
-        "output": {}
-      },
-      "status": "waiting-input"
+      "progressTicks": 800,
+      "status": "processing"
     }
   },
   "energy": {
     "availableMilliWatts": 2400000,
-    "consumedMilliJoules": 223162000,
+    "consumedMilliJoules": 204471800,
     "fuelConsumed": {},
     "grids": {
       "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
         "availableMilliWatts": 1200000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 97914000,
+        "consumedMilliJoules": 95612300,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
@@ -111,7 +147,7 @@
       "grid-forge-world-synth-forge-world-wind-turbine-1": {
         "availableMilliWatts": 1200000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 125248000,
+        "consumedMilliJoules": 108859500,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
@@ -119,18 +155,31 @@
     }
   },
   "logisticsTransports": {
-    "synth-iron-plate-forge-world-to-assembly-world-lane-1": []
+    "synth-iron-plate-forge-world-to-assembly-world-lane-1": [
+      {
+        "arriveTick": 127900,
+        "count": 3,
+        "departTick": 115940,
+        "from": "synth-iron-plate-forge-world-station-supply-1",
+        "fromBuffer": "storage",
+        "id": "transit-000175",
+        "logisticsRoute": "synth-iron-plate-forge-world-to-assembly-world-lane-1:iron-plate:synth-iron-plate-forge-world-station-supply-1->synth-iron-plate-assembly-world-station-demand-1",
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-assembly-world-station-demand-1",
+        "toBuffer": "storage"
+      }
+    ]
   },
   "produced": {
-    "coal": 30,
+    "coal": 32,
     "gear": 28,
-    "iron-ore": 90,
-    "iron-plate": 44
+    "iron-ore": 74,
+    "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 30,
-      "remaining": 10,
+      "extracted": 32,
+      "remaining": 8,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -149,21 +198,61 @@
       "reserved": 0
     },
     "iron-vein-3": {
-      "extracted": 30,
-      "remaining": 0,
-      "reserved": 0
+      "extracted": 14,
+      "remaining": 15,
+      "reserved": 1
     }
   },
   "tick": 120000,
   "transports": {
     "synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1": [],
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink": [],
-    "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": [],
-    "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1": [],
-    "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2": [],
+    "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1": [
+      {
+        "arriveTick": 120400,
+        "cellIndex": 5,
+        "count": 1,
+        "departTick": 119200,
+        "from": "synth-iron-ore-extractor-1",
+        "fromBuffer": "output",
+        "id": "transit-000181",
+        "phase": "belt",
+        "readyTick": 120050,
+        "resource": "iron-ore",
+        "to": "synth-smelt-iron-1",
+        "toBuffer": "input"
+      },
+      {
+        "arriveTick": 120650,
+        "cellIndex": 3,
+        "count": 1,
+        "departTick": 119450,
+        "from": "synth-iron-ore-extractor-1",
+        "fromBuffer": "output",
+        "id": "transit-000182",
+        "phase": "belt",
+        "readyTick": 120100,
+        "resource": "iron-ore",
+        "to": "synth-smelt-iron-1",
+        "toBuffer": "input"
+      }
+    ],
     "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1": [],
-    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1": [],
-    "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": [],
-    "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": []
+    "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1": [
+      {
+        "arriveTick": 120300,
+        "cellIndex": 5,
+        "count": 1,
+        "departTick": 119200,
+        "from": "synth-smelt-iron-1",
+        "fromBuffer": "output",
+        "id": "transit-000180",
+        "phase": "belt",
+        "readyTick": 120050,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-forge-world-station-supply-1",
+        "toBuffer": "storage"
+      }
+    ]
   }
 }

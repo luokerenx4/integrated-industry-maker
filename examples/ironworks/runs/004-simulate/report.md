@@ -1,16 +1,16 @@
 # INM Run 004-simulate
 
 - Decision: **BASELINE**
-- Score: **105.936**
-- Result hash: `76782ac917417e679481d4740cf25483a050bd78623b8ac50ffcb3e7b0c9e044`
+- Score: **111.332**
+- Result hash: `e2849ddca3a4ad937a32fb0abb2cbd970c06e3db1d37c2f373d18acf6d69da9d`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
 - Capacity plan: READY
-- Belt utilization: 2.9%
-- Average blocked belt items: 0.000
-- Peak belt items: 5
-- Powered transport energy: 362.000 J
+- Belt utilization: 3.5%
+- Average blocked belt items: 0.148
+- Peak belt items: 4
+- Powered transport energy: 204.500 J
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
@@ -22,15 +22,11 @@
 
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
-| synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split | 45.000 / 240.000 | 18.8% | 0 | 90 iron-ore |
-| synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1 | 22.500 / 240.000 | 9.4% | 0 | 45 iron-ore |
-| synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2 | 22.500 / 240.000 | 9.4% | 0 | 45 iron-ore |
-| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1 | 22.000 / 240.000 | 9.2% | 0 | 44 iron-plate |
-| synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1 | 22.000 / 240.000 | 9.2% | 0 | 44 iron-plate |
-| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 14.000 / 240.000 | 5.8% | 0 | 28 gear |
-| synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1 | 11.000 / 240.000 | 4.6% | 0 | 22 coal |
-| synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
-| synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
+| synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-ore |
+| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 14.000 / 120.000 | 11.7% | 11200 | 28 gear |
+| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1 | 12.000 / 120.000 | 10.0% | 6600 | 24 iron-plate |
+| synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1 | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
+| synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1 | 12.000 / 240.000 | 5.0% | 0 | 24 coal |
 
 ## Grid storage
 
@@ -40,13 +36,13 @@ No configured accumulators.
 
 ```json
 {
-  "blocked": -1.5,
-  "buildCost": -13.66,
+  "blocked": -2.22,
+  "buildCost": -12.27,
   "constraintPenalty": 0,
-  "energy": -2.23162,
-  "occupiedArea": -24,
+  "energy": -2.044718,
+  "occupiedArea": -18.8,
   "onTimeDelivery": 10,
   "throughput": 140,
-  "wip": -2.6720833333333336
+  "wip": -3.333141666666667
 }
 ```

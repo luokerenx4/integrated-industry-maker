@@ -11,14 +11,18 @@ export function rotatePortSide(side: DevicePort["side"], rotation: Rotation): De
 }
 
 export function externalPortCell(device: BlueprintDevice, asset: DeviceAsset, portId: string): GridPosition | null {
+  return externalPortCellAtDistance(device, asset, portId, 1);
+}
+
+export function externalPortCellAtDistance(device: BlueprintDevice, asset: DeviceAsset, portId: string, distance: number): GridPosition | null {
   const port = asset.geometry.ports.find((item) => item.id === portId);
   if (!port) return null;
   const footprint = rotatedFootprint(asset, device.rotation);
   const side = rotatePortSide(port.side, device.rotation);
-  if (side === "north") return { x: device.position.x + port.offset, y: device.position.y - 1 };
-  if (side === "south") return { x: device.position.x + port.offset, y: device.position.y + footprint.height };
-  if (side === "west") return { x: device.position.x - 1, y: device.position.y + port.offset };
-  return { x: device.position.x + footprint.width, y: device.position.y + port.offset };
+  if (side === "north") return { x: device.position.x + port.offset, y: device.position.y - distance };
+  if (side === "south") return { x: device.position.x + port.offset, y: device.position.y + footprint.height - 1 + distance };
+  if (side === "west") return { x: device.position.x - distance, y: device.position.y + port.offset };
+  return { x: device.position.x + footprint.width - 1 + distance, y: device.position.y + port.offset };
 }
 
 export function transportCellId(region: string, position: GridPosition): string {
@@ -37,8 +41,9 @@ export function findBlueprintConnectionPath(
   if (!from || !to || from.region !== to.region) return null;
   const fromAsset = assets[from.asset]; const toAsset = assets[to.asset];
   if (!fromAsset || !toAsset) return null;
-  const start = externalPortCell(from, fromAsset, connection.from.port);
-  const end = options.end ?? externalPortCell(to, toAsset, connection.to.port);
+  const endpointLogistics = (connection as Partial<BlueprintConnection>).logistics;
+  const start = externalPortCellAtDistance(from, fromAsset, connection.from.port, endpointLogistics?.loader.distance ?? 1);
+  const end = options.end ?? externalPortCellAtDistance(to, toAsset, connection.to.port, endpointLogistics?.unloader.distance ?? 1);
   const region = world.regions.find((item) => item.id === from.region);
   if (!start || !end || !region) return null;
   const inside = (position: GridPosition) => position.x >= 0 && position.y >= 0 && position.x < region.bounds.width && position.y < region.bounds.height;

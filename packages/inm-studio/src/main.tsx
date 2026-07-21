@@ -76,7 +76,7 @@ interface DeviceCatalogAsset {
     }>;
   };
   extraction?: { resources: string[]; radius: number; outputBuffer: string; cycleTicks: number; itemsPerCycle: number };
-  logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar"> };
+  logistics?: { roles: Array<"loader" | "line" | "unloader" | "carrier">; carrierKinds?: Array<"planetary" | "interstellar">; endpointRange?: { minimum: number; maximum: number } };
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: string; slots: number };
   runtime: { apiVersion: 1; entry: string };
   power: {
@@ -204,7 +204,7 @@ interface IndustrialAnalysis {
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number; maxLevel: number;
     capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
-    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
+    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
   transportCells: Array<{ cell: string; region: string; position: { x: number; y: number; level?: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
   powerGrids: Array<{
@@ -263,7 +263,7 @@ interface StudioData {
     from: { x: number; y: number; level: number };
     to: { x: number; y: number; level: number };
     points: Array<{ x: number; y: number; level: number }>;
-    endpoints: Array<{ stage: "loader" | "unloader"; asset: string; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
+    endpoints: Array<{ stage: "loader" | "unloader"; asset: string; distance: number; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
   }>;
   logisticsRoutes: Array<{
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
@@ -485,24 +485,25 @@ function FactoryWorld({ data, tick, selection, onSelection }: {
     {data.connections.map((connection) => {
       const selected = selection?.kind === "connection" && selection.id === connection.id;
       const choose = () => onSelection({ kind: "connection", id: connection.id });
+      const beltPoints = connection.points.slice(1, -1);
       return <group key={connection.id}>
-        <Line
-          points={connection.points.map((point) => [point.x, .16 + point.level * .65, point.y])}
-          color={selected ? "#5ff2c8" : connection.points.some((point) => point.level > 0) ? "#65a8b7" : "#4f7680"}
+        {beltPoints.length > 1 && <Line
+          points={beltPoints.map((point) => [point.x, .16 + point.level * .65, point.y])}
+          color={selected ? "#5ff2c8" : beltPoints.some((point) => point.level > 0) ? "#65a8b7" : "#4f7680"}
           lineWidth={selected ? 7 : 3}
           transparent
           opacity={selected ? 1 : .9}
           onClick={(event) => { event.stopPropagation(); choose(); }}
-        />
-        {connection.points.slice(1, -1).map((point, index) => <mesh
+        />}
+        {beltPoints.map((point, index) => <mesh
           key={index}
           position={[point.x, .16 + point.level * .65, point.y]}
           onClick={(event) => { event.stopPropagation(); choose(); }}
           onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
           onPointerOut={() => { document.body.style.cursor = "default"; }}
         >
-          <boxGeometry args={[.78, .28, .78]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          <boxGeometry args={[.78, .10, .78]} />
+          <meshStandardMaterial color={selected ? "#48c7ad" : point.level > 0 ? "#376b78" : "#27464f"} metalness={.7} roughness={.35} emissive={selected ? "#163f39" : "#091519"} />
         </mesh>)}
       </group>;
     })}
@@ -644,7 +645,7 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
         <div className="inspector-stage-list">{analysis?.stages.map((stage) => {
           const endpointPowered = stage.stage === "line" ? true : frame.endpointPower[`${connection.id}:${stage.stage}`];
           const utilization = stage.stage === "loader" ? stageUtilization?.loader : stage.stage === "unloader" ? stageUtilization?.unloader : flow?.utilization;
-          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.asset}</b><code>{stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`}{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
+          return <div key={stage.stage}><span className={endpointPowered ? "powered" : "unpowered"}><i />{stage.stage}</span><b>{stage.asset}</b><code>{stage.distance} cell span · {stage.capacity} cargo · stack×{stage.stackCapacity} · {stage.durationTicks} ms</code><small>{utilization === undefined ? "NO RUN" : `${(utilization * 100).toFixed(1)}% ACTIVE`}{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)} W` : ""}</small></div>;
         })}</div>
       </div>
       <div className="inspector-section">
@@ -727,6 +728,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               {selected.production && <section className="asset-section"><h4>Recipe support</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputBuffers.join(" + ")} → {selected.production.outputBuffers.join(" + ")}</strong><span>speed</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}×</code></div>{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.buffer}`).join(" · ") || "no auxiliary input"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
               {selected.extraction && <section className="asset-section"><h4>Extraction</h4><div className="asset-table"><div><b>{selected.extraction.resources.join(", ")}</b><strong>{selected.extraction.itemsPerCycle} / {selected.extraction.cycleTicks}ms</strong><span>radius</span><code>{selected.extraction.radius} cells</code></div></div></section>}
               {selected.logistics && <section className="asset-section"><h4>Logistics roles</h4><div className="capability-row">{selected.logistics.roles.map((role) => <span key={role}>{role}</span>)}</div></section>}
+              {selected.logistics?.endpointRange && <section className="asset-section"><h4>Endpoint reach</h4><div className="asset-table"><div><b>{selected.logistics.endpointRange.minimum}–{selected.logistics.endpointRange.maximum} cells</b><strong>distance-aware transfer</strong><span>loader / unloader</span><code>throughput comes from runtime.ts</code></div></div></section>}
               {selected.logistics?.carrierKinds && <section className="asset-section"><h4>Carrier networks</h4><div className="capability-row">{selected.logistics.carrierKinds.map((kind) => <span key={kind}>{kind}</span>)}</div></section>}
               {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div></div></section>}
               {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "continuous"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "renewable"}</code></div></div></section>}
@@ -848,7 +850,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             const mix = flow ? Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") : "";
             return <div className="pipeline-card" key={connection.connection}>
               <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
-              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.distance} cells · {stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
               <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.maxLevel ? ` · LEVEL ${connection.maxLevel}` : ""}{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
             </div>;
           })}</div>

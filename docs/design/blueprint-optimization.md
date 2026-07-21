@@ -38,8 +38,8 @@ The capacity plan turns that solution into required Process machines, extraction
 4. creates exact boundary and surplus consumers;
 5. realizes fan-in/fan-out as explicit filtered junction trees;
 6. creates finite-fleet parallel station pairs for regional flows;
-7. selects project-local loader/line/unloader tiers per physical edge;
-8. globally chooses collision-free ground/raised paths;
+7. jointly selects project-local loader/line/unloader tiers and supported endpoint spans per physical edge;
+8. globally chooses collision-free span-aware ground/raised paths;
 9. synthesizes connected spatial power coverage and capacity;
 10. compiles, plans, cold-start simulates, and atomically writes the Blueprint.
 

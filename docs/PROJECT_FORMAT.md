@@ -243,14 +243,14 @@ Every physical connection includes the exact ordered grid cells occupied by its 
     { "x": 7, "y": 10 }
   ],
   "logistics": {
-    "loader": { "deviceAsset": "sorter" },
+    "loader": { "deviceAsset": "sorter", "distance": 3 },
     "line": { "deviceAsset": "conveyor" },
-    "unloader": { "deviceAsset": "sorter" }
+    "unloader": { "deviceAsset": "sorter", "distance": 1 }
   }
 }
 ```
 
-The first and last cells must be level-0 exterior cells of the named ports. Consecutive cells must share a cardinal edge and may change by at most one `level`, representing a ramp along that step. Omitted `level` is ground level 0. Paths cannot leave region bounds, repeat the same `(x, y, level)`, cross placed Devices, or cover finite resource nodes on the ground. Same-coordinate cells at different levels are distinct, making explicit crossings possible without free overlap. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
+The first and last cells must be level-0 cells exactly `loader.distance` and `unloader.distance` grid cells outward from the named ports. Consecutive cells must share a cardinal edge and may change by at most one `level`, representing a ramp along that step. Omitted `level` is ground level 0. Paths cannot leave region bounds, repeat the same `(x, y, level)`, cross placed Devices, or cover finite resource nodes on the ground. Same-coordinate cells at different levels are distinct, making explicit crossings possible without free overlap. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
 
 Each compiled belt cell has one output direction and one item slot. Multiple connections may reuse cells only when they agree on that downstream direction, so branches may merge into a shared belt but cannot silently diverge without a placed transport junction. Every item moves through loading, exact belt-cell positions, and unloading. Occupied downstream cells stop movement, the blockage propagates upstream one cell at a time, and simultaneous merge contenders use deterministic round-robin arbitration. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
 
@@ -390,9 +390,9 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
       "to": { "device": "smelter-1", "port": "input" },
       "path": [{ "x": 4, "y": 10 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }, { "x": 9, "y": 10 }],
       "logistics": {
-        "loader": { "deviceAsset": "sorter" },
+        "loader": { "deviceAsset": "sorter", "distance": 1 },
         "line": { "deviceAsset": "conveyor" },
-        "unloader": { "deviceAsset": "sorter" }
+        "unloader": { "deviceAsset": "sorter", "distance": 1 }
       }
     }
   ],
@@ -418,7 +418,7 @@ Every Device instance—not only a recipe machine—may configure accepted Resou
 
 Filters are strict narrowing contracts: they cannot add a Resource excluded by the asset. The compiler applies them to physical connection compatibility, recipe bindings, extractor output, fuel selection, station slots, Scenario initial inventory, and runtime belt dispatch. Synthesis writes exact filters for extractors, junction trees, boundary consumers, surplus consumers, and station pairs, so generated blueprints do not rely on wildcard routing.
 
-A transport Device declares the stages it can fill, for example `"logistics": { "roles": ["loader", "unloader"] }` for a sorter and `"roles": ["line"]` for a belt. Its TypeScript `planTransport()` returns `{ capacity, durationTicks, stackCapacity? }`: capacity counts concurrent cargo entities, while `stackCapacity` (default 1) caps the number of Resource items carried by each entity. A blueprint connection may set `"stackSize": 4`; omitting it selects the maximum supported by all three stages and the Resource asset's `transport.stackSize`. The compiler rejects impossible explicit requests. One belt cell still contains at most one cargo entity, so stacking raises item throughput without bypassing cell occupancy, shared-lane arbitration, or backpressure. Static analysis reports stage cargo/stack contracts, per-Resource end-to-end items/min, and the complete stage chain. Projects may carry several speed/stack tiers as independent local Device assets; research compares the combined items/min envelope and can replace every tied limiting stage while preserving the connection path and endpoint contracts.
+A transport Device declares the stages it can fill. A sorter must declare its physical reach, for example `"logistics": { "roles": ["loader", "unloader"], "endpointRange": { "minimum": 1, "maximum": 3 } }`; a line uses only `"roles": ["line"]`. Its TypeScript `planTransport(context)` returns `{ capacity, durationTicks, stackCapacity? }`, and `context.distance` is the selected sorter span for endpoints or routed-cell count for a line. Capacity counts concurrent cargo entities, while `stackCapacity` (default 1) caps the number of Resource items carried by each entity. A blueprint connection may set `"stackSize": 4`; omitting it selects the maximum supported by all three stages and the Resource asset's `transport.stackSize`. The compiler rejects impossible explicit requests. One belt cell still contains at most one cargo entity, so stacking raises item throughput without bypassing cell occupancy, shared-lane arbitration, or backpressure. Static analysis reports each stage's distance/cargo/stack contract, per-Resource end-to-end items/min, and the complete stage chain. Projects may carry several speed/reach/stack tiers as independent local Device assets; research compares the combined items/min envelope and can replace every tied limiting stage while preserving the connection path and explicit endpoint distances.
 
 `logisticsNetworks` is required even when empty. A populated network declares a compatible finite fleet and at least two station instances. A `planetary` network may route only between stations in the same region. An `interstellar` network must include at least two regions and routes only between different regions:
 

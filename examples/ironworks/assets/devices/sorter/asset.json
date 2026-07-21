@@ -8,7 +8,7 @@
   "capabilities": ["transport"],
   "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },
   "buffers": [],
-  "logistics": { "roles": ["loader", "unloader"] },
+  "logistics": { "roles": ["loader", "unloader"], "endpointRange": { "minimum": 1, "maximum": 3 } },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 2000 },
   "economics": { "buildCost": 40 },

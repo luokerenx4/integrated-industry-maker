@@ -1,16 +1,16 @@
 # INM Run 003-revert-switch-the-factory-wide-contested-output
 
 - Decision: **REVERT**
-- Score: **96.755**
-- Result hash: `aeae2180f35a81375878b2c8d7b6e8a0ad4dfe5ea3e11b1ece712d1e2f7972f5`
+- Score: **97.292**
+- Result hash: `1a991716c4ba4a8fab42a1b34c37424d74518640e575e5e20a3d8ce380cada6b`
 - Bottleneck: smelter-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
 - Capacity plan: READY
-- Belt utilization: 2.3%
+- Belt utilization: 3.2%
 - Average blocked belt items: 0.000
 - Peak belt items: 7
-- Powered transport energy: 381.000 J
+- Powered transport energy: 561.000 J
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
@@ -22,9 +22,9 @@
 
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
-| ore-to-smelter | 45.000 / 240.000 | 18.8% | 0 | 90 iron-ore |
-| ore-to-smelter-smelter-1-split-original | 22.500 / 240.000 | 9.4% | 0 | 45 iron-ore |
-| ore-to-smelter-smelter-1-split-parallel | 22.500 / 240.000 | 9.4% | 0 | 45 iron-ore |
+| ore-to-smelter | 45.000 / 80.000 | 56.3% | 0 | 90 iron-ore |
+| ore-to-smelter-smelter-1-split-original | 22.500 / 80.000 | 28.1% | 0 | 45 iron-ore |
+| ore-to-smelter-smelter-1-split-parallel | 22.500 / 80.000 | 28.1% | 0 | 45 iron-ore |
 | station-to-assembler | 22.000 / 240.000 | 9.2% | 0 | 44 iron-plate |
 | coal-assembly-to-splitter | 20.000 / 240.000 | 8.3% | 0 | 40 coal |
 | coal-splitter-to-assembler | 17.500 / 240.000 | 7.3% | 0 | 35 coal |
@@ -44,13 +44,13 @@
 
 ```json
 {
-  "blocked": -0.426,
-  "buildCost": -14.645,
+  "blocked": -0.44266666666666665,
+  "buildCost": -14.745,
   "constraintPenalty": 0,
-  "energy": -2.24281,
-  "occupiedArea": -31.8,
+  "energy": -2.24461,
+  "occupiedArea": -31,
   "onTimeDelivery": 10,
   "throughput": 140,
-  "wip": -4.131316666666667
+  "wip": -4.275916666666666
 }
 ```

@@ -6,17 +6,15 @@
         "port": "output"
       },
       "id": "ore-to-smelter",
-      "path": [{ "x": 4, "y": 10 }, { "x": 5, "y": 10 }, { "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }],
+      "path": [{ "x": 6, "y": 10 }, { "x": 7, "y": 10 }, { "x": 8, "y": 10 }],
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
-        },
+          "deviceAsset": "sorter", "distance": 3 },
         "unloader": {
-          "deviceAsset": "sorter"
-        }
+          "deviceAsset": "sorter", "distance": 1 }
       },
       "to": {
         "device": "smelter-1",
@@ -35,11 +33,9 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
-        },
+          "deviceAsset": "sorter", "distance": 1 },
         "unloader": {
-          "deviceAsset": "sorter"
-        }
+          "deviceAsset": "sorter", "distance": 1 }
       },
       "to": {
         "device": "station-supply",
@@ -58,11 +54,9 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
-        },
+          "deviceAsset": "sorter", "distance": 1 },
         "unloader": {
-          "deviceAsset": "sorter"
-        }
+          "deviceAsset": "sorter", "distance": 1 }
       },
       "to": {
         "device": "assembler-1",
@@ -81,11 +75,9 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
-        },
+          "deviceAsset": "sorter", "distance": 1 },
         "unloader": {
-          "deviceAsset": "sorter"
-        }
+          "deviceAsset": "sorter", "distance": 1 }
       },
       "to": {
         "device": "output-1",
@@ -101,8 +93,8 @@
       "path": [{ "x": 5, "y": 3 }, { "x": 6, "y": 3 }, { "x": 7, "y": 3 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
-        "loader": { "deviceAsset": "sorter" },
-        "unloader": { "deviceAsset": "sorter" }
+        "loader": { "deviceAsset": "sorter", "distance": 1 },
+        "unloader": { "deviceAsset": "sorter", "distance": 1 }
       },
       "to": {
         "device": "generator-1",
@@ -115,8 +107,8 @@
       "path": [{ "x": 3, "y": 3 }, { "x": 3, "y": 4 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
-        "loader": { "deviceAsset": "sorter" },
-        "unloader": { "deviceAsset": "sorter" }
+        "loader": { "deviceAsset": "sorter", "distance": 1 },
+        "unloader": { "deviceAsset": "sorter", "distance": 1 }
       },
       "to": { "device": "coal-splitter-assembly", "port": "input-west" }
     },
@@ -126,8 +118,8 @@
       "path": [{ "x": 5, "y": 3 }, { "x": 6, "y": 3 }, { "x": 7, "y": 3 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
-        "loader": { "deviceAsset": "sorter" },
-        "unloader": { "deviceAsset": "sorter" }
+        "loader": { "deviceAsset": "sorter", "distance": 1 },
+        "unloader": { "deviceAsset": "sorter", "distance": 1 }
       },
       "to": { "device": "generator-2", "port": "fuel-input" }
     },
@@ -137,8 +129,8 @@
       "path": [{ "x": 6, "y": 4 }, { "x": 6, "y": 5 }, { "x": 7, "y": 5 }, { "x": 8, "y": 5 }, { "x": 8, "y": 6 }, { "x": 8, "y": 7 }, { "x": 8, "y": 8 }, { "x": 8, "y": 9 }],
       "logistics": {
         "line": { "deviceAsset": "conveyor" },
-        "loader": { "deviceAsset": "sorter" },
-        "unloader": { "deviceAsset": "sorter" }
+        "loader": { "deviceAsset": "sorter", "distance": 1 },
+        "unloader": { "deviceAsset": "sorter", "distance": 1 }
       },
       "to": { "device": "assembler-1", "port": "input-secondary" }
     }

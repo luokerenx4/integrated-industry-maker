@@ -11,20 +11,22 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 3
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
         {
-          "x": 4,
+          "x": 6,
           "y": 10
         },
         {
-          "x": 5,
-          "y": 10
+          "x": 6,
+          "y": 11
         }
       ],
       "to": {
@@ -43,10 +45,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -79,10 +83,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -115,10 +121,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -159,10 +167,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -195,10 +205,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -227,10 +239,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -263,10 +277,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -319,13 +335,151 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 3
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
+        {
+          "x": 11,
+          "y": 11
+        },
+        {
+          "x": 11,
+          "y": 12
+        },
+        {
+          "x": 10,
+          "y": 12
+        },
+        {
+          "x": 9,
+          "y": 12
+        },
+        {
+          "x": 9,
+          "y": 13
+        },
+        {
+          "x": 9,
+          "y": 14
+        },
+        {
+          "x": 9,
+          "y": 15
+        },
+        {
+          "x": 9,
+          "y": 16
+        },
+        {
+          "x": 8,
+          "y": 16
+        },
+        {
+          "x": 7,
+          "y": 16
+        },
+        {
+          "x": 7,
+          "y": 15
+        },
+        {
+          "x": 7,
+          "y": 14
+        },
+        {
+          "x": 7,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 12
+        },
+        {
+          "x": 5,
+          "y": 12
+        },
+        {
+          "x": 4,
+          "y": 12
+        },
+        {
+          "x": 3,
+          "y": 12
+        },
+        {
+          "x": 2,
+          "y": 12
+        },
+        {
+          "x": 1,
+          "y": 12
+        },
+        {
+          "x": 1,
+          "y": 11
+        },
+        {
+          "x": 1,
+          "y": 10
+        },
+        {
+          "x": 0,
+          "y": 10
+        },
+        {
+          "x": 0,
+          "y": 9
+        },
+        {
+          "x": 0,
+          "y": 8
+        },
+        {
+          "x": 1,
+          "y": 8
+        },
+        {
+          "x": 2,
+          "y": 8
+        },
+        {
+          "x": 3,
+          "y": 8
+        },
+        {
+          "x": 4,
+          "y": 8
+        },
+        {
+          "x": 5,
+          "y": 8
+        },
+        {
+          "x": 5,
+          "y": 9
+        },
+        {
+          "x": 6,
+          "y": 9
+        },
+        {
+          "x": 7,
+          "y": 9
+        },
+        {
+          "x": 7,
+          "y": 10
+        },
         {
           "x": 8,
           "y": 10
@@ -347,21 +501,15 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 3
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
-        {
-          "x": 7,
-          "y": 9
-        },
-        {
-          "x": 7,
-          "y": 8
-        },
         {
           "x": 8,
           "y": 8
@@ -383,10 +531,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -395,160 +545,8 @@
           "y": 8
         },
         {
-          "x": 11,
-          "y": 7
-        },
-        {
-          "x": 11,
-          "y": 6
-        },
-        {
-          "x": 10,
-          "y": 6
-        },
-        {
-          "x": 9,
-          "y": 6
-        },
-        {
-          "x": 8,
-          "y": 6
-        },
-        {
-          "x": 7,
-          "y": 6
-        },
-        {
-          "x": 6,
-          "y": 6
-        },
-        {
-          "x": 6,
-          "y": 7
-        },
-        {
-          "x": 5,
-          "y": 7
-        },
-        {
-          "x": 5,
-          "y": 8
-        },
-        {
-          "x": 4,
-          "y": 8
-        },
-        {
-          "x": 3,
-          "y": 8
-        },
-        {
-          "x": 2,
-          "y": 8
-        },
-        {
-          "x": 1,
-          "y": 8
-        },
-        {
-          "x": 0,
-          "y": 8
-        },
-        {
-          "x": 0,
-          "y": 9
-        },
-        {
-          "x": 0,
-          "y": 10
-        },
-        {
-          "x": 1,
-          "y": 10
-        },
-        {
-          "x": 1,
-          "y": 11
-        },
-        {
-          "x": 1,
-          "y": 12
-        },
-        {
-          "x": 2,
-          "y": 12
-        },
-        {
-          "x": 3,
-          "y": 12
-        },
-        {
-          "x": 4,
-          "y": 12
-        },
-        {
-          "x": 5,
-          "y": 12
-        },
-        {
-          "x": 6,
-          "y": 12
-        },
-        {
-          "x": 6,
-          "y": 13
-        },
-        {
-          "x": 6,
-          "y": 14
-        },
-        {
-          "x": 6,
-          "y": 15
-        },
-        {
-          "x": 7,
-          "y": 15
-        },
-        {
-          "x": 8,
-          "y": 15
-        },
-        {
-          "x": 8,
-          "y": 14
-        },
-        {
-          "x": 8,
-          "y": 13
-        },
-        {
-          "x": 8,
-          "y": 12
-        },
-        {
-          "x": 9,
-          "y": 12
-        },
-        {
-          "x": 10,
-          "y": 12
-        },
-        {
-          "x": 11,
-          "y": 12
-        },
-        {
-          "x": 11,
-          "y": 11
-        },
-        {
-          "x": 11,
-          "y": 10
-        },
-        {
           "x": 12,
-          "y": 10
+          "y": 8
         },
         {
           "x": 12,
@@ -769,8 +767,8 @@
         "dispatch": "round-robin"
       },
       "position": {
-        "x": 6,
-        "y": 10
+        "x": 7,
+        "y": 11
       },
       "region": "forge-world",
       "rotation": 0
@@ -779,7 +777,7 @@
       "asset": "wind-turbine",
       "id": "wind-turbine-support",
       "position": {
-        "x": 9,
+        "x": 10,
         "y": 13
       },
       "region": "forge-world",
@@ -827,6 +825,6 @@
   "policies": {
     "dispatch": "fifo"
   },
-  "revision": "c426b883bfb21de6ae61128138a344d29157a5b8d3dc24392e1465ce45b53f33",
+  "revision": "d079d6ef6dbdf31464aacee5812a1ad5927f360b66b3afe4e81cc08635e92e67",
   "version": 1
 }

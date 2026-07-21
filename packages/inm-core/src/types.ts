@@ -126,7 +126,12 @@ export interface DeviceAssetManifest {
     cycleTicks: Tick;
     itemsPerCycle: number;
   };
-  logistics?: { roles: LogisticsRole[]; carrierKinds?: Array<"planetary" | "interstellar"> };
+  logistics?: {
+    roles: LogisticsRole[];
+    carrierKinds?: Array<"planetary" | "interstellar">;
+    /** Physical grid span supported when this asset is used as a loader or unloader. */
+    endpointRange?: { minimum: number; maximum: number };
+  };
   logisticsStation?: { networkKinds: Array<"planetary" | "interstellar">; buffer: BufferId; slots: number };
   runtime: { apiVersion: 1; entry: string };
   power: {
@@ -262,9 +267,9 @@ export interface BlueprintConnection {
   /** Requested items per cargo stack. Omit to use the maximum supported by every transport stage and Resource. */
   stackSize?: number;
   logistics: {
-    loader: { deviceAsset: DeviceAssetId };
+    loader: { deviceAsset: DeviceAssetId; distance: number };
     line: { deviceAsset: DeviceAssetId };
-    unloader: { deviceAsset: DeviceAssetId };
+    unloader: { deviceAsset: DeviceAssetId; distance: number };
   };
 }
 export interface BlueprintLogisticsSlot {

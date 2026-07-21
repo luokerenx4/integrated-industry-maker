@@ -74,6 +74,7 @@ export const deviceAssetSchema = z.object({
   logistics: z.object({
     roles: z.array(z.enum(["loader", "line", "unloader", "carrier"])).min(1),
     carrierKinds: z.array(z.enum(["planetary", "interstellar"])).min(1).optional(),
+    endpointRange: z.object({ minimum: positiveInt, maximum: positiveInt }).strict().optional(),
   }).strict().optional(),
   logisticsStation: z.object({
     networkKinds: z.array(z.enum(["planetary", "interstellar"])).min(1), buffer: id, slots: positiveInt,
@@ -133,9 +134,9 @@ export const blueprintSchema = z.object({
     path: z.array(z.object({ x: nonNegativeInt, y: nonNegativeInt, level: nonNegativeInt.optional() }).strict()).min(1),
     stackSize: positiveInt.optional(),
     logistics: z.object({
-      loader: z.object({ deviceAsset: id }).strict(),
+      loader: z.object({ deviceAsset: id, distance: positiveInt }).strict(),
       line: z.object({ deviceAsset: id }).strict(),
-      unloader: z.object({ deviceAsset: id }).strict(),
+      unloader: z.object({ deviceAsset: id, distance: positiveInt }).strict(),
     }).strict(),
   }).strict()),
   logisticsNetworks: z.array(z.object({

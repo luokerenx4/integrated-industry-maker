@@ -11,21 +11,15 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 3
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
-        {
-          "x": 4,
-          "y": 10
-        },
-        {
-          "x": 5,
-          "y": 10
-        },
         {
           "x": 6,
           "y": 10
@@ -55,10 +49,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -91,10 +87,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -127,10 +125,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -171,10 +171,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -207,10 +209,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -239,10 +243,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [
@@ -275,10 +281,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "sorter"
+          "deviceAsset": "sorter",
+          "distance": 1
         }
       },
       "path": [

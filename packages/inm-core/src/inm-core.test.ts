@@ -140,7 +140,8 @@ describe("factory synthesis", () => {
       resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", requiredPerMinute: 9, costPerItem: 100,
     }]);
     expect(first.localLogistics.find((connection) => connection.resource === "gear")).toEqual(expect.objectContaining({
-      requiredPerMinute: 12, capacityPerMinute: 240, loader: "sorter", line: "conveyor", unloader: "sorter", stackSize: 1,
+      requiredPerMinute: 12, capacityPerMinute: 120, loader: "sorter", loaderDistance: 1,
+      line: "conveyor", unloader: "sorter", unloaderDistance: 2, stackSize: 1,
     }));
 
     const project = compileFactoryProject({ ...source, blueprint: first.blueprint });
@@ -215,7 +216,7 @@ describe("factory synthesis", () => {
     }));
     expect(synthesis.localLogistics.every((connection) => connection.capacityPerMinute + 1e-9 >= connection.requiredPerMinute)).toBeTrue();
     expect(synthesis.blueprint.connections.find((connection) => connection.id === trunk.connection)!.logistics).toEqual({
-      loader: { deviceAsset: "stack-sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter" },
+      loader: { deviceAsset: "stack-sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter", distance: 1 },
     });
 
     const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
@@ -364,8 +365,9 @@ describe("blueprint compiler", () => {
       "grid-forge-world-generator-1", null, "grid-forge-world-generator-1",
     ]);
     expect(project.powerGrids["grid-forge-world-generator-1"]!.transportStages).toContainEqual({ connection: "ore-to-smelter", stage: "loader" });
-    expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(250);
-    expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_000);
+    expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => stage.distance)).toEqual([3, 3, 1]);
+    expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(750);
+    expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_300);
     expect(project.logisticsNetworks["interstellar-main"]!.routes).toEqual([expect.objectContaining({
       resource: "iron-plate", fromRegion: "forge-world", toRegion: "assembly-world", distance: 88, travelTicks: 12_040,
     })]);
@@ -429,6 +431,15 @@ describe("blueprint compiler", () => {
   test("rejects logistics assets in unsupported connection stages", async () => {
     const source = await loaded(); source.blueprint.connections[0]!.logistics.loader.deviceAsset = "conveyor";
     expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.stage-role");
+  });
+
+  test("requires endpoint reach on sorter assets and enforces the selected connection distance", async () => {
+    const missing = await loaded(); missing.deviceAssets.sorter!.logistics!.endpointRange = undefined;
+    expect(issueCodes(() => compileFactoryProject(missing))).toContain("logistics.endpoint-range-required");
+    const reversed = await loaded(); reversed.deviceAssets.sorter!.logistics!.endpointRange = { minimum: 3, maximum: 1 };
+    expect(issueCodes(() => compileFactoryProject(reversed))).toContain("logistics.endpoint-range-order");
+    const outOfRange = await loaded(); outOfRange.blueprint.connections[0]!.logistics.loader.distance = 4;
+    expect(issueCodes(() => compileFactoryProject(outOfRange))).toContain("logistics.endpoint-distance");
   });
 
   test("requires one declared line slot for every physical belt cell", async () => {
@@ -599,7 +610,7 @@ describe("blueprint compiler", () => {
     source.blueprint.connections = [{
       id: "assembly-belt", from: { device: "assembly-source", port: "output" }, to: { device: "assembly-target", port: "input" },
       path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }];
     expect(findBlueprintConnectionPath(source.blueprint, source.world, source.deviceAssets, {
       from: { device: "forge-source", port: "output" }, to: { device: "forge-target", port: "input" },
@@ -750,7 +761,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(plan.rawResources).toEqual(expect.arrayContaining([
       expect.objectContaining({ resource: "iron-ore", totalDemandPerMinute: 48, configuredExtractionPerMinute: 60, finiteReserve: 90, scenarioDemand: 96, reserveAfterScenario: -6 }),
     ]));
-    expect(plan.transport.find((flow) => flow.process === "smelt-iron" && flow.direction === "input")).toEqual(expect.objectContaining({ resource: "iron-ore", requiredItemsPerMinute: 48, configuredCapacityPerMinute: 240 }));
+    expect(plan.transport.find((flow) => flow.process === "smelt-iron" && flow.direction === "input")).toEqual(expect.objectContaining({ resource: "iron-ore", requiredItemsPerMinute: 48, configuredCapacityPerMinute: 80 }));
     expect(plan.stationNetworks).toContainEqual(expect.objectContaining({ network: "interstellar-main", resource: "iron-plate", requiredItemsPerMinute: 24, requiredCarriers: 1, configuredCarriers: 1 }));
     expect(plan.power).toContainEqual(expect.objectContaining({ region: "forge-world", headroomMilliWatts: -122_000 }));
     expect(plan.gaps.map((gap) => gap.kind)).toEqual(["process", "reserve", "power"]);
@@ -829,7 +840,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "powered-belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
       path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }];
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
@@ -865,7 +876,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "buffer-link", from: { device: "source-buffer", port: "output" }, to: { device: "target-buffer", port: "input" },
       path: Array.from({ length: 9 }, (_, index) => ({ x: index + 1, y: 0 })),
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }];
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "source-buffer": { storage: { "iron-ore": 4 } } };
@@ -874,6 +885,34 @@ describe("deterministic discrete-event simulation", () => {
     expect(project.connections["buffer-link"]!.dispatchIntervalTicks).toBe(1_000);
     const result = runUntil(project, undefined, { untilTick: 2_500 });
     expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.tick)).toEqual([0, 1_000, 2_000]);
+  });
+
+  test("sorter span changes physical belt endpoints, latency, and throughput", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "span-source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "span-target", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "span-link", from: { device: "span-source", port: "output" }, to: { device: "span-target", port: "input" },
+      path: Array.from({ length: 6 }, (_, index) => ({ x: index + 3, y: 0 })),
+      logistics: { loader: { deviceAsset: "sorter", distance: 3 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 2 } },
+    }];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { "span-source": { storage: { "iron-ore": 4 } } };
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    const connection = project.connections["span-link"]!;
+    expect(connection.path).toEqual([{ x: 3, y: 0 }, { x: 4, y: 0 }, { x: 5, y: 0 }, { x: 6, y: 0 }, { x: 7, y: 0 }, { x: 8, y: 0 }]);
+    expect(connection.logisticsStages.map((stage) => [stage.stage, stage.distance, stage.durationTicks])).toEqual([
+      ["loader", 3, 750], ["line", 6, 600], ["unloader", 2, 500],
+    ]);
+    expect(connection.travelTicks).toBe(1_850);
+    expect(connection.dispatchIntervalTicks).toBe(750);
+    const result = runUntil(project, undefined, { untilTick: 2_500 });
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.tick)).toEqual([0, 750, 1_500, 2_250]);
+    expect(result.events.find((event) => event.type === "resource.arrive")?.tick).toBe(1_850);
   });
 
   test("stack-capable sorters move multiple Resource items in one physical belt cell", async () => {
@@ -886,7 +925,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "stacked-link", from: { device: "stack-source", port: "output" }, to: { device: "stack-target", port: "input" },
       path: Array.from({ length: 7 }, (_, index) => ({ x: index + 1, y: 0 })), stackSize: 4,
-      logistics: { loader: { deviceAsset: "stack-sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter" } },
+      logistics: { loader: { deviceAsset: "stack-sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter", distance: 1 } },
     }];
     source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 2_000; source.scenario.initialBuffers = { "stack-source": { storage: { "iron-ore": 8 } } }; source.scenario.failures = [];
@@ -914,7 +953,7 @@ describe("deterministic discrete-event simulation", () => {
       { id: "source-b", asset: "buffer", region: "forge-world", position: { x: 0, y: 2 }, rotation: 0 },
       { id: "target", asset: "buffer", region: "forge-world", position: { x: 8, y: 1 }, rotation: 0 },
     ];
-    const logistics = { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } };
+    const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
     source.blueprint.connections = [
       { id: "shared-a", from: { device: "source-a", port: "output" }, to: { device: "target", port: "input" }, path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 7, y: 1 }], logistics },
       { id: "shared-b", from: { device: "source-b", port: "output" }, to: { device: "target", port: "input" }, path: [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 7, y: 1 }], logistics },
@@ -954,7 +993,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
       path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "slow-unloader" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "slow-unloader", distance: 1 } },
     }];
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { source: { storage: { "iron-ore": 20 } } };
@@ -984,7 +1023,7 @@ describe("deterministic discrete-event simulation", () => {
       { id: "target-north", asset: "buffer", region: "forge-world", position: { x: 7, y: 2 }, rotation: 0 },
       { id: "wind-1", asset: "wind-turbine", region: "forge-world", position: { x: 0, y: 4 }, rotation: 0 },
     ];
-    const logistics = { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } };
+    const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
     source.blueprint.connections = [
       { id: "split-east", from: { device: "splitter-1", port: "output-east" }, to: { device: "target-east", port: "input" }, path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
       { id: "split-north", from: { device: "splitter-1", port: "output-north" }, to: { device: "target-north", port: "input" }, path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 6, y: 2 }], logistics },
@@ -1010,7 +1049,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "filtered-belt", from: { device: "source", port: "output" }, to: { device: "gear-only", port: "input" },
       path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })),
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }];
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { source: { storage: { coal: 1, gear: 1 } } };
@@ -1099,7 +1138,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "local-to-station", from: { device: "local-source", port: "output" }, to: { device: "station-demand", port: "input" },
       path: [{ x: 12, y: 11 }, { x: 13, y: 11 }],
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }];
     source.scenario.initialBuffers = {
       "station-supply": { storage: { "iron-ore": 25 } },
@@ -1193,7 +1232,7 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.connections = [{
       id: "ore-to-buffer", from: { device: "ore-source-1", port: "output" }, to: { device: "buffer-1", port: "input" },
       path: Array.from({ length: 6 }, (_, index) => ({ x: index + 4, y: 10 })),
-      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+      logistics: { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } },
     }];
     source.blueprint.logisticsNetworks = [];
     source.scenario.initialBuffers = { "generator-1": { fuel: { coal: 1 } } };

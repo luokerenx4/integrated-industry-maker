@@ -34,6 +34,8 @@ interface LogisticsPipelineSelection {
   loader: DeviceAsset;
   line: DeviceAsset;
   unloader: DeviceAsset;
+  loaderDistance: number;
+  unloaderDistance: number;
   stackSize: number;
   capacityPerMinute: number;
   score: number;
@@ -51,7 +53,7 @@ export interface BlueprintSynthesisResult {
   optimization: { rawCost: number; processCost: number; logisticsCost: number };
   localLogistics: Array<{
     connection: string; resource: ResourceId; requiredPerMinute: number; capacityPerMinute: number;
-    loader: string; line: string; unloader: string; stackSize: number;
+    loader: string; loaderDistance: number; line: string; unloader: string; unloaderDistance: number; stackSize: number;
   }>;
   stationNetworks: Array<{ network: string; resource: ResourceId; fromRegion: string; toRegion: string; carriers: number }>;
   power: Array<{
@@ -178,12 +180,21 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const lines = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"));
   const unloaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"));
   if (!loaders.length || !lines.length || !unloaders.length) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
-  const pipelineOptions = (resource: ResourceId, distance: number, connection: string): LogisticsPipelineSelection[] => {
+  const missingEndpointRange = [...loaders, ...unloaders].find((asset) => !asset.logistics?.endpointRange);
+  if (missingEndpointRange) throw new Error(`Endpoint transport asset '${missingEndpointRange.id}' requires logistics.endpointRange before synthesis`);
+  const supportedEndpointDistances = (assets: DeviceAsset[]) => [...new Set(assets.flatMap((asset) => {
+    const range = asset.logistics!.endpointRange!;
+    return Array.from({ length: range.maximum - range.minimum + 1 }, (_, index) => range.minimum + index);
+  }))].sort((a, b) => a - b);
+  const pipelineOptions = (resource: ResourceId, distance: number, connection: string, loaderDistance: number, unloaderDistance: number): LogisticsPipelineSelection[] => {
     const resourceStackSize = loaded.resources[resource]!.transport.stackSize;
-    return loaders.flatMap((loader) => lines.flatMap((line) => unloaders.flatMap((unloader) => {
-      const loaderPlan = planDeviceTransport(loader.id, loader.program, { apiVersion: 1, connection, stage: "loader", distance: 1 });
+    return loaders.filter((loader) => loader.logistics!.endpointRange!.minimum <= loaderDistance && loader.logistics!.endpointRange!.maximum >= loaderDistance)
+      .flatMap((loader) => lines.flatMap((line) => unloaders
+        .filter((unloader) => unloader.logistics!.endpointRange!.minimum <= unloaderDistance && unloader.logistics!.endpointRange!.maximum >= unloaderDistance)
+        .flatMap((unloader) => {
+      const loaderPlan = planDeviceTransport(loader.id, loader.program, { apiVersion: 1, connection, stage: "loader", distance: loaderDistance });
       const linePlan = planDeviceTransport(line.id, line.program, { apiVersion: 1, connection, stage: "line", distance });
-      const unloaderPlan = planDeviceTransport(unloader.id, unloader.program, { apiVersion: 1, connection, stage: "unloader", distance: 1 });
+      const unloaderPlan = planDeviceTransport(unloader.id, unloader.program, { apiVersion: 1, connection, stage: "unloader", distance: unloaderDistance });
       if (linePlan.capacity !== distance) return [];
       const dispatchInterval = Math.max(
         Math.ceil(loaderPlan.durationTicks / loaderPlan.capacity),
@@ -196,12 +207,14 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const endpointPowerWatts = (loader.power.consumptionMilliWatts + unloader.power.consumptionMilliWatts) / 1_000;
       const score = buildCost * Math.max(.001, loaded.objective.weights.buildCost)
         + endpointPowerWatts * Math.max(.001, loaded.objective.weights.energy);
-      return [{ loader, line, unloader, stackSize, capacityPerMinute, score }];
+      return [{ loader, line, unloader, loaderDistance, unloaderDistance, stackSize, capacityPerMinute, score }];
     }))).sort((a, b) => a.score - b.score || a.capacityPerMinute - b.capacityPerMinute
       || a.loader.id.localeCompare(b.loader.id) || a.line.id.localeCompare(b.line.id) || a.unloader.id.localeCompare(b.unloader.id));
   };
   const maximumLocalCapacity = (resource: ResourceId): number => {
-    const capacities = pipelineOptions(resource, 1, `synth-${resource}-capacity`).map((selection) => selection.capacityPerMinute);
+    const capacities = supportedEndpointDistances(loaders).flatMap((loaderDistance) => supportedEndpointDistances(unloaders)
+      .flatMap((unloaderDistance) => pipelineOptions(resource, 1, `synth-${resource}-capacity`, loaderDistance, unloaderDistance)))
+      .map((selection) => selection.capacityPerMinute);
     if (!capacities.length) throw new Error(`No project-local logistics pipeline supports Resource '${resource}'`);
     return Math.max(...capacities);
   };
@@ -368,8 +381,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const stationSummary: BlueprintSynthesisResult["stationNetworks"] = [];
   const junctionAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("transport-junction"))
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const pipelineFor = (planned: PlannedConnection, distance: number): LogisticsPipelineSelection => {
-    const selections = pipelineOptions(planned.resource, distance, planned.id)
+  const pipelineFor = (planned: PlannedConnection, distance: number, loaderDistance: number, unloaderDistance: number): LogisticsPipelineSelection => {
+    const selections = pipelineOptions(planned.resource, distance, planned.id, loaderDistance, unloaderDistance)
       .filter((selection) => selection.capacityPerMinute + 1e-9 >= planned.requiredPerMinute)
       .map((selection) => ({
         ...selection,
@@ -386,48 +399,62 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     return selections[0];
   };
   const selectedPipelines = new Map<string, LogisticsPipelineSelection>();
-  const connectionFor = (planned: PlannedConnection, distance: number) => {
-    const pipeline = pipelineFor(planned, distance);
+  const connectionFor = (planned: PlannedConnection, distance: number, loaderDistance: number, unloaderDistance: number) => {
+    const pipeline = pipelineFor(planned, distance, loaderDistance, unloaderDistance);
     return {
       id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
       stackSize: pipeline.stackSize,
-      logistics: { loader: { deviceAsset: pipeline.loader.id }, line: { deviceAsset: pipeline.line.id }, unloader: { deviceAsset: pipeline.unloader.id } },
+      logistics: {
+        loader: { deviceAsset: pipeline.loader.id, distance: loaderDistance },
+        line: { deviceAsset: pipeline.line.id },
+        unloader: { deviceAsset: pipeline.unloader.id, distance: unloaderDistance },
+      },
     };
   };
   const reserveRoutes = (plans: PlannedConnection[]): void => {
     const rows = plans.map((planned) => {
-      const connection = connectionFor(planned, 1); const paths: GridPosition[][] = [];
+      const paths: Array<{ path: GridPosition[]; loaderDistance: number; unloaderDistance: number; pipeline: LogisticsPipelineSelection }> = [];
       const pathKeys = new Set<string>();
-      for (const elevated of [false, true]) {
-        const blockerKeys = new Set<string>([""]); const blockerQueue: GridPosition[][] = [[]]; let attempts = 0;
-        while (blockerQueue.length && paths.length < 64 && attempts++ < 1_024) {
-          const blockedCells = blockerQueue.shift()!;
-          const path = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, connection, { blockedCells, elevated });
-          if (!path) continue;
-          const pathKey = path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";");
-          if (!pathKeys.has(pathKey)) { pathKeys.add(pathKey); paths.push(path); }
-          if (blockedCells.length >= 4) continue;
-          for (const cell of path.slice(1, -1)) {
-            const next = [...blockedCells, cell].sort((a, b) => a.y - b.y || a.x - b.x);
-            const key = next.map((item) => `${item.x},${item.y}`).join(";");
-            if (!blockerKeys.has(key)) { blockerKeys.add(key); blockerQueue.push(next); }
+      for (const loaderDistance of supportedEndpointDistances(loaders)) for (const unloaderDistance of supportedEndpointDistances(unloaders)) {
+        const hasCapacity = pipelineOptions(planned.resource, 1, planned.id, loaderDistance, unloaderDistance)
+          .some((pipeline) => pipeline.capacityPerMinute + 1e-9 >= planned.requiredPerMinute);
+        if (!hasCapacity) continue;
+        const connection = connectionFor(planned, 1, loaderDistance, unloaderDistance);
+        for (const elevated of [false, true]) {
+          const blockerKeys = new Set<string>([""]); const blockerQueue: GridPosition[][] = [[]]; let attempts = 0;
+          while (blockerQueue.length && paths.length < 96 && attempts++ < 256) {
+            const blockedCells = blockerQueue.shift()!;
+            const path = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, connection, { blockedCells, elevated });
+            if (!path) continue;
+            const pathKey = `${loaderDistance}:${unloaderDistance}:` + path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";");
+            if (!pathKeys.has(pathKey)) {
+              pathKeys.add(pathKey);
+              paths.push({ path, loaderDistance, unloaderDistance, pipeline: pipelineFor(planned, path.length, loaderDistance, unloaderDistance) });
+            }
+            if (blockedCells.length >= 4) continue;
+            for (const cell of path.slice(1, -1)) {
+              const next = [...blockedCells, cell].sort((a, b) => a.y - b.y || a.x - b.x);
+              const key = next.map((item) => `${item.x},${item.y}`).join(";");
+              if (!blockerKeys.has(key)) { blockerKeys.add(key); blockerQueue.push(next); }
+            }
           }
         }
       }
       if (!paths.length) throw new Error(`No physical route exists for synthesized ${planned.resource} connection '${planned.id}'`);
-      paths.sort((a, b) => Math.max(...a.map((cell) => cell.level ?? 0)) - Math.max(...b.map((cell) => cell.level ?? 0))
-        || a.length - b.length || a.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";").localeCompare(b.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";")));
+      paths.sort((a, b) => Math.max(...a.path.map((cell) => cell.level ?? 0)) - Math.max(...b.path.map((cell) => cell.level ?? 0))
+        || a.pipeline.score - b.pipeline.score || a.path.length - b.path.length || a.loaderDistance - b.loaderDistance || a.unloaderDistance - b.unloaderDistance
+        || a.path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";").localeCompare(b.path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";")));
       return { planned, paths };
     }).sort((a, b) => a.paths.length - b.paths.length || a.planned.id.localeCompare(b.planned.id));
-    const routed = new Map<string, GridPosition[]>(); const occupied = new Set<string>(); let explored = 0;
+    const routed = new Map<string, (typeof rows)[number]["paths"][number]>(); const occupied = new Set<string>(); let explored = 0;
     const select = (index: number): boolean => {
       if (index === rows.length) return true;
       if (explored++ > 500_000) return false;
       const row = rows[index]!; const regionId = row.planned.from.region;
-      for (const path of row.paths) {
-        const cells = path.map((cell) => `${regionId}:${cell.x},${cell.y}@${cell.level ?? 0}`);
+      for (const candidate of row.paths) {
+        const cells = candidate.path.map((cell) => `${regionId}:${cell.x},${cell.y}@${cell.level ?? 0}`);
         if (cells.some((cell) => occupied.has(cell))) continue;
-        cells.forEach((cell) => occupied.add(cell)); routed.set(row.planned.id, path);
+        cells.forEach((cell) => occupied.add(cell)); routed.set(row.planned.id, candidate);
         if (select(index + 1)) return true;
         routed.delete(row.planned.id); cells.forEach((cell) => occupied.delete(cell));
       }
@@ -435,9 +462,9 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     };
     if (!select(0)) throw new Error(`Cannot find a conflict-free belt layout for ${plans.length} synthesized '${plans[0]?.resource ?? "material"}' flows after exploring ${explored} route combinations`);
     for (const planned of plans) {
-      const path = routed.get(planned.id)!; const pipeline = pipelineFor(planned, path.length);
-      selectedPipelines.set(planned.id, pipeline);
-      blueprint.connections.push({ ...connectionFor(planned, path.length), path });
+      const candidate = routed.get(planned.id)!;
+      selectedPipelines.set(planned.id, candidate.pipeline);
+      blueprint.connections.push({ ...connectionFor(planned, candidate.path.length, candidate.loaderDistance, candidate.unloaderDistance), path: candidate.path });
     }
   };
   const connectLocal = (resource: ResourceId, sourceEndpoints: Endpoint[], targetEndpoints: Endpoint[]): void => {
@@ -889,8 +916,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       const pipeline = selectedPipelines.get(connection.id)!;
       return {
         connection: connection.id, resource: connection.resource, requiredPerMinute: connection.requiredPerMinute,
-        capacityPerMinute: pipeline.capacityPerMinute, loader: pipeline.loader.id, line: pipeline.line.id,
-        unloader: pipeline.unloader.id, stackSize: pipeline.stackSize,
+        capacityPerMinute: pipeline.capacityPerMinute, loader: pipeline.loader.id, loaderDistance: pipeline.loaderDistance, line: pipeline.line.id,
+        unloader: pipeline.unloader.id, unloaderDistance: pipeline.unloaderDistance, stackSize: pipeline.stackSize,
       };
     }),
     stationNetworks: stationSummary, power: powerSummary,

@@ -1,16 +1,16 @@
 {
-  "averageBeltItems": 0.6791666666666667,
+  "averageBeltItems": 0.5608333333333333,
   "averageBlockedBeltItems": 0,
-  "averageWip": 53.373333333333335,
-  "beltCellUtilization": 0.021223958333333334,
+  "averageWip": 53.4015,
+  "beltCellUtilization": 0.018694444444444444,
   "blockedOutputTime": {
     "assembler-1": 0,
-    "coal-miner-assembly": 73920,
+    "coal-miner-assembly": 74220,
     "coal-miner-forge": 0,
     "coal-splitter-assembly": 0,
     "generator-1": 0,
     "generator-2": 0,
-    "ore-source-1": 45000,
+    "ore-source-1": 45300,
     "output-1": 0,
     "smelter-1": 0,
     "station-demand": 0,
@@ -19,11 +19,11 @@
     "wind-assembly-recipe-line": 0
   },
   "bottleneckEntity": "smelter-1",
-  "completedOrders": 12,
+  "completedOrders": 11,
   "consumed": {
-    "gear": 12
+    "gear": 11
   },
-  "energyConsumedMilliJoules": 205925500,
+  "energyConsumedMilliJoules": 205921760,
   "energyStorage": {
     "grid-assembly-world-generator-2": {
       "capacityMilliJoules": 0,
@@ -42,9 +42,9 @@
   },
   "extracted": {
     "coal": 52,
-    "iron-ore": 75
+    "iron-ore": 74
   },
-  "finalScore": 21.29141166666667,
+  "finalScore": 16.23196573333333,
   "fuelConsumed": {
     "coal": 4
   },
@@ -71,21 +71,21 @@
     "coal-splitter-assembly": 0,
     "generator-1": 1,
     "generator-2": 1,
-    "ore-source-1": 0.625,
+    "ore-source-1": 0.6225,
     "output-1": 0,
-    "smelter-1": 0.975,
+    "smelter-1": 0.9725,
     "station-demand": 0,
     "station-supply": 0,
     "storage-forge": 0,
     "wind-assembly-recipe-line": 0
   },
-  "occupiedArea": 108,
-  "onTimeDelivery": 0.5,
+  "occupiedArea": 106,
+  "onTimeDelivery": 0.4583333333333333,
   "peakBeltItems": 4,
   "produced": {
     "coal": 52,
     "gear": 12,
-    "iron-ore": 75,
+    "iron-ore": 74,
     "iron-plate": 29
   },
   "resourceNodes": {
@@ -119,26 +119,26 @@
     },
     "iron-vein-3": {
       "depleted": false,
-      "extracted": 15,
+      "extracted": 14,
       "initial": 30,
-      "remaining": 14,
+      "remaining": 15,
       "reserved": 1
     }
   },
   "scoreBreakdown": {
-    "blocked": -1.982,
-    "buildCost": -12.73,
+    "blocked": -1.992,
+    "buildCost": -12.76,
     "constraintPenalty": 0,
-    "energy": -2.059255,
-    "occupiedArea": -21.6,
-    "onTimeDelivery": 5,
-    "throughput": 60,
-    "wip": -5.3373333333333335
+    "energy": -2.0592176,
+    "occupiedArea": -21.200000000000003,
+    "onTimeDelivery": 4.583333333333333,
+    "throughput": 55,
+    "wip": -5.34015
   },
-  "throughputPerMinute": 6,
-  "totalBuildCost": 25460,
-  "transportCongestion": 0.11534722222222221,
-  "transportEnergyConsumedMilliJoules": 195500,
+  "throughputPerMinute": 5.5,
+  "totalBuildCost": 25520,
+  "transportCongestion": 0.11282098765432101,
+  "transportEnergyConsumedMilliJoules": 260760,
   "transportFlows": {
     "coal-assembly-to-splitter": {
       "averageInFlightItems": 0.1925,
@@ -209,55 +209,55 @@
       "utilization": 0.010416666666666666
     },
     "gear-to-output": {
-      "averageInFlightItems": 0.1,
+      "averageInFlightItems": 0.09816666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "gear": 12
+        "gear": 11
       },
-      "deliveredItems": 12,
-      "deliveredItemsPerMinute": 6,
+      "deliveredItems": 11,
+      "deliveredItemsPerMinute": 5.5,
       "departedByResource": {
         "gear": 12
       },
       "departedItems": 12,
       "departedItemsPerMinute": 6,
-      "utilization": 0.025
+      "utilization": 0.022916666666666665
     },
     "ore-to-smelter": {
-      "averageInFlightItems": 0.5645833333333333,
+      "averageInFlightItems": 0.7208333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
+      "capacityItemsPerMinute": 80,
       "deliveredByResource": {
+        "iron-ore": 66
+      },
+      "deliveredItems": 66,
+      "deliveredItemsPerMinute": 33,
+      "departedByResource": {
         "iron-ore": 67
       },
-      "deliveredItems": 67,
-      "deliveredItemsPerMinute": 33.5,
-      "departedByResource": {
-        "iron-ore": 68
-      },
-      "departedItems": 68,
-      "departedItemsPerMinute": 34,
-      "utilization": 0.13958333333333334
+      "departedItems": 67,
+      "departedItemsPerMinute": 33.5,
+      "utilization": 0.4125
     },
     "plate-to-station": {
-      "averageInFlightItems": 0.19333333333333333,
+      "averageInFlightItems": 0.1925,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "iron-plate": 29
+        "iron-plate": 28
       },
-      "deliveredItems": 29,
-      "deliveredItemsPerMinute": 14.5,
+      "deliveredItems": 28,
+      "deliveredItemsPerMinute": 14,
       "departedByResource": {
         "iron-plate": 29
       },
       "departedItems": 29,
       "departedItemsPerMinute": 14.5,
-      "utilization": 0.06041666666666667
+      "utilization": 0.058333333333333334
     },
     "station-to-assembler": {
       "averageInFlightItems": 0.16,
@@ -296,15 +296,15 @@
     },
     "gear-to-output": {
       "loader": 0.025,
-      "unloader": 0.025
+      "unloader": 0.023166666666666665
     },
     "ore-to-smelter": {
-      "loader": 0.14166666666666666,
-      "unloader": 0.13958333333333334
+      "loader": 0.41833333333333333,
+      "unloader": 0.1375
     },
     "plate-to-station": {
       "loader": 0.06041666666666667,
-      "unloader": 0.06041666666666667
+      "unloader": 0.059583333333333335
     },
     "station-to-assembler": {
       "loader": 0.05,
@@ -328,14 +328,14 @@
   },
   "waitingInputTime": {
     "assembler-1": 84000,
-    "coal-miner-assembly": 6080,
+    "coal-miner-assembly": 5780,
     "coal-miner-forge": 108000,
     "coal-splitter-assembly": 0,
     "generator-1": 0,
     "generator-2": 0,
     "ore-source-1": 0,
     "output-1": 120000,
-    "smelter-1": 3000,
+    "smelter-1": 3300,
     "station-demand": 0,
     "station-supply": 0,
     "storage-forge": 0,

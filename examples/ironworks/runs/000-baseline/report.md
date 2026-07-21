@@ -1,16 +1,16 @@
 # INM Run 000-baseline
 
 - Decision: **BASELINE**
-- Score: **21.291**
-- Result hash: `48bbe37b38840d398f07839df737cd2693c274bfe1f224601d4e131de7b7b464`
+- Score: **16.232**
+- Result hash: `cf3d9106a2e0acde98f8bb982c09a1576325a1553e27f835bc358c2da20354be`
 - Bottleneck: smelter-1
-- Throughput/min: 6.000
-- Target rate: 12.000 gear/min (50.0% attained)
+- Throughput/min: 5.500
+- Target rate: 12.000 gear/min (45.8% attained)
 - Capacity plan: 3 GAPS
-- Belt utilization: 2.1%
+- Belt utilization: 1.9%
 - Average blocked belt items: 0.000
 - Peak belt items: 4
-- Powered transport energy: 195.500 J
+- Powered transport energy: 260.760 J
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
@@ -24,12 +24,12 @@
 
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
-| ore-to-smelter | 33.500 / 240.000 | 14.0% | 0 | 67 iron-ore |
+| ore-to-smelter | 33.000 / 80.000 | 41.3% | 0 | 66 iron-ore |
 | coal-assembly-to-splitter | 16.500 / 240.000 | 6.9% | 0 | 33 coal |
-| plate-to-station | 14.500 / 240.000 | 6.0% | 0 | 29 iron-plate |
+| plate-to-station | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
 | station-to-assembler | 12.000 / 240.000 | 5.0% | 0 | 24 iron-plate |
 | coal-splitter-to-assembler | 10.000 / 240.000 | 4.2% | 0 | 20 coal |
-| gear-to-output | 6.000 / 240.000 | 2.5% | 0 | 12 gear |
+| gear-to-output | 5.500 / 240.000 | 2.3% | 0 | 11 gear |
 | coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 | coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
 
@@ -43,13 +43,13 @@
 
 ```json
 {
-  "blocked": -1.982,
-  "buildCost": -12.73,
+  "blocked": -1.992,
+  "buildCost": -12.76,
   "constraintPenalty": 0,
-  "energy": -2.059255,
-  "occupiedArea": -21.6,
-  "onTimeDelivery": 5,
-  "throughput": 60,
-  "wip": -5.3373333333333335
+  "energy": -2.0592176,
+  "occupiedArea": -21.200000000000003,
+  "onTimeDelivery": 4.583333333333333,
+  "throughput": 55,
+  "wip": -5.34015
 }
 ```

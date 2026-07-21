@@ -8,6 +8,7 @@
   "scripts": {
     "inm": "bun packages/inm-cli/src/bin.ts",
     "docs:check": "bun scripts/check-doc-links.ts",
+    "blueprints:regenerate": "bun scripts/regenerate-example-blueprints.ts",
     "runs:regenerate": "bun scripts/regenerate-example-runs.ts",
     "test": "bun run docs:check && bun run typecheck && bun test packages/inm-core packages/inm-cli packages/inm-studio && bun run inm test examples/ironworks",
     "typecheck": "bunx tsc -p packages/inm-core/tsconfig.json --noEmit && bunx tsc -p packages/inm-cli/tsconfig.json --noEmit && bunx tsc -p packages/inm-studio/tsconfig.json --noEmit && bunx tsc -p examples/ironworks/assets/tsconfig.json --noEmit",

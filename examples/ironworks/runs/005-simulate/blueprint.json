@@ -11,10 +11,12 @@
           "deviceAsset": "conveyor"
         },
         "loader": {
-          "deviceAsset": "stack-sorter"
+          "deviceAsset": "stack-sorter",
+          "distance": 1
         },
         "unloader": {
-          "deviceAsset": "stack-sorter"
+          "deviceAsset": "stack-sorter",
+          "distance": 1
         }
       },
       "path": [

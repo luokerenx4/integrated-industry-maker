@@ -156,7 +156,7 @@
   },
   "energy": {
     "availableMilliWatts": 3600000,
-    "consumedMilliJoules": 224281000,
+    "consumedMilliJoules": 224461000,
     "fuelConsumed": {
       "coal": 4
     },
@@ -172,7 +172,7 @@
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 2000000,
         "chargedMilliJoules": 3600000,
-        "consumedMilliJoules": 123409000,
+        "consumedMilliJoules": 123589000,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 3600000,
         "storedMilliJoules": 3600000

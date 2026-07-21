@@ -210,7 +210,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         const belt = stageName === "loader" ? cells[0]! : cells.at(-1)!;
         const device = stageName === "loader" ? from : to;
         return {
-          stage: stageName, asset: stage.asset.id, from: device, to: belt,
+          stage: stageName, asset: stage.asset.id, distance: stage.distance, from: device, to: belt,
           position: { x: (device.x + belt.x) / 2, y: (device.y + belt.y) / 2 },
           powerMilliWatts: stage.asset.power.consumptionMilliWatts, powerGrid: stage.powerGrid ?? null,
         };

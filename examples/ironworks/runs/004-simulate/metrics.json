@@ -1,30 +1,27 @@
 {
-  "averageBeltItems": 1.1591666666666667,
-  "averageBlockedBeltItems": 0,
-  "averageWip": 26.720833333333335,
-  "beltCellUtilization": 0.028979166666666667,
+  "averageBeltItems": 0.9191666666666667,
+  "averageBlockedBeltItems": 0.14833333333333334,
+  "averageWip": 33.33141666666667,
+  "beltCellUtilization": 0.035352564102564106,
   "blockedOutputTime": {
     "synth-assembly-world-wind-turbine-1": 0,
     "synth-assembly-world-wind-turbine-2": 0,
-    "synth-coal-extractor-1": 90000,
+    "synth-coal-extractor-1": 88000,
     "synth-forge-gear-pair-1": 0,
     "synth-forge-world-wind-turbine-1": 0,
     "synth-forge-world-wind-turbine-2": 0,
     "synth-gear-sink": 0,
-    "synth-iron-ore-extractor-1": 0,
-    "synth-iron-ore-split": 0,
+    "synth-iron-ore-extractor-1": 45200,
     "synth-iron-plate-assembly-world-station-demand-1": 0,
     "synth-iron-plate-forge-world-station-supply-1": 0,
-    "synth-iron-plate-merge": 0,
-    "synth-smelt-iron-1": 0,
-    "synth-smelt-iron-2": 0
+    "synth-smelt-iron-1": 0
   },
   "bottleneckEntity": "synth-smelt-iron-1",
   "completedOrders": 28,
   "consumed": {
     "gear": 28
   },
-  "energyConsumedMilliJoules": 223162000,
+  "energyConsumedMilliJoules": 204471800,
   "energyStorage": {
     "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
       "capacityMilliJoules": 0,
@@ -42,10 +39,10 @@
     }
   },
   "extracted": {
-    "coal": 30,
-    "iron-ore": 90
+    "coal": 32,
+    "iron-ore": 74
   },
-  "finalScore": 105.93629666666668,
+  "finalScore": 111.33214033333334,
   "fuelConsumed": {},
   "idleTime": {
     "synth-assembly-world-wind-turbine-1": 120000,
@@ -56,45 +53,39 @@
     "synth-forge-world-wind-turbine-2": 120000,
     "synth-gear-sink": 0,
     "synth-iron-ore-extractor-1": 0,
-    "synth-iron-ore-split": 120000,
     "synth-iron-plate-assembly-world-station-demand-1": 120000,
     "synth-iron-plate-forge-world-station-supply-1": 120000,
-    "synth-iron-plate-merge": 120000,
-    "synth-smelt-iron-1": 0,
-    "synth-smelt-iron-2": 0
+    "synth-smelt-iron-1": 0
   },
   "infeasibleReason": null,
   "machineUtilization": {
     "synth-assembly-world-wind-turbine-1": 0,
     "synth-assembly-world-wind-turbine-2": 0,
-    "synth-coal-extractor-1": 0.25,
-    "synth-forge-gear-pair-1": 0.4666666666666667,
+    "synth-coal-extractor-1": 0.26666666666666666,
+    "synth-forge-gear-pair-1": 0.2500833333333333,
     "synth-forge-world-wind-turbine-1": 0,
     "synth-forge-world-wind-turbine-2": 0,
     "synth-gear-sink": 0,
-    "synth-iron-ore-extractor-1": 0.75,
-    "synth-iron-ore-split": 0,
+    "synth-iron-ore-extractor-1": 0.6233333333333333,
     "synth-iron-plate-assembly-world-station-demand-1": 0,
     "synth-iron-plate-forge-world-station-supply-1": 0,
-    "synth-iron-plate-merge": 0,
-    "synth-smelt-iron-1": 0.7333333333333333,
-    "synth-smelt-iron-2": 0.7333333333333333
+    "synth-smelt-iron-1": 0.9733333333333334
   },
-  "occupiedArea": 120,
+  "occupiedArea": 94,
   "onTimeDelivery": 1,
-  "peakBeltItems": 5,
+  "peakBeltItems": 4,
   "produced": {
-    "coal": 30,
+    "coal": 32,
     "gear": 28,
-    "iron-ore": 90,
-    "iron-plate": 44
+    "iron-ore": 74,
+    "iron-plate": 29
   },
   "resourceNodes": {
     "coal-seam-assembly": {
       "depleted": false,
-      "extracted": 30,
+      "extracted": 32,
       "initial": 40,
-      "remaining": 10,
+      "remaining": 8,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -119,50 +110,50 @@
       "reserved": 0
     },
     "iron-vein-3": {
-      "depleted": true,
-      "extracted": 30,
+      "depleted": false,
+      "extracted": 14,
       "initial": 30,
-      "remaining": 0,
-      "reserved": 0
+      "remaining": 15,
+      "reserved": 1
     }
   },
   "scoreBreakdown": {
-    "blocked": -1.5,
-    "buildCost": -13.66,
+    "blocked": -2.22,
+    "buildCost": -12.27,
     "constraintPenalty": 0,
-    "energy": -2.23162,
-    "occupiedArea": -24,
+    "energy": -2.044718,
+    "occupiedArea": -18.8,
     "onTimeDelivery": 10,
     "throughput": 140,
-    "wip": -2.6720833333333336
+    "wip": -3.333141666666667
   },
   "throughputPerMinute": 14,
-  "totalBuildCost": 27320,
-  "transportCongestion": 0.10741458333333334,
-  "transportEnergyConsumedMilliJoules": 362000,
+  "totalBuildCost": 24540,
+  "transportCongestion": 0.18459935897435886,
+  "transportEnergyConsumedMilliJoules": 204500,
   "transportFlows": {
     "synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1": {
-      "averageInFlightItems": 0.275,
+      "averageInFlightItems": 0.3,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "coal": 22
+        "coal": 24
       },
-      "deliveredItems": 22,
-      "deliveredItemsPerMinute": 11,
+      "deliveredItems": 24,
+      "deliveredItemsPerMinute": 12,
       "departedByResource": {
-        "coal": 22
+        "coal": 24
       },
-      "departedItems": 22,
-      "departedItemsPerMinute": 11,
-      "utilization": 0.04583333333333333
+      "departedItems": 24,
+      "departedItemsPerMinute": 12,
+      "utilization": 0.05
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink": {
-      "averageInFlightItems": 0.16333333333333333,
-      "blockedFraction": 0,
-      "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
+      "averageInFlightItems": 0.2916666666666667,
+      "blockedFraction": 0.32,
+      "blockedItemTicks": 11200,
+      "capacityItemsPerMinute": 120,
       "deliveredByResource": {
         "gear": 28
       },
@@ -173,164 +164,80 @@
       },
       "departedItems": 28,
       "departedItemsPerMinute": 14,
-      "utilization": 0.058333333333333334
+      "utilization": 0.11666666666666667
     },
-    "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": {
-      "averageInFlightItems": 0.525,
+    "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1": {
+      "averageInFlightItems": 0.67125,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "iron-ore": 90
+        "iron-ore": 66
       },
-      "deliveredItems": 90,
-      "deliveredItemsPerMinute": 45,
+      "deliveredItems": 66,
+      "deliveredItemsPerMinute": 33,
       "departedByResource": {
-        "iron-ore": 90
+        "iron-ore": 68
       },
-      "departedItems": 90,
-      "departedItemsPerMinute": 45,
-      "utilization": 0.1875
-    },
-    "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1": {
-      "averageInFlightItems": 0.375,
-      "blockedFraction": 0,
-      "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
-      "deliveredByResource": {
-        "iron-ore": 45
-      },
-      "deliveredItems": 45,
-      "deliveredItemsPerMinute": 22.5,
-      "departedByResource": {
-        "iron-ore": 45
-      },
-      "departedItems": 45,
-      "departedItemsPerMinute": 22.5,
-      "utilization": 0.09375
-    },
-    "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2": {
-      "averageInFlightItems": 0.4125,
-      "blockedFraction": 0,
-      "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
-      "deliveredByResource": {
-        "iron-ore": 45
-      },
-      "deliveredItems": 45,
-      "deliveredItemsPerMinute": 22.5,
-      "departedByResource": {
-        "iron-ore": 45
-      },
-      "departedItems": 45,
-      "departedItemsPerMinute": 22.5,
-      "utilization": 0.09375
+      "departedItems": 68,
+      "departedItemsPerMinute": 34,
+      "utilization": 0.1375
     },
     "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1": {
-      "averageInFlightItems": 0.29333333333333333,
-      "blockedFraction": 0,
-      "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
+      "averageInFlightItems": 0.245,
+      "blockedFraction": 0.22448979591836735,
+      "blockedItemTicks": 6600,
+      "capacityItemsPerMinute": 120,
       "deliveredByResource": {
-        "iron-plate": 44
+        "iron-plate": 24
       },
-      "deliveredItems": 44,
-      "deliveredItemsPerMinute": 22,
+      "deliveredItems": 24,
+      "deliveredItemsPerMinute": 12,
       "departedByResource": {
-        "iron-plate": 44
+        "iron-plate": 24
       },
-      "departedItems": 44,
-      "departedItemsPerMinute": 22,
-      "utilization": 0.09166666666666666
+      "departedItems": 24,
+      "departedItemsPerMinute": 12,
+      "utilization": 0.1
     },
-    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1": {
-      "averageInFlightItems": 0.25666666666666665,
+    "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1": {
+      "averageInFlightItems": 0.2633333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
-        "iron-plate": 44
+        "iron-plate": 28
       },
-      "deliveredItems": 44,
-      "deliveredItemsPerMinute": 22,
+      "deliveredItems": 28,
+      "deliveredItemsPerMinute": 14,
       "departedByResource": {
-        "iron-plate": 44
+        "iron-plate": 29
       },
-      "departedItems": 44,
-      "departedItemsPerMinute": 22,
-      "utilization": 0.09166666666666666
-    },
-    "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": {
-      "averageInFlightItems": 0.18333333333333332,
-      "blockedFraction": 0,
-      "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
-      "deliveredByResource": {
-        "iron-plate": 22
-      },
-      "deliveredItems": 22,
-      "deliveredItemsPerMinute": 11,
-      "departedByResource": {
-        "iron-plate": 22
-      },
-      "departedItems": 22,
-      "departedItemsPerMinute": 11,
-      "utilization": 0.04583333333333333
-    },
-    "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": {
-      "averageInFlightItems": 0.18333333333333332,
-      "blockedFraction": 0,
-      "blockedItemTicks": 0,
-      "capacityItemsPerMinute": 240,
-      "deliveredByResource": {
-        "iron-plate": 22
-      },
-      "deliveredItems": 22,
-      "deliveredItemsPerMinute": 11,
-      "departedByResource": {
-        "iron-plate": 22
-      },
-      "departedItems": 22,
-      "departedItemsPerMinute": 11,
-      "utilization": 0.04583333333333333
+      "departedItems": 29,
+      "departedItemsPerMinute": 14.5,
+      "utilization": 0.058333333333333334
     }
   },
   "transportStageUtilization": {
     "synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1": {
-      "loader": 0.04583333333333333,
-      "unloader": 0.04583333333333333
+      "loader": 0.05,
+      "unloader": 0.05
     },
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink": {
-      "loader": 0.058333333333333334,
-      "unloader": 0.058333333333333334
+      "loader": 0.0875,
+      "unloader": 0.11666666666666667
     },
-    "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": {
-      "loader": 0.1875,
-      "unloader": 0.1875
-    },
-    "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1": {
-      "loader": 0.09375,
-      "unloader": 0.09375
-    },
-    "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2": {
-      "loader": 0.09375,
-      "unloader": 0.09375
+    "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1": {
+      "loader": 0.14166666666666666,
+      "unloader": 0.1375
     },
     "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1": {
-      "loader": 0.09166666666666666,
-      "unloader": 0.09166666666666666
+      "loader": 0.05,
+      "unloader": 0.1
     },
-    "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1": {
-      "loader": 0.09166666666666666,
-      "unloader": 0.09166666666666666
-    },
-    "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": {
-      "loader": 0.04583333333333333,
-      "unloader": 0.04583333333333333
-    },
-    "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": {
-      "loader": 0.04583333333333333,
-      "unloader": 0.04583333333333333
+    "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1": {
+      "loader": 0.06041666666666667,
+      "unloader": 0.058333333333333334
     }
   },
   "unpoweredTime": {
@@ -342,27 +249,21 @@
     "synth-forge-world-wind-turbine-2": 0,
     "synth-gear-sink": 0,
     "synth-iron-ore-extractor-1": 0,
-    "synth-iron-ore-split": 0,
     "synth-iron-plate-assembly-world-station-demand-1": 0,
     "synth-iron-plate-forge-world-station-supply-1": 0,
-    "synth-iron-plate-merge": 0,
-    "synth-smelt-iron-1": 0,
-    "synth-smelt-iron-2": 0
+    "synth-smelt-iron-1": 0
   },
   "waitingInputTime": {
     "synth-assembly-world-wind-turbine-1": 0,
     "synth-assembly-world-wind-turbine-2": 0,
     "synth-coal-extractor-1": 0,
-    "synth-forge-gear-pair-1": 64000,
+    "synth-forge-gear-pair-1": 89990,
     "synth-forge-world-wind-turbine-1": 0,
     "synth-forge-world-wind-turbine-2": 0,
     "synth-gear-sink": 120000,
-    "synth-iron-ore-extractor-1": 30000,
-    "synth-iron-ore-split": 0,
+    "synth-iron-ore-extractor-1": 0,
     "synth-iron-plate-assembly-world-station-demand-1": 0,
     "synth-iron-plate-forge-world-station-supply-1": 0,
-    "synth-iron-plate-merge": 0,
-    "synth-smelt-iron-1": 32000,
-    "synth-smelt-iron-2": 32000
+    "synth-smelt-iron-1": 3200
   }
 }

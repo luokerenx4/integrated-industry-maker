@@ -1,6 +1,6 @@
 # Logistics design
 
-Status: physical local logistics, stacking, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented.
+Status: physical local logistics, distance-aware sorter spans, stacking, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.31.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
@@ -16,16 +16,20 @@ Each Blueprint connection owns one source port, one target port, an explicit ord
 source buffer → loader → concrete belt cells → unloader → target buffer
 ```
 
-Loader and unloader distance is one endpoint hop. Line distance equals routed cell count. Each asset's TypeScript `planTransport()` returns cargo capacity, duration, and stack capacity. The compiler intersects stage stack limits with the Resource asset's stack limit and computes independent stage clocks.
+Loader and unloader distance is an explicit positive Blueprint value. A sorter asset that supports either endpoint role declares `logistics.endpointRange = { minimum, maximum }`; the compiler rejects a selected span outside that range. Line distance equals routed belt-cell count. Each stage's actual distance is passed to its TypeScript `planTransport()`, so a project-local sorter can lose trips/min with reach while a future tier can implement a different distance curve. The compiler intersects stage stack limits with the Resource asset's stack limit and computes independent stage clocks.
+
+There is no implicit adjacent-sorter default in the file format. A connection edit that moves the belt away from a machine must update both `logistics.loader.distance` or `logistics.unloader.distance` and the first or last path cell. This makes the physical layout and its throughput consequence reviewable in the same JSON diff.
 
 ## Geometry and occupancy
 
-- Paths begin/end at the exterior level-0 cells of real ports.
+- Paths begin/end at the level-0 belt cells exactly the configured loader/unloader distance from real ports.
 - Steps are cardinal and change at most one transport level.
 - Device footprints, deposits, bounds, and same-level self-intersections are obstacles.
 - One belt cell holds at most one cargo stack, regardless of item count in that stack.
 - Same-direction shared suffixes are legal and share bandwidth; divergence from a shared cell requires a junction Device.
 - Raised cells are separate occupancy from ground cells at the same `(x, y)`.
+
+The cells between a Device edge and a farther belt endpoint belong to the sorter arm, not the line, and therefore do not create hidden belt slots or line build cost. The Studio endpoint beam spans that exact geometry. Endpoint power is assigned at the selected belt cell, matching the place where the transport stage joins the regional grid.
 
 Cargo progresses through `loading`, `belt`, and `unloading` phases. A busy cell or unloader produces explicit backpressure rather than an approximate throughput penalty.
 
@@ -33,9 +37,11 @@ Cargo progresses through `loading`, `belt`, and `unloading` phases. A busy cell 
 
 A transport-junction is a real powered Device with an internal buffer and multiple ports. Dispatch may be FIFO or round-robin; input/output port priorities and a Resource-to-output filter are instance policies. Synthesis creates deterministic merge/split trees, assigns single-use physical ports, conserves planned rate on every edge, and writes an exact Resource filter on every junction.
 
-## Parallel capacity
+## Synthesis and parallel capacity
 
 A physical port and local lane may not exceed the best project-local pipeline capacity. When demand is higher, synthesis creates more processor/extractor/consumer endpoints, independently routed lanes, and parallel station pairs. It never reports one fictional over-capacity trunk.
+
+For each planned local flow, synthesis enumerates every supported loader/unloader span together with ground and raised belt routes. It executes the candidate endpoint and line runtimes at their actual distances, rejects candidates below required items/min, scores project-local build and energy cost, and globally reserves a conflict-free set of belt cells. A longer sorter arm may remove belt cells and improve compactness, but its distance-dependent cycle can force a faster or stacked tier; the selected distances are written into the generated Blueprint and synthesis report.
 
 ## Station logistics
 
@@ -73,7 +79,7 @@ The backing buffer therefore has two simultaneous limits: the asset-level total 
 
 ## Telemetry
 
-Every connection records departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
+Every connection records each stage's physical distance and duration, departed/delivered Resource mix, items/min, stack-aware capacity, utilization, average in-flight inventory, loader/unloader utilization, blocked item-ticks, and transport energy. Station analysis records matched routes, source/destination slot capacities, reserve/target policy, demand/supply priority, effective batch range, carrier load, and deficits. Buffer-contract analysis exposes the same per-Resource quotas used by the simulator.
 
 ## Source of truth
 
@@ -86,7 +92,7 @@ Every connection records departed/delivered Resource mix, items/min, stack-aware
 ## Verification
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|stack|junction|station|parallel lanes"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|sorter span|endpoint reach|stack|junction|station|parallel lanes"
 bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --blueprint stacked-cargo --scenario stacked-cargo --objective stacked-cargo
 ```
@@ -97,4 +103,3 @@ Any logistics change must test nominal capacity and event-level physical movemen
 
 - Dedicated vertical lift/elevator semantics beyond level-changing routed cells.
 - Dynamic priorities driven by downstream shortage and production criticality.
-- Explicit sorter reach geometry and distance-dependent endpoint placement.

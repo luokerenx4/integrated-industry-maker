@@ -11,11 +11,12 @@ finite iron veins → mining-machine → smelter → interstellar logistics → 
 finite coal seam  → mining-machine → local belt → thermal generator → regional power grid ↔ accumulator
 ```
 
-Each planet has its own self-contained coal-to-power loop. A startup coal unit boots the grid, after which the powered miner replenishes the thermal generator through an explicitly routed local belt. Coal's resource asset declares 70 MJ per unit, so a 1 kW generator contributes to its regional grid for exactly 70 seconds per burn. Forge World places an initially empty project-local accumulator with a 3.6 MJ envelope; measured surplus charges it and later deficits can consume that stored energy. The local catalog also contains renewable generation, multiple belt/sorter tiers, and a powered Splitter Device without importing shared content.
+Each planet has its own self-contained coal-to-power loop. A startup coal unit boots the grid, after which the powered miner replenishes the thermal generator through an explicitly routed local belt. Coal's resource asset declares 70 MJ per unit, so a 1 kW generator contributes to its regional grid for exactly 70 seconds per burn. Forge World places an initially empty project-local accumulator with a 3.6 MJ envelope; measured surplus charges it and later deficits can consume that stored energy. The ore miner uses the Sorter's full three-cell reach: the Blueprint starts the belt at that selected endpoint, and `runtime.ts` makes the 750 ms loader cycle three times slower than an adjacent 250 ms transfer. The local catalog also contains renewable generation, multiple belt/sorter tiers, and a powered Splitter Device without importing shared content.
 
 ```bash
 bun run inm validate examples/ironworks
 bun run inm plan examples/ironworks
+bun run blueprints:regenerate
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output my-factory
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --world scaled --objective scaled-production --output scaled-factory
 bun run inm synthesize examples/ironworks --blueprint blank --scenario chemical-cold-start --world chemical --objective plastic-production --output chemical-factory

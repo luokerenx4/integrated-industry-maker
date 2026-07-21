@@ -6,7 +6,7 @@ import type {
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
 import { ENGINE_VERSION, hashValue } from "./utils";
-import { externalPortCell, rotatePortSide, rotatedFootprint, transportCellId } from "./routing";
+import { externalPortCellAtDistance, rotatePortSide, rotatedFootprint, transportCellId } from "./routing";
 import { compileProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 
 function validateAssets(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
@@ -127,6 +127,10 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     if (asset.logistics && new Set(asset.logistics.roles).size !== asset.logistics.roles.length) issues.push({ path: `assets/devices/${id}/asset.json/logistics/roles`, code: "logistics.duplicate-role", message: "Logistics roles must be unique" });
     if (asset.logistics?.roles.includes("carrier") && !asset.logistics.carrierKinds) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-kinds-required", message: "Carrier role requires supported network kinds" });
     if (asset.logistics?.carrierKinds && !asset.logistics.roles.includes("carrier")) issues.push({ path: `assets/devices/${id}/asset.json/logistics/carrierKinds`, code: "logistics.carrier-role-required", message: "Carrier kinds require carrier role" });
+    const endpointRoles = asset.logistics?.roles.some((role) => role === "loader" || role === "unloader") ?? false;
+    if (endpointRoles && !asset.logistics?.endpointRange) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-range-required", message: "Loader and unloader roles require an explicit physical endpoint range" });
+    if (!endpointRoles && asset.logistics?.endpointRange) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-role-required", message: "Endpoint range requires a loader or unloader role" });
+    if (asset.logistics?.endpointRange && asset.logistics.endpointRange.minimum > asset.logistics.endpointRange.maximum) issues.push({ path: `assets/devices/${id}/asset.json/logistics/endpointRange`, code: "logistics.endpoint-range-order", message: "Endpoint range minimum must not exceed maximum" });
     if (asset.capabilities.includes("transport") && !asset.logistics) issues.push({ path: `assets/devices/${id}/asset.json/logistics`, code: "logistics.roles-required", message: "Transport capability requires explicit logistics roles" });
     if (asset.capabilities.includes("transport") && !asset.program.planTransport) issues.push({ path: `assets/devices/${id}/${asset.runtime.entry}`, code: "runtime.missing-transport-hook", message: "Transport capability requires planTransport(context)" });
     if (asset.logisticsStation) {
@@ -645,6 +649,15 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       return asset;
     });
     if (!from || !to || stageAssets.some((asset, stageIndex) => !asset?.capabilities.includes("transport") || !asset.logistics?.roles.includes(stageDefinitions[stageIndex]!.stage))) continue;
+    for (const stage of ["loader", "unloader"] as const) {
+      const asset = loaded.deviceAssets[connection.logistics[stage].deviceAsset]!;
+      const distance = connection.logistics[stage].distance;
+      const range = asset.logistics?.endpointRange;
+      if (range && (distance < range.minimum || distance > range.maximum)) issues.push({
+        path: `${path}/logistics/${stage}/distance`, code: "logistics.endpoint-distance",
+        message: `${stage} asset '${asset.id}' supports ${range.minimum}-${range.maximum} cells, not ${distance}`,
+      });
+    }
     if (from.region !== to.region) { issues.push({ path, code: "connection.cross-region", message: `Physical connection '${connection.id}' cannot cross from '${from.region}' to '${to.region}'` }); continue; }
     const fromPort = from.ports.find((port) => port.id === connection.from.port);
     const toPort = to.ports.find((port) => port.id === connection.to.port);
@@ -661,14 +674,14 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
     if (!connection.path?.length) { issues.push({ path: `${path}/path`, code: "logistics.path-required", message: `Connection '${connection.id}' requires at least one explicit transport cell` }); continue; }
     let pathValid = true;
-    const expectedStart = externalPortCell(from, from.assetDef, connection.from.port);
-    const expectedEnd = externalPortCell(to, to.assetDef, connection.to.port);
+    const expectedStart = externalPortCellAtDistance(from, from.assetDef, connection.from.port, connection.logistics.loader.distance);
+    const expectedEnd = externalPortCellAtDistance(to, to.assetDef, connection.to.port, connection.logistics.unloader.distance);
     const first = connection.path[0]!; const last = connection.path.at(-1)!;
     if (!expectedStart || first.x !== expectedStart.x || first.y !== expectedStart.y || (first.level ?? 0) !== 0) {
-      issues.push({ path: `${path}/path/0`, code: "logistics.path-start", message: `Path must start at the exterior cell of '${from.id}.${connection.from.port}'` }); pathValid = false;
+      issues.push({ path: `${path}/path/0`, code: "logistics.path-start", message: `Path must start ${connection.logistics.loader.distance} cell(s) from '${from.id}.${connection.from.port}'` }); pathValid = false;
     }
     if (!expectedEnd || last.x !== expectedEnd.x || last.y !== expectedEnd.y || (last.level ?? 0) !== 0) {
-      issues.push({ path: `${path}/path/${connection.path.length - 1}`, code: "logistics.path-end", message: `Path must end at the exterior cell of '${to.id}.${connection.to.port}'` }); pathValid = false;
+      issues.push({ path: `${path}/path/${connection.path.length - 1}`, code: "logistics.path-end", message: `Path must end ${connection.logistics.unloader.distance} cell(s) from '${to.id}.${connection.to.port}'` }); pathValid = false;
     }
     const seenPathCells = new Set<string>();
     const region = regions[from.region]!;
@@ -691,7 +704,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const distance = connection.path.length;
     const logisticsStages = stageDefinitions.map(({ stage }, stageIndex) => {
       const asset = stageAssets[stageIndex]!;
-      const stageDistance = stage === "line" ? distance : 1;
+      const stageDistance = stage === "line" ? distance : connection.logistics[stage].distance;
       const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: connection.id, stage, distance: stageDistance });
       const position = stage === "loader" ? connection.path[0] : stage === "unloader" ? connection.path.at(-1) : undefined;
       return {

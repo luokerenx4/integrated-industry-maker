@@ -113,7 +113,7 @@ export interface ConnectionRateLimit {
   sharedCells: number;
   maxLevel: number;
   stages: Array<{
-    stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; stackCapacity: number;
+    stage: "loader" | "line" | "unloader"; asset: string; distance: number; capacity: number; durationTicks: number; stackCapacity: number;
     powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
   }>;
 }
@@ -431,7 +431,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     maxLevel: Math.max(0, ...connection.path.map((cell) => cell.level ?? 0)),
     sharedCells: connection.transportCells.filter((cell) => project.transportCells[cell]!.connections.length > 1).length,
     stages: connection.logisticsStages.map((stage) => ({
-      stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks, stackCapacity: stage.stackCapacity,
+      stage: stage.stage, asset: stage.asset.id, distance: stage.distance, capacity: stage.capacity, durationTicks: stage.durationTicks, stackCapacity: stage.stackCapacity,
       powerMilliWatts: stage.asset.power.consumptionMilliWatts,
       ...(stage.powerGrid ? { powerGrid: stage.powerGrid } : {}), ...(stage.position ? { position: { ...stage.position } } : {}),
     })),

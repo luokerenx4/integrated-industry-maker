@@ -16,9 +16,9 @@
       ],
       "stackSize": 4,
       "logistics": {
-        "loader": { "deviceAsset": "stack-sorter" },
+        "loader": { "deviceAsset": "stack-sorter", "distance": 1 },
         "line": { "deviceAsset": "conveyor" },
-        "unloader": { "deviceAsset": "stack-sorter" }
+        "unloader": { "deviceAsset": "stack-sorter", "distance": 1 }
       }
     }
   ],

@@ -1,16 +1,16 @@
 # INM Run 006-simulate
 
 - Decision: **BASELINE**
-- Score: **138.337**
-- Result hash: `80b1d4fe72f2df78b827d4d7cd052b2839c7723707211efc934c4ec62e08de6c`
-- Bottleneck: synth-smelt-iron-2
-- Throughput/min: 20.000
-- Target rate: 24.000 gear/min (83.3% attained)
+- Score: **246.527**
+- Result hash: `9b443aabb54849bd97cc15f3af0517fe1900c98d58be5cd3062b7f91fd78098a`
+- Bottleneck: synth-smelt-iron-1
+- Throughput/min: 28.000
+- Target rate: 24.000 gear/min (100.0% attained)
 - Capacity plan: READY
-- Belt utilization: 4.6%
-- Average blocked belt items: 0.000
-- Peak belt items: 10
-- Powered transport energy: 847.980 J
+- Belt utilization: 4.9%
+- Average blocked belt items: 0.429
+- Peak belt items: 8
+- Powered transport energy: 587.900 J
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
@@ -22,21 +22,15 @@
 
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
-| synth-iron-ore-synth-iron-ore-extractor-2-to-synth-iron-ore-split-2 | 55.500 / 240.000 | 23.1% | 0 | 111 iron-ore |
-| synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split | 55.000 / 240.000 | 22.9% | 0 | 110 iron-ore |
-| synth-iron-plate-synth-iron-plate-merge-2-to-synth-iron-plate-forge-world-station-supply-1 | 40.500 / 240.000 | 16.9% | 0 | 81 iron-plate |
-| synth-iron-ore-lane-1-synth-iron-ore-split-to-synth-smelt-iron-1 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-ore |
-| synth-iron-ore-synth-iron-ore-merge-to-synth-smelt-iron-2 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-ore |
-| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-plate |
-| synth-iron-ore-lane-4-synth-iron-ore-split-2-to-synth-smelt-iron-3 | 32.000 / 240.000 | 13.3% | 0 | 64 iron-ore |
-| synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-merge-2 | 27.500 / 240.000 | 11.5% | 0 | 55 iron-plate |
-| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 20.000 / 240.000 | 8.3% | 0 | 40 gear |
-| synth-iron-ore-lane-3-synth-iron-ore-split-2-to-synth-iron-ore-merge | 19.000 / 240.000 | 7.9% | 0 | 38 iron-ore |
-| synth-iron-ore-lane-2-synth-iron-ore-split-to-synth-iron-ore-merge | 18.000 / 240.000 | 7.5% | 0 | 36 iron-ore |
-| synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1 | 14.000 / 240.000 | 5.8% | 0 | 28 coal |
-| synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
-| synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
-| synth-iron-plate-synth-smelt-iron-3-to-synth-iron-plate-merge-2 | 13.500 / 240.000 | 5.6% | 0 | 27 iron-plate |
+| synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split | 59.500 / 240.000 | 24.8% | 0 | 119 iron-ore |
+| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 28.000 / 120.000 | 23.3% | 22400 | 56 gear |
+| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1 | 22.000 / 120.000 | 18.3% | 29100 | 44 iron-plate |
+| synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1 | 29.500 / 240.000 | 12.3% | 0 | 59 iron-ore |
+| synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2 | 29.500 / 240.000 | 12.3% | 0 | 59 iron-ore |
+| synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1 | 28.000 / 240.000 | 11.7% | 0 | 56 iron-plate |
+| synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge | 14.000 / 120.000 | 11.7% | 0 | 28 iron-plate |
+| synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge | 14.000 / 120.000 | 11.7% | 0 | 28 iron-plate |
+| synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1 | 18.000 / 240.000 | 7.5% | 0 | 36 coal |
 
 ## Grid storage
 
@@ -46,13 +40,13 @@ No configured accumulators.
 
 ```json
 {
-  "blocked": -1.4391666666666667,
-  "buildCost": -16.69,
+  "blocked": -1.2666666666666666,
+  "buildCost": -13.72,
   "constraintPenalty": 0,
-  "energy": -2.7392928000000003,
-  "occupiedArea": -42.400000000000006,
-  "onTimeDelivery": 8.333333333333334,
-  "throughput": 200,
-  "wip": -6.728208333333334
+  "energy": -2.4137790000000003,
+  "occupiedArea": -23.200000000000003,
+  "onTimeDelivery": 10,
+  "throughput": 280,
+  "wip": -2.873
 }
 ```
