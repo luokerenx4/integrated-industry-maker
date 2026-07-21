@@ -51,11 +51,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
-    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltBlockedArea: 0, peakBeltItems: 0, elapsedTicks: state.tick,
+    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
+    transportStageActiveArea: {}, transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
   };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
   const dispatchCursors: Record<string, number> = {};
   const transportCellCursors: Record<string, number> = {};
+  const transportPowerBlocked: Record<string, boolean> = {};
   const stationDispatchCursors: Record<string, number> = {};
   const nextDispatchTick: Record<string, number> = Object.fromEntries(Object.keys(project.connections).map((id) => [id, state.tick]));
   const scheduledDispatchTick: Record<string, number | undefined> = {};
@@ -75,16 +77,27 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     mutateFactoryState(state, { kind: "status", device, status });
   };
   const usesPersistentPower = (device: CompiledDevice) => device.assetDef.capabilities.includes("station") || device.assetDef.capabilities.includes("transport-junction");
+  const transportStage = (connection: CompiledFactoryProject["connections"][string], stage: "loader" | "unloader") => connection.logisticsStages.find((item) => item.stage === stage)!;
   const infrastructureBasePower = (grid?: string) => Object.entries(state.devices).reduce((sum, [id, runtime]) => {
     const device = project.devices[id]!;
     if (!usesPersistentPower(device) || runtime.status === "failed") return sum;
     if (grid !== undefined && device.powerGrid !== grid) return sum;
     return sum + device.assetDef.power.consumptionMilliWatts;
   }, 0);
+  const activeTransportPower = (grid?: string) => Object.entries(state.transports).reduce((sum, [connectionId, transits]) => {
+    const connection = project.connections[connectionId]!;
+    return sum + (["loader", "unloader"] as const).reduce((stageSum, stageName) => {
+      const phase = stageName === "loader" ? "loading" : "unloading";
+      if (!transits.some((transit) => transit.phase === phase)) return stageSum;
+      const stage = transportStage(connection, stageName);
+      if (grid !== undefined && stage.powerGrid !== grid) return stageSum;
+      return stageSum + stage.asset.power.consumptionMilliWatts;
+    }, 0);
+  }, 0);
   const activePower = (grid?: string) => infrastructureBasePower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
     if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
     return sum + (runtime.activeJob?.powerMilliWatts ?? 0);
-  }, 0);
+  }, 0) + activeTransportPower(grid);
   const availablePower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
     if (grid !== undefined && device.powerGrid !== grid) return sum;
     if (state.devices[device.id]!.status === "failed") return sum;
@@ -110,8 +123,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     stats.beltOccupancyArea += occupiedBeltCells * delta;
     stats.beltBlockedArea += blockedBeltItems * delta;
     stats.peakBeltItems = Math.max(stats.peakBeltItems, occupiedBeltCells);
+    for (const [connectionId, transits] of Object.entries(state.transports)) {
+      const active = stats.transportStageActiveArea[connectionId] ??= { loader: 0, unloader: 0 };
+      active.loader += transits.filter((transit) => transit.phase === "loading").length * delta;
+      active.unloader += transits.filter((transit) => transit.phase === "unloading").length * delta;
+    }
     for (const grid of Object.keys(project.powerGrids).sort()) {
-      const consumedMilliJoules = Math.min(availablePower(grid), activePower(grid)) * delta / 1000;
+      const available = availablePower(grid); const transportLoad = activeTransportPower(grid); const nonTransportLoad = activePower(grid) - transportLoad;
+      const consumedMilliJoules = Math.min(available, nonTransportLoad + transportLoad) * delta / 1000;
+      stats.transportEnergyConsumedMilliJoules += Math.min(transportLoad, Math.max(0, available - nonTransportLoad)) * delta / 1000;
       if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
     }
     mutateFactoryState(state, { kind: "tick", tick }); stats.elapsedTicks = tick;
@@ -122,7 +142,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const incomingQuantity = (device: string, buffer: string) => [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
     .filter((transit) => transit.to === device && transit.toBuffer === buffer).reduce((sum, transit) => sum + transit.count, 0);
-  const transportStage = (connection: CompiledFactoryProject["connections"][string], stage: "loader" | "unloader") => connection.logisticsStages.find((item) => item.stage === stage)!;
+  const transportStagePowered = (connection: CompiledFactoryProject["connections"][string], stageName: "loader" | "unloader"): boolean => {
+    const stage = transportStage(connection, stageName); const required = stage.asset.power.consumptionMilliWatts;
+    if (required <= 0) return true;
+    const grid = stage.powerGrid ?? null;
+    const phase = stageName === "loader" ? "loading" : "unloading";
+    const alreadyActive = state.transports[connection.id]!.some((transit) => transit.phase === phase);
+    const available = grid ? Math.max(0, availablePower(grid) - activePower(grid)) : 0;
+    const hasPower = Boolean(grid) && (alreadyActive ? availablePower(grid!) >= activePower(grid!) : available >= required);
+    const key = `${connection.id}:${stageName}`;
+    if (!hasPower) {
+      if (!transportPowerBlocked[key]) emit({ type: "transport.power-shortage", tick: state.tick, connection: connection.id, stage: stageName, grid, requiredMilliWatts: required, availableMilliWatts: available });
+      transportPowerBlocked[key] = true; return false;
+    }
+    if (transportPowerBlocked[key]) emit({ type: "transport.power-restored", tick: state.tick, connection: connection.id, stage: stageName, grid: grid! });
+    delete transportPowerBlocked[key]; return true;
+  };
   const occupiedCell = (cell: string): BeltTransit | undefined => {
     for (const [connectionId, transits] of Object.entries(state.transports)) {
       const connection = project.connections[connectionId]!;
@@ -197,6 +232,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         scheduleLogisticsReady(connection.id, readyTick);
         continue;
       }
+      if (!transportStagePowered(connection, "loader")) continue;
       mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -1 });
       const transit: BeltTransit = {
         id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count: 1,
@@ -476,6 +512,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         const unloading = state.transports[event.connection]!.filter((item) => item.phase === "unloading").length;
         if (unloading >= unloader.capacity) {
           markBlocked(event.connection, transit, `${connection.to.device}.${connection.to.port}`, connection.lineCellTravelTicks);
+          continue;
+        }
+        if (!transportStagePowered(connection, "unloader")) {
+          markBlocked(event.connection, transit, `power:${unloader.powerGrid ?? "disconnected"}`, connection.lineCellTravelTicks);
           continue;
         }
         clearBlocked(event.connection, transit);

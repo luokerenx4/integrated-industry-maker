@@ -121,6 +121,10 @@ interface FactoryEvent {
   cell?: string | null;
   cellIndex?: number;
   waitingFor?: string;
+  stage?: "loader" | "unloader";
+  grid?: string | null;
+  requiredMilliWatts?: number;
+  availableMilliWatts?: number;
   network?: string;
   route?: string;
 }
@@ -137,6 +141,8 @@ interface Metrics {
   averageBlockedBeltItems: number;
   peakBeltItems: number;
   beltCellUtilization: number;
+  transportStageUtilization: Record<string, { loader: number; unloader: number }>;
+  transportEnergyConsumedMilliJoules: number;
   bottleneckEntity: string | null;
   consumed: Record<string, number>;
   extracted: Record<string, number>;
@@ -153,15 +159,15 @@ interface IndustrialAnalysis {
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number;
-    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
+    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
   transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityItemsPerMinute: number }>;
-  powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
+  powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
     routes: Array<{ route: string; resource: string; from: string; to: string; fromRegion: string; toRegion: string; minimumBatch: number; batchCapacity: number; travelTicks: number; capacityItemsPerMinute: number }>;
   }>;
-  diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; message: string }>;
+  diagnostics: Array<{ code: string; severity: "warning" | "info"; resource?: string; device?: string; connection?: string; message: string }>;
 }
 
 interface StudioData {
@@ -184,6 +190,7 @@ interface StudioData {
     from: { x: number; y: number };
     to: { x: number; y: number };
     points: Array<{ x: number; y: number }>;
+    endpoints: Array<{ stage: "loader" | "unloader"; asset: string; from: { x: number; y: number }; to: { x: number; y: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
   }>;
   logisticsRoutes: Array<{
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
@@ -235,8 +242,9 @@ async function responseJson<T>(response: Response): Promise<T> {
   return value;
 }
 
-function buildFrame(data: StudioData, tick: number): { devices: Record<string, DeviceFrame>; transits: TransitFrame[]; visibleEvents: FactoryEvent[] } {
+function buildFrame(data: StudioData, tick: number): { devices: Record<string, DeviceFrame>; transits: TransitFrame[]; endpointPower: Record<string, boolean>; visibleEvents: FactoryEvent[] } {
   const devices = Object.fromEntries(data.devices.map((device) => [device.id, { status: "idle" as Status, progress: 0 }]));
+  const endpointPower = Object.fromEntries(data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => [`${connection.id}:${endpoint.stage}`, Boolean(endpoint.powerGrid)])));
   const starts = new Map<string, number>();
   const transits = new Map<string, TransitFrame>();
   const visibleEvents: FactoryEvent[] = [];
@@ -252,6 +260,8 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     } else if (event.device && event.type === "buffer.blocked") devices[event.device] = { status: "blocked-output", progress: 0 };
     else if (event.device && event.type === "power.shortage") devices[event.device] = { status: "unpowered", progress: 0 };
     else if (event.device && event.type === "device.breakdown") devices[event.device] = { status: "failed", progress: 0 };
+    else if (event.type === "transport.power-shortage" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = false;
+    else if (event.type === "transport.power-restored" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = true;
     else if (event.type === "resource.depart" && event.transit && event.connection) {
       const connection = data.connections.find((item) => item.id === event.connection)!;
       transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.connection, kind: "belt", position: connection.points[0] });
@@ -283,7 +293,7 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
       if (depart) transit.progress = Math.max(0, Math.min(1, (tick - depart.departTick) / Math.max(1, depart.arriveTick - depart.departTick)));
     }
   }
-  return { devices, transits: [...transits.values()], visibleEvents };
+  return { devices, transits: [...transits.values()], endpointPower, visibleEvents };
 }
 
 function pointAlongPath(points: Array<{ x: number; y: number }>, progress: number): { x: number; y: number } {
@@ -374,6 +384,12 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
     </group>)}
     {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}
     {data.connections.map((connection) => <Line key={connection.id} points={connection.points.map((point) => [point.x, .16, point.y])} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
+    {data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => { const powered = frame.endpointPower[`${connection.id}:${endpoint.stage}`]; return <group key={`${connection.id}-${endpoint.stage}`}>
+      <Line points={[[endpoint.from.x, .28, endpoint.from.y], [endpoint.to.x, .28, endpoint.to.y]]} color={powered ? endpoint.stage === "loader" ? "#f5b84b" : "#5dd7ff" : "#ff5d68"} lineWidth={2.5} />
+      <mesh position={[endpoint.position.x, .3, endpoint.position.y]} rotation={[0, Math.atan2(endpoint.to.x - endpoint.from.x, endpoint.to.y - endpoint.from.y), 0]} castShadow>
+        <boxGeometry args={[.16, .16, .48]} /><meshStandardMaterial color={powered ? endpoint.stage === "loader" ? "#f5b84b" : "#5dd7ff" : "#ff5d68"} metalness={.65} roughness={.28} emissiveIntensity={powered ? .35 : 1} emissive={powered ? endpoint.stage === "loader" ? "#7d4a08" : "#0d607b" : "#8b1420"} />
+      </mesh>
+    </group>; }))}
     {data.logisticsRoutes.map((route) => <Line key={route.id} points={[[route.from.x, .32, route.from.y], [route.to.x, .32, route.to.y]]} color="#55c9df" lineWidth={1.5} dashed dashScale={2.4} dashSize={.45} gapSize={.28} transparent opacity={.7} />)}
     {data.devices.map((device) => <FactoryDevice key={device.id} projectId={data.projectId} device={device} frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }} bottleneck={data.metrics?.bottleneckEntity === device.id} />)}
     {frame.transits.map((transit) => {
@@ -529,7 +545,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>LOGISTICS PIPELINES</span><b>LOADER → LINE → UNLOADER</b></div>
           <div className="pipeline-list">{analysis.connections.map((connection) => <div className="pipeline-card" key={connection.connection}>
             <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}</small></span><b>{connection.capacityItemsPerMinute.toFixed(1)} /min</b></div>
-            <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+            <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
             <footer><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span><span>DISPATCH {connection.dispatchIntervalTicks}ms</span></footer>
           </div>)}</div>
         </section>
@@ -544,7 +560,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           <div className="analysis-section-title"><span>POWER GRIDS</span><b>RATED ENVELOPE</b></div>
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} MEMBERS · FUEL-DEPENDENT GRIDS CAN DROP BELOW RATED OUTPUT</footer></div>;
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ")}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{(grid.headroomMilliWatts / 1000).toFixed(0)} W</b><small>HEADROOM</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{grid.members.length} DEVICES · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>
@@ -714,9 +730,9 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>EXPERIMENT RUN</label><select value={run ?? ""} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.decision}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p></div>
-        <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
+        <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
       </aside>
     </section>
     <footer className="timeline"><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>

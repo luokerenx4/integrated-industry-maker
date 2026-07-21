@@ -23,12 +23,12 @@
   "consumed": {
     "gear": 21
   },
-  "energyConsumedMilliJoules": 221640000,
+  "energyConsumedMilliJoules": 221937000,
   "extracted": {
     "coal": 24,
     "iron-ore": 90
   },
-  "finalScore": 75.82858333333334,
+  "finalScore": 75.82561333333334,
   "fuelConsumed": {
     "coal": 4
   },
@@ -113,7 +113,7 @@
     "blocked": 0,
     "buildCost": -13.44,
     "constraintPenalty": 0,
-    "energy": -2.2163999999999997,
+    "energy": -2.21937,
     "occupiedArea": -20.400000000000002,
     "onTimeDelivery": 10,
     "throughput": 105,
@@ -122,6 +122,45 @@
   "throughputPerMinute": 10.5,
   "totalBuildCost": 26880,
   "transportCongestion": 0.09812756410256442,
+  "transportEnergyConsumedMilliJoules": 297000,
+  "transportStageUtilization": {
+    "coal-assembly-to-generator": {
+      "loader": 0.010416666666666666,
+      "unloader": 0.010416666666666666
+    },
+    "coal-forge-to-generator": {
+      "loader": 0.010416666666666666,
+      "unloader": 0.010416666666666666
+    },
+    "gear-to-output": {
+      "loader": 0.04375,
+      "unloader": 0.04375
+    },
+    "ore-to-smelter": {
+      "loader": 0.1875,
+      "unloader": 0.1875
+    },
+    "ore-to-smelter-smelter-1-split-original": {
+      "loader": 0.09375,
+      "unloader": 0.09375
+    },
+    "ore-to-smelter-smelter-1-split-parallel": {
+      "loader": 0.09375,
+      "unloader": 0.09375
+    },
+    "plate-to-station": {
+      "loader": 0.04583333333333333,
+      "unloader": 0.04583333333333333
+    },
+    "plate-to-station-smelter-1-parallel": {
+      "loader": 0.04583333333333333,
+      "unloader": 0.04583333333333333
+    },
+    "station-to-assembler": {
+      "loader": 0.0875,
+      "unloader": 0.0875
+    }
+  },
   "waitingInputTime": {
     "assembler-1": 57000,
     "coal-miner-assembly": 108000,

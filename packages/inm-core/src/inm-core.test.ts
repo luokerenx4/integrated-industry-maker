@@ -68,6 +68,10 @@ describe("blueprint compiler", () => {
     expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => `${stage.stage}:${stage.asset.id}`)).toEqual([
       "loader:sorter", "line:conveyor", "unloader:sorter",
     ]);
+    expect(project.connections["ore-to-smelter"]!.logisticsStages.map((stage) => stage.powerGrid ?? null)).toEqual([
+      "grid-forge-world-generator-1", null, "grid-forge-world-generator-1",
+    ]);
+    expect(project.powerGrids["grid-forge-world-generator-1"]!.transportStages).toContainEqual({ connection: "ore-to-smelter", stage: "loader" });
     expect(project.connections["ore-to-smelter"]!.dispatchIntervalTicks).toBe(250);
     expect(project.connections["ore-to-smelter"]!.travelTicks).toBe(1_000);
     expect(project.logisticsNetworks["interstellar-main"]!.routes).toEqual([expect.objectContaining({
@@ -252,8 +256,8 @@ describe("deterministic discrete-event simulation", () => {
     expect(plate.netPerMinute).toBe(-25);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
     expect(analysis.powerGrids).toEqual([
-      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 30_000 }),
-      expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 20_000 }),
+      expect.objectContaining({ grid: "grid-assembly-world-generator-2", region: "assembly-world", headroomMilliWatts: 18_000 }),
+      expect.objectContaining({ grid: "grid-forge-world-generator-1", region: "forge-world", headroomMilliWatts: 8_000 }),
     ]);
   });
   test("identical inputs and seed produce identical events, state, metrics, and hash", async () => {
@@ -309,6 +313,40 @@ describe("deterministic discrete-event simulation", () => {
     expect(arrival.tick - departure.tick).toBe(project.connections[departure.connection]!.travelTicks);
   });
 
+  test("powered transport endpoints stop and recover with their local grid", async () => {
+    const source = await loaded();
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 11_000 };
+    source.deviceAssets.splitter!.power.consumptionMilliWatts = 10_000;
+    source.blueprint.devices = [
+      { id: "source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "target", asset: "buffer", region: "forge-world", position: { x: 4, y: 0 }, rotation: 0 },
+      { id: "wind", asset: "wind-turbine", region: "forge-world", position: { x: 0, y: 4 }, rotation: 0 },
+      { id: "blocker", asset: "splitter", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "powered-belt", from: { device: "source", port: "output" }, to: { device: "target", port: "input" },
+      path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+      logistics: { loader: { deviceAsset: "sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter" } },
+    }];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
+    source.scenario.failures = [{ device: "blocker", atTick: 500, durationTicks: 5_000 }];
+    const project = compileFactoryProject(source);
+    expect(project.powerGrids["grid-forge-world-wind"]!.transportStages).toEqual([
+      { connection: "powered-belt", stage: "loader" },
+      { connection: "powered-belt", stage: "unloader" },
+    ]);
+
+    const result = runUntil(project, undefined, { untilTick: 2_000 });
+    expect(result.events.some((event) => event.type === "transport.power-shortage" && event.tick === 0 && event.connection === "powered-belt" && event.stage === "loader")).toBeTrue();
+    expect(result.events.some((event) => event.type === "transport.power-restored" && event.tick === 500 && event.connection === "powered-belt" && event.stage === "loader")).toBeTrue();
+    expect(result.events.find((event) => event.type === "resource.depart")?.tick).toBe(500);
+    expect(result.events.find((event) => event.type === "resource.arrive")?.tick).toBe(1_300);
+    expect(result.metrics.transportStageUtilization["powered-belt"]!.loader).toBeGreaterThan(0);
+    expect(result.metrics.transportStageUtilization["powered-belt"]!.unloader).toBeGreaterThan(0);
+    expect(result.metrics.transportEnergyConsumedMilliJoules).toBe(1_000);
+  });
+
   test("the slowest logistics stage gates connection dispatch", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = {
@@ -316,6 +354,7 @@ describe("deterministic discrete-event simulation", () => {
       evaluate: () => ({ kind: "none" }),
       planTransport: () => ({ capacity: 1, durationTicks: 1_000 }),
     };
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source-buffer", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "target-buffer", asset: "buffer", region: "forge-world", position: { x: 10, y: 0 }, rotation: 0 },
@@ -337,6 +376,7 @@ describe("deterministic discrete-event simulation", () => {
   test("connections sharing physical belt cells share bandwidth with deterministic fair arbitration", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
     source.blueprint.devices = [
       { id: "source-a", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
       { id: "source-b", asset: "buffer", region: "forge-world", position: { x: 0, y: 2 }, rotation: 0 },
@@ -370,6 +410,7 @@ describe("deterministic discrete-event simulation", () => {
   test("slow unloading fills concrete belt cells and propagates backpressure upstream", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
+    source.deviceAssets.sorter!.power.consumptionMilliWatts = 0;
     source.deviceAssets["slow-unloader"] = {
       ...source.deviceAssets.sorter!, id: "slow-unloader", name: "Slow unloader",
       program: { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 1_000 }) },

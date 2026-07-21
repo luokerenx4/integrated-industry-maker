@@ -143,18 +143,18 @@
   },
   "energy": {
     "availableMilliWatts": 2000000,
-    "consumedMilliJoules": 201930000,
+    "consumedMilliJoules": 202072500,
     "fuelConsumed": {
       "coal": 4
     },
     "grids": {
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 92520000
+        "consumedMilliJoules": 92561000
       },
       "grid-forge-world-generator-1": {
         "availableMilliWatts": 1000000,
-        "consumedMilliJoules": 109410000
+        "consumedMilliJoules": 109511500
       }
     }
   },

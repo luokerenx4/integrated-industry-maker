@@ -141,7 +141,7 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     members.sort((a, b) => a.id.localeCompare(b.id));
     const region = members[0]!.region;
     const id = `grid-${region}-${members[0]!.id}`;
-    grids[id] = { id, region, distributors: members.map((device) => device.id), members: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0 };
+    grids[id] = { id, region, distributors: members.map((device) => device.id), members: [], transportStages: [], productionMilliWatts: 0, ratedConsumptionMilliWatts: 0 };
     return { id, members };
   }).sort((a, b) => a.id.localeCompare(b.id));
 
@@ -164,6 +164,16 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.ratedConsumptionMilliWatts += device.assetDef.power.consumptionMilliWatts;
   }
   return grids;
+}
+
+function powerGridAtPosition(
+  powerGrids: Record<string, CompiledPowerGrid>, devices: Record<string, CompiledDevice>, region: string, position: { x: number; y: number },
+): string | undefined {
+  return Object.values(powerGrids).filter((grid) => grid.region === region).flatMap((grid) => grid.distributors.flatMap((id) => {
+    const distributor = devices[id]!;
+    const distance = Math.hypot(position.x + .5 - (distributor.position.x + distributor.footprint.width / 2), position.y + .5 - (distributor.position.y + distributor.footprint.height / 2));
+    return distance <= distributor.assetDef.power.distribution!.coverageRange ? [{ grid: grid.id, distributor: id, distance }] : [];
+  })).sort((a, b) => a.distance - b.distance || a.distributor.localeCompare(b.distributor) || a.grid.localeCompare(b.grid))[0]?.grid;
 }
 
 function compileLogisticsNetworks(
@@ -432,7 +442,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       const asset = stageAssets[stageIndex]!;
       const stageDistance = stage === "line" ? distance : 1;
       const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: connection.id, stage, distance: stageDistance });
-      return { stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks };
+      const position = stage === "loader" ? connection.path[0] : stage === "unloader" ? connection.path.at(-1) : undefined;
+      return {
+        stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks,
+        ...(position ? { region: from.region, position: { ...position }, powerGrid: powerGridAtPosition(powerGrids, devices, from.region, position) } : {}),
+      };
     });
     const travelTicks = logisticsStages.reduce((sum, stage) => sum + stage.durationTicks, 0);
     const dispatchIntervalTicks = Math.max(...logisticsStages.map((stage) => Math.ceil(stage.durationTicks / stage.capacity)));
@@ -454,6 +468,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       loaderDispatchIntervalTicks, lineDispatchIntervalTicks, lineCellTravelTicks, unloaderDispatchIntervalTicks,
       capacity, travelTicks, dispatchIntervalTicks,
     };
+    for (const stage of logisticsStages.filter((item): item is typeof item & { stage: "loader" | "unloader" } => item.stage !== "line")) {
+      if (!stage.powerGrid || stage.asset.power.consumptionMilliWatts <= 0) continue;
+      powerGrids[stage.powerGrid]!.transportStages.push({ connection: connection.id, stage: stage.stage });
+      powerGrids[stage.powerGrid]!.ratedConsumptionMilliWatts += stage.asset.power.consumptionMilliWatts;
+    }
   }
 
   const transportCells: Record<string, CompiledTransportCell> = {};

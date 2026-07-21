@@ -191,30 +191,33 @@ async function loadStudioData(projectId: string, runName?: string) {
       footprint: device.footprint,
       visual: device.assetDef.visual,
     })),
-    connections: Object.values(project.connections).map((connection) => ({
-      id: connection.id,
-      fromDevice: connection.from.device,
-      toDevice: connection.to.device,
-      from: {
+    connections: Object.values(project.connections).map((connection) => {
+      const from = {
         x: connection.fromDevice.position.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + connection.fromDevice.footprint.width / 2,
         y: connection.fromDevice.position.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + connection.fromDevice.footprint.height / 2,
-      },
-      to: {
+      };
+      const to = {
         x: connection.toDevice.position.x + regionLayout.offsets.get(connection.toDevice.region)!.x + connection.toDevice.footprint.width / 2,
         y: connection.toDevice.position.y + regionLayout.offsets.get(connection.toDevice.region)!.y + connection.toDevice.footprint.height / 2,
-      },
-      points: [
-        {
-          x: connection.fromDevice.position.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + connection.fromDevice.footprint.width / 2,
-          y: connection.fromDevice.position.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + connection.fromDevice.footprint.height / 2,
-        },
-        ...connection.path.map((cell) => ({ x: cell.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + .5 })),
-        {
-          x: connection.toDevice.position.x + regionLayout.offsets.get(connection.toDevice.region)!.x + connection.toDevice.footprint.width / 2,
-          y: connection.toDevice.position.y + regionLayout.offsets.get(connection.toDevice.region)!.y + connection.toDevice.footprint.height / 2,
-        },
-      ],
-    })),
+      };
+      const cells = connection.path.map((cell) => ({ x: cell.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + .5 }));
+      const endpoints = (["loader", "unloader"] as const).map((stageName) => {
+        const stage = connection.logisticsStages.find((item) => item.stage === stageName)!;
+        const belt = stageName === "loader" ? cells[0]! : cells.at(-1)!;
+        const device = stageName === "loader" ? from : to;
+        return {
+          stage: stageName, asset: stage.asset.id, from: device, to: belt,
+          position: { x: (device.x + belt.x) / 2, y: (device.y + belt.y) / 2 },
+          powerMilliWatts: stage.asset.power.consumptionMilliWatts, powerGrid: stage.powerGrid ?? null,
+        };
+      });
+      return {
+        id: connection.id,
+        fromDevice: connection.from.device,
+        toDevice: connection.to.device,
+        from, to, points: [from, ...cells, to], endpoints,
+      };
+    }),
     logisticsRoutes: Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
       id: route.id,
       network: network.id,

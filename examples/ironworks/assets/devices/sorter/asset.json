@@ -10,7 +10,7 @@
   "buffers": [],
   "logistics": { "roles": ["loader", "unloader"] },
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "consumptionMilliWatts": 0 },
+  "power": { "consumptionMilliWatts": 2000 },
   "economics": { "buildCost": 40 },
   "files": { "visual": "visual.json" }
 }

@@ -7,6 +7,8 @@ export interface SimulationStats {
   beltOccupancyArea: number;
   beltBlockedArea: number;
   peakBeltItems: number;
+  transportStageActiveArea: Record<string, { loader: number; unloader: number }>;
+  transportEnergyConsumedMilliJoules: number;
   elapsedTicks: number;
 }
 
@@ -45,6 +47,12 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const averageBeltItems = stats.beltOccupancyArea / duration;
   const averageBlockedBeltItems = stats.beltBlockedArea / duration;
   const beltCellUtilization = averageBeltItems / Math.max(1, Object.keys(project.transportCells).length);
+  const transportStageUtilization = Object.fromEntries(Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id)).map((connection) => {
+    const active = stats.transportStageActiveArea[connection.id] ?? { loader: 0, unloader: 0 };
+    const loader = connection.logisticsStages.find((stage) => stage.stage === "loader")!;
+    const unloader = connection.logisticsStages.find((stage) => stage.stage === "unloader")!;
+    return [connection.id, { loader: active.loader / duration / loader.capacity, unloader: active.unloader / duration / unloader.capacity }];
+  }));
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;
   const transportCongestion = stats.congestionArea / duration / Math.max(1, transportEntityCount);
   const onTimeDelivery = constraints.minProduction ? Math.min(1, targetProduced / constraints.minProduction) : targetProduced > 0 ? 1 : 0;
@@ -71,6 +79,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     completedOrders: state.completedOrders, onTimeDelivery, energyConsumedMilliJoules: state.energy.consumedMilliJoules, fuelConsumed: { ...state.energy.fuelConsumed },
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
+    transportStageUtilization, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,
     scoreBreakdown, finalScore,
   };

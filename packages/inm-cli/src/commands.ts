@@ -129,10 +129,10 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.resources.map((resource) => `  ${resource.resource.padEnd(20)} produce ${resource.producedPerMinute.toFixed(3).padStart(9)}/min  consume ${resource.consumedPerMinute.toFixed(3).padStart(9)}/min  net ${resource.netPerMinute.toFixed(3).padStart(9)}/min${resource.hasBoundarySupply ? "  [boundary supply]" : ""}${resource.hasBoundaryDemand ? "  [boundary demand]" : ""}`),
     "",
     "Power grids",
-    ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W  (${grid.members.length} members)`),
+    ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W  (${grid.members.length} devices + ${grid.transportStages.length} transport stages)`),
     "",
     "Logistics links",
-    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}`).join(" → ")}`),
+    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
     "",
     "Station networks",
     ...analysis.stationNetworks.flatMap((network) => [
@@ -159,6 +159,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
     `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
     `Belts: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}% average occupancy · ${result.metrics.averageBlockedBeltItems.toFixed(2)} blocked items · ${result.metrics.peakBeltItems} peak items`,
+    `Transport endpoints: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J consumed`,
     `Result hash: ${result.resultHash}`, "",
   ].join("\n"), false);
 }

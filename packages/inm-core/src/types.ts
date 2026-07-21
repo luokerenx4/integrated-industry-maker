@@ -345,6 +345,9 @@ export interface CompiledConnection extends BlueprintConnection {
     distance: number;
     capacity: number;
     durationTicks: Tick;
+    region?: string;
+    position?: GridPosition;
+    powerGrid?: string;
   }>;
   distance: number;
   transportCells: string[];
@@ -394,6 +397,7 @@ export interface CompiledPowerGrid {
   region: string;
   distributors: DeviceInstanceId[];
   members: DeviceInstanceId[];
+  transportStages: Array<{ connection: ConnectionId; stage: "loader" | "unloader" }>;
   productionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
 }
@@ -499,6 +503,8 @@ export type FactoryEvent =
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
+  | { type: "transport.power-shortage"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number }
+  | { type: "transport.power-restored"; tick: Tick; connection: ConnectionId; stage: "loader" | "unloader"; grid: string }
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
   | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
   | { type: "device.breakdown"; tick: Tick; device: DeviceInstanceId }
@@ -536,6 +542,8 @@ export interface FactoryMetrics {
   averageBlockedBeltItems: number;
   peakBeltItems: number;
   beltCellUtilization: number;
+  transportStageUtilization: Record<ConnectionId, { loader: number; unloader: number }>;
+  transportEnergyConsumedMilliJoules: number;
   transportCongestion: number;
   bottleneckEntity: DeviceInstanceId | null;
   infeasibleReason: string | null;

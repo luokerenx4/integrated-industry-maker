@@ -63,7 +63,10 @@ export interface ConnectionRateLimit {
   dispatchIntervalTicks: number;
   pathCells: number;
   sharedCells: number;
-  stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number }>;
+  stages: Array<{
+    stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number;
+    powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
+  }>;
 }
 
 export interface TransportCellAnalysis {
@@ -82,6 +85,7 @@ export interface PowerGridAnalysis {
   region: string;
   distributors: string[];
   members: string[];
+  transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>;
   generators: DevicePowerGenerationRate[];
   productionMilliWatts: number;
   ratedConsumptionMilliWatts: number;
@@ -110,10 +114,11 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
+  connection?: string;
   network?: string;
   message: string;
 }
@@ -233,7 +238,11 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     dispatchIntervalTicks: connection.dispatchIntervalTicks,
     pathCells: connection.path.length,
     sharedCells: connection.transportCells.filter((cell) => project.transportCells[cell]!.connections.length > 1).length,
-    stages: connection.logisticsStages.map((stage) => ({ stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks })),
+    stages: connection.logisticsStages.map((stage) => ({
+      stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks,
+      powerMilliWatts: stage.asset.power.consumptionMilliWatts,
+      ...(stage.powerGrid ? { powerGrid: stage.powerGrid } : {}), ...(stage.position ? { position: { ...stage.position } } : {}),
+    })),
   }));
   const transportCells = Object.values(project.transportCells).sort((a, b) => a.id.localeCompare(b.id)).map((cell) => ({
     cell: cell.id, region: cell.region, position: { ...cell.position }, asset: cell.asset.id,
@@ -280,6 +289,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     region: grid.region,
     distributors: [...grid.distributors],
     members: [...grid.members],
+    transportStages: structuredClone(grid.transportStages),
     generators: generationDevices.filter((device) => grid.distributors.includes(device.device)),
     productionMilliWatts: grid.productionMilliWatts,
     ratedConsumptionMilliWatts: grid.ratedConsumptionMilliWatts,
@@ -315,6 +325,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     if (device.assetDef.power.consumptionMilliWatts > 0 && !device.powerGrid) diagnostics.push({
       code: "power-disconnected", severity: "warning", device: device.id,
       message: `${device.id} requires power but is outside every distribution grid`,
+    });
+  }
+  for (const connection of Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id))) for (const stage of connection.logisticsStages) {
+    if (stage.stage === "line" || stage.asset.power.consumptionMilliWatts <= 0 || stage.powerGrid) continue;
+    diagnostics.push({
+      code: "power-transport-disconnected", severity: "warning", connection: connection.id,
+      message: `${connection.id}.${stage.stage} (${stage.asset.id}) requires power but its endpoint is outside every distribution grid`,
     });
   }
   for (const grid of powerGrids) if (grid.headroomMilliWatts < 0) diagnostics.push({
