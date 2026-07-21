@@ -383,6 +383,7 @@ function assertComparable(before: CompiledFactoryProject, after: CompiledFactory
   for (const [name, left, right] of [
     ["Resource catalog", before.hashes.resourceCatalogHash, after.hashes.resourceCatalogHash],
     ["Process catalog", before.hashes.processCatalogHash, after.hashes.processCatalogHash],
+    ["Route catalog", before.hashes.routeCatalogHash, after.hashes.routeCatalogHash],
     ["Device catalog", before.hashes.deviceCatalogHash, after.hashes.deviceCatalogHash],
     ["World", before.hashes.worldHash, after.hashes.worldHash],
     ["Scenario", before.hashes.scenarioHash, after.hashes.scenarioHash],

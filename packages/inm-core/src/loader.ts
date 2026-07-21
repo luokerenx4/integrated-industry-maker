@@ -6,7 +6,7 @@ import { importDeviceProgram } from "./device-runtime";
 import { schemas, type SchemaKind } from "./schema";
 import type {
   Blueprint, DeviceAsset, DeviceAssetManifest, DeviceVisual, IndustrialProcess, IndustrialProcessManifest, IndustrialWorld, InmManifest, Objective,
-  ResourceAsset, ResourceAssetManifest, ResourceVisual, Scenario, ValidationIssue,
+  ProductRoute, ProductRouteManifest, ResourceAsset, ResourceAssetManifest, ResourceVisual, Scenario, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
 import { readJson } from "./utils";
@@ -17,6 +17,7 @@ export interface LoadedFactoryProject {
   manifest: InmManifest;
   resources: Record<string, ResourceAsset>;
   processes: Record<string, IndustrialProcess>;
+  routes: Record<string, ProductRoute>;
   deviceAssets: Record<string, DeviceAsset>;
   world: IndustrialWorld;
   blueprint: Blueprint;
@@ -125,6 +126,26 @@ async function loadProcesses(rootDir: string): Promise<Record<string, Industrial
   return catalog;
 }
 
+async function loadRoutes(rootDir: string): Promise<Record<string, ProductRoute>> {
+  const directory = join(rootDir, "routes");
+  let entries;
+  try { entries = await readdir(directory, { withFileTypes: true }); }
+  catch { return {}; }
+  const visible = entries.filter((entry) => !entry.name.startsWith("."));
+  const invalid = visible.filter((entry) => !entry.isFile() || !entry.name.endsWith(".route.json"));
+  if (invalid.length) throw new Error(`Routes in ${directory} must be *.route.json files: ${invalid.map((entry) => entry.name).join(", ")}`);
+  const catalog: Record<string, ProductRoute> = {};
+  for (const entry of visible.sort((a, b) => a.name.localeCompare(b.name))) {
+    const sourceFile = join(directory, entry.name);
+    const route = await parseFile<ProductRouteManifest>(sourceFile, "route");
+    const fileId = entry.name.slice(0, -".route.json".length);
+    if (route.id !== fileId) throw new InmValidationError([{ path: `${sourceFile}/id`, code: "route.filename-id", message: `Route id '${route.id}' must match filename '${fileId}'` }]);
+    if (catalog[route.id]) throw new InmValidationError([{ path: sourceFile, code: "reference.duplicate", message: `Duplicate Route '${route.id}'` }]);
+    catalog[route.id] = { ...route, sourceFile, contentHash: await fileHash(sourceFile) };
+  }
+  return catalog;
+}
+
 async function loadDevices(rootDir: string): Promise<Record<string, DeviceAsset>> {
   const catalog: Record<string, DeviceAsset> = {};
   for (const assetDir of await assetDirectories(rootDir, "devices")) {
@@ -154,8 +175,8 @@ export async function loadFactoryProject(projectDir: string, selection: ProjectS
   const blueprintId = selection.blueprint ?? manifest.defaultBlueprint;
   const scenarioId = selection.scenario ?? manifest.defaultScenario;
   const objectiveId = selection.objective ?? manifest.defaultObjective;
-  const [resources, processes, deviceAssets, world, blueprint, scenario, objective] = await Promise.all([
-    loadResources(rootDir), loadProcesses(rootDir), loadDevices(rootDir),
+  const [resources, processes, routes, deviceAssets, world, blueprint, scenario, objective] = await Promise.all([
+    loadResources(rootDir), loadProcesses(rootDir), loadRoutes(rootDir), loadDevices(rootDir),
     parseFile<IndustrialWorld>(join(rootDir, "worlds", `${worldId}.world.json`), "world"),
     parseFile<Blueprint>(join(rootDir, "blueprints", `${blueprintId}.blueprint.json`), "blueprint"),
     parseFile<Scenario>(join(rootDir, "scenarios", `${scenarioId}.scenario.json`), "scenario"),
@@ -164,6 +185,6 @@ export async function loadFactoryProject(projectDir: string, selection: ProjectS
   return {
     rootDir,
     selection: { world: worldId, blueprint: blueprintId, scenario: scenarioId, objective: objectiveId },
-    manifest, resources, processes, deviceAssets, world, blueprint, scenario, objective,
+    manifest, resources, processes, routes, deviceAssets, world, blueprint, scenario, objective,
   };
 }

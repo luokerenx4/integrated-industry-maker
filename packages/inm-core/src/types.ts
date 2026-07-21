@@ -1,6 +1,7 @@
 export type Tick = number;
 export type ResourceId = string;
 export type ProcessId = string;
+export type RouteId = string;
 export type DeviceAssetId = string;
 export type DeviceInstanceId = string;
 export type ConnectionId = string;
@@ -33,7 +34,7 @@ export interface ResourceAssetManifest {
   unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
   transport: { stackSize: number };
   /** Makes every discrete unit an identity-preserving industrial work lot. */
-  tracking?: { kind: "lot"; family: string };
+  tracking?: { kind: "lot"; family: string; route: RouteId };
   fuel?: { energyMilliJoules: number };
   files: { visual: string };
 }
@@ -82,6 +83,31 @@ export interface IndustrialProcessManifest {
 }
 
 export interface IndustrialProcess extends IndustrialProcessManifest {
+  sourceFile: string;
+  contentHash: string;
+}
+
+export interface ProductRouteManifest {
+  version: 1;
+  type: "route";
+  id: RouteId;
+  name: string;
+  description: string;
+  family: string;
+  entry: { resource: ResourceId; step: string };
+  steps: Array<{
+    id: string;
+    name: string;
+    operations: ProcessId[];
+    transitions: Array<{
+      resource: ResourceId;
+      to?: string;
+      terminal?: "complete" | "scrap";
+    }>;
+  }>;
+}
+
+export interface ProductRoute extends ProductRouteManifest {
   sourceFile: string;
   contentHash: string;
 }
@@ -700,6 +726,7 @@ export interface CompiledFactoryProject {
   manifest: InmManifest;
   resources: Record<ResourceId, ResourceAsset>;
   processes: Record<ProcessId, IndustrialProcess>;
+  routes: Record<RouteId, ProductRoute>;
   deviceAssets: Record<DeviceAssetId, DeviceAsset>;
   world: IndustrialWorld;
   blueprint: Blueprint;
@@ -719,6 +746,7 @@ export interface ProjectHashes {
   engineVersion: string;
   resourceCatalogHash: string;
   processCatalogHash: string;
+  routeCatalogHash: string;
   deviceCatalogHash: string;
   worldHash: string;
   blueprintHash: string;
@@ -769,7 +797,14 @@ export interface WorkLot {
     encountered: LotReleaseBlockReason[];
   };
   dueTick?: Tick;
-  routeStep: number;
+  route: {
+    id: RouteId;
+    step: string | null;
+    completedSteps: number;
+    visits: Record<string, number>;
+    reentrantTransitions: number;
+    terminal: "complete" | "scrap" | null;
+  };
   quality: {
     defects: string[];
     appliedExcursions: string[];
@@ -907,6 +942,7 @@ export type FactoryEvent =
   | { type: "lot.release-blocked"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; reason: LotReleaseBlockReason; activeWip: number; maximumWip: number | null }
   | { type: "lot.release-control-opened"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number; cause: "reopen-threshold" | "maximum-release-delay" }
   | { type: "lot.release-control-closed"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
+  | { type: "lot.route-advanced"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; fromStep: string; process: ProcessId; outputResource: ResourceId; toStep: string | null; terminal: "complete" | "scrap" | null; visit: number; reentrant: boolean }
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
@@ -998,6 +1034,16 @@ export interface FactoryMetrics {
     meanTardinessTicks: number;
     maximumTardinessTicks: number;
   };
+  routeFlow: Record<RouteId, {
+    family: string;
+    scheduled: number;
+    completed: number;
+    scrapped: number;
+    inProgress: number;
+    transitions: number;
+    reentrantTransitions: number;
+    steps: Record<string, { visits: number; activeLots: number }>;
+  }>;
   releaseFlow: {
     scheduled: number;
     released: number;

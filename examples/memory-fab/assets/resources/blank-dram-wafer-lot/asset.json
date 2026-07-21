@@ -19,7 +19,8 @@
   },
   "tracking": {
     "kind": "lot",
-    "family": "dram-wafer"
+    "family": "dram-wafer",
+    "route": "dram-front-end"
   },
   "files": {
     "visual": "visual.json"

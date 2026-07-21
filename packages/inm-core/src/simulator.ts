@@ -111,6 +111,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
   const lots: FactoryState["lots"] = {};
   for (const definition of project.scenario.lotReleases ?? []) {
     const resource = project.resources[definition.resource]!;
+    const route = project.routes[resource.tracking!.route]!;
     lots[definition.id] = {
       id: definition.id,
       family: resource.tracking!.family,
@@ -123,7 +124,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         reason: null, sinceTick: definition.releaseTick,
         ticks: { "buffer-capacity": 0, "resource-capacity": 0, "conwip-limit": 0 }, encountered: [],
       },
-      routeStep: 0,
+      route: { id: route.id, step: route.entry.step, completedSteps: 0, visits: { [route.entry.step]: 1 }, reentrantTransitions: 0, terminal: null },
       quality: {
         defects: [], appliedExcursions: [], inspections: 0, passes: 0,
         rejections: 0, scrapDispositions: 0, reworkCycles: 0,
@@ -581,6 +582,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       return right.priority - left.priority || left.releasedAtTick! - right.releasedAtTick! || left.id.localeCompare(right.id);
     });
   };
+  const routeAllows = (lotId: string, process: string): boolean => {
+    const lot = state.lots[lotId]!;
+    if (!lot.route.step || lot.route.terminal) return false;
+    return project.routes[lot.route.id]!.steps.find((step) => step.id === lot.route.step)?.operations.includes(process) ?? false;
+  };
+  const rankedProcessLotIds = (device: CompiledDevice, buffer: string, resource: string, process: string, minimumTreatmentLevel = 0): string[] =>
+    rankedLotIds(device, buffer, resource).filter((id) => state.lots[id]!.treatmentLevel >= minimumTreatmentLevel && routeAllows(id, process));
   const takeLotIds = (device: CompiledDevice, buffer: string, resource: string, count: number, treatmentLevel?: number): string[] => {
     const ids = rankedLotIds(device, buffer, resource, treatmentLevel).slice(0, count);
     if (ids.length !== count) throw new Error(`Tracked Resource '${resource}' in ${device.id}/${buffer} has ${ids.length} identities for ${count} items`);
@@ -941,8 +949,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const quality = plan.quality;
     if (quality?.kind !== "inspection") return undefined;
     const transfer = plan.lotTransfers[0]!;
-    const lotId = rankedLotIds(device, transfer.input.buffer, transfer.input.resource)
-      .find((id) => state.lots[id]!.treatmentLevel >= (transfer.input.minimumTreatmentLevel ?? 0));
+    const lotId = rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, plan.definition.id, transfer.input.minimumTreatmentLevel ?? 0)[0];
     if (!lotId) return undefined;
     const lot = state.lots[lotId]!;
     const detectedDefects = lot.quality.defects.filter((defect) => quality.detects.includes(defect)).sort();
@@ -954,12 +961,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         : quality.rejectOutput;
     return { lotId, detectedDefects, result, output };
   };
-  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], disposition: "process" | "deliver" | "scrap"): Record<string, string[]> => {
+  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], disposition: "process" | "deliver" | "scrap", process?: string): Record<string, string[]> => {
     const consumedLots: Record<string, string[]> = {};
     for (const amount of amounts) {
       if (isTracked(amount.resource)) {
-        const lotIds = rankedLotIds(device, amount.buffer, amount.resource)
-          .filter((id) => state.lots[id]!.treatmentLevel >= (amount.minimumTreatmentLevel ?? 0)).slice(0, amount.count);
+        const lotIds = (process
+          ? rankedProcessLotIds(device, amount.buffer, amount.resource, process, amount.minimumTreatmentLevel ?? 0)
+          : rankedLotIds(device, amount.buffer, amount.resource).filter((id) => state.lots[id]!.treatmentLevel >= (amount.minimumTreatmentLevel ?? 0)))
+          .slice(0, amount.count);
         if (lotIds.length !== amount.count) throw new Error(`Insufficient tracked lots for ${device.id}/${amount.buffer}/${amount.resource}`);
         consumedLots[amountKey(amount)] = lotIds;
         if (disposition === "deliver") {
@@ -1149,11 +1158,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       setStatus(device.id, "unpowered"); return false;
     }
     const lotQueueWaitAtStart = Object.fromEntries((selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
-      rankedLotIds(device, transfer.input.buffer, transfer.input.resource)
-        .filter((id) => state.lots[id]!.treatmentLevel >= (transfer.input.minimumTreatmentLevel ?? 0))
+      rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, selectedProcessPlan!.definition.id, transfer.input.minimumTreatmentLevel ?? 0)
         .slice(0, transfer.input.count)
         .map((id) => [id, state.lots[id]!.status === "queued" ? state.tick - state.lots[id]!.statusSinceTick : 0])));
-    const consumedLots = applyConsume(device, decision.consume, "process");
+    const consumedLots = applyConsume(device, decision.consume, "process", selectedProcessPlan?.definition.id);
     let lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
       lotIds: consumedLots[amountKey(transfer.input)] ?? [],
       output: { ...transfer.output },
@@ -1203,7 +1211,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return true;
   };
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
-    plan.inputs.every((amount) => amountAvailable(device, amount)) && outputFits(device,
+    plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
+      || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count)) && outputFits(device,
       plan.quality?.kind === "inspection" ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput] : plan.outputs);
   const rankProcessPlans = (
     device: CompiledDevice,
@@ -1807,6 +1816,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         const transfer = job.lotTransfers?.find((candidate) => candidate.output.buffer === output.buffer && candidate.output.resource === output.resource);
         if (isTracked(output.resource)) {
           if (!transfer || transfer.lotIds.length !== output.count) throw new Error(`Tracked output '${output.resource}' from '${event.device}' has no identity-preserving lot transfer`);
+          if (project.processes[job.operation]) for (const lotId of transfer.lotIds) {
+            const lot = state.lots[lotId]!;
+            const fromStep = lot.route.step;
+            const step = fromStep ? project.routes[lot.route.id]!.steps.find((candidate) => candidate.id === fromStep) : undefined;
+            const transition = step?.transitions.find((candidate) => candidate.resource === output.resource);
+            if (!fromStep || !step?.operations.includes(job.operation) || !transition) throw new Error(`Process '${job.operation}' cannot advance Lot '${lotId}' from Route '${lot.route.id}/${fromStep ?? "terminal"}' with '${output.resource}'`);
+            const toStep = transition.to ?? null; const terminal = transition.terminal ?? null;
+            const reentrant = Boolean(toStep && (lot.route.visits[toStep] ?? 0) > 0);
+            mutateFactoryState(state, { kind: "lot.route-advance", lotIds: [lotId], route: lot.route.id, fromStep, toStep, terminal });
+            emit({
+              type: "lot.route-advanced", tick: state.tick, device: event.device, lot: lotId, route: lot.route.id, fromStep,
+              process: job.operation, outputResource: output.resource, toStep, terminal,
+              visit: toStep ? state.lots[lotId]!.route.visits[toStep]! : 0, reentrant,
+            });
+          }
           mutateFactoryState(state, {
             kind: "lot.arrive", lotIds: transfer.lotIds, device: event.device, buffer: output.buffer,
             resource: output.resource, treatmentLevel: output.treatmentLevel,

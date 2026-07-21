@@ -1,7 +1,7 @@
 import { planDeviceTransport, validateDeviceConfig } from "./device-runtime";
 import type {
   BlueprintLogisticsNetwork, WorldRegion, CompiledConnection, CompiledDevice, CompiledFactoryProject, CompiledLogisticsNetwork, CompiledPowerGrid, CompiledTransportCell, DeviceAsset,
-  DispatchPolicy, IndustrialProcess, ProjectHashes, ResourceAsset, ResourceBufferQuantity, ResourceId, ValidationIssue, WorldResourceNode,
+  DispatchPolicy, IndustrialProcess, ProductRoute, ProjectHashes, ResourceAsset, ResourceBufferQuantity, ResourceId, ValidationIssue, WorldResourceNode,
 } from "./types";
 import { InmValidationError } from "./types";
 import type { LoadedFactoryProject } from "./loader";
@@ -310,6 +310,85 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
   return issues;
 }
 
+function validateRoutes(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, routes: Record<string, ProductRoute>): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const operationOwners = new Map<string, { route: string; step: string }>();
+  for (const [routeId, route] of Object.entries(routes)) {
+    const routePath = `routes/${routeId}.route.json`;
+    const steps = new Map(route.steps.map((step) => [step.id, step]));
+    if (steps.size !== route.steps.length) issues.push({ path: `${routePath}/steps`, code: "route.duplicate-step", message: `Route '${routeId}' has duplicate step ids` });
+    const entry = resources[route.entry.resource];
+    if (!entry?.tracking || entry.tracking.route !== routeId || entry.tracking.family !== route.family) issues.push({
+      path: `${routePath}/entry/resource`, code: "route.entry-resource", message: `Route entry '${route.entry.resource}' must be a tracked '${route.family}' Resource assigned to '${routeId}'`,
+    });
+    if (!steps.has(route.entry.step)) issues.push({ path: `${routePath}/entry/step`, code: "route.entry-step", message: `Unknown entry step '${route.entry.step}'` });
+    const inputsByStep = new Map<string, Set<string>>();
+    const entryInputs = inputsByStep.get(route.entry.step) ?? new Set<string>(); entryInputs.add(route.entry.resource); inputsByStep.set(route.entry.step, entryInputs);
+    let hasComplete = false;
+    for (const [stepIndex, step] of route.steps.entries()) {
+      const stepPath = `${routePath}/steps/${stepIndex}`;
+      const declaredOutputs = new Set(step.operations.flatMap((operationId) => {
+        const operation = processes[operationId];
+        if (!operation) return [];
+        return [...operation.outputs.map((amount) => amount.resource), ...(operation.quality?.kind === "inspection"
+          ? [operation.quality.rejectResource, ...(operation.quality.scrapResource ? [operation.quality.scrapResource] : [])] : [])];
+      }));
+      if (new Set(step.operations).size !== step.operations.length) issues.push({ path: `${stepPath}/operations`, code: "route.duplicate-operation", message: `Step '${step.id}' lists an operation more than once` });
+      if (new Set(step.transitions.map((transition) => transition.resource)).size !== step.transitions.length) issues.push({ path: `${stepPath}/transitions`, code: "route.duplicate-transition", message: `Step '${step.id}' has duplicate output transitions` });
+      for (const [transitionIndex, transition] of step.transitions.entries()) {
+        const path = `${stepPath}/transitions/${transitionIndex}`;
+        const resource = resources[transition.resource];
+        if (!declaredOutputs.has(transition.resource)) issues.push({ path: `${path}/resource`, code: "route.transition-output", message: `No operation in step '${step.id}' can output '${transition.resource}'` });
+        if (!resource?.tracking || resource.tracking.route !== routeId || resource.tracking.family !== route.family) issues.push({
+          path: `${path}/resource`, code: "route.transition-resource", message: `Transition Resource '${transition.resource}' must track '${route.family}' on Route '${routeId}'`,
+        });
+        if (transition.to) {
+          if (!steps.has(transition.to)) issues.push({ path: `${path}/to`, code: "route.transition-step", message: `Unknown next step '${transition.to}'` });
+          const inputs = inputsByStep.get(transition.to) ?? new Set<string>(); inputs.add(transition.resource); inputsByStep.set(transition.to, inputs);
+        } else if (transition.terminal === "complete") hasComplete = true;
+      }
+      for (const [operationIndex, operationId] of step.operations.entries()) {
+        const operation = processes[operationId];
+        if (!operation) { issues.push({ path: `${stepPath}/operations/${operationIndex}`, code: "reference.process", message: `Unknown Process '${operationId}'` }); continue; }
+        const previous = operationOwners.get(operationId);
+        if (previous) issues.push({ path: `${stepPath}/operations/${operationIndex}`, code: "route.operation-owner", message: `Process '${operationId}' already belongs to '${previous.route}/${previous.step}'` });
+        else operationOwners.set(operationId, { route: routeId, step: step.id });
+        for (const amount of [...operation.inputs, ...operation.outputs]) {
+          const tracking = resources[amount.resource]?.tracking;
+          if (tracking && (tracking.route !== routeId || tracking.family !== route.family)) issues.push({
+            path: `${stepPath}/operations/${operationIndex}`, code: "route.operation-family", message: `Process '${operationId}' touches tracked Resource '${amount.resource}' outside Route '${routeId}' family '${route.family}'`,
+          });
+        }
+        const actualOutputs = [...operation.outputs.map((amount) => amount.resource)];
+        if (operation.quality?.kind === "inspection") actualOutputs.push(operation.quality.rejectResource, ...(operation.quality.scrapResource ? [operation.quality.scrapResource] : []));
+        for (const output of actualOutputs.filter((resource) => resources[resource]?.tracking?.family === route.family)) if (!step.transitions.some((transition) => transition.resource === output)) issues.push({
+          path: `${stepPath}/transitions`, code: "route.output-transition", message: `Process '${operationId}' can output '${output}', but step '${step.id}' has no matching transition`,
+        });
+      }
+    }
+    if (!hasComplete) issues.push({ path: `${routePath}/steps`, code: "route.complete-terminal", message: `Route '${routeId}' has no complete terminal` });
+    for (const [stepIndex, step] of route.steps.entries()) for (const operationId of step.operations) {
+      const operation = processes[operationId]; if (!operation) continue;
+      const allowedInputs = inputsByStep.get(step.id) ?? new Set<string>();
+      for (const input of operation.inputs.filter((amount) => resources[amount.resource]?.tracking?.family === route.family)) if (!allowedInputs.has(input.resource)) issues.push({
+        path: `${routePath}/steps/${stepIndex}/operations`, code: "route.input-resource", message: `Process '${operationId}' consumes '${input.resource}', which cannot enter step '${step.id}'`,
+      });
+    }
+    const reachable = new Set<string>(); const pending = [route.entry.step];
+    while (pending.length) { const id = pending.pop()!; if (reachable.has(id)) continue; reachable.add(id); for (const transition of steps.get(id)?.transitions ?? []) if (transition.to) pending.push(transition.to); }
+    for (const step of route.steps) if (!reachable.has(step.id)) issues.push({ path: `${routePath}/steps`, code: "route.unreachable-step", message: `Step '${step.id}' is unreachable from '${route.entry.step}'` });
+  }
+  for (const [resourceId, resource] of Object.entries(resources)) if (resource.tracking) {
+    const route = routes[resource.tracking.route];
+    if (!route) issues.push({ path: `assets/resources/${resourceId}/asset.json/tracking/route`, code: "reference.route", message: `Unknown Route '${resource.tracking.route}'` });
+    else if (route.family !== resource.tracking.family) issues.push({ path: `assets/resources/${resourceId}/asset.json/tracking`, code: "route.family", message: `Resource family '${resource.tracking.family}' does not match Route family '${route.family}'` });
+  }
+  for (const [processId, process] of Object.entries(processes)) if ([...process.inputs, ...process.outputs].some((amount) => resources[amount.resource]?.tracking) && !operationOwners.has(processId)) issues.push({
+    path: `processes/${processId}.process.json`, code: "route.process-unassigned", message: `Tracked Process '${processId}' must belong to exactly one Route step`,
+  });
+  return issues;
+}
+
 function centerDistance(left: CompiledDevice, right: CompiledDevice): number {
   const lx = left.position.x + left.footprint.width / 2; const ly = left.position.y + left.footprint.height / 2;
   const rx = right.position.x + right.footprint.width / 2; const ry = right.position.y + right.footprint.height / 2;
@@ -583,7 +662,7 @@ function compileLogisticsNetworks(
 }
 
 export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFactoryProject {
-  const issues = validateAssets(loaded.resources, loaded.processes, loaded.deviceAssets);
+  const issues = [...validateAssets(loaded.resources, loaded.processes, loaded.deviceAssets), ...validateRoutes(loaded.resources, loaded.processes, loaded.routes)];
   const regions: Record<string, WorldRegion> = {};
   for (const [index, region] of loaded.world.regions.entries()) {
     if (regions[region.id]) issues.push({ path: `world/regions/${index}/id`, code: "reference.duplicate", message: `Duplicate region '${region.id}'` });
@@ -1327,6 +1406,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${lot.buffer}'` });
     if (!resource) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${lot.resource}'` });
     else if (!resource.tracking) issues.push({ path: `${path}/resource`, code: "lot.tracking-required", message: `Resource '${lot.resource}' is not configured for lot tracking` });
+    else {
+      const route = loaded.routes[resource.tracking.route];
+      if (route && route.entry.resource !== lot.resource) issues.push({ path: `${path}/resource`, code: "route.release-entry", message: `Lot '${lot.id}' must release through Route entry Resource '${route.entry.resource}'` });
+    }
     if (lot.releaseTick > loaded.scenario.durationTicks) issues.push({
       path: `${path}/releaseTick`, code: "lot.release-outside-scenario", message: `Lot '${lot.id}' releases after Scenario duration ${loaded.scenario.durationTicks}`,
     });
@@ -1434,6 +1517,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     engineVersion: ENGINE_VERSION,
     resourceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.resources).map(([id, asset]) => [id, asset.contentHash]))),
     processCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.processes).map(([id, process]) => [id, process.contentHash]))),
+    routeCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.routes).map(([id, route]) => [id, route.contentHash]))),
     deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
     worldHash: hashValue(loaded.world),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),

@@ -10,7 +10,7 @@ import { atomicWriteJson, hashValue, readJson } from "./utils";
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 const projectHashesSchema = z.object({
-  engineVersion: z.string().min(1), resourceCatalogHash: hash, processCatalogHash: hash, deviceCatalogHash: hash,
+  engineVersion: z.string().min(1), resourceCatalogHash: hash, processCatalogHash: hash, routeCatalogHash: hash, deviceCatalogHash: hash,
   worldHash: hash, blueprintHash: hash, scenarioHash: hash, objectiveHash: hash,
 }).strict();
 
@@ -86,9 +86,8 @@ async function openSelectedProject(projectDir: string, selection: ProjectSelecti
   return compileFactoryProject(await loadFactoryProject(projectDir, selection));
 }
 
-export async function loadBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkManifest> {
-  const path = benchmarkPath(projectDir, benchmarkId);
-  const parsed = blueprintBenchmarkSchema.safeParse(await readJson(path));
+function parseBlueprintBenchmark(value: unknown, benchmarkId: string): BlueprintBenchmarkManifest {
+  const parsed = blueprintBenchmarkSchema.safeParse(value);
   if (!parsed.success) throw new Error(`Invalid Blueprint benchmark '${benchmarkId}': ${parsed.error.issues.map((issue) => `${issue.path.join("/") || "root"} ${issue.message}`).join("; ")}`);
   if (parsed.data.id !== benchmarkId) throw new Error(`Benchmark id '${parsed.data.id}' must match filename '${benchmarkId}'`);
   if (parsed.data.baselineBlueprint === parsed.data.candidateBlueprint) throw new Error(`Blueprint benchmark '${benchmarkId}' must keep baseline and candidate files separate`);
@@ -100,8 +99,13 @@ export async function loadBlueprintBenchmark(projectDir: string, benchmarkId: st
   return parsed.data;
 }
 
+export async function loadBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkManifest> {
+  return parseBlueprintBenchmark(await readJson(benchmarkPath(projectDir, benchmarkId)), benchmarkId);
+}
+
 export async function lockBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkManifest> {
-  const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
+  const source = await readJson(benchmarkPath(projectDir, benchmarkId)) as Record<string, unknown>;
+  const manifest = parseBlueprintBenchmark(Object.fromEntries(Object.entries(source).filter(([key]) => key !== "lock")), benchmarkId);
   const cases: Record<string, ProjectHashes> = {};
   for (const item of manifest.cases) {
     const baseline = await openSelectedProject(projectDir, {

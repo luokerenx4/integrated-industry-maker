@@ -92,7 +92,33 @@ Splitting presentation and execution from identity is intentional. Catalog tools
 
 A Resource asset describes a kind of flow. Runtime quantities are `(resource id, integer count)` values held in named device buffers or in transit. `unit.kind: continuous` and non-zero precision reserve the file contract for continuous resources; the current engine executes integer quantities only.
 
-An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family": "dram-wafer" }`. Every route-stage Resource for the same physical lot uses the same family. Tracked Resources must be discrete and must be transformed one-for-one by Processes; their ids, priorities, due dates, locations, and elapsed-state clocks survive Resource changes. See [[docs/design/lot-tracking]].
+An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family": "dram-wafer", "route": "dram-front-end" }`. Every route-stage Resource for the same physical lot uses the same family and project-local Route. Tracked Resources must be discrete and must be transformed one-for-one by Processes; their ids, priorities, due dates, locations, elapsed-state clocks, and explicit Route state survive Resource changes. See [[docs/design/lot-tracking]] and [[docs/design/product-routes]].
+
+## Routes
+
+`routes/*.route.json` freezes the evaluator-owned process sequence for tracked products:
+
+```json
+{
+  "version": 1,
+  "type": "route",
+  "id": "dram-front-end",
+  "name": "DRAM Front-End Wafer Route",
+  "description": "Synthetic evaluator-owned DRAM process flow.",
+  "family": "dram-wafer",
+  "entry": { "resource": "blank-dram-wafer-lot", "step": "pattern-cell-layer-1" },
+  "steps": [
+    {
+      "id": "pattern-cell-layer-1",
+      "name": "Pattern Cell Layer 1",
+      "operations": ["pattern-cell-layer-1"],
+      "transitions": [{ "resource": "patterned-cell-l1-lot", "to": "etch-cell-layer-1" }]
+    }
+  ]
+}
+```
+
+Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Scenario lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]].
 
 A combustible Resource declares how much energy one unit contains. The value is an integer number of millijoules and is consumed only through a fuel generator's compiled generation job:
 

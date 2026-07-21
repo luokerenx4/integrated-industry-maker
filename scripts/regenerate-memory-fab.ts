@@ -40,7 +40,7 @@ for (const [id, name, description, color] of resources) {
     assetVersion: 1, type: "resource", id, name, description,
     tags: ["semiconductor", "wafer-lot", id === "qualified-dram-wafer-lot" ? "finished" : id === "scrap-dram-wafer-lot" ? "scrap" : "wip"],
     unit: { kind: "discrete", symbol: "lot", precision: 0 }, transport: { stackSize: 1 },
-    tracking: { kind: "lot", family: "dram-wafer" }, files: { visual: "visual.json" },
+    tracking: { kind: "lot", family: "dram-wafer", route: "dram-front-end" }, files: { visual: "visual.json" },
   });
   await json(join(project, "assets", "resources", id, "visual.json"), { shape: "cylinder", texture: null, color, icon: null });
 }
@@ -94,6 +94,26 @@ await json(join(project, "processes", "rework-final-pattern.process.json"), {
   category: "rework", tags: ["dram", "quality", "rework"], durationTicks: 8_000,
   inputs: [{ resource: "rework-required-dram-wafer-lot", count: 1 }], outputs: [{ resource: "dram-wafer-lot", count: 1 }],
   quality: { kind: "rework", repairs: ["critical-dimension"] },
+});
+
+await json(join(project, "routes", "dram-front-end.route.json"), {
+  version: 1, type: "route", id: "dram-front-end", name: "DRAM Front-End Wafer Route",
+  description: "Evaluator-owned process route for a DRAM wafer lot, including qualified alternatives and the final-inspection rework loop.",
+  family: "dram-wafer", entry: { resource: "blank-dram-wafer-lot", step: "pattern-cell-layer-1" },
+  steps: [
+    { id: "pattern-cell-layer-1", name: "Pattern Cell Layer 1", operations: ["pattern-cell-layer-1"], transitions: [{ resource: "patterned-cell-l1-lot", to: "etch-cell-layer-1" }] },
+    { id: "etch-cell-layer-1", name: "Etch Cell Layer 1", operations: ["etch-cell-layer-1"], transitions: [{ resource: "etched-cell-l1-lot", to: "deposit-dielectric-stack" }] },
+    { id: "deposit-dielectric-stack", name: "Deposit Dielectric Stack", operations: ["deposit-dielectric-stack"], transitions: [{ resource: "dielectric-stack-lot", to: "anneal-dielectric-stack" }] },
+    { id: "anneal-dielectric-stack", name: "Anneal Dielectric Stack", operations: ["batch-anneal-dielectric-stack", "rapid-anneal-dielectric-stack"], transitions: [{ resource: "annealed-dielectric-stack-lot", to: "pattern-cell-layer-2" }] },
+    { id: "pattern-cell-layer-2", name: "Pattern Cell Layer 2", operations: ["pattern-cell-layer-2"], transitions: [{ resource: "patterned-cell-l2-lot", to: "etch-cell-layer-2" }] },
+    { id: "etch-cell-layer-2", name: "Etch Cell Layer 2", operations: ["etch-cell-layer-2"], transitions: [{ resource: "dram-wafer-lot", to: "final-inspection" }] },
+    { id: "final-inspection", name: "Final Pattern Inspection", operations: ["inspect-final-pattern-standard", "inspect-final-pattern-deep"], transitions: [
+      { resource: "qualified-dram-wafer-lot", terminal: "complete" },
+      { resource: "rework-required-dram-wafer-lot", to: "final-pattern-rework" },
+      { resource: "scrap-dram-wafer-lot", terminal: "scrap" },
+    ] },
+    { id: "final-pattern-rework", name: "Final Pattern Rework", operations: ["rework-final-pattern"], transitions: [{ resource: "dram-wafer-lot", to: "final-inspection" }] },
+  ],
 });
 
 const runtime = `import type { DeviceProgram } from "../../runtime-api";\n\nexport default {\n  apiVersion: 1,\n  evaluate(context) {\n    const process = context.process;\n    if (!process) return { kind: "wait", reason: "idle" };\n    if (process.inputs.some((amount) => (context.buffers[amount.buffer]?.[amount.resource] ?? 0) < amount.count)) return { kind: "wait", reason: "input" };\n    return { kind: "start", operation: process.id, durationTicks: process.durationTicks, consume: [...process.inputs], produce: [...process.outputs], powerMilliWatts: process.powerMilliWatts };\n  },\n} satisfies DeviceProgram;\n`;
@@ -481,6 +501,10 @@ await text(autoresearchPath, generatedAutoresearch
 const projectReadmePath = join(project, "README.md");
 const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
+  .replace(
+    "# Re-entrant DRAM memory fab\n\n",
+    "# Re-entrant DRAM memory fab\n\nThe project-local `routes/dram-front-end.route.json` freezes the evaluator-owned DRAM product flow as an explicit state machine; Blueprints may allocate qualified tools and dispatch work but cannot skip, reorder, or invent wafer operations.\n\n",
+  )
   .replace(
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service.",
     "Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Optional Blueprint setup campaigns can retain a mask/recipe until enough target lots accumulate or an exact maximum hold expires. The kept candidate instead buys dedicated layer-2 lithography and etch tools, splits their exact material lanes, and uses an elevated crossing to gain parallel capacity without hidden equipment pools. Lithography, etch, and inspection assets also own synthetic usage-based maintenance limits and fixed work; the Blueprint may only choose an earlier idle-window threshold, never shorten or skip the physical maintenance.",

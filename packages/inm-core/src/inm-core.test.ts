@@ -767,9 +767,13 @@ describe("blueprint compiler", () => {
     expect(lots).toHaveLength(12);
     expect(lots.every((lot) => lot.releasedAtTick === lot.plannedReleaseTick)).toBeTrue();
     expect(lots.filter((lot) => lot.status === "completed")).toHaveLength(11);
-    expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.resource === "qualified-dram-wafer-lot" && lot.routeStep >= 6)).toBeTrue();
+    expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.resource === "qualified-dram-wafer-lot" && lot.route.terminal === "complete" && lot.route.completedSteps >= 7)).toBeTrue();
     expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.completedAtTick! - lot.releasedAtTick! === lot.queueTicks + lot.processTicks + lot.transportTicks)).toBeTrue();
     expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 11, scrapped: 1, onTimeCompleted: 7 }));
+    expect(baseline.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({
+      family: "dram-wafer", scheduled: 12, completed: 11, scrapped: 1, inProgress: 0, transitions: 88, reentrantTransitions: 2,
+    }));
+    expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]).toEqual({ visits: 14, activeLots: 0 });
     expect(baseline.metrics.releaseFlow).toEqual(expect.objectContaining({
       scheduled: 12, released: 12, pending: 0, plannedSpanTicks: 66_000, actualSpanTicks: 66_000,
       meanPlannedIntervalTicks: 6_000, meanActualIntervalTicks: 6_000, meanReleaseDelayTicks: 0, maximumReleaseDelayTicks: 0,
@@ -790,6 +794,8 @@ describe("blueprint compiler", () => {
     expect(baseline.events.filter((event) => event.type === "lot.quality-excursion")).toHaveLength(3);
     expect(baseline.events.filter((event) => event.type === "lot.inspected")).toHaveLength(14);
     expect(baseline.events.filter((event) => event.type === "lot.reworked")).toHaveLength(2);
+    expect(baseline.events.filter((event) => event.type === "lot.route-advanced")).toHaveLength(88);
+    expect(baseline.events.filter((event) => event.type === "lot.route-advanced" && event.reentrant)).toHaveLength(2);
     expect(baseline.events.filter((event) => event.type === "lot.scrapped" && event.reason === "quality-rejection")).toHaveLength(1);
     expect(baseline.events.filter((event) => event.type === "device.start" && event.lotIds?.length)).not.toHaveLength(0);
     expect(baseline.events.filter((event) => event.type === "resource.depart" && event.transit.lotIds?.length)).not.toHaveLength(0);
@@ -809,6 +815,13 @@ describe("blueprint compiler", () => {
     const furnaceStarts = baseline.events.filter((event) => event.type === "device.start" && event.device === "furnace-1");
     expect(furnaceStarts).toHaveLength(4);
     expect(furnaceStarts.every((event) => event.type === "device.start" && event.lotIds?.length === 3)).toBeTrue();
+
+    const unownedRouteProcess = await loadFactoryProject(memoryFab);
+    unownedRouteProcess.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.operations = ["rapid-anneal-dielectric-stack"];
+    expect(issueCodes(() => compileFactoryProject(unownedRouteProcess))).toContain("route.process-unassigned");
+    const intermediateRelease = await loadFactoryProject(memoryFab);
+    intermediateRelease.scenario.lotReleases![0]!.resource = "dram-wafer-lot";
+    expect(issueCodes(() => compileFactoryProject(intermediateRelease))).toContain("route.release-entry");
 
     const partial = runUntil(baselineProject, undefined, { seed: 42, untilTick: 30_000 });
     expect(partial.metrics.releaseFlow).toEqual(expect.objectContaining({ scheduled: 12, released: 6, pending: 6, meanReleaseDelayTicks: 0 }));

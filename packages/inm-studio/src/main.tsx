@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -7,7 +7,7 @@ import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 
 type Status = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
-type AssetKind = "devices" | "resources" | "processes";
+type AssetKind = "devices" | "resources" | "processes" | "routes";
 
 interface Visual {
   shape?: string;
@@ -123,7 +123,7 @@ interface ResourceCatalogAsset {
   tags: string[];
   unit: { kind: "discrete" | "continuous"; symbol: string; precision: number };
   transport: { stackSize: number };
-  tracking?: { kind: "lot"; family: string };
+  tracking?: { kind: "lot"; family: string; route: string };
   fuel?: { energyMilliJoules: number };
   visual: Visual;
   contentHash: string;
@@ -144,6 +144,18 @@ interface ProcessCatalogAsset {
   durationTicks: number;
   inputs: Array<{ resource: string; count: number }>;
   outputs: Array<{ resource: string; count: number }>;
+  contentHash: string;
+}
+
+interface RouteCatalogAsset {
+  type: "route";
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  family: string;
+  entry: { resource: string; step: string };
+  steps: Array<{ id: string; name: string; operations: string[]; transitions: Array<{ resource: string; to?: string; terminal?: "complete" | "scrap" }> }>;
   contentHash: string;
 }
 
@@ -189,6 +201,7 @@ interface Metrics {
     meanQueueTimeTicks: number; meanProcessTimeTicks: number; meanTransportTimeTicks: number;
     meanTardinessTicks: number; maximumTardinessTicks: number;
   };
+  routeFlow: Record<string, { family: string; scheduled: number; completed: number; scrapped: number; inProgress: number; transitions: number; reentrantTransitions: number; steps: Record<string, { visits: number; activeLots: number }> }>;
   releaseFlow: {
     scheduled: number; released: number; pending: number; plannedSpanTicks: number; actualSpanTicks: number;
     meanPlannedIntervalTicks: number; meanActualIntervalTicks: number; meanReleaseDelayTicks: number; maximumReleaseDelayTicks: number;
@@ -386,7 +399,7 @@ interface StudioData {
   resources: Record<string, { visual?: Visual }>;
   analysis: IndustrialAnalysis;
   capacityPlan: CapacityPlan;
-  assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[] };
+  assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[]; routes: RouteCatalogAsset[] };
   events: FactoryEvent[];
   metrics: Metrics | null;
   selectedRun: string | null;
@@ -856,15 +869,16 @@ function SceneInspector({ data, frame, selection, onClose, onSelection }: {
   return connection ? <ConnectionInspector data={data} frame={frame} connection={connection} onClose={onClose} onSelection={onSelection} /> : null;
 }
 
-function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset }) {
+function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset | RouteCatalogAsset }) {
   if (asset.type === "process") return <span className="asset-glyph process">ƒ</span>;
+  if (asset.type === "route") return <span className="asset-glyph process">⇢</span>;
   if (asset.visual.icon) return <img className="asset-icon-image" src={fileUrl(projectId, asset.visual.icon)} alt="" />;
   return <span className={`asset-glyph ${asset.visual.shape ?? "box"}`} style={{ "--asset-color": asset.visual.color ?? "#4f7f86" } as React.CSSProperties} />;
 }
 
 function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
   const [kind, setKind] = useState<AssetKind>("devices");
-  const items: Array<DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset> = kind === "devices" ? data.assets.devices : kind === "resources" ? data.assets.resources : data.assets.processes;
+  const items: Array<DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset | RouteCatalogAsset> = kind === "devices" ? data.assets.devices : kind === "resources" ? data.assets.resources : kind === "processes" ? data.assets.processes : data.assets.routes;
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
   const selected = items.find((asset) => asset.id === selectedId) ?? items[0];
 
@@ -878,7 +892,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
     <section className="asset-browser" role="dialog" aria-modal="true" aria-label="Project assets">
       <header className="asset-browser-header">
-        <div><span className="eyebrow">PROJECT CATALOG</span><h2>{data.name}</h2><p>Self-contained · {data.assets.devices.length} devices · {data.assets.resources.length} resources · {data.assets.processes.length} processes</p></div>
+        <div><span className="eyebrow">PROJECT CATALOG</span><h2>{data.name}</h2><p>Self-contained · {data.assets.devices.length} devices · {data.assets.resources.length} resources · {data.assets.processes.length} processes · {data.assets.routes.length} routes</p></div>
         <button className="icon-button" onClick={onClose} aria-label="Close asset browser">×</button>
       </header>
       <div className="asset-browser-body">
@@ -886,6 +900,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
           <button className={kind === "devices" ? "active" : ""} onClick={() => setKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
           <button className={kind === "resources" ? "active" : ""} onClick={() => setKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
           <button className={kind === "processes" ? "active" : ""} onClick={() => setKind("processes")}><span>PROCESS</span><b>{data.assets.processes.length}</b></button>
+          <button className={kind === "routes" ? "active" : ""} onClick={() => setKind("routes")}><span>ROUTE</span><b>{data.assets.routes.length}</b></button>
         </nav>
         <div className="asset-list" role="listbox" aria-label={kind}>
           <div className="asset-list-title">{kind.toUpperCase()} <span>{items.length}</span></div>
@@ -935,7 +950,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 {selected.fuel && <div><label>FUEL ENERGY</label><strong>{(selected.fuel.energyMilliJoules / 1e6).toFixed(1)} MJ</strong></div>}
               </div>
               <section className="asset-section"><h4>Presentation</h4><div className="asset-table"><div><b>shape</b><strong>{selected.visual.shape}</strong><span>color</span><code>{selected.visual.color ?? "default"}</code></div></div></section>
-            </> : <>
+            </> : selected.type === "process" ? <>
               <div className="detail-grid">
                 <div><label>CATEGORY</label><strong>{selected.category}</strong></div>
                 <div><label>CYCLE</label><strong>{(selected.durationTicks / 1000).toFixed(2)} s</strong></div>
@@ -947,6 +962,14 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               <section className="asset-section"><h4>Material transformation</h4><div className="process-flow"><div><label>INPUT</label>{selected.inputs.map((amount) => <span key={amount.resource}><b>{amount.count}×</b> {amount.resource}</span>)}</div><i>→</i><div><label>OUTPUT</label>{selected.outputs.map((amount) => <span key={amount.resource}><b>{amount.count}×</b> {amount.resource}</span>)}</div></div></section>
               {selected.quality?.kind === "inspection" && <section className="asset-section"><h4>Quality disposition</h4><div className="asset-table"><div><b>detects</b><strong>{selected.quality.detects?.join(", ")}</strong><span>rework</span><code>{selected.quality.rejectResource}</code></div><div><b>terminal scrap</b><strong>{selected.quality.scrapResource ?? "none"}</strong><span>after rework cycles</span><code>{selected.quality.maxReworkCycles ?? "unlimited"}</code></div></div></section>}
               {selected.quality?.kind === "rework" && <section className="asset-section"><h4>Quality recovery</h4><div className="asset-table"><div><b>repairs</b><strong>{selected.quality.repairs?.join(", ")}</strong><span>lot identity retained</span></div></div></section>}
+            </> : <>
+              <div className="detail-grid">
+                <div><label>FAMILY</label><strong>{selected.family}</strong></div>
+                <div><label>STEPS</label><strong>{selected.steps.length}</strong></div>
+                <div><label>ENTRY RESOURCE</label><strong>{selected.entry.resource}</strong></div>
+                <div><label>ENTRY STEP</label><strong>{selected.entry.step}</strong></div>
+              </div>
+              <section className="asset-section"><h4>Process route</h4><div className="asset-table">{selected.steps.map((step) => <div key={step.id}><b>{step.name}</b><strong>{step.operations.join(" / ")}</strong><span>{step.transitions.map((transition) => `${transition.resource} → ${transition.to ?? transition.terminal}`).join(" · ")}</span><code>{step.id}</code></div>)}</div></section>
             </>}
             <div className="asset-hash"><label>CONTENT HASH</label><code>{selected.contentHash}</code></div>
           </>}
@@ -1259,7 +1282,7 @@ function App() {
         <span className="project-local"><i /> PROJECT LOCAL</span>
         <span className="hash">BP {data.blueprintHash.slice(0, 10)}</span>
         <button className="analysis-button" onClick={() => { setAssetsOpen(false); setAnalysisOpen(true); }}>ANALYSIS <b>{data.analysis.diagnostics.length}</b></button>
-        <button className="assets-button" onClick={() => { setAnalysisOpen(false); setAssetsOpen(true); }}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length}</b></button>
+        <button className="assets-button" onClick={() => { setAnalysisOpen(false); setAssetsOpen(true); }}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length + data.assets.routes.length}</b></button>
         <button onClick={() => void loadProject(data.projectId, run)}>{loading ? "SYNCING" : "REFRESH"}</button>
       </div>
     </header>
@@ -1274,7 +1297,7 @@ function App() {
       </div>
       <aside>
         <div className="panel run-panel"><label>SIMULATION RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision === "BASELINE" ? item.blueprint.toUpperCase() : `${item.decision} · ${item.blueprint.toUpperCase()}`} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.blueprint.toUpperCase()}</div>}</div>
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="COMPLETE / RELEASED / PLAN" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released} / ${data.metrics.lotFlow.scheduled}`} /><Metric label="RELEASE INTERVAL PLAN / ACTUAL" value={`${(data.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(1)} s`} /><Metric label="RELEASE DELAY / PENDING" value={`${(data.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(1)} s / ${data.metrics.releaseFlow.pending}`} /><Metric label="RELEASE CONTROL / PEAK" value={`${data.metrics.releaseFlow.control === "conwip" ? `CONWIP ${data.metrics.releaseFlow.maximumWip}↕${data.metrics.releaseFlow.reopenAtWip}` : "OPEN LOOP"} / ${data.metrics.releaseFlow.peakActiveLots}`} /><Metric label="MAX DELAY / SERVICE OPENS" value={`${data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks === null ? "—" : `${(data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks / 1000).toFixed(1)} s`} / ${data.metrics.releaseFlow.serviceLevelOpenings}`} /><Metric label="CONTROL BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.controlBlockedLots} / ${(data.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="CAPACITY BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.capacityBlockedLots} / ${(data.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /><Metric label="GOOD / FIRST-PASS YIELD" value={`${(data.metrics.qualityFlow.goodYield * 100).toFixed(1)} / ${(data.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}%`} /><Metric label="INSPECTIONS / REWORK" value={`${data.metrics.qualityFlow.totalInspections} / ${data.metrics.qualityFlow.totalReworkCycles}`} /><Metric label="SCRAP / QUALITY ESCAPES" value={`${data.metrics.qualityFlow.scrapDispositions} / ${data.metrics.qualityFlow.escapedDefects}`} />{data.metrics.batchFlow.batchOperations > 0 && <><Metric label="BATCH JOBS / LOTS" value={`${data.metrics.batchFlow.jobs} / ${data.metrics.batchFlow.lots}`} /><Metric label="LOTS / BATCH" value={data.metrics.batchFlow.averageLotsPerJob.toFixed(2)} /><Metric label="MEAN BATCH WAIT" value={`${(data.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(1)} s`} /></>}</>}<Metric label="CHANGEOVERS / SETUP" value={data.metrics ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN HOLDS / TIME" value={data.metrics ? `${data.metrics.equipmentSetups.totalCampaignHolds} / ${(data.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN LOT-READY / TIMEOUT" value={data.metrics ? `${data.metrics.equipmentSetups.campaignMinimumLotReleases} / ${data.metrics.equipmentSetups.campaignMaximumHoldReleases}` : "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
+        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="COMPLETE / RELEASED / PLAN" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released} / ${data.metrics.lotFlow.scheduled}`} />{Object.entries(data.metrics.routeFlow).map(([route, flow]) => <Fragment key={route}><Metric label={`ROUTE ${route.toUpperCase()}`} value={`${flow.transitions} steps / ${flow.reentrantTransitions} re-entry`} /><Metric label="ROUTE TERMINALS / ACTIVE" value={`${flow.completed} complete · ${flow.scrapped} scrap / ${flow.inProgress} active`} /></Fragment>)}<Metric label="RELEASE INTERVAL PLAN / ACTUAL" value={`${(data.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(1)} s`} /><Metric label="RELEASE DELAY / PENDING" value={`${(data.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(1)} s / ${data.metrics.releaseFlow.pending}`} /><Metric label="RELEASE CONTROL / PEAK" value={`${data.metrics.releaseFlow.control === "conwip" ? `CONWIP ${data.metrics.releaseFlow.maximumWip}↕${data.metrics.releaseFlow.reopenAtWip}` : "OPEN LOOP"} / ${data.metrics.releaseFlow.peakActiveLots}`} /><Metric label="MAX DELAY / SERVICE OPENS" value={`${data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks === null ? "—" : `${(data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks / 1000).toFixed(1)} s`} / ${data.metrics.releaseFlow.serviceLevelOpenings}`} /><Metric label="CONTROL BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.controlBlockedLots} / ${(data.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="CAPACITY BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.capacityBlockedLots} / ${(data.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /><Metric label="GOOD / FIRST-PASS YIELD" value={`${(data.metrics.qualityFlow.goodYield * 100).toFixed(1)} / ${(data.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}%`} /><Metric label="INSPECTIONS / REWORK" value={`${data.metrics.qualityFlow.totalInspections} / ${data.metrics.qualityFlow.totalReworkCycles}`} /><Metric label="SCRAP / QUALITY ESCAPES" value={`${data.metrics.qualityFlow.scrapDispositions} / ${data.metrics.qualityFlow.escapedDefects}`} />{data.metrics.batchFlow.batchOperations > 0 && <><Metric label="BATCH JOBS / LOTS" value={`${data.metrics.batchFlow.jobs} / ${data.metrics.batchFlow.lots}`} /><Metric label="LOTS / BATCH" value={data.metrics.batchFlow.averageLotsPerJob.toFixed(2)} /><Metric label="MEAN BATCH WAIT" value={`${(data.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(1)} s`} /></>}</>}<Metric label="CHANGEOVERS / SETUP" value={data.metrics ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN HOLDS / TIME" value={data.metrics ? `${data.metrics.equipmentSetups.totalCampaignHolds} / ${(data.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN LOT-READY / TIMEOUT" value={data.metrics ? `${data.metrics.equipmentSetups.campaignMinimumLotReleases} / ${data.metrics.equipmentSetups.campaignMaximumHoldReleases}` : "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         {data.metrics && Object.keys(data.metrics.equipmentMaintenance.devices).length > 0 && <div className="panel"><h2>Equipment maintenance</h2><div className="metrics"><Metric label="MANDATORY / EARLY" value={`${data.metrics.equipmentMaintenance.totalMandatory} / ${data.metrics.equipmentMaintenance.totalOpportunistic}`} /><Metric label="COMPLETED / CANCELLED" value={`${data.metrics.equipmentMaintenance.totalCompleted} / ${data.metrics.equipmentMaintenance.totalCancelled}`} /><Metric label="MAINTENANCE WORK" value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} s`} /></div></div>}
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>

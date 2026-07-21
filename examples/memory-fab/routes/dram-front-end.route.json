@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "type": "route",
+  "id": "dram-front-end",
+  "name": "DRAM Front-End Wafer Route",
+  "description": "Evaluator-owned process route for a DRAM wafer lot, including qualified alternatives and the final-inspection rework loop.",
+  "family": "dram-wafer",
+  "entry": {
+    "resource": "blank-dram-wafer-lot",
+    "step": "pattern-cell-layer-1"
+  },
+  "steps": [
+    {
+      "id": "pattern-cell-layer-1",
+      "name": "Pattern Cell Layer 1",
+      "operations": [
+        "pattern-cell-layer-1"
+      ],
+      "transitions": [
+        {
+          "resource": "patterned-cell-l1-lot",
+          "to": "etch-cell-layer-1"
+        }
+      ]
+    },
+    {
+      "id": "etch-cell-layer-1",
+      "name": "Etch Cell Layer 1",
+      "operations": [
+        "etch-cell-layer-1"
+      ],
+      "transitions": [
+        {
+          "resource": "etched-cell-l1-lot",
+          "to": "deposit-dielectric-stack"
+        }
+      ]
+    },
+    {
+      "id": "deposit-dielectric-stack",
+      "name": "Deposit Dielectric Stack",
+      "operations": [
+        "deposit-dielectric-stack"
+      ],
+      "transitions": [
+        {
+          "resource": "dielectric-stack-lot",
+          "to": "anneal-dielectric-stack"
+        }
+      ]
+    },
+    {
+      "id": "anneal-dielectric-stack",
+      "name": "Anneal Dielectric Stack",
+      "operations": [
+        "batch-anneal-dielectric-stack",
+        "rapid-anneal-dielectric-stack"
+      ],
+      "transitions": [
+        {
+          "resource": "annealed-dielectric-stack-lot",
+          "to": "pattern-cell-layer-2"
+        }
+      ]
+    },
+    {
+      "id": "pattern-cell-layer-2",
+      "name": "Pattern Cell Layer 2",
+      "operations": [
+        "pattern-cell-layer-2"
+      ],
+      "transitions": [
+        {
+          "resource": "patterned-cell-l2-lot",
+          "to": "etch-cell-layer-2"
+        }
+      ]
+    },
+    {
+      "id": "etch-cell-layer-2",
+      "name": "Etch Cell Layer 2",
+      "operations": [
+        "etch-cell-layer-2"
+      ],
+      "transitions": [
+        {
+          "resource": "dram-wafer-lot",
+          "to": "final-inspection"
+        }
+      ]
+    },
+    {
+      "id": "final-inspection",
+      "name": "Final Pattern Inspection",
+      "operations": [
+        "inspect-final-pattern-standard",
+        "inspect-final-pattern-deep"
+      ],
+      "transitions": [
+        {
+          "resource": "qualified-dram-wafer-lot",
+          "terminal": "complete"
+        },
+        {
+          "resource": "rework-required-dram-wafer-lot",
+          "to": "final-pattern-rework"
+        },
+        {
+          "resource": "scrap-dram-wafer-lot",
+          "terminal": "scrap"
+        }
+      ]
+    },
+    {
+      "id": "final-pattern-rework",
+      "name": "Final Pattern Rework",
+      "operations": [
+        "rework-final-pattern"
+      ],
+      "transitions": [
+        {
+          "resource": "dram-wafer-lot",
+          "to": "final-inspection"
+        }
+      ]
+    }
+  ]
+}

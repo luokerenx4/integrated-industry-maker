@@ -79,6 +79,22 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     meanTardinessTicks: mean(tardiness),
     maximumTardinessTicks: tardiness.at(-1) ?? 0,
   };
+  const routeFlow: FactoryMetrics["routeFlow"] = Object.fromEntries(Object.values(project.routes).sort((left, right) => left.id.localeCompare(right.id)).map((route) => {
+    const lots = Object.values(state.lots).filter((lot) => lot.route.id === route.id);
+    return [route.id, {
+      family: route.family,
+      scheduled: lots.length,
+      completed: lots.filter((lot) => lot.route.terminal === "complete").length,
+      scrapped: lots.filter((lot) => lot.route.terminal === "scrap").length,
+      inProgress: lots.filter((lot) => lot.releasedAtTick !== undefined && !lot.route.terminal && lot.status !== "scrapped").length,
+      transitions: lots.reduce((sum, lot) => sum + lot.route.completedSteps, 0),
+      reentrantTransitions: lots.reduce((sum, lot) => sum + lot.route.reentrantTransitions, 0),
+      steps: Object.fromEntries(route.steps.map((step) => [step.id, {
+        visits: lots.reduce((sum, lot) => sum + (lot.route.visits[step.id] ?? 0), 0),
+        activeLots: lots.filter((lot) => lot.route.step === step.id).length,
+      }])),
+    }];
+  }));
   const releaseFlow: FactoryMetrics["releaseFlow"] = {
     scheduled: targetLots.length,
     released: releasedTargetLots.length,
@@ -295,7 +311,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, releaseFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

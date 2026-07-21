@@ -429,6 +429,7 @@
       "reserved": 0
     }
   },
+  "routeFlow": {},
   "scoreBreakdown": {
     "blocked": -3.2441666666666666,
     "buildCost": -18.685,

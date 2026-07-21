@@ -10,6 +10,7 @@ export type FactoryStateMutation =
   | { kind: "lot.release"; lotId: string; device: string; buffer: string }
   | { kind: "lot.depart"; lotIds: string[]; device: string; buffer: string; nextStatus: "processing" | "transport"; nextLocation: { kind: "device"; device: string } | { kind: "transit"; transit: string } }
   | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
+  | { kind: "lot.route-advance"; lotIds: string[]; route: string; fromStep: string; toStep: string | null; terminal: "complete" | "scrap" | null }
   | { kind: "lot.complete"; lotIds: string[]; device: string; buffer: string }
   | { kind: "lot.scrap"; lotIds: string[]; device: string; reason: string }
   | { kind: "lot.scrap-buffer"; lotIds: string[]; device: string; buffer: string; reason: string }
@@ -154,7 +155,6 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
         const lot = state.lots[id];
         if (!lot) throw new Error(`Unknown lot '${id}'`);
         if (lot.status === "completed") throw new Error(`Completed lot '${id}' cannot re-enter production`);
-        if (lot.resource !== mutation.resource) lot.routeStep += 1;
         lot.resource = mutation.resource;
         lot.treatmentLevel = mutation.treatmentLevel ?? 0;
         setLotStatus(lot, state.tick, "queued", { kind: "buffer", device: mutation.device, buffer: mutation.buffer });
@@ -164,10 +164,27 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       }
       return;
     }
+    case "lot.route-advance": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.route.id !== mutation.route || lot.route.step !== mutation.fromStep || lot.route.terminal) throw new Error(`Lot '${id}' is not at Route step '${mutation.route}/${mutation.fromStep}'`);
+        lot.route.completedSteps += 1;
+        lot.route.step = mutation.toStep;
+        lot.route.terminal = mutation.terminal;
+        if (mutation.toStep) {
+          const visits = (lot.route.visits[mutation.toStep] ?? 0) + 1;
+          if (visits > 1) lot.route.reentrantTransitions += 1;
+          lot.route.visits[mutation.toStep] = visits;
+        }
+      }
+      return;
+    }
     case "lot.complete": {
       for (const id of mutation.lotIds) {
         const lot = state.lots[id];
         if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.route.terminal !== "complete") throw new Error(`Lot '${id}' cannot complete before its Route reaches a complete terminal`);
         removeLotFromBuffer(state, lot, mutation.device, mutation.buffer);
         setLotStatus(lot, state.tick, "completed", { kind: "completed", device: mutation.device });
         lot.completedAtTick = state.tick;
@@ -189,6 +206,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       for (const id of mutation.lotIds) {
         const lot = state.lots[id];
         if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.route.terminal !== "scrap") throw new Error(`Lot '${id}' cannot be discarded before its Route reaches a scrap terminal`);
         removeLotFromBuffer(state, lot, mutation.device, mutation.buffer);
         setLotStatus(lot, state.tick, "scrapped", { kind: "scrapped", device: mutation.device, reason: mutation.reason });
       }
