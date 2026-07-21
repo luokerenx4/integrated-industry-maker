@@ -1,15 +1,22 @@
 {
-  "completedOrders": 56,
+  "completedOrders": 52,
   "consumed": {
-    "gear": 56
+    "gear": 52
   },
   "devices": {
     "synth-assembly-world-wind-turbine-1": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "synth-assembly-world-wind-turbine-2": {
       "buffers": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-assembly-world-wind-turbine-3": {
+      "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "synth-coal-extractor-1": {
@@ -18,15 +25,81 @@
           "coal": 8
         }
       },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 8
+          }
+        }
+      },
+      "status": "blocked-output"
+    },
+    "synth-coal-split": {
+      "buffers": {
+        "storage": {
+          "coal": 8
+        }
+      },
+      "materialBatches": {
+        "storage": {
+          "coal": {
+            "0": 8
+          }
+        }
+      },
+      "status": "idle"
+    },
+    "synth-coal-synth-forge-gear-pair-1-coater-1": {
+      "buffers": {
+        "agent-input": {
+          "proliferator": 8
+        },
+        "material-input": {
+          "coal": 16
+        },
+        "material-output": {
+          "coal": 15
+        }
+      },
+      "materialBatches": {
+        "agent-input": {
+          "proliferator": {
+            "0": 8
+          }
+        },
+        "material-input": {
+          "coal": {
+            "0": 16
+          }
+        },
+        "material-output": {
+          "coal": {
+            "2": 15
+          }
+        }
+      },
       "status": "blocked-output"
     },
     "synth-forge-gear-pair-1": {
       "buffers": {
         "input-primary": {
-          "iron-plate": 2
+          "iron-plate": 1
         },
         "input-secondary": {
           "coal": 8
+        },
+        "output": {}
+      },
+      "materialBatches": {
+        "input-primary": {
+          "iron-plate": {
+            "2": 1
+          }
+        },
+        "input-secondary": {
+          "coal": {
+            "2": 8
+          }
         },
         "output": {}
       },
@@ -34,14 +107,19 @@
     },
     "synth-forge-world-wind-turbine-1": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "synth-forge-world-wind-turbine-2": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "synth-gear-sink": {
       "buffers": {
+        "input": {}
+      },
+      "materialBatches": {
         "input": {}
       },
       "status": "waiting-input"
@@ -70,11 +148,17 @@
       "buffers": {
         "output": {}
       },
+      "materialBatches": {
+        "output": {}
+      },
       "progressTicks": 0,
       "status": "processing"
     },
     "synth-iron-ore-split": {
       "buffers": {
+        "storage": {}
+      },
+      "materialBatches": {
         "storage": {}
       },
       "status": "idle"
@@ -83,12 +167,22 @@
       "buffers": {
         "storage": {}
       },
+      "materialBatches": {
+        "storage": {}
+      },
       "status": "idle"
     },
     "synth-iron-plate-forge-world-station-supply-1": {
       "buffers": {
         "storage": {
-          "iron-plate": 6
+          "iron-plate": 2
+        }
+      },
+      "materialBatches": {
+        "storage": {
+          "iron-plate": {
+            "0": 2
+          }
         }
       },
       "status": "idle"
@@ -96,6 +190,72 @@
     "synth-iron-plate-merge": {
       "buffers": {
         "storage": {}
+      },
+      "materialBatches": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "synth-iron-plate-synth-forge-gear-pair-1-coater-1": {
+      "buffers": {
+        "agent-input": {
+          "proliferator": 8
+        },
+        "material-input": {
+          "iron-plate": 2
+        },
+        "material-output": {}
+      },
+      "materialBatches": {
+        "agent-input": {
+          "proliferator": {
+            "0": 8
+          }
+        },
+        "material-input": {
+          "iron-plate": {
+            "0": 2
+          }
+        },
+        "material-output": {}
+      },
+      "status": "waiting-input"
+    },
+    "synth-make-proliferator-1": {
+      "buffers": {
+        "input": {
+          "coal": 8
+        },
+        "output": {
+          "proliferator": 13
+        }
+      },
+      "materialBatches": {
+        "input": {
+          "coal": {
+            "0": 8
+          }
+        },
+        "output": {
+          "proliferator": {
+            "0": 13
+          }
+        }
+      },
+      "status": "blocked-output"
+    },
+    "synth-proliferator-split": {
+      "buffers": {
+        "storage": {
+          "proliferator": 8
+        }
+      },
+      "materialBatches": {
+        "storage": {
+          "proliferator": {
+            "0": 8
+          }
+        }
       },
       "status": "idle"
     },
@@ -108,7 +268,8 @@
           {
             "buffer": "output",
             "count": 1,
-            "resource": "iron-plate"
+            "resource": "iron-plate",
+            "treatmentLevel": 0
           }
         ],
         "remainingTicks": 4000,
@@ -119,6 +280,14 @@
       "buffers": {
         "input": {
           "iron-ore": 1
+        },
+        "output": {}
+      },
+      "materialBatches": {
+        "input": {
+          "iron-ore": {
+            "0": 1
+          }
         },
         "output": {}
       },
@@ -134,7 +303,8 @@
           {
             "buffer": "output",
             "count": 1,
-            "resource": "iron-plate"
+            "resource": "iron-plate",
+            "treatmentLevel": 0
           }
         ],
         "remainingTicks": 4000,
@@ -148,19 +318,27 @@
         },
         "output": {}
       },
+      "materialBatches": {
+        "input": {
+          "iron-ore": {
+            "0": 1
+          }
+        },
+        "output": {}
+      },
       "progressTicks": 2200,
       "status": "processing"
     }
   },
   "energy": {
-    "availableMilliWatts": 2400000,
-    "consumedMilliJoules": 241377900,
+    "availableMilliWatts": 3000000,
+    "consumedMilliJoules": 250214500,
     "fuelConsumed": {},
     "grids": {
       "grid-assembly-world-synth-assembly-world-wind-turbine-1": {
-        "availableMilliWatts": 1200000,
+        "availableMilliWatts": 1800000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 104890400,
+        "consumedMilliJoules": 113727000,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
@@ -178,29 +356,44 @@
   "logisticsTransports": {
     "synth-iron-plate-forge-world-to-assembly-world-lane-1": [
       {
-        "arriveTick": 120350,
+        "arriveTick": 130150,
         "count": 6,
-        "departTick": 108150,
+        "departTick": 118190,
         "from": "synth-iron-plate-forge-world-station-supply-1",
         "fromBuffer": "storage",
-        "id": "transit-000442",
+        "id": "transit-000744",
         "logisticsRoute": "synth-iron-plate-forge-world-to-assembly-world-lane-1:iron-plate:synth-iron-plate-forge-world-station-supply-1->synth-iron-plate-assembly-world-station-demand-1",
         "resource": "iron-plate",
         "to": "synth-iron-plate-assembly-world-station-demand-1",
-        "toBuffer": "storage"
+        "toBuffer": "storage",
+        "treatmentLevel": 0
       }
     ]
   },
+  "materialTreatment": {
+    "agentsConsumed": {
+      "proliferator": 19
+    },
+    "treated": {
+      "coal": {
+        "2": 36
+      },
+      "iron-plate": {
+        "2": 40
+      }
+    }
+  },
   "produced": {
-    "coal": 44,
-    "gear": 56,
+    "coal": 126,
+    "gear": 52,
     "iron-ore": 120,
-    "iron-plate": 56
+    "iron-plate": 96,
+    "proliferator": 56
   },
   "resourceNodes": {
     "coal-seam-assembly": {
-      "extracted": 44,
-      "remaining": 56,
+      "extracted": 90,
+      "remaining": 10,
       "reserved": 0
     },
     "coal-seam-forge": {
@@ -226,7 +419,10 @@
   },
   "tick": 120000,
   "transports": {
-    "synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1": [],
+    "synth-coal-synth-coal-extractor-1-to-synth-coal-split": [],
+    "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1": [],
+    "synth-coal-synth-coal-split-to-synth-make-proliferator-1": [],
+    "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": [],
     "synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink": [],
     "synth-iron-ore-synth-iron-ore-extractor-1-to-synth-iron-ore-split": [
       {
@@ -236,12 +432,13 @@
         "departTick": 120000,
         "from": "synth-iron-ore-extractor-1",
         "fromBuffer": "output",
-        "id": "transit-000495",
+        "id": "transit-000755",
         "phase": "loading",
         "readyTick": 120250,
         "resource": "iron-ore",
         "to": "synth-iron-ore-split",
-        "toBuffer": "storage"
+        "toBuffer": "storage",
+        "treatmentLevel": 0
       }
     ],
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-1": [
@@ -252,18 +449,114 @@
         "departTick": 119700,
         "from": "synth-iron-ore-split",
         "fromBuffer": "storage",
-        "id": "transit-000494",
+        "id": "transit-000754",
         "phase": "belt",
         "readyTick": 120050,
         "resource": "iron-ore",
         "to": "synth-smelt-iron-1",
-        "toBuffer": "input"
+        "toBuffer": "input",
+        "treatmentLevel": 0
       }
     ],
     "synth-iron-ore-synth-iron-ore-split-to-synth-smelt-iron-2": [],
-    "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1": [],
+    "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": [
+      {
+        "arriveTick": 120290,
+        "cellIndex": 15,
+        "count": 1,
+        "departTick": 118190,
+        "from": "synth-iron-plate-assembly-world-station-demand-1",
+        "fromBuffer": "storage",
+        "id": "transit-000743",
+        "phase": "belt",
+        "readyTick": 120040,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "toBuffer": "material-input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 120540,
+        "cellIndex": 13,
+        "count": 1,
+        "departTick": 118440,
+        "from": "synth-iron-plate-assembly-world-station-demand-1",
+        "fromBuffer": "storage",
+        "id": "transit-000746",
+        "phase": "belt",
+        "readyTick": 120090,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "toBuffer": "material-input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 120790,
+        "cellIndex": 10,
+        "count": 1,
+        "departTick": 118690,
+        "from": "synth-iron-plate-assembly-world-station-demand-1",
+        "fromBuffer": "storage",
+        "id": "transit-000747",
+        "phase": "belt",
+        "readyTick": 120040,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "toBuffer": "material-input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 121040,
+        "cellIndex": 8,
+        "count": 1,
+        "departTick": 118940,
+        "from": "synth-iron-plate-assembly-world-station-demand-1",
+        "fromBuffer": "storage",
+        "id": "transit-000749",
+        "phase": "belt",
+        "readyTick": 120090,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "toBuffer": "material-input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 121290,
+        "cellIndex": 5,
+        "count": 1,
+        "departTick": 119190,
+        "from": "synth-iron-plate-assembly-world-station-demand-1",
+        "fromBuffer": "storage",
+        "id": "transit-000752",
+        "phase": "belt",
+        "readyTick": 120040,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "toBuffer": "material-input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 121540,
+        "cellIndex": 3,
+        "count": 1,
+        "departTick": 119440,
+        "from": "synth-iron-plate-assembly-world-station-demand-1",
+        "fromBuffer": "storage",
+        "id": "transit-000753",
+        "phase": "belt",
+        "readyTick": 120090,
+        "resource": "iron-plate",
+        "to": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "toBuffer": "material-input",
+        "treatmentLevel": 0
+      }
+    ],
     "synth-iron-plate-synth-iron-plate-merge-to-synth-iron-plate-forge-world-station-supply-1": [],
+    "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1": [],
     "synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-merge": [],
-    "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": []
+    "synth-iron-plate-synth-smelt-iron-2-to-synth-iron-plate-merge": [],
+    "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split": [],
+    "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1": [],
+    "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1": []
   }
 }

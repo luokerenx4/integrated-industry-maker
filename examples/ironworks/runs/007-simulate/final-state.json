@@ -6,10 +6,12 @@
   "devices": {
     "synth-chemical-basin-wind-turbine-1": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "synth-chemical-basin-wind-turbine-2": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "synth-crude-oil-extractor-1": {
@@ -36,6 +38,9 @@
       "buffers": {
         "output": {}
       },
+      "materialBatches": {
+        "output": {}
+      },
       "progressTicks": 0,
       "status": "processing"
     },
@@ -48,7 +53,8 @@
           {
             "buffer": "output",
             "count": 1,
-            "resource": "plastic"
+            "resource": "plastic",
+            "treatmentLevel": 0
           }
         ],
         "remainingTicks": 4000,
@@ -63,11 +69,23 @@
         },
         "output": {}
       },
+      "materialBatches": {
+        "gas-input": {},
+        "liquid-input": {
+          "refined-oil": {
+            "0": 2
+          }
+        },
+        "output": {}
+      },
       "progressTicks": 3800,
       "status": "processing"
     },
     "synth-plastic-sink": {
       "buffers": {
+        "input": {}
+      },
+      "materialBatches": {
         "input": {}
       },
       "status": "waiting-input"
@@ -81,12 +99,14 @@
           {
             "buffer": "gas-output",
             "count": 1,
-            "resource": "hydrogen"
+            "resource": "hydrogen",
+            "treatmentLevel": 0
           },
           {
             "buffer": "liquid-output",
             "count": 2,
-            "resource": "refined-oil"
+            "resource": "refined-oil",
+            "treatmentLevel": 0
           }
         ],
         "remainingTicks": 4000,
@@ -97,6 +117,15 @@
       "buffers": {
         "crude-input": {
           "crude-oil": 1
+        },
+        "gas-output": {},
+        "liquid-output": {}
+      },
+      "materialBatches": {
+        "crude-input": {
+          "crude-oil": {
+            "0": 1
+          }
         },
         "gas-output": {},
         "liquid-output": {}
@@ -121,6 +150,10 @@
     }
   },
   "logisticsTransports": {},
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
   "produced": {
     "crude-oil": 60,
     "hydrogen": 28,
@@ -154,7 +187,8 @@
         "readyTick": 120250,
         "resource": "crude-oil",
         "to": "synth-refine-crude-1",
-        "toBuffer": "crude-input"
+        "toBuffer": "crude-input",
+        "treatmentLevel": 0
       }
     ],
     "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1": [
@@ -170,7 +204,8 @@
         "readyTick": 120200,
         "resource": "hydrogen",
         "to": "synth-make-plastic-1",
-        "toBuffer": "gas-input"
+        "toBuffer": "gas-input",
+        "treatmentLevel": 0
       }
     ],
     "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink": [],

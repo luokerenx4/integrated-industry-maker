@@ -1,12 +1,14 @@
 # Material, recipe, and buffer contracts
 
-Status: implemented through engine version `inm-sim/0.34.0`.
+Status: treatment-aware material contracts implemented through engine version `inm-sim/0.35.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/blueprint-optimization]].
 
 ## Scope
 
 This document owns Resource identity, Process transformations, Device buffers and ports, per-instance accepted Resources, recipe bindings, extraction output contracts, fuel input contracts, and host validation of material actions.
+
+Treatment grade is lot state layered onto Resource identity rather than a new Resource kind. Buffer totals and exact `(Resource, treatment level)` batches remain conserved together; see [[docs/design/material-treatment]].
 
 ## Layered contract model
 

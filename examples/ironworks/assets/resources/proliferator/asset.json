@@ -1,0 +1,11 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "proliferator",
+  "name": "Proliferator",
+  "description": "A manufactured coating agent consumed by material treatment devices.",
+  "tags": ["intermediate", "treatment-agent"],
+  "unit": { "kind": "discrete", "symbol": "unit", "precision": 0 },
+  "transport": { "stackSize": 100 },
+  "files": { "visual": "visual.json" }
+}

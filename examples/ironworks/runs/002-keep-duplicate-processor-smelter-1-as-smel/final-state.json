@@ -10,7 +10,20 @@
           "iron-plate": 2
         },
         "input-secondary": {
-          "coal": 7
+          "coal": 8
+        },
+        "output": {}
+      },
+      "materialBatches": {
+        "input-primary": {
+          "iron-plate": {
+            "0": 2
+          }
+        },
+        "input-secondary": {
+          "coal": {
+            "0": 8
+          }
         },
         "output": {}
       },
@@ -18,7 +31,16 @@
     },
     "coal-miner-assembly": {
       "buffers": {
-        "output": {}
+        "output": {
+          "coal": 5
+        }
+      },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 5
+          }
+        }
       },
       "status": "waiting-input"
     },
@@ -28,11 +50,27 @@
           "coal": 7
         }
       },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 7
+          }
+        }
+      },
       "status": "waiting-input"
     },
     "coal-splitter-assembly": {
       "buffers": {
-        "storage": {}
+        "storage": {
+          "coal": 8
+        }
+      },
+      "materialBatches": {
+        "storage": {
+          "coal": {
+            "0": 8
+          }
+        }
       },
       "status": "idle"
     },
@@ -56,6 +94,13 @@
       "buffers": {
         "fuel": {
           "coal": 4
+        }
+      },
+      "materialBatches": {
+        "fuel": {
+          "coal": {
+            "0": 4
+          }
         }
       },
       "progressTicks": 50000,
@@ -83,11 +128,21 @@
           "coal": 4
         }
       },
+      "materialBatches": {
+        "fuel": {
+          "coal": {
+            "0": 4
+          }
+        }
+      },
       "progressTicks": 50000,
       "status": "processing"
     },
     "ore-source-1": {
       "buffers": {
+        "output": {}
+      },
+      "materialBatches": {
         "output": {}
       },
       "status": "waiting-input"
@@ -96,12 +151,23 @@
       "buffers": {
         "input": {}
       },
+      "materialBatches": {
+        "input": {}
+      },
       "status": "waiting-input"
     },
     "smelter-1": {
       "buffers": {
         "input": {
           "iron-ore": 1
+        },
+        "output": {}
+      },
+      "materialBatches": {
+        "input": {
+          "iron-ore": {
+            "0": 1
+          }
         },
         "output": {}
       },
@@ -114,10 +180,21 @@
         },
         "output": {}
       },
+      "materialBatches": {
+        "input": {
+          "iron-ore": {
+            "0": 1
+          }
+        },
+        "output": {}
+      },
       "status": "waiting-input"
     },
     "smelter-1-split": {
       "buffers": {
+        "storage": {}
+      },
+      "materialBatches": {
         "storage": {}
       },
       "status": "idle"
@@ -126,10 +203,16 @@
       "buffers": {
         "storage": {}
       },
+      "materialBatches": {
+        "storage": {}
+      },
       "status": "idle"
     },
     "station-supply": {
       "buffers": {
+        "storage": {}
+      },
+      "materialBatches": {
         "storage": {}
       },
       "status": "idle"
@@ -143,20 +226,23 @@
         "initialMilliJoules": 0,
         "storedMilliJoules": 3600000
       },
+      "materialBatches": {},
       "status": "idle"
     },
     "wind-assembly-recipe-line": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "wind-turbine-support": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     }
   },
   "energy": {
     "availableMilliWatts": 3600000,
-    "consumedMilliJoules": 224461000,
+    "consumedMilliJoules": 224443000,
     "fuelConsumed": {
       "coal": 4
     },
@@ -164,7 +250,7 @@
       "grid-assembly-world-generator-2": {
         "availableMilliWatts": 1600000,
         "chargedMilliJoules": 0,
-        "consumedMilliJoules": 100872000,
+        "consumedMilliJoules": 100854000,
         "dischargedMilliJoules": 0,
         "storageCapacityMilliJoules": 0,
         "storedMilliJoules": 0
@@ -181,6 +267,10 @@
   },
   "logisticsTransports": {
     "interstellar-main": []
+  },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
   },
   "produced": {
     "coal": 52,

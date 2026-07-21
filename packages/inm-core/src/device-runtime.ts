@@ -29,7 +29,17 @@ function amounts(value: unknown, path: string): ResourceBufferQuantity[] {
     if (!isRecord(item) || typeof item.buffer !== "string" || typeof item.resource !== "string" || !Number.isInteger(item.count) || (item.count as number) <= 0) {
       throw new Error(`${path}/${index} must contain buffer, resource, and a positive integer count`);
     }
-    return { buffer: item.buffer, resource: item.resource, count: item.count as number };
+    if (item.minimumTreatmentLevel !== undefined && (!Number.isInteger(item.minimumTreatmentLevel) || (item.minimumTreatmentLevel as number) < 0)) {
+      throw new Error(`${path}/${index}.minimumTreatmentLevel must be a non-negative integer`);
+    }
+    if (item.treatmentLevel !== undefined && (!Number.isInteger(item.treatmentLevel) || (item.treatmentLevel as number) < 0)) {
+      throw new Error(`${path}/${index}.treatmentLevel must be a non-negative integer`);
+    }
+    return {
+      buffer: item.buffer, resource: item.resource, count: item.count as number,
+      ...(item.minimumTreatmentLevel === undefined ? {} : { minimumTreatmentLevel: item.minimumTreatmentLevel as number }),
+      ...(item.treatmentLevel === undefined ? {} : { treatmentLevel: item.treatmentLevel as number }),
+    };
   });
 }
 
@@ -64,6 +74,19 @@ export function parseDeviceDecision(assetId: string, value: unknown): DeviceProg
       if (!Number.isInteger(value.count) || (value.count as number) <= 0) throw new Error("generate.count must be a positive integer");
       if (!Number.isInteger(value.outputMilliWatts) || (value.outputMilliWatts as number) <= 0) throw new Error("generate.outputMilliWatts must be a positive integer");
       return { kind: "generate", operation: value.operation, resource: value.resource, durationTicks: value.durationTicks as number, count: value.count as number, outputMilliWatts: value.outputMilliWatts as number };
+    }
+    if (value.kind === "treat") {
+      if (typeof value.operation !== "string" || !value.operation) throw new Error("treat.operation must be a non-empty string");
+      if (typeof value.resource !== "string" || !value.resource) throw new Error("treat.resource must be a non-empty string");
+      if (!Number.isInteger(value.durationTicks) || (value.durationTicks as number) <= 0) throw new Error("treat.durationTicks must be a positive integer");
+      if (!Number.isInteger(value.inputTreatmentLevel) || (value.inputTreatmentLevel as number) < 0) throw new Error("treat.inputTreatmentLevel must be a non-negative integer");
+      if (!Number.isInteger(value.count) || (value.count as number) <= 0) throw new Error("treat.count must be a positive integer");
+      if (value.powerMilliWatts !== undefined && (!Number.isInteger(value.powerMilliWatts) || (value.powerMilliWatts as number) < 0)) throw new Error("treat.powerMilliWatts must be a non-negative integer");
+      return {
+        kind: "treat", operation: value.operation, resource: value.resource, durationTicks: value.durationTicks as number,
+        inputTreatmentLevel: value.inputTreatmentLevel as number, count: value.count as number,
+        ...(value.powerMilliWatts === undefined ? {} : { powerMilliWatts: value.powerMilliWatts as number }),
+      };
     }
     if (value.kind === "start") {
       if (typeof value.operation !== "string" || !value.operation) throw new Error("start.operation must be a non-empty string");

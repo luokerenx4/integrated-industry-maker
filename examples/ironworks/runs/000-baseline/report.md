@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **16.232**
-- Result hash: `e21bfdc9a6a68bbe4fee213765c1b662757006842d556b28cd8d03a4ff332c7f`
+- Result hash: `c1ca79c0db676b39253ee9855b66d89353709e62d1e5c7a2df1bcd8f4ec9790e`
 - Bottleneck: smelter-1
 - Throughput/min: 5.500
 - Target rate: 12.000 gear/min (45.8% attained)
@@ -11,6 +11,8 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 4
 - Powered transport energy: 260.760 J
+- Material treated: none
+- Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 

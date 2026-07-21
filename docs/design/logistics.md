@@ -1,8 +1,8 @@
 # Logistics design
 
-Status: physical local logistics, exact connection Resource filters, distance-aware sorter spans, stacking, unified shortage-aware dispatch, junctions, finite station fleets, per-Resource station slots, and inventory-aware route priorities implemented in `inm-sim/0.34.0`.
+Status: physical local logistics and treatment-aware dispatch implemented in `inm-sim/0.35.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]].
 
 ## Scope
 
@@ -46,6 +46,8 @@ For each eligible `(connection, Resource)` pair, the runtime divides destination
 - a generic buffer uses its per-Resource quota or total buffer capacity.
 
 Lower coverage dispatches first. Equal coverage prefers a destination closer to the selected Objective in the compiled production dependency graph; zero means the destination Process directly produces the target Resource, while `null` is outside that graph. Exact ties retain the deterministic round-robin cursor. The same ordering chooses between several Resources sharing one authored connection, so a mixed lane does not continually load an already-covered material while another accepted material is empty.
+
+For a Process input with a minimum treatment level, only resident and inbound lots at or above that level count toward coverage. Dispatch likewise chooses only eligible source lots and records the selected exact level on cargo. Level state survives every belt cell, station departure, and arrival; see [[docs/design/material-treatment]].
 
 An explicit source `outputPriority` or destination `inputPriority` remains an operator override above automatic shortage ordering. A junction Resource filter remains absolute. Capacity, power, allowlists, filters, and destination reservations still decide eligibility before any policy can rank a candidate.
 

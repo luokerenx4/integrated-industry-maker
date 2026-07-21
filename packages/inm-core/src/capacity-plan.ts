@@ -2,6 +2,7 @@ import type { CompiledFactoryProject, ResourceId } from "./types";
 import { connectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts } from "./production-mode";
+import { plannedProductionAmounts, selectMaterialTreatment } from "./material-treatment";
 
 export interface ProcessCapacityRequirement {
   resource: ResourceId;
@@ -21,6 +22,25 @@ export interface ProcessCapacityRequirement {
   additionalMachines: number;
   region: string;
   powerMilliWattsPerMachine: number;
+  minimumInputTreatmentLevel: number;
+}
+
+export interface TreatmentCapacityRequirement {
+  process: string;
+  mode: string;
+  resource: ResourceId;
+  region: string;
+  minimumLevel: number;
+  asset: string;
+  treatmentMode: string;
+  agentResource: ResourceId;
+  requiredItemsPerMinute: number;
+  requiredAgentPerMinute: number;
+  capacityPerDevice: number;
+  requiredDevices: number;
+  configuredDevices: number;
+  configuredCapacityPerMinute: number;
+  additionalDevices: number;
 }
 
 export interface RawCapacityRequirement {
@@ -73,11 +93,12 @@ export interface ProductionCapacityPlan {
   scenarioMinutes: number;
   targetItemsForScenario: number;
   processes: ProcessCapacityRequirement[];
+  treatments: TreatmentCapacityRequirement[];
   rawResources: RawCapacityRequirement[];
   transport: TransportCapacityRequirement[];
   stationNetworks: StationCapacityRequirement[];
   power: PowerCapacityRequirement[];
-  gaps: Array<{ kind: "process" | "extraction" | "transport" | "station" | "power" | "reserve"; entity: string; message: string }>;
+  gaps: Array<{ kind: "process" | "treatment" | "extraction" | "transport" | "station" | "power" | "reserve"; entity: string; message: string }>;
   ready: boolean;
 }
 
@@ -91,7 +112,7 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => {
     const processPlan = template.processPlan;
     if (!processPlan) return [];
-    const amounts = effectiveProductionAmounts(processPlan.definition, processPlan.mode);
+    const amounts = plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets);
     const candidate = {
       key: `${processPlan.definition.id}:${template.asset}:${processPlan.mode.id}`,
       inputs: amounts.inputs,
@@ -134,8 +155,34 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
       inputsPerMinute: row.inputsPerMinute, outputsPerMinute: row.outputsPerMinute,
       outputPerCycle: primaryOutput.count, capacityPerMachine, configuredMachines: matching.length, configuredCapacityPerMinute,
       requiredMachines, additionalMachines, region: template.region, powerMilliWattsPerMachine: plan.powerMilliWatts,
+      minimumInputTreatmentLevel: plan.mode.minimumInputTreatmentLevel,
     };
   }).sort((a, b) => a.process.localeCompare(b.process) || a.resource.localeCompare(b.resource));
+
+  const treatments: TreatmentCapacityRequirement[] = processes.flatMap((requirement) => {
+    if (requirement.minimumInputTreatmentLevel <= 0) return [];
+    const treatment = selectMaterialTreatment(project.deviceAssets, requirement.minimumInputTreatmentLevel);
+    const template = project.devices[requirement.templateDevice]!;
+    if (!treatment) return [];
+    const processInputs = new Map(template.processPlan!.definition.inputs.map((amount) => [amount.resource, amount.count * template.processPlan!.mode.inputCycles]));
+    return [...processInputs.entries()].map(([resource, perCycle]) => {
+      const requiredItemsPerMinute = perCycle * requirement.requiredCyclesPerMinute;
+      const requiredAgentPerMinute = requiredItemsPerMinute * treatment.mode.agent.count / treatment.mode.itemCount;
+      const capacityPerDevice = treatment.mode.itemCount * 60_000 / treatment.mode.durationTicks;
+      const configured = Object.values(project.devices).filter((device) => device.region === requirement.region
+        && device.asset === treatment.asset.id && device.treatmentPlan?.mode.id === treatment.mode.id
+        && (device.buffers[device.treatmentPlan.inputBuffer]!.accepts.includes("*") || device.buffers[device.treatmentPlan.inputBuffer]!.accepts.includes(resource)));
+      const requiredDevices = Math.ceil(requiredItemsPerMinute / capacityPerDevice - 1e-9);
+      return {
+        process: requirement.process, mode: requirement.mode, resource, region: requirement.region,
+        minimumLevel: requirement.minimumInputTreatmentLevel, asset: treatment.asset.id, treatmentMode: treatment.mode.id,
+        agentResource: treatment.mode.agent.resource, requiredItemsPerMinute, requiredAgentPerMinute,
+        capacityPerDevice, requiredDevices, configuredDevices: configured.length,
+        configuredCapacityPerMinute: configured.length * capacityPerDevice,
+        additionalDevices: Math.max(0, requiredDevices - configured.length),
+      };
+    });
+  }).sort((left, right) => left.process.localeCompare(right.process) || left.resource.localeCompare(right.resource));
 
   const infrastructureDemand: Record<ResourceId, number> = {};
   for (const device of Object.values(project.devices)) if (device.generationPlan?.kind === "fuel") {
@@ -165,7 +212,11 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
       && device.processPlan?.definition.id === requirement.process && device.processPlan.mode.id === requirement.mode);
     const ids = new Set(devices.map((device) => device.id));
     const rows: TransportCapacityRequirement[] = [];
-    for (const [resource, requiredItemsPerMinute] of Object.entries(requirement.inputsPerMinute)) {
+    const template = project.devices[requirement.templateDevice]!;
+    const machineInputs = effectiveProductionAmounts(template.processPlan!.definition, template.processPlan!.mode).inputs;
+    const machineInputRates: Record<ResourceId, number> = {};
+    for (const amount of machineInputs) add(machineInputRates, amount.resource, amount.count * requirement.requiredCyclesPerMinute);
+    for (const [resource, requiredItemsPerMinute] of Object.entries(machineInputRates)) {
       const links = Object.values(project.connections).filter((connection) => ids.has(connection.to.device)
         && connection.resources.includes(resource)
         && (connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes("*") || connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes(resource)));
@@ -187,7 +238,30 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
       });
     }
     return rows;
-  }).sort((a, b) => a.process.localeCompare(b.process) || a.direction.localeCompare(b.direction) || a.resource.localeCompare(b.resource));
+  });
+  for (const treatment of treatments) {
+    const devices = Object.values(project.devices).filter((device) => device.region === treatment.region && device.asset === treatment.asset
+      && device.treatmentPlan?.mode.id === treatment.treatmentMode
+      && (device.buffers[device.treatmentPlan.inputBuffer]!.accepts.includes("*") || device.buffers[device.treatmentPlan.inputBuffer]!.accepts.includes(treatment.resource)));
+    const ids = new Set(devices.map((device) => device.id));
+    const rows = [
+      { direction: "input" as const, resource: treatment.resource, requiredItemsPerMinute: treatment.requiredItemsPerMinute,
+        links: Object.values(project.connections).filter((connection) => ids.has(connection.to.device) && connection.resources.includes(treatment.resource)) },
+      { direction: "output" as const, resource: treatment.resource, requiredItemsPerMinute: treatment.requiredItemsPerMinute,
+        links: Object.values(project.connections).filter((connection) => ids.has(connection.from.device) && connection.resources.includes(treatment.resource)) },
+      { direction: "input" as const, resource: treatment.agentResource, requiredItemsPerMinute: treatment.requiredAgentPerMinute,
+        links: Object.values(project.connections).filter((connection) => ids.has(connection.to.device) && connection.resources.includes(treatment.agentResource)) },
+    ];
+    for (const row of rows) {
+      const configuredCapacityPerMinute = row.links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, row.resource), 0);
+      transport.push({
+        direction: row.direction, process: `${treatment.process}:${treatment.treatmentMode}`, resource: row.resource,
+        devices: [...ids].sort(), connections: row.links.map((link) => link.id).sort(), requiredItemsPerMinute: row.requiredItemsPerMinute,
+        configuredCapacityPerMinute, capacityDeficitPerMinute: Math.max(0, row.requiredItemsPerMinute - configuredCapacityPerMinute),
+      });
+    }
+  }
+  transport.sort((a, b) => a.process.localeCompare(b.process) || a.direction.localeCompare(b.direction) || a.resource.localeCompare(b.resource));
 
   const compiledNetworks = Object.values(project.logisticsNetworks);
   const stationNetworks: StationCapacityRequirement[] = compiledNetworks.flatMap((network) => {
@@ -208,6 +282,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
 
   const requiredPowerByRegion: Record<string, number> = {};
   for (const process of processes) add(requiredPowerByRegion, process.region, process.requiredMachines * process.powerMilliWattsPerMachine);
+  for (const treatment of treatments) add(requiredPowerByRegion, treatment.region,
+    treatment.requiredDevices * project.deviceAssets[treatment.asset]!.power.consumptionMilliWatts);
   for (const raw of rawResources) {
     const templates = Object.values(project.devices).filter((device) => device.extractionPlan?.nodes.some((node) => node.resource === raw.resource));
     const template = templates.sort((a, b) => a.id.localeCompare(b.id))[0];
@@ -227,6 +303,10 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
 
   const gaps: ProductionCapacityPlan["gaps"] = [];
   for (const process of processes) if (process.additionalMachines > 0) gaps.push({ kind: "process", entity: process.process, message: `${process.process} needs ${process.requiredMachines} ${process.asset} but configures ${process.configuredMachines}; add ${process.additionalMachines}` });
+  for (const treatment of treatments) if (treatment.additionalDevices > 0) gaps.push({
+    kind: "treatment", entity: `${treatment.process}:${treatment.resource}@${treatment.minimumLevel}`,
+    message: `${treatment.process} needs ${treatment.requiredDevices} ${treatment.asset}/${treatment.treatmentMode} for ${treatment.requiredItemsPerMinute.toFixed(3)} ${treatment.resource}@${treatment.minimumLevel}+/min but configures ${treatment.configuredDevices}; add ${treatment.additionalDevices}`,
+  });
   for (const raw of rawResources) {
     if (raw.extractionDeficitPerMinute > 1e-9) gaps.push({ kind: "extraction", entity: raw.resource, message: `${raw.resource} extraction is short by ${raw.extractionDeficitPerMinute.toFixed(3)}/min; add ${raw.additionalExtractors} extractor(s)` });
     if (raw.reserveAfterScenario < -1e-9) gaps.push({ kind: "reserve", entity: raw.resource, message: `${raw.resource} reserve is short by ${(-raw.reserveAfterScenario).toFixed(3)} items over the scenario` });
@@ -238,6 +318,6 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   return {
     targetResource: project.objective.targetResource, targetRatePerMinute, scenarioMinutes,
     targetItemsForScenario: targetRatePerMinute * scenarioMinutes,
-    processes, rawResources, transport, stationNetworks, power, gaps, ready: gaps.length === 0,
+    processes, treatments, rawResources, transport, stationNetworks, power, gaps, ready: gaps.length === 0,
   };
 }

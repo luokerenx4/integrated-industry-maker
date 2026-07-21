@@ -52,6 +52,10 @@
     "synth-refine-crude-1": 0.9525,
     "synth-xray-crack-oil-1": 0.9041666666666667
   },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
   "occupiedArea": 102,
   "onTimeDelivery": 1,
   "peakBeltItems": 5,

@@ -1,19 +1,19 @@
 {
-  "createdAt": "2026-07-21T08:40:52.628Z",
+  "createdAt": "2026-07-21T09:31:40.162Z",
   "decision": "BASELINE",
-  "engineVersion": "inm-sim/0.34.0",
+  "engineVersion": "inm-sim/0.35.0",
   "hashes": {
     "blueprintHash": "50211b70fd9964bf29c0d56c751d29738e02031182ccf876ba8ff6a819f867f9",
-    "deviceCatalogHash": "82363d38d3d36d7af3ff60dc42eaa009b1c5411f79ec9efe6aa7e81d2ca4cf5c",
-    "engineVersion": "inm-sim/0.34.0",
+    "deviceCatalogHash": "3a6fbfa259e3d664f7f652d4ea84f61e7bfd8b6f3f21fdd2d15c7138f28e5f93",
+    "engineVersion": "inm-sim/0.35.0",
     "objectiveHash": "6d119a9e4040c6a10925503df674454e3086ee7051e4015366c76e3d251159e6",
-    "processCatalogHash": "a170de8625ec1f40c5e93ca4efc7b324a0eebc5bcf3b2d43d60cfa6688d5dfcf",
-    "resourceCatalogHash": "3933c93f59eded08d8f1bf2448ac60527e99e99f40728696b8d075c6c65e9fac",
+    "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
+    "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
     "scenarioHash": "d6f58333d455cc66e6f3746ed6c14f5fa841594ef9b5e6ff6ab7ca587b26068c",
     "worldHash": "32ac670f0f0e8e1031274a317e42760f25996135687b3d5374961a788df9b774"
   },
-  "resultHash": "e8b1b6c288649068d06aac50b4a1f851f19fb054c10e7177698111f1c77328dc",
-  "runKey": "7479ed336f9498be82f5291f51cf722c25b730d6208544068270dd2efb7d05ab",
+  "resultHash": "40951caf5438acc582abdbfd7466ba0d0732731e714dbd2485ee51bb9342e7cb",
+  "runKey": "4ad90e7cc6c5ec7132026ee290cdd6f073caf8464c727d444046c954c521d07c",
   "seed": 42,
   "selection": {
     "objective": "plastic-production",

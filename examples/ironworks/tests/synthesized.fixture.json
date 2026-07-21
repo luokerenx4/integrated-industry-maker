@@ -6,8 +6,12 @@
   "seed": 42,
   "assertions": [
     { "kind": "metric", "path": "throughputPerMinute", "min": 12 },
-    { "kind": "metric", "path": "occupiedArea", "max": 120 },
-    { "kind": "metric", "path": "totalBuildCost", "max": 30000 },
+    { "kind": "metric", "path": "occupiedArea", "max": 240 },
+    { "kind": "metric", "path": "totalBuildCost", "max": 35000 },
+    { "kind": "metric", "path": "materialTreatment.treated.iron-plate.2", "min": 4 },
+    { "kind": "metric", "path": "materialTreatment.treated.coal.2", "min": 4 },
+    { "kind": "metric", "path": "materialTreatment.agentsConsumed.proliferator", "min": 2 },
+    { "kind": "event", "type": "material.treated", "present": true },
     { "kind": "metric", "path": "infeasibleReason", "equals": null },
     { "kind": "event", "type": "power.shortage", "present": false },
     { "kind": "event", "type": "transport.power-shortage", "present": false }

@@ -643,7 +643,7 @@
           "coal": "input-secondary",
           "iron-plate": "input-primary"
         },
-        "mode": "accelerated",
+        "mode": "standard",
         "outputs": {
           "gear": "output"
         },
@@ -859,6 +859,6 @@
   "policies": {
     "dispatch": "fifo"
   },
-  "revision": "65c6e5bd8f62eaefb1287a0c2a1ebb25af599c719d77acb984ad022fed36335e",
+  "revision": "fab29e8f5c2eb44978b8436dfdda2ede47c167c7e2e3edba17afffca8b7a73fe",
   "version": 1
 }

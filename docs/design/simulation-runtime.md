@@ -2,7 +2,7 @@
 
 Status: deterministic discrete-event runtime and immutable replay artifacts implemented.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
+Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/studio-debugger]].
 
 ## Scope
 
@@ -22,7 +22,7 @@ The runtime may not depend on wall clock, frame rate, object insertion order, br
 
 `mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation, per-Device/per-grid stored energy, and metrics integrals.
 
-Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `extract`, `generate`, `consume`, `wait`, or `none`. For production, the context carries the selected mode and complete job plan; `start` must match its operation, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist, even when both endpoint buffers accept a wider set.
+Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `treat`, `extract`, `generate`, `consume`, `wait`, or `none`. For production and treatment, the context carries the selected mode and complete job plan; the returned action must match its operation, material levels, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist and whose treatment level satisfies downstream demand, even when both endpoint buffers accept a wider set.
 
 ## Failures and blocking
 
@@ -38,7 +38,7 @@ Power interruption is also blocking, not cancellation. A production or extractio
 
 ## Events and metrics
 
-Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Power boundary events record accumulator full/depleted transitions; shortage/restoration events preserve paused-job progress for replay. Metrics are derived from deterministic state/event integration and include throughput, delivery, energy/fuel/storage, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
+Events are the shared debugger protocol for CLI, fixtures, evaluation, research, replay, and Studio. Material treatment emits exact source/target levels and agent consumption; power boundary events record accumulator full/depleted transitions; shortage/restoration events preserve paused-job progress for replay. Metrics are derived from deterministic state/event integration and include treated quantities by `Resource@level`, treatment agents, throughput, delivery, energy/fuel/storage, per-Device unpowered time, cost/area, utilization and wait states, WIP, belt occupancy/blocking, per-connection flow, station congestion, depletion, bottleneck, constraints, and score breakdown.
 
 ## Immutable runs
 

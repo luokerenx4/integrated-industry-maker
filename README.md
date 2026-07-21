@@ -4,6 +4,8 @@
 
 It represents a production system as a folder of immutable world definitions, finite resource deposits, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple sites, planets, or orbital regions, each with its own factory floor, deposits, distance-aware sorter arms, explicitly routed multi-level transport cells, and power topology. The complete system can be validated, statically balanced across extraction, materials, shared-capacity belt paths, shortage-aware junction policies, demand-aware shared-fleet station networks, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
+Material preparation is physical factory state. Treatment Devices consume project-local agents to raise exact cargo lots to a declared level; belts and station carriers preserve that level, higher production modes require it at their inputs, and synthesis builds the treatment equipment, agent production, logistics, and power together. There is no hidden “productivity bonus” consumption inside a machine.
+
 > A factory is a folder. Blueprints are programs. Scenarios are tests. Objectives are benchmarks.
 
 INM is currently pre-alpha. File formats and APIs intentionally make clean breaking changes while the domain model is being established; obsolete formats are removed rather than carried through compatibility layers.
@@ -94,7 +96,7 @@ my-factory/
 There is deliberately no shared-asset lookup or inheritance layer. To reuse an asset, copy its directory into another project; from that point onward the two copies have independent contents and hashes.
 
 - A **resource asset** is a self-described kind of flow with units, transport properties, optional fuel energy, and presentation files.
-- A **device asset** owns geometry, multiple named buffers and ports, presentation files, and a private TypeScript throughput program.
+- A **device asset** owns geometry, multiple named buffers and ports, production or treatment modes, presentation files, and a private TypeScript throughput program.
 - Device scripts are black boxes to the factory: they inspect only their frozen local context and return host-validated actions.
 - A **process** declares a visible material transformation, category, and base cycle time; a blueprint binds it to a compatible Device.
 - A **world** declares regions, world coordinates, build bounds, and finite resource nodes; optimization cannot edit it.
@@ -132,4 +134,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers isolated projects, global/spatial production optimization, cyclic and multi-input recipes, finite resources, explicit sorter spans and physical/station logistics, fuel generation, deterministic accumulator charging/discharging, exact depletion boundaries, power-paused job resumption, typed asset runtimes, immutable replay, CLI evaluation, and renderer-independent Studio projection.
+The suite covers isolated projects, global/spatial production optimization, cyclic and multi-input recipes, graded material treatment and agent chains, finite resources, explicit sorter spans and physical/station logistics, fuel generation, deterministic accumulator charging/discharging, exact depletion boundaries, power-paused job resumption, typed asset runtimes, immutable replay, CLI evaluation, and renderer-independent Studio projection.

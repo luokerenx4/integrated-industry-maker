@@ -1,8 +1,8 @@
 # Production modes and exact jobs
 
-Status: implemented in engine version `inm-sim/0.29.0`.
+Status: treatment-aware modes implemented in engine version `inm-sim/0.35.0`.
 
-Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
+Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
 ## Scope
 
@@ -18,6 +18,7 @@ A mode declares:
 - `outputCycles`: how many Process output batches one job produces;
 - `durationMultiplier`: an exact positive rational applied after Device base speed;
 - `powerMultiplier`: an exact positive rational applied to Device base consumption;
+- `minimumInputTreatmentLevel`: the minimum grade accepted for every Process input;
 - `auxiliaryInputs`: project Resource quantities consumed once per job from named physical input buffers.
 
 Modes belong to the Device asset because they describe what that machine can do. Processes remain project-local material transformations and do not know which machines or operating regimes execute them.
@@ -46,11 +47,11 @@ This boundary keeps runtime scripts useful for local scheduling while preventing
 
 ## Analysis, planning, and synthesis
 
-Static recipe alternatives enumerate every compatible `(Device instance, Process, mode)` tuple. Their displayed inputs/outputs are effective job quantities, including auxiliary Resources; their rates use compiled duration and their power uses the mode multiplier.
+Static recipe alternatives enumerate every compatible `(Device instance, Process, mode)` tuple. Their displayed inputs/outputs are effective job quantities, including auxiliary Resources and required treatment level; their rates use compiled duration and their power uses the mode multiplier. See [[docs/design/material-treatment]] for graded lot availability and physical treatment infrastructure.
 
 Material solvers treat every `(Process, Device asset, mode)` tuple as a separate production candidate. Raw-resource minimization therefore may select a productive mode only when its larger output batch and auxiliary cost improve the whole balanced system. The second optimization phase includes mode-aware installed power. Capacity planning groups configured machines by Process, asset, and mode, and sizes job rate, local/station transport, extraction, reserves, and regional power from the same effective quantities.
 
-Synthesis writes `recipe.mode` into the generated blueprint and routes auxiliary Resources to their declared ports. Research alternatives include the mode in strategy identity and patch the complete recipe object, so two modes of one Process are distinct experiments.
+Synthesis writes `recipe.mode` into the generated blueprint, routes auxiliary Resources to their declared ports, and builds the complete treatment/agent chain for a grade-requiring mode. Research alternatives include the mode in strategy identity, but the bounded heuristic omits grade-requiring bare switches until it can propose the full infrastructure bundle.
 
 ## Observability
 

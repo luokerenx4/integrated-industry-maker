@@ -25,6 +25,17 @@ function compactValue(value: unknown): string {
   return serialized.length > 90 ? `${serialized.slice(0, 87)}…` : serialized;
 }
 
+function materialTreatmentSummary(metrics: FactoryMetrics): string[] {
+  const treated = Object.entries(metrics.materialTreatment.treated)
+    .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
+  const agents = Object.entries(metrics.materialTreatment.agentsConsumed)
+    .map(([resource, count]) => `${count} ${resource}`);
+  return [
+    `Material treatment: ${treated.join(" + ") || "none"}`,
+    `Treatment agents consumed: ${agents.join(" + ") || "none"}`,
+  ];
+}
+
 async function requireEmptyTarget(target: string): Promise<void> {
   try {
     const entries = await readdir(target);
@@ -132,7 +143,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     "Device rates",
     ...analysis.extractionDevices.map((device) => `  ${device.device.padEnd(24)} extract ${device.resource.padEnd(15)} ${device.itemsPerMinute.toFixed(3)} items/min from ${device.nodes.join(", ")}`),
     ...analysis.devices.flatMap((device) => [
-      `  ${device.device.padEnd(24)} ${`${device.process}/${device.mode}`.padEnd(32)} ${device.cyclesPerMinute.toFixed(3)} jobs/min · ${(device.powerMilliWatts / 1000).toFixed(3)} W`,
+      `  ${device.device.padEnd(24)} ${`${device.process}/${device.mode}`.padEnd(32)} ${device.cyclesPerMinute.toFixed(3)} jobs/min · ${(device.powerMilliWatts / 1000).toFixed(3)} W${device.minimumInputTreatmentLevel ? ` · inputs @${device.minimumInputTreatmentLevel}+` : ""}`,
       `    recipe  ${Object.entries(device.inputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")}  ⇒  ${Object.entries(device.outputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")}`,
     ]),
     "",
@@ -144,8 +155,12 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.productionGraph.steps.map((step) => `  ${step.device.padEnd(24)} ${`${step.process}/${step.mode}`.padEnd(32)} ${step.cyclesPerTarget.toFixed(3)} jobs`),
     "",
     "Recipe alternatives",
-    ...analysis.recipeOptions.filter((option) => !option.selected).map((option) => `  ${option.device.padEnd(24)} ${`${option.process}/${option.mode}`.padEnd(32)} ${option.targetOutputPerMinute.toFixed(3)} ${project.objective.targetResource}/min · ${(option.powerMilliWatts / 1000).toFixed(3)} W  ${Object.entries(option.inputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")} ⇒ ${Object.entries(option.outputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")}`),
+    ...analysis.recipeOptions.filter((option) => !option.selected).map((option) => `  ${option.device.padEnd(24)} ${`${option.process}/${option.mode}`.padEnd(32)} ${option.targetOutputPerMinute.toFixed(3)} ${project.objective.targetResource}/min · ${(option.powerMilliWatts / 1000).toFixed(3)} W${option.minimumInputTreatmentLevel ? ` · inputs @${option.minimumInputTreatmentLevel}+` : ""}  ${Object.entries(option.inputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")} ⇒ ${Object.entries(option.outputBindings).map(([resource, buffer]) => `${resource}→${buffer}`).join(" + ")}`),
     ...(analysis.recipeOptions.some((option) => !option.selected) ? [] : ["  none"]),
+    "",
+    "Material treatment",
+    ...analysis.treatmentDevices.map((device) => `  ${device.device.padEnd(24)} ${`${device.mode} → @${device.level}`.padEnd(20)} ${device.itemsPerMinute.toFixed(3)} items/min  agent ${device.agentPerMinute.toFixed(3)} ${device.agentResource}/min · ${(device.powerMilliWatts / 1000).toFixed(3)} W`),
+    ...(analysis.treatmentDevices.length ? [] : ["  none"]),
     "",
     "Power generation",
     ...analysis.generationDevices.map((device) => `  ${device.device.padEnd(24)} ${device.kind.padEnd(10)} ${(device.outputMilliWatts / 1000).toFixed(3).padStart(9)} W${device.fuelResource ? `  burn ${device.fuelPerMinute!.toFixed(3)} ${device.fuelResource}/min · ${device.burnTicks} ms/unit` : ""}`),
@@ -165,12 +180,12 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W${grid.storageCapacityMilliJoules ? `  storage ${(grid.initialStoredMilliJoules / 1e6).toFixed(3)}/${(grid.storageCapacityMilliJoules / 1e6).toFixed(3)} MJ @ +${(grid.storageChargeMilliWatts / 1000).toFixed(0)}/-${(grid.storageDischargeMilliWatts / 1000).toFixed(0)} W` : ""}  (${grid.members.length} devices + ${grid.transportStages.length} transport stages)`),
     "",
     "Logistics links",
-    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} [${connection.resources.join(" + ")}]  ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  stack×${connection.maxStackSize}  dispatch ${connection.dispatchPolicy}${connection.dispatchPolicy === "shortage-first" ? ` (${connection.dispatchProfiles.map((profile) => `${profile.resource}:${profile.targetKind}/batch${profile.coverageUnit}/d${profile.criticalDepth ?? "-"}`).join(", ")})` : ""}  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} belt cells${connection.maxLevel ? ` / L${connection.maxLevel}` : ""}${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}[${stage.distance} cells, ${stage.capacity} cargo, stack×${stage.stackCapacity}]${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
+    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} [${connection.resources.join(" + ")}]  ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  stack×${connection.maxStackSize}  dispatch ${connection.dispatchPolicy}${connection.dispatchPolicy === "shortage-first" ? ` (${connection.dispatchProfiles.map((profile) => `${profile.resource}${profile.minimumTreatmentLevel ? `@${profile.minimumTreatmentLevel}+` : ""}:${profile.targetKind}/batch${profile.coverageUnit}/d${profile.criticalDepth ?? "-"}`).join(", ")})` : ""}  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} belt cells${connection.maxLevel ? ` / L${connection.maxLevel}` : ""}${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}[${stage.distance} cells, ${stage.capacity} cargo, stack×${stage.stackCapacity}]${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
     "",
     "Station networks",
     ...analysis.stationNetworks.flatMap((network) => [
       `  ${network.network}  ${network.kind}  fleet ${network.fleetSize}× ${network.fleetAsset}  dispatch ${network.dispatchPolicy}  ${network.stations} stations  estimated load ${network.estimatedCarrierLoad.toFixed(3)}`,
-      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from}@${route.fromRegion} [${route.fromSlotCapacity}, keep ${route.supplyReserve}] → ${route.to}@${route.toRegion} [${route.toSlotCapacity}, target ${route.demandTarget}]  P${route.demandPriority}/${route.supplyPriority}  coverage ${route.dispatchProfile.targetKind}/batch${route.dispatchProfile.coverageUnit}/d${route.dispatchProfile.criticalDepth ?? "-"}${route.dispatchProfile.downstreamConnections.length ? ` via ${route.dispatchProfile.downstreamConnections.join("+")}` : ""}  batch ${route.minimumBatch}-${route.batchCapacity}${route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
+      ...network.routes.map((route) => `    ${route.resource.padEnd(18)} ${route.from}@${route.fromRegion} [${route.fromSlotCapacity}, keep ${route.supplyReserve}] → ${route.to}@${route.toRegion} [${route.toSlotCapacity}, target ${route.demandTarget}]  P${route.demandPriority}/${route.supplyPriority}  coverage ${route.dispatchProfile.targetKind}/batch${route.dispatchProfile.coverageUnit}/d${route.dispatchProfile.criticalDepth ?? "-"}${route.dispatchProfile.minimumTreatmentLevel ? `/@${route.dispatchProfile.minimumTreatmentLevel}+` : ""}${route.dispatchProfile.downstreamConnections.length ? ` via ${route.dispatchProfile.downstreamConnections.join("+")}` : ""}  batch ${route.minimumBatch}-${route.batchCapacity}${route.carrierBatchCapacity !== route.batchCapacity ? ` / carrier ${route.carrierBatchCapacity}` : ""}  ${route.travelTicks} ms  ${route.capacityItemsPerMinute.toFixed(3)} items/min/carrier`),
     ]),
     ...(analysis.stationNetworks.length ? [] : ["  none"]),
     "",
@@ -194,6 +209,8 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
     `Status: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`, "",
     "Process capacity",
     ...plan.processes.map((process) => `  ${`${process.process}/${process.mode}`.padEnd(32)} ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}/min`).join(" + ")}  ${process.configuredMachines}/${process.requiredMachines} ${process.asset}  primary capacity ${process.configuredCapacityPerMinute.toFixed(3)}/min${process.additionalMachines ? `  ADD ${process.additionalMachines}` : ""}`),
+    "", "Treatment capacity",
+    ...(plan.treatments.length ? plan.treatments.map((treatment) => `  ${`${treatment.process}/${treatment.treatmentMode}`.padEnd(32)} ${treatment.resource}@${treatment.minimumLevel}+ ${treatment.requiredItemsPerMinute.toFixed(3)}/min  ${treatment.configuredDevices}/${treatment.requiredDevices} ${treatment.asset}  agent ${treatment.requiredAgentPerMinute.toFixed(3)} ${treatment.agentResource}/min${treatment.additionalDevices ? `  ADD ${treatment.additionalDevices}` : ""}`) : ["  none"]),
     "", "Raw resources",
     ...plan.rawResources.map((resource) => `  ${resource.resource.padEnd(18)} need ${resource.totalDemandPerMinute.toFixed(3).padStart(8)}/min  extraction ${resource.configuredExtractionPerMinute.toFixed(3).padStart(8)}/min  reserve ${resource.finiteReserve.toFixed(3)} (${resource.lifetimeMinutes?.toFixed(3) ?? "∞"} min)  after scenario ${resource.reserveAfterScenario.toFixed(3)}`),
     "", "Transport envelopes",
@@ -310,6 +327,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
     `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
     `Belts: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}% average occupancy · ${result.metrics.averageBlockedBeltItems.toFixed(2)} blocked items · ${result.metrics.peakBeltItems} peak items`,
+    ...materialTreatmentSummary(result.metrics),
     "Measured transport flows:", ...flowLines,
     `Transport endpoints: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J consumed`,
     ...Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0).map(([grid, storage]) => `Storage ${grid}: ${(storage.storedMilliJoules / 1e6).toFixed(3)}/${(storage.capacityMilliJoules / 1e6).toFixed(3)} MJ · charged ${(storage.chargedMilliJoules / 1e6).toFixed(3)} MJ · discharged ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} MJ`),

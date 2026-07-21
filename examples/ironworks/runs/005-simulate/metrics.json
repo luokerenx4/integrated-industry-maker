@@ -40,6 +40,10 @@
     "stack-source": 0,
     "stack-target": 0
   },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
   "occupiedArea": 16,
   "onTimeDelivery": 1,
   "peakBeltItems": 8,

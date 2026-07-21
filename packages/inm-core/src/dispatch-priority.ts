@@ -9,6 +9,8 @@ export interface ConnectionDispatchProfile {
   coverageUnit: number;
   /** Zero is closest to target delivery; null means outside the selected production dependency graph. */
   criticalDepth: number | null;
+  /** Cargo below this exact downstream contract is ineligible for this path. */
+  minimumTreatmentLevel: number;
 }
 
 export interface StationDispatchProfile extends ConnectionDispatchProfile {
@@ -65,7 +67,7 @@ export function connectionDispatchProfiles(
     const coverageUnit = objective || fuel ? 1
       : processInput ? processInput.count
         : buffer.resourceCapacities?.[resource] ?? buffer.capacity;
-    return { resource, targetKind, coverageUnit: Math.max(1, coverageUnit), criticalDepth };
+    return { resource, targetKind, coverageUnit: Math.max(1, coverageUnit), criticalDepth, minimumTreatmentLevel: processInput?.minimumTreatmentLevel ?? 0 };
   });
 }
 
@@ -98,6 +100,7 @@ export function stationRouteDispatchProfile(
     targetKind: "buffer",
     coverageUnit: Math.max(1, route.demandTarget),
     criticalDepth: depths[route.resource] ?? null,
+    minimumTreatmentLevel: 0,
     downstreamConnections: [...traversed].sort(),
   };
   const kindRank: Record<DispatchTargetKind, number> = { objective: 0, process: 1, fuel: 2, buffer: 3 };
@@ -108,6 +111,7 @@ export function stationRouteDispatchProfile(
     targetKind: representative.targetKind,
     coverageUnit: profiles.reduce((sum, profile) => sum + profile.coverageUnit, 0),
     criticalDepth: representative.criticalDepth,
+    minimumTreatmentLevel: Math.max(...profiles.map((profile) => profile.minimumTreatmentLevel)),
     downstreamConnections: [...traversed].sort(),
   };
 }

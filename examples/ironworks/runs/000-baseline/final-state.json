@@ -12,12 +12,28 @@
         },
         "output": {}
       },
+      "materialBatches": {
+        "input-primary": {},
+        "input-secondary": {
+          "coal": {
+            "0": 8
+          }
+        },
+        "output": {}
+      },
       "status": "waiting-input"
     },
     "coal-miner-assembly": {
       "buffers": {
         "output": {
           "coal": 7
+        }
+      },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 7
+          }
         }
       },
       "status": "waiting-input"
@@ -28,12 +44,26 @@
           "coal": 7
         }
       },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 7
+          }
+        }
+      },
       "status": "waiting-input"
     },
     "coal-splitter-assembly": {
       "buffers": {
         "storage": {
           "coal": 8
+        }
+      },
+      "materialBatches": {
+        "storage": {
+          "coal": {
+            "0": 8
+          }
         }
       },
       "status": "idle"
@@ -60,6 +90,13 @@
           "coal": 4
         }
       },
+      "materialBatches": {
+        "fuel": {
+          "coal": {
+            "0": 4
+          }
+        }
+      },
       "progressTicks": 50000,
       "status": "processing"
     },
@@ -83,6 +120,13 @@
       "buffers": {
         "fuel": {
           "coal": 4
+        }
+      },
+      "materialBatches": {
+        "fuel": {
+          "coal": {
+            "0": 4
+          }
         }
       },
       "progressTicks": 50000,
@@ -114,11 +158,21 @@
           "iron-ore": 7
         }
       },
+      "materialBatches": {
+        "output": {
+          "iron-ore": {
+            "0": 7
+          }
+        }
+      },
       "progressTicks": 700,
       "status": "processing"
     },
     "output-1": {
       "buffers": {
+        "input": {}
+      },
+      "materialBatches": {
         "input": {}
       },
       "status": "waiting-input"
@@ -132,7 +186,8 @@
           {
             "buffer": "output",
             "count": 1,
-            "resource": "iron-plate"
+            "resource": "iron-plate",
+            "treatmentLevel": 0
           }
         ],
         "remainingTicks": 4000,
@@ -146,11 +201,22 @@
         },
         "output": {}
       },
+      "materialBatches": {
+        "input": {
+          "iron-ore": {
+            "0": 6
+          }
+        },
+        "output": {}
+      },
       "progressTicks": 700,
       "status": "processing"
     },
     "station-demand": {
       "buffers": {
+        "storage": {}
+      },
+      "materialBatches": {
         "storage": {}
       },
       "status": "idle"
@@ -159,6 +225,13 @@
       "buffers": {
         "storage": {
           "iron-plate": 1
+        }
+      },
+      "materialBatches": {
+        "storage": {
+          "iron-plate": {
+            "0": 1
+          }
         }
       },
       "status": "idle"
@@ -172,10 +245,12 @@
         "initialMilliJoules": 0,
         "storedMilliJoules": 3600000
       },
+      "materialBatches": {},
       "status": "idle"
     },
     "wind-assembly-recipe-line": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     }
   },
@@ -216,9 +291,14 @@
         "logisticsRoute": "interstellar-main:iron-plate:station-supply->station-demand",
         "resource": "iron-plate",
         "to": "station-demand",
-        "toBuffer": "storage"
+        "toBuffer": "storage",
+        "treatmentLevel": 0
       }
     ]
+  },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
   },
   "produced": {
     "coal": 52,
@@ -272,7 +352,8 @@
         "readyTick": 120220,
         "resource": "gear",
         "to": "output-1",
-        "toBuffer": "input"
+        "toBuffer": "input",
+        "treatmentLevel": 0
       }
     ],
     "ore-to-smelter": [
@@ -288,7 +369,8 @@
         "readyTick": 120050,
         "resource": "iron-ore",
         "to": "smelter-1",
-        "toBuffer": "input"
+        "toBuffer": "input",
+        "treatmentLevel": 0
       }
     ],
     "plate-to-station": [
@@ -304,7 +386,8 @@
         "readyTick": 120100,
         "resource": "iron-plate",
         "to": "station-supply",
-        "toBuffer": "storage"
+        "toBuffer": "storage",
+        "treatmentLevel": 0
       }
     ],
     "station-to-assembler": []

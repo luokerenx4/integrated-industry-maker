@@ -1,5 +1,5 @@
 {
   "id": "default", "name": "Sustain Gear Throughput", "targetResource": "gear", "targetRegion": "assembly-world", "targetRatePerMinute": 12,
-  "constraints": { "maxBuildCost": 30000, "maxOccupiedArea": 160, "minProduction": 5 },
+  "constraints": { "maxBuildCost": 35000, "maxOccupiedArea": 240, "minProduction": 5 },
   "weights": { "throughput": 10, "onTimeDelivery": 10, "energy": 0.01, "buildCost": 0.5, "occupiedArea": 0.2, "wip": 0.1, "blocked": 2 }
 }

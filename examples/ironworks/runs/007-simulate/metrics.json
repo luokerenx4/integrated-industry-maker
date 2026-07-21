@@ -48,6 +48,10 @@
     "synth-plastic-sink": 0,
     "synth-refine-crude-1": 0.9525
   },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
   "occupiedArea": 73,
   "onTimeDelivery": 1,
   "peakBeltItems": 4,

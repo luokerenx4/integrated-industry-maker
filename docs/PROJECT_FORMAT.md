@@ -131,6 +131,7 @@ A combustible Resource declares how much energy one unit contains. The value is 
       "inputCycles": 1, "outputCycles": 1,
       "durationMultiplier": { "numerator": 1, "denominator": 1 },
       "powerMultiplier": { "numerator": 1, "denominator": 1 },
+      "minimumInputTreatmentLevel": 0,
       "auxiliaryInputs": []
     }]
   },
@@ -142,6 +143,23 @@ A combustible Resource declares how much energy one unit contains. The value is 
 ```
 
 Unlike the old single-behavior model, a Device declares a list of descriptive capabilities and any number of ports and buffers. A process Device declares compatible Process categories, an exact rational speed multiplier, the set of physical input/output buffers that a recipe may configure, and at least one production mode. There is no implicit standard mode and no compatibility fallback: every mode is asset data and every blueprint recipe selects one by id. Modes are defined in [[docs/design/production-modes]]. Asset-level `accepts` values are maximum capabilities. A blueprint instance may narrow any buffer with `bufferFilters`; an empty list closes that buffer. The selected recipe then narrows its listed buffers again to the Resources actually bound there, and unused recipe buffers accept nothing. Extractor output is narrowed to the Resource type of its bound deposits. An extractor declares supported resources, mining radius, output buffer, and its maximum integer cycle rate. The device's TypeScript program still owns the final local decision inside the exact compiled job contract.
+
+A treatment Device uses capability `treat`, three distinct material-input/material-output/agent buffers, and explicit modes:
+
+```json
+"treatment": {
+  "inputBuffer": "material-input",
+  "outputBuffer": "material-output",
+  "agentBuffer": "agent-input",
+  "modes": [{
+    "id": "mk2", "name": "Level 2 coating", "level": 2,
+    "durationTicks": 250, "itemCount": 4,
+    "agent": { "resource": "proliferator", "count": 1 }
+  }]
+}
+```
+
+The treatment Resource remains the same; only the lot level changes. Production mode `minimumInputTreatmentLevel` gates Process inputs. See [[docs/design/material-treatment]] for compilation, dispatch, and runtime invariants.
 
 A transport junction is a placed Device with the `transport-junction` capability, an internal buffer, and multiple input/output ports. Its blueprint policy can select deterministic merge/split behavior without hiding topology in runtime code:
 
@@ -293,11 +311,11 @@ export default {
 `assets/runtime-api.ts` is copied with the project, so its device source remains statically checkable without importing an asset contract from another project or shared library. For a production Device, `context.process` includes the selected `mode`, exact `durationTicks`, exact `powerMilliWatts`, and already-scaled buffer quantities. The program is a black box behind one host interface:
 
 - `validateConfig(config)` optionally owns device-specific configuration rules.
-- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of that device's buffers, and its compiled Process, extraction, or fuel-generation plan when one is bound.
+- `evaluate(context)` receives only the current tick, instance identity/config, a frozen snapshot of totals and exact material batches, and its compiled Process, treatment, extraction, or fuel-generation plan when one is bound.
 - `planTransport(context)` is required for assets declaring `transport`; it receives `loader`, `line`, `unloader`, or `carrier` as the logistics role and returns capacity and duration for that stage or trip.
 - A program returns declarative actions. It never receives the mutable global factory state.
 
-Supported decisions are `start`, `extract`, `generate`, `consume`, `wait`, and `none`. An `extract` action names one of the instance's compiled resource-node bindings; the host enforces its maximum cycle rate, atomically reserves finite inventory, restores a reservation if the machine fails, and records extraction/depletion only on completion. A `generate` action must exactly match a compiled fuel, output, and burn duration. A `start` action may consume from and produce into any number of named buffers. The host validates every buffer, resource, node, count, capacity, duration, and power request before mutating state.
+Supported decisions are `start`, `treat`, `extract`, `generate`, `consume`, `wait`, and `none`. An `extract` action names one of the instance's compiled resource-node bindings; the host enforces its maximum cycle rate, atomically reserves finite inventory, restores a reservation if the machine fails, and records extraction/depletion only on completion. A `treat` action must match the compiled material/level/agent batch exactly. A `generate` action must match a compiled fuel, output, and burn duration. A `start` action may consume from and produce into any number of named buffers. The host validates every buffer, resource, level, node, count, capacity, duration, and power request before mutating state.
 
 Programs must be synchronous and deterministic. They are local trusted project code—not a security sandbox—and therefore should not use clocks, network calls, ambient process state, or unseeded randomness. Repeated simulations and immutable run hashes detect nondeterministic results.
 
@@ -407,6 +425,8 @@ Blueprint files are independently named candidate programs. `inm compare` can tr
 
 `recipe.process` and required `recipe.mode` are engine-visible industrial semantics. `recipe.inputs` and `recipe.outputs` are exact Resource-to-buffer contracts, so two instances of the same generic assembler asset may select different Processes or modes and expose different accepted materials on their ports. For a Process such as `iron-plate + coal → gear`, the two Resources may be mapped to separate buffers and fed by independent physical connections. Auxiliary mode inputs already name a Device buffer and are compiled into the same physical job; if an auxiliary Resource is also a Process input, both quantities must use the same buffer and are aggregated. `config` remains optional device-owned data for specialized machines and is passed to that asset's `validateConfig()` hook.
 
+A treatment Device instance instead selects its required mode with `"treatment": { "mode": "mk2" }`. Its `bufferFilters` should narrow wildcard material buffers to the intended Resource and its agent buffer to the declared agent. Synthesis always writes these exact filters.
+
 Every connection requires a non-empty exact `resources` allowlist. When several Resources share one connection under shortage-first dispatch, the same coverage comparison selects which Resource enters the loader. `policies.dispatch` is the factory default; a source Device's `policy.dispatch` overrides it for local lanes and a logistics network's `dispatch` overrides it for its shared fleet. There is no compatibility alias or implicit migration for older policy values.
 
 Every Device instance—not only a recipe machine—may configure accepted Resources without editing its asset package:
@@ -473,6 +493,9 @@ Initial quantities address device and buffer explicitly:
   "initialBuffers": {
     "smelter-1": { "input": { "iron-ore": 4 } }
   },
+  "initialTreatments": [
+    { "device": "smelter-1", "buffer": "input", "resource": "iron-ore", "level": 1, "count": 2 }
+  ],
   "initialEnergyMilliJoules": {
     "accumulator-1": 1800000
   },
@@ -483,6 +506,8 @@ Initial quantities address device and buffer explicitly:
 ```
 
 `initialEnergyMilliJoules` is keyed by placed storage Device id. Each value must be an integer from zero through that Device's compiled capacity. It is part of the Scenario hash and therefore of run identity. Omitted accumulators start empty.
+
+`initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 
 ```json
 {

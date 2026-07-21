@@ -3,6 +3,8 @@ export interface ResourceBufferQuantity {
   buffer: string;
   resource: string;
   count: number;
+  minimumTreatmentLevel?: number;
+  treatmentLevel?: number;
 }
 
 export interface DeviceProgramContext {
@@ -10,6 +12,7 @@ export interface DeviceProgramContext {
   tick: number;
   device: { id: string; asset: string; config: Readonly<Record<string, unknown>> };
   buffers: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  materialBatches: Readonly<Record<string, Readonly<Record<string, Readonly<Record<string, number>>>>>>;
   process?: Readonly<{
     id: string;
     name: string;
@@ -19,6 +22,11 @@ export interface DeviceProgramContext {
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
+  }>;
+  treatment?: Readonly<{
+    id: string; name: string; level: number; durationTicks: number; itemCount: number;
+    inputBuffer: string; outputBuffer: string;
+    agent: Readonly<{ buffer: string; resource: string; count: number }>;
   }>;
   extraction?: Readonly<{
     outputBuffer: string;
@@ -48,6 +56,7 @@ export interface DeviceProgram {
     | { kind: "start"; operation: string; durationTicks: number; consume: ResourceBufferQuantity[]; produce: ResourceBufferQuantity[]; powerMilliWatts?: number }
     | { kind: "extract"; operation: string; durationTicks: number; node: string; count: number; powerMilliWatts?: number }
     | { kind: "generate"; operation: string; durationTicks: number; resource: string; count: number; outputMilliWatts: number }
+    | { kind: "treat"; operation: string; durationTicks: number; resource: string; inputTreatmentLevel: number; count: number; powerMilliWatts?: number }
     | { kind: "consume"; consume: ResourceBufferQuantity[] }
     | { kind: "wait"; reason: "input" | "output" | "idle" }
     | { kind: "none" };

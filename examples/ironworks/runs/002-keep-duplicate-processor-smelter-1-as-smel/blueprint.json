@@ -643,7 +643,7 @@
           "coal": "input-secondary",
           "iron-plate": "input-primary"
         },
-        "mode": "accelerated",
+        "mode": "standard",
         "outputs": {
           "gear": "output"
         },
@@ -859,6 +859,6 @@
   "policies": {
     "dispatch": "shortage-first"
   },
-  "revision": "11cec921dddc97b04c8877f5871ab08e5eb7bd69d1419a01fbeb278dcd502f86",
+  "revision": "f7ad8d7d79818dba35ba86b50ece1490c2fde77f4d3b19f4ebc080cf7cd279e3",
   "version": 1
 }

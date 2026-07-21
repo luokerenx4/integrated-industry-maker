@@ -7,6 +7,7 @@ import { externalPortCell, findBlueprintConnectionPath, rotatedFootprint } from 
 import { planDeviceTransport } from "./device-runtime";
 import { optimizeSpatialResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
+import { plannedProductionAmounts, type MaterialTreatmentSelection } from "./material-treatment";
 
 interface ProcessSelection {
   resource: ResourceId;
@@ -16,7 +17,9 @@ interface ProcessSelection {
   inputs: Record<ResourceId, string>;
   outputs: Record<ResourceId, string>;
   effectiveInputs: Array<{ resource: ResourceId; count: number }>;
+  machineInputs: Array<{ resource: ResourceId; count: number }>;
   effectiveOutputs: Array<{ resource: ResourceId; count: number }>;
+  treatment: MaterialTreatmentSelection | null;
   outputPerCycle: number;
   durationTicks: number;
   powerMilliWatts: number;
@@ -222,11 +225,12 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     const binding = bindProcessRecipe(asset, process); if (!binding || !asset.production) return [];
     return asset.production.modes.filter((mode) => !mode.auxiliaryInputs.some((amount) => binding.inputs[amount.resource] !== undefined
       && binding.inputs[amount.resource] !== amount.buffer)).map((mode) => {
-      const amounts = effectiveProductionAmounts(process, mode);
+      const machineAmounts = effectiveProductionAmounts(process, mode);
+      const amounts = plannedProductionAmounts(process, mode, loaded.deviceAssets);
       const primary = [...amounts.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!;
       const selected: Omit<ProcessSelection, "requiredPerMinute" | "requiredCyclesPerMinute" | "region" | "machines" | "instances"> = {
         resource: primary.resource, process, asset, mode, inputs: binding.inputs, outputs: binding.outputs,
-        effectiveInputs: amounts.inputs, effectiveOutputs: amounts.outputs,
+        effectiveInputs: amounts.inputs, machineInputs: machineAmounts.inputs, effectiveOutputs: amounts.outputs, treatment: amounts.treatment,
         outputPerCycle: primary.count, durationTicks: productionDurationTicks(process, asset, mode), powerMilliWatts: productionPowerMilliWatts(asset, mode),
       };
       return {
@@ -258,8 +262,14 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     targetResource, targetRatePerMinute: targetRate, targetRegion: finalRegion, regions, candidates: processCandidates, rawSources, transports: transportOptions,
     candidateCost: (candidate) => {
       const continuousMachines = candidate.data.durationTicks / 60_000;
-      return continuousMachines * (candidate.data.asset.economics.buildCost * Math.max(.001, loaded.objective.weights.buildCost)
+      const processCost = continuousMachines * (candidate.data.asset.economics.buildCost * Math.max(.001, loaded.objective.weights.buildCost)
         + candidate.data.powerMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
+      const treatment = candidate.data.treatment;
+      if (!treatment) return processCost;
+      const treatedItemsPerCycle = candidate.data.process.inputs.reduce((sum, amount) => sum + amount.count, 0) * candidate.data.mode.inputCycles;
+      const treatmentDevicesPerCycle = treatedItemsPerCycle / (treatment.mode.itemCount * 60_000 / treatment.mode.durationTicks);
+      return processCost + treatmentDevicesPerCycle * (treatment.asset.economics.buildCost * Math.max(.001, loaded.objective.weights.buildCost)
+        + treatment.asset.power.consumptionMilliWatts / 1_000 * Math.max(.001, loaded.objective.weights.energy));
     },
   });
   const selections = new Map(demandPlan.processes.map((row) => {
@@ -355,6 +365,7 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   }
 
   const producers = new Map<ResourceId, Endpoint[]>(); const consumers = new Map<ResourceId, Endpoint[]>();
+  const treatmentFlows: Array<{ resource: ResourceId; region: string; sources: Endpoint[]; targets: Endpoint[] }> = [];
   for (const [resource, endpoints] of extractorEndpoints) producers.set(resource, [...endpoints]);
   for (const selection of selections.values()) for (const instance of selection.instances) {
     for (const output of selection.effectiveOutputs) {
@@ -364,12 +375,50 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         ratePerMinute: output.count * selection.requiredCyclesPerMinute / selection.machines,
       });
     }
-    for (const input of selection.effectiveInputs) {
+    const treatedResources = new Set(selection.treatment ? selection.process.inputs.map((input) => input.resource) : []);
+    for (const input of selection.machineInputs.filter((amount) => !treatedResources.has(amount.resource))) {
       const buffer = selection.mode.auxiliaryInputs.find((amount) => amount.resource === input.resource)?.buffer ?? selection.inputs[input.resource]!;
       (consumers.get(input.resource) ?? consumers.set(input.resource, []).get(input.resource)!).push({
         device: instance.id, port: portForBuffer(selection.asset, "input", buffer), region: instance.region,
         ratePerMinute: input.count * selection.requiredCyclesPerMinute / selection.machines,
       });
+    }
+    if (selection.treatment) for (const processInput of selection.process.inputs) {
+      const treatment = selection.treatment;
+      const materialRate = processInput.count * selection.mode.inputCycles * selection.requiredCyclesPerMinute / selection.machines;
+      const treatmentCapacity = treatment.mode.itemCount * 60_000 / treatment.mode.durationTicks;
+      const count = Math.max(1, Math.ceil(materialRate / treatmentCapacity - 1e-9));
+      const sources: Endpoint[] = [];
+      const targetBuffer = selection.inputs[processInput.resource]!;
+      const targets: Endpoint[] = [{
+        device: instance.id, port: portForBuffer(selection.asset, "input", targetBuffer), region: instance.region, ratePerMinute: materialRate,
+      }];
+      for (let index = 0; index < count; index++) {
+        const asset = treatment.asset; const mode = treatment.mode;
+        const coater: BlueprintDevice = {
+          id: uniqueId(blueprint, `synth-${processInput.resource}-${instance.id}-coater-${index + 1}`),
+          asset: asset.id, region: instance.region, position: { x: 0, y: 0 }, rotation: 0,
+          treatment: { mode: mode.id },
+          bufferFilters: {
+            [asset.treatment!.inputBuffer]: [processInput.resource],
+            [asset.treatment!.outputBuffer]: [processInput.resource],
+            [asset.treatment!.agentBuffer]: [mode.agent.resource],
+          },
+        };
+        placeDevice(loaded, blueprint, coater, { x: instance.position.x - 5 - index * 3, y: instance.position.y + 3 });
+        const laneRate = materialRate / count;
+        (consumers.get(processInput.resource) ?? consumers.set(processInput.resource, []).get(processInput.resource)!).push({
+          device: coater.id, port: portForBuffer(asset, "input", asset.treatment!.inputBuffer), region: instance.region, ratePerMinute: laneRate,
+        });
+        (consumers.get(mode.agent.resource) ?? consumers.set(mode.agent.resource, []).get(mode.agent.resource)!).push({
+          device: coater.id, port: portForBuffer(asset, "input", asset.treatment!.agentBuffer), region: instance.region,
+          ratePerMinute: laneRate * mode.agent.count / mode.itemCount,
+        });
+        sources.push({
+          device: coater.id, port: portForBuffer(asset, "output", asset.treatment!.outputBuffer), region: instance.region, ratePerMinute: laneRate,
+        });
+      }
+      treatmentFlows.push({ resource: processInput.resource, region: instance.region, sources, targets });
     }
   }
   for (const [resource, endpoints] of sinkEndpoints) {
@@ -781,6 +830,11 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       blueprint.logisticsNetworks.push(network);
       stationSummary.push({ network: networkId, resource, fromRegion: sourceRegion, toRegion: targetRegion, carriers });
     }
+  }
+
+  for (const flow of treatmentFlows.sort((left, right) => left.region.localeCompare(right.region) || left.resource.localeCompare(right.resource)
+    || left.targets[0]!.device.localeCompare(right.targets[0]!.device))) {
+    connectLocal(flow.resource, flow.sources, flow.targets);
   }
 
   const routedResources = [...new Set([...producers.keys(), ...consumers.keys()])]

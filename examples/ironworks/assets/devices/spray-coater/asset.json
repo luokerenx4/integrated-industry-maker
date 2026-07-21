@@ -1,0 +1,44 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "spray-coater",
+  "name": "Spray Coater",
+  "description": "A programmable in-line treatment cell that consumes agent batches and preserves material identity while raising treatment level.",
+  "tags": ["treatment", "proliferation", "processing"],
+  "capabilities": ["treat"],
+  "geometry": {
+    "footprint": { "width": 2, "height": 2 },
+    "rotatable": true,
+    "ports": [
+      { "id": "material-input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "material-input" },
+      { "id": "agent-input", "direction": "input", "kind": "resource", "side": "north", "offset": 1, "buffer": "agent-input" },
+      { "id": "material-output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "material-output" }
+    ]
+  },
+  "buffers": [
+    { "id": "material-input", "role": "input", "capacity": 16, "accepts": ["*"] },
+    { "id": "agent-input", "role": "input", "capacity": 8, "accepts": ["proliferator"] },
+    { "id": "material-output", "role": "output", "capacity": 16, "accepts": ["*"] }
+  ],
+  "treatment": {
+    "inputBuffer": "material-input",
+    "outputBuffer": "material-output",
+    "agentBuffer": "agent-input",
+    "modes": [
+      {
+        "id": "mk1", "name": "Level 1 coating", "level": 1,
+        "durationTicks": 250, "itemCount": 2,
+        "agent": { "resource": "proliferator", "count": 1 }
+      },
+      {
+        "id": "mk2", "name": "Level 2 coating", "level": 2,
+        "durationTicks": 250, "itemCount": 4,
+        "agent": { "resource": "proliferator", "count": 1 }
+      }
+    ]
+  },
+  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
+  "power": { "consumptionMilliWatts": 120000 },
+  "economics": { "buildCost": 900 },
+  "files": { "visual": "visual.json" }
+}

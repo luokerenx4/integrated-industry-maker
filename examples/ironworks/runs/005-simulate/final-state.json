@@ -6,16 +6,23 @@
   "devices": {
     "stack-power": {
       "buffers": {},
+      "materialBatches": {},
       "status": "idle"
     },
     "stack-source": {
       "buffers": {
         "storage": {}
       },
+      "materialBatches": {
+        "storage": {}
+      },
       "status": "idle"
     },
     "stack-target": {
       "buffers": {
+        "input": {}
+      },
+      "materialBatches": {
         "input": {}
       },
       "status": "waiting-input"
@@ -37,6 +44,10 @@
     }
   },
   "logisticsTransports": {},
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
   "produced": {},
   "resourceNodes": {
     "coal-seam-assembly": {

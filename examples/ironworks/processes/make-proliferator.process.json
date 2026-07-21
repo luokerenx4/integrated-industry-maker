@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "make-proliferator",
+  "name": "Compound Proliferator",
+  "description": "Bind coal into a concentrated material-treatment agent.",
+  "category": "treatment-agent",
+  "tags": ["treatment", "intermediate"],
+  "durationTicks": 1000,
+  "inputs": [{ "resource": "coal", "count": 1 }],
+  "outputs": [{ "resource": "proliferator", "count": 4 }]
+}

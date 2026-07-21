@@ -192,6 +192,18 @@ async function loadStudioData(projectId: string, runName?: string) {
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
         outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
       } } : {}),
+      ...(device.treatmentPlan ? { treatment: {
+        mode: device.treatmentPlan.mode.id,
+        modeName: device.treatmentPlan.mode.name,
+        level: device.treatmentPlan.mode.level,
+        durationTicks: device.treatmentPlan.mode.durationTicks,
+        itemCount: device.treatmentPlan.mode.itemCount,
+        inputBuffer: device.treatmentPlan.inputBuffer,
+        outputBuffer: device.treatmentPlan.outputBuffer,
+        agentBuffer: device.treatmentPlan.agentBuffer,
+        agentResource: device.treatmentPlan.mode.agent.resource,
+        agentCount: device.treatmentPlan.mode.agent.count,
+      } } : {}),
     })),
     connections: Object.values(project.connections).map((connection) => {
       const from = {
@@ -252,6 +264,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         geometry: asset.geometry,
         buffers: asset.buffers,
         production: asset.production,
+        treatment: asset.treatment,
         extraction: asset.extraction,
         logistics: asset.logistics,
         logisticsStation: asset.logisticsStation,

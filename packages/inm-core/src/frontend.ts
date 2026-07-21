@@ -11,7 +11,7 @@ export interface FactorySceneModel {
     visual: Record<string, unknown>; runtimeStatus: DeviceStatus; progress?: number; bottleneck?: boolean;
   }>;
   resourcesInTransit: Array<{
-    id: string; resourceId: string; count: number; from: GridPosition; to: GridPosition; path: GridPosition[]; position: GridPosition; progress: number; blocked?: boolean; visual?: Record<string, unknown>;
+    id: string; resourceId: string; count: number; treatmentLevel: number; from: GridPosition; to: GridPosition; path: GridPosition[]; position: GridPosition; progress: number; blocked?: boolean; visual?: Record<string, unknown>;
   }>;
   connections: Array<{ id: string; from: GridPosition; to: GridPosition; path: GridPosition[]; kind: "physical" | "station"; blocked?: boolean }>;
   metrics: FactoryMetrics | null;
@@ -74,7 +74,7 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
     const connection = project.connections[event.connection]!;
     const from = next.devices[connection.from.device]!; const to = next.devices[connection.to.device]!;
     next.resourcesInTransit.push({
-      id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
+      id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count, treatmentLevel: event.transit.treatmentLevel,
       from: center(from.position, from.footprint), to: center(to.position, to.footprint),
       path: next.connections.find((item) => item.id === event.connection)!.path,
       position: center(from.position, from.footprint), progress: 0, visual: { ...(project.resources[event.transit.resource]?.visual ?? {}) },
@@ -83,7 +83,7 @@ export function reduceFactoryEvent(model: FactorySceneModel, event: FactoryEvent
     const route = project.logisticsNetworks[event.network]!.routes.find((item) => item.id === event.route)!;
     const from = next.devices[route.from]!; const to = next.devices[route.to]!;
     next.resourcesInTransit.push({
-      id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count,
+      id: event.transit.id, resourceId: event.transit.resource, count: event.transit.count, treatmentLevel: event.transit.treatmentLevel,
       from: center(from.position, from.footprint),
       to: center(to.position, to.footprint),
       path: [],

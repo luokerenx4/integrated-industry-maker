@@ -79,6 +79,10 @@
     "storage-forge": 0,
     "wind-assembly-recipe-line": 0
   },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
   "occupiedArea": 106,
   "onTimeDelivery": 0.4583333333333333,
   "peakBeltItems": 4,

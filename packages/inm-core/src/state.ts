@@ -3,7 +3,7 @@ import type { ActiveDeviceJob, BeltTransit, DeviceStatus, FactoryState, Resource
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
   | { kind: "status"; device: string; status: DeviceStatus }
-  | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number }
+  | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number }
   | { kind: "transport.add"; connection: string; transit: BeltTransit }
   | { kind: "transport.update"; connection: string; transitId: string; changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & { blockedBy?: string | null } }
   | { kind: "transport.remove"; connection: string; transitId: string }
@@ -17,6 +17,8 @@ export type FactoryStateMutation =
   | { kind: "energy"; grid: string; consumedMilliJoules: number }
   | { kind: "energy.storage"; grid: string; device: string; deltaMilliJoules: number; mode: "charge" | "discharge" }
   | { kind: "fuel"; resource: string; count: number }
+  | { kind: "treatment.agent"; resource: string; count: number }
+  | { kind: "treatment.complete"; resource: string; level: number; count: number }
   | { kind: "orders"; count: number }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
@@ -29,8 +31,16 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "tick": state.tick = mutation.tick; return;
     case "status": state.devices[mutation.device]!.status = mutation.status; return;
     case "buffer": {
-      const inventory = state.devices[mutation.device]!.buffers[mutation.buffer];
+      const runtime = state.devices[mutation.device]!;
+      const inventory = runtime.buffers[mutation.buffer];
       if (!inventory) throw new Error(`Unknown buffer for ${mutation.device}/${mutation.buffer}`);
+      const materialInventory = runtime.materialBatches[mutation.buffer] ??= {};
+      const batches = materialInventory[mutation.resource] ??= {};
+      const level = String(mutation.treatmentLevel ?? 0);
+      batches[level] = (batches[level] ?? 0) + mutation.delta;
+      if (batches[level] === 0) delete batches[level];
+      if ((batches[level] ?? 0) < 0) throw new Error(`Negative material batch for ${mutation.device}/${mutation.buffer}/${mutation.resource}@${level}`);
+      if (!Object.keys(batches).length) delete materialInventory[mutation.resource];
       inventory[mutation.resource] = (inventory[mutation.resource] ?? 0) + mutation.delta;
       if (inventory[mutation.resource] === 0) delete inventory[mutation.resource];
       if ((inventory[mutation.resource] ?? 0) < 0) throw new Error(`Negative buffer quantity for ${mutation.device}/${mutation.buffer}/${mutation.resource}`);
@@ -99,6 +109,12 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       return;
     }
     case "fuel": state.energy.fuelConsumed[mutation.resource] = (state.energy.fuelConsumed[mutation.resource] ?? 0) + mutation.count; return;
+    case "treatment.agent": state.materialTreatment.agentsConsumed[mutation.resource] = (state.materialTreatment.agentsConsumed[mutation.resource] ?? 0) + mutation.count; return;
+    case "treatment.complete": {
+      const levels = state.materialTreatment.treated[mutation.resource] ??= {};
+      levels[String(mutation.level)] = (levels[String(mutation.level)] ?? 0) + mutation.count;
+      return;
+    }
     case "orders": state.completedOrders += mutation.count; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;

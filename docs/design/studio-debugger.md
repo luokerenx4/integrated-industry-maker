@@ -2,7 +2,7 @@
 
 Status: project launcher, stable project routes, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
@@ -14,7 +14,7 @@ The root route presents available projects. Selecting one establishes `/<project
 
 ## Project-local catalog
 
-The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, production modes and auxiliary inputs, runtime entry, transformations, transport properties, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
+The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, ports, buffer maxima, production modes and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
 
 ## Industrial analysis
 
@@ -23,7 +23,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 - target-rate Process/extraction/power/fleet plan and gaps;
 - finite deposits and depletion;
 - material balance and dependency graph;
-- configured Process/mode jobs and mode-aware alternatives;
+- configured Process/mode jobs, input treatment requirements, treatment Device/agent capacity, and mode-aware alternatives;
 - every Device instance's effective buffer capacity and accepted Resources;
 - local pipeline Resource allowlists, effective dispatch policy, per-Resource destination coverage profiles, stages, measured Resource mix, capacity, utilization, blockage, and power;
 - station routes/fleet load, effective network policy, authored priority tier, downstream coverage batch, and Objective depth;
@@ -32,7 +32,7 @@ The Analysis modal recompiles the selected run Blueprint and shows:
 
 ## 3D replay
 
-Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Devices, deposits, powered endpoint arms, belt cells/levels, cargo stacks, and station routes come from renderer-independent compiled/replay data. Labels show Device identity, status, selected Process, and accepted materials. Events drive state; opening or scrubbing never runs a hidden simulation.
+Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Devices, deposits, powered endpoint arms, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Events drive state; opening or scrubbing never runs a hidden simulation.
 
 ## Factory-object inspection
 

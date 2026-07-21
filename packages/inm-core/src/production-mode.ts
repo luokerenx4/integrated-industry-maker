@@ -11,7 +11,7 @@ function mergeProcessAmounts(amounts: ProcessAmount[]): ProcessAmount[] {
 function mergeBufferAmounts(amounts: ResourceBufferQuantity[]): ResourceBufferQuantity[] {
   const totals = new Map<string, ResourceBufferQuantity>();
   for (const amount of amounts) {
-    const key = `${amount.buffer}\0${amount.resource}`;
+    const key = `${amount.buffer}\0${amount.resource}\0${amount.minimumTreatmentLevel ?? "any"}\0${amount.treatmentLevel ?? 0}`;
     const existing = totals.get(key);
     if (existing) existing.count += amount.count;
     else totals.set(key, { ...amount });
@@ -36,10 +36,13 @@ export function compileProductionAmounts(
 ): { inputs: ResourceBufferQuantity[]; outputs: ResourceBufferQuantity[] } {
   return {
     inputs: mergeBufferAmounts([
-      ...process.inputs.map((amount) => ({ buffer: bindings.inputs[amount.resource]!, resource: amount.resource, count: amount.count * mode.inputCycles })),
+      ...process.inputs.map((amount) => ({
+        buffer: bindings.inputs[amount.resource]!, resource: amount.resource, count: amount.count * mode.inputCycles,
+        minimumTreatmentLevel: mode.minimumInputTreatmentLevel,
+      })),
       ...mode.auxiliaryInputs.map((amount) => ({ buffer: amount.buffer, resource: amount.resource, count: amount.count })),
     ]),
-    outputs: mergeBufferAmounts(process.outputs.map((amount) => ({ buffer: bindings.outputs[amount.resource]!, resource: amount.resource, count: amount.count * mode.outputCycles }))),
+    outputs: mergeBufferAmounts(process.outputs.map((amount) => ({ buffer: bindings.outputs[amount.resource]!, resource: amount.resource, count: amount.count * mode.outputCycles, treatmentLevel: 0 }))),
   };
 }
 

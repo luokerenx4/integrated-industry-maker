@@ -1,16 +1,18 @@
 # INM Run 004-simulate
 
 - Decision: **BASELINE**
-- Score: **111.332**
-- Result hash: `767926581ad59fe11d9e3ee037fcd93d950f2df794099babd8cae989b757065b`
+- Score: **55.950**
+- Result hash: `2c8d9521e53fd8679e24016cc126c8de13e2bb0bd824aa3be360478fd2251f15`
 - Bottleneck: synth-smelt-iron-1
-- Throughput/min: 14.000
+- Throughput/min: 12.000
 - Target rate: 12.000 gear/min (100.0% attained)
 - Capacity plan: READY
-- Belt utilization: 3.5%
-- Average blocked belt items: 0.148
-- Peak belt items: 4
-- Powered transport energy: 204.500 J
+- Belt utilization: 1.9%
+- Average blocked belt items: 0.080
+- Peak belt items: 15
+- Powered transport energy: 345.600 J
+- Material treated: 20 coal@2 + 20 iron-plate@2
+- Treatment agents consumed: 10 proliferator
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 
@@ -23,10 +25,17 @@
 | Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
 | --- | ---: | ---: | ---: | --- |
 | synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-ore |
-| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 14.000 / 120.000 | 11.7% | 11200 | 28 gear |
-| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1 | 12.000 / 120.000 | 10.0% | 6600 | 24 iron-plate |
+| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 12.000 / 120.000 | 10.0% | 9600 | 24 gear |
+| synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1 | 10.500 / 120.000 | 8.8% | 0 | 21 coal |
+| synth-coal-synth-coal-extractor-1-to-synth-coal-split | 20.000 / 240.000 | 8.3% | 0 | 40 coal |
+| synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split | 17.000 / 240.000 | 7.1% | 0 | 34 proliferator |
 | synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-world-station-supply-1 | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
-| synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1 | 12.000 / 240.000 | 5.0% | 0 | 24 coal |
+| synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1 | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
+| synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1 | 10.000 / 240.000 | 4.2% | 0 | 20 iron-plate |
+| synth-coal-synth-coal-split-to-synth-make-proliferator-1 | 9.500 / 240.000 | 4.0% | 0 | 19 coal |
+| synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1 | 7.000 / 240.000 | 2.9% | 0 | 14 coal |
+| synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1 | 6.500 / 240.000 | 2.7% | 0 | 13 proliferator |
+| synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1 | 6.500 / 240.000 | 2.7% | 0 | 13 proliferator |
 
 ## Grid storage
 
@@ -36,13 +45,13 @@ No configured accumulators.
 
 ```json
 {
-  "blocked": -2.22,
-  "buildCost": -12.27,
+  "blocked": -2.305,
+  "buildCost": -15.915,
   "constraintPenalty": 0,
-  "energy": -2.044718,
-  "occupiedArea": -18.8,
+  "energy": -2.100496,
+  "occupiedArea": -46.2,
   "onTimeDelivery": 10,
-  "throughput": 140,
-  "wip": -3.333141666666667
+  "throughput": 120,
+  "wip": -7.529541666666667
 }
 ```

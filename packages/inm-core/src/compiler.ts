@@ -81,6 +81,40 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         }
       }
     }
+    if (asset.treatment) {
+      const treatmentPath = `assets/devices/${id}/asset.json/treatment`;
+      if (!asset.capabilities.includes("treat")) issues.push({ path: treatmentPath, code: "capability.not-treat", message: "Treatment specification requires treat capability" });
+      const roleChecks = [
+        ["inputBuffer", asset.treatment.inputBuffer, "input", "output"],
+        ["outputBuffer", asset.treatment.outputBuffer, "output", "input"],
+        ["agentBuffer", asset.treatment.agentBuffer, "input", "output"],
+      ] as const;
+      for (const [field, bufferId, direction, forbiddenRole] of roleChecks) {
+        const buffer = asset.buffers.find((candidate) => candidate.id === bufferId);
+        if (!buffer) issues.push({ path: `${treatmentPath}/${field}`, code: "reference.buffer", message: `Unknown treatment buffer '${bufferId}'` });
+        else if (buffer.role === forbiddenRole) issues.push({ path: `${treatmentPath}/${field}`, code: "treatment.buffer-role", message: `Treatment ${field} '${bufferId}' cannot be ${forbiddenRole}-only` });
+        if (!asset.geometry.ports.some((port) => port.direction === direction && port.buffer === bufferId)) {
+          issues.push({ path: `${treatmentPath}/${field}`, code: "treatment.buffer-port", message: `Treatment ${field} '${bufferId}' requires a matching ${direction} port` });
+        }
+      }
+      if (asset.treatment.inputBuffer === asset.treatment.outputBuffer || asset.treatment.inputBuffer === asset.treatment.agentBuffer
+        || asset.treatment.outputBuffer === asset.treatment.agentBuffer) {
+        issues.push({ path: treatmentPath, code: "treatment.distinct-buffers", message: "Treatment input, output, and agent buffers must be distinct" });
+      }
+      const modeIds = new Set<string>();
+      for (const [modeIndex, mode] of asset.treatment.modes.entries()) {
+        const modePath = `${treatmentPath}/modes/${modeIndex}`;
+        if (modeIds.has(mode.id)) issues.push({ path: `${modePath}/id`, code: "treatment-mode.duplicate", message: `Treatment mode '${mode.id}' is declared more than once` });
+        modeIds.add(mode.id);
+        const resource = resources[mode.agent.resource];
+        if (!resource) issues.push({ path: `${modePath}/agent/resource`, code: "reference.resource", message: `Unknown treatment agent Resource '${mode.agent.resource}'` });
+        const agentBuffer = asset.buffers.find((buffer) => buffer.id === asset.treatment!.agentBuffer);
+        if (agentBuffer && !agentBuffer.accepts.includes("*") && !agentBuffer.accepts.includes(mode.agent.resource)) {
+          issues.push({ path: `${modePath}/agent/resource`, code: "treatment.agent-contract", message: `Agent buffer '${agentBuffer.id}' does not accept '${mode.agent.resource}'` });
+        }
+      }
+    }
+    if (asset.capabilities.includes("treat") && !asset.treatment) issues.push({ path: `assets/devices/${id}/asset.json/treatment`, code: "treatment.spec-required", message: "Treat capability requires a treatment specification" });
     if (asset.extraction) {
       if (!asset.capabilities.includes("extract")) issues.push({ path: `assets/devices/${id}/asset.json/extraction`, code: "capability.not-extract", message: "Extraction specification requires extract capability" });
       const output = asset.buffers.find((buffer) => buffer.id === asset.extraction!.outputBuffer);
@@ -467,6 +501,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
     }
     let processPlan: CompiledDevice["processPlan"];
+    let treatmentPlan: CompiledDevice["treatmentPlan"];
     let extractionPlan: CompiledDevice["extractionPlan"];
     let generationPlan: CompiledDevice["generationPlan"];
     let storagePlan: CompiledDevice["storagePlan"];
@@ -568,6 +603,28 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     } else if (asset.production) {
       issues.push({ path: `${path}/recipe`, code: "production.recipe-required", message: `Device asset '${asset.id}' requires a blueprint recipe with explicit resource-to-buffer bindings` });
     }
+    if (instance.treatment) {
+      if (!asset.treatment) issues.push({ path: `${path}/treatment`, code: "treatment.unsupported", message: `Device asset '${asset.id}' does not support material treatment` });
+      else {
+        const mode = asset.treatment.modes.find((candidate) => candidate.id === instance.treatment!.mode);
+        if (!mode) issues.push({ path: `${path}/treatment/mode`, code: "treatment-mode.unknown", message: `Device '${asset.id}' does not define treatment mode '${instance.treatment.mode}'` });
+        else {
+          const agentBuffer = effectiveBuffers[asset.treatment.agentBuffer];
+          if (agentBuffer && !agentBuffer.accepts.includes("*") && !agentBuffer.accepts.includes(mode.agent.resource)) {
+            issues.push({ path: `${path}/treatment/mode`, code: "treatment.agent-filter", message: `Treatment mode '${mode.id}' requires '${mode.agent.resource}', but the instance filter excludes it` });
+          }
+          const inputCapacity = effectiveBuffers[asset.treatment.inputBuffer]?.capacity ?? 0;
+          const outputCapacity = effectiveBuffers[asset.treatment.outputBuffer]?.capacity ?? 0;
+          const agentCapacity = effectiveBuffers[asset.treatment.agentBuffer]?.capacity ?? 0;
+          if (mode.itemCount > inputCapacity || mode.itemCount > outputCapacity || mode.agent.count > agentCapacity) {
+            issues.push({ path: `${path}/treatment/mode`, code: "treatment-mode.job-capacity", message: `Treatment mode '${mode.id}' batch does not fit its configured buffers` });
+          }
+          treatmentPlan = { mode, inputBuffer: asset.treatment.inputBuffer, outputBuffer: asset.treatment.outputBuffer, agentBuffer: asset.treatment.agentBuffer };
+        }
+      }
+    } else if (asset.treatment) {
+      issues.push({ path: `${path}/treatment`, code: "treatment.mode-required", message: `Device asset '${asset.id}' requires an explicit treatment mode` });
+    }
     if (asset.extraction) {
       if (!instance.resourceNodes?.length) issues.push({ path: `${path}/resourceNodes`, code: "extraction.nodes-required", message: `Extractor '${instance.id}' must bind at least one world resource node` });
       const nodes: WorldResourceNode[] = [];
@@ -618,6 +675,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       ports: asset.geometry.ports.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),
       buffers: effectiveBuffers,
       ...(processPlan ? { processPlan } : {}),
+      ...(treatmentPlan ? { treatmentPlan } : {}),
       ...(extractionPlan ? { extractionPlan } : {}),
       ...(generationPlan ? { generationPlan } : {}),
       ...(storagePlan ? { storagePlan } : {}),
@@ -831,6 +889,23 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
       if (buffer && Object.values(inventory).reduce((sum, count) => sum + count, 0) > buffer.capacity) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "buffer.capacity", message: `Initial quantity exceeds buffer capacity ${buffer.capacity}` });
     }
+  }
+  const treatedTotals = new Map<string, number>();
+  for (const [index, treatment] of (loaded.scenario.initialTreatments ?? []).entries()) {
+    const path = `scenario/initialTreatments/${index}`;
+    const device = devices[treatment.device];
+    const buffer = device?.buffers[treatment.buffer];
+    if (!device) issues.push({ path: `${path}/device`, code: "reference.device-instance", message: `Unknown device instance '${treatment.device}'` });
+    else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${treatment.buffer}'` });
+    if (!loaded.resources[treatment.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${treatment.resource}'` });
+    else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(treatment.resource)) {
+      issues.push({ path: `${path}/resource`, code: "buffer.resource-contract", message: `Buffer '${treatment.buffer}' does not accept '${treatment.resource}'` });
+    }
+    const key = `${treatment.device}\0${treatment.buffer}\0${treatment.resource}`;
+    const total = (treatedTotals.get(key) ?? 0) + treatment.count;
+    treatedTotals.set(key, total);
+    const initial = loaded.scenario.initialBuffers?.[treatment.device]?.[treatment.buffer]?.[treatment.resource] ?? 0;
+    if (total > initial) issues.push({ path, code: "treatment.initial-quantity", message: `Treated quantity ${total} exceeds initial '${treatment.resource}' inventory ${initial}` });
   }
   for (const [deviceId, initialEnergy] of Object.entries(loaded.scenario.initialEnergyMilliJoules ?? {})) {
     const device = devices[deviceId]; const path = `scenario/initialEnergyMilliJoules/${deviceId}`;

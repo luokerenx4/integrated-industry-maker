@@ -404,7 +404,7 @@
           "coal": "input-secondary",
           "iron-plate": "input-primary"
         },
-        "mode": "accelerated",
+        "mode": "standard",
         "outputs": {
           "gear": "output"
         },

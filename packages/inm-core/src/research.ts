@@ -479,7 +479,7 @@ function exploratoryStationCandidates(input: ResearchInput): StrategyCandidate[]
 
 function recipeCandidates(input: ResearchInput): StrategyCandidate[] {
   return input.production.recipeOptions.flatMap((option) => {
-    if (option.selected || option.targetOutputPerMinute <= 0) return [];
+    if (option.selected || option.targetOutputPerMinute <= 0 || option.minimumInputTreatmentLevel > 0) return [];
     const current = input.production.recipeOptions.find((candidate) => candidate.device === option.device && candidate.selected);
     if (!current || option.targetOutputPerMinute <= current.targetOutputPerMinute + 1e-9) return [];
     const deviceIndex = input.blueprint.devices.findIndex((device) => device.id === option.device);

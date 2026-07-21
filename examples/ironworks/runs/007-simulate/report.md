@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **119.744**
-- Result hash: `e8b1b6c288649068d06aac50b4a1f851f19fb054c10e7177698111f1c77328dc`
+- Result hash: `40951caf5438acc582abdbfd7466ba0d0732731e714dbd2485ee51bb9342e7cb`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Target rate: 10.000 plastic/min (100.0% attained)
@@ -11,6 +11,8 @@
 - Average blocked belt items: 0.000
 - Peak belt items: 4
 - Powered transport energy: 168.600 J
+- Material treated: none
+- Treatment agents consumed: none
 - Aggregate unpowered time: 0 device-ticks
 - Feasible: yes
 

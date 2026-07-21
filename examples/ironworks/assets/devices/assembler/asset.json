@@ -31,6 +31,7 @@
         "inputCycles": 1, "outputCycles": 1,
         "durationMultiplier": { "numerator": 1, "denominator": 1 },
         "powerMultiplier": { "numerator": 1, "denominator": 1 },
+        "minimumInputTreatmentLevel": 0,
         "auxiliaryInputs": []
       },
       {
@@ -38,14 +39,16 @@
         "inputCycles": 1, "outputCycles": 1,
         "durationMultiplier": { "numerator": 1, "denominator": 2 },
         "powerMultiplier": { "numerator": 2, "denominator": 1 },
-        "auxiliaryInputs": [{ "resource": "coal", "count": 1, "buffer": "input-secondary" }]
+        "minimumInputTreatmentLevel": 1,
+        "auxiliaryInputs": []
       },
       {
         "id": "productive", "name": "Productive",
         "inputCycles": 1, "outputCycles": 2,
         "durationMultiplier": { "numerator": 1, "denominator": 1 },
         "powerMultiplier": { "numerator": 3, "denominator": 2 },
-        "auxiliaryInputs": [{ "resource": "coal", "count": 1, "buffer": "input-secondary" }]
+        "minimumInputTreatmentLevel": 2,
+        "auxiliaryInputs": []
       }
     ]
   },

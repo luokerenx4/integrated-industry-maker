@@ -6,7 +6,7 @@ import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel,
   findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
-  type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
+  type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
 const ironworks = resolve(import.meta.dir, "../../../examples/ironworks");
@@ -133,7 +133,7 @@ describe("factory synthesis", () => {
       .every((device) => Object.values(device.bufferFilters ?? {}).flat().length === 1)).toBeTrue();
     expect(first.stationNetworks).toHaveLength(1);
     expect(first.selectedProcesses.map((process) => [process.process, process.region])).toEqual([
-      ["forge-gear-pair", "assembly-world"], ["smelt-iron", "forge-world"],
+      ["forge-gear-pair", "assembly-world"], ["make-proliferator", "assembly-world"], ["smelt-iron", "forge-world"],
     ]);
     expect(first.selectedProcesses.find((process) => process.process === "forge-gear-pair")!.mode).toBe("productive");
     expect(first.plannedTransports).toEqual([{
@@ -148,6 +148,10 @@ describe("factory synthesis", () => {
 
     const project = compileFactoryProject({ ...source, blueprint: first.blueprint });
     expect(planProductionCapacity(project).ready).toBeTrue();
+    expect(analyzeProduction(project).productionGraph).toEqual(expect.objectContaining({
+      rawInputsPerTarget: { coal: 0.3125, "iron-ore": 1.5 },
+      steps: expect.arrayContaining([expect.objectContaining({ process: "make-proliferator" })]),
+    }));
     const simulation = runUntil(project);
     expect(simulation.metrics.throughputPerMinute).toBeGreaterThanOrEqual(source.objective.targetRatePerMinute);
     expect(simulation.metrics.occupiedArea).toBeLessThanOrEqual(source.objective.constraints!.maxOccupiedArea!);
@@ -345,13 +349,13 @@ describe("blueprint compiler", () => {
     expect(Object.keys(project.regions)).toEqual(["forge-world", "assembly-world"]);
     expect(Object.keys(project.resourceNodes)).toEqual(["iron-vein-1", "iron-vein-2", "iron-vein-3", "coal-seam-forge", "coal-seam-assembly"]);
     expect(project.devices["ore-source-1"]!.extractionPlan).toEqual(expect.objectContaining({ outputBuffer: "output", cycleTicks: 1_000, itemsPerCycle: 1 }));
-    expect(Object.keys(project.resources)).toEqual(["coal", "crude-oil", "gear", "graphite", "hydrogen", "iron-ore", "iron-plate", "plastic", "refined-oil"]);
-    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "forge-gear-pair", "make-plastic", "refine-crude", "smelt-iron", "xray-crack-oil"]);
+    expect(Object.keys(project.resources)).toEqual(["coal", "crude-oil", "gear", "graphite", "hydrogen", "iron-ore", "iron-plate", "plastic", "proliferator", "refined-oil"]);
+    expect(Object.keys(project.processes)).toEqual(["assemble-gear", "forge-gear-pair", "make-plastic", "make-proliferator", "refine-crude", "smelt-iron", "xray-crack-oil"]);
     expect(project.devices["smelter-1"]!.processPlan?.definition.id).toBe("smelt-iron");
     expect(project.devices["smelter-1"]!.processPlan?.durationTicks).toBe(4000);
     expect(project.devices["assembler-1"]!.processPlan?.inputs).toEqual([
-      { buffer: "input-primary", resource: "iron-plate", count: 2 },
-      { buffer: "input-secondary", resource: "coal", count: 1 },
+      { buffer: "input-primary", resource: "iron-plate", count: 2, minimumTreatmentLevel: 0 },
+      { buffer: "input-secondary", resource: "coal", count: 1, minimumTreatmentLevel: 0 },
     ]);
     expect(project.devices["assembler-1"]!.buffers["input-primary"]!.accepts).toEqual(["iron-plate"]);
     expect(project.devices["assembler-1"]!.buffers["input-secondary"]!.accepts).toEqual(["coal"]);
@@ -492,12 +496,15 @@ describe("blueprint compiler", () => {
     expect(analyzeProduction(compileFactoryProject(alternative)).productionGraph.rawInputsPerTarget).toEqual({ coal: .5, "iron-ore": 3 });
   });
 
-  test("production modes are explicit and validate auxiliary inputs plus physical job capacity", async () => {
+  test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {
     const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
     expect(issueCodes(() => compileFactoryProject(unknown))).toContain("production-mode.unknown");
 
     const filtered = await loaded();
     filtered.blueprint.devices[2]!.recipe!.mode = "productive";
+    filtered.deviceAssets.assembler!.production!.modes.find((mode) => mode.id === "productive")!.auxiliaryInputs = [
+      { resource: "coal", count: 1, buffer: "input-secondary" },
+    ];
     filtered.blueprint.devices[2]!.bufferFilters = { "input-primary": ["iron-plate"], "input-secondary": ["iron-plate"], output: ["gear"] };
     expect(issueCodes(() => compileFactoryProject(filtered))).toContain("production-mode.resource-filter");
 
@@ -744,8 +751,8 @@ describe("deterministic discrete-event simulation", () => {
     }));
     expect(analysis.recipeOptions).toContainEqual(expect.objectContaining({
       device: "assembler-1", process: "assemble-gear", mode: "productive", selected: false,
-      cycleTicks: 3000, powerMilliWatts: 330000,
-      inputs: [{ resource: "coal", count: 2 }, { resource: "iron-plate", count: 2 }], outputs: [{ resource: "gear", count: 2 }],
+      cycleTicks: 3000, powerMilliWatts: 330000, minimumInputTreatmentLevel: 2,
+      inputs: [{ resource: "coal", count: 1 }, { resource: "iron-plate", count: 2 }], outputs: [{ resource: "gear", count: 2 }],
     }));
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
     expect(analysis.powerGrids).toEqual([
@@ -754,19 +761,20 @@ describe("deterministic discrete-event simulation", () => {
     ]);
     expect(analysis.connections.find((connection) => connection.connection === "ore-to-smelter")).toEqual(expect.objectContaining({
       dispatchPolicy: "round-robin",
-      dispatchProfiles: [{ resource: "iron-ore", targetKind: "process", coverageUnit: 2, criticalDepth: 1 }],
+      dispatchProfiles: [{ resource: "iron-ore", targetKind: "process", coverageUnit: 2, criticalDepth: 1, minimumTreatmentLevel: 0 }],
     }));
     expect(analysis.connections.find((connection) => connection.connection === "coal-splitter-to-generator")).toEqual(expect.objectContaining({
       dispatchPolicy: "shortage-first",
-      dispatchProfiles: [{ resource: "coal", targetKind: "fuel", coverageUnit: 1, criticalDepth: 0 }],
+      dispatchProfiles: [{ resource: "coal", targetKind: "fuel", coverageUnit: 1, criticalDepth: 0, minimumTreatmentLevel: 0 }],
     }));
     expect(analysis.stationNetworks.find((network) => network.network === "interstellar-main")).toEqual(expect.objectContaining({
       dispatchPolicy: "shortage-first",
       routes: [expect.objectContaining({
         resource: "iron-plate",
         dispatchProfile: {
-          resource: "iron-plate", targetKind: "process", coverageUnit: 2, criticalDepth: 0,
-          downstreamConnections: ["station-to-assembler"],
+      resource: "iron-plate", targetKind: "process", coverageUnit: 2, criticalDepth: 0,
+      minimumTreatmentLevel: 0,
+      downstreamConnections: ["station-to-assembler"],
         },
       })],
     }));
@@ -804,6 +812,7 @@ describe("deterministic discrete-event simulation", () => {
     };
     expect(stationRouteDispatchProfile(project, route)).toEqual({
       resource: "iron-plate", targetKind: "process", coverageUnit: 2, criticalDepth: 0,
+      minimumTreatmentLevel: 0,
       downstreamConnections: ["buffer-to-assembler", "station-to-buffer"],
     });
   });
@@ -1208,6 +1217,18 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.metrics.totalBuildCost).toBe(6_500);
   });
 
+  test("station cargo preserves one exact material treatment level", async () => {
+    const source = await stationProjectSource();
+    source.scenario.initialTreatments = [{
+      device: "station-supply", buffer: "storage", resource: "iron-ore", level: 2, count: 25,
+    }];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 7_000 });
+    expect(result.events.filter((event) => event.type === "logistics.depart")
+      .map((event) => [event.transit.count, event.transit.treatmentLevel])).toEqual([[10, 2], [10, 2]]);
+    expect(result.state.devices["station-demand"]!.materialBatches.storage!["iron-ore"]).toEqual({ "2": 20 });
+    expect(result.state.devices["station-supply"]!.materialBatches.storage!["iron-ore"]).toEqual({ "2": 5 });
+  });
+
   test("station demand targets reserve inbound cargo and stop partial batches below minimum", async () => {
     const source = await stationProjectSource();
     source.blueprint.logisticsNetworks[0]!.stations[1]!.slots[0]!.demandTarget = 15;
@@ -1482,14 +1503,21 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 3100;
     source.scenario.initialBuffers = {
-      "assembler-1": { "input-primary": { "iron-plate": 2 }, "input-secondary": { coal: 2 } },
+      "assembler-1": { "input-primary": { "iron-plate": 2 }, "input-secondary": { coal: 1 } },
       "generator-2": { fuel: { coal: 1 } },
     };
+    source.scenario.initialTreatments = [
+      { device: "assembler-1", buffer: "input-primary", resource: "iron-plate", level: 2, count: 2 },
+      { device: "assembler-1", buffer: "input-secondary", resource: "coal", level: 2, count: 1 },
+    ];
     const project = compileFactoryProject(source);
     expect(project.devices["assembler-1"]!.processPlan).toEqual(expect.objectContaining({
       durationTicks: 3000, powerMilliWatts: 330000,
-      inputs: [{ buffer: "input-primary", resource: "iron-plate", count: 2 }, { buffer: "input-secondary", resource: "coal", count: 2 }],
-      outputs: [{ buffer: "output", resource: "gear", count: 2 }],
+      inputs: [
+        { buffer: "input-primary", resource: "iron-plate", count: 2, minimumTreatmentLevel: 2 },
+        { buffer: "input-secondary", resource: "coal", count: 1, minimumTreatmentLevel: 2 },
+      ],
+      outputs: [{ buffer: "output", resource: "gear", count: 2, treatmentLevel: 0 }],
     }));
     const result = runUntil(project);
     expect(result.metrics.produced.gear).toBe(2);
@@ -1505,6 +1533,61 @@ describe("deterministic discrete-event simulation", () => {
     expect(() => runUntil(compileFactoryProject(source))).toThrow("must execute compiled process 'assemble-gear' mode 'productive' exactly");
   });
 
+  test("treated material keeps its level across a physical belt and unlocks a productive recipe", async () => {
+    const source = await loaded();
+    source.blueprint = {
+      version: 1,
+      devices: [
+        {
+          id: "coater-1", asset: "spray-coater", region: "assembly-world", position: { x: 5, y: 10 }, rotation: 0,
+          treatment: { mode: "mk2" },
+          bufferFilters: { "material-input": ["iron-plate"], "material-output": ["iron-plate"], "agent-input": ["proliferator"] },
+        },
+        {
+          id: "assembler-1", asset: "assembler", region: "assembly-world", position: { x: 14, y: 10 }, rotation: 0,
+          recipe: { process: "assemble-gear", mode: "productive", inputs: { "iron-plate": "input-primary", coal: "input-secondary" }, outputs: { gear: "output" } },
+        },
+        { id: "wind-1", asset: "wind-turbine", region: "assembly-world", position: { x: 10, y: 3 }, rotation: 0 },
+      ],
+      connections: [], logisticsNetworks: [], policies: { dispatch: "shortage-first" },
+    };
+    const connection: Blueprint["connections"][number] = {
+      id: "coated-plate-to-assembler",
+      from: { device: "coater-1", port: "material-output" },
+      to: { device: "assembler-1", port: "input-primary" },
+      resources: ["iron-plate"], path: [],
+      logistics: {
+        loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" },
+        unloader: { deviceAsset: "sorter", distance: 1 },
+      },
+    };
+    connection.path = findBlueprintConnectionPath(source.blueprint, source.world, source.deviceAssets, connection)!;
+    source.blueprint.connections.push(connection);
+    source.scenario.durationTicks = 5_000;
+    source.scenario.initialBuffers = {
+      "coater-1": { "material-input": { "iron-plate": 8 }, "agent-input": { proliferator: 1 } },
+      "assembler-1": { "input-secondary": { coal: 1 } },
+    };
+    source.scenario.initialTreatments = [
+      { device: "assembler-1", buffer: "input-secondary", resource: "coal", level: 2, count: 1 },
+    ];
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.failures = [];
+    const project = compileFactoryProject(source);
+    expect(project.devices["coater-1"]!.treatmentPlan).toEqual(expect.objectContaining({ mode: expect.objectContaining({ id: "mk2", level: 2 }) }));
+    const result = runUntil(project);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "device.start", device: "coater-1", operation: "mk2" }));
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "material.treated", device: "coater-1", resource: "iron-plate", count: 4, fromLevel: 0, toLevel: 2,
+      agentResource: "proliferator", agentCount: 1,
+    }));
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "resource.depart", transit: expect.objectContaining({ resource: "iron-plate", treatmentLevel: 2 }) }));
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "device.start", device: "assembler-1", operation: "assemble-gear" }));
+    expect(result.metrics.produced.gear).toBe(2);
+    expect(result.metrics.materialTreatment).toEqual({ treated: { "iron-plate": { "2": 4 } }, agentsConsumed: { proliferator: 1 } });
+    expect(result.state.devices["assembler-1"]!.materialBatches.output!.gear).toEqual({ "0": 2 });
+  });
+
   test("failure scenarios break and recover devices deterministically", async () => {
     const project = await openFactoryProject(ironworks, { scenario: "machine-failure" }); const result = runUntil(project, undefined, { seed: 42 });
     expect(result.events.some((event) => event.type === "device.breakdown")).toBeTrue();
@@ -1513,7 +1596,7 @@ describe("deterministic discrete-event simulation", () => {
 });
 
 describe("research boundary and experiment decisions", () => {
-  test("Blueprint comparison produces an exact patch and deterministic industrial impact", async () => {
+  test("Blueprint comparison exposes an unfed treatment mode as a regression", async () => {
     const source = await loaded(); const before = compileFactoryProject(source);
     const candidate = structuredClone(source.blueprint); const assembler = candidate.devices.find((device) => device.id === "assembler-1");
     if (!assembler?.recipe) throw new Error("assembler-1 recipe missing from test fixture");
@@ -1524,8 +1607,9 @@ describe("research boundary and experiment decisions", () => {
     expect(stableStringify(applyBlueprintPatch(before.blueprint, comparison.patch))).toBe(stableStringify(after.blueprint));
     expect(comparison.changes).toEqual([expect.objectContaining({ kind: "device", id: "assembler-1", action: "changed", fields: ["recipe.mode"] })]);
     expect(comparison.to.capacityPlan.processes.some((process) => process.mode === "accelerated")).toBeTrue();
-    expect(comparison.delta.score).toBeGreaterThan(0);
-    expect(comparison.verdict).toBe("IMPROVED");
+    expect(comparison.to.capacityPlan.gaps.some((gap) => gap.kind === "treatment")).toBeTrue();
+    expect(comparison.delta.score).toBeLessThan(0);
+    expect(comparison.verdict).toBe("REGRESSED");
     expect(compareFactoryBlueprints(before, after, { seed: 42 }).delta).toEqual(comparison.delta);
   });
 
@@ -1565,11 +1649,11 @@ describe("research boundary and experiment decisions", () => {
     const agent = new HeuristicResearchAgent();
     const base = { project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project) };
     const first = await agent.propose({ iteration: 1, ...base, history: [] });
-    expect(first.strategy).toBe("recipe:assembler-1:forge-gear-pair:accelerated");
+    expect(first.strategy).toBe("recipe:assembler-1:forge-gear-pair:standard");
     const second = await agent.propose({ iteration: 2, ...base, history: [{
       iteration: 1, strategy: first.strategy!, hypothesis: first.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
     }] });
-    expect(second.strategy).toBe("recipe:assembler-1:forge-gear-pair:productive");
+    expect(second.strategy).toBe("capacity-plan:smelt-iron:1->2");
   });
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {

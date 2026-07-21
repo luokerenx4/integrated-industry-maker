@@ -63,7 +63,7 @@ export interface IndustrialProcess extends IndustrialProcessManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "extract" | "process" | "store" | "transport" | "transport-junction" | "station" | "consume" | "power";
+export type DeviceCapability = "extract" | "process" | "treat" | "store" | "transport" | "transport-junction" | "station" | "consume" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -96,6 +96,17 @@ export interface ProductionModeDefinition {
   powerMultiplier: { numerator: number; denominator: number };
   /** Extra project Resources consumed once per mode job in fixed physical buffers. */
   auxiliaryInputs: Array<{ resource: ResourceId; count: number; buffer: BufferId }>;
+  /** Every Process input batch must have at least this treatment level. Zero accepts untreated material. */
+  minimumInputTreatmentLevel: number;
+}
+
+export interface MaterialTreatmentModeDefinition {
+  id: string;
+  name: string;
+  level: number;
+  durationTicks: Tick;
+  itemCount: number;
+  agent: { resource: ResourceId; count: number };
 }
 
 export interface DeviceAssetManifest {
@@ -125,6 +136,12 @@ export interface DeviceAssetManifest {
     outputBuffer: BufferId;
     cycleTicks: Tick;
     itemsPerCycle: number;
+  };
+  treatment?: {
+    inputBuffer: BufferId;
+    outputBuffer: BufferId;
+    agentBuffer: BufferId;
+    modes: MaterialTreatmentModeDefinition[];
   };
   logistics?: {
     roles: LogisticsRole[];
@@ -158,6 +175,10 @@ export interface ResourceBufferQuantity {
   buffer: BufferId;
   resource: ResourceId;
   count: number;
+  /** Input-only lower bound. Omitted means any treatment level is acceptable. */
+  minimumTreatmentLevel?: number;
+  /** Output/transit exact level. Omitted means untreated level zero. */
+  treatmentLevel?: number;
 }
 
 export interface DeviceProgramContext {
@@ -175,6 +196,18 @@ export interface DeviceProgramContext {
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
   }>;
+  treatment?: Readonly<{
+    id: string;
+    name: string;
+    level: number;
+    durationTicks: Tick;
+    itemCount: number;
+    inputBuffer: BufferId;
+    outputBuffer: BufferId;
+    agent: Readonly<{ buffer: BufferId; resource: ResourceId; count: number }>;
+  }>;
+  /** Exact buffer lots keyed by Resource then decimal treatment level. */
+  materialBatches: Readonly<Record<BufferId, Readonly<Record<ResourceId, Readonly<Record<string, number>>>>>>;
   extraction?: Readonly<{
     outputBuffer: BufferId;
     cycleTicks: Tick;
@@ -193,6 +226,7 @@ export type DeviceProgramDecision =
   | { kind: "start"; operation: string; durationTicks: Tick; consume: ResourceBufferQuantity[]; produce: ResourceBufferQuantity[]; powerMilliWatts?: number }
   | { kind: "extract"; operation: string; durationTicks: Tick; node: string; count: number; powerMilliWatts?: number }
   | { kind: "generate"; operation: string; durationTicks: Tick; resource: ResourceId; count: number; outputMilliWatts: number }
+  | { kind: "treat"; operation: string; durationTicks: Tick; resource: ResourceId; inputTreatmentLevel: number; count: number; powerMilliWatts?: number }
   | { kind: "consume"; consume: ResourceBufferQuantity[] }
   | { kind: "wait"; reason: "input" | "output" | "idle" }
   | { kind: "none" };
@@ -249,6 +283,7 @@ export interface BlueprintDevice {
     inputs: Record<ResourceId, BufferId>;
     outputs: Record<ResourceId, BufferId>;
   };
+  treatment?: { mode: string };
   /** Instance-level Resource contracts. Each entry narrows the corresponding asset buffer; an empty list disables that buffer. */
   bufferFilters?: Record<BufferId, ResourceId[]>;
   resourceNodes?: string[];
@@ -315,6 +350,8 @@ export interface Scenario {
   name: string;
   durationTicks: Tick;
   initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
+  /** Treated subsets of initialBuffers. Undeclared remainder is untreated level zero. */
+  initialTreatments?: Array<{ device: DeviceInstanceId; buffer: BufferId; resource: ResourceId; level: number; count: number }>;
   initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
   failures?: ScenarioFailure[];
 }
@@ -377,6 +414,12 @@ export interface CompiledDevice extends BlueprintDevice {
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     outputs: ResourceBufferQuantity[];
+  };
+  treatmentPlan?: {
+    mode: MaterialTreatmentModeDefinition;
+    inputBuffer: BufferId;
+    outputBuffer: BufferId;
+    agentBuffer: BufferId;
   };
   extractionPlan?: {
     nodes: WorldResourceNode[];
@@ -517,10 +560,13 @@ export interface ActiveDeviceJob {
   extraction?: { node: string; count: number };
   generationMilliWatts?: number;
   fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
+  treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
 }
 export interface DeviceRuntimeState {
   status: DeviceStatus;
   buffers: Record<BufferId, Record<ResourceId, number>>;
+  /** Authoritative lot breakdown; its per-Resource sum always equals buffers. */
+  materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
@@ -529,6 +575,7 @@ export interface ResourceTransit {
   id: string;
   resource: ResourceId;
   count: number;
+  treatmentLevel: number;
   from: DeviceInstanceId;
   fromBuffer: BufferId;
   to: DeviceInstanceId;
@@ -567,6 +614,10 @@ export interface FactoryState {
     fuelConsumed: Record<ResourceId, number>;
   };
   completedOrders: number;
+  materialTreatment: {
+    treated: Record<ResourceId, Record<string, number>>;
+    agentsConsumed: Record<ResourceId, number>;
+  };
 }
 
 export type FactoryEvent =
@@ -583,6 +634,7 @@ export type FactoryEvent =
   | { type: "logistics.depart"; tick: Tick; transit: ResourceTransit; network: string; route: string }
   | { type: "logistics.arrive"; tick: Tick; transit: ResourceTransit; network: string; route: string }
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number }
+  | { type: "material.treated"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; fromLevel: number; toLevel: number; agentResource: ResourceId; agentCount: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "power.shortage"; tick: Tick; device: DeviceInstanceId; grid: string | null; requiredMilliWatts: number; availableMilliWatts: number; remainingTicks?: Tick; workedTicks?: Tick }
@@ -624,6 +676,10 @@ export interface FactoryMetrics {
     dischargedMilliJoules: number;
   }>;
   fuelConsumed: Record<ResourceId, number>;
+  materialTreatment: {
+    treated: Record<ResourceId, Record<string, number>>;
+    agentsConsumed: Record<ResourceId, number>;
+  };
   totalBuildCost: number;
   occupiedArea: number;
   machineUtilization: Record<DeviceInstanceId, number>;

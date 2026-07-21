@@ -6,6 +6,7 @@ import {
 import { connectionCapacityPerMinute, maximumConnectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
+import { plannedProductionAmounts } from "./material-treatment";
 
 export interface DeviceProductionRate {
   device: string;
@@ -14,6 +15,7 @@ export interface DeviceProductionRate {
   mode: string;
   inputCycles: number;
   outputCycles: number;
+  minimumInputTreatmentLevel: number;
   category: string;
   cycleTicks: number;
   cyclesPerMinute: number;
@@ -30,6 +32,7 @@ export interface RecipeOptionAnalysis {
   process: string;
   mode: string;
   modeName: string;
+  minimumInputTreatmentLevel: number;
   name: string;
   category: string;
   selected: boolean;
@@ -59,6 +62,23 @@ export interface DeviceExtractionRate {
   cycleTicks: number;
   itemsPerCycle: number;
   itemsPerMinute: number;
+  powerMilliWatts: number;
+}
+
+export interface DeviceTreatmentRate {
+  device: string;
+  asset: string;
+  mode: string;
+  level: number;
+  itemCount: number;
+  cycleTicks: number;
+  itemsPerMinute: number;
+  inputBuffer: string;
+  outputBuffer: string;
+  agentBuffer: string;
+  agentResource: ResourceId;
+  agentPerCycle: number;
+  agentPerMinute: number;
   powerMilliWatts: number;
 }
 
@@ -184,7 +204,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
+  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "resource-unmined" | "resource-depletes-during-scenario";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -204,6 +224,7 @@ export interface ProductionAnalysis {
   recipeOptions: RecipeOptionAnalysis[];
   productionGraph: ProductionDependencyGraph;
   extractionDevices: DeviceExtractionRate[];
+  treatmentDevices: DeviceTreatmentRate[];
   generationDevices: DevicePowerGenerationRate[];
   storageDevices: DevicePowerStorageRate[];
   resourceNodes: ResourceNodeAnalysis[];
@@ -252,7 +273,7 @@ export function bindProcessRecipe(
 function buildProductionGraph(project: CompiledFactoryProject, devices: DeviceProductionRate[]): ProductionDependencyGraph {
   const candidates = devices.flatMap((producer) => {
     const processPlan = project.devices[producer.device]?.processPlan;
-    const amounts = processPlan ? effectiveProductionAmounts(processPlan.definition, processPlan.mode) : undefined;
+    const amounts = processPlan ? plannedProductionAmounts(processPlan.definition, processPlan.mode, project.deviceAssets) : undefined;
     return processPlan ? [{
       key: producer.device,
       inputs: amounts!.inputs,
@@ -306,6 +327,7 @@ function declaredBoundaryResources(project: CompiledFactoryProject): Set<Resourc
 export function analyzeProduction(project: CompiledFactoryProject): ProductionAnalysis {
   const devices: DeviceProductionRate[] = [];
   const extractionDevices: DeviceExtractionRate[] = [];
+  const treatmentDevices: DeviceTreatmentRate[] = [];
   const generationDevices: DevicePowerGenerationRate[] = [];
   const storageDevices: DevicePowerStorageRate[] = [];
   const produced: Record<ResourceId, number> = {};
@@ -330,6 +352,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       mode: device.processPlan.mode.id,
       inputCycles: device.processPlan.mode.inputCycles,
       outputCycles: device.processPlan.mode.outputCycles,
+      minimumInputTreatmentLevel: device.processPlan.mode.minimumInputTreatmentLevel,
       category: device.processPlan.definition.category,
       cycleTicks: device.processPlan.durationTicks,
       cyclesPerMinute,
@@ -354,7 +377,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       const inputBindings = { ...bindings.inputs };
       for (const input of mode.auxiliaryInputs) inputBindings[input.resource] = input.buffer;
       return [{
-        device: device.id, asset: device.asset, process: process.id, mode: mode.id, modeName: mode.name, name: process.name, category: process.category,
+        device: device.id, asset: device.asset, process: process.id, mode: mode.id, modeName: mode.name,
+        minimumInputTreatmentLevel: mode.minimumInputTreatmentLevel, name: process.name, category: process.category,
         selected: device.processPlan?.definition.id === process.id && device.processPlan.mode.id === mode.id, cycleTicks, cyclesPerMinute,
         inputs: amounts.inputs, outputs: amounts.outputs,
         inputBindings, outputBindings: bindings.outputs,
@@ -363,6 +387,20 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     }));
   });
   const productionGraph = buildProductionGraph(project, devices);
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    const plan = device.treatmentPlan;
+    if (!plan) continue;
+    const cyclesPerMinute = 60_000 / plan.mode.durationTicks;
+    const agentPerMinute = plan.mode.agent.count * cyclesPerMinute;
+    treatmentDevices.push({
+      device: device.id, asset: device.asset, mode: plan.mode.id, level: plan.mode.level,
+      itemCount: plan.mode.itemCount, cycleTicks: plan.mode.durationTicks, itemsPerMinute: plan.mode.itemCount * cyclesPerMinute,
+      inputBuffer: plan.inputBuffer, outputBuffer: plan.outputBuffer, agentBuffer: plan.agentBuffer,
+      agentResource: plan.mode.agent.resource, agentPerCycle: plan.mode.agent.count, agentPerMinute,
+      powerMilliWatts: device.assetDef.power.consumptionMilliWatts,
+    });
+    add(consumed, plan.mode.agent.resource, agentPerMinute);
+  }
   const bufferContracts: ProductionAnalysis["bufferContracts"] = Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).map((device) => ({
     device: device.id, asset: device.asset,
     buffers: Object.values(device.buffers).sort((a, b) => a.id.localeCompare(b.id)).map((buffer) => ({
@@ -516,6 +554,23 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }));
 
   const diagnostics: ProductionDiagnostic[] = [];
+  const hasTreatmentSource = (device: string, buffer: string, resource: ResourceId, minimumLevel: number, visited = new Set<string>()): boolean => {
+    const key = `${device}\0${buffer}\0${resource}`;
+    if (visited.has(key)) return false;
+    visited.add(key);
+    if ((project.scenario.initialTreatments ?? []).some((initial) => initial.device === device && initial.buffer === buffer
+      && initial.resource === resource && initial.level >= minimumLevel && initial.count > 0)) return true;
+    const inboundConnections = Object.values(project.connections).filter((connection) => connection.to.device === device
+      && connection.toPort.buffer === buffer && connection.resources.includes(resource));
+    for (const connection of inboundConnections) {
+      const source = connection.fromDevice;
+      if (source.treatmentPlan?.outputBuffer === connection.fromPort.buffer && source.treatmentPlan.mode.level >= minimumLevel) return true;
+      if (hasTreatmentSource(source.id, connection.fromPort.buffer, resource, minimumLevel, visited)) return true;
+    }
+    const inboundRoutes = Object.values(project.logisticsNetworks).flatMap((network) => network.routes)
+      .filter((route) => route.to === device && route.toBuffer === buffer && route.resource === resource);
+    return inboundRoutes.some((route) => hasTreatmentSource(route.from, route.fromBuffer, resource, minimumLevel, visited));
+  };
   const resourceNodes: ResourceNodeAnalysis[] = Object.values(project.resourceNodes).sort((a, b) => a.id.localeCompare(b.id)).map((node) => {
     const miners = extractionDevices.filter((device) => device.nodes.includes(node.id));
     const nominalSharePerMinute = miners.reduce((sum, miner) => sum + miner.itemsPerMinute / miner.nodes.length, 0);
@@ -537,6 +592,32 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     if (balance.netPerMinute > 1e-9 && !balance.hasBoundaryDemand) diagnostics.push({
       code: "material-surplus", severity: "info", resource: balance.resource,
       message: `${balance.resource} has ${balance.netPerMinute.toFixed(3)}/min nominal surplus without a declared boundary consumer`,
+    });
+  }
+
+  for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const input of device.processPlan?.inputs ?? []) {
+      const minimumLevel = input.minimumTreatmentLevel ?? 0;
+      if (minimumLevel > 0 && !hasTreatmentSource(device.id, input.buffer, input.resource, minimumLevel)) diagnostics.push({
+        code: "treatment-input-unfed", severity: "warning", resource: input.resource, device: device.id,
+        message: `${device.id} mode ${device.processPlan!.mode.id} requires ${input.resource}@${minimumLevel}+ in ${input.buffer}, but no upstream treatment path can supply it`,
+      });
+    }
+    const treatment = device.treatmentPlan;
+    if (!treatment) continue;
+    const materialInbound = Object.values(project.connections).some((connection) => connection.to.device === device.id
+      && connection.toPort.buffer === treatment.inputBuffer);
+    const initialMaterial = Object.values(project.scenario.initialBuffers?.[device.id]?.[treatment.inputBuffer] ?? {}).reduce((sum, count) => sum + count, 0);
+    if (!materialInbound && initialMaterial <= 0) diagnostics.push({
+      code: "treatment-input-unfed", severity: "warning", device: device.id,
+      message: `${device.id} treatment input ${treatment.inputBuffer} has no inbound material link or startup inventory`,
+    });
+    const agentInbound = Object.values(project.connections).some((connection) => connection.to.device === device.id
+      && connection.toPort.buffer === treatment.agentBuffer && connection.resources.includes(treatment.mode.agent.resource));
+    const initialAgent = project.scenario.initialBuffers?.[device.id]?.[treatment.agentBuffer]?.[treatment.mode.agent.resource] ?? 0;
+    if (!agentInbound && initialAgent <= 0) diagnostics.push({
+      code: "treatment-agent-unfed", severity: "warning", resource: treatment.mode.agent.resource, device: device.id,
+      message: `${device.id} requires ${treatment.mode.agent.resource} in ${treatment.agentBuffer} but has no inbound agent link or startup inventory`,
     });
   }
 
@@ -607,7 +688,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   return {
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, bufferContracts, recipeOptions, productionGraph, extractionDevices, generationDevices, storageDevices, resourceNodes,
+    devices, bufferContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
     resources,
     connections,
     transportCells,

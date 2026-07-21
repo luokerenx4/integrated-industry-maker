@@ -84,6 +84,10 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const storageRows = Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0)
     .map(([grid, storage]) => `| ${grid} | ${(storage.initialMilliJoules / 1e6).toFixed(3)} | ${(storage.storedMilliJoules / 1e6).toFixed(3)} / ${(storage.capacityMilliJoules / 1e6).toFixed(3)} | ${(storage.chargedMilliJoules / 1e6).toFixed(3)} | ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} |`);
   const totalUnpoweredTicks = Object.values(result.metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0);
+  const treatedMaterials = Object.entries(result.metrics.materialTreatment.treated)
+    .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
+  const treatmentAgents = Object.entries(result.metrics.materialTreatment.agentsConsumed)
+    .map(([resource, count]) => `${count} ${resource}`);
   const capacityPlan = planProductionCapacity(project);
   const report = [
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
@@ -93,6 +97,8 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Capacity plan: ${capacityPlan.ready ? "READY" : `${capacityPlan.gaps.length} GAP${capacityPlan.gaps.length === 1 ? "" : "S"}`}`,
     `- Belt utilization: ${(result.metrics.beltCellUtilization * 100).toFixed(1)}%`, `- Average blocked belt items: ${result.metrics.averageBlockedBeltItems.toFixed(3)}`, `- Peak belt items: ${result.metrics.peakBeltItems}`,
     `- Powered transport energy: ${(result.metrics.transportEnergyConsumedMilliJoules / 1_000).toFixed(3)} J`,
+    `- Material treated: ${treatedMaterials.join(" + ") || "none"}`,
+    `- Treatment agents consumed: ${treatmentAgents.join(" + ") || "none"}`,
     `- Aggregate unpowered time: ${totalUnpoweredTicks} device-ticks`,
     result.metrics.infeasibleReason ? `- Infeasible: ${result.metrics.infeasibleReason}` : "- Feasible: yes", "", "## Capacity-plan gaps", "",
     ...(capacityPlan.gaps.length ? capacityPlan.gaps.map((gap) => `- **${gap.kind}** \`${gap.entity}\`: ${gap.message}`) : ["- None; the selected blueprint provisions the complete target-rate plan."]),

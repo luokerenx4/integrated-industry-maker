@@ -2,10 +2,400 @@
   "connections": [
     {
       "from": {
+        "device": "synth-coal-synth-forge-gear-pair-1-coater-1",
+        "port": "material-output"
+      },
+      "id": "synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 3,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 3,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 3,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 6,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 6
+        },
+        {
+          "level": 0,
+          "x": 8,
+          "y": 6
+        }
+      ],
+      "resources": [
+        "coal"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-forge-gear-pair-1",
+        "port": "input-secondary"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "port": "material-output"
+      },
+      "id": "synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "x": 4,
+          "y": 10
+        },
+        {
+          "x": 4,
+          "y": 11
+        },
+        {
+          "x": 5,
+          "y": 11
+        },
+        {
+          "x": 6,
+          "y": 11
+        },
+        {
+          "x": 7,
+          "y": 11
+        },
+        {
+          "x": 8,
+          "y": 11
+        },
+        {
+          "x": 9,
+          "y": 11
+        },
+        {
+          "x": 10,
+          "y": 11
+        },
+        {
+          "x": 10,
+          "y": 10
+        },
+        {
+          "x": 11,
+          "y": 10
+        },
+        {
+          "x": 12,
+          "y": 10
+        },
+        {
+          "x": 13,
+          "y": 10
+        },
+        {
+          "x": 13,
+          "y": 9
+        },
+        {
+          "x": 13,
+          "y": 8
+        },
+        {
+          "x": 13,
+          "y": 7
+        },
+        {
+          "x": 13,
+          "y": 6
+        },
+        {
+          "x": 12,
+          "y": 6
+        },
+        {
+          "x": 11,
+          "y": 6
+        },
+        {
+          "x": 10,
+          "y": 6
+        },
+        {
+          "x": 10,
+          "y": 5
+        },
+        {
+          "x": 10,
+          "y": 4
+        },
+        {
+          "x": 10,
+          "y": 3
+        },
+        {
+          "x": 9,
+          "y": 3
+        },
+        {
+          "x": 8,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 4
+        },
+        {
+          "x": 6,
+          "y": 5
+        },
+        {
+          "x": 6,
+          "y": 6
+        },
+        {
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "resources": [
+        "iron-plate"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-forge-gear-pair-1",
+        "port": "input-primary"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-coal-split",
+        "port": "output-north"
+      },
+      "id": "synth-coal-synth-coal-split-to-synth-make-proliferator-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 5,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 6,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "level": 0,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "resources": [
+        "coal"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-make-proliferator-1",
+        "port": "input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-coal-split",
+        "port": "output-east"
+      },
+      "id": "synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 2
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 3,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 1,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 7
+        },
+        {
+          "level": 0,
+          "x": 0,
+          "y": 8
+        }
+      ],
+      "resources": [
+        "coal"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-coal-synth-forge-gear-pair-1-coater-1",
+        "port": "material-input"
+      }
+    },
+    {
+      "from": {
         "device": "synth-coal-extractor-1",
         "port": "output"
       },
-      "id": "synth-coal-synth-coal-extractor-1-to-synth-forge-gear-pair-1",
+      "id": "synth-coal-synth-coal-extractor-1-to-synth-coal-split",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -25,40 +415,8 @@
           "y": 3
         },
         {
-          "x": 2,
-          "y": 4
-        },
-        {
-          "x": 2,
-          "y": 5
-        },
-        {
-          "x": 2,
-          "y": 6
-        },
-        {
           "x": 3,
-          "y": 6
-        },
-        {
-          "x": 4,
-          "y": 6
-        },
-        {
-          "x": 5,
-          "y": 6
-        },
-        {
-          "x": 6,
-          "y": 6
-        },
-        {
-          "x": 7,
-          "y": 6
-        },
-        {
-          "x": 8,
-          "y": 6
+          "y": 3
         }
       ],
       "resources": [
@@ -66,8 +424,8 @@
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-forge-gear-pair-1",
-        "port": "input-secondary"
+        "device": "synth-coal-split",
+        "port": "input-west"
       }
     },
     {
@@ -217,7 +575,7 @@
         "device": "synth-iron-plate-assembly-world-station-demand-1",
         "port": "output"
       },
-      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-forge-gear-pair-1",
+      "id": "synth-iron-plate-synth-iron-plate-assembly-world-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
       "logistics": {
         "line": {
           "deviceAsset": "conveyor"
@@ -228,17 +586,89 @@
         },
         "unloader": {
           "deviceAsset": "sorter",
-          "distance": 2
+          "distance": 1
         }
       },
       "path": [
         {
+          "level": 0,
           "x": 5,
-          "y": 8
+          "y": 13
         },
         {
+          "level": 1,
           "x": 5,
-          "y": 7
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 15
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 3,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 1,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 16
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 15
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 0,
+          "y": 10
+        },
+        {
+          "level": 0,
+          "x": 1,
+          "y": 10
         }
       ],
       "resources": [
@@ -246,8 +676,8 @@
       ],
       "stackSize": 1,
       "to": {
-        "device": "synth-forge-gear-pair-1",
-        "port": "input-primary"
+        "device": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "port": "material-input"
       }
     },
     {
@@ -382,6 +812,331 @@
     },
     {
       "from": {
+        "device": "synth-proliferator-split",
+        "port": "output-east"
+      },
+      "id": "synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 9
+        },
+        {
+          "level": 0,
+          "x": 3,
+          "y": 9
+        }
+      ],
+      "resources": [
+        "proliferator"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+        "port": "agent-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-proliferator-split",
+        "port": "output-north"
+      },
+      "id": "synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 7,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 13
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 8
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 7
+        },
+        {
+          "level": 1,
+          "x": 13,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 12,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 6
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 4
+        },
+        {
+          "level": 1,
+          "x": 8,
+          "y": 4
+        },
+        {
+          "level": 1,
+          "x": 7,
+          "y": 4
+        },
+        {
+          "level": 1,
+          "x": 6,
+          "y": 4
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 4
+        },
+        {
+          "level": 1,
+          "x": 5,
+          "y": 3
+        },
+        {
+          "level": 1,
+          "x": 4,
+          "y": 3
+        },
+        {
+          "level": 1,
+          "x": 3,
+          "y": 3
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 3
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 4
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 5
+        },
+        {
+          "level": 1,
+          "x": 2,
+          "y": 6
+        },
+        {
+          "level": 0,
+          "x": 2,
+          "y": 7
+        }
+      ],
+      "resources": [
+        "proliferator"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-coal-synth-forge-gear-pair-1-coater-1",
+        "port": "agent-input"
+      }
+    },
+    {
+      "from": {
+        "device": "synth-make-proliferator-1",
+        "port": "output"
+      },
+      "id": "synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        },
+        "unloader": {
+          "deviceAsset": "sorter",
+          "distance": 1
+        }
+      },
+      "path": [
+        {
+          "level": 0,
+          "x": 10,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 9
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 10
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 11
+        },
+        {
+          "level": 1,
+          "x": 11,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 10,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 9,
+          "y": 12
+        },
+        {
+          "level": 0,
+          "x": 8,
+          "y": 12
+        }
+      ],
+      "resources": [
+        "proliferator"
+      ],
+      "stackSize": 1,
+      "to": {
+        "device": "synth-proliferator-split",
+        "port": "input-west"
+      }
+    },
+    {
+      "from": {
         "device": "synth-forge-gear-pair-1",
         "port": "output"
       },
@@ -433,6 +1188,26 @@
           "gear": "output"
         },
         "process": "forge-gear-pair"
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "compounder",
+      "id": "synth-make-proliferator-1",
+      "position": {
+        "x": 8,
+        "y": 9
+      },
+      "recipe": {
+        "inputs": {
+          "coal": "input"
+        },
+        "mode": "standard",
+        "outputs": {
+          "proliferator": "output"
+        },
+        "process": "make-proliferator"
       },
       "region": "assembly-world",
       "rotation": 0
@@ -531,6 +1306,54 @@
       "rotation": 0
     },
     {
+      "asset": "spray-coater",
+      "bufferFilters": {
+        "agent-input": [
+          "proliferator"
+        ],
+        "material-input": [
+          "iron-plate"
+        ],
+        "material-output": [
+          "iron-plate"
+        ]
+      },
+      "id": "synth-iron-plate-synth-forge-gear-pair-1-coater-1",
+      "position": {
+        "x": 2,
+        "y": 10
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "treatment": {
+        "mode": "mk2"
+      }
+    },
+    {
+      "asset": "spray-coater",
+      "bufferFilters": {
+        "agent-input": [
+          "proliferator"
+        ],
+        "material-input": [
+          "coal"
+        ],
+        "material-output": [
+          "coal"
+        ]
+      },
+      "id": "synth-coal-synth-forge-gear-pair-1-coater-1",
+      "position": {
+        "x": 1,
+        "y": 8
+      },
+      "region": "assembly-world",
+      "rotation": 0,
+      "treatment": {
+        "mode": "mk2"
+      }
+    },
+    {
       "asset": "interstellar-logistics-station",
       "bufferFilters": {
         "storage": [
@@ -555,10 +1378,28 @@
       "id": "synth-iron-plate-assembly-world-station-demand-1",
       "position": {
         "x": 1,
-        "y": 7
+        "y": 12
       },
       "region": "assembly-world",
       "rotation": 0
+    },
+    {
+      "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "coal"
+        ]
+      },
+      "id": "synth-coal-split",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 3,
+        "y": 4
+      },
+      "region": "assembly-world",
+      "rotation": 90
     },
     {
       "asset": "splitter",
@@ -592,6 +1433,24 @@
       },
       "region": "forge-world",
       "rotation": 0
+    },
+    {
+      "asset": "splitter",
+      "bufferFilters": {
+        "storage": [
+          "proliferator"
+        ]
+      },
+      "id": "synth-proliferator-split",
+      "policy": {
+        "dispatch": "round-robin"
+      },
+      "position": {
+        "x": 6,
+        "y": 12
+      },
+      "region": "assembly-world",
+      "rotation": 180
     },
     {
       "asset": "wind-turbine",
@@ -628,7 +1487,17 @@
       "id": "synth-assembly-world-wind-turbine-2",
       "position": {
         "x": 4,
-        "y": 4
+        "y": 7
+      },
+      "region": "assembly-world",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "synth-assembly-world-wind-turbine-3",
+      "position": {
+        "x": 5,
+        "y": 9
       },
       "region": "assembly-world",
       "rotation": 0

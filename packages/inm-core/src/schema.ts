@@ -50,7 +50,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["extract", "process", "store", "transport", "transport-junction", "station", "consume", "power"])).min(1),
+  capabilities: z.array(z.enum(["extract", "process", "treat", "store", "transport", "transport-junction", "station", "consume", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -65,11 +65,19 @@ export const deviceAssetSchema = z.object({
       durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
       powerMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
       auxiliaryInputs: z.array(z.object({ resource: id, count: positiveInt, buffer: id }).strict()),
+      minimumInputTreatmentLevel: nonNegativeInt,
     }).strict()).min(1),
   }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,
     cycleTicks: positiveInt, itemsPerCycle: positiveInt,
+  }).strict().optional(),
+  treatment: z.object({
+    inputBuffer: id, outputBuffer: id, agentBuffer: id,
+    modes: z.array(z.object({
+      id, name: z.string().min(1), level: positiveInt, durationTicks: positiveInt, itemCount: positiveInt,
+      agent: z.object({ resource: id, count: positiveInt }).strict(),
+    }).strict()).min(1),
   }).strict().optional(),
   logistics: z.object({
     roles: z.array(z.enum(["loader", "line", "unloader", "carrier"])).min(1),
@@ -119,6 +127,7 @@ export const blueprintSchema = z.object({
       inputs: z.record(id),
       outputs: z.record(id),
     }).strict().optional(),
+    treatment: z.object({ mode: id }).strict().optional(),
     bufferFilters: z.record(z.array(id)).optional(),
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
@@ -157,6 +166,9 @@ export const blueprintSchema = z.object({
 export const scenarioSchema = z.object({
   id, name: z.string().min(1), durationTicks: positiveInt,
   initialBuffers: z.record(z.record(z.record(nonNegativeInt))).optional(),
+  initialTreatments: z.array(z.object({
+    device: id, buffer: id, resource: id, level: positiveInt, count: positiveInt,
+  }).strict()).optional(),
   initialEnergyMilliJoules: z.record(nonNegativeInt).optional(),
   failures: z.array(z.object({ device: id, atTick: nonNegativeInt, durationTicks: positiveInt }).strict()).optional(),
 }).strict();
