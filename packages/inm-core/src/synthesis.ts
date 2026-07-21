@@ -161,6 +161,37 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   if (!boundaryAsset) throw new Error(`No project-local consumer Device accepts objective Resource '${targetResource}'`);
   const finalRegion = loaded.objective.targetRegion;
   if (!loaded.world.regions.some((region) => region.id === finalRegion)) throw new Error(`Objective target region '${finalRegion}' is not present in world '${loaded.world.id}'`);
+  const loaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("loader"));
+  const lines = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"));
+  const unloaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"));
+  if (!loaders.length || !lines.length || !unloaders.length) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
+  const pipelineOptions = (resource: ResourceId, distance: number, connection: string): LogisticsPipelineSelection[] => {
+    const resourceStackSize = loaded.resources[resource]!.transport.stackSize;
+    return loaders.flatMap((loader) => lines.flatMap((line) => unloaders.flatMap((unloader) => {
+      const loaderPlan = planDeviceTransport(loader.id, loader.program, { apiVersion: 1, connection, stage: "loader", distance: 1 });
+      const linePlan = planDeviceTransport(line.id, line.program, { apiVersion: 1, connection, stage: "line", distance });
+      const unloaderPlan = planDeviceTransport(unloader.id, unloader.program, { apiVersion: 1, connection, stage: "unloader", distance: 1 });
+      if (linePlan.capacity !== distance) return [];
+      const dispatchInterval = Math.max(
+        Math.ceil(loaderPlan.durationTicks / loaderPlan.capacity),
+        Math.ceil(linePlan.durationTicks / linePlan.capacity),
+        Math.ceil(unloaderPlan.durationTicks / unloaderPlan.capacity),
+      );
+      const stackSize = Math.min(resourceStackSize, loaderPlan.stackCapacity, linePlan.stackCapacity, unloaderPlan.stackCapacity);
+      const capacityPerMinute = stackSize * 60_000 / dispatchInterval;
+      const buildCost = loader.economics.buildCost + line.economics.buildCost * distance + unloader.economics.buildCost;
+      const endpointPowerWatts = (loader.power.consumptionMilliWatts + unloader.power.consumptionMilliWatts) / 1_000;
+      const score = buildCost * Math.max(.001, loaded.objective.weights.buildCost)
+        + endpointPowerWatts * Math.max(.001, loaded.objective.weights.energy);
+      return [{ loader, line, unloader, stackSize, capacityPerMinute, score }];
+    }))).sort((a, b) => a.score - b.score || a.capacityPerMinute - b.capacityPerMinute
+      || a.loader.id.localeCompare(b.loader.id) || a.line.id.localeCompare(b.line.id) || a.unloader.id.localeCompare(b.unloader.id));
+  };
+  const maximumLocalCapacity = (resource: ResourceId): number => {
+    const capacities = pipelineOptions(resource, 1, `synth-${resource}-capacity`).map((selection) => selection.capacityPerMinute);
+    if (!capacities.length) throw new Error(`No project-local logistics pipeline supports Resource '${resource}'`);
+    return Math.max(...capacities);
+  };
   const baseProcessCandidates = Object.values(loaded.processes).flatMap((process) => Object.values(loaded.deviceAssets).flatMap((asset) => {
     const binding = bindProcessRecipe(asset, process); if (!binding || !asset.production) return [];
     const durationTicks = Math.max(1, Math.ceil(process.durationTicks * asset.production.speed.denominator / asset.production.speed.numerator));
@@ -213,7 +244,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   }));
   for (const selection of selections.values()) {
     const cyclesPerMachine = 60_000 / selection.durationTicks;
-    selection.machines = Math.ceil(selection.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
+    const productionMachines = Math.ceil(selection.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
+    const transportMachines = Math.max(1, ...[...selection.process.inputs, ...selection.process.outputs].map((amount) =>
+      Math.ceil(amount.count * selection.requiredCyclesPerMinute / maximumLocalCapacity(amount.resource) - 1e-9)));
+    selection.machines = Math.max(productionMachines, transportMachines);
     const region = loaded.world.regions.find((item) => item.id === selection.region)!;
     for (let index = 0; index < selection.machines; index++) {
       const device: BlueprintDevice = {
@@ -229,24 +263,29 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   }
 
   const sinkEndpoints = new Map<ResourceId, Endpoint[]>();
-  const addSink = (resource: ResourceId, region: string, near: BlueprintDevice, ratePerMinute: number, suffix = "sink"): void => {
+  const addSinks = (resource: ResourceId, region: string, near: BlueprintDevice, ratePerMinute: number, suffix = "sink"): void => {
     const asset = consumerAssetFor(resource);
     if (!asset) throw new Error(`No project-local consumer Device accepts surplus Resource '${resource}'`);
-    const sink: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${suffix}`), asset: asset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
-    placeDevice(loaded, blueprint, sink, { x: near.position.x + 4, y: near.position.y + (suffix === "sink" ? 0 : 5) });
     const port = asset.geometry.ports.find((item) => item.direction === "input" && (asset.buffers.find((buffer) => buffer.id === item.buffer)?.accepts.includes(resource)
       || asset.buffers.find((buffer) => buffer.id === item.buffer)?.accepts.includes("*")))!;
-    (sinkEndpoints.get(resource) ?? sinkEndpoints.set(resource, []).get(resource)!).push({ device: sink.id, port: port.id, region, ratePerMinute });
+    const sinkCount = Math.max(1, Math.ceil(ratePerMinute / maximumLocalCapacity(resource) - 1e-9));
+    for (let index = 0; index < sinkCount; index++) {
+      const sink: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${suffix}${sinkCount > 1 ? `-${index + 1}` : ""}`), asset: asset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+      placeDevice(loaded, blueprint, sink, { x: near.position.x + 4, y: near.position.y + (suffix === "sink" ? 0 : 5) + index * 4 });
+      (sinkEndpoints.get(resource) ?? sinkEndpoints.set(resource, []).get(resource)!).push({
+        device: sink.id, port: port.id, region, ratePerMinute: ratePerMinute / sinkCount,
+      });
+    }
   };
   const targetSelection = [...selections.values()].find((selection) => selection.process.outputs.some((output) => output.resource === targetResource));
   const targetInstance = targetSelection?.instances[0];
   if (!targetInstance) throw new Error(`Objective Resource '${targetResource}' must be produced by a project-local process`);
-  addSink(targetResource, finalRegion, targetInstance, targetRate);
+  addSinks(targetResource, finalRegion, targetInstance, targetRate);
   for (const surplus of demandPlan.surplus) {
     const producing = [...selections.values()].filter((selection) => selection.region === surplus.region
       && selection.process.outputs.some((output) => output.resource === surplus.resource));
     const near = producing[0]?.instances[0];
-    if (near) addSink(surplus.resource, surplus.region, near, surplus.perMinute, "surplus-sink");
+    if (near) addSinks(surplus.resource, surplus.region, near, surplus.perMinute, "surplus-sink");
   }
 
   const extractionSummary: BlueprintSynthesisResult["extraction"] = [];
@@ -260,7 +299,10 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
     if (!asset?.extraction) throw new Error(`No project-local extractor Device supports Resource '${resource}'`);
     const capacity = asset.extraction.itemsPerCycle * 60_000 / asset.extraction.cycleTicks;
-    const machines = Math.ceil(demand / capacity - 1e-9);
+    const machines = Math.max(
+      Math.ceil(demand / capacity - 1e-9),
+      Math.ceil(demand / maximumLocalCapacity(resource) - 1e-9),
+    );
     const endpoints: Endpoint[] = [];
     const centroid = { x: nodes.reduce((sum, node) => sum + node.position.x, 0) / nodes.length, y: nodes.reduce((sum, node) => sum + node.position.y, 0) / nodes.length };
     for (let index = 0; index < machines; index++) {
@@ -306,33 +348,18 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const stationSummary: BlueprintSynthesisResult["stationNetworks"] = [];
   const junctionAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("transport-junction"))
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const loaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("loader"));
-  const lines = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"));
-  const unloaders = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"));
-  if (!loaders.length || !lines.length || !unloaders.length) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
   const pipelineFor = (planned: PlannedConnection, distance: number): LogisticsPipelineSelection => {
-    const resourceStackSize = loaded.resources[planned.resource]!.transport.stackSize;
-    const selections = loaders.flatMap((loader) => lines.flatMap((line) => unloaders.flatMap((unloader) => {
-      const loaderPlan = planDeviceTransport(loader.id, loader.program, { apiVersion: 1, connection: planned.id, stage: "loader", distance: 1 });
-      const linePlan = planDeviceTransport(line.id, line.program, { apiVersion: 1, connection: planned.id, stage: "line", distance });
-      const unloaderPlan = planDeviceTransport(unloader.id, unloader.program, { apiVersion: 1, connection: planned.id, stage: "unloader", distance: 1 });
-      if (linePlan.capacity !== distance) return [];
-      const dispatchInterval = Math.max(
-        Math.ceil(loaderPlan.durationTicks / loaderPlan.capacity),
-        Math.ceil(linePlan.durationTicks / linePlan.capacity),
-        Math.ceil(unloaderPlan.durationTicks / unloaderPlan.capacity),
-      );
-      const stackSize = Math.min(resourceStackSize, loaderPlan.stackCapacity, linePlan.stackCapacity, unloaderPlan.stackCapacity);
-      const capacityPerMinute = stackSize * 60_000 / dispatchInterval;
-      if (capacityPerMinute + 1e-9 < planned.requiredPerMinute) return [];
-      const buildCost = loader.economics.buildCost + line.economics.buildCost * distance + unloader.economics.buildCost;
-      const endpointPowerWatts = (loader.power.consumptionMilliWatts + unloader.power.consumptionMilliWatts) / 1_000;
-      const utilization = planned.requiredPerMinute / capacityPerMinute;
-      const score = buildCost * Math.max(.001, loaded.objective.weights.buildCost)
-        + endpointPowerWatts * utilization * Math.max(.001, loaded.objective.weights.energy);
-      return [{ loader, line, unloader, stackSize, capacityPerMinute, score }];
-    }))).sort((a, b) => a.score - b.score || a.capacityPerMinute - b.capacityPerMinute
-      || a.loader.id.localeCompare(b.loader.id) || a.line.id.localeCompare(b.line.id) || a.unloader.id.localeCompare(b.unloader.id));
+    const selections = pipelineOptions(planned.resource, distance, planned.id)
+      .filter((selection) => selection.capacityPerMinute + 1e-9 >= planned.requiredPerMinute)
+      .map((selection) => ({
+        ...selection,
+        score: (selection.loader.economics.buildCost + selection.line.economics.buildCost * distance + selection.unloader.economics.buildCost)
+          * Math.max(.001, loaded.objective.weights.buildCost)
+          + (selection.loader.power.consumptionMilliWatts + selection.unloader.power.consumptionMilliWatts) / 1_000
+          * planned.requiredPerMinute / selection.capacityPerMinute * Math.max(.001, loaded.objective.weights.energy),
+      }))
+      .sort((a, b) => a.score - b.score || a.capacityPerMinute - b.capacityPerMinute
+        || a.loader.id.localeCompare(b.loader.id) || a.line.id.localeCompare(b.line.id) || a.unloader.id.localeCompare(b.unloader.id));
     if (!selections[0]) {
       throw new Error(`No project-local logistics pipeline can carry ${planned.requiredPerMinute.toFixed(3)} '${planned.resource}'/min on connection '${planned.id}'`);
     }
@@ -408,7 +435,17 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       if (Math.abs(dy) >= Math.abs(dx)) return dy >= 0 ? 90 : 270;
       return dx >= 0 ? 0 : 180;
     };
-    const chunks = <T>(items: T[], size: number): T[][] => Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+    const partitions = <T>(items: T[], maximumGroups: number): T[][] => {
+      const count = Math.min(items.length, maximumGroups);
+      return Array.from({ length: count }, (_, index) => items.slice(
+        Math.floor(index * items.length / count),
+        Math.floor((index + 1) * items.length / count),
+      ));
+    };
+    const chunks = <T>(items: T[], size: number): T[][] => Array.from(
+      { length: Math.ceil(items.length / size) },
+      (_, index) => items.slice(index * size, (index + 1) * size),
+    );
     const placeJunction = (
       junction: BlueprintDevice,
       preferred: GridPosition,
@@ -440,92 +477,187 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       throw new Error(`Cannot place a routable synthesized junction '${junction.id}' for ${incoming.length} incoming and ${outgoing.length} outgoing '${resource}' flows; reserved routes: ${routes || "none"}`);
     };
 
-    if (sourceEndpoints.length === targetEndpoints.length && sourceEndpoints.length > 1) {
-      let best: { targets: Endpoint[]; cost: number; key: string } | undefined;
-      const visit = (index: number, remaining: Endpoint[], selected: Endpoint[], cost: number): void => {
-        if (index === sourceEndpoints.length) {
-          const key = selected.map((endpoint) => `${endpoint.device}:${endpoint.port}`).join("|");
-          if (!best || cost < best.cost || (cost === best.cost && key < best.key)) best = { targets: [...selected], cost, key };
-          return;
-        }
-        const source = sourceEndpoints[index]!; const sourcePosition = endpointPosition(source);
-        for (const target of remaining) {
-          const targetPosition = endpointPosition(target);
-          const distance = Math.abs(sourcePosition.x - targetPosition.x) + Math.abs(sourcePosition.y - targetPosition.y);
-          const rateMismatch = Math.abs((source.ratePerMinute ?? 0) - (target.ratePerMinute ?? 0));
-          const selfLoopPenalty = source.device === target.device ? 1_000_000 : 0;
-          visit(index + 1, remaining.filter((candidate) => candidate !== target), [...selected, target], cost + selfLoopPenalty + rateMismatch * 1_000 + distance);
-        }
-      };
-      visit(0, [...targetEndpoints], [], 0);
-      const directTargets = best!.targets;
-      sourceEndpoints.forEach((source, index) => plannedConnections.push({
-        id: safeId(`synth-${resource}-${source.device}-to-${directTargets[index]!.device}`), resource, from: source, to: directTargets[index]!,
-        requiredPerMinute: Math.min(source.ratePerMinute ?? Number.POSITIVE_INFINITY, directTargets[index]!.ratePerMinute ?? Number.POSITIVE_INFINITY),
-      }));
+    const uniqueConnectionId = (base: string): string => {
+      const root = safeId(base); let id = root; let suffix = 1;
+      while (plannedConnections.some((connection) => connection.id === id)) id = `${root}-${++suffix}`;
+      return id;
+    };
+    const connectOne = (from: Endpoint, to: Endpoint, requiredPerMinute: number): void => {
+      plannedConnections.push({ id: uniqueConnectionId(`synth-${resource}-${from.device}-to-${to.device}`), resource, from, to, requiredPerMinute });
+    };
+    const sourceRates = sourceEndpoints.map((endpoint) => endpoint.ratePerMinute ?? 0).sort((a, b) => a - b);
+    const targetRates = targetEndpoints.map((endpoint) => endpoint.ratePerMinute ?? 0).sort((a, b) => a - b);
+    const directlyPairable = sourceEndpoints.length === targetEndpoints.length && sourceEndpoints.length > 1
+      && sourceRates.every((rate, index) => Math.abs(rate - targetRates[index]!) <= 1e-6);
+    if (directlyPairable) {
+      let pairedTargets: Endpoint[];
+      if (sourceEndpoints.length <= 8) {
+        let best: { targets: Endpoint[]; cost: number; key: string } | undefined;
+        const visit = (index: number, remaining: Endpoint[], selected: Endpoint[], cost: number): void => {
+          if (index === sourceEndpoints.length) {
+            const key = selected.map((endpoint) => `${endpoint.device}:${endpoint.port}`).join("|");
+            if (!best || cost < best.cost || (cost === best.cost && key < best.key)) best = { targets: [...selected], cost, key };
+            return;
+          }
+          const source = sourceEndpoints[index]!; const sourcePosition = endpointPosition(source);
+          for (const target of remaining) {
+            if (Math.abs((source.ratePerMinute ?? 0) - (target.ratePerMinute ?? 0)) > 1e-6) continue;
+            const targetPosition = endpointPosition(target);
+            const distance = Math.abs(sourcePosition.x - targetPosition.x) + Math.abs(sourcePosition.y - targetPosition.y);
+            visit(index + 1, remaining.filter((candidate) => candidate !== target), [...selected, target], cost + distance);
+          }
+        };
+        visit(0, [...targetEndpoints], [], 0);
+        pairedTargets = best!.targets;
+      } else {
+        const remaining = [...targetEndpoints];
+        pairedTargets = sourceEndpoints.map((source) => {
+          const sourcePosition = endpointPosition(source);
+          const target = remaining.filter((candidate) => Math.abs((source.ratePerMinute ?? 0) - (candidate.ratePerMinute ?? 0)) <= 1e-6)
+            .sort((a, b) => {
+              const aPosition = endpointPosition(a); const bPosition = endpointPosition(b);
+              return (Math.abs(sourcePosition.x - aPosition.x) + Math.abs(sourcePosition.y - aPosition.y))
+                - (Math.abs(sourcePosition.x - bPosition.x) + Math.abs(sourcePosition.y - bPosition.y))
+                || a.device.localeCompare(b.device) || a.port.localeCompare(b.port);
+            })[0]!;
+          remaining.splice(remaining.indexOf(target), 1);
+          return target;
+        });
+      }
+      sourceEndpoints.forEach((source, index) => connectOne(source, pairedTargets[index]!, source.ratePerMinute ?? 0));
       reserveRoutes(plannedConnections.slice(plannedStart));
       return;
     }
-
-    const merge = (endpoints: Endpoint[]): Endpoint => {
-      if (endpoints.length === 1) return endpoints[0]!;
-      if (!junctionAsset) throw new Error(`Multiple '${resource}' producers require a project-local transport-junction Device`);
-      const inputs = junctionAsset.geometry.ports.filter((port) => port.direction === "input");
-      const output = junctionAsset.geometry.ports.find((port) => port.direction === "output");
-      if (inputs.length < 2 || !output) throw new Error(`Transport junction '${junctionAsset.id}' needs at least two inputs and one output to merge '${resource}' flows`);
-      let level = [...endpoints]; const toward = centroid(targetEndpoints);
-      while (level.length > 1) {
-        const next: Endpoint[] = [];
-        for (const group of chunks(level, inputs.length)) {
-          if (group.length === 1) { next.push(group[0]!); continue; }
-          const from = centroid(group);
-          const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
-          const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), group, [targetEndpoints[0]!]);
-          group.forEach((source, index) => plannedConnections.push({
-            id: safeId(`synth-${resource}-${source.device}-to-${junction.id}`), resource, from: source,
-            to: { device: junction.id, port: assigned.inputs[index]!, region, ratePerMinute: source.ratePerMinute },
-            requiredPerMinute: source.ratePerMinute ?? 0,
-          }));
-          next.push({ device: junction.id, port: assigned.outputs[0]!, region, ratePerMinute: group.reduce((sum, endpoint) => sum + (endpoint.ratePerMinute ?? 0), 0) });
+    if (targetEndpoints.length === 1) {
+      let level = [...sourceEndpoints]; const toward = centroid(targetEndpoints);
+      if (level.length > 1) {
+        if (!junctionAsset) throw new Error(`Multiple '${resource}' producers require a project-local transport-junction Device`);
+        const inputs = junctionAsset.geometry.ports.filter((port) => port.direction === "input");
+        const output = junctionAsset.geometry.ports.find((port) => port.direction === "output");
+        if (inputs.length < 2 || !output) throw new Error(`Transport junction '${junctionAsset.id}' needs at least two inputs and one output to merge '${resource}' flows`);
+        while (level.length > 1) {
+          const next: Endpoint[] = [];
+          for (const group of chunks(level, inputs.length)) {
+            if (group.length === 1) { next.push(group[0]!); continue; }
+            const from = centroid(group);
+            const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+            const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), group, targetEndpoints);
+            group.forEach((source, index) => connectOne(source, {
+              device: junction.id, port: assigned.inputs[index]!, region, ratePerMinute: source.ratePerMinute,
+            }, source.ratePerMinute ?? 0));
+            next.push({
+              device: junction.id, port: assigned.outputs[0]!, region,
+              ratePerMinute: group.reduce((sum, endpoint) => sum + (endpoint.ratePerMinute ?? 0), 0),
+            });
+          }
+          level = next;
         }
-        level = next;
       }
-      return level[0]!;
-    };
-
-    const split = (endpoints: Endpoint[], source: Endpoint): Endpoint => {
-      if (endpoints.length === 1) return endpoints[0]!;
+      connectOne(level[0]!, targetEndpoints[0]!, targetEndpoints[0]!.ratePerMinute ?? 0);
+      reserveRoutes(plannedConnections.slice(plannedStart));
+      return;
+    }
+    if (sourceEndpoints.length === 1) {
+      let level = [...targetEndpoints].sort((a, b) => endpointPosition(b).y - endpointPosition(a).y || endpointPosition(b).x - endpointPosition(a).x || b.device.localeCompare(a.device));
+      const source = sourceEndpoints[0]!; const from = endpointPosition(source);
       if (!junctionAsset) throw new Error(`Multiple '${resource}' consumers require a project-local transport-junction Device`);
       const input = junctionAsset.geometry.ports.find((port) => port.direction === "input");
       const outputs = junctionAsset.geometry.ports.filter((port) => port.direction === "output");
       if (!input || outputs.length < 2) throw new Error(`Transport junction '${junctionAsset.id}' needs one input and at least two outputs to split '${resource}' flows`);
-      let level = [...endpoints].sort((a, b) => endpointPosition(b).y - endpointPosition(a).y || endpointPosition(b).x - endpointPosition(a).x || b.device.localeCompare(a.device));
-      const from = endpointPosition(source);
       while (level.length > 1) {
         const next: Endpoint[] = [];
-        const groups = chunks(level, outputs.length);
-        for (const group of groups) {
+        for (const group of chunks(level, outputs.length)) {
           if (group.length === 1) { next.push(group[0]!); continue; }
           const toward = centroid(group);
           const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
           const assigned = placeJunction(junction, { x: Math.round((from.x * 2 + toward.x) / 3), y: Math.round((from.y * 2 + toward.y) / 3) }, rotationForFlow(from, toward), [source], group);
-          group.forEach((target, index) => plannedConnections.push({
-            id: safeId(`synth-${resource}-${junction.id}-to-${target.device}`), resource,
-            from: { device: junction.id, port: assigned.outputs[index]!, region, ratePerMinute: target.ratePerMinute }, to: target,
-            requiredPerMinute: target.ratePerMinute ?? 0,
-          }));
-          next.push({ device: junction.id, port: assigned.inputs[0]!, region, ratePerMinute: group.reduce((sum, endpoint) => sum + (endpoint.ratePerMinute ?? 0), 0) });
+          group.forEach((target, index) => connectOne({
+            device: junction.id, port: assigned.outputs[index]!, region, ratePerMinute: target.ratePerMinute,
+          }, target, target.ratePerMinute ?? 0));
+          next.push({
+            device: junction.id, port: assigned.inputs[0]!, region,
+            ratePerMinute: group.reduce((sum, endpoint) => sum + (endpoint.ratePerMinute ?? 0), 0),
+          });
         }
         level = next;
       }
-      return level[0]!;
-    };
+      connectOne(source, level[0]!, source.ratePerMinute ?? 0);
+      reserveRoutes(plannedConnections.slice(plannedStart));
+      return;
+    }
+    interface FlowLane { id: string; source: Endpoint; target: Endpoint; ratePerMinute: number; sourceLeaf?: Endpoint; targetLeaf?: Endpoint }
+    const sourceRows = sourceEndpoints.map((endpoint) => ({ endpoint, remaining: endpoint.ratePerMinute ?? 0 }))
+      .sort((a, b) => a.endpoint.device.localeCompare(b.endpoint.device) || a.endpoint.port.localeCompare(b.endpoint.port));
+    const targetRows = targetEndpoints.map((endpoint) => ({ endpoint, remaining: endpoint.ratePerMinute ?? 0 }))
+      .sort((a, b) => a.endpoint.device.localeCompare(b.endpoint.device) || a.endpoint.port.localeCompare(b.endpoint.port));
+    const sourceTotal = sourceRows.reduce((sum, row) => sum + row.remaining, 0);
+    const targetTotal = targetRows.reduce((sum, row) => sum + row.remaining, 0);
+    if (Math.abs(sourceTotal - targetTotal) > 1e-6) throw new Error(`Synthesized '${resource}' flow is not conserved in region '${region}': ${sourceTotal} produced versus ${targetTotal} consumed`);
+    const lanes: FlowLane[] = [];
+    for (const source of sourceRows) while (source.remaining > 1e-6) {
+      const sourcePosition = endpointPosition(source.endpoint);
+      const target = targetRows.filter((row) => row.remaining > 1e-6).sort((a, b) => {
+        const aPosition = endpointPosition(a.endpoint); const bPosition = endpointPosition(b.endpoint);
+        const aSelf = Number(a.endpoint.device === source.endpoint.device); const bSelf = Number(b.endpoint.device === source.endpoint.device);
+        const aDistance = Math.abs(sourcePosition.x - aPosition.x) + Math.abs(sourcePosition.y - aPosition.y);
+        const bDistance = Math.abs(sourcePosition.x - bPosition.x) + Math.abs(sourcePosition.y - bPosition.y);
+        return aSelf - bSelf || aDistance - bDistance || a.endpoint.device.localeCompare(b.endpoint.device) || a.endpoint.port.localeCompare(b.endpoint.port);
+      })[0];
+      if (!target) throw new Error(`Synthesized '${resource}' flow exhausted consumers before producers in region '${region}'`);
+      const ratePerMinute = Math.min(source.remaining, target.remaining);
+      lanes.push({ id: `${resource}-lane-${lanes.length + 1}`, source: source.endpoint, target: target.endpoint, ratePerMinute });
+      source.remaining -= ratePerMinute; target.remaining -= ratePerMinute;
+    }
+    if (targetRows.some((row) => row.remaining > 1e-6)) throw new Error(`Synthesized '${resource}' flow exhausted producers before consumers in region '${region}'`);
 
-    const effectiveSource = merge(sourceEndpoints);
-    const effectiveTarget = split(targetEndpoints, effectiveSource);
-    plannedConnections.push({
-      id: safeId(`synth-${resource}-${effectiveSource.device}-to-${effectiveTarget.device}`), resource, from: effectiveSource, to: effectiveTarget,
-      requiredPerMinute: Math.min(effectiveSource.ratePerMinute ?? Number.POSITIVE_INFINITY, effectiveTarget.ratePerMinute ?? Number.POSITIVE_INFINITY),
+    const exposeMergeLeaves = (target: Endpoint, groupedLanes: FlowLane[]): void => {
+      if (groupedLanes.length === 1) { groupedLanes[0]!.targetLeaf = target; return; }
+      if (!junctionAsset) throw new Error(`Multiple '${resource}' producers require a project-local transport-junction Device`);
+      const inputPorts = junctionAsset.geometry.ports.filter((port) => port.direction === "input");
+      const outputPort = junctionAsset.geometry.ports.find((port) => port.direction === "output");
+      if (inputPorts.length < 2 || !outputPort) throw new Error(`Transport junction '${junctionAsset.id}' needs at least two inputs and one output to merge '${resource}' flows`);
+      const groups = partitions(groupedLanes, inputPorts.length);
+      const incomingHints = groups.map((group) => group[0]!.source);
+      const from = centroid(incomingHints); const toward = endpointPosition(target);
+      const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+      const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), incomingHints, [target]);
+      const ratePerMinute = groupedLanes.reduce((sum, lane) => sum + lane.ratePerMinute, 0);
+      plannedConnections.push({
+        id: uniqueConnectionId(`synth-${resource}-${junction.id}-to-${target.device}`), resource,
+        from: { device: junction.id, port: assigned.outputs[0]!, region, ratePerMinute }, to: target, requiredPerMinute: ratePerMinute,
+      });
+      groups.forEach((group, index) => exposeMergeLeaves({
+        device: junction.id, port: assigned.inputs[index]!, region,
+        ratePerMinute: group.reduce((sum, lane) => sum + lane.ratePerMinute, 0),
+      }, group));
+    };
+    for (const target of targetEndpoints) exposeMergeLeaves(target, lanes.filter((lane) => lane.target === target));
+
+    const exposeSplitLeaves = (source: Endpoint, groupedLanes: FlowLane[]): void => {
+      if (groupedLanes.length === 1) { groupedLanes[0]!.sourceLeaf = source; return; }
+      if (!junctionAsset) throw new Error(`Multiple '${resource}' consumers require a project-local transport-junction Device`);
+      const inputPort = junctionAsset.geometry.ports.find((port) => port.direction === "input");
+      const outputPorts = junctionAsset.geometry.ports.filter((port) => port.direction === "output");
+      if (!inputPort || outputPorts.length < 2) throw new Error(`Transport junction '${junctionAsset.id}' needs one input and at least two outputs to split '${resource}' flows`);
+      const groups = partitions(groupedLanes, outputPorts.length);
+      const outgoingHints = groups.map((group) => group[0]!.targetLeaf!);
+      const from = endpointPosition(source); const toward = centroid(outgoingHints);
+      const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
+      const assigned = placeJunction(junction, { x: Math.round((from.x * 2 + toward.x) / 3), y: Math.round((from.y * 2 + toward.y) / 3) }, rotationForFlow(from, toward), [source], outgoingHints);
+      const ratePerMinute = groupedLanes.reduce((sum, lane) => sum + lane.ratePerMinute, 0);
+      plannedConnections.push({
+        id: uniqueConnectionId(`synth-${resource}-${source.device}-to-${junction.id}`), resource, from: source,
+        to: { device: junction.id, port: assigned.inputs[0]!, region, ratePerMinute }, requiredPerMinute: ratePerMinute,
+      });
+      groups.forEach((group, index) => exposeSplitLeaves({
+        device: junction.id, port: assigned.outputs[index]!, region,
+        ratePerMinute: group.reduce((sum, lane) => sum + lane.ratePerMinute, 0),
+      }, group));
+    };
+    for (const source of sourceEndpoints) exposeSplitLeaves(source, lanes.filter((lane) => lane.source === source));
+    for (const lane of lanes) plannedConnections.push({
+      id: uniqueConnectionId(`synth-${lane.id}-${lane.sourceLeaf!.device}-to-${lane.targetLeaf!.device}`), resource,
+      from: lane.sourceLeaf!, to: lane.targetLeaf!, requiredPerMinute: lane.ratePerMinute,
     });
     reserveRoutes(plannedConnections.slice(plannedStart));
   };
@@ -544,38 +676,43 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       if (!matching.length) return Math.floor(loaded.world.regions.find((item) => item.id === region)!.bounds.height / 2);
       return Math.round(matching.reduce((sum, endpoint) => sum + blueprint.devices.find((device) => device.id === endpoint.device)!.position.y, 0) / matching.length);
     };
-    const supply: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply`), asset: stationAsset.id, region: sourceRegion, position: { x: 0, y: 0 }, rotation: 0 };
-    const demand: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand`), asset: stationAsset.id, region: targetRegion, position: { x: 0, y: 0 }, rotation: 0 };
-    placeDevice(loaded, blueprint, supply, {
-      x: sourceRegionDef.bounds.width - stationAsset.geometry.footprint.width - 1,
-      y: preferredY(sourceRegion, producers.get(resource) ?? []),
-    });
-    placeDevice(loaded, blueprint, demand, { x: 1, y: preferredY(targetRegion, consumers.get(resource) ?? []) });
     const supplyPort = stationAsset.geometry.ports.find((port) => port.direction === "input")!;
     const demandPort = stationAsset.geometry.ports.find((port) => port.direction === "output")!;
-    (consumers.get(resource) ?? consumers.set(resource, []).get(resource)!).push({
-      device: supply.id, port: supplyPort.id, region: sourceRegion, ratePerMinute: requiredRate,
-    });
-    (producers.get(resource) ?? producers.set(resource, []).get(resource)!).push({
-      device: demand.id, port: demandPort.id, region: targetRegion, ratePerMinute: requiredRate,
-    });
     const distance = Math.max(1, Math.ceil(Math.hypot(
       sourceRegionDef.coordinates.x - targetRegionDef.coordinates.x,
       sourceRegionDef.coordinates.y - targetRegionDef.coordinates.y,
       sourceRegionDef.coordinates.z - targetRegionDef.coordinates.z,
     )));
-    const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: `synth-${resource}-network`, stage: "carrier", distance });
-    const perCarrierRate = plan.capacity * 60_000 / plan.durationTicks; const carriers = Math.max(1, Math.ceil(requiredRate / perCarrierRate - 1e-9));
-    const networkId = safeId(`synth-${resource}-${sourceRegion}-to-${targetRegion}`);
-    const network: BlueprintLogisticsNetwork = {
-      id: networkId, kind: "interstellar", fleet: { deviceAsset: carrier.id, count: carriers },
-      stations: [
-        { device: supply.id, slots: [{ resource, mode: "supply", minimumBatch: 1 }] },
-        { device: demand.id, slots: [{ resource, mode: "demand", minimumBatch: 1 }] },
-      ],
-    };
-    blueprint.logisticsNetworks.push(network);
-    stationSummary.push({ network: networkId, resource, fromRegion: sourceRegion, toRegion: targetRegion, carriers });
+    const stationPairs = Math.max(1, Math.ceil(requiredRate / maximumLocalCapacity(resource) - 1e-9));
+    for (let index = 0; index < stationPairs; index++) {
+      const laneRate = requiredRate / stationPairs;
+      const supply: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${sourceRegion}-station-supply-${index + 1}`), asset: stationAsset.id, region: sourceRegion, position: { x: 0, y: 0 }, rotation: 0 };
+      const demand: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-${targetRegion}-station-demand-${index + 1}`), asset: stationAsset.id, region: targetRegion, position: { x: 0, y: 0 }, rotation: 0 };
+      placeDevice(loaded, blueprint, supply, {
+        x: sourceRegionDef.bounds.width - stationAsset.geometry.footprint.width - 1,
+        y: preferredY(sourceRegion, producers.get(resource) ?? []) + index * 4,
+      });
+      placeDevice(loaded, blueprint, demand, { x: 1, y: preferredY(targetRegion, consumers.get(resource) ?? []) + index * 4 });
+      (consumers.get(resource) ?? consumers.set(resource, []).get(resource)!).push({
+        device: supply.id, port: supplyPort.id, region: sourceRegion, ratePerMinute: laneRate,
+      });
+      (producers.get(resource) ?? producers.set(resource, []).get(resource)!).push({
+        device: demand.id, port: demandPort.id, region: targetRegion, ratePerMinute: laneRate,
+      });
+      const networkId = safeId(`synth-${resource}-${sourceRegion}-to-${targetRegion}-lane-${index + 1}`);
+      const plan = planDeviceTransport(carrier.id, carrier.program, { apiVersion: 1, connection: networkId, stage: "carrier", distance });
+      const perCarrierRate = plan.capacity * 60_000 / plan.durationTicks;
+      const carriers = Math.max(1, Math.ceil(laneRate / perCarrierRate - 1e-9));
+      const network: BlueprintLogisticsNetwork = {
+        id: networkId, kind: "interstellar", fleet: { deviceAsset: carrier.id, count: carriers },
+        stations: [
+          { device: supply.id, slots: [{ resource, mode: "supply", minimumBatch: 1 }] },
+          { device: demand.id, slots: [{ resource, mode: "demand", minimumBatch: 1 }] },
+        ],
+      };
+      blueprint.logisticsNetworks.push(network);
+      stationSummary.push({ network: networkId, resource, fromRegion: sourceRegion, toRegion: targetRegion, carriers });
+    }
   }
 
   const routedResources = [...new Set([...producers.keys(), ...consumers.keys()])]

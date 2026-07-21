@@ -182,11 +182,14 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     return rows;
   }).sort((a, b) => a.process.localeCompare(b.process) || a.direction.localeCompare(b.direction) || a.resource.localeCompare(b.resource));
 
-  const stationNetworks: StationCapacityRequirement[] = Object.values(project.logisticsNetworks).flatMap((network) => {
+  const compiledNetworks = Object.values(project.logisticsNetworks);
+  const stationNetworks: StationCapacityRequirement[] = compiledNetworks.flatMap((network) => {
     const byResource = new Map<ResourceId, typeof network.routes>();
     for (const route of network.routes) byResource.set(route.resource, [...(byResource.get(route.resource) ?? []), route]);
     return [...byResource.entries()].map(([resource, routes]) => {
-      const requiredItemsPerMinute = processes.reduce((sum, process) => sum + (process.inputsPerMinute[resource] ?? 0), 0);
+      const parallelNetworks = Math.max(1, ...routes.map((route) => compiledNetworks.filter((candidate) => candidate.routes.some((candidateRoute) =>
+        candidateRoute.resource === resource && candidateRoute.fromRegion === route.fromRegion && candidateRoute.toRegion === route.toRegion)).length));
+      const requiredItemsPerMinute = processes.reduce((sum, process) => sum + (process.inputsPerMinute[resource] ?? 0), 0) / parallelNetworks;
       const perCarrierItemsPerMinute = Math.max(0, ...routes.map((route) => route.capacity * 60_000 / route.travelTicks));
       const requiredCarriers = perCarrierItemsPerMinute > 0 ? Math.ceil(requiredItemsPerMinute / perCarrierItemsPerMinute - 1e-9) : 0;
       return {

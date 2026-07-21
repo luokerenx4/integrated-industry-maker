@@ -197,6 +197,41 @@ describe("factory synthesis", () => {
     expect(runUntil(project).metrics.infeasibleReason).toBeNull();
   });
 
+  test("synthesizes explicit parallel lanes when one physical port cannot carry the planned rate", async () => {
+    const source = await loadFactoryProject(ironworks, { blueprint: "blank", scenario: "cold-start" });
+    source.objective.targetRatePerMinute = 2_000;
+    source.objective.constraints = { maxBuildCost: 1_000_000, maxOccupiedArea: 5_000, minProduction: 1 };
+    for (const region of source.world.regions) region.bounds = { width: 80, height: 80 };
+    for (const node of source.world.resourceNodes) node.amount = 50_000;
+    source.deviceAssets["mining-machine"]!.extraction!.cycleTicks = 32;
+    source.deviceAssets["mining-machine"]!.extraction!.radius = 50;
+    source.deviceAssets.smelter!.production!.speed.numerator = 100;
+    source.deviceAssets.assembler!.production!.speed.numerator = 100;
+    source.deviceAssets["wind-turbine"]!.power.distribution = { connectionRange: 80, coverageRange: 80 };
+    source.processes["smelt-iron"]!.inputs = [{ resource: "iron-ore", count: 1 }];
+
+    const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.selectedProcesses.find((selection) => selection.process === "forge-gear-pair")!.machines).toBe(2);
+    expect(synthesis.selectedProcesses.find((selection) => selection.process === "smelt-iron")!.machines).toBe(2);
+    expect(synthesis.stationNetworks).toHaveLength(2);
+    expect(synthesis.plannedTransports).toEqual([expect.objectContaining({ requiredPerMinute: 3_000 })]);
+    expect(synthesis.blueprint.devices.filter((device) => device.id.startsWith("synth-gear-sink-"))).toHaveLength(2);
+    expect(synthesis.localLogistics.every((connection) => connection.requiredPerMinute <= 1_920 + 1e-9)).toBeTrue();
+    expect(synthesis.localLogistics.every((connection) => connection.capacityPerMinute + 1e-9 >= connection.requiredPerMinute)).toBeTrue();
+    const sourcePorts = synthesis.blueprint.connections.map((connection) => `${connection.from.device}:${connection.from.port}`);
+    const targetPorts = synthesis.blueprint.connections.map((connection) => `${connection.to.device}:${connection.to.port}`);
+    expect(new Set(sourcePorts).size).toBe(sourcePorts.length);
+    expect(new Set(targetPorts).size).toBe(targetPorts.length);
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    const capacityPlan = planProductionCapacity(project);
+    expect(capacityPlan.ready).toBeTrue();
+    expect(capacityPlan.stationNetworks.every((network) => network.requiredItemsPerMinute === 1_500)).toBeTrue();
+    const simulation = runUntil(project);
+    expect(simulation.metrics.infeasibleReason).toBeNull();
+    expect(simulation.metrics.produced.gear ?? 0).toBeGreaterThan(0);
+  });
+
   test("credits refinery coproducts once and routes both outputs into a configurable multi-input process", async () => {
     const source = await loadFactoryProject(ironworks, {
       world: "chemical", blueprint: "blank", scenario: "chemical-cold-start", objective: "plastic-production",

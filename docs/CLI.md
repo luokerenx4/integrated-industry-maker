@@ -51,7 +51,7 @@ inm synthesize examples/ironworks \
   --output synthesized
 ```
 
-Human output includes the optimized cycles/min, every selected cross-region Resource flow, and each local connection's required/capacity items/min, cargo stack, and selected logistics tiers. Use `--json` to receive the same `localLogistics` plan plus selected recipes and regions, spatial raw/process/logistics costs, extraction bindings, planned transports, realized station networks, regional power envelope, plan gaps, and measured throughput/area/cost. The verification run intentionally clears scenario buffers and failures tied to the input blueprint; subsequent `validate`, `plan`, `simulate`, and `test` commands can select any scenario compatible with the generated Device ids.
+Human output includes the optimized cycles/min, every selected cross-region Resource flow, and each local connection's required/capacity items/min, cargo stack, and selected logistics tiers. Rates above the best project-local single-lane capacity are realized as multiple processor/extractor/consumer ports, explicit junction branches, local belt lanes, and—when needed—parallel station pairs; the command never reports one over-capacity connection as successful. Use `--json` to receive the same `localLogistics` plan plus selected recipes and regions, spatial raw/process/logistics costs, extraction bindings, planned transports, realized station networks, regional power envelope, plan gaps, and measured throughput/area/cost. The verification run intentionally clears scenario buffers and failures tied to the input blueprint; subsequent `validate`, `plan`, `simulate`, and `test` commands can select any scenario compatible with the generated Device ids.
 
 ### `inm simulate <project-or-workspace-dir> [--project ID]`
 
