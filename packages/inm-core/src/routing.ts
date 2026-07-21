@@ -22,7 +22,7 @@ export function externalPortCell(device: BlueprintDevice, asset: DeviceAsset, po
 }
 
 export function transportCellId(region: string, position: GridPosition): string {
-  return `${region}:${position.x},${position.y}`;
+  return `${region}:${position.x},${position.y}${position.level ? `@${position.level}` : ""}`;
 }
 
 export function findBlueprintConnectionPath(
@@ -30,7 +30,7 @@ export function findBlueprintConnectionPath(
   world: IndustrialWorld,
   assets: Record<string, DeviceAsset>,
   connection: Pick<BlueprintConnection, "from" | "to">,
-  options: { end?: GridPosition; allowEndTransportCell?: boolean } = {},
+  options: { end?: GridPosition; allowEndTransportCell?: boolean; blockedCells?: GridPosition[]; elevated?: boolean } = {},
 ): GridPosition[] | null {
   const devices = new Map(blueprint.devices.map((device) => [device.id, device]));
   const from = devices.get(connection.from.device); const to = devices.get(connection.to.device);
@@ -43,25 +43,44 @@ export function findBlueprintConnectionPath(
   if (!start || !end || !region) return null;
   const inside = (position: GridPosition) => position.x >= 0 && position.y >= 0 && position.x < region.bounds.width && position.y < region.bounds.height;
   if (!inside(start) || !inside(end)) return null;
+  const portLead = (cell: GridPosition, side: DevicePort["side"]): GridPosition[] => {
+    const direction = side === "north" ? { x: 0, y: -1 } : side === "south" ? { x: 0, y: 1 } : side === "west" ? { x: -1, y: 0 } : { x: 1, y: 0 };
+    return Array.from({ length: 3 }, (_, distance) => ({ x: cell.x + direction.x * distance, y: cell.y + direction.y * distance }));
+  };
 
-  const hardBlocked = new Set<string>();
+  const hardBlocked = new Set<string>(); const solidBlocked = new Set<string>();
   for (const device of blueprint.devices.filter((item) => item.region === from.region)) {
     const asset = assets[device.asset]; if (!asset) continue;
     const footprint = rotatedFootprint(asset, device.rotation);
-    for (let y = device.position.y; y < device.position.y + footprint.height; y++) for (let x = device.position.x; x < device.position.x + footprint.width; x++) hardBlocked.add(`${x},${y}`);
+    for (let y = device.position.y; y < device.position.y + footprint.height; y++) for (let x = device.position.x; x < device.position.x + footprint.width; x++) {
+      hardBlocked.add(`${x},${y}`); solidBlocked.add(`${x},${y}`);
+    }
+    for (const port of options.elevated ? [] : asset.geometry.ports) {
+      const cell = externalPortCell(device, asset, port.id);
+      if (cell) for (const clearance of portLead(cell, rotatePortSide(port.side, device.rotation))) hardBlocked.add(`${clearance.x},${clearance.y}`);
+    }
   }
-  for (const node of world.resourceNodes.filter((item) => item.region === from.region)) hardBlocked.add(`${node.position.x},${node.position.y}`);
+  for (const node of world.resourceNodes.filter((item) => item.region === from.region)) {
+    hardBlocked.add(`${node.position.x},${node.position.y}`); solidBlocked.add(`${node.position.x},${node.position.y}`);
+  }
   const transportBlocked = new Set<string>();
   for (const route of blueprint.connections) {
     const routeSource = devices.get(route.from.device);
     if (routeSource?.region !== from.region) continue;
-    for (const cell of route.path ?? []) transportBlocked.add(`${cell.x},${cell.y}`);
+    for (const cell of route.path ?? []) if ((cell.level ?? 0) === (options.elevated ? 1 : 0)) transportBlocked.add(`${cell.x},${cell.y}`);
   }
 
   const key = (position: GridPosition) => `${position.x},${position.y}`;
   const startKey = key(start); const endKey = key(end);
+  const fromPort = fromAsset.geometry.ports.find((port) => port.id === connection.from.port)!;
+  const toPort = toAsset.geometry.ports.find((port) => port.id === connection.to.port)!;
+  for (const clearance of portLead(start, rotatePortSide(fromPort.side, from.rotation))) hardBlocked.delete(key(clearance));
+  for (const clearance of portLead(end, rotatePortSide(toPort.side, to.rotation))) hardBlocked.delete(key(clearance));
+  for (const cell of solidBlocked) hardBlocked.add(cell);
   if (hardBlocked.has(startKey) || hardBlocked.has(endKey) || transportBlocked.has(startKey) || (transportBlocked.has(endKey) && !options.allowEndTransportCell)) return null;
   const blocked = new Set([...hardBlocked, ...transportBlocked]);
+  for (const cell of options.blockedCells ?? []) blocked.add(key(cell));
+  blocked.delete(startKey); blocked.delete(endKey);
   if (options.allowEndTransportCell) blocked.delete(endKey);
   const queue: GridPosition[] = [start];
   const previous = new Map<string, string | null>([[startKey, null]]);
@@ -82,5 +101,6 @@ export function findBlueprintConnectionPath(
   if (!previous.has(endKey)) return null;
   const path: GridPosition[] = [];
   for (let cursor: string | null = endKey; cursor !== null; cursor = previous.get(cursor) ?? null) path.push(positions.get(cursor)!);
-  return path.reverse();
+  const result = path.reverse();
+  return options.elevated && result.length > 2 ? result.map((position, index) => ({ ...position, level: index === 0 || index === result.length - 1 ? 0 : 1 })) : result;
 }

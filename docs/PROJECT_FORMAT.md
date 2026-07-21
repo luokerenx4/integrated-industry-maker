@@ -217,8 +217,9 @@ Every physical connection includes the exact ordered grid cells occupied by its 
   "to": { "device": "smelter", "port": "input" },
   "path": [
     { "x": 4, "y": 10 },
-    { "x": 5, "y": 10 },
-    { "x": 6, "y": 10 }
+    { "x": 5, "y": 10, "level": 1 },
+    { "x": 6, "y": 10, "level": 1 },
+    { "x": 7, "y": 10 }
   ],
   "logistics": {
     "loader": { "deviceAsset": "sorter" },
@@ -228,7 +229,7 @@ Every physical connection includes the exact ordered grid cells occupied by its 
 }
 ```
 
-The first and last cells must be the exterior cells of the named ports. Consecutive cells must share a cardinal edge; paths cannot leave region bounds, repeat themselves, cross placed Devices, or cover finite resource nodes. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
+The first and last cells must be level-0 exterior cells of the named ports. Consecutive cells must share a cardinal edge and may change by at most one `level`, representing a ramp along that step. Omitted `level` is ground level 0. Paths cannot leave region bounds, repeat the same `(x, y, level)`, cross placed Devices, or cover finite resource nodes on the ground. Same-coordinate cells at different levels are distinct, making explicit crossings possible without free overlap. Line travel time grows with path length, while a belt's nominal items-per-time rate remains constant with length.
 
 Each compiled belt cell has one output direction and one item slot. Multiple connections may reuse cells only when they agree on that downstream direction, so branches may merge into a shared belt but cannot silently diverge without a placed transport junction. Every item moves through loading, exact belt-cell positions, and unloading. Occupied downstream cells stop movement, the blockage propagates upstream one cell at a time, and simultaneous merge contenders use deterministic round-robin arbitration. Shared cells are charged once in build cost and occupied area rather than once per logical connection.
 

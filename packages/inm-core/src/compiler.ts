@@ -459,27 +459,27 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const expectedStart = externalPortCell(from, from.assetDef, connection.from.port);
     const expectedEnd = externalPortCell(to, to.assetDef, connection.to.port);
     const first = connection.path[0]!; const last = connection.path.at(-1)!;
-    if (!expectedStart || first.x !== expectedStart.x || first.y !== expectedStart.y) {
+    if (!expectedStart || first.x !== expectedStart.x || first.y !== expectedStart.y || (first.level ?? 0) !== 0) {
       issues.push({ path: `${path}/path/0`, code: "logistics.path-start", message: `Path must start at the exterior cell of '${from.id}.${connection.from.port}'` }); pathValid = false;
     }
-    if (!expectedEnd || last.x !== expectedEnd.x || last.y !== expectedEnd.y) {
+    if (!expectedEnd || last.x !== expectedEnd.x || last.y !== expectedEnd.y || (last.level ?? 0) !== 0) {
       issues.push({ path: `${path}/path/${connection.path.length - 1}`, code: "logistics.path-end", message: `Path must end at the exterior cell of '${to.id}.${connection.to.port}'` }); pathValid = false;
     }
     const seenPathCells = new Set<string>();
     const region = regions[from.region]!;
     for (const [pathIndex, position] of connection.path.entries()) {
       const cellPath = `${path}/path/${pathIndex}`;
-      const key = `${position.x},${position.y}`;
+      const key = `${position.x},${position.y}@${position.level ?? 0}`;
       if (seenPathCells.has(key)) { issues.push({ path: cellPath, code: "logistics.path-self-intersection", message: `Path visits cell (${position.x},${position.y}) more than once` }); pathValid = false; }
       seenPathCells.add(key);
       if (position.x >= region.bounds.width || position.y >= region.bounds.height) { issues.push({ path: cellPath, code: "logistics.path-out-of-bounds", message: `Path cell (${position.x},${position.y}) exceeds region '${region.id}' bounds` }); pathValid = false; }
       const blockingDevice = Object.values(devices).find((device) => device.region === from.region && position.x >= device.position.x && position.x < device.position.x + device.footprint.width && position.y >= device.position.y && position.y < device.position.y + device.footprint.height);
       if (blockingDevice) { issues.push({ path: cellPath, code: "logistics.path-device-collision", message: `Path cell (${position.x},${position.y}) intersects device '${blockingDevice.id}'` }); pathValid = false; }
-      const blockingNode = Object.values(resourceNodes).find((node) => node.region === from.region && node.position.x === position.x && node.position.y === position.y);
+      const blockingNode = (position.level ?? 0) === 0 ? Object.values(resourceNodes).find((node) => node.region === from.region && node.position.x === position.x && node.position.y === position.y) : undefined;
       if (blockingNode) { issues.push({ path: cellPath, code: "logistics.path-resource-collision", message: `Path cell (${position.x},${position.y}) intersects resource node '${blockingNode.id}'` }); pathValid = false; }
       if (pathIndex > 0) {
         const previous = connection.path[pathIndex - 1]!;
-        if (Math.abs(previous.x - position.x) + Math.abs(previous.y - position.y) !== 1) { issues.push({ path: cellPath, code: "logistics.path-disconnected", message: "Consecutive path cells must share a cardinal edge" }); pathValid = false; }
+        if (Math.abs(previous.x - position.x) + Math.abs(previous.y - position.y) !== 1 || Math.abs((previous.level ?? 0) - (position.level ?? 0)) > 1) { issues.push({ path: cellPath, code: "logistics.path-disconnected", message: "Consecutive path cells must share a cardinal edge and change at most one transport level" }); pathValid = false; }
       }
     }
     if (!pathValid) continue;

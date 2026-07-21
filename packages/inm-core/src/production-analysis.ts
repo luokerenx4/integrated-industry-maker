@@ -92,6 +92,7 @@ export interface ConnectionRateLimit {
   dispatchIntervalTicks: number;
   pathCells: number;
   sharedCells: number;
+  maxLevel: number;
   stages: Array<{
     stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; stackCapacity: number;
     powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number };
@@ -101,7 +102,7 @@ export interface ConnectionRateLimit {
 export interface TransportCellAnalysis {
   cell: string;
   region: string;
-  position: { x: number; y: number };
+  position: { x: number; y: number; level?: number };
   asset: string;
   connections: string[];
   output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string };
@@ -350,6 +351,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     travelTicks: connection.travelTicks,
     dispatchIntervalTicks: connection.dispatchIntervalTicks,
     pathCells: connection.path.length,
+    maxLevel: Math.max(0, ...connection.path.map((cell) => cell.level ?? 0)),
     sharedCells: connection.transportCells.filter((cell) => project.transportCells[cell]!.connections.length > 1).length,
     stages: connection.logisticsStages.map((stage) => ({
       stage: stage.stage, asset: stage.asset.id, capacity: stage.capacity, durationTicks: stage.durationTicks, stackCapacity: stage.stackCapacity,

@@ -17,6 +17,7 @@ Each planet has its own self-contained coal-to-power loop. A startup coal unit b
 bun run inm validate examples/ironworks
 bun run inm plan examples/ironworks
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output my-factory
+bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --world scaled --objective scaled-production --output scaled-factory
 bun run inm simulate examples/ironworks --blueprint stacked-cargo --scenario stacked-cargo --objective stacked-cargo
 bun run inm simulate examples/ironworks --seed 42
 bun run inm test examples/ironworks
@@ -24,4 +25,4 @@ bun run inm research examples/ironworks --iterations 3 --seed 42
 bun run inm studio examples/ironworks
 ```
 
-The checked-in `runs/` directory contains a full demonstration history with a baseline, a KEEP improvement, and REVERT candidates. The canonical `blueprints/main.blueprint.json` remains deliberately suboptimal so a fresh research run can reproduce the improvement. `blueprints/blank.blueprint.json` and the neutral `cold-start` Scenario exercise factory synthesis; the checked-in `synthesized` blueprint is the deterministic result and has its own throughput/area/cost fixture. `stacked-cargo` sends eight iron ore as two four-item cargo stacks through one-cell-wide belts, proving that the project-local Stack Sorter changes real runtime throughput rather than acting as catalog decoration.
+The checked-in `runs/` directory contains a full demonstration history with a baseline, a KEEP improvement, and REVERT candidates. The canonical `blueprints/main.blueprint.json` remains deliberately suboptimal so a fresh research run can reproduce the improvement. `blueprints/blank.blueprint.json` and the neutral `cold-start` Scenario exercise factory synthesis; the checked-in `synthesized` blueprint is the deterministic result and has its own throughput/area/cost fixture. `scaled-factory` targets 24 gear/min, fans two miners into three smelters through a junction tree, merges every plate output, and uses explicit level-1 crossings selected by the global router. `stacked-cargo` sends eight iron ore as two four-item cargo stacks through one-cell-wide belts, proving that the project-local Stack Sorter changes real runtime throughput rather than acting as catalog decoration.

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "id": "scaled",
+  "name": "Ironworks Scaled Twin Worlds",
+  "regions": [
+    {
+      "id": "forge-world",
+      "name": "Forge World",
+      "kind": "planet",
+      "coordinates": { "x": 0, "y": 0, "z": 0 },
+      "bounds": { "width": 20, "height": 24 }
+    },
+    {
+      "id": "assembly-world",
+      "name": "Assembly World",
+      "kind": "planet",
+      "coordinates": { "x": 100, "y": 0, "z": 0 },
+      "bounds": { "width": 20, "height": 24 }
+    }
+  ],
+  "resourceNodes": [
+    { "id": "iron-vein-1", "region": "forge-world", "resource": "iron-ore", "position": { "x": 1, "y": 9 }, "amount": 100 },
+    { "id": "iron-vein-2", "region": "forge-world", "resource": "iron-ore", "position": { "x": 2, "y": 9 }, "amount": 100 },
+    { "id": "iron-vein-3", "region": "forge-world", "resource": "iron-ore", "position": { "x": 3, "y": 9 }, "amount": 100 },
+    { "id": "coal-seam-forge", "region": "forge-world", "resource": "coal", "position": { "x": 3, "y": 2 }, "amount": 40 },
+    { "id": "coal-seam-assembly", "region": "assembly-world", "resource": "coal", "position": { "x": 1, "y": 2 }, "amount": 100 }
+  ]
+}

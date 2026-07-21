@@ -44,7 +44,7 @@ export function createFactorySceneModel(project: CompiledFactoryProject, metrics
     ...Object.values(project.connections).map((connection) => ({
       id: connection.id, from: center(worldPosition(connection.fromDevice), connection.fromDevice.footprint),
       to: center(worldPosition(connection.toDevice), connection.toDevice.footprint),
-      path: connection.path.map((cell) => ({ x: cell.x + offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + offsets.get(connection.fromDevice.region)!.y + .5 })), kind: "physical" as const,
+      path: connection.path.map((cell) => ({ x: cell.x + offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + offsets.get(connection.fromDevice.region)!.y + .5, level: cell.level ?? 0 })), kind: "physical" as const,
     })),
     ...Object.values(project.logisticsNetworks).flatMap((network) => network.routes.map((route) => ({
       id: route.id,

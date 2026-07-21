@@ -1,15 +1,15 @@
 # INM Run 004-simulate
 
 - Decision: **BASELINE**
-- Score: **107.609**
-- Result hash: `49b28bbb2105e557030b4459475d1267b9ff7ded232834825030ba91f11e6317`
+- Score: **105.936**
+- Result hash: `c6361ec58e9cb223cacbb411405f4026049d16d04266eee557242bac39676d52`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 14.000
 - Target rate: 12.000 gear/min (100.0% attained)
 - Capacity plan: READY
 - Belt utilization: 2.9%
 - Average blocked belt items: 0.000
-- Peak belt items: 4
+- Peak belt items: 5
 - Powered transport energy: 362.000 J
 - Feasible: yes
 
@@ -36,12 +36,12 @@
 ```json
 {
   "blocked": -1.5,
-  "buildCost": -13.62,
+  "buildCost": -13.66,
   "constraintPenalty": 0,
   "energy": -2.23162,
-  "occupiedArea": -22.400000000000002,
+  "occupiedArea": -24,
   "onTimeDelivery": 10,
   "throughput": 140,
-  "wip": -2.639666666666667
+  "wip": -2.6720833333333336
 }
 ```

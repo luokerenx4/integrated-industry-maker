@@ -1,11 +1,11 @@
 {
-  "averageBeltItems": 0.9033333333333333,
+  "averageBeltItems": 1.5633333333333332,
   "averageBlockedBeltItems": 0,
-  "averageWip": 45.50816666666667,
-  "beltCellUtilization": 0.02580952380952381,
+  "averageWip": 45.8915,
+  "beltCellUtilization": 0.022018779342723005,
   "blockedOutputTime": {
     "assembler-1": 0,
-    "coal-miner-assembly": 51640,
+    "coal-miner-assembly": 52640,
     "coal-miner-forge": 0,
     "coal-splitter-assembly": 0,
     "generator-1": 0,
@@ -30,7 +30,7 @@
     "coal": 52,
     "iron-ore": 90
   },
-  "finalScore": 104.98088666666669,
+  "finalScore": 97.54588666666666,
   "fuelConsumed": {
     "coal": 4
   },
@@ -69,9 +69,9 @@
     "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   },
-  "occupiedArea": 119,
+  "occupiedArea": 155,
   "onTimeDelivery": 1,
-  "peakBeltItems": 4,
+  "peakBeltItems": 5,
   "produced": {
     "coal": 52,
     "gear": 28,
@@ -116,18 +116,18 @@
     }
   },
   "scoreBreakdown": {
-    "blocked": -0.8606666666666667,
-    "buildCost": -13.565,
+    "blocked": -0.8773333333333333,
+    "buildCost": -13.745,
     "constraintPenalty": 0,
     "energy": -2.24263,
-    "occupiedArea": -23.8,
+    "occupiedArea": -31,
     "onTimeDelivery": 10,
     "throughput": 140,
-    "wip": -4.550816666666667
+    "wip": -4.58915
   },
   "throughputPerMinute": 14,
-  "totalBuildCost": 27130,
-  "transportCongestion": 0.09054761904761859,
+  "totalBuildCost": 27490,
+  "transportCongestion": 0.08707276995305079,
   "transportEnergyConsumedMilliJoules": 363000,
   "transportFlows": {
     "coal-assembly-to-splitter": {
@@ -284,7 +284,7 @@
       "utilization": 0.04583333333333333
     },
     "plate-to-station-smelter-1-parallel": {
-      "averageInFlightItems": 0.18333333333333332,
+      "averageInFlightItems": 0.8433333333333334,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
       "capacityItemsPerMinute": 240,
@@ -366,7 +366,7 @@
   },
   "waitingInputTime": {
     "assembler-1": 64000,
-    "coal-miner-assembly": 28360,
+    "coal-miner-assembly": 27360,
     "coal-miner-forge": 108000,
     "coal-splitter-assembly": 0,
     "generator-1": 0,

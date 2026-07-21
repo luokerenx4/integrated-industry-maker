@@ -42,7 +42,7 @@ inm plan examples/ironworks --json
 
 ### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
 
-Creates a new complete blueprint from the selected Objective rather than editing the input blueprint. The deterministic synthesizer recursively chooses compatible project-local Processes and Devices, sizes machine and extractor counts, binds multi-input recipes and finite deposits, selects regions, inserts merge/split junctions and cross-region station fleets, provisions renewable power, places every Device, and routes explicit collision-free local belts. It compiles the result, runs the target-rate capacity plan, and performs a cold-start simulation before atomically writing `blueprints/<output>.blueprint.json`. Existing files are never overwritten.
+Creates a new complete blueprint from the selected Objective rather than editing the input blueprint. The deterministic synthesizer recursively chooses compatible project-local Processes and Devices, sizes machine and extractor counts, binds multi-input recipes and finite deposits, selects regions, inserts arbitrary-size merge/split junction trees and cross-region station fleets, provisions renewable power, places every Device, and globally selects explicit collision-free ground or raised local-belt paths. It compiles the result, runs the target-rate capacity plan, and performs a cold-start simulation before atomically writing `blueprints/<output>.blueprint.json`. Existing files are never overwritten.
 
 ```bash
 inm synthesize examples/ironworks \

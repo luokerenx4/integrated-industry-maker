@@ -57,7 +57,9 @@ function freePlacement(loaded: LoadedFactoryProject, blueprint: Blueprint, devic
     if (position.x < other.position.x + otherFootprint.width && position.x + footprint.width > other.position.x
       && position.y < other.position.y + otherFootprint.height && position.y + footprint.height > other.position.y) return false;
     if (candidatePortCells.some((cell) => cell.x >= other.position.x && cell.x < other.position.x + otherFootprint.width && cell.y >= other.position.y && cell.y < other.position.y + otherFootprint.height)) return false;
-    if (otherAsset.geometry.ports.map((port) => externalPortCell(other, otherAsset, port.id)).filter((cell): cell is GridPosition => Boolean(cell)).some(occupied)) return false;
+    const otherPortCells = otherAsset.geometry.ports.map((port) => externalPortCell(other, otherAsset, port.id)).filter((cell): cell is GridPosition => Boolean(cell));
+    if (otherPortCells.some(occupied)) return false;
+    if (candidatePortCells.some((candidate) => otherPortCells.some((cell) => cell.x === candidate.x && cell.y === candidate.y))) return false;
   }
   return !blueprint.connections.some((connection) => {
     const source = blueprint.devices.find((item) => item.id === connection.from.device);
@@ -109,12 +111,22 @@ function assignJunctionPorts(
     }
     for (const port of remaining) {
       const portCell = portCells.get(port)!; const endpointCell = endpointCells[index]!;
+      const junctionPort = loaded.deviceAssets[junction.asset]!.geometry.ports.find((candidate) => candidate.id === port)!;
+      const endpoint = endpoints[index]!;
+      const reachable = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, junctionPort.direction === "input"
+        ? { from: { device: endpoint.device, port: endpoint.port }, to: { device: junction.id, port } }
+        : { from: { device: junction.id, port }, to: { device: endpoint.device, port: endpoint.port } })
+        ?? findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, junctionPort.direction === "input"
+          ? { from: { device: endpoint.device, port: endpoint.port }, to: { device: junction.id, port } }
+          : { from: { device: junction.id, port }, to: { device: endpoint.device, port: endpoint.port } }, { elevated: true });
+      if (!reachable) continue;
       const portDistance = Math.abs(portCell.x - endpointCell.x) + Math.abs(portCell.y - endpointCell.y);
       visit(index + 1, remaining.filter((candidate) => candidate !== port), [...selected, port], distance + portDistance, Math.max(maximumDistance, portDistance));
     }
   };
   visit(0, portIds, [], 0, 0);
-  return best!.ports;
+  if (!best) throw new Error(`Junction '${junction.id}' cannot expose ${endpoints.length} independently reachable ports in its synthesized placement`);
+  return best.ports;
 }
 
 function bestRegionForResources(loaded: LoadedFactoryProject, resources: Set<ResourceId>, fallback: string): string {
@@ -184,8 +196,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
         recipe: { process: selection.process.id, inputs: { ...selection.inputs }, outputs: { ...selection.outputs } },
       };
       placeDevice(loaded, blueprint, device, selection.resource === targetResource
-        ? { x: Math.floor(region.bounds.width * .35), y: Math.floor(region.bounds.height * .3) + index * 4 }
-        : { x: Math.floor(region.bounds.width * .4), y: Math.floor(region.bounds.height * .34) + index * 4 });
+        ? { x: Math.floor(region.bounds.width * .35), y: Math.floor(region.bounds.height * .3) + index * 6 }
+        : { x: Math.floor(region.bounds.width * .4), y: Math.floor(region.bounds.height * .34) + index * 6 });
       selection.instances.push(device);
     }
   }
@@ -243,38 +255,156 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
   const stationSummary: BlueprintSynthesisResult["stationNetworks"] = [];
   const junctionAsset = Object.values(loaded.deviceAssets).filter((asset) => asset.capabilities.includes("transport-junction"))
     .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  const loader = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("loader"))
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  const line = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"))
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  const unloader = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"))
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
+  if (!loader || !line || !unloader) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
+  const connectionFor = (planned: PlannedConnection) => ({
+    id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
+    logistics: { loader: { deviceAsset: loader.id }, line: { deviceAsset: line.id }, unloader: { deviceAsset: unloader.id } },
+  });
+  const reserveRoutes = (plans: PlannedConnection[]): void => {
+    const rows = plans.map((planned) => {
+      const connection = connectionFor(planned); const paths: GridPosition[][] = [];
+      const pathKeys = new Set<string>();
+      for (const elevated of [false, true]) {
+        const blockerKeys = new Set<string>([""]); const blockerQueue: GridPosition[][] = [[]]; let attempts = 0;
+        while (blockerQueue.length && paths.length < 64 && attempts++ < 1_024) {
+          const blockedCells = blockerQueue.shift()!;
+          const path = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, connection, { blockedCells, elevated });
+          if (!path) continue;
+          const pathKey = path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";");
+          if (!pathKeys.has(pathKey)) { pathKeys.add(pathKey); paths.push(path); }
+          if (blockedCells.length >= 4) continue;
+          for (const cell of path.slice(1, -1)) {
+            const next = [...blockedCells, cell].sort((a, b) => a.y - b.y || a.x - b.x);
+            const key = next.map((item) => `${item.x},${item.y}`).join(";");
+            if (!blockerKeys.has(key)) { blockerKeys.add(key); blockerQueue.push(next); }
+          }
+        }
+      }
+      if (!paths.length) throw new Error(`No physical route exists for synthesized ${planned.resource} connection '${planned.id}'`);
+      paths.sort((a, b) => Math.max(...a.map((cell) => cell.level ?? 0)) - Math.max(...b.map((cell) => cell.level ?? 0))
+        || a.length - b.length || a.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";").localeCompare(b.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";")));
+      return { planned, paths };
+    }).sort((a, b) => a.paths.length - b.paths.length || a.planned.id.localeCompare(b.planned.id));
+    const routed = new Map<string, GridPosition[]>(); const occupied = new Set<string>(); let explored = 0;
+    const select = (index: number): boolean => {
+      if (index === rows.length) return true;
+      if (explored++ > 500_000) return false;
+      const row = rows[index]!; const regionId = row.planned.from.region;
+      for (const path of row.paths) {
+        const cells = path.map((cell) => `${regionId}:${cell.x},${cell.y}@${cell.level ?? 0}`);
+        if (cells.some((cell) => occupied.has(cell))) continue;
+        cells.forEach((cell) => occupied.add(cell)); routed.set(row.planned.id, path);
+        if (select(index + 1)) return true;
+        routed.delete(row.planned.id); cells.forEach((cell) => occupied.delete(cell));
+      }
+      return false;
+    };
+    if (!select(0)) throw new Error(`Cannot find a conflict-free belt layout for ${plans.length} synthesized '${plans[0]?.resource ?? "material"}' flows after exploring ${explored} route combinations`);
+    for (const planned of plans) blueprint.connections.push({ ...connectionFor(planned), path: routed.get(planned.id)! });
+  };
   const connectLocal = (resource: ResourceId, sourceEndpoints: Endpoint[], targetEndpoints: Endpoint[]): void => {
+    const plannedStart = plannedConnections.length;
     if (!sourceEndpoints.length || !targetEndpoints.length) throw new Error(`Cannot connect synthesized '${resource}' flow without both producer and consumer`);
     const region = sourceEndpoints[0]!.region;
     if (sourceEndpoints.some((endpoint) => endpoint.region !== region) || targetEndpoints.some((endpoint) => endpoint.region !== region)) throw new Error(`Local synthesized '${resource}' flow crosses regions`);
-    let effectiveSources = sourceEndpoints;
-    if (effectiveSources.length > 1) {
+    const endpointPosition = (endpoint: Endpoint): GridPosition => blueprint.devices.find((device) => device.id === endpoint.device)!.position;
+    const centroid = (endpoints: Endpoint[]): GridPosition => ({
+      x: Math.round(endpoints.reduce((sum, endpoint) => sum + endpointPosition(endpoint).x, 0) / endpoints.length),
+      y: Math.round(endpoints.reduce((sum, endpoint) => sum + endpointPosition(endpoint).y, 0) / endpoints.length),
+    });
+    const rotationForFlow = (from: GridPosition, to: GridPosition): BlueprintDevice["rotation"] => {
+      const dx = to.x - from.x; const dy = to.y - from.y;
+      if (Math.abs(dy) >= Math.abs(dx)) return dy >= 0 ? 90 : 270;
+      return dx >= 0 ? 0 : 180;
+    };
+    const chunks = <T>(items: T[], size: number): T[][] => Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+    const placeJunction = (
+      junction: BlueprintDevice,
+      preferred: GridPosition,
+      preferredRotation: BlueprintDevice["rotation"],
+      incoming: Endpoint[],
+      outgoing: Endpoint[],
+    ): { inputs: string[]; outputs: string[] } => {
+      const regionDef = loaded.world.regions.find((item) => item.id === region)!;
+      const rotations: BlueprintDevice["rotation"][] = loaded.deviceAssets[junction.asset]!.geometry.rotatable
+        ? ([preferredRotation, 0, 90, 180, 270] as BlueprintDevice["rotation"][]).filter((rotation, index, values) => values.indexOf(rotation) === index)
+        : [0];
+      const positions = Array.from({ length: regionDef.bounds.width * regionDef.bounds.height }, (_, index) => ({ x: index % regionDef.bounds.width, y: Math.floor(index / regionDef.bounds.width) }))
+        .sort((a, b) => Math.hypot(a.x - preferred.x, a.y - preferred.y) - Math.hypot(b.x - preferred.x, b.y - preferred.y) || a.y - b.y || a.x - b.x);
+      const inputPorts = loaded.deviceAssets[junction.asset]!.geometry.ports.filter((port) => port.direction === "input").map((port) => port.id);
+      const outputPorts = loaded.deviceAssets[junction.asset]!.geometry.ports.filter((port) => port.direction === "output").map((port) => port.id);
+      for (const position of positions) for (const rotation of rotations) {
+        junction.position = position; junction.rotation = rotation;
+        if (!freePlacement(loaded, blueprint, junction, position)) continue;
+        blueprint.devices.push(junction);
+        try {
+          const inputs = assignJunctionPorts(loaded, blueprint, junction, inputPorts, incoming);
+          const outputs = assignJunctionPorts(loaded, blueprint, junction, outputPorts, outgoing);
+          return { inputs, outputs };
+        } catch {
+          blueprint.devices.pop();
+        }
+      }
+      const routes = blueprint.connections.map((connection) => `${connection.id}[${connection.path.map((cell) => `${cell.x},${cell.y}@${cell.level ?? 0}`).join(";")}]`).join(", ");
+      throw new Error(`Cannot place a routable synthesized junction '${junction.id}' for ${incoming.length} incoming and ${outgoing.length} outgoing '${resource}' flows; reserved routes: ${routes || "none"}`);
+    };
+
+    const merge = (endpoints: Endpoint[]): Endpoint => {
+      if (endpoints.length === 1) return endpoints[0]!;
       if (!junctionAsset) throw new Error(`Multiple '${resource}' producers require a project-local transport-junction Device`);
-      const inputs = junctionAsset.geometry.ports.filter((port) => port.direction === "input"); const output = junctionAsset.geometry.ports.find((port) => port.direction === "output");
-      if (inputs.length < effectiveSources.length || !output) throw new Error(`Transport junction '${junctionAsset.id}' cannot merge ${effectiveSources.length} '${resource}' producers`);
-      const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
-      const targets = targetEndpoints.map((endpoint) => blueprint.devices.find((device) => device.id === endpoint.device)!.position);
-      placeDevice(loaded, blueprint, junction, {
-        x: Math.round(targets.reduce((sum, point) => sum + point.x, 0) / targets.length - 4),
-        y: Math.round(targets.reduce((sum, point) => sum + point.y, 0) / targets.length),
-      });
-      const assignedInputs = assignJunctionPorts(loaded, blueprint, junction, inputs.map((port) => port.id), effectiveSources);
-      effectiveSources.forEach((source, index) => plannedConnections.push({ id: safeId(`synth-${resource}-${source.device}-to-${junction.id}`), resource, from: source, to: { device: junction.id, port: assignedInputs[index]!, region } }));
-      effectiveSources = [{ device: junction.id, port: output.id, region }];
-    }
-    let effectiveTargets = targetEndpoints;
-    if (effectiveTargets.length > 1) {
+      const inputs = junctionAsset.geometry.ports.filter((port) => port.direction === "input");
+      const output = junctionAsset.geometry.ports.find((port) => port.direction === "output");
+      if (inputs.length < 2 || !output) throw new Error(`Transport junction '${junctionAsset.id}' needs at least two inputs and one output to merge '${resource}' flows`);
+      let level = [...endpoints]; const toward = centroid(targetEndpoints);
+      while (level.length > 1) {
+        const next: Endpoint[] = [];
+        for (const group of chunks(level, inputs.length)) {
+          if (group.length === 1) { next.push(group[0]!); continue; }
+          const from = centroid(group);
+          const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-merge`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0 };
+          const assigned = placeJunction(junction, { x: Math.round((from.x + toward.x * 2) / 3), y: Math.round((from.y + toward.y * 2) / 3) }, rotationForFlow(from, toward), group, [targetEndpoints[0]!]);
+          group.forEach((source, index) => plannedConnections.push({ id: safeId(`synth-${resource}-${source.device}-to-${junction.id}`), resource, from: source, to: { device: junction.id, port: assigned.inputs[index]!, region } }));
+          next.push({ device: junction.id, port: assigned.outputs[0]!, region });
+        }
+        level = next;
+      }
+      return level[0]!;
+    };
+
+    const split = (endpoints: Endpoint[], source: Endpoint): Endpoint => {
+      if (endpoints.length === 1) return endpoints[0]!;
       if (!junctionAsset) throw new Error(`Multiple '${resource}' consumers require a project-local transport-junction Device`);
-      const input = junctionAsset.geometry.ports.find((port) => port.direction === "input"); const outputs = junctionAsset.geometry.ports.filter((port) => port.direction === "output");
-      if (!input || outputs.length < effectiveTargets.length) throw new Error(`Transport junction '${junctionAsset.id}' cannot split to ${effectiveTargets.length} '${resource}' consumers`);
-      const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
-      const points = effectiveTargets.map((endpoint) => blueprint.devices.find((device) => device.id === endpoint.device)!.position);
-      placeDevice(loaded, blueprint, junction, { x: Math.round(points.reduce((sum, point) => sum + point.x, 0) / points.length - 3), y: Math.round(points.reduce((sum, point) => sum + point.y, 0) / points.length) });
-      const assignedOutputs = assignJunctionPorts(loaded, blueprint, junction, outputs.map((port) => port.id), effectiveTargets);
-      effectiveTargets.forEach((target, index) => plannedConnections.push({ id: safeId(`synth-${resource}-${junction.id}-to-${target.device}`), resource, from: { device: junction.id, port: assignedOutputs[index]!, region }, to: target }));
-      effectiveTargets = [{ device: junction.id, port: input.id, region }];
-    }
-    plannedConnections.push({ id: safeId(`synth-${resource}-${effectiveSources[0]!.device}-to-${effectiveTargets[0]!.device}`), resource, from: effectiveSources[0]!, to: effectiveTargets[0]! });
+      const input = junctionAsset.geometry.ports.find((port) => port.direction === "input");
+      const outputs = junctionAsset.geometry.ports.filter((port) => port.direction === "output");
+      if (!input || outputs.length < 2) throw new Error(`Transport junction '${junctionAsset.id}' needs one input and at least two outputs to split '${resource}' flows`);
+      let level = [...endpoints].sort((a, b) => endpointPosition(b).y - endpointPosition(a).y || endpointPosition(b).x - endpointPosition(a).x || b.device.localeCompare(a.device));
+      const from = endpointPosition(source);
+      while (level.length > 1) {
+        const next: Endpoint[] = [];
+        const groups = chunks(level, outputs.length);
+        for (const group of groups) {
+          if (group.length === 1) { next.push(group[0]!); continue; }
+          const toward = centroid(group);
+          const junction: BlueprintDevice = { id: uniqueId(blueprint, `synth-${resource}-split`), asset: junctionAsset.id, region, position: { x: 0, y: 0 }, rotation: 0, policy: { dispatch: "round-robin" } };
+          const assigned = placeJunction(junction, { x: Math.round((from.x * 2 + toward.x) / 3), y: Math.round((from.y * 2 + toward.y) / 3) }, rotationForFlow(from, toward), [source], group);
+          group.forEach((target, index) => plannedConnections.push({ id: safeId(`synth-${resource}-${junction.id}-to-${target.device}`), resource, from: { device: junction.id, port: assigned.outputs[index]!, region }, to: target }));
+          next.push({ device: junction.id, port: assigned.inputs[0]!, region });
+        }
+        level = next;
+      }
+      return level[0]!;
+    };
+
+    const effectiveSource = merge(sourceEndpoints);
+    const effectiveTarget = split(targetEndpoints, effectiveSource);
+    plannedConnections.push({ id: safeId(`synth-${resource}-${effectiveSource.device}-to-${effectiveTarget.device}`), resource, from: effectiveSource, to: effectiveTarget });
+    reserveRoutes(plannedConnections.slice(plannedStart));
   };
 
   for (const resource of [...consumers.keys()].sort()) {
@@ -322,13 +452,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     }
   }
 
-  const loader = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("loader"))
-    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const line = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("line"))
-    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  const unloader = Object.values(loaded.deviceAssets).filter((asset) => asset.logistics?.roles.includes("unloader"))
-    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
-  if (!loader || !line || !unloader) throw new Error("Blueprint synthesis requires project-local loader, line, and unloader Device assets");
+  const reservedConnections = new Map(blueprint.connections.map((connection) => [connection.id, connection]));
+  blueprint.connections = plannedConnections.map((planned) => reservedConnections.get(planned.id)!);
 
   const ratedLoad: Record<string, number> = {};
   for (const device of blueprint.devices) add(ratedLoad, device.region, loaded.deviceAssets[device.asset]!.power.consumptionMilliWatts);
@@ -344,45 +469,6 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       placeDevice(loaded, blueprint, generator, { x: Math.floor(region.bounds.width * .5) + index * 3, y: 2 });
     }
     powerSummary.push({ region: region.id, asset: renewable.id, devices: count, generationMilliWatts: count * renewable.power.generation.outputMilliWatts, ratedLoadMilliWatts: load });
-  }
-
-  const connectionDistance = (planned: PlannedConnection) => {
-    const from = blueprint.devices.find((device) => device.id === planned.from.device)!;
-    const to = blueprint.devices.find((device) => device.id === planned.to.device)!;
-    return Math.abs(from.position.x - to.position.x) + Math.abs(from.position.y - to.position.y);
-  };
-  const resourceDepth = (resource: ResourceId, visiting = new Set<ResourceId>()): number => {
-    if (visiting.has(resource)) return 0;
-    const selection = [...selections.values()].find((candidate) => candidate.resource === resource);
-    if (!selection) return 0;
-    const next = new Set(visiting); next.add(resource);
-    return 1 + Math.max(0, ...selection.process.inputs.map((input) => resourceDepth(input.resource, next)));
-  };
-  const junctionPriority = (planned: PlannedConnection) => {
-    if (planned.to.device.includes("-split")) return 0;
-    if (planned.from.device.includes("-merge")) return 0;
-    if (planned.from.device.includes("-split")) return 1;
-    if (planned.to.device.includes("-merge")) return 1;
-    return 0;
-  };
-  for (const planned of plannedConnections.sort((a, b) => resourceDepth(a.resource) - resourceDepth(b.resource)
-    || junctionPriority(a) - junctionPriority(b) || connectionDistance(a) - connectionDistance(b) || a.id.localeCompare(b.id))) {
-    const connection = {
-      id: planned.id, from: { device: planned.from.device, port: planned.from.port }, to: { device: planned.to.device, port: planned.to.port }, path: [] as GridPosition[],
-      logistics: { loader: { deviceAsset: loader.id }, line: { deviceAsset: line.id }, unloader: { deviceAsset: unloader.id } },
-    };
-    const path = findBlueprintConnectionPath(blueprint, loaded.world, loaded.deviceAssets, connection);
-    if (!path) {
-      const from = blueprint.devices.find((device) => device.id === planned.from.device)!;
-      const to = blueprint.devices.find((device) => device.id === planned.to.device)!;
-      const fromCell = externalPortCell(from, loaded.deviceAssets[from.asset]!, planned.from.port);
-      const toCell = externalPortCell(to, loaded.deviceAssets[to.asset]!, planned.to.port);
-      const nearbyRoutes = blueprint.connections.filter((existing) => blueprint.devices.find((device) => device.id === existing.from.device)?.region === from.region
-        && existing.path.some((cell) => (fromCell && Math.abs(cell.x - fromCell.x) + Math.abs(cell.y - fromCell.y) <= 1) || (toCell && Math.abs(cell.x - toCell.x) + Math.abs(cell.y - toCell.y) <= 1))).map((existing) => existing.id);
-      const layout = blueprint.devices.filter((device) => device.region === from.region).map((device) => `${device.id}@${device.position.x},${device.position.y}`).join(", ");
-      throw new Error(`Cannot route synthesized ${planned.resource} connection '${planned.id}' from ${from.id}.${planned.from.port}@${fromCell?.x},${fromCell?.y} to ${to.id}.${planned.to.port}@${toCell?.x},${toCell?.y}; nearby routes: ${nearbyRoutes.join(", ") || "none"}; layout: ${layout}`);
-    }
-    connection.path = path; blueprint.connections.push(connection);
   }
 
   return {

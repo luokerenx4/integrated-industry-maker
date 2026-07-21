@@ -144,7 +144,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W  (${grid.members.length} devices + ${grid.transportStages.length} transport stages)`),
     "",
     "Logistics links",
-    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  stack×${connection.maxStackSize}  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}[${stage.capacity} cargo, stack×${stage.stackCapacity}]${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
+    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  stack×${connection.maxStackSize}  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.maxLevel ? ` / L${connection.maxLevel}` : ""}${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}[${stage.capacity} cargo, stack×${stage.stackCapacity}]${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
     "",
     "Station networks",
     ...analysis.stationNetworks.flatMap((network) => [
@@ -242,7 +242,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
 
 interface MetricAssertion { kind: "metric"; path: string; min?: number; max?: number; equals?: unknown }
 interface EventAssertion { kind: "event"; type: FactoryEvent["type"]; present: boolean }
-interface Fixture { name: string; blueprint?: string; scenario?: string; objective?: string; seed?: number; untilTick?: number; assertions: Array<MetricAssertion | EventAssertion> }
+interface Fixture { name: string; world?: string; blueprint?: string; scenario?: string; objective?: string; seed?: number; untilTick?: number; assertions: Array<MetricAssertion | EventAssertion> }
 function getPath(value: unknown, path: string): unknown { return path.split(".").reduce((current, key) => current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, value); }
 function assertFixture(fixture: Fixture, metrics: FactoryMetrics, events: FactoryEvent[]): string[] {
   const failures: string[] = [];
@@ -268,7 +268,7 @@ export async function testCommand(projectDir: string, options: OutputOptions): P
   for (const file of files) {
     const contents = await readFile(join(testDir, file), "utf8");
     const fixture = (file.endsWith(".json") ? JSON.parse(contents) : parseYaml(contents)) as Fixture;
-    const project = await openFactoryProject(root, { blueprint: fixture.blueprint, scenario: fixture.scenario, objective: fixture.objective });
+    const project = await openFactoryProject(root, { world: fixture.world, blueprint: fixture.blueprint, scenario: fixture.scenario, objective: fixture.objective });
     const first = runUntil(project, undefined, { seed: fixture.seed ?? 0, ...(fixture.untilTick ? { untilTick: fixture.untilTick } : {}) });
     const second = runUntil(project, undefined, { seed: fixture.seed ?? 0, ...(fixture.untilTick ? { untilTick: fixture.untilTick } : {}) });
     const failures = assertFixture(fixture, first.metrics, first.events);

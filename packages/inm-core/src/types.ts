@@ -188,7 +188,7 @@ export interface DeviceProgram {
   planTransport?: (context: Readonly<DeviceTransportContext>) => unknown;
 }
 
-export interface GridPosition { x: number; y: number }
+export interface GridPosition { x: number; y: number; level?: number }
 export interface WorldPosition { x: number; y: number; z: number }
 export interface WorldRegion {
   id: string;

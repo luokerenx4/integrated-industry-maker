@@ -179,11 +179,11 @@ interface IndustrialAnalysis {
   resourceNodes: Array<{ node: string; region: string; resource: string; amount: number; miners: string[]; nominalSharePerMinute: number; estimatedDepletionMinutes: number | null }>;
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
-    connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number;
+    connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number; maxLevel: number;
     capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
     stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
-  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
+  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number; level?: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
   powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
@@ -227,10 +227,10 @@ interface StudioData {
     id: string;
     fromDevice: string;
     toDevice: string;
-    from: { x: number; y: number };
-    to: { x: number; y: number };
-    points: Array<{ x: number; y: number }>;
-    endpoints: Array<{ stage: "loader" | "unloader"; asset: string; from: { x: number; y: number }; to: { x: number; y: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
+    from: { x: number; y: number; level: number };
+    to: { x: number; y: number; level: number };
+    points: Array<{ x: number; y: number; level: number }>;
+    endpoints: Array<{ stage: "loader" | "unloader"; asset: string; from: { x: number; y: number; level: number }; to: { x: number; y: number; level: number }; position: { x: number; y: number }; powerMilliWatts: number; powerGrid: string | null }>;
   }>;
   logisticsRoutes: Array<{
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
@@ -247,7 +247,7 @@ interface StudioData {
 }
 
 interface DeviceFrame { status: Status; progress: number }
-interface TransitFrame { id: string; material: string; count: number; progress: number; path: string; kind: "belt" | "station"; position?: { x: number; y: number }; blocked?: boolean }
+interface TransitFrame { id: string; material: string; count: number; progress: number; path: string; kind: "belt" | "station"; position?: { x: number; y: number; level?: number }; blocked?: boolean }
 
 const STATUS_COLORS: Record<Status, string> = {
   idle: "#64748b",
@@ -337,20 +337,24 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
   return { devices, transits: [...transits.values()], endpointPower, visibleEvents };
 }
 
-function pointAlongPath(points: Array<{ x: number; y: number }>, progress: number): { x: number; y: number } {
-  if (points.length < 2) return points[0] ?? { x: 0, y: 0 };
-  const lengths = points.slice(1).map((point, index) => Math.hypot(point.x - points[index]!.x, point.y - points[index]!.y));
+function pointAlongPath(points: Array<{ x: number; y: number; level?: number }>, progress: number): { x: number; y: number; level: number } {
+  if (points.length < 2) return points[0] ? { ...points[0], level: points[0].level ?? 0 } : { x: 0, y: 0, level: 0 };
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point.x - points[index]!.x, point.y - points[index]!.y, ((point.level ?? 0) - (points[index]!.level ?? 0)) * .65));
   const total = lengths.reduce((sum, length) => sum + length, 0);
   let remaining = total * progress;
   for (let index = 0; index < lengths.length; index++) {
     const length = lengths[index]!;
     if (remaining <= length || index === lengths.length - 1) {
       const ratio = length ? remaining / length : 0;
-      return { x: THREE.MathUtils.lerp(points[index]!.x, points[index + 1]!.x, ratio), y: THREE.MathUtils.lerp(points[index]!.y, points[index + 1]!.y, ratio) };
+      return {
+        x: THREE.MathUtils.lerp(points[index]!.x, points[index + 1]!.x, ratio),
+        y: THREE.MathUtils.lerp(points[index]!.y, points[index + 1]!.y, ratio),
+        level: THREE.MathUtils.lerp(points[index]!.level ?? 0, points[index + 1]!.level ?? 0, ratio),
+      };
     }
     remaining -= length;
   }
-  return points.at(-1)!;
+  const last = points.at(-1)!; return { ...last, level: last.level ?? 0 };
 }
 
 function FactoryTexture({ projectId, path, color, processing }: { projectId: string; path: string; color: string; processing: boolean }) {
@@ -424,9 +428,9 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
     </group>)}
     {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}
-    {data.connections.map((connection) => <Line key={connection.id} points={connection.points.map((point) => [point.x, .16, point.y])} color="#4f7680" lineWidth={3} transparent opacity={.9} />)}
+    {data.connections.map((connection) => <Line key={connection.id} points={connection.points.map((point) => [point.x, .16 + point.level * .65, point.y])} color={connection.points.some((point) => point.level > 0) ? "#65a8b7" : "#4f7680"} lineWidth={3} transparent opacity={.9} />)}
     {data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => { const powered = frame.endpointPower[`${connection.id}:${endpoint.stage}`]; return <group key={`${connection.id}-${endpoint.stage}`}>
-      <Line points={[[endpoint.from.x, .28, endpoint.from.y], [endpoint.to.x, .28, endpoint.to.y]]} color={powered ? endpoint.stage === "loader" ? "#f5b84b" : "#5dd7ff" : "#ff5d68"} lineWidth={2.5} />
+      <Line points={[[endpoint.from.x, .28 + endpoint.from.level * .65, endpoint.from.y], [endpoint.to.x, .28 + endpoint.to.level * .65, endpoint.to.y]]} color={powered ? endpoint.stage === "loader" ? "#f5b84b" : "#5dd7ff" : "#ff5d68"} lineWidth={2.5} />
       <mesh position={[endpoint.position.x, .3, endpoint.position.y]} rotation={[0, Math.atan2(endpoint.to.x - endpoint.from.x, endpoint.to.y - endpoint.from.y), 0]} castShadow>
         <boxGeometry args={[.16, .16, .48]} /><meshStandardMaterial color={powered ? endpoint.stage === "loader" ? "#f5b84b" : "#5dd7ff" : "#ff5d68"} metalness={.65} roughness={.28} emissiveIntensity={powered ? .35 : 1} emissive={powered ? endpoint.stage === "loader" ? "#7d4a08" : "#0d607b" : "#8b1420"} />
       </mesh>
@@ -441,7 +445,7 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       const resource = data.resources[transit.material];
       const color = resource?.visual?.color ?? "#d7f3ff";
       const layers = transit.kind === "belt" ? Math.min(4, transit.count) : 1;
-      return <group key={transit.id} position={[x, transit.blocked ? .46 : .36, z]}>
+      return <group key={transit.id} position={[x, (transit.blocked ? .46 : .36) + (position.level ?? 0) * .65, z]}>
         {Array.from({ length: layers }, (_, index) => <mesh key={index} position={[0, index * .17, 0]} castShadow>
           {resource?.visual?.shape === "box" ? <boxGeometry args={[.25, .14, .25]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.14, .14, .14, 16]} /> : <sphereGeometry args={[.13, 16, 16]} />}
           {resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={transit.blocked ? "#ff7b49" : color} emissiveIntensity={transit.blocked ? 1.2 : .55} />}
@@ -628,7 +632,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             return <div className="pipeline-card" key={connection.connection}>
               <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
               <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
-              <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
+              <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.maxLevel ? ` · LEVEL ${connection.maxLevel}` : ""}{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
             </div>;
           })}</div>
         </section>

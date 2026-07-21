@@ -68,6 +68,25 @@ describe("factory synthesis", () => {
     expect(simulation.metrics.infeasibleReason).toBeNull();
     expect(simulation.events.some((event) => event.type === "power.shortage" || event.type === "transport.power-shortage")).toBeFalse();
   });
+
+  test("scales multi-input production through junction trees and elevated belt crossings", async () => {
+    const source = await loadFactoryProject(ironworks, { blueprint: "blank", scenario: "cold-start" });
+    source.objective.targetRatePerMinute = 24;
+    source.objective.constraints = { maxBuildCost: 50_000, maxOccupiedArea: 260 };
+    for (const node of source.world.resourceNodes.filter((node) => node.resource === "iron-ore")) node.amount = 100;
+
+    const synthesis = synthesizeFactoryBlueprint(source);
+    const junctions = synthesis.blueprint.devices.filter((device) => device.asset === "splitter");
+    expect(junctions.length).toBeGreaterThan(2);
+    expect(synthesis.blueprint.connections.some((connection) => connection.path.some((cell) => (cell.level ?? 0) > 0))).toBeTrue();
+
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    expect(planProductionCapacity(project).ready).toBeTrue();
+    expect(Object.keys(project.transportCells).some((cell) => cell.includes("@1"))).toBeTrue();
+    const simulation = runUntil(project);
+    expect(simulation.metrics.produced.gear).toBeGreaterThanOrEqual(30);
+    expect(simulation.metrics.infeasibleReason).toBeNull();
+  });
 });
 
 describe("blueprint compiler", () => {
@@ -869,6 +888,6 @@ describe("artifacts and renderer-independent projection", () => {
     const connection = project.connections[beltEvent.connection]!;
     const cell = connection.path[beltEvent.cellIndex]!;
     const regionOffset = beltFrame.regions.find((region) => region.id === connection.fromDevice.region)!.offset;
-    expect(item.position).toEqual({ x: cell.x + regionOffset.x + .5, y: cell.y + regionOffset.y + .5 });
+    expect(item.position).toEqual({ x: cell.x + regionOffset.x + .5, y: cell.y + regionOffset.y + .5, level: cell.level ?? 0 });
   });
 });

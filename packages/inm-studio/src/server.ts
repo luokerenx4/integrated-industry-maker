@@ -201,12 +201,14 @@ async function loadStudioData(projectId: string, runName?: string) {
       const from = {
         x: connection.fromDevice.position.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + connection.fromDevice.footprint.width / 2,
         y: connection.fromDevice.position.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + connection.fromDevice.footprint.height / 2,
+        level: 0,
       };
       const to = {
         x: connection.toDevice.position.x + regionLayout.offsets.get(connection.toDevice.region)!.x + connection.toDevice.footprint.width / 2,
         y: connection.toDevice.position.y + regionLayout.offsets.get(connection.toDevice.region)!.y + connection.toDevice.footprint.height / 2,
+        level: 0,
       };
-      const cells = connection.path.map((cell) => ({ x: cell.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + .5 }));
+      const cells = connection.path.map((cell) => ({ x: cell.x + regionLayout.offsets.get(connection.fromDevice.region)!.x + .5, y: cell.y + regionLayout.offsets.get(connection.fromDevice.region)!.y + .5, level: cell.level ?? 0 }));
       const endpoints = (["loader", "unloader"] as const).map((stageName) => {
         const stage = connection.logisticsStages.find((item) => item.stage === stageName)!;
         const belt = stageName === "loader" ? cells[0]! : cells.at(-1)!;
