@@ -20,7 +20,7 @@ The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates 
 
 The Analysis modal recompiles the selected run Blueprint and shows:
 
-- target-rate Process/extraction/power/fleet plan and gaps;
+- target-rate Process/extraction/fleet plan plus rated and Scenario-integrated power/storage gaps;
 - finite deposits and depletion;
 - material balance and dependency graph;
 - configured Process/mode jobs, input treatment requirements, treatment Device/agent capacity, and mode-aware alternatives;

@@ -2,7 +2,7 @@
 
 - Decision: **BASELINE**
 - Score: **16.232**
-- Result hash: `6c84cb0702cef81dc9d2aa3b3ee31cc8f1de71b3682091f746ddc815438ff311`
+- Result hash: `a43d36b88814ff172dc848524beb27ebb385b536d38fa27097f9a2a4e682f1de`
 - Bottleneck: smelter-1
 - Throughput/min: 5.500
 - Target rate: 12.000 gear/min (45.8% attained)
@@ -20,7 +20,7 @@
 
 - **process** `smelt-iron`: smelt-iron needs 2 smelter but configures 1; add 1
 - **reserve** `iron-ore`: iron-ore reserve is short by 6.000 items over the scenario
-- **power** `forge-world`: forge-world needs 122.000 W additional generation
+- **power** `forge-world`: forge-world needs 122.000 W additional rated generation
 
 ## Measured transport flows
 

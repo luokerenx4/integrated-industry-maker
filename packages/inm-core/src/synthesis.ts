@@ -8,6 +8,7 @@ import { planDeviceTransport } from "./device-runtime";
 import { optimizeSpatialResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
 import { plannedProductionAmounts, type MaterialTreatmentSelection } from "./material-treatment";
+import { optimizePowerInfrastructure, renewableProfileFor } from "./power-envelope";
 
 interface ProcessSelection {
   resource: ResourceId;
@@ -62,6 +63,8 @@ export interface BlueprintSynthesisResult {
   power: Array<{
     region: string; asset: string; devices: number; capacityDevices: number; coverageTargets: number;
     generationMilliWatts: number; ratedLoadMilliWatts: number;
+    storageAsset: string | null; storageDevices: number; profileApplied: boolean;
+    scenarioGeneratedMilliJoules: number; scenarioDemandMilliJoules: number; scenarioUnservedMilliJoules: number;
   }>;
 }
 
@@ -869,6 +872,8 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
     && asset.power.generation.outputMilliWatts > asset.power.consumptionMilliWatts)
     .sort((a, b) => (b.power.generation?.outputMilliWatts ?? 0) - (a.power.generation?.outputMilliWatts ?? 0) || a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id))[0];
   if (!renewable?.power.generation || renewable.power.generation.kind !== "renewable") throw new Error("Blueprint synthesis requires a project-local renewable power distributor");
+  const storageAssets = Object.values(loaded.deviceAssets).filter((asset) => asset.power.storage && asset.power.distribution)
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id));
   const powerSummary: BlueprintSynthesisResult["power"] = [];
   for (const region of loaded.world.regions) {
     const load = ratedLoad[region.id] ?? 0;
@@ -942,15 +947,64 @@ export function synthesizeFactoryBlueprint(loaded: LoadedFactoryProject): Bluepr
       x: uniqueTargets.reduce((sum, target) => sum + target.point.x, 0) / uniqueTargets.length,
       y: uniqueTargets.reduce((sum, target) => sum + target.point.y, 0) / uniqueTargets.length,
     } : { x: region.bounds.width / 2, y: region.bounds.height / 2 };
-    while (distributors.length < capacityDevices) {
+    const profile = renewableProfileFor(loaded.scenario, region.id, renewable.id);
+    const infrastructurePlans = (storageAssets.length ? storageAssets : [undefined]).flatMap((storageAsset) => {
+      const storage = storageAsset?.power.storage;
+      const plan = optimizePowerInfrastructure({
+        durationTicks: loaded.scenario.durationTicks, loadMilliWatts: load, minimumGenerators: distributors.length,
+        generator: {
+          outputMilliWatts: renewable.power.generation!.outputMilliWatts, buildCost: renewable.economics.buildCost,
+          occupiedArea: renewable.geometry.footprint.width * renewable.geometry.footprint.height,
+          ...(profile ? { profile } : {}),
+        },
+        ...(storage && storageAsset ? { storage: {
+          ...storage, consumptionMilliWatts: storageAsset.power.consumptionMilliWatts,
+          buildCost: storageAsset.economics.buildCost,
+          occupiedArea: storageAsset.geometry.footprint.width * storageAsset.geometry.footprint.height,
+        } } : {}),
+      });
+      return plan ? [{ plan, storageAsset }] : [];
+    }).sort((a, b) => a.plan.buildCost - b.plan.buildCost || a.plan.occupiedArea - b.plan.occupiedArea
+      || a.plan.generators - b.plan.generators || (a.storageAsset?.id ?? "").localeCompare(b.storageAsset?.id ?? ""));
+    const infrastructure = infrastructurePlans[0];
+    if (!infrastructure) throw new Error(`Cannot synthesize a cold-start power envelope for region '${region.id}' under Scenario '${loaded.scenario.id}'`);
+    while (distributors.length < infrastructure.plan.generators) {
       addDistributor(loadCenter, (center) => !distributors.length || distributors.some((device) => {
         const existing = deviceCenter(device);
         return Math.hypot(existing.x - center.x, existing.y - center.y) <= distribution.connectionRange + 1e-9;
       }));
     }
+    const storageDevices: BlueprintDevice[] = [];
+    const storageAsset = infrastructure.storageAsset;
+    if (storageAsset && infrastructure.plan.storageDevices > 0) {
+      const storageFootprint = rotatedFootprint(storageAsset, 0);
+      const storageCenter = (position: GridPosition) => ({ x: position.x + storageFootprint.width / 2, y: position.y + storageFootprint.height / 2 });
+      while (storageDevices.length < infrastructure.plan.storageDevices) {
+        const storageDevice: BlueprintDevice = {
+          id: uniqueId(blueprint, `synth-${region.id}-${storageAsset.id}-${storageDevices.length + 1}`),
+          asset: storageAsset.id, region: region.id, position: { x: 0, y: 0 }, rotation: 0,
+        };
+        placeDevice(loaded, blueprint, storageDevice, {
+          x: Math.round(loadCenter.x - storageFootprint.width / 2), y: Math.round(loadCenter.y - storageFootprint.height / 2),
+        }, (position) => {
+          const center = storageCenter(position);
+          return [...distributors, ...storageDevices].some((node) => {
+            const nodeAsset = loaded.deviceAssets[node.asset]!; const nodeDistribution = nodeAsset.power.distribution!;
+            const nodeCenter = deviceCenter(node);
+            return Math.hypot(nodeCenter.x - center.x, nodeCenter.y - center.y)
+              <= Math.min(nodeDistribution.connectionRange, storageAsset.power.distribution!.connectionRange) + 1e-9;
+          });
+        });
+        storageDevices.push(storageDevice);
+      }
+    }
     powerSummary.push({
       region: region.id, asset: renewable.id, devices: distributors.length, capacityDevices, coverageTargets: uniqueTargets.length,
       generationMilliWatts: distributors.length * renewable.power.generation.outputMilliWatts, ratedLoadMilliWatts: load,
+      storageAsset: storageAsset?.id ?? null, storageDevices: storageDevices.length, profileApplied: Boolean(profile),
+      scenarioGeneratedMilliJoules: infrastructure.plan.envelope.generatedMilliJoules,
+      scenarioDemandMilliJoules: infrastructure.plan.envelope.demandMilliJoules,
+      scenarioUnservedMilliJoules: infrastructure.plan.envelope.unservedMilliJoules,
     });
   }
 

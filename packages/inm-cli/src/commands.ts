@@ -218,7 +218,7 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
     "", "Station fleets",
     ...(plan.stationNetworks.length ? plan.stationNetworks.map((network) => `  ${network.network.padEnd(24)} ${network.resource.padEnd(16)} ${network.requiredCarriers}/${network.configuredCarriers} carriers  ${network.requiredItemsPerMinute.toFixed(3)}/${network.perCarrierItemsPerMinute.toFixed(3)} items/min/carrier`) : ["  none"]),
     "", "Regional power",
-    ...plan.power.map((power) => `  ${power.region.padEnd(24)} need ${(power.requiredMilliWatts / 1000).toFixed(3).padStart(9)} W  generation ${(power.configuredGenerationMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(power.headroomMilliWatts / 1000).toFixed(3)} W`),
+    ...plan.power.map((power) => `  ${power.region.padEnd(24)} need ${(power.requiredMilliWatts / 1000).toFixed(3).padStart(9)} W  generation ${(power.configuredGenerationMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(power.headroomMilliWatts / 1000).toFixed(3)} W  Scenario ${(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)}/${(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ  unserved ${(power.scenarioUnservedMilliJoules / 1e6).toFixed(3)} MJ  storage ${(power.configuredStorageCapacityMilliJoules / 1e6).toFixed(3)}/${(power.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ`),
     "", plan.gaps.length ? "Plan gaps" : "Plan gaps: none",
     ...plan.gaps.map((gap) => `  ! [${gap.kind}] ${gap.message}`), "",
   ].join("\n"), false);
@@ -305,7 +305,7 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
     "Capacity-aware local logistics:",
     ...synthesis.localLogistics.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3).padStart(8)}/${flow.capacityPerMinute.toFixed(3)} items/min · stack×${flow.stackSize} · ${flow.loader}@${flow.loaderDistance} → ${flow.line} → ${flow.unloader}@${flow.unloaderDistance}`),
     "Spatial power networks:",
-    ...synthesis.power.map((power) => `  ${power.region.padEnd(18)} ${power.devices} ${power.asset} (${power.capacityDevices} capacity + ${power.devices - power.capacityDevices} coverage) · ${power.coverageTargets} targets · ${(power.generationMilliWatts / 1000).toFixed(3)}/${(power.ratedLoadMilliWatts / 1000).toFixed(3)} W`),
+    ...synthesis.power.map((power) => `  ${power.region.padEnd(18)} ${power.devices} ${power.asset} (${power.capacityDevices} rated minimum, ${power.coverageTargets} targets)${power.storageDevices ? ` + ${power.storageDevices} ${power.storageAsset}` : ""} · ${(power.generationMilliWatts / 1000).toFixed(3)}/${(power.ratedLoadMilliWatts / 1000).toFixed(3)} W · Scenario ${(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)}/${(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ${power.profileApplied ? " profiled" : ""}`),
     `Factory: ${summary.devices} devices · ${summary.connections} connections / ${summary.pathCells} belt cells · ${summary.stationNetworks.length} station network${summary.stationNetworks.length === 1 ? "" : "s"}`,
     `Capacity plan: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`,
     `Cold-start measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${synthesis.target.resource}/min · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,

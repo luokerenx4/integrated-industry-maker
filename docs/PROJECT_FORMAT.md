@@ -520,6 +520,8 @@ Initial quantities address device and buffer explicitly:
 
 `renewableProfiles` are periodic, piecewise-constant environmental curves. Each profile applies to every renewable Device in its `region`, optionally narrowed to one Device `asset`; this includes Devices later added to a candidate Blueprint. The first point must start at zero, later `atTick` values are strictly increasing and below `periodTicks`, and integer `outputPermille` is limited to 0–1000 of asset-rated output. Overlapping profiles for one Device are invalid. Omitted matches run at rated output.
 
+Capacity planning integrates these curves against the Objective-derived constant regional design load and configured storage. Synthesis uses the same interval solver to choose a lowest-build-cost project-local generator/storage bundle that starts empty and leaves no energy unserved; its physical Devices are written into the Blueprint. Runtime simulation remains the event-level authority for actual burst timing and Device utilization.
+
 `initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 
 ```json

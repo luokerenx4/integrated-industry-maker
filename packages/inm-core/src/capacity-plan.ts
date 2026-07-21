@@ -3,6 +3,7 @@ import { connectionCapacityPerMinute } from "./logistics-capacity";
 import { optimizeResourceDemand } from "./production-demand";
 import { effectiveProductionAmounts } from "./production-mode";
 import { plannedProductionAmounts, selectMaterialTreatment } from "./material-treatment";
+import { evaluatePowerEnvelope, renewableProfileFor } from "./power-envelope";
 
 export interface ProcessCapacityRequirement {
   resource: ResourceId;
@@ -85,6 +86,14 @@ export interface PowerCapacityRequirement {
   requiredMilliWatts: number;
   configuredGenerationMilliWatts: number;
   headroomMilliWatts: number;
+  scenarioGeneratedMilliJoules: number;
+  scenarioDemandMilliJoules: number;
+  scenarioUnservedMilliJoules: number;
+  scenarioCurtailedMilliJoules: number;
+  requiredStorageCapacityMilliJoules: number;
+  configuredStorageCapacityMilliJoules: number;
+  configuredStorageChargeMilliWatts: number;
+  configuredStorageDischargeMilliWatts: number;
 }
 
 export interface ProductionCapacityPlan {
@@ -297,8 +306,33 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   }
   const power: PowerCapacityRequirement[] = project.world.regions.map((region) => {
     const requiredMilliWatts = requiredPowerByRegion[region.id] ?? 0;
-    const configuredGenerationMilliWatts = Object.values(project.powerGrids).filter((grid) => grid.region === region.id).reduce((sum, grid) => sum + grid.productionMilliWatts, 0);
-    return { region: region.id, requiredMilliWatts, configuredGenerationMilliWatts, headroomMilliWatts: configuredGenerationMilliWatts - requiredMilliWatts };
+    const regionGrids = Object.values(project.powerGrids).filter((grid) => grid.region === region.id);
+    const configuredGenerationMilliWatts = regionGrids.reduce((sum, grid) => sum + grid.productionMilliWatts, 0);
+    const generationDevices = Object.values(project.devices).filter((device) => device.region === region.id && device.generationPlan);
+    const sources = generationDevices.map((device) => ({
+      outputMilliWatts: device.generationPlan!.outputMilliWatts, count: 1,
+      ...(device.generationPlan!.kind === "renewable" ? { profile: renewableProfileFor(project.scenario, region.id, device.asset) } : {}),
+    }));
+    const configuredStorageCapacityMilliJoules = regionGrids.reduce((sum, grid) => sum + grid.storageCapacityMilliJoules, 0);
+    const configuredStorageChargeMilliWatts = regionGrids.reduce((sum, grid) => sum + grid.storageChargeMilliWatts, 0);
+    const configuredStorageDischargeMilliWatts = regionGrids.reduce((sum, grid) => sum + grid.storageDischargeMilliWatts, 0);
+    const initialMilliJoules = Object.values(project.devices).filter((device) => device.region === region.id && device.storagePlan)
+      .reduce((sum, device) => sum + (project.scenario.initialEnergyMilliJoules?.[device.id] ?? 0), 0);
+    const envelope = evaluatePowerEnvelope({
+      durationTicks: project.scenario.durationTicks, loadMilliWatts: requiredMilliWatts, sources,
+      storage: {
+        capacityMilliJoules: configuredStorageCapacityMilliJoules, chargeMilliWatts: configuredStorageChargeMilliWatts,
+        dischargeMilliWatts: configuredStorageDischargeMilliWatts, initialMilliJoules,
+      },
+    });
+    return {
+      region: region.id, requiredMilliWatts, configuredGenerationMilliWatts,
+      headroomMilliWatts: configuredGenerationMilliWatts - requiredMilliWatts,
+      scenarioGeneratedMilliJoules: envelope.generatedMilliJoules, scenarioDemandMilliJoules: envelope.demandMilliJoules,
+      scenarioUnservedMilliJoules: envelope.unservedMilliJoules, scenarioCurtailedMilliJoules: envelope.curtailedMilliJoules,
+      requiredStorageCapacityMilliJoules: envelope.requiredStorageCapacityMilliJoules,
+      configuredStorageCapacityMilliJoules, configuredStorageChargeMilliWatts, configuredStorageDischargeMilliWatts,
+    };
   });
 
   const gaps: ProductionCapacityPlan["gaps"] = [];
@@ -313,7 +347,13 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   }
   for (const link of transport) if (link.capacityDeficitPerMinute > 1e-9) gaps.push({ kind: "transport", entity: `${link.process}:${link.direction}:${link.resource}`, message: `${link.process} ${link.direction} transport for ${link.resource} is short by ${link.capacityDeficitPerMinute.toFixed(3)}/min` });
   for (const network of stationNetworks) if (network.additionalCarriers > 0) gaps.push({ kind: "station", entity: network.network, message: `${network.network} needs ${network.requiredCarriers} carriers for ${network.resource}; add ${network.additionalCarriers}` });
-  for (const region of power) if (region.headroomMilliWatts < 0) gaps.push({ kind: "power", entity: region.region, message: `${region.region} needs ${(-region.headroomMilliWatts / 1000).toFixed(3)} W additional generation` });
+  for (const region of power) {
+    if (region.headroomMilliWatts < 0) gaps.push({ kind: "power", entity: region.region, message: `${region.region} needs ${(-region.headroomMilliWatts / 1000).toFixed(3)} W additional rated generation` });
+    else if (region.scenarioUnservedMilliJoules > 1e-6) gaps.push({
+      kind: "power", entity: region.region,
+      message: `${region.region} leaves ${(region.scenarioUnservedMilliJoules / 1e6).toFixed(3)} MJ unserved across Scenario '${project.scenario.id}'; add profiled generation or storage for the ${(region.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ deficit envelope`,
+    });
+  }
 
   return {
     targetResource: project.objective.targetResource, targetRatePerMinute, scenarioMinutes,

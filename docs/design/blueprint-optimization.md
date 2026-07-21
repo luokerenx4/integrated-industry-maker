@@ -26,7 +26,7 @@ Before keeping an edit, `inm compare` can isolate two named Blueprint files unde
 
 The Objective defines a target Resource, delivery region, steady-state rate, hard constraints, and transparent weights. A deterministic two-phase material-balance solve minimizes finite raw demand first and installed process/logistics capacity second. Each Process/Device/mode combination is a separate candidate with its effective inputs, outputs, duration, and active power. It supports alternative recipes, production modes, multiple outputs, coproduct credit, and recycle loops without dropping auxiliary material or energy costs.
 
-The capacity plan turns that solution into required Process machines, treatment Device and agent demand, extraction rate and reserve lifetime, local connection envelopes, station fleets, regional power, and stable actionable gaps. A local connection contributes capacity to Resource `r` only when `r` appears in its compiled exact allowlist; endpoint compatibility alone never satisfies a transport requirement. Research uses the same filter when choosing a lane to upgrade. The plan is recomputed after every accepted edit.
+The capacity plan turns that solution into required Process machines, treatment Device and agent demand, extraction rate and reserve lifetime, local connection envelopes, station fleets, rated regional power, Scenario-integrated generated/demanded/unserved energy and storage envelopes, and stable actionable gaps. Positive rated headroom does not make a temporally deficient grid ready. A local connection contributes capacity to Resource `r` only when `r` appears in its compiled exact allowlist; endpoint compatibility alone never satisfies a transport requirement. Research uses the same filter when choosing a lane to upgrade. The plan is recomputed after every accepted edit.
 
 ## Spatial synthesis
 
@@ -42,7 +42,7 @@ The capacity plan turns that solution into required Process machines, treatment 
 8. writes the planned Resource as an exact allowlist on every local physical edge;
 9. jointly selects project-local loader/line/unloader tiers and supported endpoint spans per physical edge;
 10. globally chooses collision-free span-aware ground/raised paths;
-11. synthesizes connected spatial power coverage and capacity;
+11. jointly selects a zero-unserved-energy generator/storage bundle under the Scenario curve, then synthesizes one connected spatial power component;
 12. compiles, plans, cold-start simulates, and atomically writes the Blueprint.
 
 The generated factory has no synthetic capacity: every port, belt cell, stage, station, carrier, generator, and Device is ordinary compiled state. Synthesis selects `shortage-first` as its factory dispatch default and writes it onto every generated shared-fleet network, so local fan-out and planetary/interstellar contention respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
@@ -51,7 +51,7 @@ The generated factory has no synthetic capacity: every port, belt cell, stage, s
 
 Research proposals are RFC 6902 patches limited to Blueprint `devices`, `connections`, `logisticsNetworks`, and `policies`. Worlds, deposits, assets, Processes, Scenarios, Objectives, simulator, and evaluator are benchmark inputs and cannot be patched.
 
-Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, static power repair, measured intermittent-power storage sizing, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch. Storage candidates require sufficient measured total energy and size ordinary project-local accumulator Devices against the observed contiguous deficit, peak discharge, and surplus-capture envelopes; they never treat storage as generation.
+Each candidate is applied to a copy, schema-validated, compiled, simulated, scored, and written as KEEP or REVERT. Strategy keys/history prevent immediate repetition. Built-in strategies currently cover recipe selection, planned machine expansion, logistics tier upgrades, station fleet expansion, static power repair, measured profiled-generation expansion, measured intermittent-power storage sizing, buffering, measured-utilization duplication, factory policy cycling, and independent multi-route network cycling among FIFO, round-robin, and shortage-first dispatch. Storage candidates require sufficient measured total energy and size ordinary project-local accumulator Devices against the observed contiguous deficit and peak discharge envelopes; generation candidates handle total-energy shortages and inherit the same regional Scenario profile.
 
 ## Source of truth
 

@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel,
   findBlueprintConnectionPath, listRuns, loadFactoryProject, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
-  stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom,
+  stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
 
@@ -65,6 +65,35 @@ async function accumulatorProjectSource(options: { wind?: boolean; initialEnergy
   source.scenario.failures = [];
   return source;
 }
+
+describe("temporal power envelope planning", () => {
+  const profile = {
+    region: "forge-world", asset: "wind-turbine", periodTicks: 8_000,
+    points: [{ atTick: 0, outputPermille: 1000 }, { atTick: 4_000, outputPermille: 0 }],
+  };
+
+  test("integrates periodic generation, cold-start storage, and contiguous deficit energy exactly", () => {
+    const envelope = evaluatePowerEnvelope({
+      durationTicks: 8_000, loadMilliWatts: 180_000,
+      sources: [{ outputMilliWatts: 600_000, count: 1, profile }],
+      storage: { capacityMilliJoules: 1_000_000, chargeMilliWatts: 500_000, dischargeMilliWatts: 500_000 },
+    });
+    expect(envelope).toEqual(expect.objectContaining({
+      generatedMilliJoules: 2_400_000, demandMilliJoules: 1_440_000, unservedMilliJoules: 0,
+      finalStoredMilliJoules: 280_000, peakDeficitMilliWatts: 180_000, requiredStorageCapacityMilliJoules: 720_000,
+    }));
+  });
+
+  test("jointly chooses a generator and storage bank instead of treating rated power as continuous", () => {
+    const plan = optimizePowerInfrastructure({
+      durationTicks: 8_000, loadMilliWatts: 180_000, minimumGenerators: 1,
+      generator: { outputMilliWatts: 600_000, buildCost: 1_400, occupiedArea: 4, profile },
+      storage: { capacityMilliJoules: 1_000_000, chargeMilliWatts: 500_000, dischargeMilliWatts: 500_000, consumptionMilliWatts: 0, buildCost: 100, occupiedArea: 1 },
+    });
+    expect(plan).toEqual(expect.objectContaining({ generators: 1, storageDevices: 1, buildCost: 1_500 }));
+    expect(plan!.envelope.unservedMilliJoules).toBe(0);
+  });
+});
 
 describe("production mix optimization", () => {
   test("jointly solves a cyclic refinery and cracking chain instead of greedily overproducing", () => {
@@ -158,6 +187,20 @@ describe("factory synthesis", () => {
     expect(simulation.metrics.totalBuildCost).toBeLessThanOrEqual(source.objective.constraints!.maxBuildCost!);
     expect(simulation.metrics.infeasibleReason).toBeNull();
     expect(simulation.events.some((event) => event.type === "power.shortage" || event.type === "transport.power-shortage")).toBeFalse();
+  });
+
+  test("synthesizes a Scenario-ready generator and storage envelope instead of rated-only power", async () => {
+    const source = await loadFactoryProject(ironworks, {
+      world: "scaled", blueprint: "blank", scenario: "intermittent-wind", objective: "scaled-production",
+    });
+    const synthesis = synthesizeFactoryBlueprint(source);
+    expect(synthesis.power.every((grid) => grid.profileApplied && grid.scenarioUnservedMilliJoules === 0)).toBeTrue();
+    expect(synthesis.power.find((grid) => grid.region === "assembly-world")).toEqual(expect.objectContaining({
+      devices: 4, capacityDevices: 3, storageDevices: 0,
+    }));
+    const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
+    expect(planProductionCapacity(project).ready).toBeTrue();
+    expect(Object.values(runUntil(project).metrics.powerGrids).every((grid) => grid.unservedMilliJoules === 0)).toBeTrue();
   });
 
   test("scales multi-input production through junction trees and elevated belt crossings", async () => {
@@ -810,6 +853,18 @@ describe("deterministic discrete-event simulation", () => {
     expect(plan.stationNetworks).toContainEqual(expect.objectContaining({ network: "interstellar-main", resource: "iron-plate", requiredItemsPerMinute: 24, requiredCarriers: 1, configuredCarriers: 1 }));
     expect(plan.power).toContainEqual(expect.objectContaining({ region: "forge-world", headroomMilliWatts: -122_000 }));
     expect(plan.gaps.map((gap) => gap.kind)).toEqual(["process", "reserve", "power"]);
+  });
+
+  test("target-rate planning rejects a rated-ready grid whose Scenario envelope leaves energy unserved", async () => {
+    const project = await openFactoryProject(ironworks, { world: "scaled", blueprint: "scaled-factory", scenario: "intermittent-wind", objective: "scaled-production" });
+    const plan = planProductionCapacity(project);
+    expect(plan.power.every((grid) => grid.headroomMilliWatts > 0)).toBeTrue();
+    expect(plan.power).toEqual(expect.arrayContaining([
+      expect.objectContaining({ region: "assembly-world", scenarioUnservedMilliJoules: 12_600_000, requiredStorageCapacityMilliJoules: 12_600_000 }),
+      expect.objectContaining({ region: "forge-world", scenarioUnservedMilliJoules: 1_320_000, requiredStorageCapacityMilliJoules: 1_320_000 }),
+    ]));
+    expect(plan.ready).toBeFalse();
+    expect(plan.gaps.filter((gap) => gap.kind === "power")).toHaveLength(2);
   });
 
   test("station shortage profiles traverse same-buffer pass-through links to the real Process batch", async () => {
@@ -1731,6 +1786,29 @@ describe("research boundary and experiment decisions", () => {
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
     expect(Object.values(candidate.devices).filter((device) => device.storagePlan)).toHaveLength(4);
     expect(runUntil(candidate).metrics.powerGrids["grid-forge-world-accumulator-1"]!.unservedMilliJoules).toBe(0);
+  });
+
+  test("heuristic research expands profiled generation when the Scenario lacks total energy", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.scenario.durationTicks = 8_000;
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 200_000 };
+    source.scenario.renewableProfiles = [{
+      region: "forge-world", asset: "wind-turbine", periodTicks: 8_000,
+      points: [{ atTick: 0, outputPermille: 1000 }, { atTick: 2_000, outputPermille: 800 }],
+    }];
+    source.objective.targetResource = "iron-plate"; source.objective.targetRegion = "forge-world"; source.objective.targetRatePerMinute = 1;
+    const project = compileFactoryProject(source); const result = runUntil(project);
+    const measured = result.metrics.powerGrids["grid-forge-world-accumulator-1"]!;
+    expect(measured.generatedMilliJoules).toBeLessThan(measured.demandMilliJoules);
+    const proposal = await new HeuristicResearchAgent().propose({
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics,
+      production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
+    });
+    expect(proposal.strategy).toBe("generation:grid-forge-world-accumulator-1:wind-turbine:+1");
+    const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
+    expect(candidate.scenario.renewableProfiles).toEqual(source.scenario.renewableProfiles);
+    const candidateGrid = candidate.devices["accumulator-1"]!.powerGrid!;
+    expect(runUntil(candidate).metrics.powerGrids[candidateGrid]!.unservedMilliJoules).toBe(0);
   });
 
   test("heuristic logistics strategy upgrades every tied bottleneck stage together", async () => {

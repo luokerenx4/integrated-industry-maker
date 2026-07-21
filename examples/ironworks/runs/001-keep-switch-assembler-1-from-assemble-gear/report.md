@@ -2,7 +2,7 @@
 
 - Decision: **KEEP**
 - Score: **43.220**
-- Result hash: `61aa56b05159a9a08a3b6a8c064d36ab78aff9ed6dde1ec78b789c93a28fbabd`
+- Result hash: `8eda28a6d568c0210ce0c7d1553090c3a9d5c53c5f8056e4d82e8772ab16524d`
 - Bottleneck: smelter-1
 - Throughput/min: 8.000
 - Target rate: 12.000 gear/min (66.7% attained)
@@ -19,7 +19,7 @@
 ## Capacity-plan gaps
 
 - **process** `smelt-iron`: smelt-iron needs 2 smelter but configures 1; add 1
-- **power** `forge-world`: forge-world needs 122.000 W additional generation
+- **power** `forge-world`: forge-world needs 122.000 W additional rated generation
 
 ## Measured transport flows
 

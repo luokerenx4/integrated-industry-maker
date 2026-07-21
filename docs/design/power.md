@@ -1,6 +1,6 @@
 # Spatial power design
 
-Status: connected regional grids, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device jobs, measured storage sizing, endpoint load, and synthesized coverage implemented in engine version `inm-sim/0.36.0`.
+Status: connected regional grids, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device jobs, temporal capacity planning, measured generation/storage research, and joint synthesis implemented in engine version `inm-sim/0.37.0`.
 
 Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
@@ -52,6 +52,8 @@ A disconnected or underpowered loader cannot advance cargo and propagates belt b
 
 Storage shifts energy across time; it is not steady-state generation. `productionMilliWatts` and capacity-plan headroom therefore exclude discharge capacity. A grid with negative rated headroom remains a sustained-power warning even if a large accumulator can mask it temporarily. Static analysis separately exposes each storage Device, startup energy, capacity, charge/discharge rates, and grid aggregates.
 
+The target-rate capacity plan adds a temporal design envelope without pretending that rated power is actual availability. It holds the Objective-derived regional load constant, integrates every matching Scenario renewable curve and configured generator across the full duration, then applies configured startup energy, capacity, charge power, and discharge power. A region is not power-ready when this envelope leaves energy unserved, even if rated headroom is positive. The plan reports generated/demanded/unserved/curtailed energy and the largest contiguous storage requirement as deterministic CLI/agent input.
+
 Runtime metrics expose final/capacity energy plus cumulative charged/discharged energy per grid and `unpoweredTime` per Device. They also integrate generated, requested, served, unserved, and curtailed energy, peak generation/demand/deficit/surplus power, and the largest contiguous raw deficit-energy episode. Requested demand retains a Device's rejected power request while it is unpowered, so load shedding cannot disappear from the measurement merely because the job was unable to start.
 
 `power.storage-full` and `power.storage-depleted` identify physical boundaries. `power.shortage` optionally carries worked/remaining job ticks when it pauses active work, `power.restored` carries the remaining duration used for replay, and `power.generation-changed` exposes environmental boundaries. CLI simulation, immutable reports, Blueprint comparison, research, and Studio consume these same values.
@@ -66,6 +68,8 @@ The bounded research agent distinguishes energy creation from time shifting. It 
 
 The proposal adds ordinary spatial Device instances near the affected grid and still passes through compile, simulation, score, and KEEP/REVERT. If total generated energy is insufficient, storage is not presented as a false repair; generation expansion remains a separate strategy.
 
+Measured generation research handles that separate case. It evaluates project-local renewable assets under the same regional Scenario profile, estimates the energy shortfall, places connected generator candidates, and boundedly re-simulates increasing counts until the affected grid reaches zero unserved energy. Newly placed generators inherit the environmental curve by region/asset, so the strategy cannot manufacture constant output.
+
 ## Synthesis
 
 Power synthesis runs after machinery and belt routing because endpoint cells are part of the load geometry.
@@ -74,9 +78,11 @@ Power synthesis runs after machinery and belt routing because endpoint cells are
 2. Place the first renewable distributor within coverage of the first deterministic target.
 3. For each uncovered target, place connected bridge distributors that reduce target distance.
 4. Continue until every target is covered by one connected regional component.
-5. Compute required capacity from net generation and add connected distributors until rated demand is met.
+5. Integrate the selected Scenario curve against the constant design load from an empty cold start.
+6. Enumerate connected generator counts and project-local storage assets/counts, enforcing energy capacity and charge/discharge power at every profile interval.
+7. Choose the lowest-build-cost feasible generator/storage bundle, then place every Device into the same spatial component.
 
-The result reports actual distributor count, minimum capacity count, coverage target count, gross generation, and rated load. Extra Devices beyond the capacity minimum are explicit spatial infrastructure, not hidden watts.
+The result reports actual distributor count, rated minimum, coverage target count, storage asset/count, gross generation/load, whether a profile applied, and generated/demanded/unserved Scenario energy. Extra Devices beyond the rated minimum and all storage are explicit spatial infrastructure, not hidden watts. If no empty-cold-start bundle can serve the curve, synthesis fails instead of writing a rated-only Blueprint.
 
 ## Source of truth
 
@@ -84,6 +90,7 @@ The result reports actual distributor count, minimum capacity count, coverage ta
 - Component/coverage compilation: `packages/inm-core/src/compiler.ts`
 - Allocation and events: `packages/inm-core/src/simulator.ts`
 - Analysis and planning: `packages/inm-core/src/production-analysis.ts`, `packages/inm-core/src/capacity-plan.ts`
+- Temporal envelope solver: `packages/inm-core/src/power-envelope.ts`
 - Spatial synthesis: `packages/inm-core/src/synthesis.ts`
 
 ## Verification
@@ -95,9 +102,10 @@ bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --seed 42
 ```
 
-The accumulator tests prove continuous surplus charging, exact depletion boundaries, retained input consumption, paused progress, exact remaining-work resumption after a timed generator failure, periodic renewable boundary wakeups, integrated deficit envelopes, and a storage research bundle that removes measured unserved energy. High-throughput synthesis uses default 20-cell connection/coverage ranges on an 80×80 world and must compile one connected grid per active region, power every consuming Device and endpoint, and emit no shortage event.
+The accumulator tests prove continuous surplus charging, exact depletion boundaries, retained input consumption, paused progress, exact remaining-work resumption after a timed generator failure, periodic renewable boundary wakeups, integrated deficit envelopes, measured generation/storage research, and Scenario-ready synthesis. High-throughput synthesis uses default 20-cell connection/coverage ranges on an 80×80 world and must compile one connected grid per active region, power every consuming Device and endpoint, and emit no shortage event.
 
 ## Known next gaps
 
 - Grid priority tiers and deliberate brownout policies.
+- Joint measured generator-plus-storage research bundles for grids that need both changes at once.
 - Non-renewable generator selection during synthesis when fuel economics are favorable.

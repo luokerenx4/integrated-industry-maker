@@ -20,6 +20,7 @@ export * from "./routing";
 export * from "./logistics-capacity";
 export * from "./production-demand";
 export * from "./blueprint-comparison";
+export * from "./power-envelope";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

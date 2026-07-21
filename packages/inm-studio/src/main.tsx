@@ -267,7 +267,12 @@ interface CapacityPlan {
   }>;
   transport: Array<{ direction: "input" | "output"; process: string; resource: string; devices: string[]; connections: string[]; requiredItemsPerMinute: number; configuredCapacityPerMinute: number; capacityDeficitPerMinute: number }>;
   stationNetworks: Array<{ network: string; resource: string; routes: string[]; requiredItemsPerMinute: number; perCarrierItemsPerMinute: number; requiredCarriers: number; configuredCarriers: number; additionalCarriers: number }>;
-  power: Array<{ region: string; requiredMilliWatts: number; configuredGenerationMilliWatts: number; headroomMilliWatts: number }>;
+  power: Array<{
+    region: string; requiredMilliWatts: number; configuredGenerationMilliWatts: number; headroomMilliWatts: number;
+    scenarioGeneratedMilliJoules: number; scenarioDemandMilliJoules: number; scenarioUnservedMilliJoules: number; scenarioCurtailedMilliJoules: number;
+    requiredStorageCapacityMilliJoules: number; configuredStorageCapacityMilliJoules: number;
+    configuredStorageChargeMilliWatts: number; configuredStorageDischargeMilliWatts: number;
+  }>;
   gaps: Array<{ kind: string; entity: string; message: string }>;
 }
 
@@ -836,6 +841,10 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           </div>)}</div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACTION</span><span>RESERVE AFTER RUN</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>
             <strong>{resource.resource}</strong><span>{resource.totalDemandPerMinute.toFixed(3)}</span><span>{resource.configuredExtractionPerMinute.toFixed(3)}</span><b className={resource.reserveAfterScenario < 0 ? "negative" : "positive"}>{resource.reserveAfterScenario.toFixed(3)}</b><small>{resource.lifetimeMinutes === null ? "∞" : `${resource.lifetimeMinutes.toFixed(2)} min lifetime`}</small>
+          </div>)}</div>
+          <div className="pipeline-list">{plan.power.map((power) => <div className="pipeline-card" key={`plan-power-${power.region}`}>
+            <div className="pipeline-head"><span><strong>{power.region} temporal power</strong><small>Scenario generated {(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)} / demanded {(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ · curtailed {(power.scenarioCurtailedMilliJoules / 1e6).toFixed(3)} MJ</small></span><b className={power.scenarioUnservedMilliJoules > 0 ? "negative" : "positive"}>{(power.scenarioUnservedMilliJoules / 1e6).toFixed(3)} MJ UNSERVED</b></div>
+            <footer><span>RATED {(power.configuredGenerationMilliWatts / 1000).toFixed(0)} / {(power.requiredMilliWatts / 1000).toFixed(0)} W</span><span>STORAGE {(power.configuredStorageCapacityMilliJoules / 1e6).toFixed(3)} / {(power.requiredStorageCapacityMilliJoules / 1e6).toFixed(3)} MJ</span><span>CHARGE/DISCHARGE {(power.configuredStorageChargeMilliWatts / 1000).toFixed(0)} / {(power.configuredStorageDischargeMilliWatts / 1000).toFixed(0)} W</span></footer>
           </div>)}</div>
           <div className="diagnostic-list">{plan.gaps.length ? plan.gaps.map((gap) => <div className="warning" key={`${gap.kind}-${gap.entity}`}><i>!</i><span><code>{gap.kind}</code><p>{gap.message}</p></span></div>) : <div className="diagnostics-clear"><i>✓</i><span>TARGET RATE IS FULLY PROVISIONED</span></div>}</div>
         </section>

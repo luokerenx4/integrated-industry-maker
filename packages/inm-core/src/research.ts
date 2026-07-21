@@ -13,6 +13,7 @@ import { analyzeProduction, type ProductionAnalysis } from "./production-analysi
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { atomicWriteJson, hashValue } from "./utils";
 import { findBlueprintConnectionPath, rotatedFootprint } from "./routing";
+import { evaluatePowerEnvelope, renewableProfileFor } from "./power-envelope";
 
 export interface ResearchInput {
   iteration: number;
@@ -342,6 +343,60 @@ function measuredStorageCandidates(input: ResearchInput): StrategyCandidate[] {
   });
 }
 
+function measuredGenerationCandidates(input: ResearchInput): StrategyCandidate[] {
+  const generatorAssets = Object.values(input.project.deviceAssets).filter((asset) => asset.power.generation?.kind === "renewable" && asset.power.distribution)
+    .sort((a, b) => a.economics.buildCost - b.economics.buildCost || a.id.localeCompare(b.id));
+  if (!generatorAssets.length) return [];
+  return Object.entries(input.metrics.powerGrids).sort(([a], [b]) => a.localeCompare(b)).flatMap(([gridId, measured]) => {
+    const grid = input.project.powerGrids[gridId];
+    if (!grid || measured.unservedMilliJoules <= 1e-6) return [];
+    const initialStoredMilliJoules = input.metrics.energyStorage[gridId]?.initialMilliJoules ?? 0;
+    if (measured.generatedMilliJoules + initialStoredMilliJoules + 1e-6 >= measured.demandMilliJoules) return [];
+    const anchor = input.project.devices[grid.distributors[0]!];
+    if (!anchor) return [];
+    const successfulPlans = generatorAssets.flatMap((asset) => {
+      const generation = asset.power.generation!;
+      const profile = renewableProfileFor(input.project.scenario, grid.region, asset.id);
+      const single = evaluatePowerEnvelope({
+        durationTicks: input.project.scenario.durationTicks, loadMilliWatts: 0,
+        sources: [{ outputMilliWatts: generation.outputMilliWatts, count: 1, ...(profile ? { profile } : {}) }],
+      });
+      if (single.generatedMilliJoules <= 1e-6) return [];
+      const estimatedCount = Math.max(1, Math.ceil((measured.demandMilliJoules - measured.generatedMilliJoules - initialStoredMilliJoules) / single.generatedMilliJoules - 1e-9));
+      const candidateBlueprint = structuredClone(input.blueprint); const devices: Blueprint["devices"] = [];
+      for (let count = 1; count <= estimatedCount + 8; count++) {
+        const device: Blueprint["devices"][number] = {
+          id: uniqueDeviceId(candidateBlueprint, `${asset.id}-${grid.region}-generation`), asset: asset.id,
+          region: grid.region, position: { x: 0, y: 0 }, rotation: 0,
+        };
+        if (!placeDevice(candidateBlueprint, device, input.project, anchor.position)) return [];
+        candidateBlueprint.devices.push(device); devices.push(device);
+        if (count < estimatedCount) continue;
+        try {
+          const candidateProject = compileFactoryProject({ ...input.project, blueprint: candidateBlueprint });
+          const candidateGrid = candidateProject.devices[anchor.id]?.powerGrid;
+          const candidatePower = candidateGrid ? runUntil(candidateProject).metrics.powerGrids[candidateGrid] : undefined;
+          if (candidatePower && candidatePower.unservedMilliJoules <= 1e-6) return [{
+            asset, devices: structuredClone(devices), count,
+            cost: count * asset.economics.buildCost,
+            area: count * asset.geometry.footprint.width * asset.geometry.footprint.height,
+          }];
+        } catch { /* Continue the bounded project-local generation search. */ }
+      }
+      return [];
+    }).sort((a, b) => a.cost - b.cost || a.area - b.area || a.asset.id.localeCompare(b.asset.id));
+    const selected = successfulPlans[0];
+    if (!selected) return [];
+    const key = `generation:${gridId}:${selected.asset.id}:+${selected.count}`;
+    return [{ key, proposal: {
+      strategy: key,
+      hypothesis: `Add ${selected.count} profiled ${selected.asset.id} Device${selected.count === 1 ? "" : "s"} to \`${gridId}\` because Scenario generation was short by ${((measured.demandMilliJoules - measured.generatedMilliJoules - initialStoredMilliJoules) / 1e6).toFixed(3)} MJ.`,
+      expectedEffect: "Supply the measured energy deficit with ordinary project-local renewable Devices that inherit the same regional Scenario curve; KEEP only if re-evaluation improves the Objective score.",
+      patch: selected.devices.map((device) => ({ op: "add" as const, path: "/devices/-", value: device })),
+    } }];
+  });
+}
+
 function logisticsUpgradeCandidate(input: ResearchInput, connectionId: string, reason: string): StrategyCandidate | null {
   const connectionIndex = input.blueprint.connections.findIndex((connection) => connection.id === connectionId);
   const compiled = input.project.connections[connectionId];
@@ -567,7 +622,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
-      ...powerCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input),
+      ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationCandidates(input),
       ...recipeCandidates(input), ...plannedCapacityCandidates(input),
     ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
