@@ -53,6 +53,10 @@ export type FactoryStateMutation =
   | { kind: "maintenance.wait"; device: string; phase: "service" | "qualification"; reason: "consumable" | "crew" | null }
   | { kind: "maintenance.service-start"; device: string; phase: "service" | "qualification"; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
   | { kind: "maintenance.service-release"; phase: "service" | "qualification"; provider: string; crews: number; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
+  | { kind: "tooling.wait"; device: string; process: string; waiting: boolean }
+  | { kind: "tooling.allocate"; device: string; provider: string; inventoryBuffer: string; amounts: ProcessAmount[] }
+  | { kind: "tooling.hold"; device: string; provider: string; process: string; amounts: ProcessAmount[]; acquiredAtTick: Tick }
+  | { kind: "tooling.release"; device: string; provider: string; amounts: ProcessAmount[]; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -466,6 +470,74 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
         provider[mutation.outcome === "completed" ? "qualificationCompleted" : "qualificationCancelled"]++;
         provider.qualificationCrewTicks += mutation.occupiedTicks * mutation.crews;
       }
+      return;
+    }
+    case "tooling.wait": {
+      const tooling = state.devices[mutation.device]!.productionTooling;
+      if (!tooling) throw new Error(`Device '${mutation.device}' does not track production tooling`);
+      if (mutation.waiting) {
+        if (tooling.wait?.process !== mutation.process) {
+          if (tooling.wait) tooling.inputWaitTicks += state.tick - tooling.wait.sinceTick;
+          tooling.wait = { process: mutation.process, sinceTick: state.tick };
+          tooling.inputBlocks++;
+        }
+      } else if (tooling.wait) {
+        tooling.inputWaitTicks += state.tick - tooling.wait.sinceTick;
+        delete tooling.wait;
+      }
+      return;
+    }
+    case "tooling.allocate": {
+      const client = state.devices[mutation.device]!.productionTooling;
+      const provider = state.devices[mutation.provider]!.toolingProvider;
+      if (!client || !provider) throw new Error(`Invalid tooling allocation '${mutation.provider}' -> '${mutation.device}'`);
+      for (const amount of mutation.amounts) {
+        const inventory = state.devices[mutation.provider]!.buffers[mutation.inventoryBuffer];
+        const available = (inventory?.[amount.resource] ?? 0) - (provider.reserved[amount.resource] ?? 0);
+        if (available < amount.count) throw new Error(`Tooling provider '${mutation.provider}' lacks available '${amount.resource}'`);
+      }
+      client.allocations++;
+      provider.allocations++;
+      for (const amount of mutation.amounts) {
+        provider.reserved[amount.resource] = (provider.reserved[amount.resource] ?? 0) + amount.count;
+        provider.peakReserved[amount.resource] = Math.max(provider.peakReserved[amount.resource] ?? 0, provider.reserved[amount.resource]!);
+        for (const owner of [client, provider]) {
+          const resource = owner.resources[amount.resource] ??= { allocations: 0, unitsAllocated: 0, unitTicks: 0 };
+          resource.allocations++;
+          resource.unitsAllocated += amount.count;
+        }
+      }
+      return;
+    }
+    case "tooling.release": {
+      const client = state.devices[mutation.device]!.productionTooling;
+      const provider = state.devices[mutation.provider]!.toolingProvider;
+      if (!client || !provider) throw new Error(`Invalid tooling release '${mutation.provider}' -> '${mutation.device}'`);
+      client[mutation.outcome]++;
+      provider[mutation.outcome]++;
+      client.occupiedTicks += mutation.occupiedTicks;
+      provider.occupiedTicks += mutation.occupiedTicks;
+      for (const amount of mutation.amounts) {
+        if ((provider.reserved[amount.resource] ?? 0) < amount.count) throw new Error(`Tooling provider '${mutation.provider}' over-released '${amount.resource}'`);
+        const remaining = provider.reserved[amount.resource]! - amount.count;
+        if (remaining === 0) delete provider.reserved[amount.resource];
+        else provider.reserved[amount.resource] = remaining;
+        const unitTicks = mutation.occupiedTicks * amount.count;
+        client.unitTicks += unitTicks;
+        provider.unitTicks += unitTicks;
+        client.resources[amount.resource]!.unitTicks += unitTicks;
+        provider.resources[amount.resource]!.unitTicks += unitTicks;
+      }
+      delete client.hold;
+      return;
+    }
+    case "tooling.hold": {
+      const client = state.devices[mutation.device]!.productionTooling;
+      if (!client || client.hold) throw new Error(`Invalid trapped tooling hold on '${mutation.device}'`);
+      client.hold = {
+        provider: mutation.provider, process: mutation.process,
+        amounts: structuredClone(mutation.amounts), acquiredAtTick: mutation.acquiredAtTick,
+      };
       return;
     }
     case "campaign.hold": {

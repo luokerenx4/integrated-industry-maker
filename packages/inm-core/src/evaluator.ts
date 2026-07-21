@@ -249,6 +249,66 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     campaignMaximumHoldReleases: Object.values(setupDevices).reduce((sum, setup) => sum + setup.campaignMaximumHoldReleases, 0),
     devices: setupDevices,
   };
+  const toolingDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.productionTooling)
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => {
+      const tooling = structuredClone(runtime.productionTooling!);
+      if (tooling.wait) tooling.inputWaitTicks += state.tick - tooling.wait.sinceTick;
+      return [id, tooling];
+    }));
+  const toolingProviders = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.toolingProvider)
+    .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, structuredClone(runtime.toolingProvider!)]));
+  for (const [deviceId, runtime] of Object.entries(state.devices)) {
+    const allocation = runtime.activeJob?.tooling;
+    if (!allocation) continue;
+    const client = toolingDevices[deviceId];
+    const provider = toolingProviders[allocation.provider];
+    if (!client || !provider) continue;
+    const occupiedTicks = Math.max(0, state.tick - runtime.activeJob!.startedAt);
+    client.occupiedTicks += occupiedTicks;
+    provider.occupiedTicks += occupiedTicks;
+    for (const amount of allocation.amounts) {
+      const unitTicks = occupiedTicks * amount.count;
+      client.unitTicks += unitTicks;
+      provider.unitTicks += unitTicks;
+      client.resources[amount.resource]!.unitTicks += unitTicks;
+      provider.resources[amount.resource]!.unitTicks += unitTicks;
+    }
+  }
+  for (const [deviceId, client] of Object.entries(toolingDevices)) {
+    const hold = client.hold;
+    if (!hold) continue;
+    const provider = toolingProviders[hold.provider];
+    if (!provider) continue;
+    const occupiedTicks = Math.max(0, state.tick - hold.acquiredAtTick);
+    client.occupiedTicks += occupiedTicks;
+    provider.occupiedTicks += occupiedTicks;
+    for (const amount of hold.amounts) {
+      const unitTicks = occupiedTicks * amount.count;
+      client.unitTicks += unitTicks;
+      provider.unitTicks += unitTicks;
+      client.resources[amount.resource]!.unitTicks += unitTicks;
+      provider.resources[amount.resource]!.unitTicks += unitTicks;
+    }
+  }
+  const toolingResources = Object.values(toolingDevices).reduce<FactoryMetrics["productionTooling"]["resources"]>((totals, tooling) => {
+    for (const [resource, measured] of Object.entries(tooling.resources)) {
+      const aggregate = totals[resource] ??= { allocations: 0, unitsAllocated: 0, unitTicks: 0 };
+      aggregate.allocations += measured.allocations;
+      aggregate.unitsAllocated += measured.unitsAllocated;
+      aggregate.unitTicks += measured.unitTicks;
+    }
+    return totals;
+  }, {});
+  const productionTooling: FactoryMetrics["productionTooling"] = {
+    totalAllocations: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.allocations, 0),
+    totalCompleted: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.completed, 0),
+    totalCancelled: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.cancelled, 0),
+    totalOccupiedTicks: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.occupiedTicks, 0),
+    totalUnitTicks: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.unitTicks, 0),
+    totalInputWaitTicks: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.inputWaitTicks, 0),
+    totalInputBlocks: Object.values(toolingDevices).reduce((sum, tooling) => sum + tooling.inputBlocks, 0),
+    resources: toolingResources, devices: toolingDevices, providers: toolingProviders,
+  };
   const maintenanceDevices = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.maintenance)
     .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => {
       const maintenance = {
@@ -381,7 +441,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       minimumSatisfactionPpm: power.minimumSatisfactionPpm,
       requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
     }])),
-    materialTreatment: structuredClone(state.materialTreatment), equipmentSetups, equipmentMaintenance,
+    materialTreatment: structuredClone(state.materialTreatment), productionTooling, equipmentSetups, equipmentMaintenance,
     totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,

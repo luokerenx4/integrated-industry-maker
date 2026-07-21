@@ -23,6 +23,8 @@ export interface DeviceProductionRate {
   outputsPerMinute: Record<ResourceId, number>;
   inputPorts: Record<ResourceId, string>;
   outputPorts: Record<ResourceId, string>;
+  tooling?: ProcessAmount[];
+  toolingProviders?: Array<{ device: string; distance: number }>;
   powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
@@ -425,6 +427,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
           ...Object.fromEntries(processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
         },
         outputPorts: { ...(authoredRecipe?.outputs ?? {}) },
+        ...(processPlan.tooling.length ? {
+          tooling: structuredClone(processPlan.tooling),
+          toolingProviders: processPlan.toolingProviders.map((provider) => ({ ...provider })),
+        } : {}),
         powerPriority: device.policy?.powerPriority ?? 0,
         idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
         powerMilliWatts: processPlan.powerMilliWatts,

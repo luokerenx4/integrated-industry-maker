@@ -78,6 +78,31 @@
     },
     {
       "kind": "metric",
+      "path": "productionTooling.totalAllocations",
+      "min": 12
+    },
+    {
+      "kind": "metric",
+      "path": "productionTooling.resources.reticle-mask-set-l1.unitsAllocated",
+      "min": 6
+    },
+    {
+      "kind": "metric",
+      "path": "productionTooling.resources.reticle-mask-set-l2.unitsAllocated",
+      "min": 6
+    },
+    {
+      "kind": "event",
+      "type": "device.tooling-acquired",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "device.tooling-released",
+      "present": true
+    },
+    {
+      "kind": "metric",
       "path": "equipmentMaintenance.totalMandatory",
       "min": 1
     },

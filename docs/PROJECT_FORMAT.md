@@ -460,11 +460,12 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
   "setupGroup": "iron-reduction",
   "durationTicks": 4000,
   "inputs": [{ "resource": "iron-ore", "count": 2 }],
-  "outputs": [{ "resource": "iron-plate", "count": 1 }]
+  "outputs": [{ "resource": "iron-plate", "count": 1 }],
+  "tooling": [{ "resource": "furnace-fixture", "count": 1 }]
 }
 ```
 
-The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. Optional `setupGroup` names retained equipment state; switching a setup-sensitive Device to a different group creates a separate powered changeover job. Optional `quality` makes a one-lot Process an inspection or selective rework operation. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed. See [[docs/design/equipment-changeover]] and [[docs/design/quality-flow]].
+The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. Optional `tooling` declares discrete, non-lot reusable Resources reserved from a placed `toolingProvider` for the entire physical job and returned on completion; it is not a consumed recipe input. Optional `setupGroup` names retained equipment state; switching a setup-sensitive Device to a different group creates a separate powered changeover job. Optional `quality` makes a one-lot Process an inspection or selective rework operation. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared material Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed. See [[docs/design/reusable-production-tooling]], [[docs/design/equipment-changeover]], and [[docs/design/quality-flow]].
 
 An inspection declares a normal pass output in `outputs` plus alternate rework and optional scrap Resources:
 

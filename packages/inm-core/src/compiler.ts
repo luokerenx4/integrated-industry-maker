@@ -83,6 +83,17 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         if (!resources[amount.resource]) issues.push({ path, code: "reference.resource", message: `Unknown resource '${amount.resource}'` });
       }
     }
+    const processResources = new Set([...process.inputs, ...process.outputs].map((amount) => amount.resource));
+    const seenTooling = new Set<string>();
+    for (const [index, amount] of (process.tooling ?? []).entries()) {
+      const path = `processes/${id}.process.json/tooling/${index}/resource`;
+      const resource = resources[amount.resource];
+      if (seenTooling.has(amount.resource)) issues.push({ path, code: "process.duplicate-tooling", message: `Process '${id}' lists reusable tooling '${amount.resource}' more than once` });
+      seenTooling.add(amount.resource);
+      if (!resource) issues.push({ path, code: "reference.resource", message: `Unknown reusable tooling Resource '${amount.resource}'` });
+      else if (resource.unit.kind !== "discrete" || resource.tracking) issues.push({ path, code: "tooling.discrete-untracked", message: `Reusable tooling '${amount.resource}' must be a discrete, non-lot Resource` });
+      if (processResources.has(amount.resource)) issues.push({ path, code: "tooling.material-overlap", message: `Reusable tooling '${amount.resource}' cannot also be a consumed input or produced output of Process '${id}'` });
+    }
     const trackedInputs = process.inputs.filter((amount) => resources[amount.resource]?.tracking);
     const trackedOutputs = process.outputs.filter((amount) => resources[amount.resource]?.tracking);
     const families = new Set([...trackedInputs, ...trackedOutputs].map((amount) => resources[amount.resource]!.tracking!.family));
@@ -234,6 +245,15 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       else if (inventory.role === "output") issues.push({ path: `${providerPath}/inventoryBuffer`, code: "maintenance.inventory-role", message: "Maintenance inventory cannot be output-only" });
     } else if (asset.capabilities.includes("maintain")) issues.push({
       path: `assets/devices/${id}/asset.json/capabilities`, code: "maintenance.provider-required", message: "Maintain capability requires a maintenanceProvider specification",
+    });
+    if (asset.toolingProvider) {
+      const providerPath = `assets/devices/${id}/asset.json/toolingProvider`;
+      if (!asset.capabilities.includes("tooling")) issues.push({ path: providerPath, code: "capability.not-tooling", message: "Tooling provider specification requires tooling capability" });
+      const inventory = asset.buffers.find((buffer) => buffer.id === asset.toolingProvider!.inventoryBuffer);
+      if (!inventory) issues.push({ path: `${providerPath}/inventoryBuffer`, code: "reference.buffer", message: `Unknown tooling inventory buffer '${asset.toolingProvider.inventoryBuffer}'` });
+      else if (inventory.role !== "input") issues.push({ path: `${providerPath}/inventoryBuffer`, code: "tooling.inventory-role", message: "Tooling inventory must use a dedicated input-only buffer" });
+    } else if (asset.capabilities.includes("tooling")) issues.push({
+      path: `assets/devices/${id}/asset.json/capabilities`, code: "tooling.provider-required", message: "Tooling capability requires a toolingProvider specification",
     });
     if (asset.production) {
       if (!asset.capabilities.includes("process")) issues.push({ path: `assets/devices/${id}/asset.json/production`, code: "capability.not-process", message: "Production specification requires process capability" });
@@ -1077,6 +1097,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             durationTicks: productionDurationTicks(definition, asset, mode),
             powerMilliWatts: productionPowerMilliWatts(asset, mode),
             inputs: compiledInputs,
+            tooling: structuredClone(definition.tooling ?? []),
+            toolingProviders: [],
             outputs: compiledOutputs,
             priority: recipe.priority ?? 0,
             lotTransfers,
@@ -1238,6 +1260,26 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   }
 
   const placed = Object.values(devices).sort((a, b) => a.id.localeCompare(b.id));
+  for (const device of placed) for (const plan of device.processPlans) {
+    if (!plan.tooling.length) continue;
+    plan.toolingProviders = placed.flatMap((provider) => {
+      const contract = provider.assetDef.toolingProvider;
+      const inventory = contract ? provider.buffers[contract.inventoryBuffer] : undefined;
+      if (!contract || provider.region !== device.region || !inventory
+        || plan.tooling.some((tool) => !acceptsResource(inventory.accepts, tool.resource)
+          || (inventory.resourceCapacities?.[tool.resource] ?? inventory.capacity) < tool.count)
+        || plan.tooling.reduce((sum, tool) => sum + tool.count, 0) > inventory.capacity) return [];
+      const distance = centerDistance(device, provider);
+      return distance <= contract.serviceRadius ? [{ device: provider.id, distance }] : [];
+    }).sort((left, right) => left.distance - right.distance || left.device.localeCompare(right.device));
+    if (!plan.toolingProviders.length) {
+      const deviceIndex = loaded.blueprint.devices.findIndex((candidate) => candidate.id === device.id);
+      issues.push({
+        path: `blueprint/devices/${deviceIndex}`, code: "tooling.provider-uncovered",
+        message: `Device '${device.id}' has no in-range provider for Process '${plan.definition.id}' reusable tooling ${plan.tooling.map((tool) => `${tool.count} ${tool.resource}`).join(" + ")}`,
+      });
+    }
+  }
   const providersFor = (device: CompiledDevice, service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> }) => {
     const centerX = device.position.x + device.footprint.width / 2;
     const centerY = device.position.y + device.footprint.height / 2;

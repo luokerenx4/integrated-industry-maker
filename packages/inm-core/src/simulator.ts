@@ -113,6 +113,14 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         qualificationCrewTicks: 0,
         consumables: {},
       } } : {}),
+      ...(project.devices[id]!.processPlans.some((plan) => plan.tooling.length) ? { productionTooling: {
+        allocations: 0, completed: 0, cancelled: 0, occupiedTicks: 0, unitTicks: 0,
+        inputWaitTicks: 0, inputBlocks: 0, resources: {},
+      } } : {}),
+      ...(project.devices[id]!.assetDef.toolingProvider ? { toolingProvider: {
+        reserved: {}, peakReserved: {}, allocations: 0, completed: 0, cancelled: 0,
+        occupiedTicks: 0, unitTicks: 0, resources: {},
+      } } : {}),
       ...(storage ? { energyStorage: {
         capacityMilliJoules: storage.capacityMilliJoules,
         storedMilliJoules: initialMilliJoules,
@@ -1209,6 +1217,23 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (runtime.status !== "unpowered") emit({ type: "power.shortage", tick: state.tick, device: device.id, grid, requiredMilliWatts: required, availableMilliWatts: runtime.idlePowered ? device.assetDef.power.idleMilliWatts + Math.max(0, available) : 0 });
       setStatus(device.id, "unpowered"); return false;
     }
+    const toolingProvider = selectedProcessPlan?.tooling.length ? toolingProviderFor(device, selectedProcessPlan) : undefined;
+    if (selectedProcessPlan?.tooling.length && !toolingProvider) {
+      mutateFactoryState(state, { kind: "tooling.wait", device: device.id, process: selectedProcessPlan.definition.id, waiting: true });
+      setStatus(device.id, "waiting-input");
+      return false;
+    }
+    if (toolingProvider && selectedProcessPlan) {
+      mutateFactoryState(state, {
+        kind: "tooling.allocate", device: device.id, provider: toolingProvider.device,
+        inventoryBuffer: toolingProvider.inventoryBuffer, amounts: selectedProcessPlan.tooling,
+      });
+      emit({
+        type: "device.tooling-acquired", tick: state.tick, device: device.id,
+        process: selectedProcessPlan.definition.id, provider: toolingProvider.device,
+        tooling: structuredClone(selectedProcessPlan.tooling),
+      });
+    }
     const routeStarts = (selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
       rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, selectedProcessPlan!.definition.id, transfer.input.minimumTreatmentLevel ?? 0)
         .slice(0, transfer.input.count).map((id) => routeQueueAssessment(id, selectedProcessPlan!.definition.id)!));
@@ -1261,6 +1286,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       operation: decision.operation, startedAt: state.tick, durationTicks: effectiveDurationTicks,
       remainingTicks: effectiveDurationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
       powerMilliWatts: required, produce: actualProduce,
+      ...(toolingProvider && selectedProcessPlan ? { tooling: {
+        provider: toolingProvider.device, amounts: structuredClone(selectedProcessPlan.tooling),
+      } } : {}),
       ...(lotTransfers.length ? { lotTransfers } : {}),
       ...(quality ? { quality } : {}),
       ...(selectedProcessPlan && runtime.maintenance ? { production: true as const } : {}),
@@ -1291,10 +1319,20 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(state.tick + effectiveDurationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
-  const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
+  const toolingProviderFor = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]) => plan.toolingProviders.flatMap((candidate) => {
+    const providerDevice = project.devices[candidate.device]!;
+    const contract = providerDevice.assetDef.toolingProvider!;
+    const runtime = state.devices[candidate.device]!.toolingProvider!;
+    const inventory = state.devices[candidate.device]!.buffers[contract.inventoryBuffer]!;
+    return plan.tooling.every((amount) => (inventory[amount.resource] ?? 0) - (runtime.reserved[amount.resource] ?? 0) >= amount.count)
+      ? [{ ...candidate, inventoryBuffer: contract.inventoryBuffer }] : [];
+  })[0];
+  const processPlanMaterialReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
       || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count)) && outputFits(device,
       plan.quality?.kind === "inspection" ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput] : plan.outputs);
+  const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
+    processPlanMaterialReady(device, plan) && (!plan.tooling.length || Boolean(toolingProviderFor(device, plan)));
   const rankProcessPlans = (
     device: CompiledDevice,
     candidates: CompiledDevice["processPlans"] = device.processPlans,
@@ -1541,12 +1579,35 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (runtime.maintenance?.qualificationPending) return tryStartQualification(device);
     const campaignSelection = selectCampaignProcessPlan(device);
     const selectedProcessPlan = campaignSelection.plan;
+    const toolingBlockedPlan = selectedProcessPlan?.tooling.length
+      && processPlanMaterialReady(device, selectedProcessPlan) && !toolingProviderFor(device, selectedProcessPlan)
+      ? selectedProcessPlan
+      : selectedProcessPlan ? undefined : device.processPlans.find((plan) =>
+        plan.tooling.length > 0 && processPlanMaterialReady(device, plan) && !toolingProviderFor(device, plan));
+    const previousToolingWait = runtime.productionTooling?.wait;
     const productionReady = Boolean(selectedProcessPlan && processPlanReady(device, selectedProcessPlan));
     const mandatoryMaintenance = maintenanceCause(device, false);
     if (mandatoryMaintenance && productionReady) return tryStartMaintenance(device, mandatoryMaintenance);
     const opportunisticMaintenance = maintenanceCause(device,
       campaignSelection.held || !productionReady);
-    if (opportunisticMaintenance) return tryStartMaintenance(device, opportunisticMaintenance);
+    if (opportunisticMaintenance) {
+      if (previousToolingWait) mutateFactoryState(state, {
+        kind: "tooling.wait", device: device.id, process: previousToolingWait.process, waiting: false,
+      });
+      return tryStartMaintenance(device, opportunisticMaintenance);
+    }
+    if (toolingBlockedPlan) {
+      mutateFactoryState(state, { kind: "tooling.wait", device: device.id, process: toolingBlockedPlan.definition.id, waiting: true });
+      setStatus(device.id, "waiting-input");
+      if (!previousToolingWait) emit({
+        type: "device.tooling-blocked", tick: state.tick, device: device.id,
+        process: toolingBlockedPlan.definition.id, tooling: structuredClone(toolingBlockedPlan.tooling),
+      });
+      return !previousToolingWait || previousToolingWait.process !== toolingBlockedPlan.definition.id;
+    }
+    if (previousToolingWait) mutateFactoryState(state, {
+      kind: "tooling.wait", device: device.id, process: previousToolingWait.process, waiting: false,
+    });
     if (runtime.maintenance?.wait) mutateFactoryState(state, {
       kind: "maintenance.wait", device: device.id, phase: runtime.maintenance.wait.phase, reason: null,
     });
@@ -1574,6 +1635,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         },
         powerMilliWatts: selectedProcessPlan.powerMilliWatts,
         inputs: selectedProcessPlan.inputs,
+        tooling: selectedProcessPlan.tooling,
+        toolingProviders: selectedProcessPlan.toolingProviders,
         outputs: selectedProcessPlan.outputs,
       } } : {}),
       ...(device.treatmentPlan ? { treatment: {
@@ -1974,6 +2037,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           ...job.changeover, durationTicks: job.durationTicks,
         });
       } else {
+      if (job.tooling) {
+        const occupiedTicks = state.tick - job.startedAt;
+        mutateFactoryState(state, {
+          kind: "tooling.release", device: event.device, provider: job.tooling.provider,
+          amounts: job.tooling.amounts, occupiedTicks, outcome: "completed",
+        });
+        emit({
+          type: "device.tooling-released", tick: state.tick, device: event.device,
+          process: job.operation, provider: job.tooling.provider,
+          tooling: structuredClone(job.tooling.amounts), occupiedTicks, outcome: "completed",
+        });
+      }
       for (const output of job.produce) {
         const transfer = job.lotTransfers?.find((candidate) => candidate.output.buffer === output.buffer && candidate.output.resource === output.resource);
         if (isTracked(output.resource)) {
@@ -2228,6 +2303,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         kind: "maintenance.wait", device: event.device, phase: maintenanceWait.phase, reason: null,
       });
       if (activeJob?.extraction) mutateFactoryState(state, { kind: "resource.release", node: activeJob.extraction.node, count: activeJob.extraction.count });
+      if (activeJob?.tooling) mutateFactoryState(state, {
+        kind: "tooling.hold", device: event.device, provider: activeJob.tooling.provider,
+        process: activeJob.operation, amounts: activeJob.tooling.amounts, acquiredAtTick: activeJob.startedAt,
+      });
       const scrappedLots = activeJob?.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
       if (scrappedLots.length) {
         mutateFactoryState(state, { kind: "lot.scrap", lotIds: scrappedLots, device: event.device, reason: "equipment-breakdown" });
@@ -2263,6 +2342,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "idle-power", device: event.device, powered: false });
       setStatus(event.device, "failed"); emit({ type: "device.breakdown", tick: state.tick, device: event.device });
     } else if (event.kind === "recover") {
+      const toolingHold = state.devices[event.device]!.productionTooling?.hold;
+      if (toolingHold) {
+        const occupiedTicks = state.tick - toolingHold.acquiredAtTick;
+        mutateFactoryState(state, {
+          kind: "tooling.release", device: event.device, provider: toolingHold.provider,
+          amounts: toolingHold.amounts, occupiedTicks, outcome: "cancelled",
+        });
+        emit({
+          type: "device.tooling-released", tick: state.tick, device: event.device,
+          process: toolingHold.process, provider: toolingHold.provider,
+          tooling: structuredClone(toolingHold.amounts), occupiedTicks, outcome: "cancelled",
+        });
+      }
       setStatus(event.device, "idle"); emit({ type: "device.recover", tick: state.tick, device: event.device });
       for (const [key, work] of Object.entries(pausedTransportWork).sort(([left], [right]) => left.localeCompare(right))) {
         if (work.device !== event.device || work.reason !== "failure") continue;

@@ -266,6 +266,18 @@
     "iron-ore": 74,
     "iron-plate": 29
   },
+  "productionTooling": {
+    "devices": {},
+    "providers": {},
+    "resources": {},
+    "totalAllocations": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalOccupiedTicks": 0,
+    "totalUnitTicks": 0
+  },
   "qualityFlow": {
     "activeDefects": 0,
     "defectFreeCompleted": 0,

@@ -20,6 +20,7 @@ Read the relevant linked document before changing a subsystem:
 - Blueprint CONWIP, release waves, WIP cards, and causal admission blocking: [[docs/design/wip-release-control]]
 - Fixed-size tracked-lot batches, formation wait, and Blueprint recipe alternatives: [[docs/design/batch-processing]]
 - Sequence-dependent setup groups, powered changeovers, and setup-aware dispatch: [[docs/design/equipment-changeover]]
+- Finite reusable tools, spatial providers, whole-job reservation, and failure trapping: [[docs/design/reusable-production-tooling]]
 - Latent lot defects, inline inspection, selective rework, scrap, yield, and quality escapes: [[docs/design/quality-flow]]
 - Physical belts, sorters, junctions, stacking, and station fleets: [[docs/design/logistics]]
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]

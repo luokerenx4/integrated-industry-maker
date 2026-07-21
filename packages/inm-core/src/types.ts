@@ -79,6 +79,8 @@ export interface IndustrialProcessManifest {
     };
   durationTicks: Tick;
   inputs: ProcessAmount[];
+  /** Reusable production assets reserved from one in-range tooling provider for the full physical job. */
+  tooling?: ProcessAmount[];
   outputs: ProcessAmount[];
 }
 
@@ -114,7 +116,7 @@ export interface ProductRoute extends ProductRouteManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "extract" | "process" | "treat" | "maintain" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
+export type DeviceCapability = "extract" | "process" | "treat" | "maintain" | "tooling" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -213,6 +215,11 @@ export interface DeviceAssetManifest {
     serviceRadius: number;
     inventoryBuffer: BufferId;
   };
+  /** A placed crib/stocker exposes finite reusable production tooling inside a physical service radius. */
+  toolingProvider?: {
+    serviceRadius: number;
+    inventoryBuffer: BufferId;
+  };
   extraction?: {
     resources: ResourceId[];
     radius: number;
@@ -293,6 +300,8 @@ export interface DeviceProgramContext {
     mode: Readonly<{ id: string; name: string; inputCycles: number; outputCycles: number }>;
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
+    tooling: ProcessAmount[];
+    toolingProviders: Array<{ device: DeviceInstanceId; distance: number }>;
     outputs: ResourceBufferQuantity[];
   }>;
   treatment?: Readonly<{
@@ -613,6 +622,9 @@ export interface CompiledDevice extends BlueprintDevice {
     durationTicks: Tick;
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
+    /** External reusable assets required for the full physical job. */
+    tooling: ProcessAmount[];
+    toolingProviders: Array<{ device: DeviceInstanceId; distance: number }>;
     outputs: ResourceBufferQuantity[];
     priority: number;
     /** Identity-preserving input/output pairs. Counts are always equal. */
@@ -815,6 +827,8 @@ export interface ActiveDeviceJob {
     crews: number;
     inputs: ProcessAmount[];
   };
+  /** Reusable production tooling remains reserved across power loss and equipment failure until job completion. */
+  tooling?: { provider: DeviceInstanceId; amounts: ProcessAmount[] };
   /** Only successfully completed jobs with this marker consume the maintenance usage budget. */
   production?: true;
   /** Evaluator-owned wear state captured when this production job started. */
@@ -935,6 +949,28 @@ export interface DeviceRuntimeState {
     qualificationCrewTicks: Tick;
     consumables: Record<ResourceId, number>;
   };
+  productionTooling?: {
+    allocations: number;
+    completed: number;
+    cancelled: number;
+    occupiedTicks: Tick;
+    unitTicks: Tick;
+    inputWaitTicks: Tick;
+    inputBlocks: number;
+    resources: Record<ResourceId, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
+    wait?: { process: ProcessId; sinceTick: Tick };
+    hold?: { provider: DeviceInstanceId; process: ProcessId; amounts: ProcessAmount[]; acquiredAtTick: Tick };
+  };
+  toolingProvider?: {
+    reserved: Record<ResourceId, number>;
+    peakReserved: Record<ResourceId, number>;
+    allocations: number;
+    completed: number;
+    cancelled: number;
+    occupiedTicks: Tick;
+    unitTicks: Tick;
+    resources: Record<ResourceId, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
+  };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
@@ -1035,6 +1071,9 @@ export type FactoryEvent =
   | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; serviceDurationTicks: Tick; qualificationDurationTicks: Tick }
   | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
   | { type: "device.qualification-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
+  | { type: "device.tooling-blocked"; tick: Tick; device: DeviceInstanceId; process: ProcessId; tooling: ProcessAmount[] }
+  | { type: "device.tooling-acquired"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; tooling: ProcessAmount[] }
+  | { type: "device.tooling-released"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; tooling: ProcessAmount[]; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
@@ -1244,6 +1283,18 @@ export interface FactoryMetrics {
   materialTreatment: {
     treated: Record<ResourceId, Record<string, number>>;
     agentsConsumed: Record<ResourceId, number>;
+  };
+  productionTooling: {
+    totalAllocations: number;
+    totalCompleted: number;
+    totalCancelled: number;
+    totalOccupiedTicks: Tick;
+    totalUnitTicks: Tick;
+    totalInputWaitTicks: Tick;
+    totalInputBlocks: number;
+    resources: Record<ResourceId, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
+    devices: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["productionTooling"]>>;
+    providers: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["toolingProvider"]>>;
   };
   equipmentSetups: {
     totalChangeovers: number;

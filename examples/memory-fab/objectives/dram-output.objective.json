@@ -5,7 +5,7 @@
   "targetRegion": "cleanroom",
   "targetRatePerMinute": 2.5,
   "constraints": {
-    "maxBuildCost": 140000,
+    "maxBuildCost": 150000,
     "maxOccupiedArea": 320,
     "minProduction": 4
   },

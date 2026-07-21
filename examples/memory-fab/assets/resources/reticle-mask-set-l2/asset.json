@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "reticle-mask-set-l2",
+  "name": "Cell Layer 2 Reticle Set",
+  "description": "A finite reusable lithography reticle set qualified for the re-entrant second memory-cell patterning pass.",
+  "tags": [
+    "semiconductor",
+    "lithography",
+    "reusable-tooling"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "set",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 1
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

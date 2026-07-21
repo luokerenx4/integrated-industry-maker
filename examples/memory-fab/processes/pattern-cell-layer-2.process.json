@@ -22,5 +22,11 @@
       "resource": "patterned-cell-l2-lot",
       "count": 1
     }
+  ],
+  "tooling": [
+    {
+      "resource": "reticle-mask-set-l2",
+      "count": 1
+    }
   ]
 }

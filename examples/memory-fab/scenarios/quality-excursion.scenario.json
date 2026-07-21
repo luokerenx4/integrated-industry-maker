@@ -167,6 +167,12 @@
     }
   ],
   "initialBuffers": {
+    "reticle-stocker-1": {
+      "reticle-inventory": {
+        "reticle-mask-set-l1": 1,
+        "reticle-mask-set-l2": 1
+      }
+    },
     "maintenance-service-1": {
       "service-store": {
         "chamber-clean-kit": 16,

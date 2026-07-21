@@ -56,6 +56,13 @@ export interface BlueprintMetricSnapshot {
   totalCampaignHoldTicks: number;
   campaignMinimumLotReleases: number;
   campaignMaximumHoldReleases: number;
+  totalToolingAllocations: number;
+  totalToolingCompleted: number;
+  totalToolingCancelled: number;
+  totalToolingOccupiedTicks: number;
+  totalToolingUnitTicks: number;
+  totalToolingInputWaitTicks: number;
+  totalToolingInputBlocks: number;
   totalMaintenanceCompleted: number;
   totalMandatoryMaintenance: number;
   totalOpportunisticMaintenance: number;
@@ -129,6 +136,13 @@ export interface BlueprintMetricDelta {
   totalCampaignHoldTicks: number;
   campaignMinimumLotReleases: number;
   campaignMaximumHoldReleases: number;
+  totalToolingAllocations: number;
+  totalToolingCompleted: number;
+  totalToolingCancelled: number;
+  totalToolingOccupiedTicks: number;
+  totalToolingUnitTicks: number;
+  totalToolingInputWaitTicks: number;
+  totalToolingInputBlocks: number;
   totalMaintenanceCompleted: number;
   totalMandatoryMaintenance: number;
   totalOpportunisticMaintenance: number;
@@ -326,6 +340,13 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalCampaignHoldTicks: metrics.equipmentSetups.totalCampaignHoldTicks,
     campaignMinimumLotReleases: metrics.equipmentSetups.campaignMinimumLotReleases,
     campaignMaximumHoldReleases: metrics.equipmentSetups.campaignMaximumHoldReleases,
+    totalToolingAllocations: metrics.productionTooling.totalAllocations,
+    totalToolingCompleted: metrics.productionTooling.totalCompleted,
+    totalToolingCancelled: metrics.productionTooling.totalCancelled,
+    totalToolingOccupiedTicks: metrics.productionTooling.totalOccupiedTicks,
+    totalToolingUnitTicks: metrics.productionTooling.totalUnitTicks,
+    totalToolingInputWaitTicks: metrics.productionTooling.totalInputWaitTicks,
+    totalToolingInputBlocks: metrics.productionTooling.totalInputBlocks,
     totalMaintenanceCompleted: metrics.equipmentMaintenance.totalCompleted,
     totalMandatoryMaintenance: metrics.equipmentMaintenance.totalMandatory,
     totalOpportunisticMaintenance: metrics.equipmentMaintenance.totalOpportunistic,
@@ -401,6 +422,13 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalCampaignHoldTicks: after.totalCampaignHoldTicks - before.totalCampaignHoldTicks,
     campaignMinimumLotReleases: after.campaignMinimumLotReleases - before.campaignMinimumLotReleases,
     campaignMaximumHoldReleases: after.campaignMaximumHoldReleases - before.campaignMaximumHoldReleases,
+    totalToolingAllocations: after.totalToolingAllocations - before.totalToolingAllocations,
+    totalToolingCompleted: after.totalToolingCompleted - before.totalToolingCompleted,
+    totalToolingCancelled: after.totalToolingCancelled - before.totalToolingCancelled,
+    totalToolingOccupiedTicks: after.totalToolingOccupiedTicks - before.totalToolingOccupiedTicks,
+    totalToolingUnitTicks: after.totalToolingUnitTicks - before.totalToolingUnitTicks,
+    totalToolingInputWaitTicks: after.totalToolingInputWaitTicks - before.totalToolingInputWaitTicks,
+    totalToolingInputBlocks: after.totalToolingInputBlocks - before.totalToolingInputBlocks,
     totalMaintenanceCompleted: after.totalMaintenanceCompleted - before.totalMaintenanceCompleted,
     totalMandatoryMaintenance: after.totalMandatoryMaintenance - before.totalMandatoryMaintenance,
     totalOpportunisticMaintenance: after.totalOpportunisticMaintenance - before.totalOpportunisticMaintenance,

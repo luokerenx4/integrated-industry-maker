@@ -143,6 +143,12 @@
     }
   ],
   "initialBuffers": {
+    "reticle-stocker-1": {
+      "reticle-inventory": {
+        "reticle-mask-set-l1": 1,
+        "reticle-mask-set-l2": 1
+      }
+    },
     "maintenance-service-1": {
       "service-store": {
         "chamber-clean-kit": 16,
@@ -156,7 +162,7 @@
   "failures": [
     {
       "device": "lithography-1",
-      "atTick": 60000,
+      "atTick": 48000,
       "durationTicks": 30000
     }
   ]

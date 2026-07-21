@@ -905,6 +905,67 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(qualificationUncovered))).toContain("qualification.provider-uncovered");
   });
 
+  test("reusable production tooling is reserved across failure and returned without material consumption", async () => {
+    const source = await loaded();
+    source.processes["smelt-iron"]!.tooling = [{ resource: "coal", count: 1 }];
+    source.deviceAssets["tool-crib"] = {
+      ...source.deviceAssets.buffer!, id: "tool-crib", name: "Tool Crib",
+      capabilities: ["tooling"],
+      buffers: [{ id: "inventory", role: "input", capacity: 2, accepts: ["coal"] }],
+      geometry: { footprint: { width: 2, height: 2 }, rotatable: true, ports: [] },
+      toolingProvider: { serviceRadius: 20, inventoryBuffer: "inventory" },
+      economics: { buildCost: 400 },
+    };
+    const smelter1 = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!);
+    const smelter2 = structuredClone(smelter1);
+    smelter2.id = "smelter-2";
+    smelter2.position = { x: 12, y: 10 };
+    source.blueprint.devices = [
+      smelter1, smelter2,
+      { id: "tool-crib-1", asset: "tool-crib", region: smelter1.region, position: { x: 7, y: 6 }, rotation: 0 },
+      { id: "tooling-wind", asset: "wind-turbine", region: smelter1.region, position: { x: 4, y: 6 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = {
+      "smelter-1": { input: { "iron-ore": 2 } },
+      "smelter-2": { input: { "iron-ore": 2 } },
+      "tool-crib-1": { inventory: { coal: 1 } },
+    };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [];
+    source.scenario.failures = [{ device: "smelter-1", atTick: 2_000, durationTicks: 2_000 }];
+    const project = compileFactoryProject(source);
+    expect(project.devices["smelter-1"]!.processPlan!.toolingProviders).toEqual([
+      expect.objectContaining({ device: "tool-crib-1" }),
+    ]);
+    const result = runUntil(project, undefined, { untilTick: 11_000 });
+    expect(result.events.filter((event) => event.type === "device.tooling-acquired").map((event) => [event.tick, event.device, event.provider])).toEqual([
+      [0, "smelter-1", "tool-crib-1"], [4_000, "smelter-2", "tool-crib-1"],
+    ]);
+    expect(result.events.filter((event) => event.type === "device.tooling-released").map((event) => [event.tick, event.device, event.occupiedTicks])).toEqual([
+      [4_000, "smelter-1", 4_000], [8_000, "smelter-2", 4_000],
+    ]);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "device.tooling-blocked", tick: 0, device: "smelter-2", process: "smelt-iron", tooling: [{ resource: "coal", count: 1 }],
+    }));
+    expect(result.state.devices["tool-crib-1"]!.buffers.inventory).toEqual({ coal: 1 });
+    expect(result.state.devices["tool-crib-1"]!.toolingProvider!.reserved).toEqual({});
+    expect(result.state.consumed.coal).toBeUndefined();
+    expect(result.metrics.productionTooling).toEqual(expect.objectContaining({
+      totalAllocations: 2, totalCompleted: 1, totalCancelled: 1, totalOccupiedTicks: 8_000, totalUnitTicks: 8_000,
+      totalInputWaitTicks: 4_000, totalInputBlocks: 1,
+      resources: { coal: { allocations: 2, unitsAllocated: 2, unitTicks: 8_000 } },
+    }));
+    expect(result.metrics.productionTooling.providers["tool-crib-1"]).toEqual(expect.objectContaining({
+      allocations: 2, completed: 1, cancelled: 1, peakReserved: { coal: 1 }, reserved: {}, unitTicks: 8_000,
+    }));
+
+    const uncovered = await loaded();
+    uncovered.processes["smelt-iron"]!.tooling = [{ resource: "coal", count: 1 }];
+    expect(issueCodes(() => compileFactoryProject(uncovered))).toContain("tooling.provider-uncovered");
+  });
+
   test("identity-preserving wafer lots close re-entrant setup, inspection, rework, and scrap loops", async () => {
     const source = await loadFactoryProject(memoryFab);
     const baselineProject = compileFactoryProject(source);
@@ -2702,7 +2763,7 @@ describe("research boundary and experiment decisions", () => {
       completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
-    expect(result.metrics.infeasibleReason).toBe("build cost 161260 exceeds 140000");
+    expect(result.metrics.infeasibleReason).toBe("build cost 167260 exceeds 150000");
 
     const hybrid = parallelizeWorkCenter(project, project.blueprint, {
       device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",

@@ -1,0 +1,61 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "reticle-stocker",
+  "name": "Reticle Stocker",
+  "description": "A local cleanroom stocker with finite physical reticle inventory shared by nearby lithography equipment.",
+  "tags": [
+    "semiconductor",
+    "lithography",
+    "reusable-tooling"
+  ],
+  "capabilities": [
+    "tooling"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 2,
+      "height": 2
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "reticle-load",
+        "direction": "input",
+        "kind": "resource",
+        "side": "west",
+        "offset": 0,
+        "buffer": "reticle-inventory"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "reticle-inventory",
+      "role": "input",
+      "capacity": 4,
+      "accepts": [
+        "reticle-mask-set-l1",
+        "reticle-mask-set-l2"
+      ]
+    }
+  ],
+  "toolingProvider": {
+    "serviceRadius": 16,
+    "inventoryBuffer": "reticle-inventory"
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 8000,
+    "activeMilliWatts": 8000
+  },
+  "economics": {
+    "buildCost": 6000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

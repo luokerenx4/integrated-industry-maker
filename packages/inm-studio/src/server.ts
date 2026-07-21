@@ -181,6 +181,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       maintenanceProviders: device.maintenanceProviders.map((provider) => ({ ...provider })),
       qualificationProviders: device.qualificationProviders.map((provider) => ({ ...provider })),
       ...(device.assetDef.maintenanceProvider ? { maintenanceProvider: { ...device.assetDef.maintenanceProvider } } : {}),
+      ...(device.assetDef.toolingProvider ? { toolingProvider: { ...device.assetDef.toolingProvider } } : {}),
       region: device.region,
       position: {
         x: device.position.x + regionLayout.offsets.get(device.region)!.x,
@@ -211,6 +212,8 @@ async function loadStudioData(projectId: string, runName?: string) {
           kind: "rework" as const, repairs: device.processPlan.quality.repairs,
         } } : {}),
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
+        tooling: structuredClone(device.processPlan.tooling),
+        toolingProviders: device.processPlan.toolingProviders.map((provider) => ({ ...provider })),
         outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
       } } : {}),
       ...(device.processPlans.length ? { recipes: device.processPlans.map((plan) => ({
@@ -232,6 +235,8 @@ async function loadStudioData(projectId: string, runName?: string) {
           kind: "rework" as const, repairs: plan.quality.repairs,
         } } : {}),
         inputs: plan.inputs.map((amount) => ({ ...amount })),
+        tooling: structuredClone(plan.tooling),
+        toolingProviders: plan.toolingProviders.map((provider) => ({ ...provider })),
         outputs: plan.outputs.map((amount) => ({ ...amount })),
       })) } : {}),
       ...(device.treatmentPlan ? { treatment: {
@@ -310,6 +315,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         buffers: asset.buffers,
         production: asset.production,
         maintenanceProvider: asset.maintenanceProvider,
+        toolingProvider: asset.toolingProvider,
         treatment: asset.treatment,
         extraction: asset.extraction,
         logistics: asset.logistics,
