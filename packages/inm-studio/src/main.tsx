@@ -180,9 +180,10 @@ interface IndustrialAnalysis {
   resources: Array<{ resource: string; producedPerMinute: number; consumedPerMinute: number; netPerMinute: number; hasBoundarySupply: boolean; hasBoundaryDemand: boolean }>;
   connections: Array<{
     connection: string; from: string; to: string; capacityItemsPerMinute: number; travelTicks: number; dispatchIntervalTicks: number; pathCells: number; sharedCells: number;
-    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
+    capacityByResource: Record<string, number>; stackSizeByResource: Record<string, number>; maxStackSize: number;
+    stages: Array<{ stage: "loader" | "line" | "unloader"; asset: string; capacity: number; durationTicks: number; stackCapacity: number; powerMilliWatts: number; powerGrid?: string; position?: { x: number; y: number } }>;
   }>;
-  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityItemsPerMinute: number }>;
+  transportCells: Array<{ cell: string; region: string; position: { x: number; y: number }; asset: string; connections: string[]; output: { kind: "cell"; cell: string } | { kind: "port"; device: string; port: string }; travelTicks: number; capacityStacksPerMinute: number }>;
   powerGrids: Array<{ grid: string; region: string; distributors: string[]; members: string[]; transportStages: Array<{ connection: string; stage: "loader" | "unloader" }>; generators: IndustrialAnalysis["generationDevices"]; productionMilliWatts: number; ratedConsumptionMilliWatts: number; headroomMilliWatts: number }>;
   stationNetworks: Array<{
     network: string; kind: "planetary" | "interstellar"; fleetAsset: string; fleetSize: number; stations: number; estimatedCarrierLoad: number;
@@ -246,7 +247,7 @@ interface StudioData {
 }
 
 interface DeviceFrame { status: Status; progress: number }
-interface TransitFrame { id: string; material: string; progress: number; path: string; kind: "belt" | "station"; position?: { x: number; y: number }; blocked?: boolean }
+interface TransitFrame { id: string; material: string; count: number; progress: number; path: string; kind: "belt" | "station"; position?: { x: number; y: number }; blocked?: boolean }
 
 const STATUS_COLORS: Record<Status, string> = {
   idle: "#64748b",
@@ -304,7 +305,7 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
     else if (event.type === "transport.power-restored" && event.connection && event.stage) endpointPower[`${event.connection}:${event.stage}`] = true;
     else if (event.type === "resource.depart" && event.transit && event.connection) {
       const connection = data.connections.find((item) => item.id === event.connection)!;
-      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.connection, kind: "belt", position: connection.points[0] });
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, count: event.transit.count, progress: 0, path: event.connection, kind: "belt", position: connection.points[0] });
     } else if (event.type === "resource.belt-position" && event.transit && event.connection && event.cellIndex !== undefined) {
       const transit = transits.get(event.transit.id); const connection = data.connections.find((item) => item.id === event.connection);
       if (transit && connection) { transit.position = connection.points[event.cellIndex + 1]; transit.progress = (event.cellIndex + 1) / (connection.points.length - 1); transit.blocked = false; }
@@ -317,7 +318,7 @@ function buildFrame(data: StudioData, tick: number): { devices: Record<string, D
       if (transit && connection) { transit.position = connection.points.at(-1); transit.progress = 1; transit.blocked = false; }
     } else if (event.type === "resource.arrive" && event.transit) transits.delete(event.transit.id);
     else if (event.type === "logistics.depart" && event.transit && event.route) {
-      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, progress: 0, path: event.route, kind: "station" });
+      transits.set(event.transit.id, { id: event.transit.id, material: event.transit.resource, count: event.transit.count, progress: 0, path: event.route, kind: "station" });
     } else if (event.type === "logistics.arrive" && event.transit) transits.delete(event.transit.id);
   }
   for (const device of data.devices) {
@@ -439,10 +440,14 @@ function FactoryWorld({ data, tick }: { data: StudioData; tick: number }) {
       const z = position.y;
       const resource = data.resources[transit.material];
       const color = resource?.visual?.color ?? "#d7f3ff";
-      return <mesh key={transit.id} position={[x, transit.blocked ? .52 : .42, z]} castShadow>
-        {resource?.visual?.shape === "box" ? <boxGeometry args={[.28, .28, .28]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.17, .17, .22, 16]} /> : <sphereGeometry args={[.16, 16, 16]} />}
-        {resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={transit.blocked ? "#ff7b49" : color} emissiveIntensity={transit.blocked ? 1.2 : .55} />}
-      </mesh>;
+      const layers = transit.kind === "belt" ? Math.min(4, transit.count) : 1;
+      return <group key={transit.id} position={[x, transit.blocked ? .46 : .36, z]}>
+        {Array.from({ length: layers }, (_, index) => <mesh key={index} position={[0, index * .17, 0]} castShadow>
+          {resource?.visual?.shape === "box" ? <boxGeometry args={[.25, .14, .25]} /> : resource?.visual?.shape === "cylinder" ? <cylinderGeometry args={[.14, .14, .14, 16]} /> : <sphereGeometry args={[.13, 16, 16]} />}
+          {resource?.visual?.texture ? <FactoryTexture projectId={data.projectId} path={resource.visual.texture} color={color} processing /> : <meshStandardMaterial color={color} emissive={transit.blocked ? "#ff7b49" : color} emissiveIntensity={transit.blocked ? 1.2 : .55} />}
+        </mesh>)}
+        {transit.count > 1 && <Html position={[0, layers * .17 + .12, 0]} center distanceFactor={12}><span className="cargo-stack-count">×{transit.count}</span></Html>}
+      </group>;
     })}
     <OrbitControls makeDefault target={[data.bounds.width / 2, 0, data.bounds.height / 2]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI * .47} />
   </>;
@@ -621,8 +626,8 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             const flow = data.metrics?.transportFlows[connection.connection];
             const mix = flow ? Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") : "";
             return <div className="pipeline-card" key={connection.connection}>
-              <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min</b></div>
-              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
+              <div className="pipeline-head"><span><strong>{connection.connection}</strong><small>{connection.from} → {connection.to}{mix ? ` · ${mix}` : ""}</small></span><b>{flow ? `${flow.deliveredItemsPerMinute.toFixed(1)} / ` : ""}{connection.capacityItemsPerMinute.toFixed(1)} /min · STACK ×{connection.maxStackSize}</b></div>
+              <div className="pipeline-stages">{connection.stages.map((stage, index) => <React.Fragment key={stage.stage}><span><small>{stage.stage}</small><strong>{stage.asset}</strong><code>{stage.capacity} cargo · stack×{stage.stackCapacity} / {stage.durationTicks}ms{stage.powerMilliWatts ? ` · ${(stage.powerMilliWatts / 1000).toFixed(1)}W · ${stage.powerGrid ?? "NO GRID"}` : ""}</code></span>{index < connection.stages.length - 1 && <i>→</i>}</React.Fragment>)}</div>
               <footer><span>{flow ? `MEASURED ${(flow.utilization * 100).toFixed(1)}% · ${flow.blockedItemTicks} BLOCKED ITEM-TICKS` : `DISPATCH ${connection.dispatchIntervalTicks}ms`}</span><span>LATENCY {connection.travelTicks}ms</span><span>PATH {connection.pathCells} CELLS{connection.sharedCells ? ` · ${connection.sharedCells} SHARED` : ""}</span></footer>
             </div>;
           })}</div>

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, open, readFile, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-export const ENGINE_VERSION = "inm-sim/0.17.0";
+export const ENGINE_VERSION = "inm-sim/0.18.0";
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);

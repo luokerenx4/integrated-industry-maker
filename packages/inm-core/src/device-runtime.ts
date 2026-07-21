@@ -85,7 +85,10 @@ export function parseTransportPlan(assetId: string, value: unknown): DeviceTrans
   if (!isRecord(value) || !Number.isInteger(value.capacity) || (value.capacity as number) <= 0 || !Number.isInteger(value.durationTicks) || (value.durationTicks as number) <= 0) {
     throw new DeviceProgramError(assetId, "planTransport() must return positive integer capacity and durationTicks");
   }
-  return { capacity: value.capacity as number, durationTicks: value.durationTicks as number };
+  if (value.stackCapacity !== undefined && (!Number.isInteger(value.stackCapacity) || (value.stackCapacity as number) <= 0)) {
+    throw new DeviceProgramError(assetId, "planTransport().stackCapacity must be a positive integer");
+  }
+  return { capacity: value.capacity as number, durationTicks: value.durationTicks as number, stackCapacity: (value.stackCapacity as number | undefined) ?? 1 };
 }
 
 function assertSynchronous(assetId: string, value: unknown, hook: string): unknown {

@@ -51,7 +51,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
-    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
+    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {},
     transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
@@ -116,15 +116,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const wip = Object.values(state.devices).reduce((sum, runtime) => sum + deviceQuantity(runtime), 0)
       + Object.values(state.transports).flat().reduce((sum, transit) => sum + transit.count, 0)
       + Object.values(state.logisticsTransports).flat().reduce((sum, transit) => sum + transit.count, 0);
-    const occupiedBeltCells = Object.values(state.transports).flat().filter((transit) => transit.phase === "belt").length;
-    const blockedBeltItems = Object.values(state.transports).flat().filter((transit) => transit.blockedBy).length;
+    const beltTransits = Object.values(state.transports).flat().filter((transit) => transit.phase === "belt");
+    const occupiedBeltCells = beltTransits.length;
+    const beltItems = beltTransits.reduce((sum, transit) => sum + transit.count, 0);
+    const blockedBeltItems = Object.values(state.transports).flat().filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0);
     const connectionCongestion = occupiedBeltCells / Math.max(1, Object.keys(project.transportCells).length) * Object.keys(project.connections).length;
     const stationCongestion = Object.entries(state.logisticsTransports).reduce((sum, [id, transits]) => sum + transits.length / project.logisticsNetworks[id]!.fleetSize, 0);
     const congestion = connectionCongestion + stationCongestion;
     stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
     stats.beltOccupancyArea += occupiedBeltCells * delta;
+    stats.beltItemArea += beltItems * delta;
     stats.beltBlockedArea += blockedBeltItems * delta;
-    stats.peakBeltItems = Math.max(stats.peakBeltItems, occupiedBeltCells);
+    stats.peakBeltItems = Math.max(stats.peakBeltItems, beltItems);
     for (const [connectionId, transits] of Object.entries(state.transports)) {
       const active = stats.transportStageActiveArea[connectionId] ??= { loader: 0, unloader: 0 };
       active.loader += transits.filter((transit) => transit.phase === "loading").length * delta;
@@ -239,9 +242,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         continue;
       }
       if (!transportStagePowered(connection, "loader")) continue;
-      mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -1 });
+      const freeCapacity = targetCapacity - quantity(targetBuffer) - incomingQuantity(connection.to.device, connection.toPort.buffer);
+      const count = Math.min(sourceBuffer[resource] ?? 0, freeCapacity, connection.stackSizeByResource[resource] ?? 1);
+      if (count <= 0) continue;
+      mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -count });
       const transit: BeltTransit = {
-        id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count: 1,
+        id: `transit-${String(transitSequence++).padStart(6, "0")}`, resource, count,
         from: connection.from.device, fromBuffer: connection.fromPort.buffer,
         to: connection.to.device, toBuffer: connection.toPort.buffer,
         departTick: state.tick, arriveTick: state.tick + connection.travelTicks,

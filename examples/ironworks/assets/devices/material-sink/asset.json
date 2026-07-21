@@ -3,7 +3,7 @@
   "type": "device",
   "id": "material-sink",
   "name": "Material Sink",
-  "description": "A delivery endpoint whose script consumes completed gears.",
+  "description": "A configurable delivery boundary that consumes any project Resource accepted by its input.",
   "tags": ["delivery", "downstream"],
   "capabilities": ["consume"],
   "geometry": {
@@ -11,7 +11,7 @@
     "rotatable": true,
     "ports": [{ "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input" }]
   },
-  "buffers": [{ "id": "input", "role": "input", "capacity": 32, "accepts": ["gear"] }],
+  "buffers": [{ "id": "input", "role": "input", "capacity": 32, "accepts": ["*"] }],
   "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
   "power": { "consumptionMilliWatts": 0 },
   "economics": { "buildCost": 400 },

@@ -4,6 +4,6 @@ export default {
   apiVersion: 1,
   evaluate() { return { kind: "none" }; },
   planTransport(context) {
-    return { capacity: context.distance, durationTicks: context.distance * 100 };
+    return { capacity: context.distance, durationTicks: context.distance * 100, stackCapacity: 4 };
   },
 } satisfies DeviceProgram;

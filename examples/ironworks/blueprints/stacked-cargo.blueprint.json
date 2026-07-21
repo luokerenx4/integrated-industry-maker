@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "devices": [
+    { "id": "stack-source", "asset": "buffer", "region": "forge-world", "position": { "x": 0, "y": 0 }, "rotation": 0 },
+    { "id": "stack-target", "asset": "material-sink", "region": "forge-world", "position": { "x": 8, "y": 0 }, "rotation": 0 },
+    { "id": "stack-power", "asset": "wind-turbine", "region": "forge-world", "position": { "x": 4, "y": 4 }, "rotation": 0 }
+  ],
+  "connections": [
+    {
+      "id": "stacked-link",
+      "from": { "device": "stack-source", "port": "output" },
+      "to": { "device": "stack-target", "port": "input" },
+      "path": [
+        { "x": 1, "y": 0 }, { "x": 2, "y": 0 }, { "x": 3, "y": 0 }, { "x": 4, "y": 0 },
+        { "x": 5, "y": 0 }, { "x": 6, "y": 0 }, { "x": 7, "y": 0 }
+      ],
+      "stackSize": 4,
+      "logistics": {
+        "loader": { "deviceAsset": "stack-sorter" },
+        "line": { "deviceAsset": "conveyor" },
+        "unloader": { "deviceAsset": "stack-sorter" }
+      }
+    }
+  ],
+  "logisticsNetworks": [],
+  "policies": { "dispatch": "fifo" }
+}

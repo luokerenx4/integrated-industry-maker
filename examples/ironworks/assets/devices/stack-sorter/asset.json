@@ -3,7 +3,7 @@
   "type": "device",
   "id": "stack-sorter",
   "name": "Stack Sorter",
-  "description": "A higher-tier endpoint transfer with two concurrent item grips per cycle.",
+  "description": "A higher-tier endpoint transfer with two concurrent grips and up to four Resource items per cargo stack.",
   "tags": ["logistics", "transfer", "sorter", "stacking"],
   "capabilities": ["transport"],
   "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },

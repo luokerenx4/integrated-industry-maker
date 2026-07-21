@@ -1,0 +1,94 @@
+{
+  "connections": [
+    {
+      "from": {
+        "device": "stack-source",
+        "port": "output"
+      },
+      "id": "stacked-link",
+      "logistics": {
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "loader": {
+          "deviceAsset": "stack-sorter"
+        },
+        "unloader": {
+          "deviceAsset": "stack-sorter"
+        }
+      },
+      "path": [
+        {
+          "x": 1,
+          "y": 0
+        },
+        {
+          "x": 2,
+          "y": 0
+        },
+        {
+          "x": 3,
+          "y": 0
+        },
+        {
+          "x": 4,
+          "y": 0
+        },
+        {
+          "x": 5,
+          "y": 0
+        },
+        {
+          "x": 6,
+          "y": 0
+        },
+        {
+          "x": 7,
+          "y": 0
+        }
+      ],
+      "stackSize": 4,
+      "to": {
+        "device": "stack-target",
+        "port": "input"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "asset": "buffer",
+      "id": "stack-source",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "material-sink",
+      "id": "stack-target",
+      "position": {
+        "x": 8,
+        "y": 0
+      },
+      "region": "forge-world",
+      "rotation": 0
+    },
+    {
+      "asset": "wind-turbine",
+      "id": "stack-power",
+      "position": {
+        "x": 4,
+        "y": 4
+      },
+      "region": "forge-world",
+      "rotation": 0
+    }
+  ],
+  "logisticsNetworks": [],
+  "policies": {
+    "dispatch": "fifo"
+  },
+  "version": 1
+}

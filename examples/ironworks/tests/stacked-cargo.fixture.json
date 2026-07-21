@@ -1,0 +1,16 @@
+{
+  "name": "four-item-cargo-stacks",
+  "blueprint": "stacked-cargo",
+  "scenario": "stacked-cargo",
+  "objective": "stacked-cargo",
+  "seed": 42,
+  "assertions": [
+    { "kind": "metric", "path": "transportFlows.stacked-link.deliveredItems", "equals": 8 },
+    { "kind": "metric", "path": "transportFlows.stacked-link.capacityItemsPerMinute", "equals": 1920 },
+    { "kind": "metric", "path": "peakBeltItems", "equals": 8 },
+    { "kind": "metric", "path": "throughputPerMinute", "equals": 240 },
+    { "kind": "metric", "path": "infeasibleReason", "equals": null },
+    { "kind": "event", "type": "resource.depart", "present": true },
+    { "kind": "event", "type": "resource.arrive", "present": true }
+  ]
+}

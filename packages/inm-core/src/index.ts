@@ -16,6 +16,7 @@ export * from "./production-analysis";
 export * from "./capacity-plan";
 export * from "./synthesis";
 export * from "./routing";
+export * from "./logistics-capacity";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

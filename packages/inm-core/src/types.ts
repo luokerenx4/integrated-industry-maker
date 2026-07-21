@@ -180,7 +180,7 @@ export interface DeviceTransportContext {
   distance: number;
 }
 
-export interface DeviceTransportPlan { capacity: number; durationTicks: Tick }
+export interface DeviceTransportPlan { capacity: number; durationTicks: Tick; stackCapacity: number }
 export interface DeviceProgram {
   apiVersion: 1;
   validateConfig?: (config: Readonly<Record<string, unknown>>) => string[];
@@ -237,6 +237,8 @@ export interface BlueprintConnection {
   from: { device: DeviceInstanceId; port: string };
   to: { device: DeviceInstanceId; port: string };
   path: GridPosition[];
+  /** Requested items per cargo stack. Omit to use the maximum supported by every transport stage and Resource. */
+  stackSize?: number;
   logistics: {
     loader: { deviceAsset: DeviceAssetId };
     line: { deviceAsset: DeviceAssetId };
@@ -350,12 +352,15 @@ export interface CompiledConnection extends BlueprintConnection {
     distance: number;
     capacity: number;
     durationTicks: Tick;
+    stackCapacity: number;
     region?: string;
     position?: GridPosition;
     powerGrid?: string;
   }>;
   distance: number;
   transportCells: string[];
+  stackSizeByResource: Record<ResourceId, number>;
+  maxStackSize: number;
   loaderDispatchIntervalTicks: Tick;
   lineDispatchIntervalTicks: Tick;
   lineCellTravelTicks: Tick;

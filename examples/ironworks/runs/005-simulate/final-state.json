@@ -1,0 +1,68 @@
+{
+  "completedOrders": 8,
+  "consumed": {
+    "iron-ore": 8
+  },
+  "devices": {
+    "stack-power": {
+      "buffers": {},
+      "status": "idle"
+    },
+    "stack-source": {
+      "buffers": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "stack-target": {
+      "buffers": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    }
+  },
+  "energy": {
+    "availableMilliWatts": 600000,
+    "consumedMilliJoules": 3750,
+    "fuelConsumed": {},
+    "grids": {
+      "grid-forge-world-stack-power": {
+        "availableMilliWatts": 600000,
+        "consumedMilliJoules": 3750
+      }
+    }
+  },
+  "logisticsTransports": {},
+  "produced": {},
+  "resourceNodes": {
+    "coal-seam-assembly": {
+      "extracted": 0,
+      "remaining": 40,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "extracted": 0,
+      "remaining": 12,
+      "reserved": 0
+    },
+    "iron-vein-1": {
+      "extracted": 0,
+      "remaining": 30,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "extracted": 0,
+      "remaining": 30,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "extracted": 0,
+      "remaining": 30,
+      "reserved": 0
+    }
+  },
+  "tick": 2000,
+  "transports": {
+    "stacked-link": []
+  }
+}

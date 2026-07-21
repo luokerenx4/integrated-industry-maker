@@ -3,7 +3,7 @@
   "type": "device",
   "id": "fast-conveyor",
   "name": "Fast Conveyor",
-  "description": "A higher-tier belt line with one physical item slot per routed cell and half the cell travel time.",
+  "description": "A higher-tier belt line with one cargo-stack slot per routed cell and half the cell travel time.",
   "tags": ["logistics", "belt", "fast"],
   "capabilities": ["transport"],
   "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },

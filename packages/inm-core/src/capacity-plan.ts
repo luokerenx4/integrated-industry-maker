@@ -1,4 +1,5 @@
 import type { CompiledFactoryProject, ResourceId } from "./types";
+import { connectionCapacityPerMinute } from "./logistics-capacity";
 
 export interface ProcessCapacityRequirement {
   resource: ResourceId;
@@ -170,7 +171,7 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     for (const [resource, requiredItemsPerMinute] of Object.entries(requirement.inputsPerMinute)) {
       const links = Object.values(project.connections).filter((connection) => ids.has(connection.to.device)
         && (connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes("*") || connection.toDevice.buffers[connection.toPort.buffer]!.accepts.includes(resource)));
-      const configuredCapacityPerMinute = links.reduce((sum, link) => sum + 60_000 / link.dispatchIntervalTicks, 0);
+      const configuredCapacityPerMinute = links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, resource), 0);
       rows.push({
         direction: "input", process: requirement.process, resource, devices: [...ids].sort(), connections: links.map((link) => link.id).sort(),
         requiredItemsPerMinute, configuredCapacityPerMinute, capacityDeficitPerMinute: Math.max(0, requiredItemsPerMinute - configuredCapacityPerMinute),
@@ -178,7 +179,7 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     }
     const links = Object.values(project.connections).filter((connection) => ids.has(connection.from.device)
       && (connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes("*") || connection.fromDevice.buffers[connection.fromPort.buffer]!.accepts.includes(requirement.resource)));
-    const configuredCapacityPerMinute = links.reduce((sum, link) => sum + 60_000 / link.dispatchIntervalTicks, 0);
+    const configuredCapacityPerMinute = links.reduce((sum, link) => sum + connectionCapacityPerMinute(link, requirement.resource), 0);
     rows.push({
       direction: "output", process: requirement.process, resource: requirement.resource, devices: [...ids].sort(), connections: links.map((link) => link.id).sort(),
       requiredItemsPerMinute: requirement.requiredOutputPerMinute, configuredCapacityPerMinute,

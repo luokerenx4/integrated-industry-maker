@@ -3,7 +3,7 @@
   "type": "device",
   "id": "conveyor",
   "name": "Conveyor",
-  "description": "A link device whose TypeScript program plans connection capacity and transit time.",
+  "description": "A belt line with one cargo slot per routed cell and support for four-item stacks.",
   "tags": ["logistics", "belt"],
   "capabilities": ["transport"],
   "geometry": { "footprint": { "width": 1, "height": 1 }, "rotatable": true, "ports": [] },

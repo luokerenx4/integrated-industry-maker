@@ -294,28 +294,35 @@ function logisticsUpgradeCandidate(input: ResearchInput, connectionId: string, r
   const connectionIndex = input.blueprint.connections.findIndex((connection) => connection.id === connectionId);
   const compiled = input.project.connections[connectionId];
   if (connectionIndex < 0 || !compiled) return null;
-  const stageIntervals = compiled.logisticsStages.map((stage) => ({ stage, interval: Math.ceil(stage.durationTicks / stage.capacity) }));
+  const stageIntervals = compiled.logisticsStages.map((stage) => ({ stage, interval: Math.ceil(stage.durationTicks / stage.capacity), stackCapacity: stage.stackCapacity }));
   const currentInterval = Math.max(...stageIntervals.map((item) => item.interval));
-  const bottlenecks = stageIntervals.filter((item) => item.interval === currentInterval);
-  const upgrades = bottlenecks.flatMap(({ stage }) => {
+  const currentStackCapacity = Math.min(...stageIntervals.map((item) => item.stackCapacity));
+  const currentItemCapacity = currentStackCapacity * 60_000 / currentInterval;
+  const bottlenecks = stageIntervals.filter((item) => item.interval === currentInterval || item.stackCapacity === currentStackCapacity);
+  const upgrades = bottlenecks.flatMap(({ stage, interval: stageInterval, stackCapacity }) => {
     const alternatives = Object.values(input.project.deviceAssets).filter((asset) => asset.logistics?.roles.includes(stage.stage) && asset.id !== stage.asset.id).flatMap((asset) => {
       const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: compiled.id, stage: stage.stage, distance: stage.distance });
       if (stage.stage === "line" && plan.capacity !== stage.distance) return [];
       const interval = Math.ceil(plan.durationTicks / plan.capacity);
-      return interval < currentInterval ? [{ asset, interval }] : [];
-    }).sort((a, b) => a.interval - b.interval || a.asset.economics.buildCost - b.asset.economics.buildCost || a.asset.id.localeCompare(b.asset.id));
+      const improvesInterval = stageInterval === currentInterval && interval < currentInterval;
+      const improvesStack = stackCapacity === currentStackCapacity && plan.stackCapacity > currentStackCapacity;
+      if (interval > currentInterval || plan.stackCapacity < currentStackCapacity || (!improvesInterval && !improvesStack)) return [];
+      return [{ asset, interval, stackCapacity: plan.stackCapacity }];
+    }).sort((a, b) => b.stackCapacity / b.interval - a.stackCapacity / a.interval
+      || a.asset.economics.buildCost - b.asset.economics.buildCost || a.asset.id.localeCompare(b.asset.id));
     return alternatives[0] ? [{ stage, replacement: alternatives[0] }] : [];
   });
   if (upgrades.length !== bottlenecks.length) return null;
-  const nextInterval = Math.max(
-    ...stageIntervals.filter((item) => item.interval < currentInterval).map((item) => item.interval),
-    ...upgrades.map((upgrade) => upgrade.replacement.interval),
-  );
+  const replacements = new Map(upgrades.map((upgrade) => [upgrade.stage.stage, upgrade.replacement]));
+  const nextInterval = Math.max(...stageIntervals.map((item) => replacements.get(item.stage.stage)?.interval ?? item.interval));
+  const nextStackCapacity = Math.min(...stageIntervals.map((item) => replacements.get(item.stage.stage)?.stackCapacity ?? item.stackCapacity));
+  const nextItemCapacity = nextStackCapacity * 60_000 / nextInterval;
+  if (nextItemCapacity <= currentItemCapacity) return null;
   const key = `logistics:${compiled.id}:${upgrades.map((upgrade) => `${upgrade.stage.stage}:${upgrade.replacement.asset.id}`).join("+")}`;
   return { key, proposal: {
     strategy: key,
     hypothesis: `Upgrade bottleneck stages on \`${compiled.id}\` (${upgrades.map((upgrade) => `${upgrade.stage.stage}: ${upgrade.stage.asset.id} → ${upgrade.replacement.asset.id}`).join(", ")}) because ${reason}.`,
-    expectedEffect: `Reduce the end-to-end dispatch interval from ${currentInterval} ms to ${nextInterval} ms.`,
+    expectedEffect: `Increase the transport envelope from ${currentItemCapacity.toFixed(3)} to ${nextItemCapacity.toFixed(3)} items/min (dispatch ${currentInterval}→${nextInterval} ms, stack ${currentStackCapacity}→${nextStackCapacity}).`,
     patch: upgrades.map((upgrade) => ({ op: "replace" as const, path: `/connections/${connectionIndex}/logistics/${upgrade.stage.stage}/deviceAsset`, value: upgrade.replacement.asset.id })),
   } };
 }

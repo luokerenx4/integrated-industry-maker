@@ -459,6 +459,35 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.tick)).toEqual([0, 1_000, 2_000]);
   });
 
+  test("stack-capable sorters move multiple Resource items in one physical belt cell", async () => {
+    const source = await loaded();
+    source.blueprint.devices = [
+      { id: "stack-source", asset: "buffer", region: "forge-world", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "stack-target", asset: "buffer", region: "forge-world", position: { x: 8, y: 0 }, rotation: 0 },
+      { id: "stack-power", asset: "wind-turbine", region: "forge-world", position: { x: 4, y: 4 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [{
+      id: "stacked-link", from: { device: "stack-source", port: "output" }, to: { device: "stack-target", port: "input" },
+      path: Array.from({ length: 7 }, (_, index) => ({ x: index + 1, y: 0 })), stackSize: 4,
+      logistics: { loader: { deviceAsset: "stack-sorter" }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "stack-sorter" } },
+    }];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.durationTicks = 2_000; source.scenario.initialBuffers = { "stack-source": { storage: { "iron-ore": 8 } } }; source.scenario.failures = [];
+    const project = compileFactoryProject(source); const connection = project.connections["stacked-link"]!;
+    expect(connection.stackSizeByResource["iron-ore"]).toBe(4);
+    expect(connection.maxStackSize).toBe(4);
+    const result = runUntil(project);
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.type === "resource.depart" ? event.transit.count : 0)).toEqual([4, 4]);
+    expect(result.metrics.transportFlows["stacked-link"]!.deliveredItems).toBe(8);
+    expect(result.metrics.transportFlows["stacked-link"]!.capacityItemsPerMinute).toBe(1_920);
+    expect(result.metrics.peakBeltItems).toBe(8);
+
+    source.blueprint.connections[0]!.stackSize = 5;
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.stack-capacity");
+    source.blueprint.connections[0]!.stackSize = 4; source.resources["iron-ore"]!.transport.stackSize = 2;
+    expect(issueCodes(() => compileFactoryProject(source))).toContain("logistics.resource-stack-limit");
+  });
+
   test("connections sharing physical belt cells share bandwidth with deterministic fair arbitration", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = { apiVersion: 1, evaluate: () => ({ kind: "none" }), planTransport: () => ({ capacity: 1, durationTicks: 10 }) };
@@ -763,6 +792,9 @@ describe("research boundary and experiment decisions", () => {
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
     const connection = proposal.strategy!.split(":")[1]!;
     expect(candidate.connections[connection]!.dispatchIntervalTicks).toBeLessThan(project.connections[connection]!.dispatchIntervalTicks);
+    expect(candidate.connections[connection]!.maxStackSize).toBe(4);
+    expect(candidate.connections[connection]!.maxStackSize / candidate.connections[connection]!.dispatchIntervalTicks)
+      .toBeGreaterThan(project.connections[connection]!.maxStackSize / project.connections[connection]!.dispatchIntervalTicks);
   });
 
   test("heuristic station strategy expands a statically undersized shared fleet", async () => {

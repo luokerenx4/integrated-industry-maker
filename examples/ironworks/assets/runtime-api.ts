@@ -49,5 +49,5 @@ export interface DeviceProgram {
     | { kind: "consume"; consume: ResourceBufferQuantity[] }
     | { kind: "wait"; reason: "input" | "output" | "idle" }
     | { kind: "none" };
-  planTransport?: (context: Readonly<DeviceTransportContext>) => { capacity: number; durationTicks: number };
+  planTransport?: (context: Readonly<DeviceTransportContext>) => { capacity: number; durationTicks: number; stackCapacity?: number };
 }

@@ -1,0 +1,119 @@
+{
+  "averageBeltItems": 2.8,
+  "averageBlockedBeltItems": 0,
+  "averageWip": 5.05,
+  "beltCellUtilization": 0.09999999999999999,
+  "blockedOutputTime": {
+    "stack-power": 0,
+    "stack-source": 0,
+    "stack-target": 0
+  },
+  "bottleneckEntity": null,
+  "completedOrders": 8,
+  "consumed": {
+    "iron-ore": 8
+  },
+  "energyConsumedMilliJoules": 3750,
+  "extracted": {
+    "coal": 0,
+    "iron-ore": 0
+  },
+  "finalScore": 245.0899625,
+  "fuelConsumed": {},
+  "idleTime": {
+    "stack-power": 2000,
+    "stack-source": 2000,
+    "stack-target": 0
+  },
+  "infeasibleReason": null,
+  "machineUtilization": {
+    "stack-power": 0,
+    "stack-source": 0,
+    "stack-target": 0
+  },
+  "occupiedArea": 16,
+  "onTimeDelivery": 1,
+  "peakBeltItems": 8,
+  "produced": {},
+  "resourceNodes": {
+    "coal-seam-assembly": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 40,
+      "remaining": 40,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 12,
+      "remaining": 12,
+      "reserved": 0
+    },
+    "iron-vein-1": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 30,
+      "remaining": 30,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 30,
+      "remaining": 30,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 30,
+      "remaining": 30,
+      "reserved": 0
+    }
+  },
+  "scoreBreakdown": {
+    "blocked": 0,
+    "buildCost": -1.205,
+    "constraintPenalty": 0,
+    "energy": -0.0000375,
+    "occupiedArea": -3.2,
+    "onTimeDelivery": 10,
+    "throughput": 240,
+    "wip": -0.505
+  },
+  "throughputPerMinute": 240,
+  "totalBuildCost": 2410,
+  "transportCongestion": 0.09999999999999999,
+  "transportEnergyConsumedMilliJoules": 3750,
+  "transportFlows": {
+    "stacked-link": {
+      "averageInFlightItems": 4.8,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "capacityItemsPerMinute": 1920,
+      "deliveredByResource": {
+        "iron-ore": 8
+      },
+      "deliveredItems": 8,
+      "deliveredItemsPerMinute": 240,
+      "departedByResource": {
+        "iron-ore": 8
+      },
+      "departedItems": 8,
+      "departedItemsPerMinute": 240,
+      "utilization": 0.125
+    }
+  },
+  "transportStageUtilization": {
+    "stacked-link": {
+      "loader": 0.125,
+      "unloader": 0.125
+    }
+  },
+  "waitingInputTime": {
+    "stack-power": 0,
+    "stack-source": 0,
+    "stack-target": 2000
+  }
+}

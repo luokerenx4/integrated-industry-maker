@@ -5,6 +5,7 @@ export interface SimulationStats {
   wipArea: number;
   congestionArea: number;
   beltOccupancyArea: number;
+  beltItemArea: number;
   beltBlockedArea: number;
   peakBeltItems: number;
   transportStageActiveArea: Record<string, { loader: number; unloader: number }>;
@@ -50,9 +51,9 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   if (constraints.maxOccupiedArea !== undefined && occupiedArea > constraints.maxOccupiedArea) violations.push(`occupied area ${occupiedArea} exceeds ${constraints.maxOccupiedArea}`);
   if (constraints.minProduction !== undefined && targetProduced < constraints.minProduction) violations.push(`production ${targetProduced} is below ${constraints.minProduction}`);
   const averageWip = stats.wipArea / duration;
-  const averageBeltItems = stats.beltOccupancyArea / duration;
+  const averageBeltItems = stats.beltItemArea / duration;
   const averageBlockedBeltItems = stats.beltBlockedArea / duration;
-  const beltCellUtilization = averageBeltItems / Math.max(1, Object.keys(project.transportCells).length);
+  const beltCellUtilization = stats.beltOccupancyArea / duration / Math.max(1, Object.keys(project.transportCells).length);
   const transportStageUtilization = Object.fromEntries(Object.values(project.connections).sort((a, b) => a.id.localeCompare(b.id)).map((connection) => {
     const active = stats.transportStageActiveArea[connection.id] ?? { loader: 0, unloader: 0 };
     const loader = connection.logisticsStages.find((stage) => stage.stage === "loader")!;
@@ -66,7 +67,10 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     const deliveredByResource = { ...(stats.connectionDeliveredByResource[connection.id] ?? {}) };
     const departedItemsPerMinute = departedItems * 60_000 / duration;
     const deliveredItemsPerMinute = deliveredItems * 60_000 / duration;
-    const capacityItemsPerMinute = 60_000 / connection.dispatchIntervalTicks;
+    const deliveredEntries = Object.entries(deliveredByResource);
+    const equivalentStacks = deliveredEntries.reduce((sum, [resource, count]) => sum + count / (connection.stackSizeByResource[resource] ?? 1), 0);
+    const effectiveStackSize = equivalentStacks > 0 ? deliveredItems / equivalentStacks : connection.maxStackSize;
+    const capacityItemsPerMinute = effectiveStackSize * 60_000 / connection.dispatchIntervalTicks;
     const occupancyArea = stats.connectionOccupancyArea[connection.id] ?? 0;
     const blockedItemTicks = stats.connectionBlockedArea[connection.id] ?? 0;
     return [connection.id, {

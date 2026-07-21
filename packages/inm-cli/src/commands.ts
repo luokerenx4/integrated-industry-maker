@@ -144,7 +144,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.powerGrids.map((grid) => `  ${grid.grid.padEnd(38)} [${grid.region}] generate ${(grid.productionMilliWatts / 1000).toFixed(3).padStart(9)} W  rated ${(grid.ratedConsumptionMilliWatts / 1000).toFixed(3).padStart(9)} W  headroom ${(grid.headroomMilliWatts / 1000).toFixed(3).padStart(9)} W  (${grid.members.length} devices + ${grid.transportStages.length} transport stages)`),
     "",
     "Logistics links",
-    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
+    ...analysis.connections.map((connection) => `  ${connection.connection.padEnd(24)} ${connection.capacityItemsPerMinute.toFixed(3).padStart(9)} items/min  stack×${connection.maxStackSize}  ${connection.travelTicks.toString().padStart(5)} ms  ${connection.pathCells} cells${connection.sharedCells ? ` / ${connection.sharedCells} shared` : ""}  ${connection.stages.map((stage) => `${stage.stage}:${stage.asset}[${stage.capacity} cargo, stack×${stage.stackCapacity}]${stage.powerMilliWatts ? `@${stage.powerGrid ?? "NO-GRID"}/${(stage.powerMilliWatts / 1000).toFixed(1)}W` : ""}`).join(" → ")}`),
     "",
     "Station networks",
     ...analysis.stationNetworks.flatMap((network) => [

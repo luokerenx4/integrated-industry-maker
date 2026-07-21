@@ -490,7 +490,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       const plan = planDeviceTransport(asset.id, asset.program, { apiVersion: 1, connection: connection.id, stage, distance: stageDistance });
       const position = stage === "loader" ? connection.path[0] : stage === "unloader" ? connection.path.at(-1) : undefined;
       return {
-        stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks,
+        stage, asset, distance: stageDistance, capacity: plan.capacity, durationTicks: plan.durationTicks, stackCapacity: plan.stackCapacity,
         ...(position ? { region: from.region, position: { ...position }, powerGrid: powerGridAtPosition(powerGrids, devices, from.region, position) } : {}),
       };
     });
@@ -507,10 +507,28 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     const lineDispatchIntervalTicks = Math.ceil(lineStage.durationTicks / lineStage.capacity);
     const lineCellTravelTicks = Math.ceil(lineStage.durationTicks / distance);
     const unloaderDispatchIntervalTicks = Math.ceil(unloaderStage.durationTicks / unloaderStage.capacity);
+    const stageStackCapacity = Math.min(...logisticsStages.map((stage) => stage.stackCapacity));
+    if (connection.stackSize !== undefined && connection.stackSize > stageStackCapacity) issues.push({
+      path: `${path}/stackSize`, code: "logistics.stack-capacity",
+      message: `Connection '${connection.id}' requests stack size ${connection.stackSize}, but its transport stages support at most ${stageStackCapacity}`,
+    });
+    const compatibleResources = Object.keys(loaded.resources).filter((resource) => (sourceResources.includes("*") || sourceResources.includes(resource))
+      && (targetResources.includes("*") || targetResources.includes(resource)));
+    const requestedStackSize = Math.min(connection.stackSize ?? stageStackCapacity, stageStackCapacity);
+    const stackSizeByResource = Object.fromEntries(compatibleResources.map((resource) => [resource, Math.min(requestedStackSize, loaded.resources[resource]!.transport.stackSize)]));
+    if (connection.stackSize !== undefined) for (const resource of compatibleResources) {
+      const limit = loaded.resources[resource]!.transport.stackSize;
+      if (connection.stackSize > limit) issues.push({
+        path: `${path}/stackSize`, code: "logistics.resource-stack-limit",
+        message: `Connection '${connection.id}' requests stack size ${connection.stackSize}, but Resource '${resource}' supports at most ${limit}`,
+      });
+    }
+    const maxStackSize = Math.max(1, ...Object.values(stackSizeByResource));
     const capacity = Math.max(1, Math.ceil(travelTicks / dispatchIntervalTicks));
     const transportCells = connection.path.map((position) => transportCellId(from.region, position));
     connections[connection.id] = {
       ...connection, fromDevice: from, toDevice: to, fromPort, toPort, logisticsStages, distance, transportCells,
+      stackSizeByResource, maxStackSize,
       loaderDispatchIntervalTicks, lineDispatchIntervalTicks, lineCellTravelTicks, unloaderDispatchIntervalTicks,
       capacity, travelTicks, dispatchIntervalTicks,
     };

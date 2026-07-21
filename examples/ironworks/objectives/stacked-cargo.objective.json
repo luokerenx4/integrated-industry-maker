@@ -1,0 +1,8 @@
+{
+  "id": "stacked-cargo",
+  "name": "Deliver Stacked Iron Cargo",
+  "targetResource": "iron-ore",
+  "targetRatePerMinute": 240,
+  "constraints": { "maxBuildCost": 3000, "maxOccupiedArea": 20, "minProduction": 8 },
+  "weights": { "throughput": 1, "onTimeDelivery": 10, "energy": 0.01, "buildCost": 0.5, "occupiedArea": 0.2, "wip": 0.1, "blocked": 2 }
+}
