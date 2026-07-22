@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V1 shared project orientation, AI-native CLI projection, Studio task-oriented project root, and shared operation loop implemented; browser-Agent proof remains active work.
+Status: V1 shared project orientation, AI-native CLI projection, Studio task-oriented project root, shared operation loop, and browser-Agent proof implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
 
