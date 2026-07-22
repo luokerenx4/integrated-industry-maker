@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `synthesized`
 - Score: **52.511**
-- Result hash: `137bee56084150934b6ecdc3c4a1c7f98ed54e0000abf700a45ca810dd62fd39`
+- Result hash: `841a9b2e93e481c720cc4eb5a7cd3b2017df73524aa8667bfc2904fb6961e005`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped

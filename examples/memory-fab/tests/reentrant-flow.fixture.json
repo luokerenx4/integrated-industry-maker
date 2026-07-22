@@ -103,6 +103,31 @@
     },
     {
       "kind": "metric",
+      "path": "productionUtilities.totalAllocations",
+      "min": 30
+    },
+    {
+      "kind": "metric",
+      "path": "productionUtilities.utilities.high-vacuum.unitsAllocated",
+      "min": 60
+    },
+    {
+      "kind": "metric",
+      "path": "productionUtilities.utilities.hazardous-exhaust.unitsAllocated",
+      "min": 20
+    },
+    {
+      "kind": "event",
+      "type": "device.utility-acquired",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "device.utility-released",
+      "present": true
+    },
+    {
+      "kind": "metric",
       "path": "equipmentMaintenance.totalMandatory",
       "min": 1
     },

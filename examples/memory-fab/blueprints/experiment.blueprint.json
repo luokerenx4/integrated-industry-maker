@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": "memory-fab-process-drift-maintenance-v3",
+  "revision": "memory-fab-facility-utilities-v1",
   "devices": [
     {
       "id": "lot-release",
@@ -220,6 +220,16 @@
       "position": {
         "x": 34,
         "y": 26
+      },
+      "rotation": 0
+    },
+    {
+      "id": "fab-utility-plant-1",
+      "asset": "fab-utility-plant",
+      "region": "cleanroom",
+      "position": {
+        "x": 34,
+        "y": 12
       },
       "rotation": 0
     },
@@ -658,6 +668,16 @@
         "stage": "unloader",
         "distance": 1
       }
+    },
+    {
+      "id": "fab-utility-plant-2",
+      "asset": "fab-utility-plant",
+      "region": "cleanroom",
+      "position": {
+        "x": 34,
+        "y": 17
+      },
+      "rotation": 0
     }
   ],
   "connections": [

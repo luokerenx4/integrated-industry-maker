@@ -23,6 +23,12 @@
       "count": 1
     }
   ],
+  "utilities": [
+    {
+      "utility": "high-vacuum",
+      "units": 2
+    }
+  ],
   "tooling": [
     {
       "resource": "reticle-mask-set-l2",

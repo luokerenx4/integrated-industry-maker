@@ -63,6 +63,13 @@ export interface BlueprintMetricSnapshot {
   totalToolingUnitTicks: number;
   totalToolingInputWaitTicks: number;
   totalToolingInputBlocks: number;
+  totalUtilityAllocations: number;
+  totalUtilityCompleted: number;
+  totalUtilityCancelled: number;
+  totalUtilityOccupiedTicks: number;
+  totalUtilityUnitTicks: number;
+  totalUtilityInputWaitTicks: number;
+  totalUtilityInputBlocks: number;
   totalMaintenanceCompleted: number;
   totalMandatoryMaintenance: number;
   totalOpportunisticMaintenance: number;
@@ -143,6 +150,13 @@ export interface BlueprintMetricDelta {
   totalToolingUnitTicks: number;
   totalToolingInputWaitTicks: number;
   totalToolingInputBlocks: number;
+  totalUtilityAllocations: number;
+  totalUtilityCompleted: number;
+  totalUtilityCancelled: number;
+  totalUtilityOccupiedTicks: number;
+  totalUtilityUnitTicks: number;
+  totalUtilityInputWaitTicks: number;
+  totalUtilityInputBlocks: number;
   totalMaintenanceCompleted: number;
   totalMandatoryMaintenance: number;
   totalOpportunisticMaintenance: number;
@@ -347,6 +361,13 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalToolingUnitTicks: metrics.productionTooling.totalUnitTicks,
     totalToolingInputWaitTicks: metrics.productionTooling.totalInputWaitTicks,
     totalToolingInputBlocks: metrics.productionTooling.totalInputBlocks,
+    totalUtilityAllocations: metrics.productionUtilities.totalAllocations,
+    totalUtilityCompleted: metrics.productionUtilities.totalCompleted,
+    totalUtilityCancelled: metrics.productionUtilities.totalCancelled,
+    totalUtilityOccupiedTicks: metrics.productionUtilities.totalOccupiedTicks,
+    totalUtilityUnitTicks: metrics.productionUtilities.totalUnitTicks,
+    totalUtilityInputWaitTicks: metrics.productionUtilities.totalInputWaitTicks,
+    totalUtilityInputBlocks: metrics.productionUtilities.totalInputBlocks,
     totalMaintenanceCompleted: metrics.equipmentMaintenance.totalCompleted,
     totalMandatoryMaintenance: metrics.equipmentMaintenance.totalMandatory,
     totalOpportunisticMaintenance: metrics.equipmentMaintenance.totalOpportunistic,
@@ -429,6 +450,13 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalToolingUnitTicks: after.totalToolingUnitTicks - before.totalToolingUnitTicks,
     totalToolingInputWaitTicks: after.totalToolingInputWaitTicks - before.totalToolingInputWaitTicks,
     totalToolingInputBlocks: after.totalToolingInputBlocks - before.totalToolingInputBlocks,
+    totalUtilityAllocations: after.totalUtilityAllocations - before.totalUtilityAllocations,
+    totalUtilityCompleted: after.totalUtilityCompleted - before.totalUtilityCompleted,
+    totalUtilityCancelled: after.totalUtilityCancelled - before.totalUtilityCancelled,
+    totalUtilityOccupiedTicks: after.totalUtilityOccupiedTicks - before.totalUtilityOccupiedTicks,
+    totalUtilityUnitTicks: after.totalUtilityUnitTicks - before.totalUtilityUnitTicks,
+    totalUtilityInputWaitTicks: after.totalUtilityInputWaitTicks - before.totalUtilityInputWaitTicks,
+    totalUtilityInputBlocks: after.totalUtilityInputBlocks - before.totalUtilityInputBlocks,
     totalMaintenanceCompleted: after.totalMaintenanceCompleted - before.totalMaintenanceCompleted,
     totalMandatoryMaintenance: after.totalMandatoryMaintenance - before.totalMandatoryMaintenance,
     totalOpportunisticMaintenance: after.totalOpportunisticMaintenance - before.totalOpportunisticMaintenance,

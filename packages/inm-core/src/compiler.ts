@@ -94,6 +94,12 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       else if (resource.unit.kind !== "discrete" || resource.tracking) issues.push({ path, code: "tooling.discrete-untracked", message: `Reusable tooling '${amount.resource}' must be a discrete, non-lot Resource` });
       if (processResources.has(amount.resource)) issues.push({ path, code: "tooling.material-overlap", message: `Reusable tooling '${amount.resource}' cannot also be a consumed input or produced output of Process '${id}'` });
     }
+    const seenUtilities = new Set<string>();
+    for (const [index, demand] of (process.utilities ?? []).entries()) {
+      const path = `processes/${id}.process.json/utilities/${index}/utility`;
+      if (seenUtilities.has(demand.utility)) issues.push({ path, code: "process.duplicate-utility", message: `Process '${id}' requires utility '${demand.utility}' more than once` });
+      seenUtilities.add(demand.utility);
+    }
     const trackedInputs = process.inputs.filter((amount) => resources[amount.resource]?.tracking);
     const trackedOutputs = process.outputs.filter((amount) => resources[amount.resource]?.tracking);
     const families = new Set([...trackedInputs, ...trackedOutputs].map((amount) => resources[amount.resource]!.tracking!.family));
@@ -268,6 +274,18 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       });
     } else if (asset.capabilities.includes("tooling")) issues.push({
       path: `assets/devices/${id}/asset.json/capabilities`, code: "tooling.provider-required", message: "Tooling capability requires a toolingProvider specification",
+    });
+    if (asset.utilityProvider) {
+      const providerPath = `assets/devices/${id}/asset.json/utilityProvider`;
+      if (!asset.capabilities.includes("utility")) issues.push({ path: providerPath, code: "capability.not-utility", message: "Utility provider specification requires utility capability" });
+      const seenUtilities = new Set<string>();
+      for (const [capacityIndex, capacity] of asset.utilityProvider.capacities.entries()) {
+        const path = `${providerPath}/capacities/${capacityIndex}/utility`;
+        if (seenUtilities.has(capacity.utility)) issues.push({ path, code: "utility.duplicate-capacity", message: `Utility provider '${id}' declares '${capacity.utility}' more than once` });
+        seenUtilities.add(capacity.utility);
+      }
+    } else if (asset.capabilities.includes("utility")) issues.push({
+      path: `assets/devices/${id}/asset.json/capabilities`, code: "utility.provider-required", message: "Utility capability requires a utilityProvider specification",
     });
     if (asset.production) {
       if (!asset.capabilities.includes("process")) issues.push({ path: `assets/devices/${id}/asset.json/production`, code: "capability.not-process", message: "Production specification requires process capability" });
@@ -1113,6 +1131,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             inputs: compiledInputs,
             tooling: structuredClone(definition.tooling ?? []),
             toolingProviders: [],
+            utilities: structuredClone(definition.utilities ?? []),
+            utilityProviders: {},
             outputs: compiledOutputs,
             priority: recipe.priority ?? 0,
             lotTransfers,
@@ -1308,6 +1328,24 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         path: `blueprint/devices/${deviceIndex}`, code: "tooling.provider-uncovered",
         message: `Device '${device.id}' has no in-range provider for Process '${plan.definition.id}' reusable tooling ${plan.tooling.map((tool) => `${tool.count} ${tool.resource}`).join(" + ")}`,
       });
+    }
+  }
+  for (const device of placed) for (const plan of device.processPlans) {
+    for (const demand of plan.utilities) {
+      plan.utilityProviders[demand.utility] = placed.flatMap((provider) => {
+        const contract = provider.assetDef.utilityProvider;
+        const capacity = contract?.capacities.find((candidate) => candidate.utility === demand.utility)?.units ?? 0;
+        if (!contract || provider.region !== device.region || capacity < demand.units) return [];
+        const distance = centerDistance(device, provider);
+        return distance <= contract.serviceRadius ? [{ device: provider.id, distance }] : [];
+      }).sort((left, right) => left.distance - right.distance || left.device.localeCompare(right.device));
+      if (!plan.utilityProviders[demand.utility]!.length) {
+        const deviceIndex = loaded.blueprint.devices.findIndex((candidate) => candidate.id === device.id);
+        issues.push({
+          path: `blueprint/devices/${deviceIndex}`, code: "utility.provider-uncovered",
+          message: `Device '${device.id}' has no in-range provider for Process '${plan.definition.id}' utility ${demand.units} ${demand.utility}`,
+        });
+      }
     }
   }
   const providersFor = (device: CompiledDevice, service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> }) => {

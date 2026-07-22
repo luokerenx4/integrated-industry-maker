@@ -1000,6 +1000,94 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(uncovered))).toContain("tooling.provider-uncovered");
   });
 
+  test("fab utility capacity is acquired atomically, released on failure, and expanded by placed plants", async () => {
+    const source = await loaded();
+    source.processes["smelt-iron"]!.utilities = [
+      { utility: "high-vacuum", units: 1 },
+      { utility: "hazardous-exhaust", units: 1 },
+    ];
+    source.deviceAssets["fab-utility-plant"] = {
+      ...source.deviceAssets.buffer!, id: "fab-utility-plant", name: "Fab Utility Plant",
+      capabilities: ["utility"], buffers: [],
+      geometry: { footprint: { width: 2, height: 2 }, rotatable: true, ports: [] },
+      utilityProvider: {
+        serviceRadius: 20,
+        capacities: [{ utility: "high-vacuum", units: 1 }, { utility: "hazardous-exhaust", units: 1 }],
+      },
+      economics: { buildCost: 1_200 },
+    };
+    const smelter1 = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!);
+    const smelter2 = structuredClone(smelter1);
+    smelter2.id = "smelter-2";
+    smelter2.position = { x: 12, y: 10 };
+    source.blueprint.devices = [
+      smelter1, smelter2,
+      { id: "fab-utility-plant-1", asset: "fab-utility-plant", region: smelter1.region, position: { x: 7, y: 6 }, rotation: 0 },
+      { id: "utility-wind", asset: "wind-turbine", region: smelter1.region, position: { x: 4, y: 6 }, rotation: 0 },
+    ];
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = {
+      "smelter-1": { input: { "iron-ore": 2 } },
+      "smelter-2": { input: { "iron-ore": 2 } },
+    };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [];
+    source.scenario.failures = [{ device: "smelter-1", atTick: 2_000, durationTicks: 2_000 }];
+    const project = compileFactoryProject(source);
+    expect(project.devices["smelter-1"]!.processPlan!.utilityProviders).toEqual({
+      "high-vacuum": [expect.objectContaining({ device: "fab-utility-plant-1" })],
+      "hazardous-exhaust": [expect.objectContaining({ device: "fab-utility-plant-1" })],
+    });
+    expect(analyzeProduction({
+      ...project, objective: { ...project.objective, targetResource: "iron-plate", targetRegion: smelter1.region, targetRatePerMinute: 1 },
+    }).utilityProviders).toEqual([{
+      device: "fab-utility-plant-1", asset: "fab-utility-plant", serviceRadius: 20,
+      capacities: [{ utility: "high-vacuum", units: 1 }, { utility: "hazardous-exhaust", units: 1 }],
+      buildCost: 1_200, occupiedArea: 4,
+    }]);
+    const result = runUntil(project, undefined, { untilTick: 7_000 });
+    expect(result.events.filter((event) => event.type === "device.utility-acquired").map((event) => [event.tick, event.device])).toEqual([
+      [0, "smelter-1"], [2_000, "smelter-2"],
+    ]);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "device.utility-blocked", tick: 0, device: "smelter-2", process: "smelt-iron",
+    }));
+    expect(result.events.filter((event) => event.type === "device.utility-released").map((event) => [event.tick, event.device, event.occupiedTicks, event.outcome])).toEqual([
+      [2_000, "smelter-1", 2_000, "cancelled"], [6_000, "smelter-2", 4_000, "completed"],
+    ]);
+    expect(result.state.devices["fab-utility-plant-1"]!.utilityProvider!.reserved).toEqual({});
+    expect(result.metrics.productionUtilities).toEqual(expect.objectContaining({
+      totalAllocations: 2, totalCompleted: 1, totalCancelled: 1,
+      totalOccupiedTicks: 6_000, totalUnitTicks: 12_000, totalInputWaitTicks: 2_000, totalInputBlocks: 1,
+    }));
+    expect(result.metrics.productionUtilities.providers["fab-utility-plant-1"]).toEqual(expect.objectContaining({
+      allocations: 4, completed: 2, cancelled: 2, reserved: {},
+      peakReserved: { "high-vacuum": 1, "hazardous-exhaust": 1 }, unitTicks: 12_000,
+    }));
+
+    const purchasedCapacity = { ...source, blueprint: structuredClone(source.blueprint), scenario: structuredClone(source.scenario) };
+    purchasedCapacity.blueprint.devices.push({
+      id: "fab-utility-plant-2", asset: "fab-utility-plant", region: smelter1.region, position: { x: 14, y: 6 }, rotation: 0,
+    });
+    purchasedCapacity.scenario.failures = [];
+    const purchased = runUntil(compileFactoryProject(purchasedCapacity), undefined, { untilTick: 1 });
+    expect(purchased.events.filter((event) => event.type === "device.utility-acquired").map((event) => [event.tick, event.device])).toEqual([
+      [0, "smelter-1"], [0, "smelter-2"],
+    ]);
+
+    const duplicateCapacity = { ...source, deviceAssets: { ...source.deviceAssets, "fab-utility-plant": {
+      ...source.deviceAssets["fab-utility-plant"]!, utilityProvider: {
+        ...source.deviceAssets["fab-utility-plant"]!.utilityProvider!,
+        capacities: [...source.deviceAssets["fab-utility-plant"]!.utilityProvider!.capacities, { utility: "high-vacuum", units: 1 }],
+      },
+    } } };
+    expect(issueCodes(() => compileFactoryProject(duplicateCapacity))).toContain("utility.duplicate-capacity");
+    const uncovered = await loaded();
+    uncovered.processes["smelt-iron"]!.utilities = [{ utility: "high-vacuum", units: 1 }];
+    expect(issueCodes(() => compileFactoryProject(uncovered))).toContain("utility.provider-uncovered");
+  });
+
   test("identity-preserving wafer lots close re-entrant setup, inspection, rework, and scrap loops", async () => {
     const source = await loadFactoryProject(memoryFab);
     const baselineProject = compileFactoryProject(source);
@@ -2797,7 +2885,7 @@ describe("research boundary and experiment decisions", () => {
       completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
-    expect(result.metrics.infeasibleReason).toBe("build cost 167260 exceeds 150000");
+    expect(result.metrics.infeasibleReason).toBe("build cost 185260 exceeds 170000");
 
     const hybrid = parallelizeWorkCenter(project, project.blueprint, {
       device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",

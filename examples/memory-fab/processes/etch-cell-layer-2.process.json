@@ -22,5 +22,15 @@
       "resource": "dram-wafer-lot",
       "count": 1
     }
+  ],
+  "utilities": [
+    {
+      "utility": "high-vacuum",
+      "units": 2
+    },
+    {
+      "utility": "hazardous-exhaust",
+      "units": 1
+    }
   ]
 }

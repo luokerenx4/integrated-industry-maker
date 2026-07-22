@@ -1,4 +1,4 @@
-import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, PowerAllocationPolicy, ProcessAmount, ResourceId } from "./types";
+import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, PowerAllocationPolicy, ProcessAmount, ProcessUtilityDemand, ResourceId } from "./types";
 import {
   connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile,
   type ConnectionDispatchProfile, type StationDispatchProfile,
@@ -25,6 +25,8 @@ export interface DeviceProductionRate {
   outputPorts: Record<ResourceId, string>;
   tooling?: ProcessAmount[];
   toolingProviders?: Array<{ device: string; distance: number }>;
+  utilities?: ProcessUtilityDemand[];
+  utilityProviders?: Record<string, Array<{ device: string; distance: number }>>;
   powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
@@ -259,6 +261,10 @@ export interface ProductionAnalysis {
     device: string; asset: string; serviceRadius: number; inventoryBuffer: string;
     stock: ProcessAmount[]; buildCost: number; occupiedArea: number;
   }>;
+  utilityProviders: Array<{
+    device: string; asset: string; serviceRadius: number; capacities: ProcessUtilityDemand[];
+    buildCost: number; occupiedArea: number;
+  }>;
   bufferContracts: Array<{
     device: string; asset: string;
     buffers: Array<{ buffer: string; role: string; capacity: number; accepts: ResourceId[] | ["*"]; resourceCapacities?: Record<ResourceId, number> }>;
@@ -434,6 +440,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         ...(processPlan.tooling.length ? {
           tooling: structuredClone(processPlan.tooling),
           toolingProviders: processPlan.toolingProviders.map((provider) => ({ ...provider })),
+        } : {}),
+        ...(processPlan.utilities.length ? {
+          utilities: structuredClone(processPlan.utilities),
+          utilityProviders: structuredClone(processPlan.utilityProviders),
         } : {}),
         powerPriority: device.policy?.powerPriority ?? 0,
         idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
@@ -705,6 +715,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       buildCost: device.assetDef.economics.buildCost,
       occupiedArea: device.footprint.width * device.footprint.height,
     }));
+  const utilityProviders = Object.values(project.devices).filter((device) => device.assetDef.utilityProvider)
+    .sort((left, right) => left.id.localeCompare(right.id)).map((device) => ({
+      device: device.id, asset: device.asset,
+      serviceRadius: device.assetDef.utilityProvider!.serviceRadius,
+      capacities: device.assetDef.utilityProvider!.capacities.map((capacity) => ({ ...capacity })),
+      buildCost: device.assetDef.economics.buildCost,
+      occupiedArea: device.footprint.width * device.footprint.height,
+    }));
   for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
@@ -897,12 +915,13 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     ...devices.map((device) => device.device), ...extractionDevices.map((device) => device.device),
     ...generationDevices.map((device) => device.device), ...storageDevices.map((device) => device.device),
     ...toolingProviders.map((device) => device.device),
+    ...utilityProviders.map((device) => device.device),
   ]);
   return {
     powerAllocation: project.blueprint.policies.powerAllocation,
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,
-    devices, toolingProviders, bufferContracts, portContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
+    devices, toolingProviders, utilityProviders, bufferContracts, portContracts, recipeOptions, productionGraph, extractionDevices, treatmentDevices, generationDevices, storageDevices, resourceNodes,
     resources,
     connections,
     transportCells,

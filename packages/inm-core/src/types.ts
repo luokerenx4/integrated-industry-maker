@@ -50,6 +50,12 @@ export interface ProcessAmount {
   count: number;
 }
 
+/** Non-material fab-facility capacity occupied while a physical Process is running. */
+export interface ProcessUtilityDemand {
+  utility: string;
+  units: number;
+}
+
 export interface IndustrialProcessManifest {
   version: 1;
   id: ProcessId;
@@ -81,6 +87,8 @@ export interface IndustrialProcessManifest {
   inputs: ProcessAmount[];
   /** Reusable production assets reserved from one in-range tooling provider for the full physical job. */
   tooling?: ProcessAmount[];
+  /** Shared facility services reserved atomically for the full physical job. */
+  utilities?: ProcessUtilityDemand[];
   outputs: ProcessAmount[];
 }
 
@@ -116,7 +124,7 @@ export interface ProductRoute extends ProductRouteManifest {
   contentHash: string;
 }
 
-export type DeviceCapability = "extract" | "process" | "treat" | "maintain" | "tooling" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
+export type DeviceCapability = "extract" | "process" | "treat" | "maintain" | "tooling" | "utility" | "store" | "transport" | "transport-junction" | "station" | "consume" | "discard" | "power";
 export type LogisticsStage = "loader" | "line" | "unloader";
 export type LogisticsRole = LogisticsStage | "carrier";
 export type PortSide = "north" | "east" | "south" | "west";
@@ -222,6 +230,11 @@ export interface DeviceAssetManifest {
     /** Physical tools bundled with every placed provider instance; their capital is included in the Device build cost. */
     stock: ProcessAmount[];
   };
+  /** A placed facility plant contributes finite, non-material service capacity inside its radius. */
+  utilityProvider?: {
+    serviceRadius: number;
+    capacities: ProcessUtilityDemand[];
+  };
   extraction?: {
     resources: ResourceId[];
     radius: number;
@@ -304,6 +317,8 @@ export interface DeviceProgramContext {
     inputs: ResourceBufferQuantity[];
     tooling: ProcessAmount[];
     toolingProviders: Array<{ device: DeviceInstanceId; distance: number }>;
+    utilities: ProcessUtilityDemand[];
+    utilityProviders: Record<string, Array<{ device: DeviceInstanceId; distance: number }>>;
     outputs: ResourceBufferQuantity[];
   }>;
   treatment?: Readonly<{
@@ -627,6 +642,9 @@ export interface CompiledDevice extends BlueprintDevice {
     /** External reusable assets required for the full physical job. */
     tooling: ProcessAmount[];
     toolingProviders: Array<{ device: DeviceInstanceId; distance: number }>;
+    /** Non-material facility capacity required for the whole physical job. */
+    utilities: ProcessUtilityDemand[];
+    utilityProviders: Record<string, Array<{ device: DeviceInstanceId; distance: number }>>;
     outputs: ResourceBufferQuantity[];
     priority: number;
     /** Identity-preserving input/output pairs. Counts are always equal. */
@@ -831,6 +849,8 @@ export interface ActiveDeviceJob {
   };
   /** Reusable production tooling remains reserved across power loss and equipment failure until job completion. */
   tooling?: { provider: DeviceInstanceId; amounts: ProcessAmount[] };
+  /** All facility allocations are acquired together and released when the physical job ends. */
+  utilities?: Array<{ provider: DeviceInstanceId; utility: string; units: number }>;
   /** Only successfully completed jobs with this marker consume the maintenance usage budget. */
   production?: true;
   /** Evaluator-owned wear state captured when this production job started. */
@@ -973,6 +993,28 @@ export interface DeviceRuntimeState {
     unitTicks: Tick;
     resources: Record<ResourceId, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
   };
+  productionUtilities?: {
+    allocations: number;
+    completed: number;
+    cancelled: number;
+    occupiedTicks: Tick;
+    unitTicks: Tick;
+    inputWaitTicks: Tick;
+    inputBlocks: number;
+    utilities: Record<string, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
+    wait?: { process: ProcessId; sinceTick: Tick };
+  };
+  utilityProvider?: {
+    capacity: Record<string, number>;
+    reserved: Record<string, number>;
+    peakReserved: Record<string, number>;
+    allocations: number;
+    completed: number;
+    cancelled: number;
+    occupiedTicks: Tick;
+    unitTicks: Tick;
+    utilities: Record<string, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
+  };
   progressTicks?: number;
   activeJob?: ActiveDeviceJob;
   energyStorage?: { capacityMilliJoules: number; storedMilliJoules: number; initialMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number };
@@ -1076,6 +1118,9 @@ export type FactoryEvent =
   | { type: "device.tooling-blocked"; tick: Tick; device: DeviceInstanceId; process: ProcessId; tooling: ProcessAmount[] }
   | { type: "device.tooling-acquired"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; tooling: ProcessAmount[] }
   | { type: "device.tooling-released"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; tooling: ProcessAmount[]; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
+  | { type: "device.utility-blocked"; tick: Tick; device: DeviceInstanceId; process: ProcessId; utilities: ProcessUtilityDemand[] }
+  | { type: "device.utility-acquired"; tick: Tick; device: DeviceInstanceId; process: ProcessId; allocations: Array<{ provider: DeviceInstanceId; utility: string; units: number }> }
+  | { type: "device.utility-released"; tick: Tick; device: DeviceInstanceId; process: ProcessId; allocations: Array<{ provider: DeviceInstanceId; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
@@ -1297,6 +1342,18 @@ export interface FactoryMetrics {
     resources: Record<ResourceId, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
     devices: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["productionTooling"]>>;
     providers: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["toolingProvider"]>>;
+  };
+  productionUtilities: {
+    totalAllocations: number;
+    totalCompleted: number;
+    totalCancelled: number;
+    totalOccupiedTicks: Tick;
+    totalUnitTicks: Tick;
+    totalInputWaitTicks: Tick;
+    totalInputBlocks: number;
+    utilities: Record<string, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
+    devices: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["productionUtilities"]>>;
+    providers: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["utilityProvider"]>>;
   };
   equipmentSetups: {
     totalChangeovers: number;

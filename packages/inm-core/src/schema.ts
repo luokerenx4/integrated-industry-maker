@@ -34,6 +34,7 @@ export const resourceAssetSchema = z.object({
 }).strict();
 
 const processAmountSchema = z.object({ resource: id, count: positiveInt }).strict();
+const utilityDemandSchema = z.object({ utility: id, units: positiveInt }).strict();
 export const processSchema = z.object({
   version: z.literal(1), id, name: z.string().min(1), description: z.string(), category: id, tags: z.array(id),
   setupGroup: id.optional(),
@@ -44,7 +45,8 @@ export const processSchema = z.object({
     }).strict(),
     z.object({ kind: z.literal("rework"), repairs: z.array(id).min(1) }).strict(),
   ]).optional(),
-  durationTicks: positiveInt, inputs: z.array(processAmountSchema), tooling: z.array(processAmountSchema).min(1).optional(), outputs: z.array(processAmountSchema).min(1),
+  durationTicks: positiveInt, inputs: z.array(processAmountSchema), tooling: z.array(processAmountSchema).min(1).optional(),
+  utilities: z.array(utilityDemandSchema).min(1).optional(), outputs: z.array(processAmountSchema).min(1),
 }).strict();
 
 export const routeSchema = z.object({
@@ -70,7 +72,7 @@ const bufferSchema = z.object({
 
 export const deviceAssetSchema = z.object({
   assetVersion: z.literal(1), type: z.literal("device"), id, name: z.string().min(1), description: z.string(), tags: z.array(id),
-  capabilities: z.array(z.enum(["extract", "process", "treat", "maintain", "tooling", "store", "transport", "transport-junction", "station", "consume", "discard", "power"])).min(1),
+  capabilities: z.array(z.enum(["extract", "process", "treat", "maintain", "tooling", "utility", "store", "transport", "transport-junction", "station", "consume", "discard", "power"])).min(1),
   geometry: z.object({
     footprint: z.object({ width: positiveInt, height: positiveInt }).strict(),
     rotatable: z.boolean(), ports: z.array(portSchema),
@@ -115,6 +117,9 @@ export const deviceAssetSchema = z.object({
   }).strict().optional(),
   toolingProvider: z.object({
     serviceRadius: positiveInt, inventoryBuffer: id, stock: z.array(processAmountSchema).min(1),
+  }).strict().optional(),
+  utilityProvider: z.object({
+    serviceRadius: positiveInt, capacities: z.array(utilityDemandSchema).min(1),
   }).strict().optional(),
   extraction: z.object({
     resources: z.array(id).min(1), radius: positiveInt, outputBuffer: id,

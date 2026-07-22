@@ -1,0 +1,52 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "fab-utility-plant",
+  "name": "Fab Utility Plant",
+  "description": "A placed cleanroom facility plant supplying finite shared high-vacuum and hazardous-exhaust capacity to nearby process equipment.",
+  "tags": [
+    "semiconductor",
+    "facility",
+    "vacuum",
+    "exhaust"
+  ],
+  "capabilities": [
+    "utility"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": []
+  },
+  "buffers": [],
+  "utilityProvider": {
+    "serviceRadius": 35,
+    "capacities": [
+      {
+        "utility": "high-vacuum",
+        "units": 6
+      },
+      {
+        "utility": "hazardous-exhaust",
+        "units": 2
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 65000,
+    "activeMilliWatts": 65000
+  },
+  "economics": {
+    "buildCost": 9000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `chemical-factory`
 - Score: **119.737**
-- Result hash: `50567bcf2a4a5b2b78d533553cabbe4a73c614e65bab4ad409b300d630c7800a`
+- Result hash: `fbbbce9fae48f063286bbca43245f624d92a252a2f043f8e1a89a7979d8d20d9`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped

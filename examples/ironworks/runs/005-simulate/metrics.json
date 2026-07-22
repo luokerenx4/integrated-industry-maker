@@ -150,6 +150,18 @@
     "totalOccupiedTicks": 0,
     "totalUnitTicks": 0
   },
+  "productionUtilities": {
+    "devices": {},
+    "providers": {},
+    "totalAllocations": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalOccupiedTicks": 0,
+    "totalUnitTicks": 0,
+    "utilities": {}
+  },
   "qualityFlow": {
     "activeDefects": 0,
     "defectFreeCompleted": 0,

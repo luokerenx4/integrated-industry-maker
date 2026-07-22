@@ -184,6 +184,9 @@ async function loadStudioData(projectId: string, runName?: string) {
       ...(device.assetDef.toolingProvider ? { toolingProvider: {
         ...device.assetDef.toolingProvider, stock: device.assetDef.toolingProvider.stock.map((amount) => ({ ...amount })),
       } } : {}),
+      ...(device.assetDef.utilityProvider ? { utilityProvider: {
+        ...device.assetDef.utilityProvider, capacities: device.assetDef.utilityProvider.capacities.map((capacity) => ({ ...capacity })),
+      } } : {}),
       region: device.region,
       position: {
         x: device.position.x + regionLayout.offsets.get(device.region)!.x,
@@ -216,6 +219,8 @@ async function loadStudioData(projectId: string, runName?: string) {
         inputs: device.processPlan.inputs.map((amount) => ({ ...amount })),
         tooling: structuredClone(device.processPlan.tooling),
         toolingProviders: device.processPlan.toolingProviders.map((provider) => ({ ...provider })),
+        utilities: structuredClone(device.processPlan.utilities),
+        utilityProviders: structuredClone(device.processPlan.utilityProviders),
         outputs: device.processPlan.outputs.map((amount) => ({ ...amount })),
       } } : {}),
       ...(device.processPlans.length ? { recipes: device.processPlans.map((plan) => ({
@@ -239,6 +244,8 @@ async function loadStudioData(projectId: string, runName?: string) {
         inputs: plan.inputs.map((amount) => ({ ...amount })),
         tooling: structuredClone(plan.tooling),
         toolingProviders: plan.toolingProviders.map((provider) => ({ ...provider })),
+        utilities: structuredClone(plan.utilities),
+        utilityProviders: structuredClone(plan.utilityProviders),
         outputs: plan.outputs.map((amount) => ({ ...amount })),
       })) } : {}),
       ...(device.treatmentPlan ? { treatment: {
@@ -320,6 +327,9 @@ async function loadStudioData(projectId: string, runName?: string) {
         toolingProvider: asset.toolingProvider ? {
           ...asset.toolingProvider, stock: asset.toolingProvider.stock.map((amount) => ({ ...amount })),
         } : undefined,
+        utilityProvider: asset.utilityProvider ? {
+          ...asset.utilityProvider, capacities: asset.utilityProvider.capacities.map((capacity) => ({ ...capacity })),
+        } : undefined,
         treatment: asset.treatment,
         extraction: asset.extraction,
         logistics: asset.logistics,
@@ -356,6 +366,8 @@ async function loadStudioData(projectId: string, runName?: string) {
         quality: process.quality,
         durationTicks: process.durationTicks,
         inputs: process.inputs,
+        tooling: process.tooling,
+        utilities: process.utilities,
         outputs: process.outputs,
         contentHash: process.contentHash,
       })),

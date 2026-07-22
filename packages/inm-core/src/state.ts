@@ -57,6 +57,9 @@ export type FactoryStateMutation =
   | { kind: "tooling.allocate"; device: string; provider: string; inventoryBuffer: string; amounts: ProcessAmount[] }
   | { kind: "tooling.hold"; device: string; provider: string; process: string; amounts: ProcessAmount[]; acquiredAtTick: Tick }
   | { kind: "tooling.release"; device: string; provider: string; amounts: ProcessAmount[]; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
+  | { kind: "utility.wait"; device: string; process: string; waiting: boolean }
+  | { kind: "utility.allocate"; device: string; allocations: Array<{ provider: string; utility: string; units: number }> }
+  | { kind: "utility.release"; device: string; allocations: Array<{ provider: string; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
@@ -529,6 +532,65 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
         provider.resources[amount.resource]!.unitTicks += unitTicks;
       }
       delete client.hold;
+      return;
+    }
+    case "utility.wait": {
+      const utilities = state.devices[mutation.device]!.productionUtilities;
+      if (!utilities) throw new Error(`Device '${mutation.device}' does not track production utilities`);
+      if (mutation.waiting) {
+        if (utilities.wait?.process !== mutation.process) {
+          if (utilities.wait) utilities.inputWaitTicks += state.tick - utilities.wait.sinceTick;
+          utilities.wait = { process: mutation.process, sinceTick: state.tick };
+          utilities.inputBlocks++;
+        }
+      } else if (utilities.wait) {
+        utilities.inputWaitTicks += state.tick - utilities.wait.sinceTick;
+        delete utilities.wait;
+      }
+      return;
+    }
+    case "utility.allocate": {
+      const client = state.devices[mutation.device]!.productionUtilities;
+      if (!client) throw new Error(`Device '${mutation.device}' does not track production utilities`);
+      for (const allocation of mutation.allocations) {
+        const provider = state.devices[allocation.provider]!.utilityProvider;
+        if (!provider || (provider.capacity[allocation.utility] ?? 0) - (provider.reserved[allocation.utility] ?? 0) < allocation.units) {
+          throw new Error(`Utility provider '${allocation.provider}' lacks available '${allocation.utility}' capacity`);
+        }
+      }
+      client.allocations++;
+      for (const allocation of mutation.allocations) {
+        const provider = state.devices[allocation.provider]!.utilityProvider!;
+        provider.allocations++;
+        provider.reserved[allocation.utility] = (provider.reserved[allocation.utility] ?? 0) + allocation.units;
+        provider.peakReserved[allocation.utility] = Math.max(provider.peakReserved[allocation.utility] ?? 0, provider.reserved[allocation.utility]!);
+        for (const owner of [client, provider]) {
+          const utility = owner.utilities[allocation.utility] ??= { allocations: 0, unitsAllocated: 0, unitTicks: 0 };
+          utility.allocations++;
+          utility.unitsAllocated += allocation.units;
+        }
+      }
+      return;
+    }
+    case "utility.release": {
+      const client = state.devices[mutation.device]!.productionUtilities;
+      if (!client) throw new Error(`Device '${mutation.device}' does not track production utilities`);
+      client[mutation.outcome]++;
+      client.occupiedTicks += mutation.occupiedTicks;
+      for (const allocation of mutation.allocations) {
+        const provider = state.devices[allocation.provider]!.utilityProvider;
+        if (!provider || (provider.reserved[allocation.utility] ?? 0) < allocation.units) throw new Error(`Utility provider '${allocation.provider}' over-released '${allocation.utility}'`);
+        provider[mutation.outcome]++;
+        provider.occupiedTicks += mutation.occupiedTicks;
+        const remaining = provider.reserved[allocation.utility]! - allocation.units;
+        if (remaining === 0) delete provider.reserved[allocation.utility];
+        else provider.reserved[allocation.utility] = remaining;
+        const unitTicks = mutation.occupiedTicks * allocation.units;
+        client.unitTicks += unitTicks;
+        provider.unitTicks += unitTicks;
+        client.utilities[allocation.utility]!.unitTicks += unitTicks;
+        provider.utilities[allocation.utility]!.unitTicks += unitTicks;
+      }
       return;
     }
     case "tooling.hold": {

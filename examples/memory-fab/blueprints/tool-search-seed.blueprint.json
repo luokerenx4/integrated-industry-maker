@@ -243,6 +243,16 @@
       "rotation": 0
     },
     {
+      "id": "fab-utility-plant-1",
+      "asset": "fab-utility-plant",
+      "region": "cleanroom",
+      "position": {
+        "x": 34,
+        "y": 12
+      },
+      "rotation": 0
+    },
+    {
       "id": "cleanroom-power-a",
       "asset": "wind-turbine",
       "region": "cleanroom",
