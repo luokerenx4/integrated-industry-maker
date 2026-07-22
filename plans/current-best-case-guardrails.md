@@ -1,6 +1,6 @@
 # Current-best operating-case guardrails
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/coding-agent-optimization]], and [[docs/design/blueprint-optimization]].
 
@@ -74,4 +74,6 @@ That separation is useful, but an industrial optimizer should not silently decid
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Commit `d847ca0` made current-best risk policy a required, hash-pinned Design Program contract; enforced fixed gates, positive aggregate improvement, and resolved per-case budgets as separate KEEP conditions; and projected exact evidence through immutable runs, CLI, and Studio. Both memory-fab Programs now require strict zero-regression Pareto preservation, and real result `873696e2ed46e12ff8c5fe7cab4129c32646d3201590a8b24d90f8fa00daaebd` proves the changed lineage across all five locked cases.
+
+Strict guardrails intentionally reject a candidate that improves four cases while regressing one, but the current linear search also forgets that alternative Blueprint state. [[plans/pareto-branch-design-search]] owns bounded retention and exploration of such non-dominated branches rather than weakening this completed decision contract.
