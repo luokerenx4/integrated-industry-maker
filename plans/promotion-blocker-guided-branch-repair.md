@@ -1,6 +1,6 @@
 # Promotion-blocker-guided branch repair
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/fab-loss-attribution]], [[docs/design/blueprint-optimization]], and [[docs/design/agent-cli-contract]].
 
@@ -77,4 +77,6 @@ The project already models powered, costed `fab-utility-plant` Devices, finite v
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Implemented in commit `d4358ea` (`feat: guide Design branch repair`). Design proposal API V5 now gives project strategies an immutable leader-relative promotion boundary, validates explicit case-repair targets, records the evidence in Design runs, and exposes it consistently through CLI and Studio. The memory-fab portfolio uses that contract to evaluate an ordinary powered and costed N+1 utility plant, promoting the repaired branch under the unchanged five-case benchmark.
+
+The successful repair also proved that retained frontier membership and continued search eligibility are separate states. That scheduler follow-up is independently indexed as [[plans/frontier-node-exhaustion-scheduling]].
