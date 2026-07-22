@@ -1,6 +1,6 @@
 # Generative Design seed
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/design/agent-cli-contract]], and [[docs/design/experiment-workbench]].
 
@@ -48,7 +48,7 @@ The generated design, the authored synthesis input, and the mutable Benchmark ca
 - [x] Add the self-contained memory-fab generative target, locked Benchmark, and synthesis-seeded Program.
 - [x] Update CLI, Studio, JSON Schema, examples, and design/reference documentation.
 - [x] Verify determinism, non-mutation, staleness guards, Candidate preview/apply, browser behavior, and the full repository suite.
-- [ ] Complete the final acceptance audit, record evidence, and move this plan to completed.
+- [x] Complete the final acceptance audit, record evidence, and move this plan to completed.
 
 ## Findings and decisions
 
@@ -75,7 +75,8 @@ The generated design, the authored synthesis input, and the mutable Benchmark ca
 
 - 2026-07-23 — Plan created and activated after auditing the current authored-seed and Candidate promotion contracts.
 - 2026-07-23 — Strict seed resolution, immutable provenance, dedicated target/Benchmark, CLI/Studio parity, exact promotion, tests, documentation, and browser QA completed; final commit audit remains.
+- 2026-07-23 — Acceptance audited against executable, CLI, Studio, browser, and immutable-run evidence; implementation committed as `732b854` and the plan completed.
 
 ## Completion
 
-Pending.
+Shipped in `732b854` (`feat: generate Design Program seeds`). Memory-fab now has two explicit lifecycles: `integrated-dram-fab` continues optimizing the tuned `experiment`, while `greenfield-dram-fab` synthesizes from the empty `greenfield`, improves the generated factory through the locked five-case envelope, and hands an accepted exact result to Candidate review against the independent `generated-dram-fab` target. Core, CLI, Studio, schemas, examples, tests, and design documentation share the same source/working-seed/promotion-base contract. No work from this bounded outcome is deferred.
