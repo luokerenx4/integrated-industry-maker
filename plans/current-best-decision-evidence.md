@@ -1,6 +1,6 @@
 # Current-best Design decision evidence
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/coding-agent-optimization]], [[docs/design/agent-cli-contract]], and [[docs/design/experiment-workbench]].
 
@@ -70,4 +70,6 @@ The batch-formation experiment makes the gap concrete. Its driver batch wait fal
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Commit `a967ab6` replaced loose iteration scores with exact aggregate and ordered per-case current-best evidence, validated the immutable KEEP lineage, and projected one shared decision explanation through CLI and Studio. The real memory-fab Design run now explains the batch REJECT directly and completed every acceptance check.
+
+The evidence also revealed that aggregate improvement can still preserve a material regression in one operating case. [[plans/current-best-case-guardrails]] owns the separate decision about explicit robustness budgets rather than expanding this completed observability plan.

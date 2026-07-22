@@ -12,13 +12,13 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/current-best-decision-evidence]] | Explain every Design KEEP or REJECT with exact aggregate and per-case deltas against the current best on both CLI and Studio. | 2026-07-23 |
+There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/current-best-case-guardrails]] | Make current-best per-case regression budgets explicit and enforceable in robust Design decisions across CLI and Studio. | 2026-07-23 |
 
 ## Paused plans
 
@@ -28,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/current-best-decision-evidence]] | Explain every Design KEEP or REJECT with exact aggregate and per-case deltas against the current best on both CLI and Studio. | 2026-07-23 |
 | [[plans/batch-formation-design-intervention]] | Let memory-fab Design investigate and benchmark an explicit batch-formation intervention when that loss emerges from an improved fab. | 2026-07-23 |
 | [[plans/loss-intervention-portfolio]] | Diversify memory-fab Design across measured loss targets and turn existing maintenance and setup controls into benchmarked Candidates. | 2026-07-23 |
 | [[plans/loss-guided-design]] | Make each memory-fab Design iteration explain its measured loss chain and require the project strategy to target one measured loss. | 2026-07-23 |
