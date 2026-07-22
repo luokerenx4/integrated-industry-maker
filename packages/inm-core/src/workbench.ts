@@ -1,6 +1,7 @@
 import { listRuns } from "./artifacts";
 import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./benchmark";
 import { listCandidateChangeSets } from "./candidate-change-set";
+import { inspectCandidateDecision, type CandidateDecisionState } from "./candidate-review";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
@@ -55,8 +56,27 @@ export interface WorkbenchOperationDescriptor {
   };
 }
 
+export type WorkbenchNextActionTarget =
+  | { kind: "diagnostic"; diagnosticId: string }
+  | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
+  | { kind: "operation"; operationId: "analyze" | "simulate" }
+  | { kind: "run"; runId: string };
+
+export interface WorkbenchNextAction {
+  id: string;
+  tone: "blocking" | "review" | "evidence" | "attention" | "ready";
+  title: string;
+  reason: string;
+  actionLabel: string;
+  effect: "read-only" | "creates-artifact" | "mutates-project";
+  requiresConfirmation: boolean;
+  argv: string[];
+  studioRoute: string;
+  target: WorkbenchNextActionTarget;
+}
+
 export interface ProjectWorkbenchSnapshot {
-  version: 1;
+  version: 2;
   project: {
     id: string;
     name: string;
@@ -80,10 +100,15 @@ export interface ProjectWorkbenchSnapshot {
       demandPerMinute: number;
     }>;
   };
-  readiness: {
-    ready: boolean;
-    gapCount: number;
-    gapsByKind: Partial<Record<ProductionCapacityPlan["gaps"][number]["kind"], number>>;
+  status: {
+    capacity: {
+      state: "ready" | "blocked";
+      gapCount: number;
+      gapsByKind: Partial<Record<ProductionCapacityPlan["gaps"][number]["kind"], number>>;
+    };
+    flow: { state: "clear" | "at-risk"; warningCount: number; infoCount: number };
+    evidence: { state: "current" | "missing" | "incompatible"; runId: string | null };
+    review: { state: "clear" | "pending" | "stale"; pendingCount: number; staleCount: number; verifiedCount: number };
   };
   counts: {
     regions: number;
@@ -126,9 +151,18 @@ export interface ProjectWorkbenchSnapshot {
     expectedEffect?: string;
     baseCandidateHash: string;
     patchOperations: number;
+    decision: {
+      state: CandidateDecisionState;
+      proposalHash: string;
+      currentCandidateHash: string;
+      proposedCandidateHash?: string;
+      verdict?: "KEEP" | "DISCARD" | "UNCHANGED";
+      resultHash?: string;
+    };
   }>;
   diagnostics: WorkbenchDiagnostic[];
   operations: WorkbenchOperationDescriptor[];
+  nextAction: WorkbenchNextAction;
 }
 
 function uniqueSubjects(subjects: WorkbenchSubjectReference[]): WorkbenchSubjectReference[] {
@@ -207,8 +241,10 @@ function conditionalWhen(condition: boolean, conditionSummary: string, unavailab
   return condition ? { state: "conditional", reasons: [conditionSummary] } : { state: "unavailable", reasons: [unavailableReason] };
 }
 
-function operationDescriptors(experiments: BlueprintBenchmarkSummary[], candidateCount: number): WorkbenchOperationDescriptor[] {
+function operationDescriptors(experiments: BlueprintBenchmarkSummary[], candidates: ProjectWorkbenchSnapshot["candidates"]): WorkbenchOperationDescriptor[] {
   const lockedExperiments = experiments.filter((experiment) => experiment.locked).length;
+  const reviewable = candidates.some((candidate) => candidate.decision.state === "proposed" || candidate.decision.state.startsWith("reviewed-"));
+  const applicable = candidates.some((candidate) => candidate.decision.state === "reviewed-keep");
   return [
     {
       id: "validate", label: "Validate project", description: "Parse, resolve, and compile the selected industrial project.",
@@ -240,17 +276,164 @@ function operationDescriptors(experiments: BlueprintBenchmarkSummary[], candidat
       availability: unavailableWhen(lockedExperiments > 0, "No locked Blueprint Benchmark is available."),
     },
     {
-      id: "candidate.preview", label: "Preview Candidate Change Set", description: "Evaluate an exact project-local Blueprint patch without writing it.",
-      effect: "read-only", selectionAware: false, requiresConfirmation: false, writeSet: [], guards: ["base-candidate-hash", "locked-benchmark"],
-      availability: conditionalWhen(candidateCount > 0, "Select a Candidate whose base hash and Benchmark lock still match.", "No Candidate Change Set is available."),
+      id: "candidate.preview", label: "Review Candidate Change Set", description: "Evaluate an exact project-local Blueprint patch and record immutable review evidence.",
+      effect: "creates-artifact", selectionAware: false, requiresConfirmation: false, writeSet: ["candidate-reviews/<candidate>/<proposal-hash>.review.json"], guards: ["base-candidate-hash", "locked-benchmark", "deterministic-review-receipt"],
+      availability: conditionalWhen(reviewable, "Select a current Candidate whose base hash and Benchmark lock still match.", "No current Candidate Change Set is available for review."),
     },
     {
       id: "candidate.apply", label: "Apply Candidate Change Set", description: "Re-evaluate and atomically apply one reviewed KEEP proposal.",
       effect: "mutates-blueprint", selectionAware: false, requiresConfirmation: true, writeSet: ["blueprints/<benchmark-candidate>.blueprint.json"],
-      guards: ["reviewed-proposal-hash", "base-candidate-hash", "proposed-candidate-hash", "keep-verdict"],
-      availability: conditionalWhen(candidateCount > 0, "Preview must produce a reviewed KEEP result with matching hashes.", "No Candidate Change Set is available."),
+      guards: ["immutable-review-receipt", "reviewed-proposal-hash", "base-candidate-hash", "proposed-candidate-hash", "keep-verdict", "post-write-hash"],
+      availability: conditionalWhen(applicable, "A recorded KEEP review with matching proposal, base, and proposed hashes is ready for confirmation.", "No Candidate has a current recorded KEEP review."),
     },
   ];
+}
+
+function matchingRun(
+  selection: ProjectWorkbenchSnapshot["selection"],
+  runs: ProjectWorkbenchSnapshot["runs"],
+): ProjectWorkbenchSnapshot["runs"][number] | undefined {
+  return runs.filter((run) => run.selection.world === selection.world.id
+    && run.selection.blueprint === selection.blueprint.id
+    && run.selection.scenario === selection.scenario.id
+    && run.selection.objective === selection.objective.id).at(-1);
+}
+
+function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string[] {
+  return [
+    "--world", selection.world.id,
+    "--blueprint", selection.blueprint.id,
+    "--scenario", selection.scenario.id,
+    "--objective", selection.objective.id,
+  ];
+}
+
+function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations">): WorkbenchNextAction {
+  const projectRoute = `/${encodeURIComponent(context.project.id)}`;
+  const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
+  if (blocking) return {
+    id: `diagnostic:${blocking.id}`,
+    tone: "blocking",
+    title: "Resolve the first capacity blocker",
+    reason: blocking.message,
+    actionLabel: "INSPECT BLOCKER",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: ["inm", "plan", context.project.rootDir, ...selectionArgv(context.selection), "--section", "gaps", "--json"],
+    studioRoute: `${projectRoute}/analysis/diagnostics/${encodeURIComponent(blocking.id)}`,
+    target: { kind: "diagnostic", diagnosticId: blocking.id },
+  };
+
+  const candidate = context.candidates.find((item) => item.decision.state !== "verified");
+  if (candidate) {
+    const route = `${projectRoute}/experiments/${encodeURIComponent(candidate.benchmark)}/candidates/${encodeURIComponent(candidate.id)}`;
+    const target = { kind: "candidate" as const, benchmarkId: candidate.benchmark, candidateId: candidate.id, phase: candidate.decision.state };
+    if (candidate.decision.state === "proposed") return {
+      id: `candidate.review:${candidate.id}`,
+      tone: "review",
+      title: `Review ${candidate.name}`,
+      reason: candidate.expectedEffect ?? candidate.hypothesis,
+      actionLabel: "REVIEW PROPOSAL",
+      effect: "creates-artifact",
+      requiresConfirmation: false,
+      argv: ["inm", "candidate", context.project.rootDir, "--candidate", candidate.id, "--json"],
+      studioRoute: route,
+      target,
+    };
+    if (candidate.decision.state === "reviewed-keep") return {
+      id: `candidate.apply:${candidate.id}`,
+      tone: "review",
+      title: `Apply reviewed ${candidate.name}`,
+      reason: "The immutable review recorded KEEP; application will re-evaluate every guard and verify the exact proposed Blueprint hash.",
+      actionLabel: "APPLY REVIEWED CHANGE",
+      effect: "mutates-project",
+      requiresConfirmation: true,
+      argv: ["inm", "candidate", context.project.rootDir, "--candidate", candidate.id, "--apply", "--json"],
+      studioRoute: route,
+      target,
+    };
+    if (candidate.decision.state === "stale") return {
+      id: `candidate.stale:${candidate.id}`,
+      tone: "attention",
+      title: `Rebase stale ${candidate.name}`,
+      reason: `The Candidate base ${candidate.baseCandidateHash.slice(0, 12)} no longer matches Blueprint ${candidate.decision.currentCandidateHash.slice(0, 12)}.`,
+      actionLabel: "INSPECT STALE PROPOSAL",
+      effect: "read-only",
+      requiresConfirmation: false,
+      argv: ["inm", "inspect", context.project.rootDir, "--section", "candidates", "--json"],
+      studioRoute: route,
+      target,
+    };
+    return {
+      id: `candidate.revise:${candidate.id}`,
+      tone: "attention",
+      title: `Revise or retire ${candidate.name}`,
+      reason: `The recorded review verdict is ${candidate.decision.verdict}; this proposal cannot be applied under the locked acceptance gates.`,
+      actionLabel: "INSPECT REVIEW",
+      effect: "read-only",
+      requiresConfirmation: false,
+      argv: ["inm", "inspect", context.project.rootDir, "--section", "candidates", "--json"],
+      studioRoute: route,
+      target,
+    };
+  }
+
+  const run = matchingRun(context.selection, context.runs);
+  const simulation = context.operations.find((operation) => operation.id === "simulate");
+  if ((!run || !run.compatible) && simulation?.availability.state === "available") return {
+    id: "operation:simulate",
+    tone: "evidence",
+    title: run ? "Refresh incompatible run evidence" : "Measure the current selection",
+    reason: run
+      ? `The latest matching run used ${run.engineVersion}; create evidence with ${context.selection.blueprint.id} and the current engine.`
+      : `No immutable run matches ${context.selection.blueprint.id} / ${context.selection.scenario.id} / ${context.selection.objective.id}.`,
+    actionLabel: "RUN SIMULATION",
+    effect: "creates-artifact",
+    requiresConfirmation: false,
+    argv: ["inm", "simulate", context.project.rootDir, ...selectionArgv(context.selection), "--json"],
+    studioRoute: projectRoute,
+    target: { kind: "operation", operationId: "simulate" },
+  };
+
+  const warning = context.diagnostics.find((diagnostic) => diagnostic.severity === "warning");
+  if (warning) return {
+    id: `diagnostic:${warning.id}`,
+    tone: "attention",
+    title: "Inspect the highest-priority flow risk",
+    reason: warning.message,
+    actionLabel: "FOLLOW EVIDENCE",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: ["inm", "analyze", context.project.rootDir, ...selectionArgv(context.selection), "--section", "diagnostics", "--json"],
+    studioRoute: `${projectRoute}/analysis/diagnostics/${encodeURIComponent(warning.id)}`,
+    target: { kind: "diagnostic", diagnosticId: warning.id },
+  };
+
+  if (run) return {
+    id: `run:${run.id}`,
+    tone: "ready",
+    title: "Inspect the latest matching evidence",
+    reason: `${run.id} measured ${context.selection.blueprint.id} with score ${run.score.toFixed(3)} and a ${run.decision} decision.`,
+    actionLabel: "OPEN RUN",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: ["inm", "runs", context.project.rootDir, "--json"],
+    studioRoute: `${projectRoute}/runs`,
+    target: { kind: "run", runId: run.id },
+  };
+
+  return {
+    id: "operation:analyze",
+    tone: "evidence",
+    title: "Establish the nominal industrial picture",
+    reason: "Run shared Core analysis for the effective project selection before making a design decision.",
+    actionLabel: "RUN ANALYSIS",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: ["inm", "analyze", context.project.rootDir, ...selectionArgv(context.selection), "--json"],
+    studioRoute: projectRoute,
+    target: { kind: "operation", operationId: "analyze" },
+  };
 }
 
 export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProject): Promise<ProjectWorkbenchSnapshot> {
@@ -261,7 +444,8 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     listBlueprintBenchmarks(project.rootDir),
     listCandidateChangeSets(project.rootDir),
   ]);
-  const gapsByKind: ProjectWorkbenchSnapshot["readiness"]["gapsByKind"] = {};
+  const decisions = await Promise.all(candidates.map((candidate) => inspectCandidateDecision(project.rootDir, candidate.id)));
+  const gapsByKind: ProjectWorkbenchSnapshot["status"]["capacity"]["gapsByKind"] = {};
   for (const gap of capacity.gaps) gapsByKind[gap.kind] = (gapsByKind[gap.kind] ?? 0) + 1;
   const deliveryContracts = project.objective.deliveryContracts?.map((contract) => ({
     id: contract.id, resource: contract.resource, region: contract.region, demandPerMinute: contract.demandPerMinute,
@@ -270,15 +454,52 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     demandPerMinute: project.objective.targetRatePerMinute,
   }];
   const logisticsRoutes = Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.routes.length, 0);
-  return {
-    version: 1,
-    project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
-    selection: {
+  const selection: ProjectWorkbenchSnapshot["selection"] = {
       world: { id: project.selection.world, name: project.world.name },
       blueprint: { id: project.selection.blueprint, name: project.selection.blueprint },
       scenario: { id: project.selection.scenario, name: project.scenario.name, durationTicks: project.scenario.durationTicks },
       objective: { id: project.selection.objective, name: project.objective.name },
-    },
+  };
+  const runSummaries: ProjectWorkbenchSnapshot["runs"] = runs.map((run) => ({
+    id: run.name,
+    score: run.score,
+    decision: run.manifest.decision,
+    resultHash: run.manifest.resultHash,
+    engineVersion: run.manifest.engineVersion,
+    compatible: run.manifest.engineVersion === ENGINE_VERSION,
+    selection: { ...run.manifest.selection },
+  }));
+  const candidateSummaries: ProjectWorkbenchSnapshot["candidates"] = candidates.map((candidate, index) => {
+    const decision = decisions[index]!;
+    return {
+      id: candidate.id,
+      name: candidate.name,
+      benchmark: candidate.benchmark,
+      hypothesis: candidate.hypothesis,
+      ...(candidate.expectedEffect ? { expectedEffect: candidate.expectedEffect } : {}),
+      baseCandidateHash: candidate.baseCandidateHash,
+      patchOperations: candidate.patch.length,
+      decision: {
+        state: decision.state,
+        proposalHash: decision.proposalHash,
+        currentCandidateHash: decision.currentCandidateHash,
+        ...(decision.proposedCandidateHash ? { proposedCandidateHash: decision.proposedCandidateHash } : {}),
+        ...(decision.verdict ? { verdict: decision.verdict } : {}),
+        ...(decision.resultHash ? { resultHash: decision.resultHash } : {}),
+      },
+    };
+  });
+  const diagnostics = projectDiagnostics(project, analysis, capacity);
+  const operations = operationDescriptors(experiments, candidateSummaries);
+  const currentRun = matchingRun(selection, runSummaries);
+  const flowWarnings = analysis.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
+  const pendingReviews = candidateSummaries.filter((candidate) => candidate.decision.state !== "verified" && candidate.decision.state !== "stale").length;
+  const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
+  const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
+  const snapshot = {
+    version: 2 as const,
+    project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
+    selection,
     hashes: { ...project.hashes },
     objective: {
       targetResource: project.objective.targetResource,
@@ -286,7 +507,17 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       targetRatePerMinute: project.objective.targetRatePerMinute,
       deliveryContracts,
     },
-    readiness: { ready: capacity.ready, gapCount: capacity.gaps.length, gapsByKind },
+    status: {
+      capacity: { state: capacity.ready ? "ready" as const : "blocked" as const, gapCount: capacity.gaps.length, gapsByKind },
+      flow: { state: flowWarnings ? "at-risk" as const : "clear" as const, warningCount: flowWarnings, infoCount: analysis.diagnostics.length - flowWarnings },
+      evidence: { state: !currentRun ? "missing" as const : currentRun.compatible ? "current" as const : "incompatible" as const, runId: currentRun?.id ?? null },
+      review: {
+        state: pendingReviews ? "pending" as const : staleReviews ? "stale" as const : "clear" as const,
+        pendingCount: pendingReviews,
+        staleCount: staleReviews,
+        verifiedCount: verifiedReviews,
+      },
+    },
     counts: {
       regions: Object.keys(project.regions).length,
       resourceNodes: Object.keys(project.resourceNodes).length,
@@ -310,32 +541,17 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       routes: Object.values(project.routes).map((route) => ({ id: route.id, name: route.name, family: route.family, tags: [route.family, "product-route"] })).sort((a, b) => a.id.localeCompare(b.id)),
       devices: Object.values(project.deviceAssets).map((asset) => ({ id: asset.id, name: asset.name, tags: [...asset.tags], capabilities: [...asset.capabilities] })).sort((a, b) => a.id.localeCompare(b.id)),
     },
-    runs: runs.map((run) => ({
-      id: run.name,
-      score: run.score,
-      decision: run.manifest.decision,
-      resultHash: run.manifest.resultHash,
-      engineVersion: run.manifest.engineVersion,
-      compatible: run.manifest.engineVersion === ENGINE_VERSION,
-      selection: { ...run.manifest.selection },
-    })),
+    runs: runSummaries,
     experiments: experiments.map((experiment) => ({
       ...experiment,
       cases: experiment.cases.map((item) => ({ ...item })),
       acceptance: { ...experiment.acceptance },
     })),
-    candidates: candidates.map((candidate) => ({
-      id: candidate.id,
-      name: candidate.name,
-      benchmark: candidate.benchmark,
-      hypothesis: candidate.hypothesis,
-      ...(candidate.expectedEffect ? { expectedEffect: candidate.expectedEffect } : {}),
-      baseCandidateHash: candidate.baseCandidateHash,
-      patchOperations: candidate.patch.length,
-    })),
-    diagnostics: projectDiagnostics(project, analysis, capacity),
-    operations: operationDescriptors(experiments, candidates.length),
-  };
+    candidates: candidateSummaries,
+    diagnostics,
+    operations,
+  } satisfies Omit<ProjectWorkbenchSnapshot, "nextAction">;
+  return { ...snapshot, nextAction: buildNextAction(snapshot) };
 }
 
 export async function openProjectWorkbenchSnapshot(projectDir: string, selection: ProjectSelection = {}): Promise<ProjectWorkbenchSnapshot> {

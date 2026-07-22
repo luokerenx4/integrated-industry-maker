@@ -1,7 +1,9 @@
 import { findCachedRun, writeRunArtifact } from "./artifacts";
 import { evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkResult } from "./benchmark";
+import { inspectCandidateDecision, recordCandidateReview } from "./candidate-review";
 import {
   applyCandidateChangeSet,
+  CandidateChangeSetError,
   loadCandidateChangeSet,
   previewCandidateChangeSet,
   type AppliedCandidateChangeSet,
@@ -24,7 +26,7 @@ export interface ProjectOperationContext {
 }
 
 export interface ProjectOperationArtifact {
-  kind: "run" | "blueprint";
+  kind: "run" | "blueprint" | "candidate-review";
   id: string;
   path: string;
   immutable: boolean;
@@ -204,25 +206,50 @@ async function candidateProject(projectDir: string, candidateId: string): Promis
 export async function previewCandidateOperation(projectDir: string, candidateId: string): Promise<ProjectOperationResult<CandidateChangeSetPreview>> {
   const startedAt = performance.now();
   const project = await candidateProject(projectDir, candidateId);
-  return timed("candidate.preview", "read-only", project, startedAt, async () => ({
-    diagnostics: [], artifacts: [], writeSet: [], data: await previewCandidateChangeSet(projectDir, candidateId),
-    verification: [{ id: "candidate.apply", description: "Apply only after reviewing a KEEP verdict and all three pinned hashes." }],
-  }));
+  return timed("candidate.preview", "creates-artifact", project, startedAt, async () => {
+    const data = await previewCandidateChangeSet(projectDir, candidateId);
+    const review = await recordCandidateReview(projectDir, data);
+    return {
+      diagnostics: [],
+      artifacts: [{ kind: "candidate-review", id: data.proposalHash, path: review.path, immutable: true }],
+      writeSet: review.created ? [`candidate-reviews/${data.candidate.id}/${data.proposalHash}.review.json`] : [],
+      data,
+      verification: data.result.verdict === "KEEP"
+        ? [{ id: "candidate.apply", description: "Apply only after reviewing the KEEP verdict and all three pinned hashes." }]
+        : [{ id: "candidate.revise", description: "Revise or retire this proposal before requesting another review." }],
+    };
+  });
 }
 
 export async function applyCandidateOperation(projectDir: string, candidateId: string, reviewed: CandidateApplyReview): Promise<ProjectOperationResult<AppliedCandidateChangeSet>> {
   const startedAt = performance.now();
   const project = await candidateProject(projectDir, candidateId);
   return timed("candidate.apply", "mutates-blueprint", project, startedAt, async () => {
+    const decision = await inspectCandidateDecision(projectDir, candidateId);
+    if (decision.state !== "reviewed-keep" || !decision.preview) throw new CandidateChangeSetError(
+      "candidate.review-required",
+      `Candidate '${candidateId}' requires one recorded KEEP review for its current proposal and base Blueprint before apply`,
+    );
+    if (decision.proposalHash !== reviewed.proposalHash
+      || decision.currentCandidateHash !== reviewed.currentCandidateHash
+      || decision.proposedCandidateHash !== reviewed.proposedCandidateHash) throw new CandidateChangeSetError(
+      "candidate.review-receipt-mismatch",
+      `Candidate '${candidateId}' apply hashes do not match its recorded KEEP review`,
+    );
     const applied = await applyCandidateChangeSet(projectDir, candidateId, reviewed);
+    const verified = await inspectCandidateDecision(projectDir, candidateId);
+    if (verified.state !== "verified" || verified.currentCandidateHash !== applied.proposedCandidateHash) throw new CandidateChangeSetError(
+      "candidate.post-write-verification-failed",
+      `Candidate '${candidateId}' was written but does not match the reviewed proposed Blueprint hash`,
+    );
     return {
       diagnostics: [],
       artifacts: [{ kind: "blueprint", id: project.selection.blueprint, path: applied.blueprintPath, immutable: false }],
       writeSet: [applied.blueprintPath],
       data: applied,
       verification: [
-        { id: "candidate.preview", description: "Re-preview the proposal; the consumed base hash must now be stale." },
-        { id: "benchmark.evaluate", description: "Re-evaluate the locked Benchmark from the updated project files." },
+        { id: "candidate.verified", description: "The written Blueprint hash matches the immutable KEEP review and the consumed base can no longer be applied." },
+        { id: "inspect", description: "Refresh the shared project workbench to continue from the next authoritative task." },
       ],
     };
   });

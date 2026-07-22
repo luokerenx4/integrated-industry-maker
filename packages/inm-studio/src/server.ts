@@ -11,6 +11,7 @@ import {
   compileFactoryProject,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
+  inspectCandidateDecision,
   listBlueprintBenchmarks,
   listCandidateChangeSets,
   loadCandidateChangeSet,
@@ -510,6 +511,21 @@ const server = Bun.serve({
         return Response.json({ candidates: await listCandidateChangeSets(projectDir, decoded(experimentCandidatesMatch[2]!)) });
       }
 
+      const candidateReviewMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/candidates\/([^/]+)\/review$/);
+      if (candidateReviewMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(candidateReviewMatch[1]!));
+        const benchmarkId = decoded(candidateReviewMatch[2]!);
+        const candidateId = decoded(candidateReviewMatch[3]!);
+        const candidate = await loadCandidateChangeSet(projectDir, candidateId);
+        if (candidate.benchmark !== benchmarkId) throw new CandidateChangeSetError("candidate.benchmark-mismatch", `Candidate '${candidateId}' belongs to Benchmark '${candidate.benchmark}', not '${benchmarkId}'`);
+        const decision = await inspectCandidateDecision(projectDir, candidateId);
+        return Response.json({
+          state: decision.state,
+          review: decision.preview ? { command: "candidate", action: "preview", ...decision.preview } : null,
+        });
+      }
+
       const candidateActionMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/candidates\/([^/]+)\/(preview|apply)$/);
       if (candidateActionMatch) {
         if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
@@ -521,7 +537,7 @@ const server = Bun.serve({
         if (candidate.benchmark !== benchmarkId) throw new CandidateChangeSetError("candidate.benchmark-mismatch", `Candidate '${candidateId}' belongs to Benchmark '${candidate.benchmark}', not '${benchmarkId}'`);
         if (action === "preview") {
           const operation = await previewCandidateOperation(projectDir, candidateId);
-          return Response.json({ command: "candidate", action, ...operation.data, operation });
+          return Response.json({ command: "candidate", action, decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`, ...operation.data, operation });
         }
         const reviewed = await request.json() as { proposalHash?: unknown; currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
         if (typeof reviewed.proposalHash !== "string" || typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed proposalHash, currentCandidateHash, and proposedCandidateHash");
@@ -530,7 +546,7 @@ const server = Bun.serve({
           currentCandidateHash: reviewed.currentCandidateHash,
           proposedCandidateHash: reviewed.proposedCandidateHash,
         });
-        return Response.json({ command: "candidate", action, ...operation.data, operation });
+        return Response.json({ command: "candidate", action, decisionState: "verified", ...operation.data, operation });
       }
 
       const fileMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)$/);

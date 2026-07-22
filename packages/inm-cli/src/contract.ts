@@ -19,7 +19,7 @@ export type CliContext =
   };
 
 export interface CliArtifact {
-  kind: "workspace" | "project" | "blueprint" | "run" | "benchmark-lock";
+  kind: "workspace" | "project" | "blueprint" | "run" | "benchmark-lock" | "candidate-review";
   id: string;
   path: string;
   immutable: boolean;
@@ -27,9 +27,15 @@ export interface CliArtifact {
 
 export interface CliNextAction {
   id: string;
-  description: string;
+  description?: string;
+  title?: string;
+  reason?: string;
+  actionLabel?: string;
   argv: string[];
   effect: "read-only" | "creates-artifact" | "mutates-project";
+  requiresConfirmation?: boolean;
+  studioRoute?: string;
+  target?: unknown;
 }
 
 export interface CliSuccessEnvelope<T = unknown> {

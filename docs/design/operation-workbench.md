@@ -26,11 +26,12 @@ The descriptor in [[docs/design/operator-workbench]] advertises availability and
 
 ## Effects and persistence
 
-- Validation, nominal analysis, capacity planning, Benchmark evaluation, and Candidate preview are read-only.
+- Validation, nominal analysis, capacity planning, and Benchmark evaluation are read-only.
 - Simulation creates or reuses exactly one immutable `runs/<id>/` artifact. A cache hit reports an empty actual write set.
-- Candidate application re-evaluates the proposal, checks the reviewed proposal/base/proposed hashes and KEEP verdict, then atomically writes only the declared candidate Blueprint.
+- Candidate review evaluates the exact proposal and creates or reuses one deterministic immutable `candidate-reviews/<candidate>/<proposal-hash>.review.json` artifact containing the locked verdict, hashes, and result evidence.
+- Candidate application requires that project-local receipt, re-evaluates the proposal, checks the reviewed proposal/base/proposed hashes and KEEP verdict, atomically writes only the declared candidate Blueprint, and verifies the resulting file against the recorded proposed hash.
 
-Refresh and a new process reconstruct evidence from project files. Read-only results can be deterministically invoked again; simulation results reopen from the immutable run; applied Candidates are visible in the Blueprint and intentionally make the consumed proposal stale.
+Refresh and a new process reconstruct evidence from project files. Read-only results can be deterministically invoked again; simulation results reopen from the immutable run; Candidate decisions reopen from the receipt plus current Blueprint hash. An exact reviewed KEEP Blueprint is `verified`; a moved Blueprint that matches neither reviewed base nor proposal is `stale`.
 
 ## Projections
 
@@ -47,7 +48,7 @@ Studio exposes project-qualified POST operations at `/api/projects/<project-id>/
 
 ## Verification
 
-Tests must prove a common serializable result shape, read-only empty write sets, simulation artifact creation/cache reuse, Benchmark/Candidate preview purity, CLI metadata projection, and Studio endpoint parity. Candidate mutation scope and stale replay remain covered on temporary project copies. Browser QA must run named controls, inspect textual results, and avoid simulation on checked-in projects.
+Tests must prove a common serializable result shape, read-only empty write sets, simulation artifact creation/cache reuse, deterministic Candidate review receipts, receipt-required apply, post-write hash verification, CLI metadata projection, and Studio endpoint parity. Candidate mutation scope and stale replay remain covered on temporary project copies. Browser QA must run mutating review/apply controls only on temporary project copies.
 
 ## Known next gaps
 

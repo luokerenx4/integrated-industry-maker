@@ -101,10 +101,19 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
     result: expect.objectContaining({ action: "preview", candidate: "stable-furnace-sleep", verdict: "KEEP", scoreDelta: expect.any(Number) }),
-    operation: expect.objectContaining({ operation: "candidate.preview", effect: "read-only", writeSet: [], artifacts: [] }),
+    operation: expect.objectContaining({
+      operation: "candidate.preview", effect: "creates-artifact",
+      writeSet: [expect.stringContaining("candidate-reviews/stable-furnace-sleep/")],
+      artifacts: [expect.objectContaining({ kind: "candidate-review", immutable: true })],
+    }),
   }));
+  expect(result.artifacts).toEqual([expect.objectContaining({ kind: "candidate-review", immutable: true })]);
   expect(result.nextActions).toEqual([expect.objectContaining({ id: "candidate.apply", effect: "mutates-project" })]);
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
+  const reviewedAction = await runCli(["inspect", projectDir, "--section", "next-action", "--json"]);
+  const reviewedEnvelope = JSON.parse(reviewedAction.stdout);
+  expect(reviewedEnvelope.data.result).toEqual(expect.objectContaining({ id: "candidate.apply:stable-furnace-sleep", requiresConfirmation: true }));
+  expect(reviewedEnvelope.nextActions).toEqual([reviewedEnvelope.data.result]);
 
   const applied = await runCandidate(true);
   expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -116,6 +125,10 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
     }),
   }));
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
+  const postApply = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
+  const postApplyEnvelope = JSON.parse(postApply.stdout);
+  expect(postApplyEnvelope.data.result[0].decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
+  expect(postApplyEnvelope.nextActions[0].id.startsWith("candidate.")).toBeFalse();
 
   const verified = await runCli(["benchmark", projectDir, "--benchmark", "equipment-energy-research", "--json"]);
   expect({ exitCode: verified.exitCode, stderr: verified.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -132,10 +145,11 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   }));
 }, 30_000);
 
-test("public inspect JSON is the shared Core workbench snapshot", async () => {
+test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
   const projectDir = join(repository, "examples/ironworks");
-  const [{ stdout, stderr, exitCode }, expected] = await Promise.all([
+  const [{ stdout, stderr, exitCode }, nextAction, expected] = await Promise.all([
     runCli(["inspect", projectDir, "--section", "all", "--json"]),
+    runCli(["inspect", projectDir, "--section", "next-action", "--json"]),
     openProjectWorkbenchSnapshot(projectDir),
   ]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -146,6 +160,9 @@ test("public inspect JSON is the shared Core workbench snapshot", async () => {
     scenario: expected.selection.scenario.id, objective: expected.selection.objective.id,
   }, hashes: expected.hashes }));
   expect(envelope.data).toEqual({ section: "all", result: expected });
+  const nextEnvelope = JSON.parse(nextAction.stdout);
+  expect(nextEnvelope.data).toEqual({ section: "next-action", result: expected.nextAction });
+  expect(nextEnvelope.nextActions).toEqual([expected.nextAction]);
 });
 
 test("public inspect rejects an invalid explicit selection", async () => {
@@ -165,7 +182,7 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "help", context: { scope: "global" } }));
   const commands = envelope.data.commands as Array<{ id: string; effect: string; exitCodes: { success: number; failure: number[]; usage: number }; arguments: Array<{ name: string; default?: unknown }>; outputSections: string[] }>;
   expect(commands.map((command) => command.id)).toContain("candidate");
-  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
+  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "next-action", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
   expect(commands.find((command) => command.id === "simulate")!.effect).toBe("creates-artifact");
   expect(commands.find((command) => command.id === "compare")!.arguments.find((argument) => argument.name === "seed")!.default).toBe(42);
   expect(commands.find((command) => command.id === "inspect")!.exitCodes).toEqual({ success: 0, failure: [1], usage: 2 });

@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type {
-  AppliedCandidateChangeSet, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview,
+  AppliedCandidateChangeSet, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState,
 } from "@inm/core";
 
 interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark" }
-interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview" }
-interface CandidateApplyResponse extends AppliedCandidateChangeSet { command: "candidate"; action: "apply" }
+interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
+interface CandidateApplyResponse extends AppliedCandidateChangeSet { command: "candidate"; action: "apply"; decisionState?: CandidateDecisionState }
+interface CandidateReviewResponse { state: CandidateDecisionState; review: CandidatePreviewResponse | null }
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
@@ -33,6 +34,7 @@ export function ExperimentWorkbench({
   const activeCandidate = useMemo(() => candidates.find((item) => item.id === selectedCandidateId) ?? null, [candidates, selectedCandidateId]);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResponse | null>(null);
   const [candidatePreview, setCandidatePreview] = useState<CandidatePreviewResponse | null>(null);
+  const [decisionState, setDecisionState] = useState<CandidateDecisionState | null>(null);
   const [running, setRunning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyArmed, setApplyArmed] = useState(false);
@@ -44,7 +46,7 @@ export function ExperimentWorkbench({
     if (!selectedId && experiments[0]) onSelect(experiments[0].id);
   }, [experiments, onSelect, selectedId]);
   useEffect(() => {
-    setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setApplied(null); setApplyArmed(false); setError(null);
+    setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setError(null);
     if (!selectedId) return;
     let active = true;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates`)
@@ -55,18 +57,31 @@ export function ExperimentWorkbench({
     return () => { active = false; };
   }, [projectId, selectedId]);
   useEffect(() => {
-    setBenchmarkResult(null); setCandidatePreview(null); setApplied(null); setApplyArmed(false); setError(null);
-  }, [selectedCandidateId]);
+    setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setError(null);
+    if (!selectedId || !selectedCandidateId) return;
+    let active = true;
+    void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates/${encodeURIComponent(selectedCandidateId)}/review`)
+      .then((response) => responseJson<CandidateReviewResponse>(response)).then((value) => {
+        if (!active) return;
+        setDecisionState(value.state);
+        setCandidatePreview(value.review);
+      }).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
+    return () => { active = false; };
+  }, [projectId, selectedCandidateId, selectedId]);
 
   const run = async () => {
     if (!selected || running) return;
     setRunning(true); setError(null); setBenchmarkResult(null); setCandidatePreview(null); setApplied(null); setApplyArmed(false);
     try {
       const root = `/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selected.id)}`;
-      if (activeCandidate) setCandidatePreview(await responseJson<CandidatePreviewResponse>(await fetch(
-        `${root}/candidates/${encodeURIComponent(activeCandidate.id)}/preview`,
-        { method: "POST", headers: { accept: "application/json" } },
-      )));
+      if (activeCandidate) {
+        const reviewed = await responseJson<CandidatePreviewResponse>(await fetch(
+          `${root}/candidates/${encodeURIComponent(activeCandidate.id)}/preview`,
+          { method: "POST", headers: { accept: "application/json" } },
+        ));
+        setCandidatePreview(reviewed);
+        setDecisionState(reviewed.decisionState ?? `reviewed-${reviewed.result.verdict.toLowerCase()}` as CandidateDecisionState);
+      }
       else setBenchmarkResult(await responseJson<BenchmarkResponse>(await fetch(
         `${root}/run`, { method: "POST", headers: { accept: "application/json" } },
       )));
@@ -90,7 +105,7 @@ export function ExperimentWorkbench({
           }),
         },
       ));
-      setApplied(response); setApplyArmed(false);
+      setApplied(response); setDecisionState(response.decisionState ?? "verified"); setApplyArmed(false);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
     } finally { setApplying(false); }
@@ -117,7 +132,7 @@ export function ExperimentWorkbench({
             <div><span className="eyebrow">LOCKED CONTRACT</span><h3>{selected.name}</h3><code>{selected.id}</code></div>
             <div className="experiment-blueprints"><span><small>BASELINE</small><strong>{selected.baselineBlueprint}</strong></span><i>→</i><span><small>EDITABLE CANDIDATE</small><strong>{selected.candidateBlueprint}</strong></span></div>
             <button className="experiment-run" disabled={running || !selected.locked} onClick={() => void run()} data-testid="run-experiment">
-              {running ? "EVALUATING FIXED WORK…" : !selected.locked ? "LOCK REQUIRED" : activeCandidate ? "PREVIEW PROPOSED CHANGE" : "RUN LOCKED EVALUATION"}
+              {running ? "EVALUATING FIXED WORK…" : !selected.locked ? "LOCK REQUIRED" : activeCandidate ? candidatePreview ? "RE-RUN RECORDED REVIEW" : "REVIEW PROPOSED CHANGE" : "RUN LOCKED EVALUATION"}
             </button>
           </section>
           <section className="candidate-selector" aria-label="Candidate change sets">
@@ -129,7 +144,7 @@ export function ExperimentWorkbench({
             {activeCandidate && <div className="candidate-hypothesis">
               <span><small>HYPOTHESIS</small>{activeCandidate.hypothesis}</span>
               <code>BASE {shortHash(activeCandidate.baseCandidateHash)}</code>
-              <b>{activeCandidate.patch.length} PATCH OPS</b>
+              <b>{decisionState ? decisionState.toUpperCase() : "LOADING STATE"} · {activeCandidate.patch.length} PATCH OPS</b>
             </div>}
           </section>
           <section className="experiment-gates" aria-label="Acceptance gates">
@@ -152,7 +167,10 @@ export function ExperimentWorkbench({
             </section>
             {candidatePreview && <section className="candidate-review" aria-label="Candidate application">
               <div><small>REVIEWED HASHES</small><code>PROPOSAL {shortHash(candidatePreview.proposalHash)} · BLUEPRINT {shortHash(candidatePreview.currentCandidateHash)} → {shortHash(candidatePreview.proposedCandidateHash)}</code></div>
-              {applied ? <strong className="candidate-applied" data-testid="candidate-applied">APPLIED · PROPOSAL IS NOW STALE</strong> : !applyArmed ? <button data-testid="arm-candidate-apply" disabled={result.verdict !== "KEEP"} onClick={() => setApplyArmed(true)}>ARM BLUEPRINT WRITE</button> : <button className="confirm" data-testid="confirm-candidate-apply" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
+              {decisionState === "verified" || applied ? <strong className="candidate-applied" data-testid="candidate-applied">VERIFIED · BLUEPRINT MATCHES REVIEWED KEEP HASH</strong>
+                : decisionState === "stale" ? <strong className="candidate-applied stale" data-testid="candidate-stale">STALE · BLUEPRINT MOVED BEYOND THIS REVIEW</strong>
+                  : !applyArmed ? <button data-testid="arm-candidate-apply" disabled={result.verdict !== "KEEP"} onClick={() => setApplyArmed(true)}>ARM BLUEPRINT WRITE</button>
+                    : <button className="confirm" data-testid="confirm-candidate-apply" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
             </section>}
             {result.reasons.length > 0 && <section className="experiment-reasons"><div className="experiment-section-title"><span>GATE DECISION</span><b>{result.reasons.length} REASONS</b></div>{result.reasons.map((reason) => <p key={reason}>{reason}</p>)}</section>}
             <section className="experiment-cases">

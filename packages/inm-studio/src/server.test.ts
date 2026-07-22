@@ -105,6 +105,8 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const candidatesResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates`);
     expect(candidatesResponse.status).toBe(200);
     expect((await candidatesResponse.json() as { candidates: Array<{ id: string }> }).candidates.map((item) => item.id)).toEqual(["protect-critical-line"]);
+    const proposedReview = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/review`);
+    expect(await proposedReview.json()).toEqual({ state: "proposed", review: null });
 
     const expected = await evaluateBlueprintBenchmark(projectDir, "power-priority");
     const runResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`, { method: "POST" });
@@ -119,16 +121,24 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const beforePreview = await readFile(candidateBlueprintPath, "utf8");
     const previewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
     expect(previewResponse.status).toBe(200);
-    const preview = await previewResponse.json() as { currentCandidateHash: string; proposedCandidateHash: string; result: { verdict: string }; operation: { operation: string } };
+    const preview = await previewResponse.json() as { currentCandidateHash: string; proposedCandidateHash: string; result: { verdict: string }; operation: { operation: string; effect: string; artifacts: Array<{ kind: string }> } };
     expect(preview.result.verdict).toBe("KEEP");
     expect(preview.operation.operation).toBe("candidate.preview");
+    expect(preview.operation.effect).toBe("creates-artifact");
+    expect(preview.operation.artifacts).toEqual([expect.objectContaining({ kind: "candidate-review" })]);
     expect(await readFile(candidateBlueprintPath, "utf8")).toBe(beforePreview);
+    const recordedReview = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/review`);
+    expect(await recordedReview.json()).toEqual(expect.objectContaining({
+      state: "reviewed-keep", review: expect.objectContaining({ proposalHash: expect.any(String), result: expect.objectContaining({ verdict: "KEEP" }) }),
+    }));
 
     const applyResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/apply`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preview),
     });
     expect(applyResponse.status).toBe(200);
     expect(await readFile(candidateBlueprintPath, "utf8")).not.toBe(beforePreview);
+    const verifiedReview = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/review`);
+    expect(await verifiedReview.json()).toEqual(expect.objectContaining({ state: "verified" }));
     const staleResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
     expect(staleResponse.status).toBe(409);
     expect(await staleResponse.json()).toEqual(expect.objectContaining({ code: "candidate.stale-base" }));

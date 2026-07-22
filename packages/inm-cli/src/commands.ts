@@ -52,23 +52,7 @@ function selectionArgs(selection: { world: string; blueprint: string; scenario: 
 }
 
 function workbenchNextActions(snapshot: Awaited<ReturnType<typeof openProjectWorkbenchSnapshot>>): CliNextAction[] {
-  const root = snapshot.project.rootDir; const selected = {
-    world: snapshot.selection.world.id, blueprint: snapshot.selection.blueprint.id,
-    scenario: snapshot.selection.scenario.id, objective: snapshot.selection.objective.id,
-  };
-  const actions = ["validate", "analyze", "plan", "simulate"].map((command) => nextAction(
-    command, snapshot.operations.find((operation) => operation.id === command)!.description,
-    ["inm", command, root, ...selectionArgs(selected), "--json"], command === "simulate" ? "creates-artifact" : "read-only",
-  ));
-  actions.push(...snapshot.experiments.filter((experiment) => experiment.locked).map((experiment) => nextAction(
-    `benchmark.evaluate:${experiment.id}`, `Evaluate locked Benchmark '${experiment.name}'.`,
-    ["inm", "benchmark", root, "--benchmark", experiment.id, "--json"],
-  )));
-  actions.push(...snapshot.candidates.map((candidate) => nextAction(
-    `candidate.preview:${candidate.id}`, `Preview Candidate '${candidate.name}' without writing.`,
-    ["inm", "candidate", root, "--candidate", candidate.id, "--json"],
-  )));
-  return actions;
+  return [snapshot.nextAction];
 }
 
 export function helpCommand(options: OutputOptions): void {
@@ -191,7 +175,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   const snapshot = await openProjectWorkbenchSnapshot(projectDir, selection);
   if (options.json) {
     const data = sectionResult("inspect", options, {
-      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, readiness: snapshot.readiness, counts: snapshot.counts }),
+      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, nextAction: snapshot.nextAction, counts: snapshot.counts }),
+      "next-action": () => snapshot.nextAction,
       diagnostics: () => snapshot.diagnostics,
       catalog: () => snapshot.catalog,
       runs: () => snapshot.runs,
@@ -213,10 +198,16 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Hashes: World ${snapshot.hashes.worldHash.slice(0, 12)} · Blueprint ${snapshot.hashes.blueprintHash.slice(0, 12)} · Scenario ${snapshot.hashes.scenarioHash.slice(0, 12)} · Objective ${snapshot.hashes.objectiveHash.slice(0, 12)}`,
     `Objective: ${snapshot.objective.targetRatePerMinute} ${snapshot.objective.targetResource}/min @ ${snapshot.objective.targetRegion}`,
     `Contracts: ${snapshot.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`,
-    `Capacity: ${snapshot.readiness.ready ? "READY" : `${snapshot.readiness.gapCount} GAPS`}`,
+    `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
     `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
     `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
     `Evidence: runs ${snapshot.counts.runs} · experiments ${snapshot.counts.experiments} · candidates ${snapshot.counts.candidates}`,
+    "",
+    `Next action: ${snapshot.nextAction.title}`,
+    `  ${snapshot.nextAction.reason}`,
+    `  Effect: ${snapshot.nextAction.effect}${snapshot.nextAction.requiresConfirmation ? " · CONFIRMATION REQUIRED" : ""}`,
+    `  CLI argv: ${stableStringify(snapshot.nextAction.argv)}`,
+    `  Studio: ${snapshot.nextAction.studioRoute}`,
     "",
     `Priority diagnostics (${snapshot.diagnostics.length})`,
     ...(snapshot.diagnostics.length ? snapshot.diagnostics.slice(0, 12).map((diagnostic) => `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}] ${diagnostic.message}`) : ["  none"]),
@@ -718,7 +709,10 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       all: () => ({ action: "apply", ...applied }),
     }); writeSuccess("candidate", { ...data, operation: operationMetadata(operation) }, {
       context: operationProjectContext(operation.context), diagnostics: applied.result.reasons,
-      artifacts: operation.artifacts.map((artifact) => ({ kind: "blueprint" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
+      artifacts: [
+        ...previewOperation.artifacts.map((artifact) => ({ kind: "candidate-review" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
+        ...operation.artifacts.map((artifact) => ({ kind: "blueprint" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
+      ],
     }); return; }
     write([
       `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
@@ -734,6 +728,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     all: () => ({ action: "preview", ...preview }),
   }); writeSuccess("candidate", { ...data, operation: operationMetadata(previewOperation) }, {
     context: operationProjectContext(previewOperation.context), diagnostics: preview.result.reasons,
+    artifacts: previewOperation.artifacts.map((artifact) => ({ kind: "candidate-review" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
     nextActions: preview.result.verdict === "KEEP" ? [nextAction(
       "candidate.apply", "Re-evaluate and apply this exact Candidate under all hash guards.",
       ["inm", "candidate", resolve(projectDir), "--candidate", preview.candidate.id, "--apply", "--json"], "mutates-project",

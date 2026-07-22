@@ -3,12 +3,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, expect, test } from "bun:test";
 import {
+  applyCandidateOperation,
   analyzeProjectOperation,
   evaluateBenchmarkOperation,
   planProjectOperation,
   simulateProjectOperation,
   validateProjectOperation,
 } from "./operation";
+import { previewCandidateChangeSet } from "./candidate-change-set";
 
 const repository = resolve(import.meta.dir, "../../..");
 const temporaryDirectories: string[] = [];
@@ -78,4 +80,13 @@ test("Benchmark evaluation uses the same operation result model without writes",
   expect(benchmark).toEqual(expect.objectContaining({ operation: "benchmark.evaluate", effect: "read-only", writeSet: [], artifacts: [] }));
   expect(benchmark.data.benchmark).toBe("power-priority");
   expect(await readFile(candidatePath, "utf8")).toBe(before);
+});
+
+test("Candidate apply requires project-local immutable review evidence", async () => {
+  const projectDir = await temporaryProject("memory-fab");
+  const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
+  const before = await readFile(blueprintPath, "utf8");
+  const unrecorded = await previewCandidateChangeSet(projectDir, "stable-furnace-sleep");
+  await expect(applyCandidateOperation(projectDir, "stable-furnace-sleep", unrecorded)).rejects.toMatchObject({ code: "candidate.review-required" });
+  expect(await readFile(blueprintPath, "utf8")).toBe(before);
 });

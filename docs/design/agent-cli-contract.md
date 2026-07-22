@@ -71,7 +71,7 @@ Dense JSON commands default to `{ "section": "summary", "result": ... }`. An Age
 
 Current sectioned commands are `inspect`, `analyze`, `plan`, `compare`, `benchmark`, `candidate`, `synthesize`, `simulate`, and `research`. `inm help --json` is the authority for each command's section names. `--section` without `--json`, and unknown sections, fail with stable CLI codes.
 
-Diagnostics required to understand a summary remain in the envelope's `diagnostics` field even when the selected result section is compact. `artifacts` names produced/reused paths and immutability. `nextActions` contains exact argv arrays and effects so an Agent can compose operations without parsing prose or shell-escaping a synthesized command string.
+Diagnostics required to understand a summary remain in the envelope's `diagnostics` field even when the selected result section is compact. `artifacts` names produced/reused paths and immutability. For `inspect`, `nextActions` contains exactly the Core-owned `ProjectWorkbenchSnapshot.nextAction`, including its exact argv, effect, confirmation requirement, Studio route, and typed target; `--section next-action --json` returns the same object in `data.result`. Other commands may return operation-specific follow-ups. An Agent never has to parse prose or shell-escape a synthesized command string.
 
 ## Source of truth
 

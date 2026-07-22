@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/decision-loop-convergence]] | Make capacity, flow risk, review state, and the next Candidate decision one shared human/AI operating loop. | 2026-07-22 |
 | [[plans/operator-interaction-refinement]] | Turn the project Overview into a decisive operator brief with one contextual next action, progressive disclosure, and predictable route-backed interaction. | 2026-07-22 |
 | [[plans/human-ai-workbench]] | Give humans and Coding Agents two task-appropriate projections of one inspectable, hash-pinned industrial operating surface. | 2026-07-22 |
 | [[plans/candidate-change-set-workbench]] | Make experiment candidates reviewable and safely applicable as exact Blueprint change sets in both CLI and Studio. | 2026-07-22 |

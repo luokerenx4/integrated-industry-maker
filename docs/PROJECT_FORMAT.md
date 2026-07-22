@@ -50,6 +50,7 @@ factory/
   blueprints/<id>.blueprint.json
   benchmarks/<id>.benchmark.json
   candidates/<id>.candidate.json
+  candidate-reviews/<candidate-id>/<proposal-hash>.review.json
   AUTORESEARCH.md
   scenarios/<id>.scenario.json
   objectives/<id>.objective.json
@@ -58,7 +59,7 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `candidate-reviews/` contains generated immutable evaluator evidence rather than authored proposals; it may be checked in like completed `runs/` so another operator reconstructs the same Candidate decision.
 
 A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Synthesis reads only this project tree: its Objective determines the required rate and delivery region, its Processes define material transformations, its regional Resource nodes constrain extraction over Scenario time, and its Device packages supply all processors, junctions, transport tiers, stations, carriers, consumers, and power generation. The spatial optimizer jointly selects region-qualified Process rates, finite raw-source rates, and directed inter-region Resource flows before physical placement. Required items/min then propagate through the explicit junction graph; transport tiers are selected only from this project's Device packages by evaluating each `planTransport()` contract and the Resource stack limit. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
 

@@ -34,7 +34,7 @@ Runs schema validation, immutable world and finite resource-node resolution, ext
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
-Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, target-rate readiness, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` defaults to a bounded orientation summary. Sections expose `diagnostics`, `catalog`, `runs`, `experiments`, `candidates`, and `operations`; `--section all --json` returns the exact Core `ProjectWorkbenchSnapshot` in `data.result`. Inspection is read-only and an invalid explicit selection never falls back to a project default.
+Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, separate capacity/flow/evidence/review status, the one shared next action, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` defaults to a bounded orientation summary. Sections expose `next-action`, `diagnostics`, `catalog`, `runs`, `experiments`, `candidates`, and `operations`; `--section next-action --json` and the envelope's sole `nextActions` item are the exact Core action, while `--section all --json` returns the complete V2 `ProjectWorkbenchSnapshot`. Inspection is read-only and an invalid explicit selection never falls back to a project default.
 
 `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` invoke the named Core [[docs/design/operation-workbench]] operations. Their JSON envelope keeps the requested summary/detail section in `data.result` and places shared operation metadata in `data.operation`: effect, duration, exact context/hashes, diagnostics, artifacts, actual write set, and recommended verification. Dense operation data is not duplicated merely to expose metadata.
 
@@ -82,13 +82,13 @@ Human output contains each case weight, baseline/candidate score, quality/lot/se
 
 ### `inm candidate <project-or-workspace-dir> [--project ID] --candidate ID [--apply] [--json]`
 
-Loads `candidates/<id>.candidate.json`, verifies its pinned candidate-Blueprint hash, applies its restricted RFC 6902 patch in memory, and evaluates the proposed Blueprint through the proposal's locked Benchmark. Preview is the default and writes nothing.
+Loads `candidates/<id>.candidate.json`, verifies its pinned candidate-Blueprint hash, applies its restricted RFC 6902 patch in memory, and evaluates the proposed Blueprint through the proposal's locked Benchmark. Review is the default and creates or reuses one immutable `candidate-reviews/<candidate>/<proposal-hash>.review.json` evidence artifact; it never writes the Blueprint.
 
 ```bash
 inm candidate examples/memory-fab --candidate stable-furnace-sleep --json
 ```
 
-The JSON result includes the proposal and its canonical hash, current and proposed Blueprint hashes, exact patch, semantic changes, fixed-case metrics, gates, and verdict. `--apply` is an explicit write operation: Core repeats the preview, requires `KEEP`, verifies the same proposal/base/proposed hashes, and atomically replaces only the Benchmark candidate Blueprint. The proposal remains on disk and immediately becomes stale, preventing double application. `DISCARD`, `UNCHANGED`, stale, changed, invalid, or cross-Benchmark proposals are never written. See [[docs/design/experiment-workbench]].
+The JSON result includes the proposal and its canonical hash, current and proposed Blueprint hashes, exact patch, semantic changes, fixed-case metrics, gates, verdict, review artifact, and actual write set. `--apply` is an explicit write operation: Core requires the recorded `reviewed-keep` decision, repeats evaluation, verifies the same proposal/base/proposed hashes, atomically replaces only the Benchmark candidate Blueprint, and checks the written file against the reviewed proposed hash. The resulting decision is `verified`; a subsequent unrelated Blueprint edit makes it `stale`. `DISCARD`, `UNCHANGED`, missing-review, stale, changed, invalid, or cross-Benchmark proposals are never written. See [[docs/design/experiment-workbench]].
 
 ### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
 

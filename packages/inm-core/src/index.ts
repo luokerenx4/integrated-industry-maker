@@ -23,6 +23,7 @@ export * from "./blueprint-comparison";
 export * from "./power-envelope";
 export * from "./benchmark";
 export * from "./candidate-change-set";
+export * from "./candidate-review";
 export * from "./workbench";
 export * from "./artifact-schema";
 export * from "./operation";

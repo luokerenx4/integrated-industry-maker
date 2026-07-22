@@ -84,7 +84,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     ], outputSections: [],
   },
   ...(["validate", "inspect", "analyze", "plan"] as const).map((id): Omit<CliCommandDescriptor, "exitCodes"> => {
-    const outputSections = id === "inspect" ? ["summary", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]
+    const outputSections = id === "inspect" ? ["summary", "next-action", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]
       : id === "analyze" ? ["summary", "diagnostics", "devices", "contracts", "logistics", "power", "all"]
         : id === "plan" ? ["summary", "gaps", "processes", "materials", "logistics", "power", "all"] : [];
     return {

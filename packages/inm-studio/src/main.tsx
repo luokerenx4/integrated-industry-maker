@@ -1,5 +1,5 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BlueprintBenchmarkSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchOperationDescriptor } from "@inm/core";
+import type { BlueprintBenchmarkSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -8,7 +8,6 @@ import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 import { analysisPath, catalogPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
-import { recommendOperatorAction, type OperatorRecommendationTarget } from "./operator-guidance";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 
@@ -1478,8 +1477,8 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const latestRun = snapshot.runs.at(-1);
   const priority = snapshot.diagnostics.slice(0, 4);
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
-  const recommendation = recommendOperatorAction(snapshot);
-  const followRecommendation = (target: OperatorRecommendationTarget) => {
+  const recommendation = snapshot.nextAction;
+  const followRecommendation = (target: WorkbenchNextActionTarget) => {
     if (target.kind === "diagnostic") {
       onDiagnosticFocus(target.diagnosticId);
       return;
@@ -1491,8 +1490,13 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   };
   return <section className="overview-page" aria-label="Project overview">
     <div className="overview-hero">
-      <div className="overview-hero-copy"><span className="eyebrow">INDUSTRIAL PROGRAM</span><h2>{snapshot.selection.objective.name}</h2><p>Deliver <strong>{snapshot.objective.targetRatePerMinute} {snapshot.objective.targetResource}/min</strong> into <strong>{snapshot.objective.targetRegion}</strong> under {snapshot.selection.scenario.name}.</p><div className="hero-footprint"><span>{snapshot.counts.regions} ZONES</span><span>{snapshot.counts.deviceInstances} DEVICES</span><span>{snapshot.counts.connections} LINKS</span><span>{snapshot.counts.powerGrids} GRIDS</span></div></div>
-      <div className={`readiness-orbit ${snapshot.readiness.ready ? "ready" : "blocked"}`}><span>{snapshot.readiness.ready ? "READY" : snapshot.readiness.gapCount}</span><small>{snapshot.readiness.ready ? "TARGET PROVISIONED" : "CAPACITY GAPS"}</small></div>
+      <div className="overview-hero-copy"><span className="eyebrow">INDUSTRIAL PROGRAM</span><h2>{snapshot.selection.objective.name}</h2><p>Deliver <strong>{snapshot.objective.targetRatePerMinute} {snapshot.objective.targetResource}/min</strong> into <strong>{snapshot.objective.targetRegion}</strong> under {snapshot.selection.scenario.name}.</p><div className="decision-status" aria-label="Project decision status">
+        <span className={snapshot.status.capacity.state}><small>CAPACITY</small><b>{snapshot.status.capacity.state.toUpperCase()}</b>{snapshot.status.capacity.gapCount > 0 && <em>{snapshot.status.capacity.gapCount} GAPS</em>}</span>
+        <span className={snapshot.status.flow.state}><small>FLOW</small><b>{snapshot.status.flow.state.toUpperCase()}</b>{snapshot.status.flow.warningCount > 0 && <em>{snapshot.status.flow.warningCount} RISKS</em>}</span>
+        <span className={snapshot.status.review.state}><small>REVIEW</small><b>{snapshot.status.review.state.toUpperCase()}</b>{snapshot.status.review.pendingCount > 0 && <em>{snapshot.status.review.pendingCount} PENDING</em>}{snapshot.status.review.staleCount > 0 && <em>{snapshot.status.review.staleCount} STALE</em>}</span>
+        <span className={snapshot.status.evidence.state}><small>EVIDENCE</small><b>{snapshot.status.evidence.state.toUpperCase()}</b>{snapshot.status.evidence.runId && <em>{snapshot.status.evidence.runId}</em>}</span>
+      </div><div className="hero-footprint"><span>{snapshot.counts.regions} ZONES</span><span>{snapshot.counts.deviceInstances} DEVICES</span><span>{snapshot.counts.connections} LINKS</span><span>{snapshot.counts.powerGrids} GRIDS</span></div></div>
+      <div className={`readiness-orbit ${snapshot.status.capacity.state}`}><span>{snapshot.status.capacity.state === "ready" ? "READY" : snapshot.status.capacity.gapCount}</span><small>{snapshot.status.capacity.state === "ready" ? "CAPACITY PROVISIONED" : "CAPACITY GAPS"}</small></div>
     </div>
     <section className={`operator-recommendation ${recommendation.tone}`} data-testid="operator-recommendation" data-recommendation-id={recommendation.id}>
       <div className="recommendation-index"><span>01</span><small>NEXT BEST ACTION</small></div>
@@ -1525,7 +1529,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       </section>
       <section className="overview-panel candidates-panel">
         <header><div><span className="eyebrow">REVIEW QUEUE</span><h3>Candidate proposals</h3></div><button onClick={() => onNavigate("experiments")}>EXPERIMENTS →</button></header>
-        {snapshot.candidates.length ? snapshot.candidates.slice(0, 3).map((candidate) => <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · base {candidate.baseCandidateHash.slice(0, 12)}</code></span><b>REVIEW →</b></button>) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
+        {snapshot.candidates.length ? snapshot.candidates.slice(0, 3).map((candidate) => <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · {candidate.decision.state.toUpperCase()} · {candidate.decision.currentCandidateHash.slice(0, 12)}</code></span><b>{candidate.decision.state === "reviewed-keep" ? "APPLY →" : candidate.decision.state === "verified" ? "VERIFIED →" : candidate.decision.state === "stale" ? "STALE →" : "REVIEW →"}</b></button>) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
       </section>
       <details className="overview-panel operations-panel">
         <summary><div><span className="eyebrow">ADVANCED CONTROL</span><h3>Shared Core operations</h3><p>Inspect effects, guards, and exact CLI reproduction.</p></div><span><b>{availableOperations.length}</b> AVAILABLE <i>+</i></span></summary>
