@@ -78,7 +78,7 @@ Loads `candidates/<id>.candidate.json`, verifies its pinned candidate-Blueprint 
 inm candidate examples/memory-fab --candidate stable-furnace-sleep --json
 ```
 
-The JSON result includes the proposal, current and proposed Blueprint hashes, exact patch, semantic changes, fixed-case metrics, gates, and verdict. `--apply` is an explicit write operation: Core repeats the preview, requires `KEEP`, verifies the same base and proposed hashes, and atomically replaces only the Benchmark candidate Blueprint. The proposal remains on disk and immediately becomes stale, preventing double application. `DISCARD`, `UNCHANGED`, stale, changed, invalid, or cross-Benchmark proposals are never written. See [[docs/design/experiment-workbench]].
+The JSON result includes the proposal and its canonical hash, current and proposed Blueprint hashes, exact patch, semantic changes, fixed-case metrics, gates, and verdict. `--apply` is an explicit write operation: Core repeats the preview, requires `KEEP`, verifies the same proposal/base/proposed hashes, and atomically replaces only the Benchmark candidate Blueprint. The proposal remains on disk and immediately becomes stale, preventing double application. `DISCARD`, `UNCHANGED`, stale, changed, invalid, or cross-Benchmark proposals are never written. See [[docs/design/experiment-workbench]].
 
 ### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
 

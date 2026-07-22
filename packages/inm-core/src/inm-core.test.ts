@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
@@ -68,6 +68,18 @@ async function projectCopy(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "inm-test-"));
   await cp(ironworks, dir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   return dir;
+}
+async function directorySnapshot(root: string, excluded: Set<string> = new Set()): Promise<Record<string, string>> {
+  const snapshot: Record<string, string> = {};
+  async function visit(directory: string): Promise<void> {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name); const name = relative(root, path).split("\\").join("/");
+      if (entry.isDirectory()) await visit(path);
+      else if (entry.isFile() && !excluded.has(name)) snapshot[name] = (await readFile(path)).toString("base64");
+    }
+  }
+  await visit(root);
+  return snapshot;
 }
 
 async function stationProjectSource(): Promise<LoadedFactoryProject> {
@@ -3796,7 +3808,8 @@ describe("coding-agent Blueprint benchmarks", () => {
   test("previews and atomically applies a hash-pinned KEEP candidate change set", async () => {
     const dir = await projectCopy();
     const blueprintPath = join(dir, "blueprints/power-priority-candidate.blueprint.json");
-    const blueprint = JSON.parse(await readFile(blueprintPath, "utf8")) as Blueprint;
+    const beforeBlueprint = await readFile(blueprintPath, "utf8");
+    const blueprint = JSON.parse(beforeBlueprint) as Blueprint;
     const baseCandidateHash = hashValue(blueprint);
     const protectedIds = new Set(["z-critical-assembler", "z-critical-link-loader", "z-critical-link-unloader"]);
     const patch = blueprint.devices.flatMap((device, index) => !protectedIds.has(device.id) ? [] : [device.policy ? {
@@ -3817,6 +3830,7 @@ describe("coding-agent Blueprint benchmarks", () => {
 
     expect((await listCandidateChangeSets(dir, "power-priority")).map((item) => item.id)).toEqual(["protect-critical-line"]);
     const beforePreview = await readFile(blueprintPath, "utf8");
+    const beforeFixedProject = await directorySnapshot(dir, new Set(["blueprints/power-priority-candidate.blueprint.json"]));
     const preview = await previewCandidateChangeSet(dir, "protect-critical-line");
     expect(preview.result.verdict).toBe("KEEP");
     expect(preview.result.patch).toHaveLength(4);
@@ -3825,8 +3839,46 @@ describe("coding-agent Blueprint benchmarks", () => {
     const applied = await applyCandidateChangeSet(dir, "protect-critical-line", preview);
     expect(applied.applied).toBeTrue();
     expect(hashValue(JSON.parse(await readFile(blueprintPath, "utf8")))).toBe(preview.proposedCandidateHash);
+    const appliedProject = compileFactoryProject(await loadFactoryProject(dir, {
+      world: "main", blueprint: "power-priority-candidate", scenario: "power-priority", objective: "power-priority",
+    }));
+    expect(appliedProject.hashes.blueprintHash).toBe(preview.proposedCandidateHash);
+    expect(await directorySnapshot(dir, new Set(["blueprints/power-priority-candidate.blueprint.json"]))).toEqual(beforeFixedProject);
     expect(preview.proposedCandidateHash).not.toBe(baseCandidateHash);
     await expect(previewCandidateChangeSet(dir, "protect-critical-line")).rejects.toMatchObject({ code: "candidate.stale-base" });
+  });
+
+  test("rejects changed, non-KEEP, invalid-root, and uncompilable candidate proposals with stable codes", async () => {
+    const dir = await projectCopy();
+    const blueprintPath = join(dir, "blueprints/power-priority-candidate.blueprint.json");
+    const beforeBlueprint = await readFile(blueprintPath, "utf8");
+    const blueprint = JSON.parse(beforeBlueprint) as Blueprint;
+    const baseCandidateHash = hashValue(blueprint);
+    await mkdir(join(dir, "candidates"));
+    const writeCandidate = async (id: string, hypothesis: string, patch: Array<{ op: "add" | "remove" | "replace"; path: string; value?: unknown }>) => {
+      await writeFile(join(dir, `candidates/${id}.candidate.json`), `${stableStringify({
+        version: 1, id, name: id, benchmark: "power-priority", hypothesis, baseCandidateHash, patch,
+      }, 2)}\n`);
+    };
+
+    await writeCandidate("invalid-root", "Attempt to edit Core-owned revision metadata.", [{ op: "replace", path: "/revision", value: "forbidden" }]);
+    await expect(previewCandidateChangeSet(dir, "invalid-root")).rejects.toMatchObject({ code: "candidate.invalid-patch" });
+
+    await writeCandidate("uncompilable", "Point a Device at an asset that does not exist.", [{ op: "replace", path: "/devices/0/asset", value: "missing-asset" }]);
+    await expect(previewCandidateChangeSet(dir, "uncompilable")).rejects.toMatchObject({ code: "candidate.evaluation-failed" });
+
+    await writeCandidate("no-op", "Repeat an existing coordinate without changing factory behavior.", [{ op: "replace", path: "/devices/0/position/x", value: blueprint.devices[0]!.position.x }]);
+    const unchanged = await previewCandidateChangeSet(dir, "no-op");
+    expect(unchanged.result.verdict).toBe("UNCHANGED");
+    await expect(applyCandidateChangeSet(dir, "no-op", unchanged)).rejects.toMatchObject({ code: "candidate.not-accepted" });
+
+    const protectedIndex = blueprint.devices.findIndex((device) => device.id === "z-critical-assembler");
+    const changedPatch = [{ op: "add" as const, path: `/devices/${protectedIndex}/policy`, value: { powerPriority: 10 } }];
+    await writeCandidate("changed-after-review", "Protect the critical assembler.", changedPatch);
+    const reviewed = await previewCandidateChangeSet(dir, "changed-after-review");
+    await writeCandidate("changed-after-review", "This hypothesis changed after human review.", changedPatch);
+    await expect(applyCandidateChangeSet(dir, "changed-after-review", reviewed)).rejects.toMatchObject({ code: "candidate.review-proposal-mismatch" });
+    expect(await readFile(blueprintPath, "utf8")).toBe(beforeBlueprint);
   });
 
   test("lets a coding agent improve proportional satisfaction by editing only the Blueprint", async () => {

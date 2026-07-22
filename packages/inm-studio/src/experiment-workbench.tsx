@@ -84,6 +84,7 @@ export function ExperimentWorkbench({
         {
           method: "POST", headers: { accept: "application/json", "content-type": "application/json" },
           body: JSON.stringify({
+            proposalHash: candidatePreview.proposalHash,
             currentCandidateHash: candidatePreview.currentCandidateHash,
             proposedCandidateHash: candidatePreview.proposedCandidateHash,
           }),
@@ -150,7 +151,7 @@ export function ExperimentWorkbench({
               <span className="experiment-delta"><small>SCORE DELTA</small><b>{signed(result.scoreDelta, 6)}</b></span>
             </section>
             {candidatePreview && <section className="candidate-review" aria-label="Candidate application">
-              <div><small>REVIEWED HASHES</small><code>{shortHash(candidatePreview.currentCandidateHash)} → {shortHash(candidatePreview.proposedCandidateHash)}</code></div>
+              <div><small>REVIEWED HASHES</small><code>PROPOSAL {shortHash(candidatePreview.proposalHash)} · BLUEPRINT {shortHash(candidatePreview.currentCandidateHash)} → {shortHash(candidatePreview.proposedCandidateHash)}</code></div>
               {applied ? <strong className="candidate-applied">APPLIED · PROPOSAL IS NOW STALE</strong> : !applyArmed ? <button disabled={result.verdict !== "KEEP"} onClick={() => setApplyArmed(true)}>ARM BLUEPRINT WRITE</button> : <button className="confirm" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
             </section>}
             {result.reasons.length > 0 && <section className="experiment-reasons"><div className="experiment-section-title"><span>GATE DECISION</span><b>{result.reasons.length} REASONS</b></div>{result.reasons.map((reason) => <p key={reason}>{reason}</p>)}</section>}

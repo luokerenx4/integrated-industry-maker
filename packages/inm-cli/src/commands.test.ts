@@ -61,19 +61,23 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
   expect(await readFile(candidatePath, "utf8")).toBe(candidateBefore);
 });
 
-test("candidate CLI previews a project-local change set as machine-readable JSON without writing", async () => {
+test("candidate CLI previews, explicitly applies, and rejects replay as machine-readable JSON", async () => {
   const repository = resolve(import.meta.dir, "../../..");
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
   const before = await readFile(blueprintPath, "utf8");
-  const child = Bun.spawn([
-    process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
-    "--candidate", "stable-furnace-sleep", "--json",
-  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
-  ]);
+  const runCandidate = async (apply = false) => {
+    const child = Bun.spawn([
+      process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
+      "--candidate", "stable-furnace-sleep", ...(apply ? ["--apply"] : []), "--json",
+    ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
+    ]);
+    return { stdout, stderr, exitCode };
+  };
+  const { stdout, stderr, exitCode } = await runCandidate();
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const result = JSON.parse(stdout) as { command: string; action: string; candidate: { id: string }; result: { verdict: string; scoreDelta: number } };
   expect(result).toEqual(expect.objectContaining({
@@ -81,4 +85,13 @@ test("candidate CLI previews a project-local change set as machine-readable JSON
     result: expect.objectContaining({ verdict: "KEEP", scoreDelta: expect.any(Number) }),
   }));
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
-}, 15_000);
+
+  const applied = await runCandidate(true);
+  expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({ command: "candidate", action: "apply", applied: true }));
+  expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
+
+  const replay = await runCandidate(true);
+  expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });
+  expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({ error: "candidate", code: "candidate.stale-base" }));
+}, 30_000);

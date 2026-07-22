@@ -35,6 +35,7 @@ export interface CandidateChangeSetSummary extends CandidateChangeSet {}
 
 export interface CandidateChangeSetPreview {
   candidate: CandidateChangeSet;
+  proposalHash: string;
   currentCandidateHash: string;
   proposedCandidateHash: string;
   result: BlueprintBenchmarkResult;
@@ -100,7 +101,11 @@ async function prepareCandidateChangeSet(projectDir: string, candidateId: string
     "candidate.stale-base",
     `Candidate change set '${candidate.id}' targets ${candidate.baseCandidateHash}, but Blueprint '${benchmark.candidateBlueprint}' is ${currentCandidateHash}`,
   );
-  const patched = applyResearchPatch(loaded.blueprint, candidate.patch);
+  let patched: Blueprint;
+  try { patched = applyResearchPatch(loaded.blueprint, candidate.patch); }
+  catch (error) {
+    throw new CandidateChangeSetError("candidate.invalid-patch", `Candidate change set '${candidate.id}' has an invalid patch: ${error instanceof Error ? error.message : String(error)}`);
+  }
   patched.revision = currentCandidateHash;
   const parsedBlueprint = blueprintSchema.safeParse(patched);
   if (!parsedBlueprint.success) throw new CandidateChangeSetError(
@@ -109,9 +114,14 @@ async function prepareCandidateChangeSet(projectDir: string, candidateId: string
   );
   const proposedBlueprint = parsedBlueprint.data;
   const proposedCandidateHash = hashValue(proposedBlueprint);
-  const result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, { candidateBlueprint: proposedBlueprint });
+  let result: BlueprintBenchmarkResult;
+  try { result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, { candidateBlueprint: proposedBlueprint }); }
+  catch (error) {
+    throw new CandidateChangeSetError("candidate.evaluation-failed", `Candidate change set '${candidate.id}' could not be evaluated: ${error instanceof Error ? error.message : String(error)}`);
+  }
   return {
     candidate,
+    proposalHash: hashValue(candidate),
     currentCandidateHash,
     proposedCandidateHash,
     proposedBlueprint,
@@ -128,9 +138,13 @@ export async function previewCandidateChangeSet(projectDir: string, candidateId:
 export async function applyCandidateChangeSet(
   projectDir: string,
   candidateId: string,
-  reviewed: { currentCandidateHash: string; proposedCandidateHash: string },
+  reviewed: { proposalHash: string; currentCandidateHash: string; proposedCandidateHash: string },
 ): Promise<AppliedCandidateChangeSet> {
   const prepared = await prepareCandidateChangeSet(projectDir, candidateId);
+  if (reviewed.proposalHash !== prepared.proposalHash) throw new CandidateChangeSetError(
+    "candidate.review-proposal-mismatch",
+    `Reviewed proposal hash ${reviewed.proposalHash} does not match current proposal hash ${prepared.proposalHash}`,
+  );
   if (reviewed.currentCandidateHash !== prepared.currentCandidateHash) throw new CandidateChangeSetError(
     "candidate.review-base-mismatch",
     `Reviewed base hash ${reviewed.currentCandidateHash} does not match current candidate hash ${prepared.currentCandidateHash}`,

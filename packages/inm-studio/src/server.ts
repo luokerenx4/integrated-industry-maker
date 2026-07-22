@@ -478,9 +478,10 @@ const server = Bun.serve({
           const preview = await previewCandidateChangeSet(projectDir, candidateId);
           return Response.json({ command: "candidate", action, ...preview });
         }
-        const reviewed = await request.json() as { currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
-        if (typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed currentCandidateHash and proposedCandidateHash");
+        const reviewed = await request.json() as { proposalHash?: unknown; currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
+        if (typeof reviewed.proposalHash !== "string" || typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed proposalHash, currentCandidateHash, and proposedCandidateHash");
         const applied = await applyCandidateChangeSet(projectDir, candidateId, {
+          proposalHash: reviewed.proposalHash,
           currentCandidateHash: reviewed.currentCandidateHash,
           proposedCandidateHash: reviewed.proposedCandidateHash,
         });

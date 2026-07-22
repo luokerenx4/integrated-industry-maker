@@ -54,7 +54,7 @@ The next milestone closes the authoring loop without hiding industrial or filesy
 1. An Agent authors a project-local `candidates/<id>.candidate.json` change set. It names one locked Benchmark, records a hypothesis, pins the current candidate Blueprint hash, and contains an exact RFC 6902 patch.
 2. Core loads and validates that artifact, applies it in memory, compiles it against every locked case, and evaluates the proposed Blueprint through the same Benchmark gates. Preview writes nothing.
 3. CLI exposes the structured preview and an explicit apply operation. Studio projects the same candidate, patch, semantic diff, cases, and verdict for a human reviewer.
-4. Apply is allowed only for `KEEP`. It repeats evaluation, requires both the reviewed base hash and proposed hash to match, then atomically replaces only the Benchmark's candidate Blueprint file.
+4. Apply is allowed only for `KEEP`. It repeats evaluation, requires the reviewed proposal, base Blueprint, and proposed Blueprint hashes to match, then atomically replaces only the Benchmark's candidate Blueprint file.
 5. The proposal remains as project history. Once applied, its pinned base hash is stale, so it cannot be applied twice or silently target a later Blueprint.
 
 The proposal does not own worlds, assets, scenarios, objectives, locks, evaluator weights, or Git. It may edit only Blueprint-owned `/devices`, `/connections`, `/logisticsNetworks`, and `/policies`; revision lineage is written by Core. Studio never accepts an arbitrary server path.
@@ -70,7 +70,7 @@ The proposal does not own worlds, assets, scenarios, objectives, locks, evaluato
 ### V2 acceptance
 
 - Preview returns the same verdict and metrics through Core, CLI, and Studio and creates no file changes.
-- A stale base hash, changed proposal, non-KEEP verdict, invalid patch root, or compilation failure prevents application with a stable error.
+- A stale base hash, changed proposal hash, non-KEEP verdict, invalid patch root, or compilation failure prevents application with a stable error code.
 - Applying a reviewed KEEP result changes exactly one candidate Blueprint atomically and leaves the Benchmark contract, baseline, assets, scenarios, objectives, and Git untouched.
 - The applied Blueprint validates, the proposal becomes visibly stale, and a second apply is rejected.
 
