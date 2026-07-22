@@ -66,7 +66,7 @@ The generated design, the authored synthesis input, and the mutable Benchmark ca
 - `bun test packages/inm-core/src/design-program.test.ts` — 3 tests / 40 assertions prove strict authored/synthesis contracts, deterministic immutable generation, synthesis-strategy staleness, exact 73-operation Candidate replay, KEEP preview/apply, promotion-base staleness, and source/target/tuned Blueprint non-mutation.
 - `bun test packages/inm-cli/src/commands.test.ts` — 14 public-binary tests / 200 assertions pass, including generated seed and promotion-base machine projection plus NDJSON Design progress.
 - `bun test packages/inm-studio/src/server.test.ts` — 2 server tests / 74 assertions pass, including both memory-fab Design Programs, synthesis provenance, streaming execution, reopening, and guarded promotion.
-- `bun run test` — 185 tests / 1567 assertions, 8 Ironworks project fixtures, docs, and all TypeScript projects pass.
+- `bun run test` — 185 tests / 1568 assertions, 8 Ironworks project fixtures, docs, and all TypeScript projects pass on the final committed tree.
 - `bun run inm test examples/memory-fab` — both tracked-route memory-fab fixtures pass.
 - `bun run inm design examples/memory-fab --program greenfield-dram-fab --run --max-candidates 1 --progress ndjson --json` — immutable result `645ee9b98dc789cce04c47ce57327ad15dd754262fe7df5cd91dd8c943e86554`; 35 ordered progress events; 15/15 simulations; iteration 1 `dispatch:conwip-9-6-edd` KEEP; score delta `+24.190636`; 73 promotion operations.
 - Browser QA at `/<project>/designs/greenfield-dram-fab/runs/<hash>` — desktop and 390 px layouts clearly show `GENERATED FROM greenfield`, `WILL UPDATE generated-dram-fab`, locked evidence, KEEP result, and non-applying Candidate handoff.
