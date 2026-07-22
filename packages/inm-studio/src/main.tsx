@@ -286,6 +286,10 @@ interface Metrics {
     operations: Record<string, { device: string; process: string; mode: string; expectedLotsPerJob: number; jobs: number; lots: number; averageLotsPerJob: number; maximumLotsPerJob: number; meanQueueWaitTicksPerLot: number }>;
   };
   energyConsumedMilliJoules: number;
+  electricityCosts: {
+    energyChargeMicroCurrency: number; demandChargeMicroCurrency: number; totalMicroCurrency: number;
+    regions: Record<string, { energyConsumedMilliJoules: number; energyChargeMicroCurrency: number; peakDemandMilliWatts: number; demandChargeMicroCurrency: number; totalMicroCurrency: number; demandChargeMicroCurrencyPerKiloWatt: number }>;
+  };
   energyStorage: Record<string, { initialMilliJoules: number; storedMilliJoules: number; capacityMilliJoules: number; chargedMilliJoules: number; dischargedMilliJoules: number }>;
   stationEnergy: Record<string, { initialMilliJoules: number; storedMilliJoules: number; capacityMilliJoules: number; chargedMilliJoules: number; spentMilliJoules: number; configuredChargeMilliWatts: number }>;
   powerGrids: Record<string, {
@@ -518,6 +522,10 @@ interface StudioData {
     from: { x: number; y: number }; to: { x: number; y: number };
   }>;
   resources: Record<string, { visual?: Visual }>;
+  electricityTariffs: Array<{
+    region: string; periodTicks: number; demandChargeMicroCurrencyPerKiloWatt: number;
+    points: Array<{ atTick: number; energyPriceMicroCurrencyPerKiloWattHour: number }>;
+  }>;
   analysis: IndustrialAnalysis;
   capacityPlan: CapacityPlan;
   assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[]; routes: RouteCatalogAsset[] };
@@ -1303,7 +1311,9 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
             const measuredStorage = data.metrics?.energyStorage[grid.grid];
             const measuredPower = data.metrics?.powerGrids[grid.grid];
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.idleConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>IDLE LOAD</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={(measuredPower?.unservedMilliJoules ?? 0) > 0 || grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{measuredPower ? `${(measuredPower.unservedMilliJoules / 1e6).toFixed(2)} MJ` : `${(grid.headroomMilliWatts / 1000).toFixed(0)} W`}</b><small>{measuredPower ? "UNSERVED" : "HEADROOM"}</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{measuredPower ? `SATISFACTION ${(measuredPower.averageSatisfactionPpm / 10_000).toFixed(1)}% AVG / ${(measuredPower.minimumSatisfactionPpm / 10_000).toFixed(1)}% MIN · MEASURED ${(measuredPower.generatedMilliJoules / 1e6).toFixed(2)} MJ GENERATED · ${(measuredPower.demandMilliJoules / 1e6).toFixed(2)} MJ DEMAND · ${(measuredPower.requiredStorageCapacityMilliJoules / 1e6).toFixed(2)} MJ STORAGE ENVELOPE · ` : ""}{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
+            const tariff = data.electricityTariffs.find((item) => item.region === grid.region);
+            const electricity = data.metrics?.electricityCosts.regions[grid.region];
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.idleConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>IDLE LOAD</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={(measuredPower?.unservedMilliJoules ?? 0) > 0 || grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{measuredPower ? `${(measuredPower.unservedMilliJoules / 1e6).toFixed(2)} MJ` : `${(grid.headroomMilliWatts / 1000).toFixed(0)} W`}</b><small>{measuredPower ? "UNSERVED" : "HEADROOM"}</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{measuredPower ? `SATISFACTION ${(measuredPower.averageSatisfactionPpm / 10_000).toFixed(1)}% AVG / ${(measuredPower.minimumSatisfactionPpm / 10_000).toFixed(1)}% MIN · MEASURED ${(measuredPower.generatedMilliJoules / 1e6).toFixed(2)} MJ GENERATED · ${(measuredPower.demandMilliJoules / 1e6).toFixed(2)} MJ DEMAND · ${(measuredPower.requiredStorageCapacityMilliJoules / 1e6).toFixed(2)} MJ STORAGE ENVELOPE · ` : ""}{tariff ? `TARIFF ${tariff.points.map((point) => `${(point.atTick / 1000).toFixed(0)}s@${(point.energyPriceMicroCurrencyPerKiloWattHour / 1e6).toFixed(3)}/kWh`).join(" · ")} · DEMAND ${(tariff.demandChargeMicroCurrencyPerKiloWatt / 1e6).toFixed(3)}/kW${electricity ? ` · COST ${(electricity.totalMicroCurrency / 1e6).toFixed(6)}` : ""} · ` : ""}{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>

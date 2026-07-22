@@ -1,6 +1,6 @@
 {
   "id": "dram-energy",
-  "name": "Fulfill the DRAM portfolio while valuing equipment energy conservation",
+  "name": "Fulfill the DRAM portfolio under a fixed electricity tariff and demand charge",
   "targetResource": "commercial-dram-device",
   "trackedFamily": "dram-wafer",
   "targetRegion": "cleanroom",
@@ -43,7 +43,7 @@
     "throughput": 0,
     "deliveryValue": 1,
     "onTimeDelivery": 20,
-    "energy": 0.2,
+    "energy": 0,
     "buildCost": 0.05,
     "occupiedArea": 0.05,
     "wip": 1.5,
@@ -52,6 +52,7 @@
     "tardiness": 4,
     "changeovers": 0.5,
     "qualityEscapes": 15,
-    "rework": 0.5
+    "rework": 0.5,
+    "electricityCost": 500
   }
 }

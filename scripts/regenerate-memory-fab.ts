@@ -727,6 +727,11 @@ async function scenario(
   durationTicks = 240_000,
   releases = lotReleases,
   deliveries = materialDeliveries,
+  electricityTariffs: Array<{
+    region: string; periodTicks: number;
+    points: Array<{ atTick: number; energyPriceMicroCurrencyPerKiloWattHour: number }>;
+    demandChargeMicroCurrencyPerKiloWatt: number;
+  }> = [],
 ): Promise<void> {
   await json(join(project, "scenarios", `${id}.scenario.json`), {
     id, name, durationTicks, lotReleases: releases, materialDeliveries: deliveries, initialSetups, qualityExcursions,
@@ -736,7 +741,9 @@ async function scenario(
         "tool-qualification-wafer": 16, "metrology-reference-wafer": 16,
       } },
     },
-    initialEnergyMilliJoules: {}, failures,
+    initialEnergyMilliJoules: {},
+    ...(electricityTariffs.length ? { electricityTariffs } : {}),
+    failures,
   });
 }
 
@@ -786,6 +793,16 @@ await scenario(
   "equipment-energy-window",
   "Six-minute two-wave DRAM furnace standby window",
   [], [], 360_000, calendarWaveReleases, calendarWaveDeliveries,
+  [{
+    region: "cleanroom", periodTicks: 360_000,
+    points: [
+      { atTick: 0, energyPriceMicroCurrencyPerKiloWattHour: 400_000 },
+      { atTick: 90_000, energyPriceMicroCurrencyPerKiloWattHour: 2_400_000 },
+      { atTick: 230_000, energyPriceMicroCurrencyPerKiloWattHour: 400_000 },
+      { atTick: 290_000, energyPriceMicroCurrencyPerKiloWattHour: 2_400_000 },
+    ],
+    demandChargeMicroCurrencyPerKiloWatt: 60_000,
+  }],
 );
 const dramOutputObjective = {
   id: "dram-output", name: "Fulfill a value-weighted DRAM product portfolio with controlled wafer-lot service", targetResource: "commercial-dram-device", trackedFamily: "dram-wafer", targetRegion: "cleanroom", targetRatePerMinute: 8,
@@ -804,8 +821,8 @@ await json(join(project, "objectives", "dram-output.objective.json"), dramOutput
 await json(join(project, "objectives", "dram-energy.objective.json"), {
   ...dramOutputObjective,
   id: "dram-energy",
-  name: "Fulfill the DRAM portfolio while valuing equipment energy conservation",
-  weights: { ...dramOutputObjective.weights, energy: 0.2 },
+  name: "Fulfill the DRAM portfolio under a fixed electricity tariff and demand charge",
+  weights: { ...dramOutputObjective.weights, energy: 0, electricityCost: 500 },
 });
 await json(join(project, "tests", "reentrant-flow.fixture.json"), {
   name: "reentrant DRAM route closes deterministic inspection rework and scrap loops", world: "cleanroom", blueprint: "product-mix", scenario: "production-window", objective: "dram-output", seed: 42,
@@ -1049,7 +1066,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "\n\nRun:\n",
-    "\n\n`equipment-energy-research` is the focused standby-control proof. The thermal furnace asset owns immutable sleep draw and wake work; the candidate Blueprint changes only `policy.idleEnergy.sleepAfterTicks`. `bun run memory-fab:research-energy` sweeps the off state and eight thresholds in memory, retaining only a capacity-ready, gate-passing score improvement.\n\nFor the smallest complete optimization proofs, `product-mix-research` changes exactly one final-test dispatch value, while `yield-research` changes exactly one Probe Process id from the standard program to the adaptive program. The latter uses two locked five-minute early-latent-defect cases; nominal output stays eight dies per wafer, but evaluator-owned realized output and downstream delivery change. `batch-formation-research` is the focused scheduling proof: eleven fixed incoming lots leave a two-lot furnace tail, and `batch-flex.blueprint.json` qualifies both physical anneal Processes plus a bounded full-batch preference. It preserves three efficient full loads, releases the tail after fifteen seconds, and raises delivered devices from 40 to 56. `changeover-specialization-research` fixes a directional cleanup-pressure schedule. The shared baseline spends 97 seconds on seven setup transitions; the Blueprint candidate purchases dedicated layer-2 tools, physical lanes, and necessary facility capacity, reducing setup work to 21 seconds while raising delivered devices from 24 to 56. All delivery remains valuable above demand. The evaluator, factory, cases, duration, and contracts stay locked.\n\nRun:\n",
+    "\n\n`equipment-energy-research` is the focused standby-control proof. The thermal furnace asset owns immutable sleep draw and wake work; the Scenario freezes a cleanroom time-of-use tariff and regional peak-demand rate; the candidate Blueprint changes only `policy.idleEnergy.sleepAfterTicks`. `bun run memory-fab:research-energy` sweeps the off state and eight thresholds in memory, retaining only a capacity-ready, gate-passing electricity-cost improvement.\n\nFor the smallest complete optimization proofs, `product-mix-research` changes exactly one final-test dispatch value, while `yield-research` changes exactly one Probe Process id from the standard program to the adaptive program. The latter uses two locked five-minute early-latent-defect cases; nominal output stays eight dies per wafer, but evaluator-owned realized output and downstream delivery change. `batch-formation-research` is the focused scheduling proof: eleven fixed incoming lots leave a two-lot furnace tail, and `batch-flex.blueprint.json` qualifies both physical anneal Processes plus a bounded full-batch preference. It preserves three efficient full loads, releases the tail after fifteen seconds, and raises delivered devices from 40 to 56. `changeover-specialization-research` fixes a directional cleanup-pressure schedule. The shared baseline spends 97 seconds on seven setup transitions; the Blueprint candidate purchases dedicated layer-2 tools, physical lanes, and necessary facility capacity, reducing setup work to 21 seconds while raising delivered devices from 24 to 56. All delivery remains valuable above demand. The evaluator, factory, cases, duration, and contracts stay locked.\n\nRun:\n",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
@@ -1101,7 +1118,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "\n\nThe model is deliberately a process-flow abstraction",
-    "\n\nThe thermal furnace also owns a physical 3 W sleep state and a four-second powered wake. The focused `equipment-energy-research` benchmark compares an always-hot Blueprint with one 30-second idle policy across two release waves; the policy sleeps twice, wakes once, and spends 196 seconds in low power while preserving all twelve on-time lots. `bun run memory-fab:research-energy` performs the bounded TypeScript threshold search.\n\nThe model is deliberately a process-flow abstraction",
+    "\n\nThe thermal furnace also owns a physical 3 W sleep state and a four-second powered wake. The focused `equipment-energy-research` benchmark compares an always-hot Blueprint with one 30-second idle policy across two release waves under a fixed cleanroom time-of-use tariff and regional peak-demand rate; the policy sleeps twice, wakes once, and spends 196 seconds in low power while preserving all twelve on-time lots. `bun run memory-fab:research-energy` performs the bounded TypeScript threshold search against evaluator-owned electricity cost.\n\nThe model is deliberately a process-flow abstraction",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

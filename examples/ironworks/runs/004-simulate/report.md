@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `synthesized`
 - Score: **52.511**
-- Result hash: `48a490f1706ed8ec79b228f88163918728761431d4e3406ead7f9a3ca9f3ede5`
+- Result hash: `9705b816a253c0effc41268dc3993418c867ecaa9f1e5e709133d448648b0158`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Delivery portfolio: 100.0% demand attainment · 24.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 12.000 gear/min
 - Capacity delivery targets: 12.000 gear/min
 - Power allocation: proportional
@@ -76,6 +77,7 @@ No configured accumulators.
   "constraintPenalty": 0,
   "cycleTime": 0,
   "deliveryValue": 0,
+  "electricityCost": 0,
   "energy": -2.4908099999999997,
   "occupiedArea": -47.800000000000004,
   "onTimeDelivery": 10,

@@ -103,6 +103,9 @@ export interface BlueprintMetricSnapshot {
   totalEquipmentWakeTicks: number;
   totalEquipmentSleepingTicks: number;
   energyConsumedMilliJoules: number;
+  electricityEnergyChargeMicroCurrency: number;
+  electricityDemandChargeMicroCurrency: number;
+  electricityTotalCostMicroCurrency: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
   chargedMilliJoules: number;
@@ -207,6 +210,9 @@ export interface BlueprintMetricDelta {
   totalEquipmentWakeTicks: number;
   totalEquipmentSleepingTicks: number;
   energyConsumedMilliJoules: number;
+  electricityEnergyChargeMicroCurrency: number;
+  electricityDemandChargeMicroCurrency: number;
+  electricityTotalCostMicroCurrency: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
   chargedMilliJoules: number;
@@ -435,6 +441,9 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalEquipmentWakeTicks: metrics.equipmentEnergyManagement.totalWakeTicks,
     totalEquipmentSleepingTicks: metrics.equipmentEnergyManagement.totalSleepingTicks,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
+    electricityEnergyChargeMicroCurrency: metrics.electricityCosts.energyChargeMicroCurrency,
+    electricityDemandChargeMicroCurrency: metrics.electricityCosts.demandChargeMicroCurrency,
+    electricityTotalCostMicroCurrency: metrics.electricityCosts.totalMicroCurrency,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
     chargedMilliJoules: storage.reduce((sum, grid) => sum + grid.chargedMilliJoules, 0),
@@ -541,6 +550,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalEquipmentWakeTicks: after.totalEquipmentWakeTicks - before.totalEquipmentWakeTicks,
     totalEquipmentSleepingTicks: after.totalEquipmentSleepingTicks - before.totalEquipmentSleepingTicks,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
+    electricityEnergyChargeMicroCurrency: after.electricityEnergyChargeMicroCurrency - before.electricityEnergyChargeMicroCurrency,
+    electricityDemandChargeMicroCurrency: after.electricityDemandChargeMicroCurrency - before.electricityDemandChargeMicroCurrency,
+    electricityTotalCostMicroCurrency: after.electricityTotalCostMicroCurrency - before.electricityTotalCostMicroCurrency,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,
     chargedMilliJoules: after.chargedMilliJoules - before.chargedMilliJoules,

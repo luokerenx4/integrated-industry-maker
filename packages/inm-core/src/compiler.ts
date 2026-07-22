@@ -1956,6 +1956,32 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       message: `Renewable Device '${device.id}' matches ${matches.length} Scenario profiles; environmental scopes must be unambiguous`,
     });
   }
+  const tariffRegions = new Set<string>();
+  for (const [tariffIndex, tariff] of (loaded.scenario.electricityTariffs ?? []).entries()) {
+    const path = `scenario/electricityTariffs/${tariffIndex}`;
+    if (!regions[tariff.region]) issues.push({
+      path: `${path}/region`, code: "reference.region", message: `Unknown region '${tariff.region}'`,
+    });
+    if (tariffRegions.has(tariff.region)) issues.push({
+      path: `${path}/region`, code: "power.electricity-tariff-overlap",
+      message: `Region '${tariff.region}' has more than one electricity tariff`,
+    });
+    tariffRegions.add(tariff.region);
+    if (tariff.points[0]?.atTick !== 0) issues.push({
+      path: `${path}/points/0/atTick`, code: "power.electricity-tariff-origin",
+      message: "Electricity tariff must start at tick 0",
+    });
+    for (const [index, point] of tariff.points.entries()) {
+      if (point.atTick >= tariff.periodTicks) issues.push({
+        path: `${path}/points/${index}/atTick`, code: "power.electricity-tariff-period",
+        message: `Tariff point ${point.atTick} must be before period ${tariff.periodTicks}`,
+      });
+      if (index > 0 && point.atTick <= tariff.points[index - 1]!.atTick) issues.push({
+        path: `${path}/points/${index}/atTick`, code: "power.electricity-tariff-order",
+        message: "Electricity tariff points must be strictly increasing",
+      });
+    }
+  }
   for (const [index, failure] of (loaded.scenario.failures ?? []).entries()) if (!devices[failure.device]) issues.push({ path: `scenario/failures/${index}/device`, code: "reference.device-instance", message: `Unknown device instance '${failure.device}'` });
   if (issues.length) throw new InmValidationError(issues);
 

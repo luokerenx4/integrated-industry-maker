@@ -297,6 +297,15 @@ export const scenarioSchema = z.object({
       outputPermille: z.number().int().min(0).max(1000),
     }).strict()).min(1),
   }).strict()).optional(),
+  electricityTariffs: z.array(z.object({
+    region: id,
+    periodTicks: positiveInt,
+    points: z.array(z.object({
+      atTick: nonNegativeInt,
+      energyPriceMicroCurrencyPerKiloWattHour: nonNegativeInt,
+    }).strict()).min(1),
+    demandChargeMicroCurrencyPerKiloWatt: nonNegativeInt,
+  }).strict()).optional(),
   failures: z.array(z.object({ device: id, atTick: nonNegativeInt, durationTicks: positiveInt }).strict()).optional(),
 }).strict();
 
@@ -310,7 +319,7 @@ export const objectiveSchema = z.object({
   }).strict()).min(1).optional(),
   constraints: z.object({ maxBuildCost: nonNegativeInt.optional(), maxOccupiedArea: nonNegativeInt.optional(), minProduction: nonNegativeInt.optional() }).strict().optional(),
   weights: z.object({
-    throughput: z.number(), deliveryValue: z.number().optional(), onTimeDelivery: z.number().optional(), energy: z.number(),
+    throughput: z.number(), deliveryValue: z.number().optional(), onTimeDelivery: z.number().optional(), energy: z.number(), electricityCost: z.number().optional(),
     buildCost: z.number(), occupiedArea: z.number(), wip: z.number(), blocked: z.number(),
     cycleTime: z.number().optional(), tardiness: z.number().optional(), changeovers: z.number().optional(),
     qualityEscapes: z.number().optional(), rework: z.number().optional(),

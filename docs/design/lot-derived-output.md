@@ -57,7 +57,7 @@ qualified tracked wafer lot
   → commercial, performance, and automotive contracts
 ```
 
-The fixed synthetic standard program produces three known-good dies from a lot carrying `latent-electrical`; the adaptive program produces seven with the same eight-die nominal envelope. The locked `yield-research` benchmark differs by exactly one Blueprint Process id and uses early, named latent-defect lots so the five-minute cases measure realized output rather than simulation-window timing. The kept edit raises aggregate score by `17.053080`, improves realization from `79.2%` to `95.8%` in the heavier excursion case, and creates another sellable product batch.
+The fixed synthetic standard program produces three known-good dies from a lot carrying `latent-electrical`; the adaptive program produces seven with the same eight-die nominal envelope. The locked `yield-research` benchmark differs by exactly one Blueprint Process id and uses early, named latent-defect lots so the five-minute cases measure realized output rather than simulation-window timing. The kept edit raises aggregate score by `32.800937`, improves realization from `79.2%` to `95.8%` in the heavier excursion case, and creates another sellable product batch.
 
 Delivery demand remains a floor. Recovered dies may become above-demand memory and continue earning their declared product value; the engine does not cap a scarce-memory factory at its contract quota.
 
@@ -71,4 +71,3 @@ bun run inm simulate examples/memory-fab --blueprint yield-recovery --scenario y
 bun run inm benchmark examples/memory-fab --benchmark yield-research
 bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "wafer-probe yield program|identity-preserving wafer lots"
 ```
-

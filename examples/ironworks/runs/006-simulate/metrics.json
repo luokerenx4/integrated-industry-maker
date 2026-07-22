@@ -106,6 +106,12 @@
     "shortfallPenalty": 0,
     "valued": 40
   },
+  "electricityCosts": {
+    "demandChargeMicroCurrency": 0,
+    "energyChargeMicroCurrency": 0,
+    "regions": {},
+    "totalMicroCurrency": 0
+  },
   "energyConsumedMilliJoules": 285101315,
   "energyStorage": {
     "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
@@ -529,6 +535,7 @@
     "constraintPenalty": 0,
     "cycleTime": 0,
     "deliveryValue": 0,
+    "electricityCost": 0,
     "energy": -2.85101315,
     "occupiedArea": -52.2,
     "onTimeDelivery": 8.333333333333334,

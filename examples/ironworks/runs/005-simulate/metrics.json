@@ -57,6 +57,12 @@
     "shortfallPenalty": 0,
     "valued": 8
   },
+  "electricityCosts": {
+    "demandChargeMicroCurrency": 0,
+    "energyChargeMicroCurrency": 0,
+    "regions": {},
+    "totalMicroCurrency": 0
+  },
   "energyConsumedMilliJoules": 7000,
   "energyStorage": {
     "grid-forge-zone-stack-power": {
@@ -297,6 +303,7 @@
     "constraintPenalty": 0,
     "cycleTime": 0,
     "deliveryValue": 0,
+    "electricityCost": 0,
     "energy": -0.00007000000000000001,
     "occupiedArea": -3.2,
     "onTimeDelivery": 10,

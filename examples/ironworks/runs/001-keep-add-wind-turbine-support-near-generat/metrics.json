@@ -82,6 +82,12 @@
     "shortfallPenalty": 0,
     "valued": 10
   },
+  "electricityCosts": {
+    "demandChargeMicroCurrency": 0,
+    "energyChargeMicroCurrency": 0,
+    "regions": {},
+    "totalMicroCurrency": 0
+  },
   "energyConsumedMilliJoules": 242556750,
   "energyStorage": {
     "grid-assembly-zone-generator-2": {
@@ -425,6 +431,7 @@
     "constraintPenalty": 0,
     "cycleTime": 0,
     "deliveryValue": 0,
+    "electricityCost": 0,
     "energy": -2.4255675,
     "occupiedArea": -22,
     "onTimeDelivery": 4.166666666666667,

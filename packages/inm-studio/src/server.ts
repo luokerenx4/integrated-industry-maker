@@ -313,6 +313,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       },
     }))),
     resources: Object.fromEntries(Object.entries(project.resources).map(([id, resource]) => [id, { visual: resource.visual }])),
+    electricityTariffs: structuredClone(project.scenario.electricityTariffs ?? []),
     analysis: analyzeProduction(project),
     capacityPlan: planProductionCapacity(project),
     assets: {

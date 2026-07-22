@@ -226,5 +226,30 @@
     }
   },
   "initialEnergyMilliJoules": {},
+  "electricityTariffs": [
+    {
+      "region": "cleanroom",
+      "periodTicks": 360000,
+      "points": [
+        {
+          "atTick": 0,
+          "energyPriceMicroCurrencyPerKiloWattHour": 400000
+        },
+        {
+          "atTick": 90000,
+          "energyPriceMicroCurrencyPerKiloWattHour": 2400000
+        },
+        {
+          "atTick": 230000,
+          "energyPriceMicroCurrencyPerKiloWattHour": 400000
+        },
+        {
+          "atTick": 290000,
+          "energyPriceMicroCurrencyPerKiloWattHour": 2400000
+        }
+      ],
+      "demandChargeMicroCurrencyPerKiloWatt": 60000
+    }
+  ],
   "failures": []
 }

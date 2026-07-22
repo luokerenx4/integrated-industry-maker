@@ -1,8 +1,8 @@
 # Equipment energy states
 
-Status: explicit hot standby, low-power sleep, physical wake work, failure interruption, metrics, replay, Studio, and locked Blueprint optimization implemented through `inm-sim/0.73.0`.
+Status: explicit hot standby, low-power sleep, physical wake work, failure interruption, metrics, replay, Studio, and tariff-valued locked Blueprint optimization implemented through `inm-sim/0.74.0`.
 
-Related: [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/design/usage-based-maintenance]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/power]], [[docs/design/electricity-tariffs]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/design/usage-based-maintenance]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Ownership boundary
 
@@ -40,7 +40,7 @@ Events are `device.sleep`, `device.wake-start`, `device.wake-finish`, and `devic
 
 ## DRAM optimization proof
 
-The memory-fab thermal furnace owns a 3 W sleep state and a four-second, 120 W wake. `equipment-energy-research` freezes two six-lot waves and uses an energy-valuing DRAM Objective. Baseline and candidate differ by one Blueprint field: a 30-second furnace sleep threshold. The candidate sleeps twice, wakes once, spends 196 seconds asleep, preserves capacity readiness and all twelve on-time lots, and passes the locked score gate. `bun run memory-fab:research-energy` evaluates the off state and eight thresholds in memory; `--write-best` writes only a strict gate-passing winner.
+The memory-fab thermal furnace owns a 3 W sleep state and a four-second, 120 W wake. `equipment-energy-research` freezes two six-lot waves, a time-of-use tariff, and a regional peak-demand rate. Baseline and candidate differ by one Blueprint field: a 30-second furnace sleep threshold. The candidate sleeps twice, wakes once, spends 196 seconds asleep, preserves capacity readiness and all twelve on-time lots, reduces total electricity cost from `0.268831` to `0.265350`, and improves the locked score by `+0.994000`. `bun run memory-fab:research-energy` evaluates the off state and eight thresholds in memory; `--write-best` writes only a strict gate-passing winner.
 
 ## Source of truth
 

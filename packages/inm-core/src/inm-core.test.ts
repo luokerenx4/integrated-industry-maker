@@ -2681,6 +2681,97 @@ describe("deterministic discrete-event simulation", () => {
     expect(grid.servedMilliJoules).toBe(20_000);
   });
 
+  test("integrates regional time-of-use electricity and peak-demand charges at exact boundaries", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.blueprint.devices = source.blueprint.devices.filter((device) => ["smelter-1", "wind-1"].includes(device.id));
+    source.blueprint.connections = [];
+    source.blueprint.logisticsNetworks = [];
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 500_000 };
+    source.scenario.durationTicks = 4_000;
+    source.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 2 } } };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [];
+    source.scenario.electricityTariffs = [{
+      region: "forge-zone", periodTicks: 4_000,
+      points: [
+        { atTick: 0, energyPriceMicroCurrencyPerKiloWattHour: 1_000_000 },
+        { atTick: 2_000, energyPriceMicroCurrencyPerKiloWattHour: 2_000_000 },
+      ],
+      demandChargeMicroCurrencyPerKiloWatt: 10_000_000,
+    }];
+    source.objective.weights.electricityCost = 2;
+
+    const result = runUntil(compileFactoryProject(source));
+    expect(result.metrics.energyConsumedMilliJoules).toBe(720_000);
+    expect(result.metrics.electricityCosts).toEqual(expect.objectContaining({
+      energyChargeMicroCurrency: 300,
+      demandChargeMicroCurrency: 1_800_000,
+      totalMicroCurrency: 1_800_300,
+    }));
+    expect(result.metrics.electricityCosts.regions["forge-zone"]).toEqual(expect.objectContaining({
+      energyConsumedMilliJoules: 720_000,
+      peakDemandMilliWatts: 180_000,
+      energyChargeMicroCurrency: 300,
+      demandChargeMicroCurrency: 1_800_000,
+    }));
+    expect(result.metrics.scoreBreakdown.electricityCost).toBeCloseTo(-3.6006, 8);
+    expect(result.events.filter((event) => event.type === "power.electricity-price-changed")
+      .map((event) => [event.tick, event.energyPriceMicroCurrencyPerKiloWattHour])).toEqual([
+        [0, 1_000_000], [2_000, 2_000_000], [4_000, 1_000_000],
+      ]);
+
+    const regional = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    regional.blueprint.policies.powerAllocation = "proportional";
+    regional.blueprint.devices = regional.blueprint.devices.filter((device) => ["smelter-1", "wind-1"].includes(device.id));
+    const firstSmelter = regional.blueprint.devices.find((device) => device.id === "smelter-1")!;
+    const firstWind = regional.blueprint.devices.find((device) => device.id === "wind-1")!;
+    firstSmelter.position = { x: 4, y: 4 };
+    firstWind.position = { x: 1, y: 1 };
+    regional.blueprint.devices.push(
+      { ...structuredClone(firstSmelter), id: "smelter-2", position: { x: 15, y: 18 } },
+      { ...structuredClone(firstWind), id: "wind-2", position: { x: 18, y: 21 } },
+    );
+    regional.blueprint.connections = [];
+    regional.blueprint.logisticsNetworks = [];
+    regional.deviceAssets["wind-turbine"]!.power.distribution = { connectionRange: 4, coverageRange: 5 };
+    regional.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 500_000 };
+    regional.scenario.durationTicks = 4_000;
+    regional.scenario.initialBuffers = {
+      "smelter-1": { input: { "iron-ore": 2 } },
+      "smelter-2": { input: { "iron-ore": 2 } },
+    };
+    regional.scenario.initialEnergyMilliJoules = {};
+    regional.scenario.renewableProfiles = [];
+    regional.scenario.electricityTariffs = [{
+      region: "forge-zone", periodTicks: 4_000,
+      points: [{ atTick: 0, energyPriceMicroCurrencyPerKiloWattHour: 1_000_000 }],
+      demandChargeMicroCurrencyPerKiloWatt: 10_000_000,
+    }];
+    const aggregate = runUntil(compileFactoryProject(regional));
+    expect(Object.keys(aggregate.metrics.powerGrids)).toHaveLength(2);
+    expect(aggregate.metrics.electricityCosts.regions["forge-zone"]).toEqual(expect.objectContaining({
+      energyConsumedMilliJoules: 1_440_000,
+      peakDemandMilliWatts: 360_000,
+      demandChargeMicroCurrency: 3_600_000,
+    }));
+
+    regional.deviceAssets["wind-turbine"]!.power.generation.outputMilliWatts = 90_000;
+    const shortage = runUntil(compileFactoryProject(regional));
+    expect(shortage.metrics.electricityCosts.regions["forge-zone"]).toEqual(expect.objectContaining({
+      energyConsumedMilliJoules: 720_000,
+      peakDemandMilliWatts: 180_000,
+      demandChargeMicroCurrency: 1_800_000,
+    }));
+
+    source.scenario.electricityTariffs = [
+      { ...source.scenario.electricityTariffs[0]!, points: [{ atTick: 1, energyPriceMicroCurrencyPerKiloWattHour: 1 }] },
+      { ...source.scenario.electricityTariffs[0]! },
+    ];
+    const codes = issueCodes(() => compileFactoryProject(source));
+    expect(codes).toContain("power.electricity-tariff-origin");
+    expect(codes).toContain("power.electricity-tariff-overlap");
+  });
+
   test("Blueprint idle-energy control sleeps across a production gap and pays exact wake work", async () => {
     const energySource = async () => {
       const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
@@ -3668,6 +3759,10 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(benchmarkCase.candidateCapacityReady).toBeTrue();
     expect(benchmarkCase.candidateMetrics.energyConsumedMilliJoules)
       .toBeLessThan(benchmarkCase.baselineMetrics.energyConsumedMilliJoules);
+    expect(benchmarkCase.candidateMetrics.electricityTotalCostMicroCurrency)
+      .toBeLessThan(benchmarkCase.baselineMetrics.electricityTotalCostMicroCurrency);
+    expect(benchmarkCase.candidateMetrics.electricityDemandChargeMicroCurrency)
+      .toBe(benchmarkCase.baselineMetrics.electricityDemandChargeMicroCurrency);
     expect(benchmarkCase.candidateMetrics).toEqual(expect.objectContaining({
       totalEquipmentSleeps: 2,
       totalEquipmentWakeups: 1,

@@ -20,6 +20,7 @@ type InternalEvent =
   | { kind: "logistics-ready"; connection: string }
   | { kind: "power-boundary"; grid: string; generation: number }
   | { kind: "generation-boundary"; device: string }
+  | { kind: "electricity-tariff-boundary"; region: string }
   | { kind: "campaign-timeout"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "batch-timeout"; device: string; preferredProcess: string; deadlineTick: Tick }
   | { kind: "maintenance-boundary"; device: string; qualifiedAtTick: Tick }
@@ -57,6 +58,26 @@ function nextGeneratorBoundary(project: CompiledFactoryProject, deviceId: string
   const cycleStart = tick - tick % profile.periodTicks;
   const nextPoint = profile.points.find((point) => cycleStart + point.atTick > tick);
   return nextPoint ? cycleStart + nextPoint.atTick : cycleStart + profile.periodTicks;
+}
+
+function electricityTariffFor(project: CompiledFactoryProject, region: string) {
+  return project.scenario.electricityTariffs?.find((tariff) => tariff.region === region);
+}
+
+function electricityPriceAt(project: CompiledFactoryProject, region: string, tick: number): number {
+  const tariff = electricityTariffFor(project, region);
+  if (!tariff) return 0;
+  const phase = tick % tariff.periodTicks;
+  return [...tariff.points].reverse().find((point) => point.atTick <= phase)!
+    .energyPriceMicroCurrencyPerKiloWattHour;
+}
+
+function nextElectricityTariffBoundary(project: CompiledFactoryProject, region: string, tick: number): number | undefined {
+  const tariff = electricityTariffFor(project, region);
+  if (!tariff || tariff.points.length === 1) return undefined;
+  const cycleStart = tick - tick % tariff.periodTicks;
+  const nextPoint = tariff.points.find((point) => cycleStart + point.atTick > tick);
+  return nextPoint ? cycleStart + nextPoint.atTick : cycleStart + tariff.periodTicks;
 }
 
 export function createInitialFactoryState(project: CompiledFactoryProject): FactoryState {
@@ -273,6 +294,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       currentDeficitEpisodeMilliJoules: 0, requiredStorageCapacityMilliJoules: 0,
       satisfactionPpmArea: 0, minimumSatisfactionPpm: POWER_SATISFACTION_SCALE,
     }])),
+    electricityMarkets: Object.fromEntries((project.scenario.electricityTariffs ?? [])
+      .map((tariff) => [tariff.region, {
+        energyConsumedMilliJoules: 0, energyChargeMicroCurrency: 0, peakDemandMilliWatts: 0,
+      }])),
     transportEnergyConsumedMilliJoules: 0, elapsedTicks: state.tick,
   };
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
@@ -543,6 +568,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       stats.connectionBlockedArea[connectionId] = (stats.connectionBlockedArea[connectionId] ?? 0)
         + transits.filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0) * delta;
     }
+    const regionalMeteredPower: Record<string, number> = {};
     for (const grid of Object.keys(project.powerGrids).sort()) {
       const generated = generationPower(grid); const load = gridLoad(grid); const requestedLoad = requestedPower(grid);
       const powerStats = stats.powerGrids[grid]!;
@@ -589,6 +615,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const deliveredPower = Math.min(load, generated + transferredMilliJoules * 1000 / delta);
       const transportLoad = proportionalPower ? requestedTransportPower(grid) : activeTransportPower(grid); const nonTransportLoad = load - transportLoad;
       const consumedMilliJoules = deliveredPower * delta / 1000;
+      const region = project.powerGrids[grid]!.region;
+      const market = stats.electricityMarkets[region];
+      if (market) {
+        regionalMeteredPower[region] = (regionalMeteredPower[region] ?? 0) + deliveredPower;
+        market.energyConsumedMilliJoules += consumedMilliJoules;
+        market.energyChargeMicroCurrency += consumedMilliJoules * electricityPriceAt(project, region, state.tick) / 3_600_000_000;
+      }
       powerStats.servedMilliJoules += consumedMilliJoules;
       powerStats.unservedMilliJoules += Math.max(0, requestedLoad * delta / 1000 - consumedMilliJoules);
       powerStats.curtailedMilliJoules += Math.max(0, surplusMilliJoules - chargedMilliJoules);
@@ -605,6 +638,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         }
       }
       if (consumedMilliJoules) mutateFactoryState(state, { kind: "energy", grid, consumedMilliJoules });
+    }
+    for (const [region, meteredPower] of Object.entries(regionalMeteredPower)) {
+      stats.electricityMarkets[region]!.peakDemandMilliWatts = Math.max(
+        stats.electricityMarkets[region]!.peakDemandMilliWatts, meteredPower,
+      );
     }
     mutateFactoryState(state, { kind: "tick", tick }); stats.elapsedTicks = tick;
   };
@@ -2365,6 +2403,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const next = nextGeneratorBoundary(project, deviceId, state.tick);
     if (next !== undefined) schedule(next, 1, { kind: "generation-boundary", device: deviceId });
   }
+  for (const tariff of project.scenario.electricityTariffs ?? []) {
+    emit({
+      type: "power.electricity-price-changed", tick: state.tick, region: tariff.region,
+      energyPriceMicroCurrencyPerKiloWattHour: electricityPriceAt(project, tariff.region, state.tick),
+    });
+    const next = nextElectricityTariffBoundary(project, tariff.region, state.tick);
+    if (next !== undefined) schedule(next, 1, { kind: "electricity-tariff-boundary", region: tariff.region });
+  }
   settle();
   while (queue.size && publicEventCount < maxEvents) {
     const item = queue.peek()!;
@@ -2732,6 +2778,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       });
       const next = nextGeneratorBoundary(project, event.device, state.tick);
       if (next !== undefined) schedule(next, 1, { kind: "generation-boundary", device: event.device });
+    } else if (event.kind === "electricity-tariff-boundary") {
+      emit({
+        type: "power.electricity-price-changed", tick: state.tick, region: event.region,
+        energyPriceMicroCurrencyPerKiloWattHour: electricityPriceAt(project, event.region, state.tick),
+      });
+      const next = nextElectricityTariffBoundary(project, event.region, state.tick);
+      if (next !== undefined) schedule(next, 1, { kind: "electricity-tariff-boundary", region: event.region });
     } else if (event.kind === "campaign-timeout") {
       const campaign = state.devices[event.device]?.setup?.campaign;
       if (!campaign || campaign.targetGroup !== event.targetGroup || campaign.deadlineTick !== event.deadlineTick) continue;

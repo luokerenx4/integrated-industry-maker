@@ -28,6 +28,7 @@ Read the relevant linked document before changing a subsystem:
 - Lot-dependent terminating output, wafer Probe yield, and nominal-versus-realized production: [[docs/design/lot-derived-output]]
 - Physical belts, sorters, junctions, stacking, and station fleets: [[docs/design/logistics]]
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]
+- Scenario-owned time-of-use electricity prices and regional peak-demand charges: [[docs/design/electricity-tariffs]]
 - Hot standby, low-power sleep, physical wake work, and Blueprint idle policy: [[docs/design/equipment-energy-states]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]

@@ -759,6 +759,17 @@ Initial quantities address device and buffer explicitly:
       ]
     }
   ],
+  "electricityTariffs": [
+    {
+      "region": "forge-zone",
+      "periodTicks": 120000,
+      "points": [
+        { "atTick": 0, "energyPriceMicroCurrencyPerKiloWattHour": 400000 },
+        { "atTick": 60000, "energyPriceMicroCurrencyPerKiloWattHour": 2400000 }
+      ],
+      "demandChargeMicroCurrencyPerKiloWatt": 60000
+    }
+  ],
   "failures": [
     { "device": "smelter-1", "atTick": 40000, "durationTicks": 15000 }
   ]
@@ -768,6 +779,8 @@ Initial quantities address device and buffer explicitly:
 `initialEnergyMilliJoules` is keyed by a placed accumulator or logistics-station Device id. Each value must be an integer from zero through that Device's compiled energy capacity. It is part of the Scenario hash and therefore of run identity. Omitted energy buffers start empty.
 
 `renewableProfiles` are periodic, piecewise-constant environmental curves. Each profile applies to every renewable Device in its `region`, optionally narrowed to one Device `asset`; this includes Devices later added to a candidate Blueprint. The first point must start at zero, later `atTick` values are strictly increasing and below `periodTicks`, and integer `outputPermille` is limited to 0–1000 of asset-rated output. Overlapping profiles for one Device are invalid. Omitted matches run at rated output.
+
+`electricityTariffs` are Scenario-owned regional valuation contracts. Each region may have at most one periodic piecewise-constant energy price, expressed as integer micro-currency per kWh, plus one non-negative peak-demand rate in micro-currency per kW. Points start at zero and remain strictly ordered before `periodTicks`. Runtime integrates served energy at exact price boundaries and charges the maximum simultaneous metered power aggregated across all grids in that region. See [[docs/design/electricity-tariffs]].
 
 Capacity planning integrates these curves against the Objective-derived constant regional design load and configured storage. Synthesis uses the same interval solver to choose a lowest-build-cost project-local generator/storage bundle that starts empty and leaves no energy unserved; its physical Devices are written into the Blueprint. Runtime simulation remains the event-level authority for actual burst timing and Device utilization.
 
@@ -807,6 +820,7 @@ Capacity planning integrates these curves against the Objective-derived constant
     "deliveryValue": 1,
     "onTimeDelivery": 10,
     "energy": 0.01,
+    "electricityCost": 0,
     "buildCost": 0.5,
     "occupiedArea": 0.2,
     "wip": 0.1,
@@ -825,6 +839,8 @@ Optional `trackedFamily` lets an untracked finished-good target retain work-orde
 Optional `deliveryContracts` freezes a multi-product customer portfolio outside the editable Blueprint. A contract Resource must be untracked and may appear in only one contract. Demand is the Scenario-duration integral of `demandPerMinute` and acts as a service floor, not a production ceiling. Every delivered unit earns `valuePerItem`; units below demand additionally avoid `shortfallPenaltyPerItem`, while delivery above demand is reported as overflow and remains valuable. Optional `minimumFulfillment` creates a hard gate. `weights.deliveryValue` multiplies aggregate contract net value per simulated minute. `inm plan` jointly solves every demand floor through one material balance, including fixed coproduct ratios. See [[docs/design/delivery-contracts]].
 
 `targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by all Scenario-scheduled lots, so blocked or delayed admission cannot improve service by withholding work. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
+
+Optional `weights.electricityCost` penalizes Scenario-valued electricity energy and peak-demand charges in currency units. It is separate from `weights.energy`, which values physical consumed MJ without a tariff.
 
 ## Coding Agent benchmark
 

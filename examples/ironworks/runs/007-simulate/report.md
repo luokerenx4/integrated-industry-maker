@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `chemical-factory`
 - Score: **122.737**
-- Result hash: `7c212a60bceb336d8ac8782e130cc5131405eb77c0c1f7b6cc53d63d8f7813b6`
+- Result hash: `9bda457c62bdd0e53c6c3fb63ef9ea1c6406657af42588708d45d09b02813218`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Delivery portfolio: 130.0% demand attainment · 26.000 / 20.000 valued / demanded · 6.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 10.000 plastic/min
 - Capacity delivery targets: 10.000 plastic/min
 - Power allocation: proportional
@@ -65,6 +66,7 @@ No configured logistics stations.
   "constraintPenalty": 0,
   "cycleTime": 0,
   "deliveryValue": 0,
+  "electricityCost": 0,
   "energy": -0.7060035000000001,
   "occupiedArea": -14.600000000000001,
   "onTimeDelivery": 13,

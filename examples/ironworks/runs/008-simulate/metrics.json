@@ -70,6 +70,12 @@
     "shortfallPenalty": 0,
     "valued": 78
   },
+  "electricityCosts": {
+    "demandChargeMicroCurrency": 0,
+    "energyChargeMicroCurrency": 0,
+    "regions": {},
+    "totalMicroCurrency": 0
+  },
   "energyConsumedMilliJoules": 75302875,
   "energyStorage": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
@@ -329,6 +335,7 @@
     "constraintPenalty": 0,
     "cycleTime": 0,
     "deliveryValue": 0,
+    "electricityCost": 0,
     "energy": -0.75302875,
     "occupiedArea": -20.400000000000002,
     "onTimeDelivery": 39,

@@ -574,6 +574,16 @@ export interface ScenarioGeneratorProfile {
   /** Integer output fraction of the Device's rated renewable output. The first point must start at tick zero. */
   points: Array<{ atTick: Tick; outputPermille: number }>;
 }
+export interface ScenarioElectricityTariff {
+  /** Regional plant-meter scope. Every power grid in this region is aggregated for demand charging. */
+  region: string;
+  /** The piecewise-constant energy-price curve repeats after this many ticks. */
+  periodTicks: Tick;
+  /** Integer micro-currency per kWh. The first point must start at tick zero. */
+  points: Array<{ atTick: Tick; energyPriceMicroCurrencyPerKiloWattHour: number }>;
+  /** Fixed charge applied to the maximum simultaneous regional demand during the run. */
+  demandChargeMicroCurrencyPerKiloWatt: number;
+}
 export interface Scenario {
   id: string;
   name: string;
@@ -612,6 +622,8 @@ export interface Scenario {
   initialEnergyMilliJoules?: Record<DeviceInstanceId, number>;
   /** Scenario-owned intermittent output curves for renewable generators. */
   renewableProfiles?: ScenarioGeneratorProfile[];
+  /** Scenario-owned regional time-of-use electricity price and peak-demand charge. */
+  electricityTariffs?: ScenarioElectricityTariff[];
   failures?: ScenarioFailure[];
 }
 
@@ -642,6 +654,8 @@ export interface Objective {
     deliveryValue?: number;
     onTimeDelivery?: number;
     energy: number;
+    /** Penalty per currency unit of metered energy plus regional peak-demand charge. */
+    electricityCost?: number;
     buildCost: number;
     occupiedArea: number;
     wip: number;
@@ -1270,6 +1284,7 @@ export type FactoryEvent =
   | { type: "power.fuel-loaded"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number; energyMilliJoules: number; durationTicks: Tick }
   | { type: "power.fuel-spent"; tick: Tick; device: DeviceInstanceId; grid: string; resource: ResourceId; count: number }
   | { type: "power.generation-changed"; tick: Tick; device: DeviceInstanceId; grid: string; ratedMilliWatts: number; outputMilliWatts: number; outputPermille: number }
+  | { type: "power.electricity-price-changed"; tick: Tick; region: string; energyPriceMicroCurrencyPerKiloWattHour: number }
   | { type: "power.satisfaction-changed"; tick: Tick; grid: string; demandMilliWatts: number; availableMilliWatts: number; satisfactionPpm: number }
   | { type: "power.storage-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
   | { type: "power.storage-depleted"; tick: Tick; device: DeviceInstanceId; grid: string }
@@ -1283,6 +1298,7 @@ export interface ScoreBreakdown {
   deliveryValue: number;
   onTimeDelivery: number;
   energy: number;
+  electricityCost: number;
   buildCost: number;
   occupiedArea: number;
   wip: number;
@@ -1448,6 +1464,19 @@ export interface FactoryMetrics {
     }>;
   };
   energyConsumedMilliJoules: number;
+  electricityCosts: {
+    energyChargeMicroCurrency: number;
+    demandChargeMicroCurrency: number;
+    totalMicroCurrency: number;
+    regions: Record<string, {
+      energyConsumedMilliJoules: number;
+      energyChargeMicroCurrency: number;
+      peakDemandMilliWatts: number;
+      demandChargeMicroCurrency: number;
+      totalMicroCurrency: number;
+      demandChargeMicroCurrencyPerKiloWatt: number;
+    }>;
+  };
   energyStorage: Record<string, {
     initialMilliJoules: number;
     storedMilliJoules: number;

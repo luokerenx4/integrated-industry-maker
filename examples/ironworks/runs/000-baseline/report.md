@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **5.138**
-- Result hash: `a596bd152d60da866acb58476cbb91d9dfe0a482345f032b743da988ebb1936d`
+- Result hash: `57a55931954b54e3d09059ec2281260a16518303beba3923e32a1e4fa72319f5`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
 - Delivery portfolio: 37.5% demand attainment · 9.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 12.000 gear/min
 - Capacity delivery targets: 12.000 gear/min
 - Power allocation: proportional
@@ -76,6 +77,7 @@
   "constraintPenalty": 0,
   "cycleTime": 0,
   "deliveryValue": 0,
+  "electricityCost": 0,
   "energy": -2.27679672,
   "occupiedArea": -21.200000000000003,
   "onTimeDelivery": 3.75,

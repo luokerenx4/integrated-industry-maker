@@ -36,6 +36,11 @@ export interface SimulationStats {
     currentDeficitEpisodeMilliJoules: number; requiredStorageCapacityMilliJoules: number;
     satisfactionPpmArea: number; minimumSatisfactionPpm: number;
   }>;
+  electricityMarkets: Record<string, {
+    energyConsumedMilliJoules: number;
+    energyChargeMicroCurrency: number;
+    peakDemandMilliWatts: number;
+  }>;
   transportEnergyConsumedMilliJoules: number;
   elapsedTicks: number;
 }
@@ -518,12 +523,32 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     devices: energyManagementDevices,
   };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : deliveryPortfolio.fulfillment;
+  const electricityRegions = Object.fromEntries((project.scenario.electricityTariffs ?? []).map((tariff) => {
+    const measured = stats.electricityMarkets[tariff.region]!;
+    const demandChargeMicroCurrency = measured.peakDemandMilliWatts
+      * tariff.demandChargeMicroCurrencyPerKiloWatt / 1_000_000;
+    return [tariff.region, {
+      energyConsumedMilliJoules: measured.energyConsumedMilliJoules,
+      energyChargeMicroCurrency: measured.energyChargeMicroCurrency,
+      peakDemandMilliWatts: measured.peakDemandMilliWatts,
+      demandChargeMicroCurrency,
+      totalMicroCurrency: measured.energyChargeMicroCurrency + demandChargeMicroCurrency,
+      demandChargeMicroCurrencyPerKiloWatt: tariff.demandChargeMicroCurrencyPerKiloWatt,
+    }];
+  }));
+  const electricityCosts: FactoryMetrics["electricityCosts"] = {
+    energyChargeMicroCurrency: Object.values(electricityRegions).reduce((sum, region) => sum + region.energyChargeMicroCurrency, 0),
+    demandChargeMicroCurrency: Object.values(electricityRegions).reduce((sum, region) => sum + region.demandChargeMicroCurrency, 0),
+    totalMicroCurrency: Object.values(electricityRegions).reduce((sum, region) => sum + region.totalMicroCurrency, 0),
+    regions: electricityRegions,
+  };
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
     throughput: throughputPerMinute * weights.throughput,
     deliveryValue: deliveryPortfolio.netValuePerMinute * (weights.deliveryValue ?? 0),
     onTimeDelivery: onTimeDelivery * (weights.onTimeDelivery ?? 0),
     energy: -(state.energy.consumedMilliJoules / 1_000_000) * weights.energy,
+    electricityCost: -(electricityCosts.totalMicroCurrency / 1_000_000) * (weights.electricityCost ?? 0),
     buildCost: -(totalBuildCost / 1_000) * weights.buildCost,
     occupiedArea: -occupiedArea * weights.occupiedArea,
     wip: -averageWip * weights.wip,
@@ -581,7 +606,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

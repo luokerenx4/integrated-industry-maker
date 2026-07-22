@@ -96,7 +96,7 @@ rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || (left.sleepAfterTicks ?? Number.MAX_SAFE_INTEGER) - (right.sleepAfterTicks ?? Number.MAX_SAFE_INTEGER));
 
 console.log(`baseline_score\t${baseline.metrics.finalScore.toFixed(6)}`);
-console.log("verdict\tsleep-after-ticks\tscore\tdelta\tcapacity\tenergy-mj\tmean-cycle-ticks\tsleeps\twakeups\tsleep-ticks\twake-ticks");
+console.log("verdict\tsleep-after-ticks\tscore\tdelta\tcapacity\tenergy-mj\tenergy-charge\tdemand-charge\ttotal-electricity-cost\tmean-cycle-ticks\tsleeps\twakeups\tsleep-ticks\twake-ticks");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : row.scoreDelta === 0 ? "BASELINE" : "DISCARD",
   row.sleepAfterTicks ?? "off",
@@ -104,6 +104,9 @@ for (const row of rows) console.log([
   row.scoreDelta.toFixed(6),
   row.capacityReady ? "READY" : "GAPS",
   row.metrics.energyConsumedMilliJoules,
+  (row.metrics.electricityCosts.energyChargeMicroCurrency / 1_000_000).toFixed(6),
+  (row.metrics.electricityCosts.demandChargeMicroCurrency / 1_000_000).toFixed(6),
+  (row.metrics.electricityCosts.totalMicroCurrency / 1_000_000).toFixed(6),
   row.metrics.lotFlow.meanCycleTimeTicks.toFixed(3),
   row.metrics.equipmentEnergyManagement.totalSleeps,
   row.metrics.equipmentEnergyManagement.totalWakeups,
