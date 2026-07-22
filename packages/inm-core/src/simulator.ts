@@ -125,12 +125,12 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         occupiedTicks: 0, unitTicks: 0, resources: {},
       } } : {}),
       ...(project.devices[id]!.processPlans.some((plan) => plan.utilities.length) ? { productionUtilities: {
-        allocations: 0, completed: 0, cancelled: 0, occupiedTicks: 0, unitTicks: 0,
+        allocations: 0, completed: 0, cancelled: 0, providerInterruptions: 0, occupiedTicks: 0, unitTicks: 0,
         inputWaitTicks: 0, inputBlocks: 0, utilities: {},
       } } : {}),
       ...(project.devices[id]!.assetDef.utilityProvider ? { utilityProvider: {
         capacity: Object.fromEntries(project.devices[id]!.assetDef.utilityProvider!.capacities.map((capacity) => [capacity.utility, capacity.units])),
-        reserved: {}, peakReserved: {}, allocations: 0, completed: 0, cancelled: 0,
+        reserved: {}, peakReserved: {}, allocations: 0, completed: 0, cancelled: 0, interruptedJobs: 0,
         occupiedTicks: 0, unitTicks: 0, utilities: {},
       } } : {}),
       ...(storage ? { energyStorage: {
@@ -1358,7 +1358,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     for (const demand of plan.utilities) {
       const candidate = plan.utilityProviders[demand.utility]!.find((provider) => {
         const runtime = state.devices[provider.device]!.utilityProvider!;
-        const connected = state.devices[provider.device]!.idlePowered || project.devices[provider.device]!.assetDef.power.idleMilliWatts === 0;
+        const providerState = state.devices[provider.device]!;
+        const connected = providerState.status !== "failed"
+          && (providerState.idlePowered || project.devices[provider.device]!.assetDef.power.idleMilliWatts === 0);
         return connected && (runtime.capacity[demand.utility] ?? 0) - (runtime.reserved[demand.utility] ?? 0) >= demand.units;
       });
       if (!candidate) return undefined;
@@ -2353,6 +2355,54 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const campaign = state.devices[event.device]?.setup?.campaign;
       if (!campaign || campaign.targetGroup !== event.targetGroup || campaign.deadlineTick !== event.deadlineTick) continue;
     } else if (event.kind === "breakdown") {
+      if (project.devices[event.device]!.assetDef.utilityProvider) {
+        const interruptedJobs = Object.entries(state.devices)
+          .filter(([deviceId, runtime]) => deviceId !== event.device
+            && runtime.activeJob?.utilities?.some((allocation) => allocation.provider === event.device))
+          .sort(([left], [right]) => left.localeCompare(right));
+        for (const [deviceId, runtime] of interruptedJobs) {
+          const job = runtime.activeJob!;
+          const failedUtilities = job.utilities!.filter((allocation) => allocation.provider === event.device)
+            .map(({ utility, units }) => ({ utility, units }));
+          const occupiedTicks = state.tick - job.startedAt;
+          generations[deviceId]!++;
+          mutateFactoryState(state, { kind: "utility.interrupt", device: deviceId, provider: event.device });
+          mutateFactoryState(state, {
+            kind: "utility.release", device: deviceId, allocations: job.utilities!, occupiedTicks, outcome: "cancelled",
+          });
+          emit({
+            type: "device.utility-interrupted", tick: state.tick, device: deviceId, process: job.operation,
+            provider: event.device, failedUtilities: structuredClone(failedUtilities), occupiedTicks,
+          });
+          emit({
+            type: "device.utility-released", tick: state.tick, device: deviceId, process: job.operation,
+            allocations: structuredClone(job.utilities!), occupiedTicks, outcome: "cancelled",
+          });
+          if (job.tooling) {
+            mutateFactoryState(state, {
+              kind: "tooling.release", device: deviceId, provider: job.tooling.provider,
+              amounts: job.tooling.amounts, occupiedTicks, outcome: "cancelled",
+            });
+            emit({
+              type: "device.tooling-released", tick: state.tick, device: deviceId, process: job.operation,
+              provider: job.tooling.provider, tooling: structuredClone(job.tooling.amounts), occupiedTicks, outcome: "cancelled",
+            });
+          }
+          const scrappedLots = job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
+          if (scrappedLots.length) {
+            mutateFactoryState(state, { kind: "lot.scrap", lotIds: scrappedLots, device: deviceId, reason: "facility-interlock" });
+            for (const id of scrappedLots) {
+              const lot = state.lots[id]!;
+              emit({
+                type: "lot.scrapped", tick: state.tick, device: deviceId, lot: id,
+                family: lot.family, resource: lot.resource, reason: "facility-interlock",
+              });
+            }
+          }
+          mutateFactoryState(state, { kind: "job.finish", device: deviceId });
+          setStatus(deviceId, "idle");
+        }
+      }
       generations[event.device]!++;
       const activeJob = state.devices[event.device]!.activeJob;
       const utilityWait = state.devices[event.device]!.productionUtilities?.wait;

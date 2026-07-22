@@ -319,6 +319,7 @@
     "totalInputBlocks": 0,
     "totalInputWaitTicks": 0,
     "totalOccupiedTicks": 0,
+    "totalProviderInterruptions": 0,
     "totalUnitTicks": 0,
     "utilities": {}
   },

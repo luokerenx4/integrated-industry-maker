@@ -997,6 +997,7 @@ export interface DeviceRuntimeState {
     allocations: number;
     completed: number;
     cancelled: number;
+    providerInterruptions: number;
     occupiedTicks: Tick;
     unitTicks: Tick;
     inputWaitTicks: Tick;
@@ -1011,6 +1012,7 @@ export interface DeviceRuntimeState {
     allocations: number;
     completed: number;
     cancelled: number;
+    interruptedJobs: number;
     occupiedTicks: Tick;
     unitTicks: Tick;
     utilities: Record<string, { allocations: number; unitsAllocated: number; unitTicks: Tick }>;
@@ -1121,6 +1123,7 @@ export type FactoryEvent =
   | { type: "device.utility-blocked"; tick: Tick; device: DeviceInstanceId; process: ProcessId; utilities: ProcessUtilityDemand[] }
   | { type: "device.utility-acquired"; tick: Tick; device: DeviceInstanceId; process: ProcessId; allocations: Array<{ provider: DeviceInstanceId; utility: string; units: number }> }
   | { type: "device.utility-released"; tick: Tick; device: DeviceInstanceId; process: ProcessId; allocations: Array<{ provider: DeviceInstanceId; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
+  | { type: "device.utility-interrupted"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; failedUtilities: Array<{ utility: string; units: number }>; occupiedTicks: Tick }
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
@@ -1147,7 +1150,7 @@ export type FactoryEvent =
   | { type: "lot.quality-excursion"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; excursion: string; defects: string[] }
   | { type: "lot.inspected"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; result: "pass" | "reject" | "scrap"; detectedDefects: string[]; reworkCycles: number }
   | { type: "lot.reworked"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; repairedDefects: string[]; remainingDefects: string[]; reworkCycles: number }
-  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" | "quality-rejection" }
+  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" | "facility-interlock" | "quality-rejection" }
   | { type: "material.treated"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; fromLevel: number; toLevel: number; agentResource: ResourceId; agentCount: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }
@@ -1347,6 +1350,7 @@ export interface FactoryMetrics {
     totalAllocations: number;
     totalCompleted: number;
     totalCancelled: number;
+    totalProviderInterruptions: number;
     totalOccupiedTicks: Tick;
     totalUnitTicks: Tick;
     totalInputWaitTicks: Tick;

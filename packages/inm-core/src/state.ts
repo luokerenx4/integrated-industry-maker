@@ -59,6 +59,7 @@ export type FactoryStateMutation =
   | { kind: "tooling.release"; device: string; provider: string; amounts: ProcessAmount[]; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "utility.wait"; device: string; process: string; waiting: boolean }
   | { kind: "utility.allocate"; device: string; allocations: Array<{ provider: string; utility: string; units: number }> }
+  | { kind: "utility.interrupt"; device: string; provider: string }
   | { kind: "utility.release"; device: string; allocations: Array<{ provider: string; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
@@ -591,6 +592,14 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
         client.utilities[allocation.utility]!.unitTicks += unitTicks;
         provider.utilities[allocation.utility]!.unitTicks += unitTicks;
       }
+      return;
+    }
+    case "utility.interrupt": {
+      const client = state.devices[mutation.device]!.productionUtilities;
+      const provider = state.devices[mutation.provider]!.utilityProvider;
+      if (!client || !provider) throw new Error(`Cannot interrupt utility allocation '${mutation.device}' → '${mutation.provider}'`);
+      client.providerInterruptions++;
+      provider.interruptedJobs++;
       return;
     }
     case "tooling.hold": {

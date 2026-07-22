@@ -1076,6 +1076,32 @@ describe("blueprint compiler", () => {
       [0, "smelter-1"], [0, "smelter-2"],
     ]);
 
+    const providerFailure = { ...source, blueprint: structuredClone(source.blueprint), scenario: structuredClone(source.scenario) };
+    providerFailure.blueprint.devices = providerFailure.blueprint.devices.filter((device) => device.id !== "smelter-2");
+    providerFailure.blueprint.devices.push({
+      id: "fab-utility-plant-2", asset: "fab-utility-plant", region: smelter1.region, position: { x: 14, y: 6 }, rotation: 0,
+    });
+    providerFailure.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 4 } } };
+    providerFailure.scenario.failures = [{ device: "fab-utility-plant-1", atTick: 2_000, durationTicks: 2_000 }];
+    const failedOver = runUntil(compileFactoryProject(providerFailure), undefined, { untilTick: 7_000 });
+    expect(failedOver.events.filter((event) => event.type === "device.utility-acquired")
+      .map((event) => [event.tick, event.device, ...new Set(event.allocations.map((allocation) => allocation.provider))])).toEqual([
+      [0, "smelter-1", "fab-utility-plant-1"], [2_000, "smelter-1", "fab-utility-plant-2"],
+    ]);
+    expect(failedOver.events).toContainEqual({
+      type: "device.utility-interrupted", tick: 2_000, device: "smelter-1", process: "smelt-iron",
+      provider: "fab-utility-plant-1",
+      failedUtilities: [{ utility: "high-vacuum", units: 1 }, { utility: "hazardous-exhaust", units: 1 }],
+      occupiedTicks: 2_000,
+    });
+    expect(failedOver.events.filter((event) => event.type === "device.utility-released")
+      .map((event) => [event.tick, event.outcome])).toEqual([[2_000, "cancelled"], [6_000, "completed"]]);
+    expect(failedOver.metrics.productionUtilities).toEqual(expect.objectContaining({
+      totalAllocations: 2, totalCompleted: 1, totalCancelled: 1, totalProviderInterruptions: 1,
+    }));
+    expect(failedOver.metrics.productionUtilities.providers["fab-utility-plant-1"]!.interruptedJobs).toBe(1);
+    expect(failedOver.metrics.productionUtilities.providers["fab-utility-plant-2"]!.completed).toBe(2);
+
     const duplicateCapacity = { ...source, deviceAssets: { ...source.deviceAssets, "fab-utility-plant": {
       ...source.deviceAssets["fab-utility-plant"]!, utilityProvider: {
         ...source.deviceAssets["fab-utility-plant"]!.utilityProvider!,
@@ -3217,9 +3243,9 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.verdict).toBe("KEEP");
     expect(result.accepted).toBeTrue();
     expect(result.cases.map((item) => item.id)).toEqual([
-      "steady-production", "mixed-quality", "quality-excursion", "lithography-interruption",
+      "steady-production", "mixed-quality", "quality-excursion", "lithography-interruption", "facility-interruption",
     ]);
-    expect(result.totalSimulationTicks).toBe(1_920_000);
+    expect(result.totalSimulationTicks).toBe(2_400_000);
     expect(result.cases.every((item) => item.scoreDelta > 0)).toBeTrue();
     expect(result.minimumCaseScoreDelta).toBeCloseTo(Math.min(...result.cases.map((item) => item.scoreDelta)), 8);
     expect(result.worstCaseCandidateScore).toBeGreaterThan(result.worstCaseBaselineScore);
@@ -3231,6 +3257,12 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.cases.some((item) => item.candidateMetrics.totalMandatoryMaintenance < item.baselineMetrics.totalMandatoryMaintenance)).toBeTrue();
     expect(result.cases.every((item) => item.candidateMetrics.totalQualificationCompleted === item.candidateMetrics.totalMaintenanceCompleted)).toBeTrue();
     expect(result.cases.every((item) => item.candidateMetrics.totalQualificationTicks > 0)).toBeTrue();
+    const facilityInterruption = result.cases.find((item) => item.id === "facility-interruption")!;
+    expect(facilityInterruption.baselineMetrics.totalUtilityProviderInterruptions).toBeGreaterThan(0);
+    expect(facilityInterruption.candidateMetrics.totalUtilityProviderInterruptions)
+      .toBe(facilityInterruption.baselineMetrics.totalUtilityProviderInterruptions);
+    expect(facilityInterruption.candidateMetrics.totalUtilityInputWaitTicks)
+      .toBeLessThan(facilityInterruption.baselineMetrics.totalUtilityInputWaitTicks);
     expect(result.changes.map((change) => change.id)).toContain("lithography-2");
     expect(result.changes.map((change) => change.id)).toContain("etch-2");
     expect(result.changes.map((change) => change.id)).toContain("lithography-to-etch-lithography-2");

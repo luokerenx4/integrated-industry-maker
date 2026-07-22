@@ -66,6 +66,7 @@ export interface BlueprintMetricSnapshot {
   totalUtilityAllocations: number;
   totalUtilityCompleted: number;
   totalUtilityCancelled: number;
+  totalUtilityProviderInterruptions: number;
   totalUtilityOccupiedTicks: number;
   totalUtilityUnitTicks: number;
   totalUtilityInputWaitTicks: number;
@@ -153,6 +154,7 @@ export interface BlueprintMetricDelta {
   totalUtilityAllocations: number;
   totalUtilityCompleted: number;
   totalUtilityCancelled: number;
+  totalUtilityProviderInterruptions: number;
   totalUtilityOccupiedTicks: number;
   totalUtilityUnitTicks: number;
   totalUtilityInputWaitTicks: number;
@@ -364,6 +366,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalUtilityAllocations: metrics.productionUtilities.totalAllocations,
     totalUtilityCompleted: metrics.productionUtilities.totalCompleted,
     totalUtilityCancelled: metrics.productionUtilities.totalCancelled,
+    totalUtilityProviderInterruptions: metrics.productionUtilities.totalProviderInterruptions,
     totalUtilityOccupiedTicks: metrics.productionUtilities.totalOccupiedTicks,
     totalUtilityUnitTicks: metrics.productionUtilities.totalUnitTicks,
     totalUtilityInputWaitTicks: metrics.productionUtilities.totalInputWaitTicks,
@@ -453,6 +456,7 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalUtilityAllocations: after.totalUtilityAllocations - before.totalUtilityAllocations,
     totalUtilityCompleted: after.totalUtilityCompleted - before.totalUtilityCompleted,
     totalUtilityCancelled: after.totalUtilityCancelled - before.totalUtilityCancelled,
+    totalUtilityProviderInterruptions: after.totalUtilityProviderInterruptions - before.totalUtilityProviderInterruptions,
     totalUtilityOccupiedTicks: after.totalUtilityOccupiedTicks - before.totalUtilityOccupiedTicks,
     totalUtilityUnitTicks: after.totalUtilityUnitTicks - before.totalUtilityUnitTicks,
     totalUtilityInputWaitTicks: after.totalUtilityInputWaitTicks - before.totalUtilityInputWaitTicks,

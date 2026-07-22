@@ -562,6 +562,9 @@ await scenario("quality-excursion", "Four-minute systematic DRAM quality-excursi
 await scenario("lithography-interruption", "Four-minute mixed-quality window with a lithography interruption", mixedExcursions, [
   { device: "lithography-1", atTick: 48_000, durationTicks: 30_000 },
 ]);
+await scenario("facility-interruption", "Four-minute excursion-free window with a fab utility interruption", [], [
+  { device: "fab-utility-plant-1", atTick: 48_000, durationTicks: 30_000 },
+]);
 await json(join(project, "objectives", "dram-output.objective.json"), {
   id: "dram-output", name: "Deliver qualified DRAM wafer lots with controlled quality loss", targetResource: "qualified-dram-wafer-lot", targetRegion: "cleanroom", targetRatePerMinute: 2.5,
   constraints: { maxBuildCost: 170_000, maxOccupiedArea: 320, minProduction: 4 },
@@ -628,6 +631,7 @@ await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
     { id: "mixed-quality", name: "Mixed repair, scrap, and escape workload", world: "cleanroom", scenario: "production-window", objective: "dram-output", seed: 42, weight: 2 },
     { id: "quality-excursion", name: "Systematic quality excursion", world: "cleanroom", scenario: "quality-excursion", objective: "dram-output", seed: 42, weight: 2 },
     { id: "lithography-interruption", name: "Timed lithography interruption", world: "cleanroom", scenario: "lithography-interruption", objective: "dram-output", seed: 42, weight: 1 },
+    { id: "facility-interruption", name: "Timed fab utility interruption", world: "cleanroom", scenario: "facility-interruption", objective: "dram-output", seed: 42, weight: 1 },
   ],
   acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 2, requireCandidateCapacityReady: false },
 });
@@ -668,6 +672,10 @@ const autoresearchPath = join(project, "AUTORESEARCH.md");
 const generatedAutoresearch = await readFile(autoresearchPath, "utf8");
 await text(autoresearchPath, generatedAutoresearch
   .replace(
+    "across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption.",
+    "across five evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, a timed lithography interruption, and a timed fab-utility interruption.",
+  )
+  .replace(
     "`reopenAtWip` controls replenishment-wave hysteresis, and `dispatch` chooses among eligible identities.",
     "`reopenAtWip` controls replenishment-wave hysteresis, optional `maximumReleaseDelayTicks` protects admission service without exceeding the cap, and `dispatch` chooses among eligible identities.",
   )
@@ -677,7 +685,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
-    "The checked-in candidate contains six kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, inspection-only opportunistic preventive maintenance, and a second placed fab-utility plant. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift. Maintenance is physical factory work followed by a separate equipment-release phase. Lithography, etch, and ALD jobs atomically reserve finite high-vacuum and hazardous-exhaust capacity; the second utility plant is a costed Blueprint expansion that prevents dedicated process tools from merely moving the bottleneck into facilities. The locked aggregate is `-67.484078`, while every workload remains at least `+25.270400` above its baseline. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains six kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, inspection-only opportunistic preventive maintenance, and a second placed fab-utility plant. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift. Maintenance is physical factory work followed by a separate equipment-release phase. Lithography, etch, and ALD jobs atomically reserve finite high-vacuum and hazardous-exhaust capacity; a provider outage interlocks affected work, while the second costed plant keeps subsequent work moving as N+1 capacity. The five-case locked aggregate is `-69.031038`, while every workload remains at least `+12.664030` above its baseline. Continue from this candidate rather than resetting it.",
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
@@ -685,7 +693,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
-    "Coding Agents may next test utility-plant count/placement, reticle-stocker count/placement, paired same-layer lithography capacity, a second service crew, service-bay placement, qualification-wafer inventory, furnace duplication, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Facility allocations, capacity-unit time, waits, blocks, reusable-tool occupancy, maintenance, quality, cycle time, tardiness, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
+    "Coding Agents may next test utility-plant count/placement, reticle-stocker count/placement, paired same-layer lithography capacity, a second service crew, service-bay placement, qualification-wafer inventory, furnace duplication, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Facility allocations, capacity-unit time, waits, blocks, provider trips, reusable-tool occupancy, maintenance, quality, cycle time, tardiness, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
@@ -696,6 +704,10 @@ const projectReadmePath = join(project, "README.md");
 const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
   .replace(
+    "across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption.",
+    "across excursion-free production, mixed quality work, a systematic excursion, a timed lithography interruption, and a timed fab-utility interruption. The last condition interlocks affected in-flight work and lets surviving capacity serve subsequent starts.",
+  )
+  .replace(
     "# Re-entrant DRAM memory fab\n\n",
     "# Re-entrant DRAM memory fab\n\nThe project-local `routes/dram-front-end.route.json` freezes the evaluator-owned DRAM product flow as an explicit state machine; Blueprints may allocate qualified tools and dispatch work but cannot skip, reorder, or invent wafer operations.\n\nThree synthetic Q-time contracts make internal process delay part of quality physics: dielectric stacks must start anneal within 20 seconds, annealed lots must return to layer-2 lithography within 45 seconds, and final inspection must start within 35 seconds. Transport, batch formation, setup, maintenance, power and tool queues consume these windows. A late start adds evaluator-owned defects that flow through the ordinary inspection, rework and scrap model.\n\n",
   )
@@ -705,7 +717,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "peak active lots, physical/controller blocked lot-time",
-    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes, reusable-tool allocations/occupancy/wait, facility allocations/capacity-time/wait/blocks, mandatory/opportunistic/cancelled maintenance work, consumable/crew wait, service crew-time and consumed kits",
+    "peak active lots, maximum-delay service openings, physical/controller blocked lot-time, setup-campaign holds and release causes, reusable-tool allocations/occupancy/wait, facility allocations/capacity-time/wait/blocks/provider trips, mandatory/opportunistic/cancelled maintenance work, consumable/crew wait, service crew-time and consumed kits",
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",

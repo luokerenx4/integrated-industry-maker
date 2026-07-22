@@ -347,6 +347,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     totalAllocations: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.allocations, 0),
     totalCompleted: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.completed, 0),
     totalCancelled: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.cancelled, 0),
+    totalProviderInterruptions: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.providerInterruptions, 0),
     totalOccupiedTicks: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.occupiedTicks, 0),
     totalUnitTicks: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.unitTicks, 0),
     totalInputWaitTicks: Object.values(utilityDevices).reduce((sum, utility) => sum + utility.inputWaitTicks, 0),
