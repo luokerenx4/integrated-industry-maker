@@ -529,7 +529,8 @@ const server = Bun.serve({
         return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" } });
       }
 
-      if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname) || /^\/[^/]+\/experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?\/?$/.test(url.pathname)) {
+      if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname)
+        || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?)\/?$/.test(url.pathname)) {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
       }
       return new Response("Not found", { status: 404 });

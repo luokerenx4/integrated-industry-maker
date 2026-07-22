@@ -75,6 +75,16 @@ test("opening a project without runs does not write a Studio baseline", async ()
     expect(deepLink.headers.get("content-type")).toContain("text/html");
     const candidateDeepLink = await fetch(`http://localhost:${port}/ironworks/experiments/power-priority/candidates/protect-critical-line`);
     expect(candidateDeepLink.status).toBe(200);
+    for (const route of [
+      "ironworks", "ironworks/factory", "ironworks/factory/devices/assembler-1", "ironworks/factory/connections/ore-line",
+      "ironworks/runs", "ironworks/catalog", "ironworks/catalog/devices/smelter", "ironworks/analysis",
+      "ironworks/analysis/diagnostics/capacity.process%3Aprocess%3Asmelter",
+    ]) {
+      const routeResponse = await fetch(`http://localhost:${port}/${route}`);
+      expect({ route, status: routeResponse.status, contentType: routeResponse.headers.get("content-type") }).toEqual({
+        route, status: 200, contentType: expect.stringContaining("text/html"),
+      });
+    }
 
     const candidatesResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates`);
     expect(candidatesResponse.status).toBe(200);

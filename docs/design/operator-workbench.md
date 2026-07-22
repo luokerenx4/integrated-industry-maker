@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V1 shared project orientation and AI-native CLI projection implemented; the Studio task-oriented project root remains active work.
+Status: V1 shared project orientation, AI-native CLI projection, and Studio task-oriented project root implemented; the shared operation loop remains active work.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
 
@@ -74,7 +74,7 @@ GET /api/projects/<project-id>/overview
 GET /api/projects/<project-id>/overview?world=<id>&blueprint=<id>&scenario=<id>&objective=<id>
 ```
 
-Explicit query selection never falls back when invalid. The endpoint is project-qualified, accepts only GET, and creates no run or cache state. The current Factory debugger still uses its richer replay data endpoint; the task-oriented project root will consume this shared orientation contract in the next workbench slice.
+Explicit query selection never falls back when invalid. The endpoint is project-qualified, accepts only GET, and creates no run or cache state. The task-oriented project root consumes this contract for selection, readiness, diagnostics, evidence, and operation descriptors. Factory uses its richer replay endpoint because its selected immutable run and event timeline are intentionally run-scoped.
 
 ## Source of truth
 
@@ -107,4 +107,4 @@ Tests must prove exact CLI `data.result`/Core and Studio/Core snapshot parity, d
 ## Known next gaps
 
 - Per-Candidate cheap stale/lock status without executing a Benchmark.
-- Studio Overview, diagnostic navigation, stable route-backed Catalog/Analysis, and shared operation result views.
+- Shared operation invocation/result views across Core, CLI, and Studio.

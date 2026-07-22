@@ -86,8 +86,8 @@ Both surfaces must answer the same questions from shared data:
 - [x] Core produces one serializable project workbench snapshot used by both `inm` and Studio; parity tests prove identical selection, hashes, readiness, diagnostic codes, and operation ids.
 - [x] A Coding Agent can discover commands and project artifact schemas without reading CLI source, and every machine-readable success/error follows one versioned envelope.
 - [x] A Coding Agent can request a compact overview or one detailed section without receiving the complete analysis payload.
-- [ ] The Studio project root presents objective, readiness, priority issues, recent evidence, and available tasks before requiring the 3D factory view.
-- [ ] Catalog, Analysis, Factory, Runs, Experiments, Candidates, and individual diagnostics/objects have stable project-qualified routes or route-backed dialogs.
+- [x] The Studio project root presents objective, readiness, priority issues, recent evidence, and available tasks before requiring the 3D factory view.
+- [x] Catalog, Analysis, Factory, Runs, Experiments, Candidates, and individual diagnostics/objects have stable project-qualified routes or route-backed dialogs.
 - [ ] Every Studio operation states whether it is read-only or mutating, shows the effective selection, exposes an equivalent copyable `inm` command, and renders the shared result.
 - [ ] Simulation and evaluation operations expose progress/failure state and link their immutable result or reviewed proposal without inventing browser-only history.
 - [ ] Mutating operation tests prove preview purity, exact write scope, stale-input rejection, deliberate confirmation, and post-operation verification.
@@ -117,13 +117,13 @@ Both surfaces must answer the same questions from shared data:
 
 ### Slice 3 — human project overview and navigation
 
-- [ ] Make `/<project>` a task-oriented overview rather than requiring the 3D debugger as the first interpretation surface.
-- [ ] Add stable project-qualified navigation for Overview, Factory, Runs, Experiments, and route-backed Catalog/Analysis dialogs while retaining launcher-only project selection.
-- [ ] Present the current selection/hashes, Objective and delivery contracts, capacity readiness, priority diagnostics, latest run, open proposals, and available operations with progressive disclosure.
-- [ ] Make diagnostic cards navigate to exact analysis sections, assets, devices, connections, contracts, or experiment cases where applicable.
-- [ ] Add search/filtering to dense catalogs and diagnostics, preserving project-local ownership and explicit type/category boundaries.
-- [ ] Move the current 3D debugger and replay into the Factory route without weakening selection, inspection, or timeline behavior.
-- [ ] Make empty/loading/error/stale states explain the next valid action rather than presenting a blank or generic failure surface.
+- [x] Make `/<project>` a task-oriented overview rather than requiring the 3D debugger as the first interpretation surface.
+- [x] Add stable project-qualified navigation for Overview, Factory, Runs, Experiments, and route-backed Catalog/Analysis dialogs while retaining launcher-only project selection.
+- [x] Present the current selection/hashes, Objective and delivery contracts, capacity readiness, priority diagnostics, latest run, open proposals, and available operations with progressive disclosure.
+- [x] Make diagnostic cards navigate to exact analysis sections, assets, devices, connections, contracts, or experiment cases where applicable.
+- [x] Add search/filtering to dense catalogs and diagnostics, preserving project-local ownership and explicit type/category boundaries.
+- [x] Move the current 3D debugger and replay into the Factory route without weakening selection, inspection, or timeline behavior.
+- [x] Make empty/loading/error/stale states explain the next valid action rather than presenting a blank or generic failure surface.
 
 ### Slice 4 — shared operation loop
 
@@ -171,6 +171,9 @@ Both surfaces must answer the same questions from shared data:
 - Slice 2 package gate: `bun test packages/inm-core packages/inm-cli packages/inm-studio` — 165 passed, 0 failed, 1347 assertions; public-binary tests covered versioned success/error envelopes, machine help, all 14 artifact schemas, output sections, Candidate apply/stale replay, and exact CLI/Core snapshot parity.
 - Slice 2: `bun run typecheck` and `bun run docs:check` passed; six direct CLI smoke invocations produced one parseable envelope with empty stderr.
 - Slice 2 full gate: `bun run test` — documentation and type checks passed, 165 package tests passed with 1347 assertions, and all eight Ironworks public CLI fixtures passed.
+- Slice 3 focused gate: `bun run typecheck`, Studio server/selection tests, documentation links, and diff checks passed; stable deep-link HTTP fallbacks cover Overview, Factory objects, Runs, Catalog assets, Analysis diagnostics, Experiments, and Candidates.
+- Slice 3 full gate: `bun run test` — documentation and type checks passed, 165 package tests passed with 1356 assertions, and all eight Ironworks public CLI fixtures passed.
+- Slice 3 browser QA: memory-fab Overview, Catalog asset/search, focused Analysis diagnostic/search, Factory Device inspector, Runs, reload, and back/forward restored exact routes; a fresh browser session reported zero console errors.
 - Per-slice contract checks: `bun test packages/inm-core packages/inm-cli packages/inm-studio`.
 - Public CLI checks must invoke `bun run inm ... --json` against both examples and parse stdout as exactly one valid JSON value.
 - Full completion gate: `bun run test`.
@@ -183,6 +186,7 @@ Both surfaces must answer the same questions from shared data:
 - 2026-07-22 — Plan created and registered as the active product-interface program. Slice 1 is the next implementation target.
 - 2026-07-22 — Slice 1 implemented: one Core project workbench snapshot now powers `inm inspect` and the project-qualified Studio Overview API with full-structure parity tests. Slice 2 is next.
 - 2026-07-22 — Slice 2 implemented: all JSON commands now use one versioned success/error contract, public machine help advertises effects/defaults/sections/exit codes, all authored project artifact schemas are discoverable, and dense results are summary-first with explicit sections. Slice 3 is next.
+- 2026-07-22 — Slice 3 implemented: Studio now opens on a shared task-oriented Overview, preserves every major workbench/asset/diagnostic/Factory-object context in stable project routes, filters dense Catalog/Analysis evidence, and keeps 3D replay in the dedicated Factory route. Slice 4 is next.
 
 ## Completion
 

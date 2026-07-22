@@ -1,6 +1,6 @@
 # Studio visual debugger
 
-Status: project launcher, stable project/experiment/candidate routes, shared Benchmark and candidate-review workbench, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
+Status: task-oriented project Overview, stable workbench/experiment/candidate/object routes, shared Benchmark and candidate-review workbench, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
 
 Related: [[docs/design/project-boundaries]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -10,11 +10,11 @@ Studio is a debugger for compiled industrial systems and completed runs plus an 
 
 ## Navigation
 
-The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context. `/<project-id>/experiments/<benchmark-id>` opens a stable experiment view; `/<project-id>/experiments/<benchmark-id>/candidates/<candidate-id>` opens a stable proposal review. The back button returns to the launcher. Every data, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context and opens its task-oriented Overview. Stable project-qualified routes cover `factory`, `runs`, `catalog`, `analysis`, and `experiments`; catalog assets, diagnostics, Factory devices/connections, Benchmarks, and Candidate Change Sets retain their subject identity in the URL. Catalog and Analysis remain route-backed dialogs over the Overview, so reload, history, and copied links reconstruct their context. The back button returns to the launcher; there is no in-project project switcher. Every data, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
 ## Project orientation API
 
-`GET /api/projects/<project-id>/overview` returns the exact Core [[docs/design/operator-workbench]] snapshot used by `inm inspect --json`. Optional World, Blueprint, Scenario, and Objective query selectors are explicit and never fall back when invalid. The endpoint is read-only and does not select a run, execute a Benchmark, preview a Candidate, or create Studio state. The current project route has not yet adopted the planned task-oriented Overview UI; until that slice ships, the richer `/data` endpoint continues to supply the Factory debugger and selected immutable run.
+`GET /api/projects/<project-id>/overview` returns the exact Core [[docs/design/operator-workbench]] snapshot used by `inm inspect --json`. Optional World, Blueprint, Scenario, and Objective query selectors are explicit and never fall back when invalid. The endpoint is read-only and does not select a run, execute a Benchmark, preview a Candidate, or create Studio state. The project Overview renders its selection and hashes, Objective/contracts, target-rate readiness, prioritized diagnostics, recent immutable evidence, proposals, and operation descriptors. The richer `/data` endpoint separately supplies Factory replay data and its selected immutable run.
 
 ## Experiment workbench
 
@@ -22,11 +22,11 @@ The workbench lists project-local locked Benchmarks and Candidate Change Sets, d
 
 ## Project-local catalog
 
-The Catalog modal follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, and Process definitions and exposes their visual identity, capabilities, geometry, physical production ports, buffer maxima, production modes, changeover envelopes, setup groups and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, lot-tracking family, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
+The route-backed Catalog dialog follows an editor/RPG-Maker-style asset browser. It separates Device packages, Resource packages, Process definitions, and Product Routes, supports text filtering within the selected category, and deep-links the selected asset. It exposes visual identity, capabilities, geometry, physical production ports, buffer maxima, production modes, changeover envelopes, setup groups and input-grade requirements, treatment modes/agents, runtime entry, transformations, transport properties, lot-tracking family, power generation/storage/distribution envelopes, content hashes, and current instance/fleet counts.
 
 ## Industrial analysis
 
-The Analysis modal recompiles the selected run Blueprint and shows:
+The route-backed Analysis dialog recompiles the selected run Blueprint, supports diagnostic filtering and focused diagnostic deep links, and shows:
 
 - target-rate Process/extraction/fleet plan plus rated and Scenario-integrated power/storage gaps;
 - finite deposits and depletion;
@@ -78,7 +78,7 @@ bun test packages/inm-studio
 bun run inm studio examples/ironworks --port 4178 --no-open
 ```
 
-Browser QA should verify `/`, `/<project-id>`, `/<project-id>/experiments/<benchmark-id>`, `/<project-id>/experiments/<benchmark-id>/candidates/<candidate-id>`, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on a temporary project must cover actual apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.
+Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward `factory`, `runs`, `catalog`, `analysis`, experiment and Candidate routes, diagnostic/asset/factory-object deep links, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, catalog/diagnostic filtering, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on a temporary project must cover actual apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.
 
 ## Change checklist
 

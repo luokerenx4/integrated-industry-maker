@@ -158,11 +158,15 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 
 ### `inm studio <project-or-workspace-dir> [--project ID] [--port N] [--no-open]`
 
-Launches the local read-only 3D runtime debugger. `/` is a project launcher; choosing a project navigates to the stable `/<project-id>` route, so refresh, browser history, and copied links retain project identity. There is no project switcher inside the runtime sidebar—return to the launcher to open another project.
+Launches the local Studio workbench. `/` is a project launcher; choosing a project navigates to the task-oriented `/<project-id>` Overview, where selection/hashes, Objective/contracts, readiness, prioritized diagnostics, recent immutable evidence, proposals, and available operations appear before spatial debugging. There is no project switcher inside the workbench—return to the launcher to open another self-contained project.
 
-The project header opens a read-only project catalog modeled after an editor asset browser. It separates Device and Resource packages from Process definitions and exposes geometry, production ports, buffers, modes, runtime, transformations, inspection/rework disposition, transport limits, generation/storage/distribution envelopes, content hashes, and instance counts. Every request is project-qualified and root-confined.
+Stable project-qualified routes cover Overview, Factory, Runs, Experiments, Catalog, and Analysis. Catalog/Analysis are route-backed dialogs, and selected catalog assets, diagnostics, Factory devices, Factory connections, Benchmarks, and Candidates remain addressable across reload, history, and copied links.
 
-The adjacent Analysis view recompiles the selected run Blueprint and presents target-rate gaps, configured Resource-to-port jobs, effective port and backing-buffer contracts, recipe material partitions, material/logistics/station diagnostics, generator/fuel envelopes, rated generation/load/headroom, accumulator capacity/rates, and selected-run stored energy per grid. The 3D view renders the same event-backed industrial state.
+The read-only Catalog is modeled after an editor asset browser. It separates Device and Resource packages from Process and Product Route definitions, supports category-scoped text filtering, and exposes geometry, production ports, buffers, modes, runtime, transformations, inspection/rework disposition, transport limits, generation/storage/distribution envelopes, content hashes, and instance counts. Every request is project-qualified and root-confined.
+
+Analysis recompiles the selected run Blueprint and presents target-rate gaps, configured Resource-to-port jobs, effective port and backing-buffer contracts, recipe material partitions, searchable material/logistics/station diagnostics, generator/fuel envelopes, rated generation/load/headroom, accumulator capacity/rates, and selected-run stored energy per grid. Diagnostics on the Overview deep-link to their most specific asset, Device, connection, or focused Analysis evidence.
+
+Factory contains the 3D view and immutable replay timeline. It renders the same event-backed industrial state without making the canvas necessary for project orientation or operation discovery.
 
 Clicking a Device opens a scoped inspector for runtime status, recipe/mode batches, physical port contracts, buffer contracts/quotas, extraction/generation/storage plan, power-grid membership, diagnostics, and connected links. Clicking a belt cell opens its physical connection inspector. Selection and Studio remain read-only.
 

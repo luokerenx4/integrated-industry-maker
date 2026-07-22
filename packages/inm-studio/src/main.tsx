@@ -1,5 +1,5 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BlueprintBenchmarkSummary } from "@inm/core";
+import type { BlueprintBenchmarkSummary, ProjectWorkbenchSnapshot, WorkbenchDiagnostic } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -564,26 +564,55 @@ const STATUS_LABELS: Record<Status, string> = {
 const formatTick = (tick: number) => `${(tick / 1000).toFixed(1)}s`;
 const jobQuantity = (rates: Record<string, number>, cyclesPerMinute: number) => Object.values(rates).reduce((sum, rate) => sum + rate, 0) / cyclesPerMinute;
 const formatQuantity = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
+type StudioView = "overview" | "factory" | "runs" | "catalog" | "analysis" | "experiments";
+interface StudioRoute {
+  projectId: string | null;
+  view: StudioView;
+  experimentId: string | null;
+  candidateId: string | null;
+  selection: StudioSelection | null;
+  assetKind: AssetKind | null;
+  assetId: string | null;
+  diagnosticId: string | null;
+}
 const projectPath = (projectId: string) => `/${encodeURIComponent(projectId)}`;
+const viewPath = (projectId: string, view: Exclude<StudioView, "overview">) => `${projectPath(projectId)}/${view}`;
+const factoryObjectPath = (projectId: string, selection?: StudioSelection | null) => `${viewPath(projectId, "factory")}${selection ? `/${selection.kind === "device" ? "devices" : "connections"}/${encodeURIComponent(selection.id)}` : ""}`;
+const catalogPath = (projectId: string, kind?: AssetKind | null, assetId?: string | null) => `${viewPath(projectId, "catalog")}${kind ? `/${kind}` : ""}${kind && assetId ? `/${encodeURIComponent(assetId)}` : ""}`;
+const analysisPath = (projectId: string, diagnosticId?: string | null) => `${viewPath(projectId, "analysis")}${diagnosticId ? `/diagnostics/${encodeURIComponent(diagnosticId)}` : ""}`;
 const experimentPath = (projectId: string, experimentId?: string, candidateId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}${candidateId ? `/candidates/${encodeURIComponent(candidateId)}` : ""}`;
 const fileUrl = (projectId: string, path: string) => `/api/projects/${encodeURIComponent(projectId)}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
 
-function studioRoute(): { projectId: string | null; experimentId: string | null; candidateId: string | null } {
+function studioRoute(): StudioRoute {
   const segments = window.location.pathname.split("/").filter(Boolean);
   try {
-    if (segments.length === 1) return { projectId: decodeURIComponent(segments[0]!), experimentId: null, candidateId: null };
+    const projectId = segments[0] ? decodeURIComponent(segments[0]) : null;
+    const base = { projectId, experimentId: null, candidateId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
+    if (segments.length === 1 && projectId) return { ...base, view: "overview" };
+    if (projectId && segments[1] === "factory" && (segments.length === 2 || segments.length === 4)) {
+      const kind = segments[2] === "devices" ? "device" : segments[2] === "connections" ? "connection" : null;
+      if (segments.length === 4 && !kind) throw new Error("Invalid factory object kind");
+      return { ...base, view: "factory", selection: kind && segments[3] ? { kind, id: decodeURIComponent(segments[3]) } : null };
+    }
+    if (projectId && segments.length === 2 && segments[1] === "runs") return { ...base, view: "runs" };
+    if (projectId && segments[1] === "catalog" && segments.length <= 4) {
+      const kind = segments[2] && ["devices", "resources", "processes", "routes"].includes(segments[2]) ? segments[2] as AssetKind : null;
+      return { ...base, view: "catalog", assetKind: kind, assetId: kind && segments[3] ? decodeURIComponent(segments[3]) : null };
+    }
+    if (projectId && segments[1] === "analysis" && (segments.length === 2 || (segments.length === 4 && segments[2] === "diagnostics"))) {
+      return { ...base, view: "analysis", diagnosticId: segments[3] ? decodeURIComponent(segments[3]) : null };
+    }
     if ((segments.length === 2 || segments.length === 3) && segments[1] === "experiments") return {
-      projectId: decodeURIComponent(segments[0]!),
+      ...base, view: "experiments",
       experimentId: segments[2] ? decodeURIComponent(segments[2]) : "",
-      candidateId: null,
     };
     if (segments.length === 5 && segments[1] === "experiments" && segments[3] === "candidates") return {
-      projectId: decodeURIComponent(segments[0]!),
+      ...base, view: "experiments",
       experimentId: decodeURIComponent(segments[2]!),
       candidateId: decodeURIComponent(segments[4]!),
     };
   } catch { /* malformed routes fall back to the launcher */ }
-  return { projectId: null, experimentId: null, candidateId: null };
+  return { projectId: null, view: "overview", experimentId: null, candidateId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
 }
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -1073,13 +1102,29 @@ function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCata
   return <span className={`asset-glyph ${asset.visual.shape ?? "box"}`} style={{ "--asset-color": asset.visual.color ?? "#4f7f86" } as React.CSSProperties} />;
 }
 
-function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
-  const [kind, setKind] = useState<AssetKind>("devices");
-  const items: Array<DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset | RouteCatalogAsset> = kind === "devices" ? data.assets.devices : kind === "resources" ? data.assets.resources : kind === "processes" ? data.assets.processes : data.assets.routes;
-  const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
-  const selected = items.find((asset) => asset.id === selectedId) ?? items[0];
+function AssetBrowser({ data, initialKind = "devices", initialId, onNavigate, onClose }: {
+  data: StudioData;
+  initialKind?: AssetKind;
+  initialId?: string | null;
+  onNavigate?: (kind: AssetKind, assetId: string | null) => void;
+  onClose: () => void;
+}) {
+  const [kind, setKind] = useState<AssetKind>(initialKind);
+  const [search, setSearch] = useState("");
+  const baseItems: Array<DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset | RouteCatalogAsset> = kind === "devices" ? data.assets.devices : kind === "resources" ? data.assets.resources : kind === "processes" ? data.assets.processes : data.assets.routes;
+  const [selectedId, setSelectedId] = useState(initialId ?? baseItems[0]?.id ?? "");
+  const query = search.trim().toLowerCase();
+  const items = query ? baseItems.filter((asset) => `${asset.id} ${asset.name} ${asset.description} ${asset.tags.join(" ")}`.toLowerCase().includes(query)) : baseItems;
+  const selected = items.find((asset) => asset.id === selectedId) ?? items[0] ?? baseItems[0];
 
-  useEffect(() => { setSelectedId(items[0]?.id ?? ""); }, [kind]);
+  useEffect(() => { setKind(initialKind); }, [initialKind]);
+  useEffect(() => { if (initialId) setSelectedId(initialId); }, [initialId]);
+  const chooseKind = (nextKind: AssetKind) => {
+    const nextItems = nextKind === "devices" ? data.assets.devices : nextKind === "resources" ? data.assets.resources : nextKind === "processes" ? data.assets.processes : data.assets.routes;
+    const nextId = nextItems[0]?.id ?? "";
+    setKind(nextKind); setSelectedId(nextId); setSearch(""); onNavigate?.(nextKind, nextId || null);
+  };
+  const chooseAsset = (assetId: string) => { setSelectedId(assetId); onNavigate?.(kind, assetId); };
   useEffect(() => {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", escape);
@@ -1094,18 +1139,20 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
       </header>
       <div className="asset-browser-body">
         <nav className="asset-kinds" aria-label="Asset categories">
-          <button className={kind === "devices" ? "active" : ""} onClick={() => setKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
-          <button className={kind === "resources" ? "active" : ""} onClick={() => setKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
-          <button className={kind === "processes" ? "active" : ""} onClick={() => setKind("processes")}><span>PROCESS</span><b>{data.assets.processes.length}</b></button>
-          <button className={kind === "routes" ? "active" : ""} onClick={() => setKind("routes")}><span>ROUTE</span><b>{data.assets.routes.length}</b></button>
+          <button className={kind === "devices" ? "active" : ""} onClick={() => chooseKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
+          <button className={kind === "resources" ? "active" : ""} onClick={() => chooseKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
+          <button className={kind === "processes" ? "active" : ""} onClick={() => chooseKind("processes")}><span>PROCESS</span><b>{data.assets.processes.length}</b></button>
+          <button className={kind === "routes" ? "active" : ""} onClick={() => chooseKind("routes")}><span>ROUTE</span><b>{data.assets.routes.length}</b></button>
         </nav>
         <div className="asset-list" role="listbox" aria-label={kind}>
-          <div className="asset-list-title">{kind.toUpperCase()} <span>{items.length}</span></div>
-          {items.map((asset) => <button key={asset.id} role="option" aria-selected={selected?.id === asset.id} className={selected?.id === asset.id ? "selected" : ""} onClick={() => setSelectedId(asset.id)}>
+          <label className="asset-search"><span>SEARCH</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Filter ${kind}`} /></label>
+          <div className="asset-list-title">{kind.toUpperCase()} <span>{items.length} / {baseItems.length}</span></div>
+          {items.map((asset) => <button key={asset.id} role="option" aria-selected={selected?.id === asset.id} className={selected?.id === asset.id ? "selected" : ""} onClick={() => chooseAsset(asset.id)}>
             <AssetGlyph projectId={data.projectId} asset={asset} />
             <span><strong>{asset.name}</strong><small>{asset.id}</small></span>
             {asset.type === "device" && <em>{asset.fleetCount ? `${asset.fleetCount} fleet` : `${asset.instanceCount}×`}</em>}
           </button>)}
+          {!items.length && <div className="asset-list-empty">NO MATCHING PROJECT ASSETS</div>}
         </div>
         <article className="asset-detail">
           {selected && <>
@@ -1189,9 +1236,14 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
   </div>;
 }
 
-function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => void }) {
+function AnalysisBrowser({ data, focusDiagnostic, onClose }: { data: StudioData; focusDiagnostic?: WorkbenchDiagnostic; onClose: () => void }) {
   const analysis = data.analysis;
   const plan = data.capacityPlan;
+  const [diagnosticQuery, setDiagnosticQuery] = useState("");
+  const filteredDiagnostics = analysis.diagnostics.filter((diagnostic) => {
+    const query = diagnosticQuery.trim().toLowerCase();
+    return !query || `${diagnostic.severity} ${diagnostic.code} ${diagnostic.message}`.toLowerCase().includes(query);
+  });
   const warningCount = analysis.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
   useEffect(() => {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -1199,7 +1251,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
     return () => window.removeEventListener("keydown", escape);
   }, [onClose]);
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-    <section className="analysis-browser" role="dialog" aria-modal="true" aria-label="Industrial analysis">
+    <section className={`analysis-browser ${focusDiagnostic ? "has-focus" : ""}`} role="dialog" aria-modal="true" aria-label="Industrial analysis">
       <header className="analysis-header">
         <div><span className="eyebrow">COMPILED INDUSTRIAL MODEL</span><h2>{data.name}</h2><p>Nominal design envelope + measured selected-run flow</p></div>
         <button className="icon-button" onClick={onClose} aria-label="Close industrial analysis">×</button>
@@ -1212,6 +1264,7 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
         <Metric label="POWER GRIDS" value={String(analysis.powerGrids.length)} />
         <Metric label="WARNINGS" value={String(warningCount)} />
       </div>
+      {focusDiagnostic && <div className={`analysis-focus ${focusDiagnostic.severity}`} data-diagnostic-id={focusDiagnostic.id}><span>{focusDiagnostic.severity.toUpperCase()}</span><div><code>{focusDiagnostic.code}</code><strong>{focusDiagnostic.message}</strong><small>{focusDiagnostic.evidence.source} · {focusDiagnostic.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</small></div></div>}
       <div className="analysis-body">
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>TARGET-RATE CAPACITY PLAN</span><b>{plan.ready ? "READY" : `${plan.gaps.length} GAPS`} · {plan.targetRatePerMinute.toFixed(2)} {plan.targetResource.toUpperCase()}/MIN</b></div>
@@ -1292,8 +1345,8 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
           </div>)}</div>
         </section>
         <section className="analysis-section diagnostics-analysis">
-          <div className="analysis-section-title"><span>DIAGNOSTICS</span><b>{analysis.diagnostics.length}</b></div>
-          <div className="diagnostic-list">{analysis.diagnostics.length ? analysis.diagnostics.map((diagnostic, index) => <div className={diagnostic.severity} key={`${diagnostic.code}-${index}`}><i>{diagnostic.severity === "warning" ? "!" : "·"}</i><span><code>{diagnostic.code}</code><p>{diagnostic.message}</p></span></div>) : <div className="diagnostics-clear"><i>✓</i><span>NO STATIC WARNINGS</span></div>}</div>
+          <div className="analysis-section-title analysis-diagnostic-title"><span>DIAGNOSTICS</span><label><span>FILTER</span><input value={diagnosticQuery} onChange={(event) => setDiagnosticQuery(event.target.value)} placeholder="code, message, severity" aria-label="Filter diagnostics" /></label><b>{filteredDiagnostics.length} / {analysis.diagnostics.length}</b></div>
+          <div className="diagnostic-list">{filteredDiagnostics.length ? filteredDiagnostics.map((diagnostic, index) => <div className={diagnostic.severity} key={`${diagnostic.code}-${index}`}><i>{diagnostic.severity === "warning" ? "!" : "·"}</i><span><code>{diagnostic.code}</code><p>{diagnostic.message}</p></span></div>) : <div className="diagnostics-clear"><i>{analysis.diagnostics.length ? "·" : "✓"}</i><span>{analysis.diagnostics.length ? "NO DIAGNOSTICS MATCH" : "NO STATIC WARNINGS"}</span></div>}</div>
         </section>
         <section className="analysis-section logistics-analysis">
           <div className="analysis-section-title"><span>LOGISTICS PIPELINES</span><b>LOADER → LINE → UNLOADER</b></div>
@@ -1357,22 +1410,115 @@ function ProjectLoading({ projectId, onBack }: { projectId: string; onBack: () =
   return <div className="route-state"><div className="route-mark">INM</div><span>OPENING PROJECT</span><strong>{projectId}</strong><div className="loading-bar"><i /></div><button onClick={onBack}>← PROJECTS</button></div>;
 }
 
+function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNavigate, onRefresh }: {
+  indexName: string;
+  data: StudioData;
+  overview: ProjectWorkbenchSnapshot;
+  view: StudioView;
+  loading: boolean;
+  onBack: () => void;
+  onNavigate: (view: StudioView) => void;
+  onRefresh: () => void;
+}) {
+  const tabs: Array<{ view: StudioView; label: string; count?: number }> = [
+    { view: "overview", label: "OVERVIEW" },
+    { view: "factory", label: "FACTORY" },
+    { view: "runs", label: "RUNS", count: overview.counts.runs },
+    { view: "experiments", label: "EXPERIMENTS", count: overview.counts.experiments },
+    { view: "analysis", label: "ANALYSIS", count: overview.diagnostics.length },
+    { view: "catalog", label: "CATALOG", count: overview.counts.resourceAssets + overview.counts.deviceAssets + overview.counts.processes + overview.counts.routes },
+  ];
+  return <header className="project-header">
+    <div className="header-project">
+      <button className="back-button" onClick={onBack} aria-label="Back to projects">←</button>
+      <div className="mark">INM</div>
+      <div><div className="breadcrumb"><span>{indexName}</span><b>/</b><code>{data.projectId}</code></div><h1>{data.name}</h1></div>
+    </div>
+    <nav className="project-nav" aria-label="Project workbench">
+      {tabs.map((tab) => <button key={tab.view} className={view === tab.view ? "active" : ""} onClick={() => onNavigate(tab.view)}>{tab.label}{tab.count !== undefined && <b>{tab.count}</b>}</button>)}
+    </nav>
+    <div className="header-tools compact-tools">
+      <span className="project-local"><i /> PROJECT LOCAL</span>
+      <span className="hash">BP {(view === "factory" ? data.blueprintHash : overview.hashes.blueprintHash).slice(0, 10)}</span>
+      <button onClick={onRefresh}>{loading ? "SYNCING" : "REFRESH"}</button>
+    </div>
+  </header>;
+}
+
+function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onCandidate }: {
+  snapshot: ProjectWorkbenchSnapshot;
+  onNavigate: (view: StudioView) => void;
+  onDiagnostic: (diagnostic: WorkbenchDiagnostic) => void;
+  onExperiment: (id: string) => void;
+  onCandidate: (benchmarkId: string, candidateId: string) => void;
+}) {
+  const latestRun = snapshot.runs.at(-1);
+  const priority = snapshot.diagnostics.slice(0, 6);
+  const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
+  return <section className="overview-page" aria-label="Project overview">
+    <div className="overview-hero">
+      <div><span className="eyebrow">INDUSTRIAL PROGRAM</span><h2>{snapshot.selection.objective.name}</h2><p>Deliver <strong>{snapshot.objective.targetRatePerMinute} {snapshot.objective.targetResource}/min</strong> into <strong>{snapshot.objective.targetRegion}</strong> under {snapshot.selection.scenario.name}.</p></div>
+      <div className={`readiness-orbit ${snapshot.readiness.ready ? "ready" : "blocked"}`}><span>{snapshot.readiness.ready ? "READY" : snapshot.readiness.gapCount}</span><small>{snapshot.readiness.ready ? "TARGET PROVISIONED" : "CAPACITY GAPS"}</small></div>
+    </div>
+    <div className="selection-strip" aria-label="Effective project selection">
+      {(["world", "blueprint", "scenario", "objective"] as const).map((key) => <div key={key}><small>{key.toUpperCase()}</small><strong>{snapshot.selection[key].name}</strong><code>{snapshot.selection[key].id}</code></div>)}
+      <div><small>INPUT IDENTITY</small><strong>{snapshot.hashes.engineVersion}</strong><code>{snapshot.hashes.blueprintHash.slice(0, 12)} · {snapshot.hashes.objectiveHash.slice(0, 12)}</code></div>
+    </div>
+    <div className="overview-grid">
+      <section className="overview-panel priority-panel">
+        <header><div><span className="eyebrow">NEXT ATTENTION</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>OPEN ANALYSIS →</button></header>
+        <div className="overview-diagnostics">{priority.length ? priority.map((diagnostic) => <button key={diagnostic.id} className={diagnostic.severity} data-diagnostic-id={diagnostic.id} onClick={() => onDiagnostic(diagnostic)}>
+          <span>{diagnostic.severity === "blocking" ? "!" : diagnostic.severity === "warning" ? "△" : "·"}</span><div><code>{diagnostic.code}</code><strong>{diagnostic.message}</strong><small>{diagnostic.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</small></div><b>→</b>
+        </button>) : <div className="overview-empty positive"><b>✓</b><span>No static readiness or analysis issue is open.</span></div>}</div>
+      </section>
+      <section className="overview-panel contracts-panel">
+        <header><div><span className="eyebrow">INDUSTRIAL OUTCOME</span><h3>Delivery contracts</h3></div></header>
+        <div className="contract-list">{snapshot.objective.deliveryContracts.map((contract) => <div key={contract.id}><span><strong>{contract.id}</strong><code>{contract.resource} → {contract.region}</code></span><b>{contract.demandPerMinute.toFixed(2)}<small>/ MIN</small></b></div>)}</div>
+        <footer><span>{snapshot.counts.regions} zones</span><span>{snapshot.counts.deviceInstances} devices</span><span>{snapshot.counts.connections} local links</span><span>{snapshot.counts.powerGrids} power grids</span></footer>
+      </section>
+      <section className="overview-panel evidence-panel">
+        <header><div><span className="eyebrow">RECENT EVIDENCE</span><h3>Runs and experiments</h3></div><button onClick={() => onNavigate("runs")}>ALL RUNS →</button></header>
+        {latestRun ? <button className="latest-run" onClick={() => onNavigate("factory")}><span><small>LATEST IMMUTABLE RUN</small><strong>{latestRun.id}</strong><code>{latestRun.selection.blueprint} · {latestRun.decision} · {latestRun.resultHash.slice(0, 12)}</code></span><b>{latestRun.score.toFixed(2)}</b></button> : <div className="overview-empty"><span>No completed run exists. Simulate from the CLI or operation workbench.</span></div>}
+        <div className="experiment-shortlist">{snapshot.experiments.slice(0, 3).map((experiment) => <button key={experiment.id} onClick={() => onExperiment(experiment.id)}><span><strong>{experiment.name}</strong><code>{experiment.id} · {experiment.cases.length} cases</code></span><b>{experiment.locked ? "LOCKED" : "UNLOCKED"}</b></button>)}</div>
+      </section>
+      <section className="overview-panel candidates-panel">
+        <header><div><span className="eyebrow">REVIEW QUEUE</span><h3>Candidate proposals</h3></div><button onClick={() => onNavigate("experiments")}>EXPERIMENTS →</button></header>
+        {snapshot.candidates.length ? snapshot.candidates.slice(0, 4).map((candidate) => <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · base {candidate.baseCandidateHash.slice(0, 12)}</code></span><b>REVIEW →</b></button>) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
+      </section>
+      <section className="overview-panel operations-panel">
+        <header><div><span className="eyebrow">SHARED OPERATIONS</span><h3>Available tasks</h3></div></header>
+        <div className="operation-grid">{availableOperations.map((operation) => <div key={operation.id} data-operation-id={operation.id}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code></div>)}</div>
+      </section>
+    </div>
+  </section>;
+}
+
+function RunsOverview({ snapshot, onOpenFactory }: { snapshot: ProjectWorkbenchSnapshot; onOpenFactory: (runId: string) => void }) {
+  return <section className="runs-page" aria-label="Project runs">
+    <header><span className="eyebrow">IMMUTABLE EVIDENCE</span><h2>Simulation runs</h2><p>Every result is reconstructed from project files; browser memory is not authoritative.</p></header>
+    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
+  </section>;
+}
+
 function App() {
   const initialRoute = useMemo(() => studioRoute(), []);
   const [routeProject, setRouteProject] = useState<string | null>(initialRoute.projectId);
+  const [routeView, setRouteView] = useState<StudioView>(initialRoute.view);
   const [routeExperiment, setRouteExperiment] = useState<string | null>(initialRoute.experimentId);
   const [routeCandidate, setRouteCandidate] = useState<string | null>(initialRoute.candidateId);
+  const [routeAssetKind, setRouteAssetKind] = useState<AssetKind | null>(initialRoute.assetKind);
+  const [routeAssetId, setRouteAssetId] = useState<string | null>(initialRoute.assetId);
+  const [routeDiagnostic, setRouteDiagnostic] = useState<string | null>(initialRoute.diagnosticId);
   const [index, setIndex] = useState<ProjectIndex | null>(null);
   const [data, setData] = useState<StudioData | null>(null);
+  const [overview, setOverview] = useState<ProjectWorkbenchSnapshot | null>(null);
   const [run, setRun] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(4);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [assetsOpen, setAssetsOpen] = useState(false);
-  const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [selection, setSelection] = useState<StudioSelection | null>(null);
+  const [selection, setSelection] = useState<StudioSelection | null>(initialRoute.selection);
   const runRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
   const requestSequence = useRef(0);
@@ -1388,10 +1534,14 @@ function App() {
     setError(null);
     try {
       const query = selectedRun ? `?run=${encodeURIComponent(selectedRun)}` : "";
-      const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`));
+      const [next, nextOverview] = await Promise.all([
+        responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`)),
+        responseJson<ProjectWorkbenchSnapshot>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/overview`)),
+      ]);
       if (sequence !== requestSequence.current) return;
       setData(next);
-      setSelection((current) => normalizeStudioSelection(next, current));
+      setOverview(nextOverview);
+      setSelection((current) => normalizeStudioSelection(next, current ?? studioRoute().selection));
       setRun(next.selectedRun);
       runRef.current = next.selectedRun;
       projectRef.current = next.projectId;
@@ -1409,26 +1559,42 @@ function App() {
     projectRef.current = projectId;
     runRef.current = null;
     setRouteProject(projectId);
+    setRouteView("overview");
     setRouteExperiment(null);
     setRouteCandidate(null);
-    setAssetsOpen(false);
-    setAnalysisOpen(false);
+    setRouteAssetKind(null);
+    setRouteAssetId(null);
+    setRouteDiagnostic(null);
     setSelection(null);
     setError(null);
     if (!projectId) {
       requestSequence.current += 1;
       setData(null);
+      setOverview(null);
       setLoading(false);
     }
   }, []);
 
+  const navigateView = useCallback((view: StudioView) => {
+    if (!routeProject) return;
+    const path = view === "overview" ? projectPath(routeProject)
+      : view === "experiments" ? experimentPath(routeProject)
+        : view === "catalog" ? catalogPath(routeProject)
+          : view === "analysis" ? analysisPath(routeProject)
+            : view === "factory" ? factoryObjectPath(routeProject)
+              : viewPath(routeProject, "runs");
+    window.history.pushState({}, "", path);
+    setRouteView(view); setRouteExperiment(view === "experiments" ? "" : null); setRouteCandidate(null);
+    setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
+  }, [routeProject]);
+
   const navigateExperiment = useCallback((experimentId: string | null) => {
     if (!routeProject) return;
     window.history.pushState({}, "", experimentId === null ? projectPath(routeProject) : experimentPath(routeProject, experimentId || undefined));
+    setRouteView(experimentId === null ? "overview" : "experiments");
     setRouteExperiment(experimentId);
     setRouteCandidate(null);
-    setAssetsOpen(false);
-    setAnalysisOpen(false);
+    setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null);
     setSelection(null);
   }, [routeProject]);
 
@@ -1438,18 +1604,44 @@ function App() {
     setRouteCandidate(candidateId);
   }, [routeExperiment, routeProject]);
 
+  const navigateCandidateDirect = useCallback((experimentId: string, candidateId: string) => {
+    if (!routeProject) return;
+    window.history.pushState({}, "", experimentPath(routeProject, experimentId, candidateId));
+    setRouteView("experiments"); setRouteExperiment(experimentId); setRouteCandidate(candidateId);
+  }, [routeProject]);
+
+  const navigateCatalog = useCallback((kind: AssetKind, assetId: string | null) => {
+    if (!routeProject) return;
+    window.history.replaceState({}, "", catalogPath(routeProject, kind, assetId));
+    setRouteView("catalog"); setRouteAssetKind(kind); setRouteAssetId(assetId);
+  }, [routeProject]);
+
+  const navigateAnalysisDiagnostic = useCallback((diagnosticId: string | null) => {
+    if (!routeProject) return;
+    window.history.pushState({}, "", analysisPath(routeProject, diagnosticId));
+    setRouteView("analysis"); setRouteDiagnostic(diagnosticId);
+  }, [routeProject]);
+
+  const navigateFactoryObject = useCallback((next: StudioSelection | null) => {
+    if (!routeProject) return;
+    window.history.pushState({}, "", factoryObjectPath(routeProject, next));
+    setRouteView("factory"); setSelection(next);
+  }, [routeProject]);
+
   useEffect(() => { void loadIndex(); }, [loadIndex]);
   useEffect(() => {
     const popstate = () => {
       const nextRoute = studioRoute();
       projectRef.current = nextRoute.projectId;
       setRouteProject(nextRoute.projectId);
+      setRouteView(nextRoute.view);
       setRouteExperiment(nextRoute.experimentId);
       setRouteCandidate(nextRoute.candidateId);
-      setAssetsOpen(false);
-      setAnalysisOpen(false);
-      setSelection(null);
-      if (!nextRoute.projectId) setData(null);
+      setRouteAssetKind(nextRoute.assetKind);
+      setRouteAssetId(nextRoute.assetId);
+      setRouteDiagnostic(nextRoute.diagnosticId);
+      setSelection(nextRoute.selection);
+      if (!nextRoute.projectId) { setData(null); setOverview(null); }
     };
     window.addEventListener("popstate", popstate);
     return () => window.removeEventListener("popstate", popstate);
@@ -1468,19 +1660,18 @@ function App() {
   }, [loadIndex, loadProject]);
   useEffect(() => {
     const experiment = routeExperiment && data?.experiments.find((item) => item.id === routeExperiment);
-    document.title = experiment ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${data!.name} · INM Studio` : data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
-  }, [data, index, routeCandidate, routeExperiment]);
+    const viewLabel = routeView === "overview" ? "" : `${routeView[0]!.toUpperCase()}${routeView.slice(1)} · `;
+    document.title = experiment ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${data!.name} · INM Studio` : data ? `${viewLabel}${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
+  }, [data, index, routeCandidate, routeExperiment, routeView]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (routeExperiment !== null) navigateExperiment(null);
-      else if (analysisOpen) setAnalysisOpen(false);
-      else if (assetsOpen) setAssetsOpen(false);
       else setSelection(null);
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [analysisOpen, assetsOpen, navigateExperiment, routeExperiment]);
+  }, [navigateExperiment, routeExperiment]);
 
   const maxTick = data?.events.at(-1)?.tick ?? 0;
   useEffect(() => {
@@ -1506,8 +1697,37 @@ function App() {
     if (error && !index) return <div className="route-state error-state"><span>WORKSPACE ERROR</span><strong>{error}</strong><button onClick={() => window.location.reload()}>RETRY</button></div>;
     return <ProjectLauncher index={index!} onOpen={(projectId) => navigateProject(projectId)} />;
   }
-  if (!data && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
-  if (!data || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
+  if ((!data || !overview) && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
+  if (!data || !overview || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
+
+  const header = <ProjectHeader
+    indexName={index?.name ?? "WORKSPACE"} data={data} overview={overview} view={routeView} loading={loading}
+    onBack={() => navigateProject(null)} onNavigate={navigateView} onRefresh={() => void loadProject(data.projectId, run)}
+  />;
+  const openDiagnostic = (diagnostic: WorkbenchDiagnostic) => {
+    const subject = diagnostic.subjects[0];
+    if (subject?.kind === "device") { navigateFactoryObject({ kind: "device", id: subject.id }); return; }
+    if (subject?.kind === "connection") { navigateFactoryObject({ kind: "connection", id: subject.id }); return; }
+    if (subject?.kind === "resource") { navigateView("catalog"); queueMicrotask(() => navigateCatalog("resources", subject.id)); return; }
+    if (subject?.kind === "process") { navigateView("catalog"); queueMicrotask(() => navigateCatalog("processes", subject.id)); return; }
+    navigateAnalysisDiagnostic(diagnostic.id);
+  };
+  const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic}
+    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} />;
+
+  if (routeView !== "factory") {
+    const focusedDiagnostic = routeDiagnostic ? overview.diagnostics.find((diagnostic) => diagnostic.id === routeDiagnostic) : undefined;
+    return <main className={`project-shell ${loading ? "syncing" : ""}`}>
+      {header}
+      <div className="workbench-content">{routeView === "runs" ? <RunsOverview snapshot={overview} onOpenFactory={(runId) => { void loadProject(data.projectId, runId); navigateView("factory"); }} /> : overviewContent}</div>
+      {routeView === "catalog" && <AssetBrowser data={data} initialKind={routeAssetKind ?? "devices"} initialId={routeAssetId} onNavigate={navigateCatalog} onClose={() => navigateView("overview")} />}
+      {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={() => navigateView("overview")} />}
+      {routeView === "experiments" && <ExperimentWorkbench
+        projectId={data.projectId} experiments={data.experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
+        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onClose={() => navigateView("overview")}
+      />}
+    </main>;
+  }
 
   const frame = buildFrame(data, tick);
   const recent = frame.visibleEvents.slice(-8).reverse();
@@ -1516,31 +1736,21 @@ function App() {
   const stationMissionEnergy = Object.values(data.metrics?.stationEnergy ?? {}).reduce((sum, energy) => sum + energy.spentMilliJoules, 0);
   const minimumGridSatisfaction = data.metrics && Object.keys(data.metrics.powerGrids).length
     ? Math.min(...Object.values(data.metrics.powerGrids).map((grid) => grid.minimumSatisfactionPpm)) / 10_000 : null;
-  const chooseSceneObject = (next: StudioSelection) => setSelection((current) => selectStudioObject(current, next));
+  const chooseSceneObject = (next: StudioSelection) => setSelection((current) => {
+    const selected = selectStudioObject(current, next);
+    window.history.pushState({}, "", factoryObjectPath(data.projectId, selected));
+    return selected;
+  });
 
   return <main className={loading ? "syncing" : ""}>
-    <header className="project-header">
-      <div className="header-project">
-        <button className="back-button" onClick={() => navigateProject(null)} aria-label="Back to projects">←</button>
-        <div className="mark">INM</div>
-        <div><div className="breadcrumb"><span>{index?.name ?? "WORKSPACE"}</span><b>/</b><code>{data.projectId}</code></div><h1>{data.name}</h1></div>
-      </div>
-      <div className="header-tools">
-        <span className="project-local"><i /> PROJECT LOCAL</span>
-        <span className="hash">BP {data.blueprintHash.slice(0, 10)}</span>
-        <button className="experiments-button" onClick={() => navigateExperiment(data.experiments[0]?.id ?? "")}>EXPERIMENTS <b>{data.experiments.length}</b></button>
-        <button className="analysis-button" onClick={() => { setAssetsOpen(false); setAnalysisOpen(true); }}>ANALYSIS <b>{data.analysis.diagnostics.length}</b></button>
-        <button className="assets-button" onClick={() => { setAnalysisOpen(false); setAssetsOpen(true); }}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length + data.assets.routes.length}</b></button>
-        <button onClick={() => void loadProject(data.projectId, run)}>{loading ? "SYNCING" : "REFRESH"}</button>
-      </div>
-    </header>
+    {header}
     <section className="workspace">
       <div className="viewport">
         <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={() => setSelection(null)}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} INDUSTRIAL ZONES</b></div>
         <div className="scene-stats"><span><b>{data.regions.length}</b> INDUSTRIAL ZONES</span><span><b>{data.devices.filter((device) => !device.transportEndpoint).length}</b> MACHINES</span><span><b>{data.devices.filter((device) => device.transportEndpoint).length}</b> SORTERS</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
-        {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={() => setSelection(null)} onSelection={chooseSceneObject} />}
+        {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={() => navigateFactoryObject(null)} onSelection={chooseSceneObject} />}
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>
@@ -1552,23 +1762,12 @@ function App() {
         {data.metrics && data.metrics.productionUtilities.totalAllocations > 0 && <div className="panel"><h2>Fab facility utilities</h2><div className="metrics"><Metric label="JOBS / COMPLETE" value={`${data.metrics.productionUtilities.totalAllocations} / ${data.metrics.productionUtilities.totalCompleted}`} /><Metric label="CANCELLED / TRIPS" value={`${data.metrics.productionUtilities.totalCancelled} / ${data.metrics.productionUtilities.totalProviderInterruptions}`} /><Metric label="JOB / CAPACITY TIME" value={`${(data.metrics.productionUtilities.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionUtilities.totalUnitTicks / 1000).toFixed(1)} s`} /><Metric label="WAIT / BLOCKS" value={`${(data.metrics.productionUtilities.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionUtilities.totalInputBlocks}`} /><Metric label="UTILITY SERVICES" value={Object.entries(data.metrics.productionUtilities.utilities).map(([utility, measured]) => `${utility}: ${measured.unitsAllocated} units / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`).join(" · ") || "NONE"} /></div></div>}
         {data.metrics && Object.keys(data.metrics.equipmentMaintenance.devices).length > 0 && <div className="panel"><h2>Equipment maintenance</h2><div className="metrics"><Metric label="MANDATORY / EARLY" value={`${data.metrics.equipmentMaintenance.totalMandatory} / ${data.metrics.equipmentMaintenance.totalOpportunistic}`} /><Metric label="USAGE / CALENDAR TRIGGERS" value={`${data.metrics.equipmentMaintenance.totalUsageTriggered} / ${data.metrics.equipmentMaintenance.totalCalendarTriggered}`} /><Metric label="RELEASED / SERVICE CANCEL" value={`${data.metrics.equipmentMaintenance.totalCompleted} / ${data.metrics.equipmentMaintenance.totalCancelled}`} /><Metric label="SERVICE / QUALIFICATION" value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationTicks / 1000).toFixed(1)} s`} /><Metric label="QUALIFIED / CANCELLED" value={`${data.metrics.equipmentMaintenance.totalQualificationCompleted} / ${data.metrics.equipmentMaintenance.totalQualificationCancelled}`} /><Metric label="SERVICE / QUAL CREW" value={`${(data.metrics.equipmentMaintenance.totalServiceCrewTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationCrewTicks / 1000).toFixed(1)} crew-s`} /><Metric label="INPUT / CREW WAIT" value={`${(data.metrics.equipmentMaintenance.totalInputWaitTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalCrewWaitTicks / 1000).toFixed(1)} s`} /><Metric label="INPUT / CREW BLOCKS" value={`${data.metrics.equipmentMaintenance.totalInputBlocks} / ${data.metrics.equipmentMaintenance.totalCrewBlocks}`} /><Metric label="SERVICE CONSUMABLES" value={Object.entries(data.metrics.equipmentMaintenance.serviceConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"} /><Metric label="QUALIFICATION CONSUMABLES" value={Object.entries(data.metrics.equipmentMaintenance.qualificationConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"} /><Metric label="DRIFTED JOBS / LOTS" value={`${data.metrics.equipmentMaintenance.totalDriftedJobs} / ${data.metrics.equipmentMaintenance.totalDriftedLots}`} /><Metric label="DRIFT DEFECTS" value={String(data.metrics.equipmentMaintenance.totalDriftDefects)} /></div></div>}
         {data.metrics && Object.keys(data.metrics.equipmentEnergyManagement.devices).length > 0 && <div className="panel"><h2>Equipment energy states</h2><div className="metrics"><Metric label="SLEEPS / WAKES" value={`${data.metrics.equipmentEnergyManagement.totalSleeps} / ${data.metrics.equipmentEnergyManagement.totalWakeups}`} /><Metric label="SLEEP / WAKE TIME" value={`${(data.metrics.equipmentEnergyManagement.totalSleepingTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentEnergyManagement.totalWakeTicks / 1000).toFixed(1)} equipment-s`} /><Metric label="CONTROLLED EQUIPMENT" value={Object.entries(data.metrics.equipmentEnergyManagement.devices).map(([device, energy]) => `${device}: ${energy.mode}`).join(" · ")} /></div></div>}
-        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
+        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => navigateFactoryObject({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
         {data.metrics && data.metrics.lotOutputFlow.jobs > 0 && <div className="panel"><h2>Wafer probe yield</h2><div className="metrics"><Metric label="DIE OUTPUT ACTUAL / NOMINAL" value={`${data.metrics.lotOutputFlow.actualUnits} / ${data.metrics.lotOutputFlow.nominalUnits}`} accent /><Metric label="DIE OUTPUT REALIZATION" value={`${(data.metrics.lotOutputFlow.outputRatio * 100).toFixed(1)}%`} /><Metric label="DIE OUTPUT LOST" value={String(data.metrics.lotOutputFlow.lostUnits)} /></div></div>}
       </aside>
     </section>
     <footer className="timeline"><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>
-    {assetsOpen && <AssetBrowser data={data} onClose={() => setAssetsOpen(false)} />}
-    {analysisOpen && <AnalysisBrowser data={data} onClose={() => setAnalysisOpen(false)} />}
-    {routeExperiment !== null && <ExperimentWorkbench
-      projectId={data.projectId}
-      experiments={data.experiments}
-      selectedId={routeExperiment || null}
-      selectedCandidateId={routeCandidate}
-      onSelect={(experimentId) => navigateExperiment(experimentId)}
-      onSelectCandidate={navigateCandidate}
-      onClose={() => navigateExperiment(null)}
-    />}
   </main>;
 }
 
