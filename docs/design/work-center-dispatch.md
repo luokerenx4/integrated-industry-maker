@@ -33,7 +33,7 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 
 `lotDispatch` independently chooses the exact identities consumed after an operation wins: `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority`. Operation dispatch and lot dispatch are separate because a shared work center first chooses a route step and then chooses WIP within that step. See [[docs/design/lot-tracking]].
 
-Selection occurs only while the Device is idle. A ready operation has every exact input batch available and enough reserved output capacity. If its Process setup group differs from setup-sensitive equipment state, the host may first apply the Blueprint's bounded setup-campaign rule, then completes the fixed powered changeover before material is consumed. Work is non-preemptive after start. When nothing is ready, the highest-ranked operation is still exposed to the Device program so the normal waiting-input or blocked-output state remains observable. See [[docs/design/equipment-changeover]] and [[docs/design/setup-campaign-control]].
+Selection occurs only while the Device is idle. A ready operation has every exact input batch available and enough reserved output capacity. If its Process setup group differs from setup-sensitive equipment state, the host may first apply the Blueprint's bounded setup-campaign rule, then completes the asset's exact directed powered transition before material is consumed. Work is non-preemptive after start. When nothing is ready, the highest-ranked operation is still exposed to the Device program so the normal waiting-input or blocked-output state remains observable. See [[docs/design/equipment-changeover]] and [[docs/design/setup-campaign-control]].
 
 ## Runtime authority and determinism
 

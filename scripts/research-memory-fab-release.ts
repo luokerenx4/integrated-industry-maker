@@ -75,7 +75,7 @@ const jointSearch = Bun.argv.includes("--joint");
 const maximumDelayIndex = Bun.argv.indexOf("--maximum-delay");
 const maximumReleaseDelayTicks = maximumDelayIndex < 0 ? null : nonNegativeArgument("--maximum-delay", 0);
 const recipePolicies: Array<RecipeDispatchPolicy | null> = jointSearch
-  ? ["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "oldest-lot", "earliest-due-date", "highest-lot-priority"]
+  ? ["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "oldest-lot", "earliest-due-date", "least-slack", "highest-lot-priority"]
   : [null];
 const lotPolicies: Array<LotDispatchPolicy | null> = jointSearch
   ? ["fifo", "oldest-release", "earliest-due-date", "highest-priority"]

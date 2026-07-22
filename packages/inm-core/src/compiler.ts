@@ -185,10 +185,36 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       path: `assets/devices/${id}/asset.json/power/idleMilliWatts`, code: "power.idle-exceeds-active",
       message: `Idle power ${asset.power.idleMilliWatts} mW cannot exceed active power ${asset.power.activeMilliWatts} mW`,
     });
-    if (asset.production?.changeover && asset.production.changeover.powerMilliWatts < asset.power.idleMilliWatts) issues.push({
-      path: `assets/devices/${id}/asset.json/production/changeover/powerMilliWatts`, code: "production.changeover-power",
-      message: `Changeover power ${asset.production.changeover.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
-    });
+    const setupGroups = new Set((asset.production?.processes ?? []).flatMap((processId) => {
+      const setupGroup = processes[processId]?.setupGroup;
+      return setupGroup ? [setupGroup] : [];
+    }));
+    const transitionKeys = new Set<string>();
+    for (const [transitionIndex, transition] of (asset.production?.changeover?.transitions ?? []).entries()) {
+      const transitionPath = `assets/devices/${id}/asset.json/production/changeover/transitions/${transitionIndex}`;
+      const key = `${transition.from ?? "<unconfigured>"}->${transition.to}`;
+      if (transitionKeys.has(key)) issues.push({
+        path: transitionPath, code: "production.changeover-transition-duplicate",
+        message: `Device asset '${id}' declares changeover transition '${key}' more than once`,
+      });
+      transitionKeys.add(key);
+      if (transition.from === transition.to) issues.push({
+        path: transitionPath, code: "production.changeover-transition-self",
+        message: `Device asset '${id}' cannot declare a changeover from setup group '${transition.to}' to itself`,
+      });
+      if (transition.from !== null && !setupGroups.has(transition.from)) issues.push({
+        path: `${transitionPath}/from`, code: "production.changeover-setup-group",
+        message: `Changeover origin '${transition.from}' is not owned by a Process qualified on Device asset '${id}'`,
+      });
+      if (!setupGroups.has(transition.to)) issues.push({
+        path: `${transitionPath}/to`, code: "production.changeover-setup-group",
+        message: `Changeover target '${transition.to}' is not owned by a Process qualified on Device asset '${id}'`,
+      });
+      if (transition.powerMilliWatts < asset.power.idleMilliWatts) issues.push({
+        path: `${transitionPath}/powerMilliWatts`, code: "production.changeover-power",
+        message: `Changeover power ${transition.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
+      });
+    }
     if (asset.production?.maintenance && asset.production.maintenance.powerMilliWatts < asset.power.idleMilliWatts) issues.push({
       path: `assets/devices/${id}/asset.json/production/maintenance/powerMilliWatts`, code: "production.maintenance-power",
       message: `Maintenance power ${asset.production.maintenance.powerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
@@ -641,10 +667,13 @@ function compilePowerGrids(devices: Record<string, CompiledDevice>): Record<stri
     grid.members.push(device.id);
     grid.productionMilliWatts += device.assetDef.power.generation?.outputMilliWatts ?? 0;
     grid.idleConsumptionMilliWatts += device.assetDef.power.idleMilliWatts;
+    const maximumChangeoverPower = Math.max(0, ...(device.assetDef.production?.changeover?.transitions ?? [])
+      .map((transition) => transition.powerMilliWatts));
     grid.ratedConsumptionMilliWatts += device.processPlans.length
       ? Math.max(device.assetDef.production?.maintenance?.powerMilliWatts ?? 0,
         device.assetDef.production?.maintenance?.qualification.powerMilliWatts ?? 0,
-        ...device.processPlans.map((plan) => Math.max(maximumDriftPower(device.assetDef, plan.powerMilliWatts), plan.changeoverPowerMilliWatts ?? 0)))
+        maximumChangeoverPower,
+        ...device.processPlans.map((plan) => maximumDriftPower(device.assetDef, plan.powerMilliWatts)))
       : device.stationEnergyPlan ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan.chargeMilliWatts : device.assetDef.power.activeMilliWatts;
     if (device.storagePlan) {
       grid.storageDevices.push(device.id);
@@ -1205,10 +1234,6 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             })),
             ...(quality ? { quality } : {}),
             ...(definition.setupGroup ? { setupGroup: definition.setupGroup } : {}),
-            ...(asset.production.changeover ? {
-              changeoverDurationTicks: asset.production.changeover.durationTicks,
-              changeoverPowerMilliWatts: asset.production.changeover.powerMilliWatts,
-            } : {}),
           };
           if (asset.production.changeover && !definition.setupGroup) issues.push({
             path: `${recipePath}/process`, code: "production.setup-group-required",
@@ -1317,6 +1342,17 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       capacityMilliJoules: asset.logisticsStation.energyCapacityMilliJoules,
       chargeMilliWatts: instance.policy.stationChargeMilliWatts,
     };
+    if (asset.production?.changeover) {
+      const groups = [...new Set(processPlans.flatMap((plan) => plan.setupGroup ? [plan.setupGroup] : []))].sort();
+      const authoredInitialGroup = loaded.scenario.initialSetups?.[instance.id];
+      const initialGroup = authoredInitialGroup && groups.includes(authoredInitialGroup) ? authoredInitialGroup : null;
+      const origins: Array<string | null> = initialGroup === null ? [null, ...groups] : groups;
+      for (const from of origins) for (const to of groups) if (from !== to && !asset.production.changeover.transitions.some((transition) =>
+        transition.from === from && transition.to === to)) issues.push({
+        path: `${path}/recipes`, code: "production.changeover-transition-missing",
+        message: `Device '${instance.id}' requires directed changeover transition '${from ?? "<unconfigured>"}->${to}'`,
+      });
+    }
     if (instance.policy?.setupCampaign) {
       const campaignPath = `${path}/policy/setupCampaign`;
       if (!asset.production?.changeover) issues.push({

@@ -126,8 +126,32 @@
       }
     ],
     "changeover": {
-      "durationTicks": 3000,
-      "powerMilliWatts": 180000
+      "transitions": [
+        {
+          "from": null,
+          "to": "commercial-screen",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": null,
+          "to": "reliability-screen",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "commercial-screen",
+          "to": "reliability-screen",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "reliability-screen",
+          "to": "commercial-screen",
+          "durationTicks": 8000,
+          "powerMilliWatts": 180000
+        }
+      ]
     }
   },
   "runtime": {

@@ -177,6 +177,9 @@ async function loadStudioData(projectId: string, runName?: string) {
       powerPriority: device.policy?.powerPriority ?? 0,
       recipeDispatch: device.policy?.recipeDispatch ?? "authored-order",
       lotDispatch: device.policy?.lotDispatch ?? "fifo",
+      ...(device.assetDef.production?.changeover ? {
+        changeoverTransitions: device.assetDef.production.changeover.transitions.map((transition) => ({ ...transition })),
+      } : {}),
       ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
       ...(device.policy?.batchFormation ? { batchFormation: { ...device.policy.batchFormation } } : {}),
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),
@@ -209,8 +212,6 @@ async function loadStudioData(projectId: string, runName?: string) {
         durationTicks: device.processPlan.durationTicks,
         powerMilliWatts: device.processPlan.powerMilliWatts,
         setupGroup: device.processPlan.setupGroup,
-        changeoverDurationTicks: device.processPlan.changeoverDurationTicks,
-        changeoverPowerMilliWatts: device.processPlan.changeoverPowerMilliWatts,
         ...(device.processPlan.quality?.kind === "inspection" ? { quality: {
           kind: "inspection" as const, detects: device.processPlan.quality.detects,
           rejectResource: device.processPlan.quality.rejectOutput.resource,
@@ -234,8 +235,6 @@ async function loadStudioData(projectId: string, runName?: string) {
         powerMilliWatts: plan.powerMilliWatts,
         priority: plan.priority,
         setupGroup: plan.setupGroup,
-        changeoverDurationTicks: plan.changeoverDurationTicks,
-        changeoverPowerMilliWatts: plan.changeoverPowerMilliWatts,
         ...(plan.quality?.kind === "inspection" ? { quality: {
           kind: "inspection" as const, detects: plan.quality.detects,
           rejectResource: plan.quality.rejectOutput.resource,

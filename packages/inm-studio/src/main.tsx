@@ -42,7 +42,7 @@ interface ProjectIndex {
 
 interface DeviceRecipe {
   process: string; mode: string; modeName: string; durationTicks: number; powerMilliWatts: number; priority?: number;
-  setupGroup?: string; changeoverDurationTicks?: number; changeoverPowerMilliWatts?: number;
+  setupGroup?: string;
   inputs: Array<{ resource: string; buffer: string; count: number; minimumTreatmentLevel?: number }>;
   tooling: Array<{ resource: string; count: number }>;
   toolingProviders: Array<{ device: string; distance: number }>;
@@ -60,6 +60,7 @@ interface Device {
   powerPriority: number;
   recipeDispatch: string;
   lotDispatch: string;
+  changeoverTransitions?: Array<{ from: string | null; to: string; durationTicks: number; powerMilliWatts: number }>;
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
   batchFormation?: { preferredProcess: string; maximumWaitTicks: number };
   preventiveMaintenance?: { minimumJobs: number };
@@ -113,7 +114,7 @@ interface DeviceCatalogAsset {
       auxiliaryInputs: Array<{ resource: string; count: number; port: string }>;
       minimumInputTreatmentLevel: number;
     }>;
-    changeover?: { durationTicks: number; powerMilliWatts: number };
+    changeover?: { transitions: Array<{ from: string | null; to: string; durationTicks: number; powerMilliWatts: number }> };
     maintenance?: {
       maximumJobs: number; durationTicks: number; powerMilliWatts: number;
       service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> };
@@ -383,7 +384,7 @@ interface IndustrialAnalysis {
   opaqueDevices: number;
   devices: Array<{
     device: string; asset: string; process: string; mode: string; inputCycles: number; outputCycles: number; minimumInputTreatmentLevel: number; category: string; cycleTicks: number; cyclesPerMinute: number;
-    setupGroup?: string; changeoverDurationTicks?: number; changeoverPowerMilliWatts?: number;
+    setupGroup?: string; changeoverTransitions?: Array<{ from: string | null; to: string; durationTicks: number; powerMilliWatts: number }>;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
     inputPorts: Record<string, string>; outputPorts: Record<string, string>; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number;
   }>;
@@ -879,6 +880,8 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>IDLE → ACTIVE POWER</small><b>{(idlePowerMilliWatts / 1000).toFixed(1)} → {(powerMilliWatts / 1000).toFixed(1)} W</b></span>
         {setup && <span><small>FINAL SETUP</small><b>{setup.group ?? "UNCONFIGURED"}</b></span>}
         {setup && <span><small>CHANGEOVERS</small><b>{setup.changeovers} · {formatTick(setup.setupTicks)}</b></span>}
+        {device.changeoverTransitions && <span><small>CHANGEOVER MATRIX</small><b>{device.changeoverTransitions.map((transition) =>
+          `${transition.from ?? "UNCONFIGURED"}→${transition.to} ${formatTick(transition.durationTicks)} @ ${(transition.powerMilliWatts / 1000).toFixed(0)} W`).join(" · ")}</b></span>}
         {device.setupCampaign && <span><small>SETUP CAMPAIGN</small><b>{device.setupCampaign.minimumReadyLots} LOTS · {formatTick(device.setupCampaign.maximumHoldTicks)} MAX</b></span>}
         {setup && <span><small>CAMPAIGN HOLDS</small><b>{setup.campaignHolds} · {formatTick(setup.campaignHoldTicks)}</b></span>}
         {device.batchFormation && <span><small>PREFERRED BATCH</small><b>{device.batchFormation.preferredProcess} · {formatTick(device.batchFormation.maximumWaitTicks)} MAX WAIT</b></span>}
@@ -1073,7 +1076,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>ACTIVE POWER</label><strong>{(selected.power.activeMilliWatts / 1000).toFixed(1)} W</strong></div>
               </div>
               <section className="asset-section"><h4>Capabilities</h4><div className="capability-row">{selected.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div></section>
-              {selected.production && <section className="asset-section"><h4>Equipment qualification</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputPorts.join(" + ")} → {selected.production.outputPorts.join(" + ")}</strong><span>{selected.production.changeover ? `${selected.production.changeover.durationTicks} ms changeover` : "physical ports"}</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}× speed{selected.production.changeover ? ` · ${(selected.production.changeover.powerMilliWatts / 1000).toFixed(1)} W setup` : ""}</code></div>{selected.production.processes.map((processId) => { const process = data.assets.processes.find((item) => item.id === processId); return <div key={processId}><b>QUALIFIED PROCESS</b><strong>{process?.name ?? processId}</strong><span>{process?.category ?? "unknown category"}{process ? ` · ${(process.durationTicks / 1000).toFixed(1)} s` : ""}</span><code>{processId}</code></div>; })}{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.minimumInputTreatmentLevel ? `all process inputs @${mode.minimumInputTreatmentLevel}+` : mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.port}`).join(" · ") || "untreated inputs"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
+              {selected.production && <section className="asset-section"><h4>Equipment qualification</h4><div className="asset-table"><div><b>{selected.production.categories.join(", ")}</b><strong>{selected.production.inputPorts.join(" + ")} → {selected.production.outputPorts.join(" + ")}</strong><span>{selected.production.changeover ? `${selected.production.changeover.transitions.length} directed changeovers` : "physical ports"}</span><code>{selected.production.speed.numerator}/{selected.production.speed.denominator}× speed{selected.production.changeover ? ` · ${Math.min(...selected.production.changeover.transitions.map((transition) => transition.durationTicks))}-${Math.max(...selected.production.changeover.transitions.map((transition) => transition.durationTicks))} ms matrix` : ""}</code></div>{selected.production.processes.map((processId) => { const process = data.assets.processes.find((item) => item.id === processId); return <div key={processId}><b>QUALIFIED PROCESS</b><strong>{process?.name ?? processId}</strong><span>{process?.category ?? "unknown category"}{process ? ` · ${(process.durationTicks / 1000).toFixed(1)} s` : ""}</span><code>{processId}</code></div>; })}{selected.production.modes.map((mode) => <div key={mode.id}><b>{mode.name}</b><strong>{mode.inputCycles}× input → {mode.outputCycles}× output</strong><span>{mode.minimumInputTreatmentLevel ? `all process inputs @${mode.minimumInputTreatmentLevel}+` : mode.auxiliaryInputs.map((input) => `+${input.count} ${input.resource} @ ${input.port}`).join(" · ") || "untreated inputs"}</span><code>{mode.durationMultiplier.numerator}/{mode.durationMultiplier.denominator} time · {mode.powerMultiplier.numerator}/{mode.powerMultiplier.denominator} power</code></div>)}</div></section>}
               {selected.production?.maintenance && <section className="asset-section"><h4>Usage drift & maintenance</h4><div className="asset-table"><div><b>MANDATORY AFTER {selected.production.maintenance.maximumJobs} JOBS</b><strong>{formatTick(selected.production.maintenance.durationTicks)} service + {formatTick(selected.production.maintenance.qualification.durationTicks)} qualification</strong><span>usage state resets only after qualification</span><code>{(selected.production.maintenance.powerMilliWatts / 1000).toFixed(1)} W → {(selected.production.maintenance.qualification.powerMilliWatts / 1000).toFixed(1)} W</code></div>{(selected.production.maintenance.drift ?? []).map((stage) => <div key={stage.afterJobs}><b>AFTER {stage.afterJobs} JOBS</b><strong>{stage.durationMultiplier.numerator}/{stage.durationMultiplier.denominator}× time · {stage.powerMultiplier.numerator}/{stage.powerMultiplier.denominator}× power</strong><span>{stage.defects.length ? stage.defects.join(" · ") : "no defect injection"}</span><code>active until equipment release</code></div>)}</div></section>}
               {selected.production?.maintenance && <section className="asset-section"><h4>Maintenance & qualification contracts</h4><div className="asset-table"><div><b>SERVICE · {selected.production.maintenance.service.crews}× {selected.production.maintenance.service.skill}</b><strong>{selected.production.maintenance.service.inputs.map((input) => `${input.count} ${input.resource}`).join(" + ") || "no consumables"}</strong><span>allocated for complete physical service</span><code>shared provider capacity</code></div><div><b>QUALIFICATION · {selected.production.maintenance.qualification.service.crews}× {selected.production.maintenance.qualification.service.skill}</b><strong>{selected.production.maintenance.qualification.service.inputs.map((input) => `${input.count} ${input.resource}`).join(" + ") || "no consumables"}</strong><span>{formatTick(selected.production.maintenance.qualification.durationTicks)} before production release</span><code>{(selected.production.maintenance.qualification.powerMilliWatts / 1000).toFixed(1)} W</code></div></div></section>}
               {selected.maintenanceProvider && <section className="asset-section"><h4>Maintenance provider</h4><div className="asset-table"><div><b>{selected.maintenanceProvider.crews} SHARED CREW</b><strong>{selected.maintenanceProvider.skills.join(" / ")}</strong><span>service radius {selected.maintenanceProvider.serviceRadius}</span><code>inventory @ {selected.maintenanceProvider.inventoryBuffer}</code></div></div></section>}

@@ -180,6 +180,14 @@ export interface MaterialTreatmentModeDefinition {
   agent: { resource: ResourceId; count: number };
 }
 
+export interface EquipmentChangeoverTransition {
+  /** Null is the unconfigured equipment state before its first qualified setup. */
+  from: string | null;
+  to: string;
+  durationTicks: Tick;
+  powerMilliWatts: number;
+}
+
 export interface DeviceAssetManifest {
   assetVersion: 1;
   type: "device";
@@ -202,8 +210,8 @@ export interface DeviceAssetManifest {
     inputPorts: PortId[];
     outputPorts: PortId[];
     modes: ProductionModeDefinition[];
-    /** Fixed equipment work required before executing a different Process setupGroup. */
-    changeover?: { durationTicks: Tick; powerMilliWatts: number };
+    /** Directed physical setup work between Process setup groups. */
+    changeover?: { transitions: EquipmentChangeoverTransition[] };
     /** Evaluator-owned usage limit, deterministic process drift, and fixed physical restoration work. */
     maintenance?: {
       maximumJobs: number;
@@ -706,8 +714,6 @@ export interface CompiledDevice extends BlueprintDevice {
       }
       | { kind: "rework"; repairs: string[] };
     setupGroup?: string;
-    changeoverDurationTicks?: Tick;
-    changeoverPowerMilliWatts?: number;
   };
   /** One entry per qualified operation. A singleton also appears as processPlan. */
   processPlans: Array<NonNullable<CompiledDevice["processPlan"]>>;
@@ -1170,8 +1176,8 @@ export type FactoryEvent =
   | { type: "lot.route-advanced"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; fromStep: string; process: ProcessId; outputResource: ResourceId; toStep: string | null; terminal: "complete" | "scrap" | null; visit: number; reentrant: boolean }
   | { type: "lot.route-terminated"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; fromStep: string; process: ProcessId; inputResource: ResourceId; terminal: "complete" | "scrap" }
   | { type: "lot.queue-time-violation"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; step: string; process: ProcessId; queueTicks: Tick; maximumTicks: Tick; defects: string[] }
-  | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
-  | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
+  | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick; powerMilliWatts: number }
+  | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick; powerMilliWatts: number }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
   | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; phase: "service" | "qualification"; cause: "mandatory" | "opportunistic"; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
   | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }

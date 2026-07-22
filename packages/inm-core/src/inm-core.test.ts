@@ -1212,6 +1212,12 @@ describe("blueprint compiler", () => {
     expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 3, totalSetupTicks: 10_000 }));
     expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(3);
     expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(3);
+    expect(baselineProject.devices["lithography-1"]!.assetDef.production!.changeover!.transitions).toEqual([
+      { from: null, to: "photo-mask-l1", durationTicks: 4_000, powerMilliWatts: 180_000 },
+      { from: null, to: "photo-mask-l2", durationTicks: 4_000, powerMilliWatts: 180_000 },
+      { from: "photo-mask-l1", to: "photo-mask-l2", durationTicks: 4_000, powerMilliWatts: 180_000 },
+      { from: "photo-mask-l2", to: "photo-mask-l1", durationTicks: 45_000, powerMilliWatts: 180_000 },
+    ]);
     expect(baseline.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 7, totalMandatory: 7, totalOpportunistic: 0, totalMaintenanceTicks: 74_000,
       totalQualificationCompleted: 7, totalQualificationTicks: 24_000,
@@ -1308,10 +1314,10 @@ describe("blueprint compiler", () => {
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
       control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
       dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
-      released: 11, pending: 1, controlBlockedLots: 7, controlBlockedTicks: 702_600, capacityBlockedLots: 0,
+      released: 8, pending: 4, controlBlockedLots: 7, controlBlockedTicks: 911_700, capacityBlockedLots: 0,
     }));
-    expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
-    expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(2);
+    expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(2);
+    expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(1);
     expect(controlled.events.filter((event) => event.type === "lot.release-control-opened").every((event) => event.type === "lot.release-control-opened" && event.cause === "reopen-threshold")).toBeTrue();
     expect(controlled.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.releaseControl === "conwip" && event.activeWipBeforeRelease < 5)).toBeTrue();
     expect(controlled.events.filter((event) => event.type === "lot.released" && event.tick === 95_900).map((event) => event.type === "lot.released" ? event.lot : "")).toEqual([
@@ -1324,9 +1330,9 @@ describe("blueprint compiler", () => {
     };
     const serviceProtected = runUntil(compileFactoryProject(serviceProtectedSource), undefined, { seed: 42 });
     expect(serviceProtected.metrics.releaseFlow).toEqual(expect.objectContaining({
-      maximumWip: 5, maximumReleaseDelayPolicyTicks: 24_000, peakActiveLots: 5, serviceLevelOpenings: 7,
+      maximumWip: 5, maximumReleaseDelayPolicyTicks: 24_000, peakActiveLots: 5, serviceLevelOpenings: 4,
     }));
-    expect(serviceProtected.events.filter((event) => event.type === "lot.release-control-opened" && event.cause === "maximum-release-delay")).toHaveLength(7);
+    expect(serviceProtected.events.filter((event) => event.type === "lot.release-control-opened" && event.cause === "maximum-release-delay")).toHaveLength(4);
     expect(serviceProtected.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.activeWipBeforeRelease < 5)).toBeTrue();
 
     const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
@@ -1367,6 +1373,32 @@ describe("blueprint compiler", () => {
     const nonProductionRouteDispatch = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     nonProductionRouteDispatch.blueprint.devices.find((device) => device.id === "lot-release")!.policy = { recipeDispatch: "least-slack" };
     expect(issueCodes(() => compileFactoryProject(nonProductionRouteDispatch))).toContain("production.route-dispatch-tracking-required");
+
+    const directedChangeoverSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
+    directedChangeoverSource.scenario.lotReleases!.forEach((lot, index) => { lot.dueTick = 180_000 + index * 1_000; });
+    directedChangeoverSource.blueprint.devices.find((item) => item.id === "furnace-1")!.recipe!.process = "rapid-anneal-dielectric-stack";
+    for (const id of ["lithography-1", "etch-1"]) {
+      const device = directedChangeoverSource.blueprint.devices.find((item) => item.id === id)!;
+      device.policy = { ...device.policy, recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
+    }
+    const directedChangeover = runUntil(compileFactoryProject(directedChangeoverSource), undefined, { seed: 42 });
+    expect(directedChangeover.events).toContainEqual(expect.objectContaining({
+      type: "device.changeover-start", device: "lithography-1", from: "photo-mask-l2", to: "photo-mask-l1",
+      durationTicks: 45_000, powerMilliWatts: 180_000,
+    }));
+    expect(directedChangeover.events).toContainEqual(expect.objectContaining({
+      type: "device.changeover-start", device: "etch-1", from: "etch-recipe-l2", to: "etch-recipe-l1",
+      durationTicks: 35_000, powerMilliWatts: 180_000,
+    }));
+
+    const missingChangeover = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    missingChangeover.deviceAssets["lithography-bay"]!.production!.changeover!.transitions.pop();
+    expect(issueCodes(() => compileFactoryProject(missingChangeover))).toContain("production.changeover-transition-missing");
+    const duplicateChangeover = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    duplicateChangeover.deviceAssets["lithography-bay"]!.production!.changeover!.transitions.push({
+      ...duplicateChangeover.deviceAssets["lithography-bay"]!.production!.changeover!.transitions[0]!,
+    });
+    expect(issueCodes(() => compileFactoryProject(duplicateChangeover))).toContain("production.changeover-transition-duplicate");
 
     const boundedBatchSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
     boundedBatchSource.scenario.lotReleases = boundedBatchSource.scenario.lotReleases!.slice(0, 11);

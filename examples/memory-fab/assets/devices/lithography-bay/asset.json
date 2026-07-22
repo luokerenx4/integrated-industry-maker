@@ -109,8 +109,32 @@
       }
     ],
     "changeover": {
-      "durationTicks": 4000,
-      "powerMilliWatts": 180000
+      "transitions": [
+        {
+          "from": null,
+          "to": "photo-mask-l1",
+          "durationTicks": 4000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": null,
+          "to": "photo-mask-l2",
+          "durationTicks": 4000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "photo-mask-l1",
+          "to": "photo-mask-l2",
+          "durationTicks": 4000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "photo-mask-l2",
+          "to": "photo-mask-l1",
+          "durationTicks": 45000,
+          "powerMilliWatts": 180000
+        }
+      ]
     },
     "maintenance": {
       "maximumJobs": 8,

@@ -94,7 +94,11 @@ export const deviceAssetSchema = z.object({
       auxiliaryInputs: z.array(z.object({ resource: id, count: positiveInt, port: id }).strict()),
       minimumInputTreatmentLevel: nonNegativeInt,
     }).strict()).min(1),
-    changeover: z.object({ durationTicks: positiveInt, powerMilliWatts: nonNegativeInt }).strict().optional(),
+    changeover: z.object({
+      transitions: z.array(z.object({
+        from: z.union([id, z.null()]), to: id, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
+      }).strict()).min(1),
+    }).strict().optional(),
     maintenance: z.object({
       maximumJobs: positiveInt, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
       service: z.object({

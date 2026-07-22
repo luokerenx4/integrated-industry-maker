@@ -1660,16 +1660,20 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(deadlineTick, 3, { kind: "campaign-timeout", device: device.id, targetGroup: selected.setupGroup, deadlineTick });
     return { held: true, changed: true };
   };
+  const changeoverTransition = (device: CompiledDevice, from: string | null, to: string) =>
+    device.assetDef.production?.changeover?.transitions.find((transition) => transition.from === from && transition.to === to);
   const requiresChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
     const setup = state.devices[device.id]!.setup;
-    return Boolean(setup && plan.setupGroup && plan.changeoverDurationTicks !== undefined && plan.changeoverPowerMilliWatts !== undefined
-      && setup.group !== plan.setupGroup && processPlanReady(device, plan));
+    return Boolean(setup && plan.setupGroup && setup.group !== plan.setupGroup
+      && changeoverTransition(device, setup.group, plan.setupGroup) && processPlanReady(device, plan));
   };
   const tryStartChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
     const runtime = state.devices[device.id]!;
     const setup = runtime.setup;
-    if (!setup || !plan.setupGroup || plan.changeoverDurationTicks === undefined || plan.changeoverPowerMilliWatts === undefined) return false;
-    const required = plan.changeoverPowerMilliWatts;
+    if (!setup || !plan.setupGroup) return false;
+    const transition = changeoverTransition(device, setup.group, plan.setupGroup);
+    if (!transition) return false;
+    const required = transition.powerMilliWatts;
     const grid = device.powerGrid ?? null;
     const available = grid ? availablePower(grid) - activePower(grid) : 0;
     if (!canStartPoweredWork(device, required)) {
@@ -1685,8 +1689,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const job = {
       operation: `changeover:${setup.group ?? "unconfigured"}->${plan.setupGroup}`,
       startedAt: state.tick,
-      durationTicks: plan.changeoverDurationTicks,
-      remainingTicks: plan.changeoverDurationTicks,
+      durationTicks: transition.durationTicks,
+      remainingTicks: transition.durationTicks,
       workedTicks: 0,
       resumedAt: state.tick,
       powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
@@ -1696,8 +1700,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     };
     setStatus(device.id, "processing");
     mutateFactoryState(state, { kind: "job.start", device: device.id, job });
-    emit({ type: "device.changeover-start", tick: state.tick, device: device.id, ...changeover, durationTicks: plan.changeoverDurationTicks });
-    schedule(state.tick + plan.changeoverDurationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+    emit({
+      type: "device.changeover-start", tick: state.tick, device: device.id, ...changeover,
+      durationTicks: transition.durationTicks, powerMilliWatts: transition.powerMilliWatts,
+    });
+    schedule(state.tick + transition.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
   const maintenanceCause = (device: CompiledDevice, opportunistic: boolean): "mandatory" | "opportunistic" | null => {
@@ -2315,7 +2322,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         mutateFactoryState(state, { kind: "job.finish", device: event.device });
         emit({
           type: "device.changeover-finish", tick: state.tick, device: event.device,
-          ...job.changeover, durationTicks: job.durationTicks,
+          ...job.changeover, durationTicks: job.durationTicks, powerMilliWatts: job.powerMilliWatts,
         });
       } else {
       if (job.utilities?.length) {

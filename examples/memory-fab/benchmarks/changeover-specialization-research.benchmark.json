@@ -2,38 +2,38 @@
   "acceptance": {
     "maximumCaseScoreRegression": 0,
     "minimumAggregateScoreDelta": 0.001,
-    "requireCandidateCapacityReady": false
+    "requireCandidateCapacityReady": true
   },
-  "baselineBlueprint": "baseline",
-  "candidateBlueprint": "batch-flex",
+  "baselineBlueprint": "tool-search-seed",
+  "candidateBlueprint": "changeover-specialized",
   "cases": [
     {
-      "id": "incomplete-tail",
-      "name": "Eleven-lot production tail",
+      "id": "changeover-pressure",
+      "name": "Directed mask and etch cleanup pressure",
       "objective": "dram-output",
-      "scenario": "batch-tail",
+      "scenario": "changeover-pressure",
       "seed": 42,
       "weight": 1,
       "world": "cleanroom"
     }
   ],
-  "id": "batch-formation-research",
+  "id": "changeover-specialization-research",
   "lock": {
     "cases": {
-      "incomplete-tail": {
-        "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
+      "changeover-pressure": {
+        "blueprintHash": "d6d0e86c9a117449019ac833b251c18fa74473be64d7e8699b1a89709f47b797",
         "deviceCatalogHash": "e46fa5fb14351bf083a3311f520ec97e5b298db0a2cf6664cc4bc631f1a82a65",
         "engineVersion": "inm-sim/0.71.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
         "routeCatalogHash": "a02c853df7b9855e2aa4f3c64dd6a4bcab305bc2bca6622feedc4a9dca30061d",
-        "scenarioHash": "ccdb119ae7e4dc409e83c3c0bce7539bc7390098c6dcadd3ea97d1ac3cb2990f",
+        "scenarioHash": "ad5993e6cc1d59f10109a65113b228b5e70bf057dc4479a1235914d777b91d5b",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "1f73d71120969dfb33687fb616fe6b91fd12c6f4468a5c7c7cbebf48c3211017"
+    "contractHash": "eb4408810e2dd2cd49eb7146c8cfd709b112bfd7106d47d554347db733dc9a81"
   },
-  "name": "DRAM Bounded Furnace Batch Research",
+  "name": "DRAM Directed Changeover Specialization Research",
   "version": 1
 }

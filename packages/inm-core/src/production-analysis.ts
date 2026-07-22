@@ -1,4 +1,4 @@
-import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, IndustrialProcess, PowerAllocationPolicy, ProcessAmount, ProcessUtilityDemand, ResourceId } from "./types";
+import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, EquipmentChangeoverTransition, IndustrialProcess, PowerAllocationPolicy, ProcessAmount, ProcessUtilityDemand, ResourceId } from "./types";
 import {
   connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile,
   type ConnectionDispatchProfile, type StationDispatchProfile,
@@ -32,8 +32,7 @@ export interface DeviceProductionRate {
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
   setupGroup?: string;
-  changeoverDurationTicks?: number;
-  changeoverPowerMilliWatts?: number;
+  changeoverTransitions?: EquipmentChangeoverTransition[];
   maintenanceMaximumJobs?: number;
   maintenanceDurationTicks?: number;
   maintenancePowerMilliWatts?: number;
@@ -451,8 +450,9 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
         powerMilliWatts: processPlan.powerMilliWatts,
         ...(processPlan.setupGroup ? { setupGroup: processPlan.setupGroup } : {}),
-        ...(processPlan.changeoverDurationTicks === undefined ? {} : { changeoverDurationTicks: processPlan.changeoverDurationTicks }),
-        ...(processPlan.changeoverPowerMilliWatts === undefined ? {} : { changeoverPowerMilliWatts: processPlan.changeoverPowerMilliWatts }),
+        ...(device.assetDef.production?.changeover ? {
+          changeoverTransitions: device.assetDef.production.changeover.transitions.map((transition) => ({ ...transition })),
+        } : {}),
         ...(device.assetDef.production?.maintenance ? {
           maintenanceMaximumJobs: device.assetDef.production.maintenance.maximumJobs,
           maintenanceDurationTicks: device.assetDef.production.maintenance.durationTicks,
@@ -727,9 +727,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       occupiedArea: device.footprint.width * device.footprint.height,
     }));
   for (const device of Object.values(project.devices).filter((item) => item.processPlans.length > 1).sort((a, b) => a.id.localeCompare(b.id))) {
+    const changeoverDurations = device.assetDef.production?.changeover?.transitions.map((transition) => transition.durationTicks) ?? [];
     diagnostics.push({
       code: "shared-work-center", severity: "info", device: device.id,
-      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${device.assetDef.production?.changeover ? ` with ${device.assetDef.production.changeover.durationTicks} ms sequence-dependent changeovers` : ""}${device.policy?.setupCampaign ? ` and setup campaigns of ${device.policy.setupCampaign.minimumReadyLots} ready lots / ${(device.policy.setupCampaign.maximumHoldTicks / 1000).toFixed(3)} s maximum hold` : ""}; per-operation rates are exclusive maxima`,
+      message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${changeoverDurations.length ? ` with a directed ${Math.min(...changeoverDurations)}-${Math.max(...changeoverDurations)} ms changeover matrix` : ""}${device.policy?.setupCampaign ? ` and setup campaigns of ${device.policy.setupCampaign.minimumReadyLots} ready lots / ${(device.policy.setupCampaign.maximumHoldTicks / 1000).toFixed(3)} s maximum hold` : ""}; per-operation rates are exclusive maxima`,
     });
   }
   const releaseTicks = (project.scenario.lotReleases ?? []).map((lot) => lot.releaseTick).sort((a, b) => a - b);

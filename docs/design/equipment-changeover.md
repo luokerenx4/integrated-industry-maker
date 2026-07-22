@@ -1,6 +1,6 @@
 # Sequence-dependent equipment changeover
 
-Status: explicit setup groups, powered changeover jobs, bounded setup campaigns, setup-aware dispatch, failure cancellation, metrics, and replay implemented in engine version `inm-sim/0.55.0`.
+Status: explicit setup groups, directed transition matrices, powered changeover jobs, bounded setup campaigns, setup-aware dispatch, failure cancellation, metrics, and replay implemented through engine version `inm-sim/0.71.0`.
 
 Related: [[docs/design/work-center-dispatch]], [[docs/design/setup-campaign-control]], [[docs/design/lot-tracking]], [[docs/design/quality-flow]], [[docs/design/production-modes]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
@@ -8,19 +8,19 @@ Related: [[docs/design/work-center-dispatch]], [[docs/design/setup-campaign-cont
 
 Shared semiconductor equipment does not move freely between qualified operations. A lithography bay changes masks and recipe state; an etch chamber changes process conditions and may require preparation. Hiding that work inside every Process cycle makes sequencing irrelevant and prevents a Blueprint optimizer from trading due-date urgency against equipment stability.
 
-INM therefore separates productive work from sequence-dependent setup. A Process may declare `setupGroup`. A production Device asset may declare one fixed `production.changeover` envelope containing duration and total active power. When the next ready operation has a different group from the Device's current group, the host runs a non-productive changeover job before exposing the productive operation to the Device program.
+INM therefore separates productive work from sequence-dependent setup. A Process may declare `setupGroup`. A production Device asset may declare `production.changeover.transitions`, a directed matrix whose rows independently own `from`, `to`, duration, and total active power. `from: null` represents commissioning from an unconfigured state. When the next ready operation has a different group from the Device's current group, the host runs that exact non-productive transition before exposing the productive operation to the Device program.
 
 ## Fixed model versus editable Blueprint
 
 The benchmark-owned industrial model fixes:
 
 - each Process setup group;
-- the Device asset's changeover duration and power;
+- every directed Device transition's duration and power;
 - the Scenario's tick-zero setup state.
 
 The Blueprint may change operation qualification, equipment count, operation order, `recipeDispatch`, and `lotDispatch`. It cannot edit setup physics. This preserves the same boundary as the autoresearch loop: the candidate is editable code, while the workload and evaluator remain fixed.
 
-`Scenario.initialSetups` maps a Device instance to one of its qualified setup groups. Omission means physically unconfigured, so the first ready operation also requires changeover work. The compiler rejects initial state on a Device without a changeover envelope and rejects groups outside that instance's qualified operations.
+`Scenario.initialSetups` maps a Device instance to one of its qualified setup groups. Omission means physically unconfigured, so the first ready operation requires an explicit `null → target` transition. The compiler rejects initial state on a Device without changeover work and rejects groups outside that instance's qualified operations. It also rejects duplicate or self-directed rows, unknown setup groups, transition power below connected standby, and any directed edge required by the selected Blueprint qualifications but absent from the asset. There is no symmetric or default fallback.
 
 ## Runtime semantics
 
@@ -34,7 +34,7 @@ The changeover job:
 - produces no material and does not increment route steps;
 - atomically updates the Device setup group only on successful completion.
 
-An equipment breakdown cancels an active changeover without changing setup state or scrapping queued lots. Recovery may start the changeover again. `device.changeover-start`, `device.changeover-finish`, and `device.changeover-cancelled` make all three outcomes replayable.
+An equipment breakdown cancels an active changeover without changing setup state or scrapping queued lots. Recovery may start the same directed transition again. `device.changeover-start` and `device.changeover-finish` expose the selected direction, duration, and power; `device.changeover-cancelled` preserves its endpoints. All three outcomes are replayable.
 
 ## Setup-aware dispatch
 
@@ -50,17 +50,15 @@ An optional Objective `weights.changeovers` penalty applies once per completed c
 
 ## Static-analysis boundary
 
-Per-operation rates remain exclusive no-changeover maxima. `inm analyze` shows setup group and changeover envelope and emits the shared-work-center diagnostic, but it does not pretend to derive a sequence-dependent effective rate without a schedule. Event simulation is authoritative for setup-sensitive capacity.
+Per-operation rates remain exclusive no-changeover maxima. `inm analyze` shows each setup group and the Device's directed duration range and emits the shared-work-center diagnostic, but it does not pretend to derive a sequence-dependent effective rate without a schedule. Studio exposes the complete matrix on the asset and Device inspector. Event simulation is authoritative for setup-sensitive capacity.
 
 ## Memory-fab evidence
 
-The memory-fab lithography bay has separate layer-1 and layer-2 mask groups with a four-second changeover; the etch bay has separate layer recipes with a three-second changeover. Both begin configured for layer 1. The fixed benchmark demonstrates three useful points:
+The memory-fab lithography bay uses four seconds for layer 1 → layer 2 and forty-five seconds for the reverse mask/reset cleanup. Etch uses three seconds forward and thirty-five seconds in reverse. Both shared tools begin configured for layer 1; newly placed dedicated tools commission in their selected group through explicit four- and three-second null transitions.
 
-- authored operation order/FIFO finishes with two changeovers;
-- operation-level earliest-due-date improves service but causes repeated physical reconfiguration;
-- `minimize-changeover` plus lot-level earliest-due-date preserves the two-changeover schedule while reducing tardiness inside each setup campaign.
+The focused `changeover-specialization-research` workload fixes due dates that make urgency-first shared tools cross those directed boundaries repeatedly. The shared baseline performs seven changes and 97 seconds of setup work. A candidate Blueprint purchases dedicated layer-2 lithography and etch equipment, physically splits the material lanes, and adds the facility capacity required for real concurrency. It performs five commissioning/forward changes and 21 seconds of setup work, raises completed lots from 4 to 10 and delivered devices from 24 to 56, and improves the locked score by `+51.290851`. This is a capital/layout optimization, not a scheduler exemption: every added tool, sorter, belt cell, utility plant, setup state, cost, area, power draw, maintenance contract, and qualification remains explicit.
 
-These are synthetic timings and not a proprietary DRAM recipe. Their purpose is to make the industrial scheduling structure executable and optimizable.
+These are synthetic timings and not a proprietary DRAM recipe. Their purpose is to make directional cleaning/setup structure executable and optimizable.
 
 ## Verification
 
@@ -70,6 +68,7 @@ bun run inm validate examples/memory-fab
 bun run inm analyze examples/memory-fab
 bun run inm test examples/memory-fab
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
+bun run inm benchmark examples/memory-fab --benchmark changeover-specialization-research
 ```
 
-Tests cover setup compilation, Scenario qualification, successful changeover, setup-aware dispatch, power-accounted runtime metrics, breakdown cancellation without lot scrap, and the memory-fab optimization path.
+Tests cover matrix validation and coverage, Scenario qualification, asymmetric forward/reverse execution, setup-aware dispatch, power-accounted runtime metrics, breakdown cancellation without lot scrap, and both memory-fab optimization paths.

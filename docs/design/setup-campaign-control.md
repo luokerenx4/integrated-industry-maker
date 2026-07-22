@@ -8,7 +8,7 @@ Related: [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeove
 
 An urgency rule chooses the best ready wafer lot now. A campaign rule decides whether changing the physical equipment state now is worth fragmenting a mask or recipe run. Those are different control questions. A semiconductor work center may keep its current setup while the next recipe family accumulates WIP, but an unbounded wait can starve hot lots and destroy delivery service.
 
-INM keeps the physical setup group and fixed changeover duration/power in benchmark-owned Process and Device assets. The candidate Blueprint owns only the operating rule:
+INM keeps the physical setup group and directed transition-specific changeover duration/power in benchmark-owned Process and Device assets. The candidate Blueprint owns only the operating rule:
 
 ```json
 "policy": {

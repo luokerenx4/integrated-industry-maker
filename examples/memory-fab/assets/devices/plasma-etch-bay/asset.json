@@ -109,8 +109,32 @@
       }
     ],
     "changeover": {
-      "durationTicks": 3000,
-      "powerMilliWatts": 180000
+      "transitions": [
+        {
+          "from": null,
+          "to": "etch-recipe-l1",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": null,
+          "to": "etch-recipe-l2",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "etch-recipe-l1",
+          "to": "etch-recipe-l2",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "etch-recipe-l2",
+          "to": "etch-recipe-l1",
+          "durationTicks": 35000,
+          "powerMilliWatts": 180000
+        }
+      ]
     },
     "maintenance": {
       "maximumJobs": 8,
