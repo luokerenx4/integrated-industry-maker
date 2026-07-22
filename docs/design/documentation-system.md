@@ -4,9 +4,23 @@ Status: active, pre-alpha.
 
 ## Purpose
 
-INM is being built as a long-running industrial-engine project rather than a one-off application. Design decisions must remain discoverable while the implementation evolves. `AGENTS.md` is the routing index; files in `docs/design/` are the subsystem-level source of design intent.
+INM is being built as a long-running industrial-engine project rather than a one-off application. Design decisions and current work must remain discoverable while the implementation evolves. `AGENTS.md` routes contributors to both systems: files in `docs/design/` are the subsystem-level source of design intent, while [[PLANS]] and `plans/` describe bounded work and its execution state.
 
 The high-level architecture remains in [[docs/ARCHITECTURE]]. File schemas and command contracts remain in [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. Design documents explain invariants, ownership, trade-offs, and how those public contracts are implemented.
+
+## Work plans
+
+[[PLANS]] is the authoritative status index for repository work that needs explicit coordination. Each indexed file under `plans/` owns one bounded outcome, its scope, acceptance criteria, work checklist, discoveries, verification evidence, and completion record. New plans start from [[plans/_template]].
+
+Plans and design documents answer different questions:
+
+- a plan says what outcome is being pursued, what remains, and how completion will be proved;
+- a design document says how the current system works and which invariants future changes must preserve;
+- tests provide executable evidence for both, but do not replace either explanation.
+
+A plan may begin with incomplete understanding. Update its findings and route as facts emerge. When those discoveries change lasting system behavior, update the relevant design document in the same implementation change. Completed plans remain available as concise execution records, but they are not normative: current code, tests, and active design documents win if history diverges.
+
+Use the five lifecycle states defined by [[PLANS]]: `proposed`, `active`, `paused`, `completed`, and `superseded`. A completed plan has no unchecked acceptance or work items. A superseded plan links to its replacement. Do not use `completed` or `superseded` to hide deferred work; index that work separately when it still matters.
 
 ## Link convention
 
@@ -51,6 +65,8 @@ Git history is the archive. Active documents describe only the current intended 
 
 ## Review checklist
 
+- Is non-trivial work represented by a current entry in [[PLANS]]?
+- Does the plan status match its checklist, evidence, and completion record?
 - Does every affected subsystem have an indexed design document?
 - Do the described invariants match the current types, schema, compiler, and simulator?
 - Can an engineer find the relevant tests and CLI commands from the document?

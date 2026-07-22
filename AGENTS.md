@@ -4,6 +4,20 @@ INM is a pre-alpha industrial engine. Domain correctness and a coherent model ta
 
 Use TypeScript for repository scripts and Device runtimes. Keep projects self-contained: a workspace owns project discovery only, never shared assets.
 
+## Plan workflow
+
+Read [[PLANS]] before starting non-trivial work. A plan is required when work crosses packages or public surfaces, changes a domain model, contains meaningful unknowns, or needs multiple implementation steps. Small, local fixes can proceed without one.
+
+For planned work:
+
+1. Copy [[plans/_template]] to a stable kebab-case filename and register it in the matching status section of [[PLANS]] before implementation.
+2. Treat the plan as the live coordination record. Update its work checklist, findings, decisions, verification evidence, and date as the work evolves; do not reconstruct them only at the end.
+3. Keep durable system truth in the relevant `docs/design/` document. A plan may link to design intent but must not become a second source of current invariants.
+4. Before marking the plan `completed`, audit every acceptance item against executable or manual evidence. Move the index entry to the completed section and preserve the plan as a concise record.
+5. If a plan is replaced, mark it `superseded` and link its replacement. If follow-up work remains after completion, create and index a separate plan rather than leaving unchecked work in a completed plan.
+
+Plan structure, lifecycle, and its boundary with design documentation are defined in [[docs/design/documentation-system]].
+
 ## Design map
 
 Read the relevant linked document before changing a subsystem:
@@ -41,7 +55,7 @@ Read the relevant linked document before changing a subsystem:
 
 ## Required change loop
 
-1. Read the relevant design document(s) above and identify the current invariant being changed.
+1. Read [[PLANS]], the active plan when one exists, and the relevant design document(s) above; identify the current invariant being changed.
 2. Edit source files and project-local TypeScript/JSON artifacts.
 3. Update every affected design document in the same change. If the concept has no document, create one under `docs/design/` and add its double-link entry here.
 4. Exercise the public loop: `inm validate`, `inm analyze` or `inm plan`, then `inm simulate`/`inm test` as appropriate.
