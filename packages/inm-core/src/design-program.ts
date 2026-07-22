@@ -33,6 +33,7 @@ export const designDecisionFamilySchema = z.enum([
   "maintenance",
   "batch-formation",
   "setup-campaign",
+  "facility",
 ]);
 
 const decisionFamiliesSchema = z.array(designDecisionFamilySchema).min(1).superRefine((families, context) => {

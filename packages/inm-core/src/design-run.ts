@@ -28,6 +28,7 @@ import {
   HeuristicResearchAgent,
   type ResearchBranchContext,
   type ResearchHistoryEntry,
+  type ResearchPromotionBoundary,
   type ResearchProposal,
 } from "./research";
 import { runUntil } from "./simulator";
@@ -98,7 +99,9 @@ export interface DesignRunIteration {
   hypothesis: string;
   expectedEffect?: string;
   addressedLoss?: FabLossBucketId;
+  addressedCase?: string;
   driverEvidence: DesignDriverEvidence;
+  promotionBoundary: ResearchPromotionBoundary;
   proposalHash: string;
   patch: ResearchProposal["patch"];
   candidateBlueprintHash?: string;
@@ -165,12 +168,13 @@ export type DesignRunProgress =
     scoreDelta?: number;
     candidateCapacityReady?: boolean;
   }
-  | DesignRunProgressBase & { phase: "proposal-started"; iteration: number; branch: ResearchBranchContext; driverEvidence: DesignDriverEvidence }
-  | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; branch: ResearchBranchContext; strategy: string; decisionFamily: DesignDecisionFamily; addressedLoss?: FabLossBucketId; driverEvidence: DesignDriverEvidence; proposalHash: string }
+  | DesignRunProgressBase & { phase: "proposal-started"; iteration: number; branch: ResearchBranchContext; promotionBoundary: ResearchPromotionBoundary; driverEvidence: DesignDriverEvidence }
+  | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; branch: ResearchBranchContext; promotionBoundary: ResearchPromotionBoundary; strategy: string; decisionFamily: DesignDecisionFamily; addressedLoss?: FabLossBucketId; addressedCase?: string; driverEvidence: DesignDriverEvidence; proposalHash: string }
   | DesignRunProgressBase & {
     phase: "candidate-completed";
     iteration: number;
     strategy: string;
+    addressedCase?: string;
     decision: "KEEP" | "BRANCH" | "REJECT";
     decisionEvidence?: DesignDecisionEvidence;
     frontierEvidence: DesignFrontierEvidence;
@@ -233,10 +237,13 @@ function validDesignRunIteration(value: unknown): value is DesignRunIteration {
   if (!value || typeof value !== "object") return false;
   const iteration = value as DesignRunIteration;
   return validDriverEvidence(iteration.driverEvidence)
+    && typeof iteration.promotionBoundary === "object"
     && typeof iteration.frontierEvidence === "object"
     && /^[0-9a-f]{64}$/.test(iteration.proposalHash ?? "")
     && (iteration.addressedLoss === undefined
       || iteration.driverEvidence.fabLoss?.chain.includes(iteration.addressedLoss) === true)
+    && (iteration.addressedCase === undefined
+      || iteration.promotionBoundary.guardrail?.violations.includes(iteration.addressedCase) === true)
     && (iteration.error === undefined
       ? /^[0-9a-f]{64}$/.test(iteration.candidateBlueprintHash ?? "")
         && typeof iteration.evaluation === "object"
@@ -291,6 +298,35 @@ function currentBestDecisionEvidence(
     limitingCase: limitingCase.id,
     guardrail,
     ...(basis === "benchmark-gate" ? { gateReasons: [...candidate.reasons] } : {}),
+  };
+}
+
+function promotionBoundary(
+  leader: DesignSearchNode,
+  selected: DesignSearchNode,
+  policy: DesignCurrentBestGuardrail,
+): ResearchPromotionBoundary {
+  const evidence = currentBestDecisionEvidence(leader.evaluation, selected.evaluation, policy);
+  return {
+    leaderNodeId: leader.nodeId,
+    selectedNodeId: selected.nodeId,
+    promotable: leader.nodeId === selected.nodeId,
+    aggregate: {
+      leaderScore: evidence.aggregate.previousBestScore,
+      selectedScore: evidence.aggregate.candidateScore,
+      scoreDelta: evidence.aggregate.scoreDelta,
+    },
+    cases: evidence.cases.map((item) => ({
+      id: item.id,
+      name: item.name,
+      leaderScore: item.previousBestScore,
+      selectedScore: item.candidateScore,
+      scoreDelta: item.scoreDelta,
+      maximumScoreRegression: item.maximumScoreRegression,
+      guardrailPassed: item.guardrailPassed,
+    })),
+    limitingCase: leader.nodeId === selected.nodeId ? null : evidence.limitingCase,
+    guardrail: structuredClone(evidence.guardrail),
   };
 }
 
@@ -483,6 +519,9 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
   try {
     for (const iteration of manifest.iterations) {
       const parent = state.nodes.get(state.selectionOrder[0]!)!;
+      const leader = state.nodes.get(state.leader)!;
+      const expectedPromotionBoundary = promotionBoundary(leader, parent, manifest.program.currentBestGuardrail);
+      if (stableStringify(iteration.promotionBoundary) !== stableStringify(expectedPromotionBoundary)) return false;
       if (iteration.error !== undefined) {
         const rejected = rejectedFrontierAttempt(state, "invalid-candidate");
         if (iteration.decision !== "REJECT" || stableStringify(iteration.frontierEvidence) !== stableStringify(rejected.evidence)) return false;
@@ -490,7 +529,6 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
         continue;
       }
       if (!iteration.evaluation || !iteration.decisionEvidence || !iteration.candidateBlueprintHash) return false;
-      const leader = state.nodes.get(state.leader)!;
       const expectedDecision = currentBestDecisionEvidence(leader.evaluation, iteration.evaluation, manifest.program.currentBestGuardrail);
       if (stableStringify(iteration.decisionEvidence) !== stableStringify(expectedDecision)) return false;
       const candidate: DesignSearchNode = {
@@ -762,8 +800,9 @@ export async function runDesignProgram(
       depth: parent.depth,
       leaderNodeId: frontierState.leader,
     };
+    const selectedPromotionBoundary = promotionBoundary(leader, parent, program.currentBestGuardrail);
     let proposal: ResearchProposal;
-    emit({ phase: "proposal-started", iteration, branch, driverEvidence });
+    emit({ phase: "proposal-started", iteration, branch, promotionBoundary: selectedPromotionBoundary, driverEvidence });
     try {
       const input = {
         iteration,
@@ -776,7 +815,7 @@ export async function runDesignProgram(
         history,
       };
       proposal = projectAgent
-        ? await projectAgent.propose({ ...input, branch })
+        ? await projectAgent.propose({ ...input, branch, promotionBoundary: selectedPromotionBoundary })
         : await heuristicAgent!.propose(input);
     } catch (error) {
       if (error instanceof ProjectProposalExhaustedError
@@ -788,8 +827,8 @@ export async function runDesignProgram(
     }
     const strategy = proposal.strategy ?? hashValue(proposal.patch);
     const family = decisionFamily(strategy, program.proposal.decisionFamilies);
-    const proposalHash = hashValue({ strategy, hypothesis: proposal.hypothesis, expectedEffect: proposal.expectedEffect, addressedLoss: proposal.addressedLoss, patch: proposal.patch });
-    emit({ phase: "proposal-completed", iteration, branch, strategy, decisionFamily: family, ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}), driverEvidence, proposalHash });
+    const proposalHash = hashValue({ strategy, hypothesis: proposal.hypothesis, expectedEffect: proposal.expectedEffect, addressedLoss: proposal.addressedLoss, addressedCase: proposal.addressedCase, patch: proposal.patch });
+    emit({ phase: "proposal-completed", iteration, branch, promotionBoundary: selectedPromotionBoundary, strategy, decisionFamily: family, ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}), ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}), driverEvidence, proposalHash });
     try {
       const candidateBlueprint = applyResearchPatch(parent.blueprint!, proposal.patch);
       // Every accumulated best remains promotable as one exact Candidate patch from
@@ -818,6 +857,7 @@ export async function runDesignProgram(
         strategy,
         hypothesis: proposal.hypothesis,
         ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}),
+        ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}),
         decision: advanced.decision === "KEEP" ? "KEEP" : advanced.decision === "BRANCH" ? "BRANCH" : "REVERT",
         score: evaluation.candidateScore,
         scoreDelta: evaluation.candidateScore - parent.evaluation.candidateScore,
@@ -831,7 +871,9 @@ export async function runDesignProgram(
         hypothesis: proposal.hypothesis,
         ...(proposal.expectedEffect ? { expectedEffect: proposal.expectedEffect } : {}),
         ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}),
+        ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}),
         driverEvidence,
+        promotionBoundary: selectedPromotionBoundary,
         proposalHash,
         patch: proposal.patch,
         candidateBlueprintHash: candidateNode.blueprintHash,
@@ -845,6 +887,7 @@ export async function runDesignProgram(
         phase: "candidate-completed",
         iteration,
         strategy,
+        ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}),
         decision: advanced.decision,
         decisionEvidence,
         frontierEvidence: advanced.evidence,
@@ -857,6 +900,7 @@ export async function runDesignProgram(
         strategy,
         hypothesis: proposal.hypothesis,
         ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}),
+        ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}),
         decision: "REVERT",
         score: parent.evaluation.candidateScore,
         scoreDelta: 0,
@@ -868,7 +912,9 @@ export async function runDesignProgram(
         hypothesis: proposal.hypothesis,
         ...(proposal.expectedEffect ? { expectedEffect: proposal.expectedEffect } : {}),
         ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}),
+        ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}),
         driverEvidence,
+        promotionBoundary: selectedPromotionBoundary,
         proposalHash,
         patch: proposal.patch,
         decision: "REJECT",
@@ -876,7 +922,7 @@ export async function runDesignProgram(
         error: message,
       });
       frontierState = rejected.state;
-      emit({ phase: "candidate-completed", iteration, strategy, decision: "REJECT", frontierEvidence: rejected.evidence, error: message });
+      emit({ phase: "candidate-completed", iteration, strategy, ...(proposal.addressedCase ? { addressedCase: proposal.addressedCase } : {}), decision: "REJECT", frontierEvidence: rejected.evidence, error: message });
     }
   }
 

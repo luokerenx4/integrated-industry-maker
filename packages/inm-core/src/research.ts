@@ -33,19 +33,46 @@ export interface ResearchBranchContext {
   depth: number;
   leaderNodeId: string;
 }
+export interface ResearchPromotionCase {
+  id: string;
+  name: string;
+  leaderScore: number;
+  selectedScore: number;
+  scoreDelta: number;
+  maximumScoreRegression: number | null;
+  guardrailPassed: boolean;
+}
+export interface ResearchPromotionBoundary {
+  leaderNodeId: string;
+  selectedNodeId: string;
+  promotable: boolean;
+  aggregate: { leaderScore: number; selectedScore: number; scoreDelta: number };
+  cases: ResearchPromotionCase[];
+  limitingCase: string | null;
+  guardrail: { kind: "unrestricted" | "uniform" | "case-specific"; passed: boolean; violations: string[] };
+}
 export interface BranchResearchInput extends ResearchInput {
   branch: ResearchBranchContext;
+  promotionBoundary: ResearchPromotionBoundary;
 }
 export interface ResearchHistoryEntry {
   iteration: number;
   strategy: string;
   hypothesis: string;
   addressedLoss?: FabLossBucketId;
+  addressedCase?: string;
   decision: "KEEP" | "BRANCH" | "REVERT";
   score: number;
   scoreDelta: number;
 }
-export interface ResearchProposal { hypothesis: string; patch: JsonPatchOperation[]; expectedEffect?: string; strategy?: string; addressedLoss?: FabLossBucketId }
+export interface ResearchProposal {
+  hypothesis: string;
+  patch: JsonPatchOperation[];
+  expectedEffect?: string;
+  strategy?: string;
+  addressedLoss?: FabLossBucketId;
+  addressedCase?: string;
+}
 export interface BlueprintResearchAgent { propose(input: ResearchInput): Promise<ResearchProposal> }
 export interface LlmResearchProvider {
   complete(input: { system: string; project: ResearchInput }): Promise<ResearchProposal>;

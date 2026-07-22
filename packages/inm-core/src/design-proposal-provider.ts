@@ -5,14 +5,15 @@ import { pathToFileURL } from "node:url";
 import type { ProductionCapacityPlan } from "./capacity-plan";
 import type { ProductionAnalysis } from "./production-analysis";
 import type { FabLossProfile } from "./fab-loss-analysis";
-import type { BranchResearchInput, ResearchBranchContext, ResearchHistoryEntry, ResearchProposal } from "./research";
+import type { BranchResearchInput, ResearchBranchContext, ResearchHistoryEntry, ResearchPromotionBoundary, ResearchProposal } from "./research";
 import type { Blueprint, FactoryMetrics } from "./types";
 import { stableStringify } from "./utils";
 
 export interface ProjectProposalContext {
-  apiVersion: 4;
+  apiVersion: 5;
   iteration: number;
   branch: ResearchBranchContext;
+  promotionBoundary: ResearchPromotionBoundary;
   blueprint: Blueprint;
   metrics: FactoryMetrics;
   fabLoss: FabLossProfile | null;
@@ -22,7 +23,7 @@ export interface ProjectProposalContext {
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 4;
+  apiVersion: 5;
   propose(context: Readonly<ProjectProposalContext>): ResearchProposal | null;
 }
 
@@ -50,8 +51,9 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
   if (!isRecord(value) || typeof value.hypothesis !== "string" || !value.hypothesis
     || typeof value.strategy !== "string" || !value.strategy || !Array.isArray(value.patch)
     || (value.expectedEffect !== undefined && typeof value.expectedEffect !== "string")
-    || (value.addressedLoss !== undefined && typeof value.addressedLoss !== "string")) {
-    throw new Error(`Project proposal provider '${entry}' must return null or { strategy, hypothesis, expectedEffect?, addressedLoss?, patch[] }`);
+    || (value.addressedLoss !== undefined && typeof value.addressedLoss !== "string")
+    || (value.addressedCase !== undefined && typeof value.addressedCase !== "string")) {
+    throw new Error(`Project proposal provider '${entry}' must return null or { strategy, hypothesis, expectedEffect?, addressedLoss?, addressedCase?, patch[] }`);
   }
   return {
     strategy: value.strategy,
@@ -59,6 +61,7 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
     patch: value.patch as ResearchProposal["patch"],
     ...(value.expectedEffect === undefined ? {} : { expectedEffect: value.expectedEffect }),
     ...(value.addressedLoss === undefined ? {} : { addressedLoss: value.addressedLoss as NonNullable<ResearchProposal["addressedLoss"]> }),
+    ...(value.addressedCase === undefined ? {} : { addressedCase: value.addressedCase }),
   };
 }
 
@@ -82,8 +85,8 @@ export class ProjectStrategyResearchAgent {
       throw new Error(`Cannot load project proposal provider '${this.entry}': ${error instanceof Error ? error.message : String(error)}`);
     }
     const provider = module.default;
-    if (!isRecord(provider) || provider.apiVersion !== 4 || typeof provider.propose !== "function") {
-      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 4 and synchronous propose(context)`);
+    if (!isRecord(provider) || provider.apiVersion !== 5 || typeof provider.propose !== "function") {
+      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 5 and synchronous propose(context)`);
     }
     return provider as unknown as ProjectProposalProvider;
   }
@@ -91,9 +94,10 @@ export class ProjectStrategyResearchAgent {
   async propose(input: BranchResearchInput): Promise<ResearchProposal> {
     const provider = await this.provider;
     const context = (): Readonly<ProjectProposalContext> => freezeDeep({
-      apiVersion: 4,
+      apiVersion: 5,
       iteration: input.iteration,
       branch: structuredClone(input.branch),
+      promotionBoundary: structuredClone(input.promotionBoundary),
       blueprint: structuredClone(input.blueprint),
       metrics: structuredClone(input.metrics),
       fabLoss: structuredClone(input.fabLoss),
@@ -111,7 +115,14 @@ export class ProjectStrategyResearchAgent {
     if (stableStringify(first) !== stableStringify(second)) throw new Error(`Project proposal provider '${this.entry}' returned different proposals for the same frozen input`);
     if (!first) throw new ProjectProposalExhaustedError(this.entry);
     const observedLosses = input.fabLoss?.chain ?? [];
-    if (observedLosses.length && !first.addressedLoss) throw new Error(
+    const blockingCases = input.promotionBoundary.guardrail.violations;
+    if (input.branch.role === "alternative" && blockingCases.length && !first.addressedCase) throw new Error(
+      `Project proposal provider '${this.entry}' must name addressedCase from the current promotion blockers: ${blockingCases.join(", ")}`,
+    );
+    if (first.addressedCase && !blockingCases.includes(first.addressedCase)) throw new Error(
+      `Project proposal provider '${this.entry}' addressed non-blocking case '${first.addressedCase}'; expected one of: ${blockingCases.join(", ") || "none"}`,
+    );
+    if (observedLosses.length && !first.addressedLoss && !first.addressedCase) throw new Error(
       `Project proposal provider '${this.entry}' must name addressedLoss from the measured loss chain: ${observedLosses.join(", ")}`,
     );
     if (first.addressedLoss && !observedLosses.includes(first.addressedLoss)) throw new Error(

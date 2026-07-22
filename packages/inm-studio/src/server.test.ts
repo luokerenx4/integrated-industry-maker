@@ -183,8 +183,8 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(listResponse.status).toBe(200);
     expect(await listResponse.json()).toEqual({
       programs: [
-        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 6 } }),
-        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 6 } }),
+        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 7 } }),
+        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 7 } }),
       ],
       runs: [],
     });
@@ -232,6 +232,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "proposal-started",
       branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+      promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "queue-starvation" }) }) }),
     }) }));
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "proposal-completed", addressedLoss: "queue-starvation" }) }));
@@ -249,13 +250,14 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
     const resultRecord = records.find((record) => record.type === "result");
     expect(resultRecord).toBeDefined();
-    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; iterations: Array<{ addressedLoss?: string; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };
+    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; iterations: Array<{ addressedLoss?: string; promotionBoundary: { promotable: boolean }; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };
     expect(run).toEqual(expect.objectContaining({
       manifest: expect.objectContaining({
         budget: { maximum: 1, evaluated: 1 },
         frontier: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), selectionOrder: expect.any(Array), nodes: expect.any(Array) }),
         iterations: [expect.objectContaining({
           addressedLoss: "queue-starvation",
+          promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null }),
           driverEvidence: expect.objectContaining({ fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
           decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String), guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean) }), cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]) }),
           frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1" }),
@@ -267,7 +269,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(reopened.status).toBe(200);
     expect(await reopened.json()).toEqual(expect.objectContaining({ manifest: expect.objectContaining({
       resultHash: run.manifest.resultHash,
-      iterations: [expect.objectContaining({ addressedLoss: "queue-starvation", driverEvidence: expect.objectContaining({ metricsHash: expect.any(String) }), decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String) }) })],
+      iterations: [expect.objectContaining({ addressedLoss: "queue-starvation", promotionBoundary: expect.objectContaining({ promotable: true, limitingCase: null }), driverEvidence: expect.objectContaining({ metricsHash: expect.any(String) }), decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String) }) })],
     }) }));
     const promotion = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/runs/${run.manifest.resultHash}/promote`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: "studio-leading-design" }),

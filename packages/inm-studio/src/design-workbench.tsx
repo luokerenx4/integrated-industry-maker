@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary } from "@inm/core";
+import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary, ResearchPromotionBoundary } from "@inm/core";
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
@@ -56,6 +56,13 @@ function decisionDetail(evidence: DesignDecisionEvidence): string {
   return `${basis}${gate} · LIMITING ${limiting.id} ${signed(limiting.scoreDelta)}`;
 }
 
+function promotionBoundaryDetail(boundary: ResearchPromotionBoundary): string {
+  if (boundary.promotable) return "PROMOTION-READY LEADER";
+  const blocker = boundary.cases.find((item) => item.id === boundary.guardrail.violations[0]);
+  if (blocker) return `BLOCKED BY ${blocker.id} ${signed(blocker.scoreDelta)} · ALLOWED ${blocker.maximumScoreRegression!.toFixed(6)}`;
+  return `ALTERNATIVE VS LEADER ${signed(boundary.aggregate.scoreDelta)}`;
+}
+
 function guardrailDetail(program: DesignProgramSummary): { title: string; detail: string } {
   const policy = program.currentBestGuardrail;
   if (policy.kind === "unrestricted") return { title: "UNRESTRICTED", detail: "aggregate improvement may trade operating cases" };
@@ -71,13 +78,13 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
   };
   if (progress.phase === "proposal-started") return {
     title: `DIAGNOSING ITERATION ${progress.iteration}`,
-    detail: `${progress.branch.role.toUpperCase()} ${progress.branch.nodeId} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "No tracked fab loss in the driver simulation"}`,
+    detail: `${progress.branch.role.toUpperCase()} ${progress.branch.nodeId} · ${promotionBoundaryDetail(progress.promotionBoundary)} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "No tracked fab loss in the driver simulation"}`,
   };
   if (progress.phase === "proposal-completed") return {
     title: `PROPOSAL ${progress.iteration} READY`,
-    detail: `${progress.branch.nodeId} → ${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`,
+    detail: `${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`,
   };
-  if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: !progress.decisionEvidence ? progress.error ?? progress.strategy : `${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome} · leader ${signed(progress.decisionEvidence.aggregate.scoreDelta)} · ${decisionDetail(progress.decisionEvidence)}` };
+  if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: !progress.decisionEvidence ? progress.error ?? progress.strategy : `${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${progress.addressedCase ? ` · repaired ${progress.addressedCase}` : ""} · leader ${signed(progress.decisionEvidence.aggregate.scoreDelta)} · ${decisionDetail(progress.decisionEvidence)}` };
   if (progress.phase === "run-completed") return { title: "IMMUTABLE RESULT READY", detail: `${shortHash(progress.resultHash)} · best iteration ${progress.best.iteration}` };
   return { title: "DESIGN RUNNING", detail: progress.phase };
 }
@@ -211,7 +218,7 @@ export function DesignWorkbench({
           {selectedRun && <section className="design-result" data-testid="design-result">
             <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code></div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
             <div className="design-frontier" data-testid="design-frontier"><div className="design-section-title"><span>FINAL PARETO FRONTIER</span><b>NEXT {selectedRun.manifest.frontier.selectionOrder[0]}</b></div><div>{selectedRun.manifest.frontier.nodes.map((node) => <article key={node.nodeId} className={node.role}><small>{node.role === "leader" ? "PROMOTABLE LEADER" : "EXPLORATORY · NOT PROMOTABLE"}</small><strong>{node.nodeId}</strong><code>{node.parentNodeId ? `FROM ${node.parentNodeId}` : "ROOT"} · DEPTH {node.depth}</code><b>{node.candidateScore.toFixed(6)}</b><span>{shortHash(node.blueprintHash)}</span></article>)}</div></div>
-            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong>{iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO LOSS TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <small>{decisionDetail(iteration.decisionEvidence)}</small>}<small>{iteration.hypothesis}</small></span><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
+            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS / CASE → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong data-testid={iteration.addressedCase ? "design-repair-target" : undefined}>{iteration.addressedCase ? `REPAIRS ${iteration.addressedCase}` : iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO EXPLICIT TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>BEFORE {promotionBoundaryDetail(iteration.promotionBoundary)}</small><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <small>{decisionDetail(iteration.decisionEvidence)}</small>}<small>{iteration.hypothesis}</small></span><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
             {selectedRunPromotable ? <div className="design-promotion"><div><small>CANDIDATE HANDOFF</small><strong>Freeze this accepted design for ordinary review</strong><span>Promotion creates a hash-pinned Candidate against {selectedRun.manifest.promotionBase.blueprint}. It does not apply the Blueprint.</span></div>{promoted ? <button className="promoted" onClick={() => onCandidate(promoted.benchmark, promoted.id)}>OPEN {promoted.id} →</button> : <><input aria-label="Candidate id" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} pattern="[a-z0-9][a-z0-9-]*"/><button data-testid="promote-design" disabled={promoting || !candidateId} onClick={() => void promote()}>{promoting ? "VERIFYING…" : "CREATE CANDIDATE"}</button></>}</div>
               : <div className="design-no-leader"><strong>NO PROMOTABLE ACCEPTED DESIGN</strong><span>The best result either failed a locked gate or equals its promotion base. There is nothing honest to promote.</span></div>}
           </section>}

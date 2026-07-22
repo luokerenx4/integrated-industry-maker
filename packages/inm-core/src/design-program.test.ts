@@ -25,7 +25,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 1 },
       locked: true,
-      budget: { maxCandidates: 6 },
+      budget: { maxCandidates: 7 },
     }),
     expect.objectContaining({
       id: "integrated-dram-fab",
@@ -35,7 +35,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 1 },
       locked: true,
-      budget: { maxCandidates: 6 },
+      budget: { maxCandidates: 7 },
     }),
   ]);
   const before = await readFile(join(projectDir, "design-programs", "integrated-dram-fab.design.json"), "utf8");
@@ -136,7 +136,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   const prepared = await prepareDesignProgram(copy, "greenfield-dram-fab");
   const driverProject = compileFactoryProject({ ...prepared.loaded, blueprint: prepared.seedBlueprint });
   const driverMetrics = runUntil(driverProject, undefined, { seed: prepared.benchmark.cases.find((item) => item.id === prepared.manifest.driverCase)!.seed }).metrics;
-  const first = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 6, onProgress: (event) => progress.push(event) });
+  const first = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 7, onProgress: (event) => progress.push(event) });
   expect(await readFile(sourcePath, "utf8")).toBe(sourceBefore);
   expect(await readFile(targetPath, "utf8")).toBe(targetBefore);
   expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
@@ -155,9 +155,10 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
       evaluation: { verdict: "UNCHANGED" },
     },
     promotionBase: { blueprint: "generated-dram-fab", hash: hashValue(JSON.parse(targetBefore)) },
-    budget: { maximum: 6, evaluated: 6 },
-    frontier: { leader: "candidate-5", alternatives: ["candidate-6"], selectionOrder: ["candidate-6", "candidate-5"] },
-    best: { iteration: 5, verdict: "KEEP" },
+    budget: { maximum: 7, evaluated: 4 },
+    frontier: { leader: "candidate-4", alternatives: ["candidate-3"], selectionOrder: ["candidate-3", "candidate-4"] },
+    best: { iteration: 4, verdict: "KEEP" },
+    stopReason: "strategy-exhausted",
   });
   const promotionPatchOperations = first.manifest.best.promotionPatchOperations;
   expect(promotionPatchOperations).toBeGreaterThan(0);
@@ -170,6 +171,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
       fabLoss: { version: 1, family: "dram-wafer", primary: { id: "q-time" }, chain: expect.arrayContaining(["q-time", "yield-quality", "queue-starvation"]) },
     },
     proposalHash: expect.any(String),
+    promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null, guardrail: { passed: true, violations: [] } },
     decision: expect.stringMatching(/KEEP|BRANCH|REJECT/),
     frontierEvidence: { parent: { nodeId: "seed", role: "leader", depth: 0 }, outcome: "leader-promoted" },
   });
@@ -204,43 +206,32 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   });
   expect(first.manifest.iterations[3]).toMatchObject({
     iteration: 4,
-    strategy: "batch-formation:furnace-flex-30000",
-    decisionFamily: "batch-formation",
-    addressedLoss: "batch-formation",
-    decision: "REJECT",
-    frontierEvidence: {
-      parent: { nodeId: "candidate-3", role: "alternative", depth: 3 },
-      outcome: "rejected",
-      reason: "parent-no-improvement",
-      leaderAfter: "candidate-2",
-      selectionOrderAfter: ["candidate-2", "candidate-3"],
+    strategy: "facility:utility-n-plus-one",
+    decisionFamily: "facility",
+    addressedCase: "facility-interruption",
+    promotionBoundary: {
+      leaderNodeId: "candidate-2",
+      selectedNodeId: "candidate-3",
+      promotable: false,
+      aggregate: { scoreDelta: 7.8278361805555505 },
+      limitingCase: "facility-interruption",
+      guardrail: { kind: "uniform", passed: false, violations: ["facility-interruption"] },
     },
-  });
-  expect(first.manifest.iterations[4]).toMatchObject({
-    iteration: 5,
-    strategy: "setup-campaign:lithography-3-12000",
-    decisionFamily: "setup-campaign",
-    addressedLoss: "setup-campaign",
     decision: "KEEP",
     decisionEvidence: {
       basis: "current-best-improvement",
-      limitingCase: "facility-interruption",
+      limitingCase: "steady-production",
       guardrail: { kind: "uniform", passed: true, violations: [] },
     },
-  });
-  expect(first.manifest.iterations[5]).toMatchObject({
-    iteration: 6,
-    strategy: "setup-campaign:lithography-3-12000",
-    decision: "BRANCH",
     frontierEvidence: {
       parent: { nodeId: "candidate-3", role: "alternative", depth: 3 },
-      candidateNodeId: "candidate-6",
-      outcome: "branch-retained",
-      reason: "pareto-frontier",
-      pruned: [{ nodeId: "candidate-3", reason: "capacity" }],
-      leaderAfter: "candidate-5",
-      alternativesAfter: ["candidate-6"],
-      selectionOrderAfter: ["candidate-6", "candidate-5"],
+      candidateNodeId: "candidate-4",
+      outcome: "leader-promoted",
+      reason: "leader-policy",
+      pruned: [{ nodeId: "candidate-2", reason: "dominated", byNodeId: "candidate-4" }],
+      leaderAfter: "candidate-4",
+      alternativesAfter: ["candidate-3"],
+      selectionOrderAfter: ["candidate-3", "candidate-4"],
     },
   });
   const guardedEvidence = first.manifest.iterations[2]!.decisionEvidence!;
@@ -250,16 +241,36 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(guardedFacility.maximumScoreRegression).toBe(0);
   expect(guardedFacility.guardrailPassed).toBeFalse();
   expect(guardedFacility.scoreDelta < -3.9).toBeTrue();
-  expect(first.manifest.iterations[4]!.decisionEvidence!.aggregate.scoreDelta > 5.9).toBeTrue();
+  expect(first.manifest.iterations[3]!.decisionEvidence!.aggregate.scoreDelta > 9.9).toBeTrue();
+  expect(first.manifest.iterations[3]!.decisionEvidence!.cases.every((item) => item.guardrailPassed)).toBeTrue();
   expect(first.manifest.resultHash).toHaveLength(64);
   expect(first.manifest.best.blueprintHash).toHaveLength(64);
   expect(progress.map((event) => event.sequence)).toEqual(Array.from({ length: progress.length }, (_, index) => index + 1));
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "seed")).toHaveLength(5);
-  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(30);
+  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(20);
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "proposal-started", iteration: 1,
     driverEvidence: expect.objectContaining({ metricsHash: hashValue(driverMetrics), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "q-time" }) }) }),
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "proposal-started",
+    iteration: 4,
+    branch: expect.objectContaining({ nodeId: "candidate-3", role: "alternative", leaderNodeId: "candidate-2" }),
+    promotionBoundary: expect.objectContaining({ selectedNodeId: "candidate-3", limitingCase: "facility-interruption", guardrail: expect.objectContaining({ violations: ["facility-interruption"] }) }),
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "proposal-completed",
+    iteration: 4,
+    strategy: "facility:utility-n-plus-one",
+    addressedCase: "facility-interruption",
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "candidate-completed",
+    iteration: 4,
+    strategy: "facility:utility-n-plus-one",
+    addressedCase: "facility-interruption",
+    decision: "KEEP",
   }));
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "proposal-completed", iteration: 1, strategy: "dispatch:conwip-9-6-edd", decisionFamily: "dispatch", addressedLoss: "q-time",
@@ -279,10 +290,10 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",
     resultHash: first.manifest.resultHash,
-    work: { completedSimulations: 40, plannedSimulations: 40 },
+    work: { completedSimulations: 30, plannedSimulations: 45 },
   }));
   const repeatedProgress: DesignRunProgress[] = [];
-  const second = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 6, onProgress: (event) => repeatedProgress.push(event) });
+  const second = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 7, onProgress: (event) => repeatedProgress.push(event) });
   expect(second.manifest.resultHash).toBe(first.manifest.resultHash);
   expect(repeatedProgress).toEqual(progress);
   expect(second.artifact).toEqual({ ...first.artifact, created: false });
@@ -292,7 +303,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     artifact: { ...first.artifact, created: false },
   });
   const tampered = JSON.parse(JSON.stringify(first.manifest)) as typeof first.manifest;
-  tampered.frontier.selectionOrder.reverse();
+  tampered.iterations[3]!.promotionBoundary.cases.find((item) => item.id === "facility-interruption")!.scoreDelta += 1;
   const { resultHash: _recordedResultHash, ...tamperedHashInput } = tampered;
   tampered.resultHash = hashValue(tamperedHashInput);
   const tamperedPath = join(copy, "design-runs", "greenfield-dram-fab", tampered.resultHash);

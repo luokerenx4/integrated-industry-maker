@@ -71,7 +71,7 @@ export interface FabLossBucket {
 }
 
 export interface ProjectProposalContext {
-  apiVersion: 4;
+  apiVersion: 5;
   iteration: number;
   branch: {
     nodeId: string;
@@ -80,21 +80,39 @@ export interface ProjectProposalContext {
     depth: number;
     leaderNodeId: string;
   };
+  promotionBoundary: {
+    leaderNodeId: string;
+    selectedNodeId: string;
+    promotable: boolean;
+    aggregate: { leaderScore: number; selectedScore: number; scoreDelta: number };
+    cases: Array<{
+      id: string;
+      name: string;
+      leaderScore: number;
+      selectedScore: number;
+      scoreDelta: number;
+      maximumScoreRegression: number | null;
+      guardrailPassed: boolean;
+    }>;
+    limitingCase: string | null;
+    guardrail: { kind: "unrestricted" | "uniform" | "case-specific"; passed: boolean; violations: string[] };
+  };
   blueprint: Blueprint;
   metrics: Record<string, unknown>;
   fabLoss: FabLossProfile | null;
   production: Record<string, unknown>;
   capacityPlan: Record<string, unknown>;
-  history: Array<{ iteration: number; strategy: string; hypothesis: string; addressedLoss?: FabLossBucketId; decision: "KEEP" | "BRANCH" | "REVERT"; score: number; scoreDelta: number }>;
+  history: Array<{ iteration: number; strategy: string; hypothesis: string; addressedLoss?: FabLossBucketId; addressedCase?: string; decision: "KEEP" | "BRANCH" | "REVERT"; score: number; scoreDelta: number }>;
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 4;
+  apiVersion: 5;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;
     expectedEffect?: string;
     addressedLoss?: FabLossBucketId;
+    addressedCase?: string;
     patch: JsonPatchOperation[];
   } | null;
 }

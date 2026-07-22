@@ -26,6 +26,7 @@
       "maintenance",
       "batch-formation",
       "setup-campaign",
+      "facility",
       "recipe",
       "dispatch",
       "buffer",
@@ -35,6 +36,6 @@
     ]
   },
   "budget": {
-    "maxCandidates": 6
+    "maxCandidates": 7
   }
 }

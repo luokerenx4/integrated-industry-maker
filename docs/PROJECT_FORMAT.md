@@ -867,15 +867,15 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
   "frontier": { "maximumAlternativeBranches": 1 },
   "proposal": {
     "kind": "heuristic",
-    "decisionFamilies": ["toolset-capacity", "specialize", "maintenance", "batch-formation", "setup-campaign", "dispatch", "buffer"]
+    "decisionFamilies": ["toolset-capacity", "specialize", "maintenance", "batch-formation", "setup-campaign", "facility", "dispatch", "buffer"]
   },
-  "budget": { "maxCandidates": 6 }
+  "budget": { "maxCandidates": 7 }
 }
 ```
 
 The filename is `<id>.design.json`. The Benchmark must be locked and `driverCase` must name one of its cases. `seed` is either an authored Blueprint (`{ "kind": "blueprint", "blueprint": "<id>" }`) or an in-memory project synthesis (`{ "kind": "synthesis", "inputBlueprint": "<id>" }`). The Benchmark candidate Blueprint remains the separate promotion target. Required `currentBestGuardrail` is `{ "kind": "unrestricted" }`, a `uniform` non-negative `maximumCaseScoreRegression`, or a `case-specific` map that names every Benchmark case exactly. Zero uniform regression is strict leader preservation. Required `frontier.maximumAlternativeBranches` is an integer from zero through eight and bounds retained non-promotable Pareto states separately from the leader. Both policies participate in Program identity. Decision families are unique stable ids for Blueprint-owned proposal strategies, not permissions to edit evaluator inputs. The maximum candidate-evaluation budget is a positive integer no greater than 100. See [[docs/design/design-programs]].
 
-A completed design execution is stored under `design-runs/<program-id>/<result-hash>/`. Its `manifest.json` owns the Program hash and copied current-best/frontier policies, seed and promotion identities, every selected parent and candidate node, branch-local driver evidence, fixed-baseline evaluation, leader `decisionEvidence`, parent delta, KEEP/BRANCH/REJECT outcome, pruning, exact queue after each iteration, and the final leader/alternatives. `best.blueprint.json` is always the leader, never a non-promotable alternative. Source-neutral driver evidence never carries a persisted run id. These are generated immutable evidence rather than authored inputs. Reopening verifies both hashes and replays the complete deterministic frontier graph and selection order. Promotion requires an accepted leader that differs from the unchanged promotion base and produces an ordinary Candidate rather than editing the Blueprint.
+A completed design execution is stored under `design-runs/<program-id>/<result-hash>/`. Its `manifest.json` owns the Program hash and copied current-best/frontier policies, seed and promotion identities, every selected parent and candidate node, proposal-time `promotionBoundary`, branch-local driver evidence, distinct `addressedLoss`/`addressedCase` rationale, fixed-baseline evaluation, leader `decisionEvidence`, parent delta, KEEP/BRANCH/REJECT outcome, pruning, exact queue after each iteration, and the final leader/alternatives. `best.blueprint.json` is always the leader, never a non-promotable alternative. Source-neutral driver evidence never carries a persisted run id. These are generated immutable evidence rather than authored inputs. Reopening verifies both hashes, recomputes every promotion boundary, and replays the complete deterministic frontier graph and selection order. Promotion requires an accepted leader that differs from the unchanged promotion base and produces an ordinary Candidate rather than editing the Blueprint.
 
 ## Coding Agent benchmark
 

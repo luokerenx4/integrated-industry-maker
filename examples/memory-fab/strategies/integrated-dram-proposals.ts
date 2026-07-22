@@ -5,7 +5,23 @@ interface Candidate {
   hypothesis: string;
   expectedEffect: string;
   addresses: FabLossBucketId[];
+  addressesCases?: string[];
   patch(blueprint: { devices: Array<Record<string, unknown>>; policies: Record<string, unknown> }): JsonPatchOperation[] | null;
+}
+
+function facilityRedundancyPatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
+  if (deviceIndex(blueprint, "fab-utility-plant-2") >= 0) return null;
+  return [{
+    op: "add",
+    path: "/devices/-",
+    value: {
+      id: "fab-utility-plant-2",
+      asset: "fab-utility-plant",
+      region: "cleanroom",
+      position: { x: 34, y: 17 },
+      rotation: 0,
+    },
+  }];
 }
 
 function deviceIndex(blueprint: { devices: Array<Record<string, unknown>> }, id: string): number {
@@ -68,6 +84,14 @@ const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
 });
 
 const candidates: Candidate[] = [
+  {
+    strategy: "facility:utility-n-plus-one",
+    hypothesis: "A second independent fab-utility plant may preserve vacuum and hazardous-exhaust service when the primary provider trips, while its ordinary-case cost, power, and footprint remain visible to the unchanged Objective.",
+    expectedEffect: "Repair the facility-interruption promotion blocker through ordinary powered N+1 provider capacity without changing the locked failure Scenario.",
+    addresses: [],
+    addressesCases: ["facility-interruption"],
+    patch: facilityRedundancyPatch,
+  },
   release(9, 6),
   release(8, 5),
   release(10, 7),
@@ -134,9 +158,26 @@ const candidates: Candidate[] = [
 ];
 
 export default {
-  apiVersion: 4,
+  apiVersion: 5,
   propose(context) {
     const used = new Set(context.history.map((item) => item.strategy));
+    const blockingCases = context.promotionBoundary.guardrail.violations;
+    if (context.branch.role === "alternative" && blockingCases.length) {
+      for (const candidate of candidates) {
+        const addressedCase = blockingCases.find((caseId) => candidate.addressesCases?.includes(caseId));
+        if (!addressedCase || used.has(candidate.strategy)) continue;
+        const patch = candidate.patch(context.blueprint);
+        if (!patch) continue;
+        return {
+          strategy: candidate.strategy,
+          hypothesis: candidate.hypothesis,
+          expectedEffect: candidate.expectedEffect,
+          addressedCase,
+          patch,
+        };
+      }
+      return null;
+    }
     const lossChain = context.fabLoss?.chain ?? [];
     const attempts = new Map<FabLossBucketId, number>();
     for (const item of context.history) {
