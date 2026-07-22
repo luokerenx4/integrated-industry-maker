@@ -1,0 +1,24 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "performance-dram-device",
+  "name": "Performance-bin DRAM Device",
+  "description": "Finished DRAM device that passed the higher-speed final-test bin.",
+  "tags": [
+    "semiconductor",
+    "memory",
+    "finished-good",
+    "performance-bin"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "device",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 32
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

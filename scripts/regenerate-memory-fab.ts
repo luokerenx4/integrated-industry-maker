@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { compileFactoryProject, loadFactoryProject, lockBlueprintBenchmark, specializeSharedWorkCenter } from "../packages/inm-core/src/index";
 
@@ -17,6 +17,10 @@ async function text(path: string, value: string): Promise<void> {
 }
 
 await mkdir(project, { recursive: true });
+for (const obsolete of [
+  join(project, "assets", "resources", "tested-dram-device"),
+  join(project, "processes", "burn-in-test-dram.process.json"),
+]) await rm(obsolete, { recursive: true, force: true });
 await cp(join(ironworksAssets, "runtime-api.ts"), join(project, "assets", "runtime-api.ts"), { force: true });
 await cp(join(ironworksAssets, "tsconfig.json"), join(project, "assets", "tsconfig.json"), { force: true });
 for (const id of ["buffer", "material-sink", "sorter", "splitter", "conveyor", "wind-turbine"]) {
@@ -47,7 +51,9 @@ for (const [id, name, description, color] of resources) {
 for (const [id, name, description, symbol, stackSize, color, tags] of [
   ["dram-package-substrate", "DRAM Package Substrate", "Package substrate and interconnect material consumed when qualified wafer lots are diced and packaged.", "substrate", 32, "#c7a66b", ["semiconductor", "packaging", "material"]],
   ["packaged-dram-device", "Packaged DRAM Device", "Singulated and packaged DRAM device awaiting burn-in and final electrical test.", "device", 32, "#4b8fda", ["semiconductor", "packaging", "wip"]],
-  ["tested-dram-device", "Tested DRAM Device", "Finished DRAM device that passed package burn-in and final electrical test.", "device", 32, "#56d89b", ["semiconductor", "memory", "finished-good"]],
+  ["commercial-dram-device", "Commercial-grade DRAM Device", "Finished DRAM device qualified for the commercial product contract.", "device", 32, "#56d89b", ["semiconductor", "memory", "finished-good", "commercial-grade"]],
+  ["performance-dram-device", "Performance-bin DRAM Device", "Finished DRAM device that passed the higher-speed final-test bin.", "device", 32, "#6f8ff0", ["semiconductor", "memory", "finished-good", "performance-bin"]],
+  ["automotive-dram-device", "Automotive-screened DRAM Device", "Finished DRAM device that passed the extended reliability and harsh-condition screen.", "device", 32, "#e8a84a", ["semiconductor", "memory", "finished-good", "automotive-grade"]],
 ] as const) {
   await json(join(project, "assets", "resources", id, "asset.json"), {
     assetVersion: 1, type: "resource", id, name, description, tags,
@@ -147,11 +153,21 @@ await json(join(project, "processes", "dice-package-dram.process.json"), {
   inputs: [{ resource: "qualified-dram-wafer-lot", count: 1 }, { resource: "dram-package-substrate", count: 8 }],
   outputs: [{ resource: "packaged-dram-device", count: 8 }], lotTermination: { terminal: "complete" },
 });
-await json(join(project, "processes", "burn-in-test-dram.process.json"), {
-  version: 1, id: "burn-in-test-dram", name: "Burn in and final-test packaged DRAM devices",
-  description: "Runs one eight-device package batch through evaluator-visible burn-in and final electrical test before customer delivery.",
-  category: "final-test", tags: ["dram", "back-end", "burn-in", "final-test", "batch"], durationTicks: 20_000,
-  inputs: [{ resource: "packaged-dram-device", count: 8 }], outputs: [{ resource: "tested-dram-device", count: 8 }],
+await json(join(project, "processes", "screen-commercial-dram.process.json"), {
+  version: 1, id: "screen-commercial-dram", name: "Screen a commercial DRAM product batch",
+  description: "Runs a short final electrical-test program that qualifies all eight packaged devices for the commercial contract.",
+  category: "final-test", tags: ["dram", "back-end", "final-test", "commercial-grade", "batch"], setupGroup: "commercial-screen", durationTicks: 12_000,
+  inputs: [{ resource: "packaged-dram-device", count: 8 }], outputs: [{ resource: "commercial-dram-device", count: 8 }],
+});
+await json(join(project, "processes", "screen-performance-mix.process.json"), {
+  version: 1, id: "screen-performance-mix", name: "Bin a high-performance DRAM product mix",
+  description: "Runs an extended burn-in and speed-bin program whose fixed synthetic disposition is four performance, two automotive-screened, and two commercial devices.",
+  category: "final-test", tags: ["dram", "back-end", "burn-in", "final-test", "speed-bin", "reliability", "batch"], setupGroup: "reliability-screen", durationTicks: 30_000,
+  inputs: [{ resource: "packaged-dram-device", count: 8 }], outputs: [
+    { resource: "performance-dram-device", count: 4 },
+    { resource: "automotive-dram-device", count: 2 },
+    { resource: "commercial-dram-device", count: 2 },
+  ],
 });
 
 await json(join(project, "routes", "dram-front-end.route.json"), {
@@ -325,11 +341,13 @@ await workCenter("dram-packaging-cell", "DRAM Packaging Cell", "Back-end work ce
 ], ["wafer-input", "substrate-input"], ["package-output"], 18_000, undefined, undefined,
 { footprint: { width: 3, height: 3 }, idleMilliWatts: 25_000, activeMilliWatts: 210_000, bufferCapacity: 128 });
 
-await workCenter("dram-burn-in-rack", "DRAM Burn-in and Final-test Rack", "Batch back-end equipment that holds packaged DRAM devices through burn-in and final electrical test.", "final-test", ["burn-in-test-dram"], "#397bb8", [
+await workCenter("dram-burn-in-rack", "DRAM Burn-in and Final-test Rack", "Batch back-end equipment that runs alternate commercial and extended reliability/speed-bin programs against fixed customer contracts.", "final-test", ["screen-commercial-dram", "screen-performance-mix"], "#397bb8", [
   { id: "package-input", direction: "input", side: "north", offset: 1, buffer: "package-input" },
-  { id: "tested-output", direction: "output", side: "west", offset: 1, buffer: "tested-output" },
-], ["package-input"], ["tested-output"], 14_000, undefined, undefined,
-{ footprint: { width: 3, height: 3 }, idleMilliWatts: 35_000, activeMilliWatts: 240_000 });
+  { id: "commercial-output", direction: "output", side: "west", offset: 1, buffer: "commercial-output" },
+  { id: "performance-output", direction: "output", side: "south", offset: 1, buffer: "performance-output" },
+  { id: "automotive-output", direction: "output", side: "east", offset: 1, buffer: "automotive-output" },
+], ["package-input"], ["commercial-output", "performance-output", "automotive-output"], 14_000, 3_000, undefined,
+{ footprint: { width: 3, height: 3 }, idleMilliWatts: 35_000, activeMilliWatts: 240_000, bufferCapacity: 32 });
 
 await cp(join(ironworksAssets, "devices", "material-sink"), join(project, "assets", "devices", "scrap-bin"), { recursive: true, force: true });
 const scrapAsset = JSON.parse(await readFile(join(ironworksAssets, "devices", "material-sink", "asset.json"), "utf8")) as Record<string, unknown>;
@@ -483,10 +501,15 @@ const devices: Device[] = [
   },
   {
     id: "burn-in-1", asset: "dram-burn-in-rack", region: "cleanroom", position: { x: 8, y: 26 }, rotation: 0,
-    recipe: { process: "burn-in-test-dram", mode: "qualified", inputs: { "packaged-dram-device": "package-input" }, outputs: { "tested-dram-device": "tested-output" } },
-    policy: { powerPriority: 5 },
+    recipes: [
+      { process: "screen-commercial-dram", mode: "qualified", priority: 1, inputs: { "packaged-dram-device": "package-input" }, outputs: { "commercial-dram-device": "commercial-output" } },
+      { process: "screen-performance-mix", mode: "qualified", priority: 10, inputs: { "packaged-dram-device": "package-input" }, outputs: { "commercial-dram-device": "commercial-output", "performance-dram-device": "performance-output", "automotive-dram-device": "automotive-output" } },
+    ],
+    policy: { recipeDispatch: "authored-order", powerPriority: 5 },
   },
-  { id: "memory-customer", asset: "material-sink", region: "cleanroom", position: { x: 2, y: 27 }, rotation: 0, bufferFilters: { input: ["tested-dram-device"] } },
+  { id: "commercial-customer", asset: "material-sink", region: "cleanroom", position: { x: 2, y: 27 }, rotation: 0, bufferFilters: { input: ["commercial-dram-device"] } },
+  { id: "performance-customer", asset: "material-sink", region: "cleanroom", position: { x: 13, y: 29 }, rotation: 0, bufferFilters: { input: ["performance-dram-device"] } },
+  { id: "automotive-customer", asset: "material-sink", region: "cleanroom", position: { x: 15, y: 26 }, rotation: 0, bufferFilters: { input: ["automotive-dram-device"] } },
   { id: "quality-scrap", asset: "scrap-bin", region: "cleanroom", position: { x: 17, y: 27 }, rotation: 90, bufferFilters: { input: ["scrap-dram-wafer-lot"] } },
   { id: "reticle-stocker-1", asset: "reticle-stocker", region: "cleanroom", position: { x: 5, y: 8 }, rotation: 0 },
   { id: "maintenance-service-1", asset: "maintenance-service-bay", region: "cleanroom", position: { x: 34, y: 26 }, rotation: 0 },
@@ -545,10 +568,16 @@ connect("substrate-receiving-to-packaging", { device: "substrate-receiving", por
 connect("packaging-to-burn-in", { device: "packaging-1", port: "package-output", side: "south" }, { device: "burn-in-1", port: "package-input", side: "north" }, ["packaged-dram-device"], [
   { x: 9, y: 23 }, { x: 9, y: 24 }, { x: 9, y: 25 },
 ]);
-connect("burn-in-to-customer", { device: "burn-in-1", port: "tested-output", side: "west" }, { device: "memory-customer", port: "input", side: "west" }, ["tested-dram-device"], [
+connect("commercial-to-customer", { device: "burn-in-1", port: "commercial-output", side: "west" }, { device: "commercial-customer", port: "input", side: "west" }, ["commercial-dram-device"], [
   { x: 7, y: 27 }, { x: 6, y: 27 }, { x: 5, y: 27 }, { x: 4, y: 27 },
   { x: 4, y: 28 }, { x: 4, y: 29 }, { x: 3, y: 29 }, { x: 2, y: 29 }, { x: 1, y: 29 }, { x: 0, y: 29 },
   { x: 0, y: 28 }, { x: 0, y: 27 }, { x: 1, y: 27 },
+]);
+connect("performance-to-customer", { device: "burn-in-1", port: "performance-output", side: "south" }, { device: "performance-customer", port: "input", side: "west" }, ["performance-dram-device"], [
+  { x: 9, y: 29 }, { x: 10, y: 29 }, { x: 11, y: 29 }, { x: 12, y: 29 },
+]);
+connect("automotive-to-customer", { device: "burn-in-1", port: "automotive-output", side: "east" }, { device: "automotive-customer", port: "input", side: "west" }, ["automotive-dram-device"], [
+  { x: 11, y: 27 }, { x: 12, y: 27 }, { x: 13, y: 27 }, { x: 13, y: 26 }, { x: 14, y: 26 },
 ]);
 connect("inspection-to-rework", { device: "inspection-1", port: "reject-output", side: "east" }, { device: "rework-1", port: "reject-input", side: "west" }, ["rework-required-dram-wafer-lot"], [
   { x: 20, y: 21 }, { x: 21, y: 21 }, { x: 22, y: 21 }, { x: 23, y: 21 }, { x: 24, y: 21 }, { x: 25, y: 21 }, { x: 26, y: 21 },
@@ -562,6 +591,11 @@ connect("inspection-to-scrap", { device: "inspection-1", port: "scrap-output", s
 ]);
 
 const blueprint = { version: 1, revision: "memory-fab-product-v1", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
+const productMixBlueprint = structuredClone(blueprint);
+const productMixTester = productMixBlueprint.devices.find((device) => device.id === "burn-in-1");
+if (productMixTester) productMixTester.policy = {
+  ...(productMixTester.policy as Record<string, unknown>), recipeDispatch: "contract-value",
+};
 const experimentBlueprint = structuredClone(blueprint);
 for (const device of experimentBlueprint.devices) if (["lithography-1", "etch-1"].includes(String(device.id))) {
   device.policy = { ...(device.policy as Record<string, unknown>), recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
@@ -574,7 +608,12 @@ const experimentFurnace = experimentBlueprint.devices.find((device) => device.id
 if (experimentFurnace?.recipe && typeof experimentFurnace.recipe === "object") {
   (experimentFurnace.recipe as Record<string, unknown>).process = "rapid-anneal-dielectric-stack";
 }
+const experimentProductTester = experimentBlueprint.devices.find((device) => device.id === "burn-in-1");
+if (experimentProductTester) experimentProductTester.policy = {
+  ...(experimentProductTester.policy as Record<string, unknown>), recipeDispatch: "contract-value",
+};
 await json(join(project, "blueprints", "baseline.blueprint.json"), blueprint);
+await json(join(project, "blueprints", "product-mix.blueprint.json"), productMixBlueprint);
 await json(join(project, "blueprints", "tool-search-seed.blueprint.json"), {
   ...experimentBlueprint, revision: "memory-fab-tool-search-seed-v1",
 });
@@ -636,18 +675,28 @@ await scenario("facility-interruption", "Four-minute excursion-free window with 
   { device: "fab-utility-plant-1", atTick: 48_000, durationTicks: 30_000 },
 ]);
 await json(join(project, "objectives", "dram-output.objective.json"), {
-  id: "dram-output", name: "Deliver tested DRAM devices with controlled wafer-lot service", targetResource: "tested-dram-device", trackedFamily: "dram-wafer", targetRegion: "cleanroom", targetRatePerMinute: 20,
+  id: "dram-output", name: "Fulfill a value-weighted DRAM product portfolio with controlled wafer-lot service", targetResource: "commercial-dram-device", trackedFamily: "dram-wafer", targetRegion: "cleanroom", targetRatePerMinute: 8,
+  deliveryContracts: [
+    { id: "commercial-order", name: "Commercial DRAM order", resource: "commercial-dram-device", region: "cleanroom", demandPerMinute: 8, valuePerItem: 2, shortfallPenaltyPerItem: 2 },
+    { id: "performance-order", name: "Performance-bin DRAM order", resource: "performance-dram-device", region: "cleanroom", demandPerMinute: 3, valuePerItem: 5, shortfallPenaltyPerItem: 6 },
+    { id: "automotive-order", name: "Automotive-screened DRAM order", resource: "automotive-dram-device", region: "cleanroom", demandPerMinute: 1.5, valuePerItem: 10, shortfallPenaltyPerItem: 12 },
+  ],
   constraints: { maxBuildCost: 210_000, maxOccupiedArea: 350, minProduction: 8 },
   weights: {
-    throughput: 20, onTimeDelivery: 20, energy: 0.005, buildCost: 0.05, occupiedArea: 0.05, wip: 1.5,
+    throughput: 0, deliveryValue: 1, onTimeDelivery: 20, energy: 0.005, buildCost: 0.05, occupiedArea: 0.05, wip: 1.5,
     blocked: 3, cycleTime: 2, tardiness: 4, changeovers: 0.5, qualityEscapes: 15, rework: 0.5,
   },
 });
 await json(join(project, "tests", "reentrant-flow.fixture.json"), {
-  name: "reentrant DRAM route closes deterministic inspection rework and scrap loops", world: "cleanroom", blueprint: "baseline", scenario: "production-window", objective: "dram-output", seed: 42,
+  name: "reentrant DRAM route closes deterministic inspection rework and scrap loops", world: "cleanroom", blueprint: "product-mix", scenario: "production-window", objective: "dram-output", seed: 42,
   assertions: [
-    { kind: "metric", path: "produced.tested-dram-device", min: 16 },
-    { kind: "metric", path: "throughputPerMinute", min: 4 },
+    { kind: "metric", path: "produced.commercial-dram-device", min: 4 },
+    { kind: "metric", path: "produced.performance-dram-device", min: 4 },
+    { kind: "metric", path: "produced.automotive-dram-device", min: 2 },
+    { kind: "metric", path: "deliveryPortfolio.contracts.commercial-order.delivered", min: 4 },
+    { kind: "metric", path: "deliveryPortfolio.contracts.performance-order.delivered", min: 4 },
+    { kind: "metric", path: "deliveryPortfolio.contracts.automotive-order.delivered", min: 2 },
+    { kind: "metric", path: "throughputPerMinute", min: 3.5 },
     { kind: "metric", path: "machineUtilization.lithography-1", min: 0.2 },
     { kind: "metric", path: "machineUtilization.etch-1", min: 0.2 },
     { kind: "metric", path: "lotFlow.released", equals: 12 },
@@ -706,6 +755,15 @@ await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
   ],
   acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 2, requireCandidateCapacityReady: true },
 });
+await json(join(project, "benchmarks", "product-mix-research.benchmark.json"), {
+  version: 1, id: "product-mix-research", name: "DRAM One-policy Product-mix Research",
+  baselineBlueprint: "baseline", candidateBlueprint: "product-mix",
+  cases: [
+    { id: "steady-production", name: "Excursion-free production", world: "cleanroom", scenario: "steady-production", objective: "dram-output", seed: 42, weight: 1 },
+    { id: "mixed-quality", name: "Mixed-quality production", world: "cleanroom", scenario: "production-window", objective: "dram-output", seed: 42, weight: 1 },
+  ],
+  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 0, requireCandidateCapacityReady: true },
+});
 let specializedSource = await loadFactoryProject(project, {
   blueprint: "experiment", world: "cleanroom", scenario: "steady-production", objective: "dram-output",
 });
@@ -736,6 +794,7 @@ await json(join(project, "blueprints", "experiment.blueprint.json"), {
   ...specializedProject.blueprint, revision: "memory-fab-facility-utilities-v1",
 });
 await lockBlueprintBenchmark(project, "dispatch-research");
+await lockBlueprintBenchmark(project, "product-mix-research");
 
 await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nTwelve named wafer lots become available six seconds apart. Before each Scenario-owned \`releaseTick\` a lot is scheduled outside the fab; admission into \`lot-release\` is capacity-gated and records actual release delay. Planned starts, due dates, quality excursions, and failures are fixed test workload, so a candidate cannot improve its score by deleting or postponing work. A candidate may add \`policies.lotRelease\` as explicit CONWIP code: \`maximumWip\` is the hard card count, \`reopenAtWip\` controls replenishment-wave hysteresis, and \`dispatch\` chooses among eligible identities.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses identity-preserving wafer lots within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nBetween deposition and the second lithography pass, the baseline furnace requires three dielectric-stack lots before one fixed twelve-second anneal job may start. The same three lot identities leave together, and the evaluator owns actual lots/job plus pre-start batch queue wait. A six-second single-lot rapid-anneal Process is qualified on the same physical furnace, so batch policy is a visible Blueprint recipe choice instead of scheduler magic.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses fixed-batch anneal, standard inspection, authored operation order, FIFO lots, and open-loop admission.\n\nThe checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.\n\nThe TypeScript command \`bun run memory-fab:research-release\` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or \`policies.lotRelease\` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
 await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots become available six seconds apart, carry priority and due dates through lithography → etch → deposition → thermal anneal, then return to the same lithography and etch work centers before inline inspection. Scheduled lots remain outside factory WIP until their capacity-gated and optional Blueprint CONWIP release succeeds. Their identities and latent defect state then survive processing and physical transport. The baseline furnace starts only when three lots are resident and returns the same three identities after one fixed batch job; its alternative rapid-anneal Process handles one lot at a time. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise repairable critical-dimension defects, terminal particle contamination, and latent electrical defects missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nEquipment condition is equally physical. Usage drift changes cycle time, power, and defect exposure until a provider performs maintenance with the required clean/calibration kit. Service completion then creates a separate qualification job: vacuum tools consume sacrificial tool-qualification wafers, metrology consumes reference wafers, the corresponding skilled crew is reserved, and production remains locked until that powered qualification finishes. A failed qualification retries only the release phase instead of repeating completed service.\n\nThe locked Coding Agent benchmark evaluates one candidate Blueprint across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption. This prevents a layout or policy from winning only by memorizing one defect schedule. The evaluator measures scheduled/released/pending work, planned and actual release cadence, peak active lots, physical/controller blocked lot-time, good and first-pass yield, inspection count, rework, scrap, quality escape, actual lots per batch, pre-start batch queue wait, complete cycle, queue, processing, transport, changeover, maintenance/qualification work and consumables, on-time service, tardiness, and per-case score instead of inferring them from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters. Start with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, \`bun run inm benchmark examples/memory-fab --benchmark dispatch-research\`, \`bun run memory-fab:research-release\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
@@ -744,7 +803,7 @@ const generatedAutoresearch = await readFile(autoresearchPath, "utf8");
 await text(autoresearchPath, generatedAutoresearch
   .replace(
     "Twelve named wafer lots become available six seconds apart.",
-    "The benchmark target is a delivered tested DRAM device, not a qualified wafer-lot proxy. One qualified wafer lot plus eight scheduled package substrates enters the explicit dice/package Process; that Process terminates the tracked wafer work order and creates eight fungible packaged devices. An eight-device burn-in/final-test batch then feeds the customer boundary. Product throughput is counted in devices while cycle time, tardiness, yield, and WIP remain attached to the source `dram-wafer` family. Twelve named wafer lots and twelve eight-substrate shipments become available six seconds apart.",
+    "The benchmark target is a frozen three-contract DRAM portfolio, not a qualified wafer-lot proxy or one undifferentiated throughput counter. One qualified wafer lot plus eight scheduled package substrates enters the explicit dice/package Process; that Process terminates the tracked wafer work order and creates eight fungible packaged devices. The final-test rack may run either a short commercial program or an extended burn-in/speed-bin program with a fixed synthetic commercial/performance/automotive disposition. Contract demand, item value, and shortfall penalty are evaluator-owned. Demand is a service floor rather than a production ceiling: every delivered device earns product value, shortage below demand pays a penalty, and above-demand output is reported separately. Product delivery is counted in devices while cycle time, tardiness, yield, and WIP remain attached to the source `dram-wafer` family. Twelve named wafer lots and twelve eight-substrate shipments become available six seconds apart.",
   )
   .replace(
     "across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption.",
@@ -756,7 +815,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "\n\nThe wafer route revisits `lithography-1` and `etch-1`.",
-    "\n\n`inm plan` treats those twelve scheduled blank-wafer lots as fixed external supply over the four-minute Scenario instead of demanding a fictional extractor. It also allocates required lithography and etch device-time across the exact qualification matrix. A shared bay owns one clock even when it qualifies both DRAM layers; the dedicated candidate tools provide separate physical clocks. The benchmark requires every candidate case to report capacity READY, so a score improvement cannot hide a toolset, raw-supply, logistics, utility-power, or other target-rate gap. Setup, maintenance, utility contention, failures, and dispatch-dependent queues are still judged by the locked event simulation.\n\nThe wafer route revisits `lithography-1` and `etch-1`.",
+    "\n\n`inm plan` jointly solves all three delivery contracts as one material balance, so the fixed coproduct ratio of the extended screen can satisfy sibling product demand instead of being planned three times. It also treats the twelve scheduled blank-wafer lots and substrate deliveries as fixed external supply, and allocates required device-time across each exact qualification matrix. A shared bay owns one clock even when it qualifies multiple operations. The benchmark requires every candidate case to report capacity READY, so a score improvement cannot hide a toolset, raw-supply, logistics, utility-power, or other portfolio gap. Setup, maintenance, utility contention, failures, and dispatch-dependent queues are still judged by the locked event simulation.\n\nThe candidate final-test rack uses `recipeDispatch: contract-value`. This Blueprint policy ranks ready test programs by marginal contract value per equipment-time while counting product already delivered, buffered, in transit, or committed by active jobs. Below demand, one unit earns its product value and avoids its shortfall penalty; above demand it continues earning product value. The immutable baseline uses authored order and overproduces the reliability mix while leaving commercial demand short, demonstrating that product mix matters alongside gross throughput.\n\nThe wafer route revisits `lithography-1` and `etch-1`.",
   )
   .replace(
     "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.",
@@ -775,8 +834,12 @@ await text(autoresearchPath, generatedAutoresearch
     "Coding Agents may next test utility-plant count/placement, reticle-stocker count/placement, paired same-layer lithography capacity, a second service crew, service-bay placement, qualification-wafer inventory, furnace duplication, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Facility allocations, capacity-unit time, waits, blocks, provider trips, reusable-tool occupancy, maintenance, quality, cycle time, tardiness, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
   )
   .replace(
+    "\n\nRun:\n",
+    "\n\nFor the smallest complete optimization proof, `product-mix-research` compares `baseline.blueprint.json` with `product-mix.blueprint.json`. Those files differ by exactly one JSON value: the final-test rack changes from fixed authored order to `recipeDispatch: contract-value`. The evaluator, factory, cases, duration, and contracts stay locked; a KEEP verdict therefore isolates the value of that one control decision.\n\nRun:\n",
+  )
+  .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
+    "bun run inm benchmark examples/memory-fab --benchmark product-mix-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
   )
   .replace(
     "The aggregate score must improve, and no individual operating condition may regress by more than the declared gate.",
@@ -788,7 +851,7 @@ const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
   .replace(
     "\n\nEquipment condition is equally physical.",
-    "\n\nThe modeled factory now crosses the wafer-to-product boundary. Twelve fixed shipments of eight package substrates enter through a placed receiving buffer and a physical lane. Each qualified wafer lot is diced and packaged into eight ordinary packaged devices; that Process explicitly completes the tracked wafer work order rather than renaming one lot into eight objects. Burn-in and final electrical test run in eight-device batches before the customer boundary. The Objective counts delivered tested devices while retaining `dram-wafer` cycle, tardiness, WIP, and quality service. This mirrors the public wafer-probe → package-good-die → final-test/burn-in structure while keeping all timing and yield values synthetic.\n\nEquipment condition is equally physical.",
+    "\n\nThe modeled factory now crosses the wafer-to-product boundary. Twelve fixed shipments of eight package substrates enter through a placed receiving buffer and a physical lane. Each qualified wafer lot is diced and packaged into eight ordinary packaged devices; that Process explicitly completes the tracked wafer work order rather than renaming one lot into eight objects. A shared rack chooses between a short commercial screen and an extended burn-in/speed-bin program that emits a fixed synthetic commercial/performance/automotive mix. Three evaluator-owned customer contracts define demand floors, product value, and shortfall penalty. Every delivered device remains valuable above demand, while shortage carries the additional penalty. The Objective therefore rewards service and product mix without asking a scarce-memory factory to stop at quota; `dram-wafer` cycle, tardiness, WIP, and quality service remain attached to source work. This mirrors the public wafer-probe → package-good-die → final-test/burn-in and speed-grade structure while keeping all timing and yields synthetic.\n\nEquipment condition is equally physical.",
   )
   .replace(
     "\n\nEquipment condition is equally physical.",
@@ -812,7 +875,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",
-    "`bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-metrology`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
+    "`bun run inm benchmark examples/memory-fab --benchmark product-mix-research`, `bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-metrology`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

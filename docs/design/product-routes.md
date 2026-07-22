@@ -1,6 +1,6 @@
 # Product routes
 
-Status: explicit project-local product-route state machines, including terminating conversion operations, implemented in `inm-sim/0.66.0`.
+Status: explicit project-local product-route state machines, including terminating conversion operations, implemented through `inm-sim/0.67.0`.
 
 Related: [[docs/design/lot-tracking]], [[docs/design/industrial-boundaries]], [[docs/design/work-center-dispatch]], [[docs/design/quality-flow]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 

@@ -1,0 +1,59 @@
+{
+  "acceptance": {
+    "maximumCaseScoreRegression": 0,
+    "minimumAggregateScoreDelta": 0.001,
+    "requireCandidateCapacityReady": true
+  },
+  "baselineBlueprint": "baseline",
+  "candidateBlueprint": "product-mix",
+  "cases": [
+    {
+      "id": "steady-production",
+      "name": "Excursion-free production",
+      "objective": "dram-output",
+      "scenario": "steady-production",
+      "seed": 42,
+      "weight": 1,
+      "world": "cleanroom"
+    },
+    {
+      "id": "mixed-quality",
+      "name": "Mixed-quality production",
+      "objective": "dram-output",
+      "scenario": "production-window",
+      "seed": 42,
+      "weight": 1,
+      "world": "cleanroom"
+    }
+  ],
+  "id": "product-mix-research",
+  "lock": {
+    "cases": {
+      "mixed-quality": {
+        "blueprintHash": "ccf55b51ab2f4f79a029e89054b1cbe9f4b7bf14989aee1621078ddb91ad58dd",
+        "deviceCatalogHash": "6e05d72dc45f201983d59848a31cc24cad7e5bf6b4aefd3d484322cf3b678025",
+        "engineVersion": "inm-sim/0.67.0",
+        "objectiveHash": "4688982eb8a6f7393e594ec811d29878dcf3bcbfe0df4ec9a0cfaf7e480e2535",
+        "processCatalogHash": "b472c483c20cddc6b6d2802f9426ef8c40183249d1e376e94a6fea994da8445a",
+        "resourceCatalogHash": "08b891130103ce47bbd7542bf35cfbdd0a55ad96dc162e98cb7d0ae3e901da2c",
+        "routeCatalogHash": "b35fab9f03ba1676e61688ee536b034bf730a6c20a8e74f22faf4ea305e655c0",
+        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "steady-production": {
+        "blueprintHash": "ccf55b51ab2f4f79a029e89054b1cbe9f4b7bf14989aee1621078ddb91ad58dd",
+        "deviceCatalogHash": "6e05d72dc45f201983d59848a31cc24cad7e5bf6b4aefd3d484322cf3b678025",
+        "engineVersion": "inm-sim/0.67.0",
+        "objectiveHash": "4688982eb8a6f7393e594ec811d29878dcf3bcbfe0df4ec9a0cfaf7e480e2535",
+        "processCatalogHash": "b472c483c20cddc6b6d2802f9426ef8c40183249d1e376e94a6fea994da8445a",
+        "resourceCatalogHash": "08b891130103ce47bbd7542bf35cfbdd0a55ad96dc162e98cb7d0ae3e901da2c",
+        "routeCatalogHash": "b35fab9f03ba1676e61688ee536b034bf730a6c20a8e74f22faf4ea305e655c0",
+        "scenarioHash": "87befcae2f98392c8bbef61523ce1ebe884e9bfd84ebe124632008d459b68f7e",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      }
+    },
+    "contractHash": "94536027df40027e6d647002024c32453ccbe8ce12f65555e7c95032186ff526"
+  },
+  "name": "DRAM One-policy Product-mix Research",
+  "version": 1
+}

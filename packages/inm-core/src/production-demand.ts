@@ -35,6 +35,14 @@ export interface ResourceDemandOptimization<T> {
   rawResourceCost?: (resource: ResourceId) => number;
 }
 
+export interface ResourceDemandPortfolioOptimization<T> {
+  demands: readonly ProcessAmount[];
+  candidates: readonly DemandProcessCandidate<T>[];
+  rawResources: readonly ResourceId[];
+  candidateCost?: (candidate: DemandProcessCandidate<T>) => number;
+  rawResourceCost?: (resource: ResourceId) => number;
+}
+
 export interface SpatialDemandProcessCandidate<T> extends DemandProcessCandidate<T> {
   region: string;
 }
@@ -221,11 +229,14 @@ function solveLinearProgram(a: number[][], b: number[], c: number[]): LinearSolu
  * capacity is minimized. This supports alternative recipes and cyclic
  * coproduct chains that cannot be represented by recursive tree expansion.
  */
-export function optimizeResourceDemand<T>(options: ResourceDemandOptimization<T>): ResourceDemandPlan<T> {
+export function optimizeResourceDemands<T>(options: ResourceDemandPortfolioOptimization<T>): ResourceDemandPlan<T> {
+  const demands = new Map<ResourceId, number>();
+  for (const demand of options.demands) add(demands, demand.resource, demand.count);
+  if (![...demands.values()].some((amount) => amount > PLAN_EPSILON)) throw new Error("Production demand portfolio must contain at least one positive demand");
   const candidates = [...new Map(options.candidates.map((candidate) => [candidate.key, candidate])).values()].sort((a, b) => a.key.localeCompare(b.key));
   const rawResources = [...new Set(options.rawResources)].sort();
   const resources = [...new Set([
-    options.targetResource, ...rawResources,
+    ...demands.keys(), ...rawResources,
     ...candidates.flatMap((candidate) => [...candidate.inputs, ...candidate.outputs].map((amount) => amount.resource)),
   ])].sort();
   const variableCount = candidates.length + rawResources.length;
@@ -234,11 +245,11 @@ export function optimizeResourceDemand<T>(options: ResourceDemandOptimization<T>
       - candidate.outputs.filter((amount) => amount.resource === resource).reduce((sum, amount) => sum + amount.count, 0)),
     ...rawResources.map((raw) => raw === resource ? -1 : 0),
   ]);
-  const bounds = resources.map((resource) => resource === options.targetResource ? -options.targetRatePerMinute : 0);
+  const bounds = resources.map((resource) => -(demands.get(resource) ?? 0));
   const rawWeights = rawResources.map((resource) => Math.max(EPSILON, options.rawResourceCost?.(resource) ?? 1));
   const rawObjective = [...candidates.map(() => 0), ...rawWeights.map((weight) => -weight)];
   const rawSolution = solveLinearProgram(matrix, bounds, rawObjective);
-  if (!rawSolution) throw new Error(`No feasible production mix can satisfy ${options.targetRatePerMinute} '${options.targetResource}'/min`);
+  if (!rawSolution) throw new Error(`No feasible production mix can satisfy portfolio ${[...demands.entries()].map(([resource, count]) => `${count} '${resource}'/min`).join(" + ")}`);
   const rawCost = -rawSolution.objective;
   const candidateCosts = candidates.map((candidate) => Math.max(EPSILON, options.candidateCost?.(candidate) ?? 1));
   const costMatrix = [...matrix, [...candidates.map(() => 0), ...rawWeights]];
@@ -254,11 +265,12 @@ export function optimizeResourceDemand<T>(options: ResourceDemandOptimization<T>
     for (const amount of row.candidate.outputs) add(balances, amount.resource, amount.count * row.cycles);
     for (const amount of row.candidate.inputs) add(balances, amount.resource, -amount.count * row.cycles);
   }
-  add(balances, options.targetResource, -options.targetRatePerMinute);
+  for (const [resource, count] of demands) add(balances, resource, -count);
   return {
     processes: processRows.map((row): PlannedDemandProcess<T> => {
-      const primary = row.candidate.outputs.some((amount) => amount.resource === options.targetResource)
-        ? options.targetResource : [...row.candidate.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!.resource;
+      const primary = [...row.candidate.outputs].filter((amount) => demands.has(amount.resource))
+        .sort((left, right) => right.count - left.count || left.resource.localeCompare(right.resource))[0]?.resource
+        ?? [...row.candidate.outputs].sort((a, b) => a.resource.localeCompare(b.resource))[0]!.resource;
       return {
         candidate: row.candidate, primaryResource: primary, requiredCyclesPerMinute: row.cycles,
         inputsPerMinute: rates(row.candidate.inputs, row.cycles), outputsPerMinute: rates(row.candidate.outputs, row.cycles),
@@ -270,6 +282,16 @@ export function optimizeResourceDemand<T>(options: ResourceDemandOptimization<T>
     rawCost: normalize(rawCost),
     processCost: processRows.reduce((sum, row) => sum + row.cycles * (options.candidateCost?.(row.candidate) ?? 1), 0),
   };
+}
+
+export function optimizeResourceDemand<T>(options: ResourceDemandOptimization<T>): ResourceDemandPlan<T> {
+  return optimizeResourceDemands({
+    demands: [{ resource: options.targetResource, count: options.targetRatePerMinute }],
+    candidates: options.candidates,
+    rawResources: options.rawResources,
+    ...(options.candidateCost ? { candidateCost: options.candidateCost } : {}),
+    ...(options.rawResourceCost ? { rawResourceCost: options.rawResourceCost } : {}),
+  });
 }
 
 /**

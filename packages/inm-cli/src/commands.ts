@@ -125,7 +125,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `${summary.name}`, `Project: ${summary.rootDir}`, `World: ${summary.world.name} [${summary.world.id}] · ${summary.regions.length} ${summary.regions.length === 1 ? "region" : "regions"} · ${summary.resourceNodes.length} finite resource ${summary.resourceNodes.length === 1 ? "node" : "nodes"}`, `Blueprint: ${summary.deviceInstances} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"}`,
     `Regions: ${summary.regions.map((region) => `${region.name} [${region.id}] ${region.kind} @ (${region.coordinates.x},${region.coordinates.y},${region.coordinates.z}) ${region.bounds.width}×${region.bounds.height}`).join("; ")}`,
     `Resources: ${summary.resources.join(", ")}`, `Processes: ${summary.processes.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
-    `Objective: ${summary.objective.name} → ${summary.objective.targetRatePerMinute} ${summary.objective.targetResource}/min @ ${summary.objective.targetRegion}`, `Runs: ${summary.runs.length}`, "",
+    `Objective: ${summary.objective.name} → ${summary.objective.targetRatePerMinute} ${summary.objective.targetResource}/min @ ${summary.objective.targetRegion}`,
+    ...(summary.objective.deliveryContracts?.length ? [`Contracts: ${summary.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`] : []),
+    `Runs: ${summary.runs.length}`, "",
   ].join("\n"), false);
 }
 
@@ -219,7 +221,9 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
   }
   write([
     `${project.manifest.name} · target-rate capacity plan`,
-    `Target: ${plan.targetRatePerMinute.toFixed(3)} ${plan.targetResource}/min · ${plan.targetItemsForScenario.toFixed(3)} items over ${plan.scenarioMinutes.toFixed(3)} min`,
+    `Primary target: ${plan.targetRatePerMinute.toFixed(3)} ${plan.targetResource}/min · ${plan.targetItemsForScenario.toFixed(3)} items over ${plan.scenarioMinutes.toFixed(3)} min`,
+    "Delivery portfolio",
+    ...plan.deliveryTargets.map((target) => `  ${target.id.padEnd(24)} ${target.ratePerMinute.toFixed(3).padStart(8)} ${target.resource}/min @ ${target.region} · ${target.itemsForScenario.toFixed(3)} items`),
     `Status: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`, "",
     "Process capacity",
     ...plan.processes.map((process) => `  ${`${process.process}/${process.mode}`.padEnd(32)} ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}/min`).join(" + ")}  ${process.configuredMachines}/${process.requiredMachines} ${process.asset}  primary capacity ${process.configuredCapacityPerMinute.toFixed(3)}/min${process.additionalMachines ? `  ADD ${process.additionalMachines}` : ""}`),
@@ -371,7 +375,10 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     });
     write([
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,
-    `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} ${project.objective.targetResource}/min`, `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
+    `Throughput: ${result.metrics.throughputPerMinute.toFixed(3)} contracted product units/min`,
+    `Contracts: ${(result.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}% demand attainment · ${result.metrics.deliveryPortfolio.valued.toFixed(3)}/${result.metrics.deliveryPortfolio.demanded.toFixed(3)} valued · ${result.metrics.deliveryPortfolio.overflow.toFixed(3)} above demand · ${result.metrics.deliveryPortfolio.netValuePerMinute.toFixed(3)} net value/min`,
+    ...Object.entries(result.metrics.deliveryPortfolio.contracts).map(([id, contract]) => `  ${id}: ${contract.delivered.toFixed(3)}/${contract.demand.toFixed(3)} ${contract.resource} · ${(contract.fulfillment * 100).toFixed(1)}% · net ${contract.netValue.toFixed(3)}`),
+    `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
     ...(result.metrics.lotFlow.family ? [
       `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released}/${result.metrics.lotFlow.scheduled} completed/released/scheduled · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
       `Release flow: ${(result.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(3)} s planned interval · ${(result.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(3)} s actual · ${(result.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(3)} s mean delay · ${result.metrics.releaseFlow.pending} pending`,
@@ -466,6 +473,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     `Fixed work: ${result.cases.length} cases · ${result.totalSimulationTicks} simulated ticks (baseline + candidate)`, "",
     ...result.cases.flatMap((item) => [
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
+      `    contracts ${(item.baselineMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.baselineMetrics.deliveryNetValuePerMinute.toFixed(3)} net/min / ${item.baselineMetrics.deliveryOverflow.toFixed(3)} overflow → ${(item.candidateMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.candidateMetrics.deliveryNetValuePerMinute.toFixed(3)} / ${item.candidateMetrics.deliveryOverflow.toFixed(3)}`,
       ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
         `    lots ${item.baselineMetrics.completedLots}/${item.baselineMetrics.onTimeLots} complete/on-time → ${item.candidateMetrics.completedLots}/${item.candidateMetrics.onTimeLots} · mean cycle ${(item.baselineMetrics.meanCycleTimeTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanCycleTimeTicks / 1000).toFixed(3)} s · tardiness ${(item.baselineMetrics.meanTardinessTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanTardinessTicks / 1000).toFixed(3)} s`,
         `    release ${item.baselineMetrics.releasedLots}/${item.baselineMetrics.scheduledLots} released · ${(item.baselineMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s interval / ${(item.baselineMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s delay → ${item.candidateMetrics.releasedLots}/${item.candidateMetrics.scheduledLots} · ${(item.candidateMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s / ${(item.candidateMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s`,

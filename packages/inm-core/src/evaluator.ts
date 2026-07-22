@@ -40,7 +40,38 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
     + Object.values(project.transportCells).reduce((sum, cell) => sum + cell.asset.economics.buildCost, 0)
     + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleets.reduce((fleetSum, fleet) => fleetSum + fleet.asset.economics.buildCost * fleet.count, 0), 0);
-  const targetProduced = stats.consumedByRegion[project.objective.targetRegion]?.[project.objective.targetResource] ?? 0;
+  const objectiveContracts = project.objective.deliveryContracts ?? [{
+    id: "primary", name: project.objective.name, resource: project.objective.targetResource, region: project.objective.targetRegion,
+    demandPerMinute: project.objective.targetRatePerMinute, valuePerItem: 0, shortfallPenaltyPerItem: 0,
+  }];
+  const contractMetrics = objectiveContracts.map((contract) => {
+    const demand = contract.demandPerMinute * duration / 60_000;
+    const delivered = stats.consumedByRegion[contract.region]?.[contract.resource] ?? 0;
+    const valued = delivered;
+    const overflow = Math.max(0, delivered - demand);
+    const shortfall = Math.max(0, demand - delivered);
+    const fulfillment = demand > 0 ? delivered / demand : 1;
+    const grossValue = valued * contract.valuePerItem;
+    const shortfallPenalty = shortfall * contract.shortfallPenaltyPerItem;
+    return { ...contract, demand, delivered, valued, overflow, shortfall, fulfillment, grossValue, shortfallPenalty, netValue: grossValue - shortfallPenalty };
+  });
+  const demanded = contractMetrics.reduce((sum, contract) => sum + contract.demand, 0);
+  const targetProduced = contractMetrics.reduce((sum, contract) => sum + contract.delivered, 0);
+  const valued = contractMetrics.reduce((sum, contract) => sum + contract.valued, 0);
+  const grossValue = contractMetrics.reduce((sum, contract) => sum + contract.grossValue, 0);
+  const shortfallPenalty = contractMetrics.reduce((sum, contract) => sum + contract.shortfallPenalty, 0);
+  const netValue = grossValue - shortfallPenalty;
+  const deliveryPortfolio: FactoryMetrics["deliveryPortfolio"] = {
+    demanded, delivered: targetProduced, valued, overflow: contractMetrics.reduce((sum, contract) => sum + contract.overflow, 0),
+    fulfillment: demanded > 0 ? targetProduced / demanded : 1,
+    grossValue, shortfallPenalty, netValue, netValuePerMinute: netValue * 60_000 / duration,
+    contracts: Object.fromEntries(contractMetrics.map((contract) => [contract.id, {
+      name: contract.name, resource: contract.resource, region: contract.region,
+      demand: contract.demand, delivered: contract.delivered, valued: contract.valued, overflow: contract.overflow,
+      shortfall: contract.shortfall, fulfillment: contract.fulfillment, grossValue: contract.grossValue,
+      shortfallPenalty: contract.shortfallPenalty, netValue: contract.netValue,
+    }])),
+  };
   const throughputPerMinute = targetProduced * 60_000 / duration;
   const targetFamily = project.objective.trackedFamily ?? project.resources[project.objective.targetResource]?.tracking?.family ?? null;
   const targetLots = targetFamily ? Object.values(state.lots).filter((lot) => lot.family === targetFamily) : [];
@@ -196,6 +227,9 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   if (constraints.maxBuildCost !== undefined && totalBuildCost > constraints.maxBuildCost) violations.push(`build cost ${totalBuildCost} exceeds ${constraints.maxBuildCost}`);
   if (constraints.maxOccupiedArea !== undefined && occupiedArea > constraints.maxOccupiedArea) violations.push(`occupied area ${occupiedArea} exceeds ${constraints.maxOccupiedArea}`);
   if (constraints.minProduction !== undefined && targetProduced < constraints.minProduction) violations.push(`production ${targetProduced} is below ${constraints.minProduction}`);
+  for (const contract of contractMetrics) if (contract.minimumFulfillment !== undefined && contract.fulfillment + 1e-12 < contract.minimumFulfillment) violations.push(
+    `delivery contract ${contract.id} fulfillment ${(contract.fulfillment * 100).toFixed(1)}% is below ${(contract.minimumFulfillment * 100).toFixed(1)}%`,
+  );
   const averageWip = stats.wipArea / duration;
   const averageBeltItems = stats.beltItemArea / duration;
   const averageBlockedBeltItems = stats.beltBlockedArea / duration;
@@ -415,10 +449,11 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     devices: maintenanceDevices,
     providers: maintenanceProviders,
   };
-  const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : Math.min(1, throughputPerMinute / project.objective.targetRatePerMinute);
+  const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : deliveryPortfolio.fulfillment;
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
     throughput: throughputPerMinute * weights.throughput,
+    deliveryValue: deliveryPortfolio.netValuePerMinute * (weights.deliveryValue ?? 0),
     onTimeDelivery: onTimeDelivery * (weights.onTimeDelivery ?? 0),
     energy: -(state.energy.consumedMilliJoules / 1_000_000) * weights.energy,
     buildCost: -(totalBuildCost / 1_000) * weights.buildCost,
@@ -475,7 +510,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   }] as const;
   })));
   return {
-    produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute,
+    produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
     onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },

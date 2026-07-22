@@ -58,6 +58,33 @@
   "consumed": {
     "gear": 26
   },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 26,
+        "demand": 24,
+        "fulfillment": 1.0833333333333333,
+        "grossValue": 0,
+        "name": "Sustain Gear Throughput",
+        "netValue": 0,
+        "overflow": 2,
+        "region": "assembly-zone",
+        "resource": "gear",
+        "shortfall": 0,
+        "shortfallPenalty": 0,
+        "valued": 26
+      }
+    },
+    "delivered": 26,
+    "demanded": 24,
+    "fulfillment": 1.0833333333333333,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 2,
+    "shortfallPenalty": 0,
+    "valued": 26
+  },
   "energyConsumedMilliJoules": 262151200,
   "energyStorage": {
     "grid-assembly-zone-generator-2": {
@@ -151,7 +178,7 @@
     "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   },
-  "finalScore": 85.60004633333334,
+  "finalScore": 86.43337966666668,
   "fuelConsumed": {
     "coal": 4
   },
@@ -260,7 +287,7 @@
     "treated": {}
   },
   "occupiedArea": 155,
-  "onTimeDelivery": 1,
+  "onTimeDelivery": 1.0833333333333333,
   "peakBeltItems": 7,
   "powerGrids": {
     "grid-assembly-zone-generator-2": {
@@ -404,9 +431,10 @@
     "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
+    "deliveryValue": 0,
     "energy": -2.621512,
     "occupiedArea": -31,
-    "onTimeDelivery": 10,
+    "onTimeDelivery": 10.833333333333332,
     "qualityEscapes": 0,
     "rework": 0,
     "tardiness": 0,

@@ -1647,6 +1647,18 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     path: "objective/trackedFamily", code: "reference.lot-family",
     message: `Objective tracked family '${loaded.objective.trackedFamily}' is not declared by a project Resource`,
   });
+  const contractIds = new Set<string>();
+  const contractResources = new Set<string>();
+  for (const [index, contract] of (loaded.objective.deliveryContracts ?? []).entries()) {
+    const path = `objective/deliveryContracts/${index}`;
+    if (contractIds.has(contract.id)) issues.push({ path: `${path}/id`, code: "objective.duplicate-contract", message: `Delivery contract '${contract.id}' is declared more than once` });
+    contractIds.add(contract.id);
+    if (contractResources.has(contract.resource)) issues.push({ path: `${path}/resource`, code: "objective.duplicate-contract-resource", message: `Delivery Resource '${contract.resource}' must belong to exactly one contract` });
+    contractResources.add(contract.resource);
+    if (!loaded.resources[contract.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown delivery-contract Resource '${contract.resource}'` });
+    else if (loaded.resources[contract.resource]!.tracking) issues.push({ path: `${path}/resource`, code: "objective.contract-tracked-resource", message: `Delivery contract '${contract.id}' must target fungible product inventory, not tracked Resource '${contract.resource}'` });
+    if (!regions[contract.region]) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown delivery-contract region '${contract.region}'` });
+  }
   for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {
     const device = devices[deviceId];
     if (!device) { issues.push({ path: `scenario/initialBuffers/${deviceId}`, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` }); continue; }

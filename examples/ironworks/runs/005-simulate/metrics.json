@@ -25,6 +25,33 @@
   "consumed": {
     "iron-ore": 8
   },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 8,
+        "demand": 8,
+        "fulfillment": 1,
+        "grossValue": 0,
+        "name": "Deliver Stacked Iron Cargo",
+        "netValue": 0,
+        "overflow": 0,
+        "region": "forge-zone",
+        "resource": "iron-ore",
+        "shortfall": 0,
+        "shortfallPenalty": 0,
+        "valued": 8
+      }
+    },
+    "delivered": 8,
+    "demanded": 8,
+    "fulfillment": 1,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 0,
+    "shortfallPenalty": 0,
+    "valued": 8
+  },
   "energyConsumedMilliJoules": 7000,
   "energyStorage": {
     "grid-forge-zone-stack-power": {
@@ -244,6 +271,7 @@
     "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
+    "deliveryValue": 0,
     "energy": -0.00007000000000000001,
     "occupiedArea": -3.2,
     "onTimeDelivery": 10,

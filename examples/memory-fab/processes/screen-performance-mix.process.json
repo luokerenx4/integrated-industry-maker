@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "id": "screen-performance-mix",
+  "name": "Bin a high-performance DRAM product mix",
+  "description": "Runs an extended burn-in and speed-bin program whose fixed synthetic disposition is four performance, two automotive-screened, and two commercial devices.",
+  "category": "final-test",
+  "tags": [
+    "dram",
+    "back-end",
+    "burn-in",
+    "final-test",
+    "speed-bin",
+    "reliability",
+    "batch"
+  ],
+  "setupGroup": "reliability-screen",
+  "durationTicks": 30000,
+  "inputs": [
+    {
+      "resource": "packaged-dram-device",
+      "count": 8
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "performance-dram-device",
+      "count": 4
+    },
+    {
+      "resource": "automotive-dram-device",
+      "count": 2
+    },
+    {
+      "resource": "commercial-dram-device",
+      "count": 2
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Fab capacity planning
 
-Status: qualification-aware toolset allocation plus Scenario-scheduled tracked-lot and purchased-material supply implemented in `inm-sim/0.66.0`.
+Status: qualification-aware toolset allocation plus Scenario-scheduled tracked-lot and purchased-material supply implemented through `inm-sim/0.67.0`.
 
 Related: [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
@@ -12,7 +12,7 @@ Tracked wafer lots also enter through a Scenario schedule rather than mineral ex
 
 ## Qualification-aware allocation
 
-The Objective-derived material balance selects a required rate for each `(Process, mode, region)` operation. The planner converts that rate into required device-ticks per minute. For every `(region, Device asset)` shared by two or more selected operations, it builds a bipartite qualification graph:
+The Objective-derived material balance jointly satisfies the primary target or every declared delivery contract, including fixed coproduct ratios, and selects a required rate for each `(Process, mode, region)` operation. The planner converts that rate into required device-ticks per minute. For every `(region, Device asset)` shared by two or more selected operations, it builds a bipartite qualification graph:
 
 - operation nodes demand device-time;
 - placed Device nodes each supply 60,000 device-ticks per minute;

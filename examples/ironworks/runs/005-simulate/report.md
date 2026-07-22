@@ -3,9 +3,11 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.090**
-- Result hash: `d542bd3d8165926c968968df98b7d4ce93be4ece8aee394a372519d58c5e7973`
+- Result hash: `1dedbecbdad3ceb70bde48348860be458513bad3423b12ae310bc500e5c6f410`
 - Bottleneck: none
 - Throughput/min: 240.000
+- Delivery portfolio: 100.0% demand attainment · 8.000 / 8.000 valued / demanded · 0.000 above demand · 0.000 net value/min
+  - Contract `primary`: 8.000 / 8.000 `iron-ore` · 100.0% · 0.000 net value
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
 - Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
@@ -14,7 +16,8 @@
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
-- Target rate: 240.000 iron-ore/min (100.0% attained)
+- Primary target rate: 240.000 iron-ore/min
+- Capacity delivery targets: 240.000 iron-ore/min
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
 - Capacity plan: 1 GAP
@@ -31,7 +34,7 @@
 
 ## Capacity-plan gaps
 
-- **extraction** `iron-ore`: iron-ore supply is short by 240.000/min after 0.000/min scheduled lot releases; add 1 extractor(s)
+- **extraction** `iron-ore`: iron-ore supply is short by 240.000/min after 0.000/min scheduled external supply; add 1 extractor(s)
 
 ## Measured transport flows
 
@@ -56,6 +59,7 @@ No configured logistics stations.
   "changeovers": 0,
   "constraintPenalty": 0,
   "cycleTime": 0,
+  "deliveryValue": 0,
   "energy": -0.00007000000000000001,
   "occupiedArea": -3.2,
   "onTimeDelivery": 10,

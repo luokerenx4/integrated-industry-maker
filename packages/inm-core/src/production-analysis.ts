@@ -484,7 +484,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       const amounts = effectiveProductionAmounts(process, mode);
       const cycleTicks = productionDurationTicks(process, device.assetDef, mode);
       const cyclesPerMinute = 60_000 / cycleTicks;
-      const targetOutput = amounts.outputs.find((amount) => amount.resource === project.objective.targetResource)?.count ?? 0;
+      const objectiveResources = new Set(project.objective.deliveryContracts?.map((contract) => contract.resource) ?? [project.objective.targetResource]);
+      const targetOutput = amounts.outputs.filter((amount) => objectiveResources.has(amount.resource)).reduce((sum, amount) => sum + amount.count, 0);
       const inputPorts = { ...bindings.inputs };
       for (const input of mode.auxiliaryInputs) inputPorts[input.resource] = input.port;
       return [{

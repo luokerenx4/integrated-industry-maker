@@ -3,7 +3,7 @@
   "type": "device",
   "id": "dram-burn-in-rack",
   "name": "DRAM Burn-in and Final-test Rack",
-  "description": "Batch back-end equipment that holds packaged DRAM devices through burn-in and final electrical test.",
+  "description": "Batch back-end equipment that runs alternate commercial and extended reliability/speed-bin programs against fixed customer contracts.",
   "tags": [
     "semiconductor",
     "work-center",
@@ -28,11 +28,27 @@
         "kind": "resource"
       },
       {
-        "id": "tested-output",
+        "id": "commercial-output",
         "direction": "output",
         "side": "west",
         "offset": 1,
-        "buffer": "tested-output",
+        "buffer": "commercial-output",
+        "kind": "resource"
+      },
+      {
+        "id": "performance-output",
+        "direction": "output",
+        "side": "south",
+        "offset": 1,
+        "buffer": "performance-output",
+        "kind": "resource"
+      },
+      {
+        "id": "automotive-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "automotive-output",
         "kind": "resource"
       }
     ]
@@ -41,15 +57,31 @@
     {
       "id": "package-input",
       "role": "input",
-      "capacity": 24,
+      "capacity": 32,
       "accepts": [
         "*"
       ]
     },
     {
-      "id": "tested-output",
+      "id": "commercial-output",
       "role": "output",
-      "capacity": 24,
+      "capacity": 32,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "performance-output",
+      "role": "output",
+      "capacity": 32,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "automotive-output",
+      "role": "output",
+      "capacity": 32,
       "accepts": [
         "*"
       ]
@@ -57,7 +89,8 @@
   ],
   "production": {
     "processes": [
-      "burn-in-test-dram"
+      "screen-commercial-dram",
+      "screen-performance-mix"
     ],
     "categories": [
       "final-test"
@@ -70,7 +103,9 @@
       "package-input"
     ],
     "outputPorts": [
-      "tested-output"
+      "commercial-output",
+      "performance-output",
+      "automotive-output"
     ],
     "modes": [
       {
@@ -89,7 +124,11 @@
         "auxiliaryInputs": [],
         "minimumInputTreatmentLevel": 0
       }
-    ]
+    ],
+    "changeover": {
+      "durationTicks": 3000,
+      "powerMilliWatts": 180000
+    }
   },
   "runtime": {
     "apiVersion": 1,

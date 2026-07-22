@@ -23,7 +23,8 @@ export function effectiveDispatchPolicy(project: CompiledFactoryProject, connect
 }
 
 export function resourceCriticalDepth(project: CompiledFactoryProject): Record<ResourceId, number> {
-  const depths: Record<ResourceId, number> = { [project.objective.targetResource]: 0 };
+  const depths: Record<ResourceId, number> = Object.fromEntries((project.objective.deliveryContracts?.map((contract) => contract.resource)
+    ?? [project.objective.targetResource]).map((resource) => [resource, 0]));
   const processDevices = Object.values(project.devices).filter((device) => device.processPlan).sort((a, b) => a.id.localeCompare(b.id));
   let changed = true;
   while (changed) {
@@ -52,7 +53,8 @@ export function connectionDispatchProfiles(
   const target = connection.toDevice;
   const buffer = target.buffers[connection.toPort.buffer]!;
   return connection.resources.map((resource) => {
-    const objective = resource === project.objective.targetResource && target.region === project.objective.targetRegion
+    const objective = (project.objective.deliveryContracts?.some((contract) => contract.resource === resource && contract.region === target.region)
+      ?? (resource === project.objective.targetResource && target.region === project.objective.targetRegion))
       && target.assetDef.capabilities.includes("consume");
     const processInput = target.processPlan?.inputs.find((amount) => amount.buffer === connection.toPort.buffer && amount.resource === resource);
     const fuel = target.generationPlan?.kind === "fuel" && target.generationPlan.fuelBuffer === connection.toPort.buffer

@@ -3,9 +3,11 @@
 - Decision: **BASELINE**
 - Blueprint: `scaled-factory`
 - Score: **122.079**
-- Result hash: `29305b9ddaacea07ecc12ba1063e8123cc31a53123c0ba18f9e361356dae856f`
+- Result hash: `7a24b4b6f1500dc41434cd1d085ec7bd4299a262ac1b15848ada9ba2d1e0162b`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
+- Delivery portfolio: 83.3% demand attainment · 40.000 / 48.000 valued / demanded · 0.000 above demand · 0.000 net value/min
+  - Contract `primary`: 40.000 / 48.000 `gear` · 83.3% · 0.000 net value
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
 - Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
@@ -14,7 +16,8 @@
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
-- Target rate: 24.000 gear/min (83.3% attained)
+- Primary target rate: 24.000 gear/min
+- Capacity delivery targets: 24.000 gear/min
 - Power allocation: proportional
 - Minimum grid satisfaction: 100%
 - Capacity plan: READY
@@ -74,6 +77,7 @@ No configured accumulators.
   "changeovers": 0,
   "constraintPenalty": 0,
   "cycleTime": 0,
+  "deliveryValue": 0,
   "energy": -2.85101315,
   "occupiedArea": -52.2,
   "onTimeDelivery": 8.333333333333334,

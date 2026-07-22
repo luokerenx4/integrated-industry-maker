@@ -1,13 +1,14 @@
 {
   "assetVersion": 1,
   "type": "resource",
-  "id": "tested-dram-device",
-  "name": "Tested DRAM Device",
-  "description": "Finished DRAM device that passed package burn-in and final electrical test.",
+  "id": "automotive-dram-device",
+  "name": "Automotive-screened DRAM Device",
+  "description": "Finished DRAM device that passed the extended reliability and harsh-condition screen.",
   "tags": [
     "semiconductor",
     "memory",
-    "finished-good"
+    "finished-good",
+    "automotive-grade"
   ],
   "unit": {
     "kind": "discrete",

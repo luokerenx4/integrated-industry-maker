@@ -3,9 +3,11 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **5.138**
-- Result hash: `0052311b39c7db9216c077712e6c2cdb4aaf4eddc5eeabe317bad7d7492cb08a`
+- Result hash: `2bd0165fbdd71f6c35a25dc6ba3f9a3744e381844e9313b812030ad979f91ecd`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
+- Delivery portfolio: 37.5% demand attainment · 9.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
+  - Contract `primary`: 9.000 / 24.000 `gear` · 37.5% · 0.000 net value
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
 - Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
@@ -14,7 +16,8 @@
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
-- Target rate: 12.000 gear/min (37.5% attained)
+- Primary target rate: 12.000 gear/min
+- Capacity delivery targets: 12.000 gear/min
 - Power allocation: proportional
 - Minimum grid satisfaction: 77.6699%
 - Capacity plan: 3 GAPS
@@ -32,7 +35,7 @@
 ## Capacity-plan gaps
 
 - **process** `smelt-iron`: smelt-iron needs 2 smelter but configures 1; add 1
-- **reserve** `iron-ore`: iron-ore Scenario supply is short by 6.000 items after 0.000 scheduled lot releases
+- **reserve** `iron-ore`: iron-ore Scenario supply is short by 6.000 items after 0.000 scheduled external supply
 - **power** `forge-zone`: forge-zone needs 422.000 W additional rated generation
 
 ## Measured transport flows
@@ -70,6 +73,7 @@
   "changeovers": 0,
   "constraintPenalty": 0,
   "cycleTime": 0,
+  "deliveryValue": 0,
   "energy": -2.27679672,
   "occupiedArea": -21.200000000000003,
   "onTimeDelivery": 3.75,

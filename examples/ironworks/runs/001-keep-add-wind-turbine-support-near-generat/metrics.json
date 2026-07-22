@@ -50,6 +50,33 @@
   "consumed": {
     "gear": 10
   },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 10,
+        "demand": 24,
+        "fulfillment": 0.4166666666666667,
+        "grossValue": 0,
+        "name": "Sustain Gear Throughput",
+        "netValue": 0,
+        "overflow": 0,
+        "region": "assembly-zone",
+        "resource": "gear",
+        "shortfall": 14,
+        "shortfallPenalty": 0,
+        "valued": 10
+      }
+    },
+    "delivered": 10,
+    "demanded": 24,
+    "fulfillment": 0.4166666666666667,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 0,
+    "shortfallPenalty": 0,
+    "valued": 10
+  },
   "energyConsumedMilliJoules": 242556750,
   "energyStorage": {
     "grid-assembly-zone-generator-2": {
@@ -372,6 +399,7 @@
     "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
+    "deliveryValue": 0,
     "energy": -2.4255675,
     "occupiedArea": -22,
     "onTimeDelivery": 4.166666666666667,

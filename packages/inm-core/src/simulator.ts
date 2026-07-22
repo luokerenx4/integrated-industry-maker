@@ -1383,9 +1383,35 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return allocations;
   };
+  const contractCommitted = (resource: string, region: string): number => {
+    const delivered = stats.consumedByRegion[region]?.[resource] ?? 0;
+    const buffered = Object.values(project.devices).filter((candidate) => candidate.region === region).reduce((sum, candidate) =>
+      sum + Object.values(state.devices[candidate.id]!.buffers).reduce((bufferSum, inventory) => bufferSum + (inventory[resource] ?? 0), 0), 0);
+    const inTransit = [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
+      .filter((transit) => transit.resource === resource && project.devices[transit.to]?.region === region)
+      .reduce((sum, transit) => sum + transit.count, 0);
+    const activeOutputs = Object.values(project.devices).filter((candidate) => candidate.region === region).reduce((sum, candidate) =>
+      sum + (state.devices[candidate.id]!.activeJob?.produce ?? []).filter((amount) => amount.resource === resource)
+        .reduce((outputSum, amount) => outputSum + amount.count, 0), 0);
+    return delivered + buffered + inTransit + activeOutputs;
+  };
+  const contractContribution = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): number =>
+    (project.objective.deliveryContracts ?? []).reduce((sum, contract) => {
+      if (contract.region !== device.region) return sum;
+      const output = plan.outputs.find((amount) => amount.resource === contract.resource)?.count ?? 0;
+      if (output <= 0) return sum;
+      const demand = contract.demandPerMinute * project.scenario.durationTicks / 60_000;
+      const remaining = Math.max(0, demand - contractCommitted(contract.resource, contract.region));
+      return sum + output * contract.valuePerItem + Math.min(output, remaining) * contract.shortfallPenaltyPerItem;
+    }, 0);
+  const isContractDispatchDevice = (device: CompiledDevice): boolean => device.policy?.recipeDispatch === "contract-value"
+    && device.processPlans.some((plan) => plan.outputs.some((output) => (project.objective.deliveryContracts ?? [])
+      .some((contract) => contract.resource === output.resource && contract.region === device.region)));
   const processPlanMaterialReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
-      || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count)) && outputFits(device,
+      || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count))
+      && (!isContractDispatchDevice(device) || contractContribution(device, plan) > 0)
+      && outputFits(device,
       plan.quality?.kind === "inspection" ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput] : plan.outputs);
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     processPlanMaterialReady(device, plan)
@@ -1403,6 +1429,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const currentGroup = state.devices[device.id]!.setup?.group;
       ranked.sort((left, right) => Number(right.plan.setupGroup === currentGroup) - Number(left.plan.setupGroup === currentGroup) || left.index - right.index);
     }
+    else if (policy === "contract-value") ranked.sort((left, right) => {
+      const leftValue = contractContribution(device, left.plan) / left.plan.durationTicks;
+      const rightValue = contractContribution(device, right.plan) / right.plan.durationTicks;
+      return rightValue - leftValue || right.plan.priority - left.plan.priority || left.index - right.index;
+    });
     else if (policy === "oldest-lot" || policy === "earliest-due-date" || policy === "highest-lot-priority") {
       const candidateLot = (plan: CompiledDevice["processPlans"][number]) => {
         const lots = plan.inputs.filter((amount) => isTracked(amount.resource))

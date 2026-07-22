@@ -34,6 +34,33 @@
   "consumed": {
     "plastic": 26
   },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 26,
+        "demand": 20,
+        "fulfillment": 1.3,
+        "grossValue": 0,
+        "name": "Balanced Refinery Coproducts",
+        "netValue": 0,
+        "overflow": 6,
+        "region": "chemical-basin",
+        "resource": "plastic",
+        "shortfall": 0,
+        "shortfallPenalty": 0,
+        "valued": 26
+      }
+    },
+    "delivered": 26,
+    "demanded": 20,
+    "fulfillment": 1.3,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 6,
+    "shortfallPenalty": 0,
+    "valued": 26
+  },
   "energyConsumedMilliJoules": 70600350,
   "energyStorage": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
@@ -95,7 +122,7 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
-  "finalScore": 119.73716316666668,
+  "finalScore": 122.73716316666668,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -154,7 +181,7 @@
     "treated": {}
   },
   "occupiedArea": 73,
-  "onTimeDelivery": 1,
+  "onTimeDelivery": 1.3,
   "peakBeltItems": 4,
   "powerGrids": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
@@ -263,9 +290,10 @@
     "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
+    "deliveryValue": 0,
     "energy": -0.7060035000000001,
     "occupiedArea": -14.600000000000001,
-    "onTimeDelivery": 10,
+    "onTimeDelivery": 13,
     "qualityEscapes": 0,
     "rework": 0,
     "tardiness": 0,

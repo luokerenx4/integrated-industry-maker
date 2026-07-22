@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
-  findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
+  findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
@@ -171,6 +171,28 @@ describe("production mix optimization", () => {
     });
     expect(plan.processes.map((row) => row.candidate.key)).toEqual(["slow-efficient"]);
     expect(plan.rawDemandPerMinute.ore).toBeCloseTo(10, 8);
+  });
+
+  test("balances a multi-grade product portfolio without double-counting coproducts", () => {
+    const plan = optimizeResourceDemands({
+      demands: [
+        { resource: "commercial", count: 8 },
+        { resource: "performance", count: 3 },
+        { resource: "automotive", count: 1.5 },
+      ],
+      rawResources: ["packaged"],
+      candidates: [
+        { key: "commercial-screen", inputs: [{ resource: "packaged", count: 8 }], outputs: [{ resource: "commercial", count: 8 }], data: null },
+        { key: "reliability-screen", inputs: [{ resource: "packaged", count: 8 }], outputs: [
+          { resource: "commercial", count: 2 }, { resource: "performance", count: 4 }, { resource: "automotive", count: 2 },
+        ], data: null },
+      ],
+    });
+    expect(plan.processes.map((row) => [row.candidate.key, row.requiredCyclesPerMinute])).toEqual([
+      ["commercial-screen", expect.closeTo(0.8125, 8)], ["reliability-screen", expect.closeTo(0.75, 8)],
+    ]);
+    expect(plan.rawDemandPerMinute.packaged).toBeCloseTo(12.5, 8);
+    expect(plan.surplusPerMinute.commercial ?? 0).toBeCloseTo(0, 8);
   });
 
   test("chooses whether to ship ore, intermediates, or finished goods as part of the process mix", () => {
@@ -1128,7 +1150,7 @@ describe("blueprint compiler", () => {
     expect(productionGraph.rawInputsPerTarget).toEqual({ "blank-dram-wafer-lot": 0.125, "dram-package-substrate": 1 });
     expect(productionGraph.steps.some((step) => step.process === "rework-final-pattern")).toBeFalse();
     expect(productionGraph.steps.some((step) => step.process === "dice-package-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
-    expect(productionGraph.steps.some((step) => step.process === "burn-in-test-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
+    expect(productionGraph.steps.some((step) => step.process === "screen-commercial-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
     const baseline = runUntil(baselineProject, undefined, { seed: 42 });
     const lots = Object.values(baseline.state.lots).sort((left, right) => left.id.localeCompare(right.id));
     expect(lots).toHaveLength(12);
@@ -1163,9 +1185,12 @@ describe("blueprint compiler", () => {
     expect(baseline.events.filter((event) => event.type === "lot.route-terminated")).toHaveLength(5);
     expect(baseline.events.filter((event) => event.type === "material.delivered")).toHaveLength(12);
     expect(baseline.metrics.produced["packaged-dram-device"]).toBe(40);
-    expect(baseline.metrics.produced["tested-dram-device"]).toBe(24);
-    expect(baseline.metrics.consumed["tested-dram-device"]).toBe(24);
+    expect(baseline.metrics.produced["commercial-dram-device"]).toBe(24);
+    expect(baseline.metrics.consumed["commercial-dram-device"]).toBe(24);
     expect(baseline.metrics.throughputPerMinute).toBe(6);
+    expect(baseline.metrics.deliveryPortfolio).toEqual(expect.objectContaining({
+      demanded: 50, delivered: 24, valued: 24, overflow: 0, fulfillment: 24 / 50, netValuePerMinute: -28,
+    }));
     expect(baseline.events.filter((event) => event.type === "lot.released").map((event) => event.tick)).toEqual(Array.from({ length: 12 }, (_, index) => index * 6_000));
     expect(baseline.events.filter((event) => event.type === "lot.quality-excursion")).toHaveLength(3);
     expect(baseline.events.filter((event) => event.type === "lot.inspected")).toHaveLength(20);
@@ -1176,9 +1201,9 @@ describe("blueprint compiler", () => {
     expect(baseline.events.filter((event) => event.type === "lot.scrapped" && event.reason === "quality-rejection")).toHaveLength(4);
     expect(baseline.events.filter((event) => event.type === "device.start" && event.lotIds?.length)).not.toHaveLength(0);
     expect(baseline.events.filter((event) => event.type === "resource.depart" && event.transit.lotIds?.length)).not.toHaveLength(0);
-    expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 2, totalSetupTicks: 7_000 }));
-    expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(2);
-    expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(2);
+    expect(baseline.metrics.equipmentSetups).toEqual(expect.objectContaining({ totalChangeovers: 3, totalSetupTicks: 10_000 }));
+    expect(baseline.events.filter((event) => event.type === "device.changeover-start")).toHaveLength(3);
+    expect(baseline.events.filter((event) => event.type === "device.changeover-finish")).toHaveLength(3);
     expect(baseline.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 7, totalMandatory: 7, totalOpportunistic: 0, totalMaintenanceTicks: 74_000,
       totalQualificationCompleted: 7, totalQualificationTicks: 24_000,
@@ -1231,6 +1256,24 @@ describe("blueprint compiler", () => {
     const duplicateQueueDefect = await loadFactoryProject(memoryFab);
     duplicateQueueDefect.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.violationDefects.push("critical-dimension");
     expect(issueCodes(() => compileFactoryProject(duplicateQueueDefect))).toContain("route.queue-time-duplicate-defect");
+    const duplicateContractResource = await loadFactoryProject(memoryFab);
+    duplicateContractResource.objective.deliveryContracts!.push({
+      id: "duplicate-commercial", name: "Duplicate commercial order", resource: "commercial-dram-device", region: "cleanroom",
+      demandPerMinute: 1, valuePerItem: 1, shortfallPenaltyPerItem: 1,
+    });
+    expect(issueCodes(() => compileFactoryProject(duplicateContractResource))).toContain("objective.duplicate-contract-resource");
+
+    const portfolioProject = compileFactoryProject(await loadFactoryProject(memoryFab, { blueprint: "experiment" }));
+    const portfolio = runUntil(portfolioProject, undefined, { seed: 42 });
+    expect(portfolioProject.devices["burn-in-1"]!.policy?.recipeDispatch).toBe("contract-value");
+    expect(portfolio.metrics.deliveryPortfolio).toEqual(expect.objectContaining({
+      demanded: 50, valued: 56, overflow: 6, fulfillment: 1.12, netValuePerMinute: 49,
+    }));
+    expect(portfolio.metrics.deliveryPortfolio.contracts).toEqual(expect.objectContaining({
+      "commercial-order": expect.objectContaining({ demand: 32, delivered: 38, valued: 38, overflow: 6, fulfillment: 38 / 32 }),
+      "performance-order": expect.objectContaining({ demand: 12, delivered: 12, fulfillment: 1 }),
+      "automotive-order": expect.objectContaining({ demand: 6, delivered: 6, fulfillment: 1 }),
+    }));
 
     const partial = runUntil(baselineProject, undefined, { seed: 42, untilTick: 30_000 });
     expect(partial.metrics.releaseFlow).toEqual(expect.objectContaining({ scheduled: 12, released: 6, pending: 6, meanReleaseDelayTicks: 0 }));
@@ -1309,7 +1352,7 @@ describe("blueprint compiler", () => {
     };
     const minimumLotCampaign = runUntil(compileFactoryProject(minimumLotCampaignSource), undefined, { seed: 42 });
     expect(minimumLotCampaign.metrics.equipmentSetups).toEqual(expect.objectContaining({
-      totalChangeovers: 2, totalCampaignHolds: 1, totalCampaignHoldTicks: 3_500,
+      totalChangeovers: 3, totalCampaignHolds: 1, totalCampaignHoldTicks: 3_500,
       campaignMinimumLotReleases: 1, campaignMaximumHoldReleases: 0,
     }));
     expect(minimumLotCampaign.events.filter((event) => event.type === "device.campaign-held")).toEqual([
@@ -1751,27 +1794,32 @@ describe("deterministic discrete-event simulation", () => {
     expect(baseline.ready).toBeTrue();
     expect(baseline.rawResources).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        resource: "blank-dram-wafer-lot", totalDemandPerMinute: 2.5,
+        resource: "blank-dram-wafer-lot", totalDemandPerMinute: 1.5625,
         scheduledSupply: 12, scheduledSupplyPerMinute: 3, configuredSupplyPerMinute: 3,
-        supplyDeficitPerMinute: 0, scenarioDemand: 10, scenarioSupply: 12, scenarioBalance: 2,
+        supplyDeficitPerMinute: 0, scenarioDemand: 6.25, scenarioSupply: 12, scenarioBalance: 5.75,
       }),
       expect.objectContaining({
-        resource: "dram-package-substrate", totalDemandPerMinute: 20,
+        resource: "dram-package-substrate", totalDemandPerMinute: 12.5,
         scheduledSupply: 96, scheduledSupplyPerMinute: 24, configuredSupplyPerMinute: 24,
-        supplyDeficitPerMinute: 0, scenarioDemand: 80, scenarioSupply: 96, scenarioBalance: 16,
+        supplyDeficitPerMinute: 0, scenarioDemand: 50, scenarioSupply: 96, scenarioBalance: 46,
       }),
     ]));
     expect(baseline.toolsets).toEqual([
       expect.objectContaining({
-        id: "cleanroom:lithography-bay", requiredDeviceTicksPerMinute: 30_000,
-        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 0.5,
+        id: "cleanroom:dram-burn-in-rack", requiredDeviceTicksPerMinute: 32_250,
+        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 32_250 / 60_000,
       }),
       expect.objectContaining({
-        id: "cleanroom:plasma-etch-bay", requiredDeviceTicksPerMinute: 25_000,
-        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 25_000 / 60_000,
+        id: "cleanroom:lithography-bay", requiredDeviceTicksPerMinute: 18_750,
+        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 18_750 / 60_000,
+      }),
+      expect.objectContaining({
+        id: "cleanroom:plasma-etch-bay", requiredDeviceTicksPerMinute: 15_625,
+        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 15_625 / 60_000,
       }),
     ]);
 
+    baselineSource.objective.deliveryContracts = undefined;
     baselineSource.objective.targetRatePerMinute = 56;
     const overloaded = planProductionCapacity(compileFactoryProject(baselineSource));
     expect(overloaded.gaps.filter((gap) => gap.kind === "toolset").map((gap) => gap.entity)).toEqual([
@@ -1782,6 +1830,7 @@ describe("deterministic discrete-event simulation", () => {
     ]);
 
     const specializedSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    specializedSource.objective.deliveryContracts = undefined;
     specializedSource.objective.targetRatePerMinute = 56;
     const specialized = planProductionCapacity(compileFactoryProject(specializedSource));
     expect(specialized.gaps.some((gap) => gap.kind === "toolset")).toBeFalse();
@@ -2984,7 +3033,7 @@ describe("research boundary and experiment decisions", () => {
       completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
-    expect(result.metrics.infeasibleReason).toBe("build cost 219300 exceeds 210000");
+    expect(result.metrics.infeasibleReason).toBe("build cost 220210 exceeds 210000");
 
     const hybrid = parallelizeWorkCenter(project, project.blueprint, {
       device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",
@@ -3340,6 +3389,16 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.changes.map((change) => change.id)).toContain("lithography-2");
     expect(result.changes.map((change) => change.id)).toContain("etch-2");
     expect(result.changes.map((change) => change.id)).toContain("lithography-to-etch-lithography-2");
+  }, 15_000);
+
+  test("keeps a one-value DRAM product-mix control edit against a locked evaluator", async () => {
+    const result = await evaluateBlueprintBenchmark(memoryFab, "product-mix-research");
+    expect(result.verdict).toBe("KEEP");
+    expect(result.accepted).toBeTrue();
+    expect(result.patch).toHaveLength(1);
+    expect(result.patch[0]).toEqual(expect.objectContaining({ op: "replace", value: "contract-value" }));
+    expect(result.cases.every((item) => item.scoreDelta > 0 && item.candidateCapacityReady)).toBeTrue();
+    expect(result.cases.every((item) => item.candidateMetrics.deliveryNetValuePerMinute > item.baselineMetrics.deliveryNetValuePerMinute)).toBeTrue();
   }, 15_000);
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {

@@ -205,7 +205,7 @@ export const blueprintSchema = z.object({
     config: z.record(z.unknown()).optional(),
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
-      recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "oldest-lot", "earliest-due-date", "highest-lot-priority"]).optional(),
+      recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "contract-value", "oldest-lot", "earliest-due-date", "highest-lot-priority"]).optional(),
       lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),
       preventiveMaintenance: z.object({ minimumJobs: positiveInt }).strict().optional(),
@@ -283,9 +283,14 @@ export const scenarioSchema = z.object({
 export const objectiveSchema = z.object({
   id, name: z.string().min(1), targetResource: id, targetRegion: id, targetRatePerMinute: z.number().positive(),
   trackedFamily: id.optional(),
+  deliveryContracts: z.array(z.object({
+    id, name: z.string().min(1), resource: id, region: id, demandPerMinute: z.number().positive(),
+    valuePerItem: z.number().nonnegative(), shortfallPenaltyPerItem: z.number().nonnegative(),
+    minimumFulfillment: z.number().min(0).max(1).optional(),
+  }).strict()).min(1).optional(),
   constraints: z.object({ maxBuildCost: nonNegativeInt.optional(), maxOccupiedArea: nonNegativeInt.optional(), minProduction: nonNegativeInt.optional() }).strict().optional(),
   weights: z.object({
-    throughput: z.number(), onTimeDelivery: z.number().optional(), energy: z.number(),
+    throughput: z.number(), deliveryValue: z.number().optional(), onTimeDelivery: z.number().optional(), energy: z.number(),
     buildCost: z.number(), occupiedArea: z.number(), wip: z.number(), blocked: z.number(),
     cycleTime: z.number().optional(), tardiness: z.number().optional(), changeovers: z.number().optional(),
     qualityEscapes: z.number().optional(), rework: z.number().optional(),

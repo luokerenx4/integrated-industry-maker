@@ -74,6 +74,33 @@
   "consumed": {
     "gear": 40
   },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 40,
+        "demand": 48,
+        "fulfillment": 0.8333333333333334,
+        "grossValue": 0,
+        "name": "Scale Multi-Input Gear Production",
+        "netValue": 0,
+        "overflow": 0,
+        "region": "assembly-zone",
+        "resource": "gear",
+        "shortfall": 8,
+        "shortfallPenalty": 0,
+        "valued": 40
+      }
+    },
+    "delivered": 40,
+    "demanded": 48,
+    "fulfillment": 0.8333333333333334,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 0,
+    "shortfallPenalty": 0,
+    "valued": 40
+  },
   "energyConsumedMilliJoules": 285101315,
   "energyStorage": {
     "grid-assembly-zone-synth-assembly-zone-wind-turbine-1": {
@@ -476,6 +503,7 @@
     "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
+    "deliveryValue": 0,
     "energy": -2.85101315,
     "occupiedArea": -52.2,
     "onTimeDelivery": 8.333333333333334,

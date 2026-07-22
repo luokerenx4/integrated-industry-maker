@@ -1,6 +1,6 @@
 import type { CompiledFactoryProject, ResourceId } from "./types";
 import { connectionCapacityPerMinute } from "./logistics-capacity";
-import { optimizeResourceDemand } from "./production-demand";
+import { optimizeResourceDemands } from "./production-demand";
 import { effectiveProductionAmounts } from "./production-mode";
 import { plannedProductionAmounts, selectMaterialTreatment } from "./material-treatment";
 import { evaluatePowerEnvelope, renewableProfileFor } from "./power-envelope";
@@ -134,6 +134,7 @@ export interface PowerCapacityRequirement {
 export interface ProductionCapacityPlan {
   targetResource: ResourceId;
   targetRatePerMinute: number;
+  deliveryTargets: Array<{ id: string; resource: ResourceId; region: string; ratePerMinute: number; itemsForScenario: number }>;
   scenarioMinutes: number;
   targetItemsForScenario: number;
   processes: ProcessCapacityRequirement[];
@@ -255,6 +256,14 @@ function allocateToolsets(project: CompiledFactoryProject, processes: ProcessCap
 export function planProductionCapacity(project: CompiledFactoryProject): ProductionCapacityPlan {
   const targetRatePerMinute = project.objective.targetRatePerMinute;
   const scenarioMinutes = project.scenario.durationTicks / 60_000;
+  const deliveryTargets = project.objective.deliveryContracts?.map((contract) => ({
+    id: contract.id, resource: contract.resource, region: contract.region,
+    ratePerMinute: contract.demandPerMinute, itemsForScenario: contract.demandPerMinute * scenarioMinutes,
+  })) ?? [{
+    id: "primary", resource: project.objective.targetResource, region: project.objective.targetRegion,
+    ratePerMinute: targetRatePerMinute, itemsForScenario: targetRatePerMinute * scenarioMinutes,
+  }];
+  const portfolioRatePerMinute = deliveryTargets.reduce((sum, target) => sum + target.ratePerMinute, 0);
   const processCandidates = [...new Map(Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id)).flatMap((template) => template.processPlans
     .filter((processPlan) => processPlan.definition.quality?.kind !== "rework")
     .map((processPlan) => {
@@ -271,12 +280,13 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   const inputResources = new Set(processCandidates.flatMap((candidate) => candidate.inputs.map((input) => input.resource)));
   const rawResourceIds = Object.keys(project.resources).filter((resource) => Object.values(project.resourceNodes).some((node) => node.resource === resource)
     || (inputResources.has(resource) && !producedResources.has(resource)));
-  const demandPlan = optimizeResourceDemand({
-    targetResource: project.objective.targetResource, targetRatePerMinute, candidates: processCandidates, rawResources: rawResourceIds,
+  const demandPlan = optimizeResourceDemands({
+    demands: deliveryTargets.map((target) => ({ resource: target.resource, count: target.ratePerMinute })),
+    candidates: processCandidates, rawResources: rawResourceIds,
     candidateCost: (candidate) => candidate.data.template.assetDef.economics.buildCost * candidate.data.processPlan.durationTicks / 60_000,
     rawResourceCost: (resource) => {
       const reserve = Object.values(project.resourceNodes).filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
-      return reserve > 0 ? 1 + targetRatePerMinute / reserve : 1;
+      return reserve > 0 ? 1 + portfolioRatePerMinute / reserve : 1;
     },
   });
   const rawProcessDemand = demandPlan.rawDemandPerMinute;
@@ -291,8 +301,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const cyclesPerMachine = 60_000 / plan.durationTicks;
     const matchingByRegion = new Map<string, typeof allMatching>();
     for (const device of allMatching) matchingByRegion.set(device.region, [...(matchingByRegion.get(device.region) ?? []), device]);
-    const targetRegion = project.objective.targetRegion;
-    const regions = row.primaryResource === project.objective.targetResource
+    const targetRegion = deliveryTargets.find((target) => target.resource === row.primaryResource)?.region;
+    const regions = targetRegion
       ? [targetRegion]
       : [...matchingByRegion.keys()].sort();
     const totalConfiguredCycles = regions.reduce((sum, region) => sum + (matchingByRegion.get(region)?.length ?? 0) * cyclesPerMachine, 0);
@@ -552,7 +562,7 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   }
 
   return {
-    targetResource: project.objective.targetResource, targetRatePerMinute, scenarioMinutes,
+    targetResource: project.objective.targetResource, targetRatePerMinute, deliveryTargets, scenarioMinutes,
     targetItemsForScenario: targetRatePerMinute * scenarioMinutes,
     processes, toolsets, treatments, rawResources, transport, stationNetworks, power, gaps, ready: gaps.length === 0,
   };

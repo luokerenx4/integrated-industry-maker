@@ -19,6 +19,9 @@ export interface BlueprintSemanticChange {
 export interface BlueprintMetricSnapshot {
   score: number;
   throughputPerMinute: number;
+  contractFulfillment: number;
+  deliveryNetValuePerMinute: number;
+  deliveryOverflow: number;
   objectiveAttainment: number;
   completedLots: number;
   scheduledLots: number;
@@ -107,6 +110,9 @@ export interface BlueprintMetricSnapshot {
 export interface BlueprintMetricDelta {
   score: number;
   throughputPerMinute: number;
+  contractFulfillment: number;
+  deliveryNetValuePerMinute: number;
+  deliveryOverflow: number;
   objectiveAttainment: number;
   completedLots: number;
   scheduledLots: number;
@@ -318,6 +324,9 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
   return {
     score: metrics.finalScore,
     throughputPerMinute: metrics.throughputPerMinute,
+    contractFulfillment: metrics.deliveryPortfolio.fulfillment,
+    deliveryNetValuePerMinute: metrics.deliveryPortfolio.netValuePerMinute,
+    deliveryOverflow: metrics.deliveryPortfolio.overflow,
     objectiveAttainment: metrics.onTimeDelivery,
     completedLots: metrics.lotFlow.completed,
     scheduledLots: metrics.releaseFlow.scheduled,
@@ -409,6 +418,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
   return {
     score: after.score - before.score,
     throughputPerMinute: after.throughputPerMinute - before.throughputPerMinute,
+    contractFulfillment: after.contractFulfillment - before.contractFulfillment,
+    deliveryNetValuePerMinute: after.deliveryNetValuePerMinute - before.deliveryNetValuePerMinute,
+    deliveryOverflow: after.deliveryOverflow - before.deliveryOverflow,
     objectiveAttainment: after.objectiveAttainment - before.objectiveAttainment,
     completedLots: after.completedLots - before.completedLots,
     scheduledLots: after.scheduledLots - before.scheduledLots,

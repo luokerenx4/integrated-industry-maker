@@ -1,6 +1,6 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, scheduled and controlled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, Process-owned route termination, and cycle-time evaluation implemented through engine version `inm-sim/0.66.0`.
+Status: explicit WIP identity, scheduled and controlled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, Process-owned route termination, and cycle-time evaluation implemented through engine version `inm-sim/0.67.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/industrial-boundaries]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 

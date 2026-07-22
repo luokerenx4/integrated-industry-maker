@@ -241,22 +241,39 @@
         "y": 26
       },
       "rotation": 0,
-      "recipe": {
-        "process": "burn-in-test-dram",
-        "mode": "qualified",
-        "inputs": {
-          "packaged-dram-device": "package-input"
+      "recipes": [
+        {
+          "process": "screen-commercial-dram",
+          "mode": "qualified",
+          "priority": 1,
+          "inputs": {
+            "packaged-dram-device": "package-input"
+          },
+          "outputs": {
+            "commercial-dram-device": "commercial-output"
+          }
         },
-        "outputs": {
-          "tested-dram-device": "tested-output"
+        {
+          "process": "screen-performance-mix",
+          "mode": "qualified",
+          "priority": 10,
+          "inputs": {
+            "packaged-dram-device": "package-input"
+          },
+          "outputs": {
+            "commercial-dram-device": "commercial-output",
+            "performance-dram-device": "performance-output",
+            "automotive-dram-device": "automotive-output"
+          }
         }
-      },
+      ],
       "policy": {
+        "recipeDispatch": "contract-value",
         "powerPriority": 5
       }
     },
     {
-      "id": "memory-customer",
+      "id": "commercial-customer",
       "asset": "material-sink",
       "region": "cleanroom",
       "position": {
@@ -266,7 +283,37 @@
       "rotation": 0,
       "bufferFilters": {
         "input": [
-          "tested-dram-device"
+          "commercial-dram-device"
+        ]
+      }
+    },
+    {
+      "id": "performance-customer",
+      "asset": "material-sink",
+      "region": "cleanroom",
+      "position": {
+        "x": 13,
+        "y": 29
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "input": [
+          "performance-dram-device"
+        ]
+      }
+    },
+    {
+      "id": "automotive-customer",
+      "asset": "material-sink",
+      "region": "cleanroom",
+      "position": {
+        "x": 15,
+        "y": 26
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "input": [
+          "automotive-dram-device"
         ]
       }
     },
@@ -646,7 +693,7 @@
       }
     },
     {
-      "id": "burn-in-to-customer-loader",
+      "id": "commercial-to-customer-loader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -655,13 +702,13 @@
       },
       "rotation": 180,
       "transportEndpoint": {
-        "connection": "burn-in-to-customer",
+        "connection": "commercial-to-customer",
         "stage": "loader",
         "distance": 1
       }
     },
     {
-      "id": "burn-in-to-customer-unloader",
+      "id": "commercial-to-customer-unloader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -670,7 +717,67 @@
       },
       "rotation": 0,
       "transportEndpoint": {
-        "connection": "burn-in-to-customer",
+        "connection": "commercial-to-customer",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "performance-to-customer-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 9,
+        "y": 29
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "performance-to-customer",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "performance-to-customer-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 12,
+        "y": 29
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "performance-to-customer",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "automotive-to-customer-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 11,
+        "y": 27
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "automotive-to-customer",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "automotive-to-customer-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 14,
+        "y": 26
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "automotive-to-customer",
         "stage": "unloader",
         "distance": 1
       }
@@ -1256,17 +1363,17 @@
       }
     },
     {
-      "id": "burn-in-to-customer",
+      "id": "commercial-to-customer",
       "from": {
         "device": "burn-in-1",
-        "port": "tested-output"
+        "port": "commercial-output"
       },
       "to": {
-        "device": "memory-customer",
+        "device": "commercial-customer",
         "port": "input"
       },
       "resources": [
-        "tested-dram-device"
+        "commercial-dram-device"
       ],
       "path": [
         {
@@ -1324,13 +1431,103 @@
       ],
       "logistics": {
         "loader": {
-          "device": "burn-in-to-customer-loader"
+          "device": "commercial-to-customer-loader"
         },
         "line": {
           "deviceAsset": "conveyor"
         },
         "unloader": {
-          "device": "burn-in-to-customer-unloader"
+          "device": "commercial-to-customer-unloader"
+        }
+      }
+    },
+    {
+      "id": "performance-to-customer",
+      "from": {
+        "device": "burn-in-1",
+        "port": "performance-output"
+      },
+      "to": {
+        "device": "performance-customer",
+        "port": "input"
+      },
+      "resources": [
+        "performance-dram-device"
+      ],
+      "path": [
+        {
+          "x": 9,
+          "y": 29
+        },
+        {
+          "x": 10,
+          "y": 29
+        },
+        {
+          "x": 11,
+          "y": 29
+        },
+        {
+          "x": 12,
+          "y": 29
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "performance-to-customer-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "performance-to-customer-unloader"
+        }
+      }
+    },
+    {
+      "id": "automotive-to-customer",
+      "from": {
+        "device": "burn-in-1",
+        "port": "automotive-output"
+      },
+      "to": {
+        "device": "automotive-customer",
+        "port": "input"
+      },
+      "resources": [
+        "automotive-dram-device"
+      ],
+      "path": [
+        {
+          "x": 11,
+          "y": 27
+        },
+        {
+          "x": 12,
+          "y": 27
+        },
+        {
+          "x": 13,
+          "y": 27
+        },
+        {
+          "x": 13,
+          "y": 26
+        },
+        {
+          "x": 14,
+          "y": 26
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "automotive-to-customer-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "automotive-to-customer-unloader"
         }
       }
     },

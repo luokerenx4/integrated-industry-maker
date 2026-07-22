@@ -764,9 +764,22 @@ Capacity planning integrates these curves against the Objective-derived constant
   "targetRegion": "assembly-zone",
   "targetRatePerMinute": 12,
   "trackedFamily": "dram-wafer",
+  "deliveryContracts": [
+    {
+      "id": "performance-order",
+      "name": "Performance memory order",
+      "resource": "performance-dram-device",
+      "region": "assembly-zone",
+      "demandPerMinute": 4,
+      "valuePerItem": 5,
+      "shortfallPenaltyPerItem": 6,
+      "minimumFulfillment": 0.9
+    }
+  ],
   "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": {
     "throughput": 10,
+    "deliveryValue": 1,
     "onTimeDelivery": 10,
     "energy": 0.01,
     "buildCost": 0.5,
@@ -783,6 +796,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 ```
 
 Optional `trackedFamily` lets an untracked finished-good target retain work-order WIP, quality, due-date, cycle-time, and tardiness evaluation from a declared tracked family; throughput and minimum production still count the finished Resource. See [[docs/design/industrial-boundaries]].
+
+Optional `deliveryContracts` freezes a multi-product customer portfolio outside the editable Blueprint. A contract Resource must be untracked and may appear in only one contract. Demand is the Scenario-duration integral of `demandPerMinute` and acts as a service floor, not a production ceiling. Every delivered unit earns `valuePerItem`; units below demand additionally avoid `shortfallPenaltyPerItem`, while delivery above demand is reported as overflow and remains valuable. Optional `minimumFulfillment` creates a hard gate. `weights.deliveryValue` multiplies aggregate contract net value per simulated minute. `inm plan` jointly solves every demand floor through one material balance, including fixed coproduct ratios. See [[docs/design/delivery-contracts]].
 
 `targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by all Scenario-scheduled lots, so blocked or delayed admission cannot improve service by withholding work. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 

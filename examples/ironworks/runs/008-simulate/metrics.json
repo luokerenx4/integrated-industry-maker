@@ -38,6 +38,33 @@
     "graphite": 26,
     "hydrogen": 78
   },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 78,
+        "demand": 20,
+        "fulfillment": 3.9,
+        "grossValue": 0,
+        "name": "Closed-Loop Hydrogen Cracking",
+        "netValue": 0,
+        "overflow": 58,
+        "region": "chemical-basin",
+        "resource": "hydrogen",
+        "shortfall": 0,
+        "shortfallPenalty": 0,
+        "valued": 78
+      }
+    },
+    "delivered": 78,
+    "demanded": 20,
+    "fulfillment": 3.9,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 58,
+    "shortfallPenalty": 0,
+    "valued": 78
+  },
   "energyConsumedMilliJoules": 75302875,
   "energyStorage": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
@@ -102,7 +129,7 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
     "synth-xray-crack-oil-1": 0
   },
-  "finalScore": 373.3343879166667,
+  "finalScore": 402.3343879166667,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -167,7 +194,7 @@
     "treated": {}
   },
   "occupiedArea": 102,
-  "onTimeDelivery": 1,
+  "onTimeDelivery": 3.9,
   "peakBeltItems": 5,
   "powerGrids": {
     "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
@@ -276,9 +303,10 @@
     "changeovers": 0,
     "constraintPenalty": 0,
     "cycleTime": 0,
+    "deliveryValue": 0,
     "energy": -0.75302875,
     "occupiedArea": -20.400000000000002,
-    "onTimeDelivery": 10,
+    "onTimeDelivery": 39,
     "qualityEscapes": 0,
     "rework": 0,
     "tardiness": 0,

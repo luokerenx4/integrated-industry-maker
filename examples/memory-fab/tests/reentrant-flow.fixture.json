@@ -1,20 +1,45 @@
 {
   "name": "reentrant DRAM route closes deterministic inspection rework and scrap loops",
   "world": "cleanroom",
-  "blueprint": "baseline",
+  "blueprint": "product-mix",
   "scenario": "production-window",
   "objective": "dram-output",
   "seed": 42,
   "assertions": [
     {
       "kind": "metric",
-      "path": "produced.tested-dram-device",
-      "min": 16
+      "path": "produced.commercial-dram-device",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "produced.performance-dram-device",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "produced.automotive-dram-device",
+      "min": 2
+    },
+    {
+      "kind": "metric",
+      "path": "deliveryPortfolio.contracts.commercial-order.delivered",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "deliveryPortfolio.contracts.performance-order.delivered",
+      "min": 4
+    },
+    {
+      "kind": "metric",
+      "path": "deliveryPortfolio.contracts.automotive-order.delivered",
+      "min": 2
     },
     {
       "kind": "metric",
       "path": "throughputPerMinute",
-      "min": 4
+      "min": 3.5
     },
     {
       "kind": "metric",

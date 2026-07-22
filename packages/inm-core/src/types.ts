@@ -399,7 +399,7 @@ export interface IndustrialWorld {
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
-export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
+export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "contract-value" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
 export type LotDispatchPolicy = "fifo" | "oldest-release" | "earliest-due-date" | "highest-priority";
 export type LotReleaseDispatchPolicy = "fifo" | "earliest-due-date" | "highest-priority";
 export interface ConwipReleasePolicy {
@@ -587,9 +587,23 @@ export interface Objective {
   targetRatePerMinute: number;
   /** Optional source work-lot family used for service and quality metrics when the target Resource is untracked. */
   trackedFamily?: string;
+  /** Fixed evaluator-owned customer contracts. Demand is a service floor, not a production ceiling. */
+  deliveryContracts?: Array<{
+    id: string;
+    name: string;
+    resource: ResourceId;
+    region: string;
+    demandPerMinute: number;
+    valuePerItem: number;
+    shortfallPenaltyPerItem: number;
+      /** Optional hard service gate in the closed interval [0, 1]. */
+    minimumFulfillment?: number;
+  }>;
   constraints?: { maxBuildCost?: number; maxOccupiedArea?: number; minProduction?: number };
   weights: {
     throughput: number;
+    /** Multiplier for contract net value per simulated minute. */
+    deliveryValue?: number;
     onTimeDelivery?: number;
     energy: number;
     buildCost: number;
@@ -1189,6 +1203,7 @@ export type FactoryEvent =
 
 export interface ScoreBreakdown {
   throughput: number;
+  deliveryValue: number;
   onTimeDelivery: number;
   energy: number;
   buildCost: number;
@@ -1208,6 +1223,32 @@ export interface FactoryMetrics {
   extracted: Record<ResourceId, number>;
   resourceNodes: Record<string, { initial: number; remaining: number; reserved: number; extracted: number; depleted: boolean }>;
   throughputPerMinute: number;
+  deliveryPortfolio: {
+    demanded: number;
+    delivered: number;
+    /** Delivered units that earn item value. This includes overflow above demand. */
+    valued: number;
+    overflow: number;
+    fulfillment: number;
+    grossValue: number;
+    shortfallPenalty: number;
+    netValue: number;
+    netValuePerMinute: number;
+    contracts: Record<string, {
+      name: string;
+      resource: ResourceId;
+      region: string;
+      demand: number;
+      delivered: number;
+      valued: number;
+      overflow: number;
+      shortfall: number;
+      fulfillment: number;
+      grossValue: number;
+      shortfallPenalty: number;
+      netValue: number;
+    }>;
+  };
   completedOrders: number;
   onTimeDelivery: number;
   lotFlow: {
