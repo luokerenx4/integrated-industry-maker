@@ -1,10 +1,12 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { BlueprintBenchmarkSummary } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
+import { ExperimentWorkbench } from "./experiment-workbench";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 type AssetKind = "devices" | "resources" | "processes" | "routes";
@@ -496,6 +498,7 @@ interface CapacityPlan {
 interface StudioData {
   projectId: string;
   name: string;
+  experiments: BlueprintBenchmarkSummary[];
   blueprintHash: string;
   bounds: { width: number; height: number };
   regions: Array<{
@@ -562,13 +565,19 @@ const formatTick = (tick: number) => `${(tick / 1000).toFixed(1)}s`;
 const jobQuantity = (rates: Record<string, number>, cyclesPerMinute: number) => Object.values(rates).reduce((sum, rate) => sum + rate, 0) / cyclesPerMinute;
 const formatQuantity = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
 const projectPath = (projectId: string) => `/${encodeURIComponent(projectId)}`;
+const experimentPath = (projectId: string, experimentId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}`;
 const fileUrl = (projectId: string, path: string) => `/api/projects/${encodeURIComponent(projectId)}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
 
-function routeProjectId(): string | null {
+function studioRoute(): { projectId: string | null; experimentId: string | null } {
   const segments = window.location.pathname.split("/").filter(Boolean);
-  if (segments.length !== 1) return null;
-  try { return decodeURIComponent(segments[0]!); }
-  catch { return null; }
+  try {
+    if (segments.length === 1) return { projectId: decodeURIComponent(segments[0]!), experimentId: null };
+    if ((segments.length === 2 || segments.length === 3) && segments[1] === "experiments") return {
+      projectId: decodeURIComponent(segments[0]!),
+      experimentId: segments[2] ? decodeURIComponent(segments[2]) : "",
+    };
+  } catch { /* malformed routes fall back to the launcher */ }
+  return { projectId: null, experimentId: null };
 }
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -1343,7 +1352,9 @@ function ProjectLoading({ projectId, onBack }: { projectId: string; onBack: () =
 }
 
 function App() {
-  const [routeProject, setRouteProject] = useState<string | null>(() => routeProjectId());
+  const initialRoute = useMemo(() => studioRoute(), []);
+  const [routeProject, setRouteProject] = useState<string | null>(initialRoute.projectId);
+  const [routeExperiment, setRouteExperiment] = useState<string | null>(initialRoute.experimentId);
   const [index, setIndex] = useState<ProjectIndex | null>(null);
   const [data, setData] = useState<StudioData | null>(null);
   const [run, setRun] = useState<string | null>(null);
@@ -1391,6 +1402,7 @@ function App() {
     projectRef.current = projectId;
     runRef.current = null;
     setRouteProject(projectId);
+    setRouteExperiment(null);
     setAssetsOpen(false);
     setAnalysisOpen(false);
     setSelection(null);
@@ -1402,16 +1414,26 @@ function App() {
     }
   }, []);
 
+  const navigateExperiment = useCallback((experimentId: string | null) => {
+    if (!routeProject) return;
+    window.history.pushState({}, "", experimentId === null ? projectPath(routeProject) : experimentPath(routeProject, experimentId || undefined));
+    setRouteExperiment(experimentId);
+    setAssetsOpen(false);
+    setAnalysisOpen(false);
+    setSelection(null);
+  }, [routeProject]);
+
   useEffect(() => { void loadIndex(); }, [loadIndex]);
   useEffect(() => {
     const popstate = () => {
-      const projectId = routeProjectId();
-      projectRef.current = projectId;
-      setRouteProject(projectId);
+      const nextRoute = studioRoute();
+      projectRef.current = nextRoute.projectId;
+      setRouteProject(nextRoute.projectId);
+      setRouteExperiment(nextRoute.experimentId);
       setAssetsOpen(false);
       setAnalysisOpen(false);
       setSelection(null);
-      if (!projectId) setData(null);
+      if (!nextRoute.projectId) setData(null);
     };
     window.addEventListener("popstate", popstate);
     return () => window.removeEventListener("popstate", popstate);
@@ -1429,13 +1451,20 @@ function App() {
     return () => source.close();
   }, [loadIndex, loadProject]);
   useEffect(() => {
-    document.title = data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
-  }, [data, index]);
+    const experiment = routeExperiment && data?.experiments.find((item) => item.id === routeExperiment);
+    document.title = experiment ? `${experiment.name} · ${data!.name} · INM Studio` : data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
+  }, [data, index, routeExperiment]);
   useEffect(() => {
-    const keydown = (event: KeyboardEvent) => { if (event.key === "Escape") setSelection(null); };
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (routeExperiment !== null) navigateExperiment(null);
+      else if (analysisOpen) setAnalysisOpen(false);
+      else if (assetsOpen) setAssetsOpen(false);
+      else setSelection(null);
+    };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, []);
+  }, [analysisOpen, assetsOpen, navigateExperiment, routeExperiment]);
 
   const maxTick = data?.events.at(-1)?.tick ?? 0;
   useEffect(() => {
@@ -1483,6 +1512,7 @@ function App() {
       <div className="header-tools">
         <span className="project-local"><i /> PROJECT LOCAL</span>
         <span className="hash">BP {data.blueprintHash.slice(0, 10)}</span>
+        <button className="experiments-button" onClick={() => navigateExperiment(data.experiments[0]?.id ?? "")}>EXPERIMENTS <b>{data.experiments.length}</b></button>
         <button className="analysis-button" onClick={() => { setAssetsOpen(false); setAnalysisOpen(true); }}>ANALYSIS <b>{data.analysis.diagnostics.length}</b></button>
         <button className="assets-button" onClick={() => { setAnalysisOpen(false); setAssetsOpen(true); }}>CATALOG <b>{data.assets.devices.length + data.assets.resources.length + data.assets.processes.length + data.assets.routes.length}</b></button>
         <button onClick={() => void loadProject(data.projectId, run)}>{loading ? "SYNCING" : "REFRESH"}</button>
@@ -1490,7 +1520,7 @@ function App() {
     </header>
     <section className="workspace">
       <div className="viewport">
-        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={() => setSelection(null)}><Suspense fallback={<Html center>Loading world…</Html>}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
+        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={() => setSelection(null)}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} INDUSTRIAL ZONES</b></div>
         <div className="scene-stats"><span><b>{data.regions.length}</b> INDUSTRIAL ZONES</span><span><b>{data.devices.filter((device) => !device.transportEndpoint).length}</b> MACHINES</span><span><b>{data.devices.filter((device) => device.transportEndpoint).length}</b> SORTERS</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
@@ -1514,6 +1544,13 @@ function App() {
     <footer className="timeline"><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>
     {assetsOpen && <AssetBrowser data={data} onClose={() => setAssetsOpen(false)} />}
     {analysisOpen && <AnalysisBrowser data={data} onClose={() => setAnalysisOpen(false)} />}
+    {routeExperiment !== null && <ExperimentWorkbench
+      projectId={data.projectId}
+      experiments={data.experiments}
+      selectedId={routeExperiment || null}
+      onSelect={(experimentId) => navigateExperiment(experimentId)}
+      onClose={() => navigateExperiment(null)}
+    />}
   </main>;
 }
 

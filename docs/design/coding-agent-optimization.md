@@ -2,7 +2,7 @@
 
 Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/work-center-specialization]], [[docs/design/reusable-production-tooling]], [[docs/design/usage-based-maintenance]], [[docs/design/equipment-energy-states]], [[docs/design/electricity-tariffs]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/lot-derived-output]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/experiment-workbench]], [[docs/design/work-center-dispatch]], [[docs/design/work-center-specialization]], [[docs/design/reusable-production-tooling]], [[docs/design/usage-based-maintenance]], [[docs/design/equipment-energy-states]], [[docs/design/electricity-tariffs]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/lot-derived-output]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Product model
 
@@ -64,6 +64,8 @@ verdict: UNCHANGED
 ```
 
 JSON output contains every case score, capacity state and gap, aggregate score, acceptance reasons, exact Blueprint patch, and semantic changes.
+
+Studio's [[docs/design/experiment-workbench]] is a human- and browser-agent-readable projection of this exact result, not a second evaluator. CLI remains the preferred structured interface for bulk Agent work; direct experiment URLs support human review, spatial context, and browser-capable Agent verification.
 
 ## Robustness as an industrial requirement
 

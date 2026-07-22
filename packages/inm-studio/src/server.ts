@@ -7,6 +7,8 @@ import {
   blueprintSchema,
   compileFactoryProject,
   ENGINE_VERSION,
+  evaluateBlueprintBenchmark,
+  listBlueprintBenchmarks,
   listRuns,
   listWorkspaceProjects,
   loadFactoryProject,
@@ -125,6 +127,7 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "industr
 
 async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
+  const experiments = await listBlueprintBenchmarks(projectDir);
   const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
   const selected = runs.find((run) => run.name === runName)
     ?? runs.findLast((run) => run.manifest.decision === "KEEP")
@@ -155,6 +158,7 @@ async function loadStudioData(projectId: string, runName?: string) {
   return {
     name: project.manifest.name,
     projectId: project.manifest.id,
+    experiments,
     blueprintHash: project.hashes.blueprintHash,
     bounds: regionLayout.bounds,
     regions: regionLayout.layouts,
@@ -410,7 +414,7 @@ function decoded(value: string): string {
 function errorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : String(error);
   const notFound = message.startsWith("Unknown") || message.startsWith("Not an INM");
-  return Response.json({ error: message }, { status: notFound ? 404 : 400 });
+  return Response.json({ code: notFound ? "studio.not-found" : "studio.request-failed", error: message }, { status: notFound ? 404 : 400 });
 }
 
 const clients = new Set<ReadableStreamDefaultController>();
@@ -431,6 +435,21 @@ const server = Bun.serve({
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);
       if (dataMatch) {
         return Response.json(await loadStudioData(decoded(dataMatch[1]!), url.searchParams.get("run") ?? undefined));
+      }
+
+      const experimentsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments$/);
+      if (experimentsMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(experimentsMatch[1]!));
+        return Response.json({ experiments: await listBlueprintBenchmarks(projectDir) });
+      }
+
+      const experimentRunMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/run$/);
+      if (experimentRunMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(experimentRunMatch[1]!));
+        const benchmarkId = decoded(experimentRunMatch[2]!);
+        return Response.json({ command: "benchmark", ...await evaluateBlueprintBenchmark(projectDir, benchmarkId) });
       }
 
       const fileMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)$/);
@@ -455,7 +474,7 @@ const server = Bun.serve({
         return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" } });
       }
 
-      if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname)) {
+      if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname) || /^\/[^/]+\/experiments(?:\/[^/]+)?\/?$/.test(url.pathname)) {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
       }
       return new Response("Not found", { status: 404 });

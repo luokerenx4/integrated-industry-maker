@@ -1,16 +1,20 @@
 # Studio visual debugger
 
-Status: project launcher, stable project routes, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
+Status: project launcher, stable project and experiment routes, shared Benchmark workbench, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
-Studio is a read-only debugger for compiled industrial systems and completed runs. It is not a Blueprint editor, simulator authority, or project switcher embedded in a runtime sidebar.
+Studio is a read-only debugger for compiled industrial systems and completed runs plus an explicit projection of the shared locked Benchmark evaluator. It is not a Blueprint editor, an independent simulator authority, or a project switcher embedded in a runtime sidebar.
 
 ## Navigation
 
-The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context. The back button returns to the launcher. Every data and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context. `/<project-id>/experiments/<benchmark-id>` opens a stable, reloadable experiment view inside that context. The back button returns to the launcher. Every data, experiment, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+
+## Experiment workbench
+
+The workbench lists project-local locked Benchmarks, displays fixed cases and acceptance gates, and runs the same `evaluateBlueprintBenchmark()` used by `inm benchmark --json`. It presents aggregate verdict, per-case score/capacity/throughput/service, gate reasons, and semantic Blueprint changes. Execution is explicit and read-only: opening the page never runs a hidden simulation, while pressing the named evaluation button writes no run artifact, Blueprint, lock, or history.
 
 ## Project-local catalog
 
@@ -69,11 +73,11 @@ bun test packages/inm-studio
 bun run inm studio examples/ironworks --port 4178 --no-open
 ```
 
-Browser QA should verify `/`, `/<project-id>`, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. Merely confirming that the HTTP server responds does not prove the UI.
+Browser QA should verify `/`, `/<project-id>`, `/<project-id>/experiments/<benchmark-id>`, experiment selection/execution/verdict/diff, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. Merely confirming that the HTTP server responds does not prove the UI.
 
 ## Change checklist
 
-- Keep Studio read-only with respect to Blueprint and run history.
+- Keep Studio read-only with respect to Blueprint, Benchmark locks, and run history.
 - Add new industrial semantics to compiled/analysis data before rendering them.
 - Preserve stable project URLs and project-qualified asset requests.
 - Test empty projects/runs and avoid writing a baseline on view.

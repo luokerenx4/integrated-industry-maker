@@ -33,6 +33,7 @@ Read the relevant linked document before changing a subsystem:
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]
 - Locked multi-case benchmarks and the Coding Agent keep/discard loop: [[docs/design/coding-agent-optimization]]
+- Shared human/AI experiment protocol, Studio workbench, CLI parity, and stable deep links: [[docs/design/experiment-workbench]]
 - Exact Blueprint patches, semantic changes, and controlled before/after evaluation: [[docs/design/blueprint-comparison]]
 - Project launcher, stable routes, asset catalog, analysis, and 3D replay: [[docs/design/studio-debugger]]
 - Canonical on-disk schemas and examples: [[docs/PROJECT_FORMAT]]

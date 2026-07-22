@@ -1,3 +1,4 @@
+import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { compareFactoryBlueprints, type BlueprintMetricSnapshot, type BlueprintSemanticChange, type FactoryBlueprintComparison } from "./blueprint-comparison";
@@ -69,6 +70,17 @@ export interface BlueprintBenchmarkResult {
   changes: BlueprintSemanticChange[];
 }
 
+export interface BlueprintBenchmarkSummary {
+  id: string;
+  name: string;
+  baselineBlueprint: string;
+  candidateBlueprint: string;
+  locked: boolean;
+  contractHash: string | null;
+  cases: BlueprintBenchmarkManifest["cases"];
+  acceptance: BlueprintBenchmarkManifest["acceptance"];
+}
+
 function benchmarkPath(projectDir: string, benchmarkId: string): string {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(benchmarkId)) throw new Error("Benchmark id must use lowercase kebab-case");
   return join(resolve(projectDir), "benchmarks", `${benchmarkId}.benchmark.json`);
@@ -101,6 +113,31 @@ function parseBlueprintBenchmark(value: unknown, benchmarkId: string): Blueprint
 
 export async function loadBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkManifest> {
   return parseBlueprintBenchmark(await readJson(benchmarkPath(projectDir, benchmarkId)), benchmarkId);
+}
+
+export async function listBlueprintBenchmarks(projectDir: string): Promise<BlueprintBenchmarkSummary[]> {
+  const directory = join(resolve(projectDir), "benchmarks");
+  let files: string[];
+  try { files = await readdir(directory); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  const ids = files.filter((file) => file.endsWith(".benchmark.json"))
+    .map((file) => file.slice(0, -".benchmark.json".length)).sort();
+  return Promise.all(ids.map(async (benchmarkId) => {
+    const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
+    return {
+      id: manifest.id,
+      name: manifest.name,
+      baselineBlueprint: manifest.baselineBlueprint,
+      candidateBlueprint: manifest.candidateBlueprint,
+      locked: Boolean(manifest.lock),
+      contractHash: manifest.lock?.contractHash ?? null,
+      cases: manifest.cases.map((item) => ({ ...item })),
+      acceptance: { ...manifest.acceptance },
+    };
+  }));
 }
 
 export async function lockBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkManifest> {
