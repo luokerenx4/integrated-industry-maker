@@ -294,6 +294,12 @@ export interface DeviceAssetManifest {
     idleMilliWatts: number;
     /** Total draw while active, inclusive of the standby baseline. */
     activeMilliWatts: number;
+    /** Optional asset-owned low-power idle state and immutable wake work. */
+    sleep?: {
+      idleMilliWatts: number;
+      wakeDurationTicks: Tick;
+      wakePowerMilliWatts: number;
+    };
     generation?:
       | { kind: "renewable"; outputMilliWatts: number }
       | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: BufferId; fuels: ResourceId[] };
@@ -488,6 +494,8 @@ export interface BlueprintDevice {
       minimumJobs?: number;
       minimumQualificationTicks?: Tick;
     };
+    /** Enter the asset-owned low-power idle state after this continuous idle interval. */
+    idleEnergy?: { sleepAfterTicks: Tick };
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
@@ -877,7 +885,7 @@ export interface ProjectHashes {
   objectiveHash: string;
 }
 
-export type DeviceStatus = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
+export type DeviceStatus = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 export interface ActiveDeviceJob {
   operation: string;
   startedAt: Tick;
@@ -903,6 +911,8 @@ export interface ActiveDeviceJob {
     nominalOutputs: ResourceBufferQuantity[];
   };
   changeover?: { from: string | null; to: string };
+  /** Asset-owned wake work; no material or production usage is completed by this job. */
+  wake?: true;
   /** Marks evaluator-owned equipment maintenance rather than a material-processing job. */
   maintenance?: {
     phase: "service" | "qualification";
@@ -992,6 +1002,13 @@ export interface DeviceRuntimeState {
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   /** FIFO-preserving identities for Resources whose tracking kind is lot. */
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
+  energyManagement?: {
+    mode: "awake" | "sleeping";
+    idleSinceTick: Tick;
+    sleeps: number;
+    wakeups: number;
+    wakeTicks: Tick;
+  };
   batchFormation?: {
     holds: number;
     holdTicks: Tick;
@@ -1194,6 +1211,10 @@ export type FactoryEvent =
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick; powerMilliWatts: number }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick; powerMilliWatts: number }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
+  | { type: "device.sleep"; tick: Tick; device: DeviceInstanceId; idleTicks: Tick; idleMilliWatts: number }
+  | { type: "device.wake-start"; tick: Tick; device: DeviceInstanceId; durationTicks: Tick; powerMilliWatts: number }
+  | { type: "device.wake-finish"; tick: Tick; device: DeviceInstanceId; durationTicks: Tick; powerMilliWatts: number }
+  | { type: "device.wake-cancelled"; tick: Tick; device: DeviceInstanceId; durationTicks: Tick; powerMilliWatts: number; reason: "equipment-breakdown" }
   | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; phase: "service" | "qualification"; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; qualificationAgeTicks: Tick; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
   | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
   | { type: "device.maintenance-service-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
@@ -1586,10 +1607,25 @@ export interface FactoryMetrics {
       consumables: Record<ResourceId, number>;
     }>;
   };
+  equipmentEnergyManagement: {
+    totalSleeps: number;
+    totalWakeups: number;
+    totalWakeTicks: Tick;
+    totalSleepingTicks: Tick;
+    devices: Record<DeviceInstanceId, {
+      mode: "awake" | "sleeping";
+      idleSinceTick: Tick;
+      sleeps: number;
+      wakeups: number;
+      wakeTicks: Tick;
+      sleepingTicks: Tick;
+    }>;
+  };
   totalBuildCost: number;
   occupiedArea: number;
   machineUtilization: Record<DeviceInstanceId, number>;
   idleTime: Record<DeviceInstanceId, Tick>;
+  sleepingTime: Record<DeviceInstanceId, Tick>;
   waitingInputTime: Record<DeviceInstanceId, Tick>;
   blockedOutputTime: Record<DeviceInstanceId, Tick>;
   unpoweredTime: Record<DeviceInstanceId, Tick>;

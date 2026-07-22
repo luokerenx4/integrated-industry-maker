@@ -67,6 +67,13 @@
       "storedMilliJoules": 0
     }
   },
+  "equipmentEnergyManagement": {
+    "devices": {},
+    "totalSleepingTicks": 0,
+    "totalSleeps": 0,
+    "totalWakeTicks": 0,
+    "totalWakeups": 0
+  },
   "equipmentMaintenance": {
     "devices": {},
     "providers": {},
@@ -298,6 +305,13 @@
     "tardiness": 0,
     "throughput": 240,
     "wip": -0.505
+  },
+  "sleepingTime": {
+    "stack-power": 0,
+    "stack-source": 0,
+    "stack-target": 0,
+    "stacked-link-loader": 0,
+    "stacked-link-unloader": 0
   },
   "stationEnergy": {},
   "stationFleets": {},

@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `xray-cracking-factory`
 - Score: **402.334**
-- Result hash: `8976a0ca6269aa1421cf3ce654056d944e6043952c1545819a194a41a6de402b`
+- Result hash: `d5a99589e77de0d2102a97186eb0f366ba524b1fa48e4199e3a125d10d2db40e`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Delivery portfolio: 390.0% demand attainment · 78.000 / 20.000 valued / demanded · 58.000 above demand · 0.000 net value/min
@@ -17,6 +17,7 @@
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
+- Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
 - Primary target rate: 10.000 hydrogen/min
 - Capacity delivery targets: 10.000 hydrogen/min
 - Power allocation: proportional

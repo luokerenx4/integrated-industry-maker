@@ -107,6 +107,13 @@
       "storedMilliJoules": 3600000
     }
   },
+  "equipmentEnergyManagement": {
+    "devices": {},
+    "totalSleepingTicks": 0,
+    "totalSleeps": 0,
+    "totalWakeTicks": 0,
+    "totalWakeups": 0
+  },
   "equipmentMaintenance": {
     "devices": {},
     "providers": {},
@@ -458,6 +465,46 @@
     "tardiness": 0,
     "throughput": 130,
     "wip": -5.058775000000001
+  },
+  "sleepingTime": {
+    "assembler-1": 0,
+    "coal-assembly-to-splitter-loader": 0,
+    "coal-assembly-to-splitter-unloader": 0,
+    "coal-forge-to-generator-loader": 0,
+    "coal-forge-to-generator-unloader": 0,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0,
+    "coal-splitter-to-assembler-unloader": 0,
+    "coal-splitter-to-generator-loader": 0,
+    "coal-splitter-to-generator-unloader": 0,
+    "gear-to-output-loader": 0,
+    "gear-to-output-unloader": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "ore-to-smelter-loader": 0,
+    "ore-to-smelter-smelter-1-split-original-loader": 0,
+    "ore-to-smelter-smelter-1-split-original-unloader": 0,
+    "ore-to-smelter-smelter-1-split-parallel-loader": 0,
+    "ore-to-smelter-smelter-1-split-parallel-unloader": 0,
+    "ore-to-smelter-unloader": 0,
+    "output-1": 0,
+    "plate-to-station-loader": 0,
+    "plate-to-station-smelter-1-parallel-loader": 0,
+    "plate-to-station-smelter-1-parallel-unloader": 0,
+    "plate-to-station-unloader": 0,
+    "smelter-1": 0,
+    "smelter-1-parallel": 0,
+    "smelter-1-split": 0,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0,
+    "station-to-assembler-unloader": 0,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0,
+    "wind-turbine-support": 0
   },
   "stationEnergy": {
     "station-demand": {

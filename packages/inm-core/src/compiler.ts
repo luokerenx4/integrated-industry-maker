@@ -185,6 +185,14 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       path: `assets/devices/${id}/asset.json/power/idleMilliWatts`, code: "power.idle-exceeds-active",
       message: `Idle power ${asset.power.idleMilliWatts} mW cannot exceed active power ${asset.power.activeMilliWatts} mW`,
     });
+    if (asset.power.sleep && asset.power.sleep.idleMilliWatts >= asset.power.idleMilliWatts) issues.push({
+      path: `assets/devices/${id}/asset.json/power/sleep/idleMilliWatts`, code: "power.sleep-not-lower",
+      message: `Sleep power ${asset.power.sleep.idleMilliWatts} mW must be below connected standby ${asset.power.idleMilliWatts} mW`,
+    });
+    if (asset.power.sleep && asset.power.sleep.wakePowerMilliWatts < asset.power.idleMilliWatts) issues.push({
+      path: `assets/devices/${id}/asset.json/power/sleep/wakePowerMilliWatts`, code: "power.wake-below-idle",
+      message: `Wake power ${asset.power.sleep.wakePowerMilliWatts} mW cannot be below connected standby ${asset.power.idleMilliWatts} mW`,
+    });
     const setupGroups = new Set((asset.production?.processes ?? []).flatMap((processId) => {
       const setupGroup = processes[processId]?.setupGroup;
       return setupGroup ? [setupGroup] : [];
@@ -1420,6 +1428,14 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         });
       }
     }
+    if (instance.policy?.idleEnergy && !asset.power.sleep) issues.push({
+      path: `${path}/policy/idleEnergy`, code: "power.sleep-unsupported",
+      message: `Idle-energy policy on '${instance.id}' requires an asset-owned sleep and wake envelope`,
+    });
+    if (instance.policy?.idleEnergy && !asset.production) issues.push({
+      path: `${path}/policy/idleEnergy`, code: "power.sleep-production-required",
+      message: `Idle-energy policy on '${instance.id}' is supported only on production equipment`,
+    });
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,
       ports: effectivePorts.map((port) => ({ ...port, side: rotatePortSide(port.side, instance.rotation) })),

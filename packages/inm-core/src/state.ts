@@ -46,6 +46,9 @@ export type FactoryStateMutation =
   | { kind: "carrier-return" }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
+  | { kind: "energy.sleep"; device: string }
+  | { kind: "energy.wake-finish"; device: string; tick: Tick; durationTicks: Tick }
+  | { kind: "energy.idle"; device: string; tick: Tick }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
   | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
   | { kind: "maintenance.service-finish"; device: string; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick }
@@ -406,6 +409,27 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "carrier-return": state.carrierReturns += 1; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;
+    case "energy.sleep": {
+      const energy = state.devices[mutation.device]!.energyManagement;
+      if (!energy) throw new Error(`Device '${mutation.device}' does not support idle-energy control`);
+      energy.mode = "sleeping";
+      energy.sleeps++;
+      return;
+    }
+    case "energy.wake-finish": {
+      const energy = state.devices[mutation.device]!.energyManagement;
+      if (!energy) throw new Error(`Device '${mutation.device}' does not support idle-energy control`);
+      energy.mode = "awake";
+      energy.idleSinceTick = mutation.tick;
+      energy.wakeups++;
+      energy.wakeTicks += mutation.durationTicks;
+      return;
+    }
+    case "energy.idle": {
+      const energy = state.devices[mutation.device]!.energyManagement;
+      if (energy) energy.idleSinceTick = mutation.tick;
+      return;
+    }
     case "setup.finish": {
       const setup = state.devices[mutation.device]!.setup;
       if (!setup) throw new Error(`Device '${mutation.device}' does not track equipment setup`);

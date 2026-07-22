@@ -98,6 +98,10 @@ export interface BlueprintMetricSnapshot {
   totalMaintenanceCrewWaitTicks: number;
   totalMaintenanceServiceCrewTicks: number;
   totalMaintenanceQualificationCrewTicks: number;
+  totalEquipmentSleeps: number;
+  totalEquipmentWakeups: number;
+  totalEquipmentWakeTicks: number;
+  totalEquipmentSleepingTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -198,6 +202,10 @@ export interface BlueprintMetricDelta {
   totalMaintenanceCrewWaitTicks: number;
   totalMaintenanceServiceCrewTicks: number;
   totalMaintenanceQualificationCrewTicks: number;
+  totalEquipmentSleeps: number;
+  totalEquipmentWakeups: number;
+  totalEquipmentWakeTicks: number;
+  totalEquipmentSleepingTicks: number;
   energyConsumedMilliJoules: number;
   transportEnergyConsumedMilliJoules: number;
   storedMilliJoules: number;
@@ -422,6 +430,10 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalMaintenanceCrewWaitTicks: metrics.equipmentMaintenance.totalCrewWaitTicks,
     totalMaintenanceServiceCrewTicks: metrics.equipmentMaintenance.totalServiceCrewTicks,
     totalMaintenanceQualificationCrewTicks: metrics.equipmentMaintenance.totalQualificationCrewTicks,
+    totalEquipmentSleeps: metrics.equipmentEnergyManagement.totalSleeps,
+    totalEquipmentWakeups: metrics.equipmentEnergyManagement.totalWakeups,
+    totalEquipmentWakeTicks: metrics.equipmentEnergyManagement.totalWakeTicks,
+    totalEquipmentSleepingTicks: metrics.equipmentEnergyManagement.totalSleepingTicks,
     energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: metrics.transportEnergyConsumedMilliJoules,
     storedMilliJoules: storage.reduce((sum, grid) => sum + grid.storedMilliJoules, 0),
@@ -524,6 +536,10 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalMaintenanceCrewWaitTicks: after.totalMaintenanceCrewWaitTicks - before.totalMaintenanceCrewWaitTicks,
     totalMaintenanceServiceCrewTicks: after.totalMaintenanceServiceCrewTicks - before.totalMaintenanceServiceCrewTicks,
     totalMaintenanceQualificationCrewTicks: after.totalMaintenanceQualificationCrewTicks - before.totalMaintenanceQualificationCrewTicks,
+    totalEquipmentSleeps: after.totalEquipmentSleeps - before.totalEquipmentSleeps,
+    totalEquipmentWakeups: after.totalEquipmentWakeups - before.totalEquipmentWakeups,
+    totalEquipmentWakeTicks: after.totalEquipmentWakeTicks - before.totalEquipmentWakeTicks,
+    totalEquipmentSleepingTicks: after.totalEquipmentSleepingTicks - before.totalEquipmentSleepingTicks,
     energyConsumedMilliJoules: after.energyConsumedMilliJoules - before.energyConsumedMilliJoules,
     transportEnergyConsumedMilliJoules: after.transportEnergyConsumedMilliJoules - before.transportEnergyConsumedMilliJoules,
     storedMilliJoules: after.storedMilliJoules - before.storedMilliJoules,

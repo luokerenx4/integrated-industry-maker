@@ -2,7 +2,7 @@
 
 Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/work-center-specialization]], [[docs/design/reusable-production-tooling]], [[docs/design/usage-based-maintenance]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/lot-derived-output]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/work-center-dispatch]], [[docs/design/work-center-specialization]], [[docs/design/reusable-production-tooling]], [[docs/design/usage-based-maintenance]], [[docs/design/equipment-energy-states]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/lot-derived-output]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Product model
 
@@ -75,6 +75,8 @@ The bundled [[examples/memory-fab]] program applies the same loop to a re-entran
 
 Its focused `product-mix-research` benchmark is one minimal proof of the loop. Baseline and candidate differ by one Blueprint value on the final-test rack: `authored-order` becomes `contract-value`. The focused `yield-research` benchmark is the second: one Probe recipe id changes from the standard program to the adaptive program while locked early latent-defect lots determine realized known-good die output. It improves the two-case aggregate by `17.053080`; the heavier excursion raises output realization from `79.2%` to `95.8%` and creates another sellable batch. `batch-formation-research` freezes an eleven-lot tail and lets one Blueprint qualify both fixed-batch and rapid anneal plus a bounded preference policy; the candidate keeps three full loads, drains the residual two lots after timeout, and increases delivered memory from 40 to 56 devices. `changeover-specialization-research` freezes a directional cleanup-pressure schedule. Its shared-tool baseline spends 97 seconds on seven transitions; the candidate Blueprint buys dedicated layer-2 tools, explicit lanes, and required facility capacity, spends 21 seconds on five commissioning/forward transitions, raises delivered devices from 24 to 56, and improves the locked score by `+51.290851`. `calendar-maintenance-research` freezes two six-lot release waves around equipment qualification expiry. One Blueprint policy moves `lithography-1` service into the idle gap; the 130-second window keeps all twelve lots on time, lowers mean cycle time from 97.4 to 90.9 seconds, remains capacity READY, and improves score by `+3.853927`. The locked Objective defines commercial, performance, and automotive demand floors, unit value, and shortfall penalties. Above-demand memory remains valuable. The larger `dispatch-research` benchmark shows that the same contracts can judge coupled equipment, routing, quality, maintenance, utility, and control changes.
 
+`equipment-energy-research` is the focused standby-control proof. It freezes two production waves and an energy-valuing Objective. Asset physics fixes furnace sleep draw and wake work; a TypeScript search may change only the Blueprint sleep threshold. The kept 30-second policy sleeps twice, wakes once, saves energy across 196 sleeping seconds, remains capacity READY with all twelve lots on time, and improves the locked score by `+0.552183`.
+
 ## Source of truth
 
 - Benchmark schema, locking, evaluation, and aggregation: `packages/inm-core/src/benchmark.ts`
@@ -82,7 +84,7 @@ Its focused `product-mix-research` benchmark is one minimal proof of the loop. B
 - CLI rendering: `packages/inm-cli/src/commands.ts`
 - Example fixed harness: `examples/ironworks/benchmarks/autoresearch.benchmark.json`
 - Example Agent program: `examples/ironworks/AUTORESEARCH.md`
-- Memory-fab harness and program: `examples/memory-fab/benchmarks/dispatch-research.benchmark.json`, `examples/memory-fab/benchmarks/batch-formation-research.benchmark.json`, `examples/memory-fab/benchmarks/changeover-specialization-research.benchmark.json`, `examples/memory-fab/benchmarks/calendar-maintenance-research.benchmark.json`, `examples/memory-fab/AUTORESEARCH.md`
+- Memory-fab harness and program: `examples/memory-fab/benchmarks/dispatch-research.benchmark.json`, `examples/memory-fab/benchmarks/batch-formation-research.benchmark.json`, `examples/memory-fab/benchmarks/changeover-specialization-research.benchmark.json`, `examples/memory-fab/benchmarks/calendar-maintenance-research.benchmark.json`, `examples/memory-fab/benchmarks/equipment-energy-research.benchmark.json`, `examples/memory-fab/AUTORESEARCH.md`
 
 ## Verification
 
@@ -96,6 +98,8 @@ bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 bun run inm benchmark examples/memory-fab --benchmark product-mix-research
 bun run inm benchmark examples/memory-fab --benchmark yield-research
 bun run inm benchmark examples/memory-fab --benchmark calendar-maintenance-research
+bun run inm benchmark examples/memory-fab --benchmark equipment-energy-research
+bun run memory-fab:research-energy
 bun run memory-fab:research-calendar
 bun run memory-fab:research-tools
 bun run memory-fab:research-metrology

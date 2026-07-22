@@ -252,6 +252,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   };
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
+  const sleepingTime: Record<string, Tick> = {};
   const waitingInputTime: Record<string, Tick> = {};
   const blockedOutputTime: Record<string, Tick> = {};
   const unpoweredTime: Record<string, Tick> = {};
@@ -261,6 +262,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     const times = stats.durations[id] ?? {};
     machineUtilization[id] = (times.processing ?? 0) / duration;
     idleTime[id] = times.idle ?? 0;
+    sleepingTime[id] = times.sleeping ?? 0;
     waitingInputTime[id] = times["waiting-input"] ?? 0;
     blockedOutputTime[id] = times["blocked-output"] ?? 0;
     unpoweredTime[id] = times.unpowered ?? 0;
@@ -501,6 +503,20 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     devices: maintenanceDevices,
     providers: maintenanceProviders,
   };
+  const energyManagementDevices = Object.fromEntries(Object.entries(state.devices)
+    .filter(([, runtime]) => runtime.energyManagement)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([id, runtime]) => [id, {
+      ...structuredClone(runtime.energyManagement!),
+      sleepingTicks: sleepingTime[id] ?? 0,
+    }]));
+  const equipmentEnergyManagement: FactoryMetrics["equipmentEnergyManagement"] = {
+    totalSleeps: Object.values(energyManagementDevices).reduce((sum, device) => sum + device.sleeps, 0),
+    totalWakeups: Object.values(energyManagementDevices).reduce((sum, device) => sum + device.wakeups, 0),
+    totalWakeTicks: Object.values(energyManagementDevices).reduce((sum, device) => sum + device.wakeTicks, 0),
+    totalSleepingTicks: Object.values(energyManagementDevices).reduce((sum, device) => sum + device.sleepingTicks, 0),
+    devices: energyManagementDevices,
+  };
   const onTimeDelivery = targetLots.length ? lotFlow.onTimeCompleted / targetLots.length : deliveryPortfolio.fulfillment;
   const weights = project.objective.weights;
   const scoreBreakdown: ScoreBreakdown = {
@@ -575,8 +591,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       minimumSatisfactionPpm: power.minimumSatisfactionPpm,
       requiredStorageCapacityMilliJoules: power.requiredStorageCapacityMilliJoules,
     }])),
-    materialTreatment: structuredClone(state.materialTreatment), productionTooling, productionUtilities, equipmentSetups, equipmentMaintenance,
-    totalBuildCost, occupiedArea, machineUtilization, idleTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
+    materialTreatment: structuredClone(state.materialTreatment), productionTooling, productionUtilities, equipmentSetups, equipmentMaintenance, equipmentEnergyManagement,
+    totalBuildCost, occupiedArea, machineUtilization, idleTime, sleepingTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
     averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,

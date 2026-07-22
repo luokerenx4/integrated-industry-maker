@@ -76,6 +76,13 @@
       "storedMilliJoules": 0
     }
   },
+  "equipmentEnergyManagement": {
+    "devices": {},
+    "totalSleepingTicks": 0,
+    "totalSleeps": 0,
+    "totalWakeTicks": 0,
+    "totalWakeups": 0
+  },
   "equipmentMaintenance": {
     "devices": {},
     "providers": {},
@@ -317,6 +324,22 @@
     "tardiness": 0,
     "throughput": 130,
     "wip": -0.32183333333333336
+  },
+  "sleepingTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0,
+    "synth-make-plastic-1": 0,
+    "synth-plastic-sink": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-loader": 0,
+    "synth-plastic-synth-make-plastic-1-to-synth-plastic-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
   "stationEnergy": {},
   "stationFleets": {},

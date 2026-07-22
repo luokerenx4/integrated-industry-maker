@@ -1,8 +1,8 @@
 # Spatial power design
 
-Status: connected regional grids, proportional satisfaction and priority load shedding, explicit idle/active Device envelopes, powered equipment changeovers, sorter loads, station charging, high-speed carrier energy, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.49.0`.
+Status: connected regional grids, proportional satisfaction and priority load shedding, explicit hot/sleep/active Device envelopes, physical wake work, powered equipment changeovers, sorter loads, station charging, high-speed carrier energy, Scenario-driven intermittent renewables, fuel generation, deterministic accumulators, interruption-safe Device and sorter-stage work, temporal capacity planning, measured generation/storage research, and joint synthesis implemented through engine version `inm-sim/0.73.0`.
 
-Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
+Related: [[docs/design/production-modes]], [[docs/design/logistics]], [[docs/design/equipment-energy-states]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]].
 
 ## Scope
 
@@ -25,7 +25,9 @@ Every Device asset declares both values explicitly:
 }
 ```
 
-`idleMilliWatts` is the connected standby baseline. `activeMilliWatts` is the total draw during work and already includes that baseline, so runtime demand is `idle + (active - idle)`, never `idle + active`. The compiler rejects `idle > active`; there is no legacy single-power field or migration fallback.
+`idleMilliWatts` is the connected hot-standby baseline. `activeMilliWatts` is the total draw during work and already includes that baseline, so runtime demand is `idle + (active - idle)`, never `idle + active`. The compiler rejects `idle > active`; there is no legacy single-power field or migration fallback.
+
+Optional asset-owned `power.sleep` adds a lower idle draw plus fixed wake duration and total wake power. A production Device may opt into that physical capability with Blueprint `policy.idleEnergy.sleepAfterTicks`; it otherwise remains in hot standby. Wake is real interruption-safe equipment work, not free scheduler latency. See [[docs/design/equipment-energy-states]].
 
 The Blueprint's required `policies.powerAllocation` selects either `proportional` or `priority-load-shedding`. Generated Blueprints use `proportional`, the game-style shared-grid model. Every Blueprint Device may also author `policy.powerPriority` as a non-negative integer for `priority-load-shedding`: higher priority receives finite grid power first, with stable Device id resolving equal tiers. The priority applies to the complete envelope, so an active high-priority job reserves both its standby baseline and active-minus-idle delta before lower-ranked standby loads are admitted. Omission means priority zero; there is no implicit asset class priority.
 

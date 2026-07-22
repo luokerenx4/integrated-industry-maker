@@ -159,6 +159,11 @@ export const deviceAssetSchema = z.object({
   power: z.object({
     idleMilliWatts: nonNegativeInt,
     activeMilliWatts: nonNegativeInt,
+    sleep: z.object({
+      idleMilliWatts: nonNegativeInt,
+      wakeDurationTicks: positiveInt,
+      wakePowerMilliWatts: nonNegativeInt,
+    }).strict().optional(),
     generation: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("renewable"), outputMilliWatts: positiveInt }).strict(),
       z.object({ kind: z.literal("fuel"), outputMilliWatts: positiveInt, fuelBuffer: id, fuels: z.array(id).min(1) }).strict(),
@@ -223,6 +228,7 @@ export const blueprintSchema = z.object({
       }).strict().refine((policy) => policy.minimumJobs !== undefined || policy.minimumQualificationTicks !== undefined, {
         message: "must declare minimumJobs or minimumQualificationTicks",
       }).optional(),
+      idleEnergy: z.object({ sleepAfterTicks: nonNegativeInt }).strict().optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),
       highSpeedTransport: z.object({ enabled: z.boolean(), minimumDistance: nonNegativeInt }).strict().optional(),

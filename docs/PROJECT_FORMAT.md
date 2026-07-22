@@ -246,6 +246,18 @@ Each port binds to exactly one named buffer. Input ports cannot bind to output-o
 
 Power consumption and generation use integer milliwatts. Every Device declares an idle baseline and an active total. `activeMilliWatts` includes the idle baseline; the two values are never added together, and idle may not exceed active. A connected healthy Device receives idle power before it may wait, process, extract, treat, or move cargo. Renewable generation is continuously available while its Device is healthy:
 
+Production equipment may additionally declare immutable low-power and wake physics:
+
+```json
+"power": {
+  "idleMilliWatts": 30000,
+  "activeMilliWatts": 280000,
+  "sleep": { "idleMilliWatts": 3000, "wakeDurationTicks": 4000, "wakePowerMilliWatts": 120000 }
+}
+```
+
+Its Blueprint instance may then author `"policy": { "idleEnergy": { "sleepAfterTicks": 30000 } }`. Omission keeps the Device in hot standby. Sleep begins at the exact continuous-idle boundary; a ready production or post-maintenance qualification job first pays the fixed powered wake contract. See [[docs/design/equipment-energy-states]].
+
 A Blueprint selects one grid-allocation policy for the whole factory:
 
 ```json

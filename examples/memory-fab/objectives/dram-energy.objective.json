@@ -1,0 +1,57 @@
+{
+  "id": "dram-energy",
+  "name": "Fulfill the DRAM portfolio while valuing equipment energy conservation",
+  "targetResource": "commercial-dram-device",
+  "trackedFamily": "dram-wafer",
+  "targetRegion": "cleanroom",
+  "targetRatePerMinute": 8,
+  "deliveryContracts": [
+    {
+      "id": "commercial-order",
+      "name": "Commercial DRAM order",
+      "resource": "commercial-dram-device",
+      "region": "cleanroom",
+      "demandPerMinute": 8,
+      "valuePerItem": 2,
+      "shortfallPenaltyPerItem": 2
+    },
+    {
+      "id": "performance-order",
+      "name": "Performance-bin DRAM order",
+      "resource": "performance-dram-device",
+      "region": "cleanroom",
+      "demandPerMinute": 3,
+      "valuePerItem": 5,
+      "shortfallPenaltyPerItem": 6
+    },
+    {
+      "id": "automotive-order",
+      "name": "Automotive-screened DRAM order",
+      "resource": "automotive-dram-device",
+      "region": "cleanroom",
+      "demandPerMinute": 1.5,
+      "valuePerItem": 10,
+      "shortfallPenaltyPerItem": 12
+    }
+  ],
+  "constraints": {
+    "maxBuildCost": 230000,
+    "maxOccupiedArea": 350,
+    "minProduction": 8
+  },
+  "weights": {
+    "throughput": 0,
+    "deliveryValue": 1,
+    "onTimeDelivery": 20,
+    "energy": 0.2,
+    "buildCost": 0.05,
+    "occupiedArea": 0.05,
+    "wip": 1.5,
+    "blocked": 3,
+    "cycleTime": 2,
+    "tardiness": 4,
+    "changeovers": 0.5,
+    "qualityEscapes": 15,
+    "rework": 0.5
+  }
+}

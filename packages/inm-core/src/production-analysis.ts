@@ -31,6 +31,10 @@ export interface DeviceProductionRate {
   powerPriority: number;
   idlePowerMilliWatts: number;
   powerMilliWatts: number;
+  sleepIdleMilliWatts?: number;
+  wakeDurationTicks?: number;
+  wakePowerMilliWatts?: number;
+  sleepAfterTicks?: number;
   setupGroup?: string;
   changeoverTransitions?: EquipmentChangeoverTransition[];
   maintenanceMaximumJobs?: number;
@@ -451,6 +455,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         powerPriority: device.policy?.powerPriority ?? 0,
         idlePowerMilliWatts: device.assetDef.power.idleMilliWatts,
         powerMilliWatts: processPlan.powerMilliWatts,
+        ...(device.assetDef.power.sleep ? {
+          sleepIdleMilliWatts: device.assetDef.power.sleep.idleMilliWatts,
+          wakeDurationTicks: device.assetDef.power.sleep.wakeDurationTicks,
+          wakePowerMilliWatts: device.assetDef.power.sleep.wakePowerMilliWatts,
+        } : {}),
+        ...(device.policy?.idleEnergy ? { sleepAfterTicks: device.policy.idleEnergy.sleepAfterTicks } : {}),
         ...(processPlan.setupGroup ? { setupGroup: processPlan.setupGroup } : {}),
         ...(device.assetDef.production?.changeover ? {
           changeoverTransitions: device.assetDef.production.changeover.transitions.map((transition) => ({ ...transition })),

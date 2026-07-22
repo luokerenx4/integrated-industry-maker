@@ -147,4 +147,4 @@ bun run typecheck
 bun test
 ```
 
-The suite covers isolated projects, global/spatial production optimization, cyclic and multi-input recipes, graded material treatment and agent chains, finite resources, explicit sorter spans and physical/station logistics, fuel generation, deterministic accumulator charging/discharging, exact depletion boundaries, power-paused job resumption, typed asset runtimes, immutable replay, CLI evaluation, and renderer-independent Studio projection.
+The suite covers isolated projects, global/spatial production optimization, cyclic and multi-input recipes, graded material treatment and agent chains, finite resources, explicit sorter spans and physical/station logistics, fuel generation, deterministic accumulator charging/discharging, exact depletion boundaries, hot-standby sleep and physical wake work, power-paused job resumption, typed asset runtimes, immutable replay, CLI evaluation, and renderer-independent Studio projection.

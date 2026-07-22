@@ -6,7 +6,7 @@ import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 
-type Status = "idle" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
+type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 type AssetKind = "devices" | "resources" | "processes" | "routes";
 
 interface Visual {
@@ -64,6 +64,7 @@ interface Device {
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
   batchFormation?: { preferredProcess: string; maximumWaitTicks: number };
   preventiveMaintenance?: { minimumJobs?: number; minimumQualificationTicks?: number };
+  idleEnergy?: { sleepAfterTicks: number };
   maintenance?: {
     maximumJobs: number; maximumQualificationTicks: number; durationTicks: number; powerMilliWatts: number;
     service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> };
@@ -142,6 +143,7 @@ interface DeviceCatalogAsset {
   power: {
     idleMilliWatts: number;
     activeMilliWatts: number;
+    sleep?: { idleMilliWatts: number; wakeDurationTicks: number; wakePowerMilliWatts: number };
     generation?: { kind: "renewable"; outputMilliWatts: number } | { kind: "fuel"; outputMilliWatts: number; fuelBuffer: string; fuels: string[] };
     distribution?: { connectionRange: number; coverageRange: number };
     storage?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
@@ -351,6 +353,12 @@ interface Metrics {
       qualificationCrewTicks: number; consumables: Record<string, number>;
     }>;
   };
+  equipmentEnergyManagement: {
+    totalSleeps: number; totalWakeups: number; totalWakeTicks: number; totalSleepingTicks: number;
+    devices: Record<string, {
+      mode: "awake" | "sleeping"; idleSinceTick: number; sleeps: number; wakeups: number; wakeTicks: number; sleepingTicks: number;
+    }>;
+  };
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
@@ -371,6 +379,7 @@ interface Metrics {
   resourceNodes: Record<string, { initial: number; remaining: number; reserved: number; extracted: number; depleted: boolean }>;
   machineUtilization: Record<string, number>;
   idleTime: Record<string, number>;
+  sleepingTime: Record<string, number>;
   waitingInputTime: Record<string, number>;
   blockedOutputTime: Record<string, number>;
   unpoweredTime: Record<string, number>;
@@ -387,6 +396,7 @@ interface IndustrialAnalysis {
     setupGroup?: string; changeoverTransitions?: Array<{ from: string | null; to: string; durationTicks: number; powerMilliWatts: number }>;
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>;
     inputPorts: Record<string, string>; outputPorts: Record<string, string>; powerPriority: number; idlePowerMilliWatts: number; powerMilliWatts: number;
+    sleepIdleMilliWatts?: number; wakeDurationTicks?: number; wakePowerMilliWatts?: number; sleepAfterTicks?: number;
   }>;
   bufferContracts: Array<{
     device: string; asset: string;
@@ -523,6 +533,7 @@ interface FactoryFrame { devices: Record<string, DeviceFrame>; transits: Transit
 
 const STATUS_COLORS: Record<Status, string> = {
   idle: "#64748b",
+  sleeping: "#38bdf8",
   "waiting-input": "#818cf8",
   processing: "#22d3a7",
   "blocked-output": "#f59e0b",
@@ -531,6 +542,7 @@ const STATUS_COLORS: Record<Status, string> = {
 };
 const STATUS_LABELS: Record<Status, string> = {
   idle: "IDLE",
+  sleeping: "SLEEP",
   "waiting-input": "WAITING",
   processing: "RUNNING",
   "blocked-output": "BLOCKED",
@@ -562,17 +574,22 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
   const endpointPower = Object.fromEntries(data.connections.flatMap((connection) => connection.endpoints.map((endpoint) => [`${connection.id}:${endpoint.stage}`, Boolean(endpoint.powerGrid)])));
   const jobs = new Map<string, { durationTicks: number; workedTicks: number; resumedAt?: number }>();
   const transportJobs = new Map<string, Set<string>>();
+  const sleepingDevices = new Set<string>();
   const transits = new Map<string, TransitFrame>();
   const visibleEvents: FactoryEvent[] = [];
   for (const event of data.events) {
     if (event.tick > tick) break;
     visibleEvents.push(event);
-    if (event.device && (event.type === "device.start" || event.type === "device.changeover-start" || event.type === "device.maintenance-start")) {
+    if (event.device && (event.type === "device.start" || event.type === "device.changeover-start" || event.type === "device.maintenance-start" || event.type === "device.wake-start")) {
       devices[event.device] = { status: "processing", progress: 0 };
       jobs.set(event.device, { durationTicks: event.durationTicks ?? 1, workedTicks: 0, resumedAt: event.tick });
-    } else if (event.device && (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.maintenance-finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
-      devices[event.device] = { status: event.type === "device.recover" && transportJobs.get(event.device)?.size ? "processing" : "idle", progress: 0 };
-      if (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.maintenance-finish" || event.type === "device.recover") jobs.delete(event.device);
+    } else if (event.device && event.type === "device.sleep") {
+      sleepingDevices.add(event.device);
+      devices[event.device] = { status: "sleeping", progress: 0 };
+    } else if (event.device && (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.maintenance-finish" || event.type === "device.wake-finish" || event.type === "device.recover" || event.type === "buffer.unblocked")) {
+      if (event.type === "device.wake-finish") sleepingDevices.delete(event.device);
+      devices[event.device] = { status: event.type === "device.recover" && transportJobs.get(event.device)?.size ? "processing" : sleepingDevices.has(event.device) ? "sleeping" : "idle", progress: 0 };
+      if (event.type === "device.finish" || event.type === "device.changeover-finish" || event.type === "device.maintenance-finish" || event.type === "device.wake-finish" || event.type === "device.recover") jobs.delete(event.device);
       if (event.type === "device.recover") for (const connection of data.connections) for (const endpoint of connection.endpoints) {
         if (endpoint.device === event.device) endpointPower[`${connection.id}:${endpoint.stage}`] = Boolean(endpoint.powerGrid);
       }
@@ -582,7 +599,7 @@ function buildFrame(data: StudioData, tick: number): FactoryFrame {
       if (job && event.workedTicks !== undefined) { job.workedTicks = event.workedTicks; delete job.resumedAt; }
       devices[event.device] = { status: "unpowered", progress: job ? job.workedTicks / job.durationTicks : 0 };
     } else if (event.device && event.type === "power.standby-restored") {
-      devices[event.device] = { status: "idle", progress: 0 };
+      devices[event.device] = { status: sleepingDevices.has(event.device) ? "sleeping" : "idle", progress: 0 };
     } else if (event.device && event.type === "power.restored") {
       const job = jobs.get(event.device);
       if (job) { job.workedTicks = Math.max(job.workedTicks, job.durationTicks - (event.remainingTicks ?? job.durationTicks)); job.resumedAt = event.tick; }
@@ -853,10 +870,12 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const utilities = data.metrics?.productionUtilities.devices[device.id];
   const utilityProvider = data.metrics?.productionUtilities.providers[device.id];
   const maintenance = data.metrics?.equipmentMaintenance.devices[device.id];
+  const energyManagement = data.metrics?.equipmentEnergyManagement.devices[device.id];
   const maintenanceProvider = data.metrics?.equipmentMaintenance.providers[device.id];
   const activeDrift = device.maintenance?.drift?.filter((stage) => (maintenance?.jobsSinceMaintenance ?? 0) >= stage.afterJobs).at(-1);
   const statusTimes = data.metrics ? [
     ["IDLE", data.metrics.idleTime[device.id] ?? 0],
+    ["SLEEP", data.metrics.sleepingTime[device.id] ?? 0],
     ["WAIT", data.metrics.waitingInputTime[device.id] ?? 0],
     ["BLOCKED", data.metrics.blockedOutputTime[device.id] ?? 0],
     ["NO POWER", data.metrics.unpoweredTime[device.id] ?? 0],
@@ -878,6 +897,9 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>POWER PRIORITY</small><b>P{device.powerPriority}</b></span>
         {configuredRecipes.length > 0 && <span><small>OPERATION / LOT DISPATCH</small><b>{device.recipeDispatch} / {device.lotDispatch}</b></span>}
         <span><small>IDLE → ACTIVE POWER</small><b>{(idlePowerMilliWatts / 1000).toFixed(1)} → {(powerMilliWatts / 1000).toFixed(1)} W</b></span>
+        {asset?.power.sleep && <span><small>SLEEP → WAKE</small><b>{(asset.power.sleep.idleMilliWatts / 1000).toFixed(1)} W → {formatTick(asset.power.sleep.wakeDurationTicks)} @ {(asset.power.sleep.wakePowerMilliWatts / 1000).toFixed(1)} W</b></span>}
+        {device.idleEnergy && <span><small>SLEEP POLICY</small><b>AFTER {formatTick(device.idleEnergy.sleepAfterTicks)} IDLE</b></span>}
+        {energyManagement && <span><small>SLEEPS / WAKES</small><b>{energyManagement.sleeps} / {energyManagement.wakeups} · {energyManagement.mode.toUpperCase()}</b></span>}
         {setup && <span><small>FINAL SETUP</small><b>{setup.group ?? "UNCONFIGURED"}</b></span>}
         {setup && <span><small>CHANGEOVERS</small><b>{setup.changeovers} · {formatTick(setup.setupTicks)}</b></span>}
         {device.changeoverTransitions && <span><small>CHANGEOVER MATRIX</small><b>{device.changeoverTransitions.map((transition) =>
@@ -1092,6 +1114,7 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
               {selected.logistics?.highSpeedMission && <section className="asset-section"><h4>High-speed transport</h4><div className="asset-table"><div><b>{selected.logistics.highSpeedMission.durationMultiplier.numerator}/{selected.logistics.highSpeedMission.durationMultiplier.denominator} travel time</b><strong>{selected.logistics.highSpeedMission.energyMultiplier.numerator}/{selected.logistics.highSpeedMission.energyMultiplier.denominator} mission energy</strong><span>agile carrier envelope</span></div></div></section>}
               {selected.logisticsStation && <section className="asset-section"><h4>Station specification</h4><div className="asset-table"><div><b>{selected.logisticsStation.networkKinds.join(", ")}</b><strong>{selected.logisticsStation.slots} slots</strong><span>buffer</span><code>{selected.logisticsStation.buffer}</code></div><div><b>{(selected.logisticsStation.energyCapacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>{(selected.logisticsStation.maximumChargeMilliWatts / 1000).toFixed(0)} W max charge</strong><span>carrier energy</span></div></div></section>}
               {selected.power.generation && <section className="asset-section"><h4>Power generation</h4><div className="asset-table"><div><b>{selected.power.generation.kind}</b><strong>{(selected.power.generation.outputMilliWatts / 1000).toFixed(0)} W</strong><span>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuels.join(", ") : "Scenario-profiled environment"}</span><code>{selected.power.generation.kind === "fuel" ? selected.power.generation.fuelBuffer : "rated renewable"}</code></div></div></section>}
+              {selected.power.sleep && <section className="asset-section"><h4>Low-power idle</h4><div className="asset-table"><div><b>{(selected.power.sleep.idleMilliWatts / 1000).toFixed(1)} W asleep</b><strong>{formatTick(selected.power.sleep.wakeDurationTicks)} wake @ {(selected.power.sleep.wakePowerMilliWatts / 1000).toFixed(1)} W</strong><span>Blueprint-controlled idle threshold</span><code>asset-owned wake physics</code></div></div></section>}
               {selected.power.storage && <section className="asset-section"><h4>Power storage</h4><div className="asset-table"><div><b>{(selected.power.storage.capacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>+{(selected.power.storage.chargeMilliWatts / 1000).toFixed(0)} / −{(selected.power.storage.dischargeMilliWatts / 1000).toFixed(0)} W</strong><span>charge / discharge</span><code>deterministic grid buffer</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
@@ -1472,6 +1495,7 @@ function App() {
         {data.metrics && data.metrics.productionTooling.totalAllocations > 0 && <div className="panel"><h2>Reusable production tooling</h2><div className="metrics"><Metric label="ALLOCATED / COMPLETE" value={`${data.metrics.productionTooling.totalAllocations} / ${data.metrics.productionTooling.totalCompleted}`} /><Metric label="CANCELLED" value={String(data.metrics.productionTooling.totalCancelled)} /><Metric label="EQUIPMENT / UNIT TIME" value={`${(data.metrics.productionTooling.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionTooling.totalUnitTicks / 1000).toFixed(1)} s`} /><Metric label="WAIT / BLOCKS" value={`${(data.metrics.productionTooling.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionTooling.totalInputBlocks}`} /><Metric label="TOOL ASSETS" value={Object.entries(data.metrics.productionTooling.resources).map(([resource, measured]) => `${resource}: ${measured.unitsAllocated} allocations / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`).join(" · ") || "NONE"} /></div></div>}
         {data.metrics && data.metrics.productionUtilities.totalAllocations > 0 && <div className="panel"><h2>Fab facility utilities</h2><div className="metrics"><Metric label="JOBS / COMPLETE" value={`${data.metrics.productionUtilities.totalAllocations} / ${data.metrics.productionUtilities.totalCompleted}`} /><Metric label="CANCELLED / TRIPS" value={`${data.metrics.productionUtilities.totalCancelled} / ${data.metrics.productionUtilities.totalProviderInterruptions}`} /><Metric label="JOB / CAPACITY TIME" value={`${(data.metrics.productionUtilities.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionUtilities.totalUnitTicks / 1000).toFixed(1)} s`} /><Metric label="WAIT / BLOCKS" value={`${(data.metrics.productionUtilities.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionUtilities.totalInputBlocks}`} /><Metric label="UTILITY SERVICES" value={Object.entries(data.metrics.productionUtilities.utilities).map(([utility, measured]) => `${utility}: ${measured.unitsAllocated} units / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`).join(" · ") || "NONE"} /></div></div>}
         {data.metrics && Object.keys(data.metrics.equipmentMaintenance.devices).length > 0 && <div className="panel"><h2>Equipment maintenance</h2><div className="metrics"><Metric label="MANDATORY / EARLY" value={`${data.metrics.equipmentMaintenance.totalMandatory} / ${data.metrics.equipmentMaintenance.totalOpportunistic}`} /><Metric label="USAGE / CALENDAR TRIGGERS" value={`${data.metrics.equipmentMaintenance.totalUsageTriggered} / ${data.metrics.equipmentMaintenance.totalCalendarTriggered}`} /><Metric label="RELEASED / SERVICE CANCEL" value={`${data.metrics.equipmentMaintenance.totalCompleted} / ${data.metrics.equipmentMaintenance.totalCancelled}`} /><Metric label="SERVICE / QUALIFICATION" value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationTicks / 1000).toFixed(1)} s`} /><Metric label="QUALIFIED / CANCELLED" value={`${data.metrics.equipmentMaintenance.totalQualificationCompleted} / ${data.metrics.equipmentMaintenance.totalQualificationCancelled}`} /><Metric label="SERVICE / QUAL CREW" value={`${(data.metrics.equipmentMaintenance.totalServiceCrewTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationCrewTicks / 1000).toFixed(1)} crew-s`} /><Metric label="INPUT / CREW WAIT" value={`${(data.metrics.equipmentMaintenance.totalInputWaitTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalCrewWaitTicks / 1000).toFixed(1)} s`} /><Metric label="INPUT / CREW BLOCKS" value={`${data.metrics.equipmentMaintenance.totalInputBlocks} / ${data.metrics.equipmentMaintenance.totalCrewBlocks}`} /><Metric label="SERVICE CONSUMABLES" value={Object.entries(data.metrics.equipmentMaintenance.serviceConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"} /><Metric label="QUALIFICATION CONSUMABLES" value={Object.entries(data.metrics.equipmentMaintenance.qualificationConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"} /><Metric label="DRIFTED JOBS / LOTS" value={`${data.metrics.equipmentMaintenance.totalDriftedJobs} / ${data.metrics.equipmentMaintenance.totalDriftedLots}`} /><Metric label="DRIFT DEFECTS" value={String(data.metrics.equipmentMaintenance.totalDriftDefects)} /></div></div>}
+        {data.metrics && Object.keys(data.metrics.equipmentEnergyManagement.devices).length > 0 && <div className="panel"><h2>Equipment energy states</h2><div className="metrics"><Metric label="SLEEPS / WAKES" value={`${data.metrics.equipmentEnergyManagement.totalSleeps} / ${data.metrics.equipmentEnergyManagement.totalWakeups}`} /><Metric label="SLEEP / WAKE TIME" value={`${(data.metrics.equipmentEnergyManagement.totalSleepingTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentEnergyManagement.totalWakeTicks / 1000).toFixed(1)} equipment-s`} /><Metric label="CONTROLLED EQUIPMENT" value={Object.entries(data.metrics.equipmentEnergyManagement.devices).map(([device, energy]) => `${device}: ${energy.mode}`).join(" · ")} /></div></div>}
         <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => setSelection({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
         <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
         {data.metrics && data.metrics.lotOutputFlow.jobs > 0 && <div className="panel"><h2>Wafer probe yield</h2><div className="metrics"><Metric label="DIE OUTPUT ACTUAL / NOMINAL" value={`${data.metrics.lotOutputFlow.actualUnits} / ${data.metrics.lotOutputFlow.nominalUnits}`} accent /><Metric label="DIE OUTPUT REALIZATION" value={`${(data.metrics.lotOutputFlow.outputRatio * 100).toFixed(1)}%`} /><Metric label="DIE OUTPUT LOST" value={String(data.metrics.lotOutputFlow.lostUnits)} /></div></div>}

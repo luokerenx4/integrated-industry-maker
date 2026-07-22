@@ -2681,6 +2681,78 @@ describe("deterministic discrete-event simulation", () => {
     expect(grid.servedMilliJoules).toBe(20_000);
   });
 
+  test("Blueprint idle-energy control sleeps across a production gap and pays exact wake work", async () => {
+    const energySource = async () => {
+      const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+      source.deviceAssets.smelter!.power.sleep = {
+        idleMilliWatts: 1_000, wakeDurationTicks: 3_000, wakePowerMilliWatts: 10_000,
+      };
+      const smelter = source.blueprint.devices.find((device) => device.id === "smelter-1")!;
+      smelter.policy = { ...smelter.policy, idleEnergy: { sleepAfterTicks: 2_000 } };
+      source.blueprint.devices = source.blueprint.devices.filter((device) => ["smelter-1", "wind-1"].includes(device.id));
+      source.blueprint.connections = [];
+      source.blueprint.logisticsNetworks = [];
+      source.scenario.durationTicks = 20_000;
+      source.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 2 } } };
+      source.scenario.materialDeliveries = [{
+        id: "second-shift-ore", device: "smelter-1", buffer: "input",
+        resource: "iron-ore", count: 2, releaseTick: 12_000,
+      }];
+      source.scenario.initialEnergyMilliJoules = {};
+      source.scenario.failures = [];
+      return source;
+    };
+
+    const source = await energySource();
+    const result = runUntil(compileFactoryProject(source));
+    expect(result.events.filter((event) => event.type === "device.sleep")).toEqual([
+      expect.objectContaining({ tick: 6_000, device: "smelter-1", idleTicks: 2_000, idleMilliWatts: 1_000 }),
+    ]);
+    expect(result.events.filter((event) => event.type === "device.wake-start")).toEqual([
+      expect.objectContaining({ tick: 12_000, device: "smelter-1", durationTicks: 3_000, powerMilliWatts: 10_000 }),
+    ]);
+    expect(result.events.filter((event) => event.type === "device.wake-finish")).toEqual([
+      expect.objectContaining({ tick: 15_000, device: "smelter-1", durationTicks: 3_000, powerMilliWatts: 10_000 }),
+    ]);
+    expect(result.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 19_000]);
+    expect(result.metrics.equipmentEnergyManagement).toEqual(expect.objectContaining({
+      totalSleeps: 1, totalWakeups: 1, totalSleepingTicks: 6_000, totalWakeTicks: 3_000,
+    }));
+    expect(result.metrics.equipmentEnergyManagement.devices["smelter-1"]).toEqual(expect.objectContaining({
+      mode: "awake", sleeps: 1, wakeups: 1, sleepingTicks: 6_000, wakeTicks: 3_000,
+    }));
+    expect(result.metrics.sleepingTime["smelter-1"]).toBe(6_000);
+
+    const alwaysHotSource = await energySource();
+    delete alwaysHotSource.blueprint.devices.find((device) => device.id === "smelter-1")!.policy!.idleEnergy;
+    const alwaysHot = runUntil(compileFactoryProject(alwaysHotSource));
+    expect(result.metrics.energyConsumedMilliJoules).toBeLessThan(alwaysHot.metrics.energyConsumedMilliJoules);
+    expect(alwaysHot.events.filter((event) => event.type.startsWith("device.wake") || event.type === "device.sleep")).toHaveLength(0);
+
+    const interruptedSource = await energySource();
+    interruptedSource.scenario.durationTicks = 23_000;
+    interruptedSource.scenario.failures = [{ device: "smelter-1", atTick: 13_000, durationTicks: 1_000 }];
+    const interrupted = runUntil(compileFactoryProject(interruptedSource));
+    expect(interrupted.events.filter((event) => event.type === "device.wake-start").map((event) => event.tick)).toEqual([12_000, 14_000]);
+    expect(interrupted.events).toContainEqual(expect.objectContaining({
+      type: "device.wake-cancelled", tick: 13_000, device: "smelter-1", reason: "equipment-breakdown",
+    }));
+    expect(interrupted.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 21_000]);
+
+    const failedWhileIdleSource = await energySource();
+    failedWhileIdleSource.scenario.failures = [{ device: "smelter-1", atTick: 5_000, durationTicks: 3_000 }];
+    const failedWhileIdle = runUntil(compileFactoryProject(failedWhileIdleSource));
+    expect(failedWhileIdle.events.filter((event) => event.type === "device.sleep").map((event) => event.tick)).toEqual([10_000]);
+    expect(failedWhileIdle.events.filter((event) => event.type === "device.wake-start").map((event) => event.tick)).toEqual([12_000]);
+
+    const unsupported = await energySource();
+    delete unsupported.deviceAssets.smelter!.power.sleep;
+    expect(issueCodes(() => compileFactoryProject(unsupported))).toContain("power.sleep-unsupported");
+    const invalidAsset = await energySource();
+    invalidAsset.deviceAssets.smelter!.power.sleep!.idleMilliWatts = invalidAsset.deviceAssets.smelter!.power.idleMilliWatts;
+    expect(issueCodes(() => compileFactoryProject(invalidAsset))).toContain("power.sleep-not-lower");
+  });
+
   test("active draw includes standby instead of adding it twice", async () => {
     const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
     source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "accumulator-1");
@@ -3581,6 +3653,28 @@ describe("coding-agent Blueprint benchmarks", () => {
     }));
     expect(result.cases[0]!.candidateMetrics.completedLots).toBeGreaterThan(result.cases[0]!.baselineMetrics.completedLots);
     expect(result.cases[0]!.candidateMetrics.deliveryNetValuePerMinute).toBeGreaterThan(result.cases[0]!.baselineMetrics.deliveryNetValuePerMinute);
+  }, 15_000);
+
+  test("keeps a one-policy furnace sleep threshold against locked two-wave energy work", async () => {
+    const result = await evaluateBlueprintBenchmark(memoryFab, "equipment-energy-research");
+    expect(result.verdict).toBe("KEEP");
+    expect(result.accepted).toBeTrue();
+    expect(result.patch).toHaveLength(1);
+    expect(result.patch[0]).toEqual(expect.objectContaining({
+      op: "add", value: { sleepAfterTicks: 30_000 },
+    }));
+    expect(result.changes).toHaveLength(1);
+    const benchmarkCase = result.cases[0]!;
+    expect(benchmarkCase.candidateCapacityReady).toBeTrue();
+    expect(benchmarkCase.candidateMetrics.energyConsumedMilliJoules)
+      .toBeLessThan(benchmarkCase.baselineMetrics.energyConsumedMilliJoules);
+    expect(benchmarkCase.candidateMetrics).toEqual(expect.objectContaining({
+      totalEquipmentSleeps: 2,
+      totalEquipmentWakeups: 1,
+      totalEquipmentSleepingTicks: 196_000,
+      totalEquipmentWakeTicks: 4_000,
+    }));
+    expect(result.scoreDelta).toBeGreaterThan(0.5);
   }, 15_000);
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {

@@ -98,7 +98,12 @@
   },
   "power": {
     "idleMilliWatts": 30000,
-    "activeMilliWatts": 280000
+    "activeMilliWatts": 280000,
+    "sleep": {
+      "idleMilliWatts": 3000,
+      "wakeDurationTicks": 4000,
+      "wakePowerMilliWatts": 120000
+    }
   },
   "economics": {
     "buildCost": 16000
