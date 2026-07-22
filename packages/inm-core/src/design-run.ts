@@ -1,8 +1,8 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Blueprint } from "./types";
-import type { BlueprintBenchmarkResult } from "./benchmark";
-import { evaluateBlueprintBenchmark, loadBlueprintBenchmark } from "./benchmark";
+import type { BlueprintBenchmarkProgress, BlueprintBenchmarkResult } from "./benchmark";
+import { evaluatePreparedBlueprintBenchmark, loadBlueprintBenchmark, prepareBlueprintBenchmark } from "./benchmark";
 import { createBlueprintPatch } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
 import { compileFactoryProject } from "./compiler";
@@ -71,6 +71,44 @@ export interface DesignRunResult {
   bestBlueprint: Blueprint;
   artifact: { id: string; path: string; created: boolean };
 }
+
+interface DesignRunProgressBase {
+  version: 1;
+  sequence: number;
+  program: string;
+  benchmark: string;
+  budget: { maximum: number };
+  work: { completedSimulations: number; plannedSimulations: number };
+}
+
+export type DesignRunProgress =
+  | DesignRunProgressBase & { phase: "run-started"; caseCount: number }
+  | DesignRunProgressBase & {
+    phase: "case-started" | "case-completed";
+    evaluation: { kind: "baseline" | "seed" | "candidate"; id: string; iteration: number };
+    case: BlueprintBenchmarkProgress["case"];
+    baselineScore?: number;
+    candidateScore?: number;
+    scoreDelta?: number;
+    candidateCapacityReady?: boolean;
+  }
+  | DesignRunProgressBase & { phase: "proposal-started"; iteration: number }
+  | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; strategy: string; decisionFamily: DesignDecisionFamily; proposalHash: string }
+  | DesignRunProgressBase & {
+    phase: "candidate-completed";
+    iteration: number;
+    strategy: string;
+    decision: "KEEP" | "REJECT";
+    candidateScore?: number;
+    scoreDeltaFromBest?: number;
+    error?: string;
+  }
+  | DesignRunProgressBase & { phase: "run-completed"; resultHash: string; stopReason: DesignRunManifest["stopReason"]; best: DesignRunManifest["best"] };
+
+export type DesignRunProgressHandler = (progress: DesignRunProgress) => void;
+type DesignRunProgressPayload = DesignRunProgress extends infer Progress
+  ? Progress extends DesignRunProgressBase ? Omit<Progress, keyof DesignRunProgressBase> : never
+  : never;
 
 export interface DesignRunSummary {
   id: string;
@@ -231,16 +269,47 @@ export async function promoteDesignRun(
 export async function runDesignProgram(
   projectDir: string,
   programId: string,
-  options: { maxCandidates?: number } = {},
+  options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler } = {},
 ): Promise<DesignRunResult> {
   const program = await loadDesignProgram(projectDir, programId);
   const brief = await buildDesignProgramBrief(projectDir, programId);
-  const benchmark = await loadBlueprintBenchmark(projectDir, program.benchmark);
   const maximum = options.maxCandidates ?? program.budget.maxCandidates;
   if (!Number.isInteger(maximum) || maximum < 1) throw new Error("Design candidate budget must be a positive integer");
   if (maximum > program.budget.maxCandidates) throw new Error(
     `Design candidate budget ${maximum} exceeds Program '${program.id}' maximum ${program.budget.maxCandidates}`,
   );
+  const benchmark = await loadBlueprintBenchmark(projectDir, program.benchmark);
+  let sequence = 0;
+  let completedSimulations = 0;
+  const plannedSimulations = benchmark.cases.length * (maximum + 2);
+  const progressBase = (): DesignRunProgressBase => ({
+    version: 1,
+    sequence: ++sequence,
+    program: program.id,
+    benchmark: benchmark.id,
+    budget: { maximum },
+    work: { completedSimulations, plannedSimulations },
+  });
+  const emit = (progress: DesignRunProgressPayload) => {
+    options.onProgress?.({ ...progressBase(), ...progress } as DesignRunProgress);
+  };
+  const benchmarkProgress = (kind: "baseline" | "seed" | "candidate", iteration: number) => (progress: BlueprintBenchmarkProgress) => {
+    if (progress.phase.endsWith("completed")) completedSimulations++;
+    emit({
+      phase: progress.phase.endsWith("started") ? "case-started" : "case-completed",
+      evaluation: { kind, id: progress.evaluationId, iteration },
+      case: progress.case,
+      ...(progress.baselineScore === undefined ? {} : { baselineScore: progress.baselineScore }),
+      ...(progress.candidateScore === undefined ? {} : { candidateScore: progress.candidateScore }),
+      ...(progress.scoreDelta === undefined ? {} : { scoreDelta: progress.scoreDelta }),
+      ...(progress.candidateCapacityReady === undefined ? {} : { candidateCapacityReady: progress.candidateCapacityReady }),
+    });
+  };
+  emit({ phase: "run-started", caseCount: benchmark.cases.length });
+  const preparedBenchmark = await prepareBlueprintBenchmark(projectDir, program.benchmark, {
+    evaluationId: "baseline",
+    onProgress: benchmarkProgress("baseline", 0),
+  });
   const driverCase = benchmark.cases.find((item) => item.id === program.driverCase)!;
   let loaded = await loadFactoryProject(projectDir, {
     world: driverCase.world,
@@ -249,7 +318,11 @@ export async function runDesignProgram(
     objective: driverCase.objective,
   });
   let bestBlueprint = structuredClone(loaded.blueprint);
-  const seedEvaluation = await evaluateBlueprintBenchmark(projectDir, program.benchmark, { candidateBlueprint: bestBlueprint });
+  const seedEvaluation = await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
+    candidateBlueprint: bestBlueprint,
+    evaluationId: "seed",
+    onProgress: benchmarkProgress("seed", 0),
+  });
   let bestEvaluation = seedEvaluation;
   const seedHash = hashValue(bestBlueprint);
   const iterations: DesignRunIteration[] = [];
@@ -271,6 +344,7 @@ export async function runDesignProgram(
       scoreDelta: item.scoreDeltaFromBest ?? 0,
     }));
     let proposal: ResearchProposal;
+    emit({ phase: "proposal-started", iteration });
     try {
       proposal = await agent.propose({
         iteration,
@@ -292,6 +366,7 @@ export async function runDesignProgram(
     const strategy = proposal.strategy ?? hashValue(proposal.patch);
     const family = decisionFamily(strategy, program.proposal.decisionFamilies);
     const proposalHash = hashValue({ strategy, hypothesis: proposal.hypothesis, expectedEffect: proposal.expectedEffect, patch: proposal.patch });
+    emit({ phase: "proposal-completed", iteration, strategy, decisionFamily: family, proposalHash });
     const previousBestScore = bestEvaluation.candidateScore;
     try {
       const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
@@ -299,7 +374,11 @@ export async function runDesignProgram(
       // the declared seed; revision lineage belongs to Candidate apply, not search order.
       candidateBlueprint.revision = seedHash;
       compileFactoryProject(withBlueprint(loaded, candidateBlueprint));
-      const evaluation = await evaluateBlueprintBenchmark(projectDir, program.benchmark, { candidateBlueprint });
+      const evaluation = await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
+        candidateBlueprint,
+        evaluationId: `candidate-${iteration}`,
+        onProgress: benchmarkProgress("candidate", iteration),
+      });
       const scoreDeltaFromBest = evaluation.candidateScore - previousBestScore;
       const keep = evaluation.accepted && scoreDeltaFromBest > 1e-9;
       iterations.push({
@@ -323,7 +402,16 @@ export async function runDesignProgram(
         bestIteration = iteration;
         loaded = withBlueprint(loaded, bestBlueprint);
       }
+      emit({
+        phase: "candidate-completed",
+        iteration,
+        strategy,
+        decision: keep ? "KEEP" : "REJECT",
+        candidateScore: evaluation.candidateScore,
+        scoreDeltaFromBest,
+      });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       iterations.push({
         iteration,
         strategy,
@@ -334,8 +422,9 @@ export async function runDesignProgram(
         patch: proposal.patch,
         previousBestScore,
         decision: "REJECT",
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       });
+      emit({ phase: "candidate-completed", iteration, strategy, decision: "REJECT", error: message });
     }
   }
 
@@ -361,5 +450,6 @@ export async function runDesignProgram(
   };
   const manifest: DesignRunManifest = { ...withoutHash, resultHash: hashValue(manifestHashInput(withoutHash)) };
   const artifact = await writeDesignRunArtifact(brief.project.rootDir, manifest, bestBlueprint);
+  emit({ phase: "run-completed", resultHash: manifest.resultHash, stopReason: manifest.stopReason, best: manifest.best });
   return { manifest, bestBlueprint, artifact };
 }

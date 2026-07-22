@@ -47,7 +47,9 @@ Every failed `--json` invocation writes no stdout and exactly one error envelope
 }
 ```
 
-Error codes and structured issue paths are stable machine contracts. Display messages may improve. Exit `0` means success, `1` means an operation/validation/test failure, and `2` means invalid CLI usage. JSON stdout is reserved for the result; future progress reporting must use stderr and must not corrupt the single result value.
+Error codes and structured issue paths are stable machine contracts. Display messages may improve. Exit `0` means success, `1` means an operation/validation/test failure, and `2` means invalid CLI usage. JSON stdout is reserved for the result.
+
+Long-running Design execution has one explicit secondary channel. `inm design --run --progress ndjson --json` writes compact versioned progress envelopes to stderr and exactly one ordinary success envelope to stdout at completion. Each progress record is `{ "schemaVersion": 1, "type": "progress", "command": "design", "progress": ... }`; the nested value is the same Core `DesignRunProgress` projected by Studio. The stream is ordered and deterministic, contains no timestamps, and reports actual named phases and completed/planned simulation work rather than a wall-clock estimate. `--progress human` formats the same events for a terminal, while `--progress off` disables the channel. No other stderr text may be mixed into NDJSON mode.
 
 INM is pre-alpha. An envelope/schema version change replaces commands, documentation, and public-binary tests together; it does not add legacy output aliases.
 
@@ -78,12 +80,12 @@ Diagnostics required to understand a summary remain in the envelope's `diagnosti
 - Envelope types and builders: `packages/inm-cli/src/contract.ts`
 - Command capability descriptors: `packages/inm-cli/src/capabilities.ts`
 - JSON Schema projection: `packages/inm-core/src/artifact-schema.ts`
-- Command result sections and formatting: `packages/inm-cli/src/commands.ts`
+- Command result sections, progress projection, and formatting: `packages/inm-cli/src/commands.ts`
 - Public parsing and exit behavior: `packages/inm-cli/src/bin.ts`
 
 ## Verification
 
-Tests invoke the public TypeScript binary and capture its real stdout, stderr, and exit code. They prove machine help, every advertised artifact schema, compact/default/all sections, exact Core snapshot parity through `inspect --section all`, stable success/error envelopes, deliberate Candidate mutation, stale replay rejection, and no extra stdout logging.
+Tests invoke the public TypeScript binary and capture its real stdout, stderr, and exit code. They prove machine help, every advertised artifact schema, compact/default/all sections, exact Core snapshot parity through `inspect --section all`, stable success/error envelopes, deliberate Candidate mutation, stale replay rejection, no extra stdout logging, and exact NDJSON parity with Core Design progress.
 
 ```bash
 bun test packages/inm-core/src/artifact-schema.test.ts packages/inm-cli/src/commands.test.ts
@@ -96,5 +98,6 @@ bun run typecheck
 - Add a schema kind whenever a new authored project artifact becomes part of the format.
 - Keep default summaries bounded and put dense arrays behind named sections.
 - Preserve one result value on stdout in JSON mode.
+- Put opt-in incremental evidence on stderr as versioned NDJSON and keep it free of prose.
 - Return exact argv arrays, not shell command strings, for next actions.
 - Exercise success and failure through the public binary, not only an imported command function.

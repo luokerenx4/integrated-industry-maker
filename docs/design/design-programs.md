@@ -61,6 +61,10 @@ It does not simulate, propose, create a run directory, edit a Blueprint, or crea
 
 The driver score never decides acceptance. Core evaluates each in-memory Blueprint through the complete locked Benchmark. A proposal advances the current best only when the Benchmark accepts every aggregate, per-case regression, and optional capacity gate and its aggregate candidate score strictly exceeds the previous best. Invalid Blueprint proposals are recorded as rejected evidence rather than partially written. Exhausted allowed strategy families end the run honestly.
 
+Before seed evaluation, Core prepares the locked Benchmark baseline once per case: it validates every fixed input hash, compiles the baseline, simulates it with the locked seed, and retains only invocation-local compiled/evaluated evidence. Seed and proposal evaluation reuse that exact baseline side while compiling and simulating every candidate side normally. This changes physical work from `2 × cases × (candidates + 1)` simulations to `cases × (candidates + 2)` without persisting a cache, sharing candidate state, or changing logical `totalSimulationTicks`, scores, gates, decisions, or result identity.
+
+The same call emits a versioned deterministic `DesignRunProgress` union through an optional callback: run start; baseline/seed/candidate case start and completion; proposal start and identity; candidate decision; and immutable result completion. Events contain sequence and actual completed/planned simulation work but no timestamps. They are operational evidence and are excluded from the Design Run manifest/hash. The contract is provider-independent: heuristic and project-local TypeScript proposal sources cross the same phases.
+
 The current best never overwrites the seed. Program execution writes only immutable design evidence.
 
 ## Immutable design-run artifact
@@ -79,13 +83,13 @@ An identical program, locked inputs, seed, decision allowlist, candidate budget,
 
 ## CLI projection
 
-`inm design <project>` lists project-local programs. `--program <id>` returns the read-only brief, completed run summaries, and an exact argv next action. `--run` is the explicit artifact-creating mode; `--max-candidates` can only narrow the manifest budget. `--run-id <result-hash>` verifies and reopens one immutable result. JSON sections are `summary`, `static`, `iterations`, `best`, `runs`, and `all`, and a successful execution or reopen reports one immutable `design-run` artifact.
+`inm design <project>` lists project-local programs. `--program <id>` returns the read-only brief, completed run summaries, and an exact argv next action. `--run` is the explicit artifact-creating mode; `--max-candidates` can only narrow the manifest budget. Human runs show Core progress on stderr; `--progress ndjson` exposes the same records to an Agent while preserving one final JSON stdout envelope. `--run-id <result-hash>` verifies and reopens one immutable result. JSON sections are `summary`, `static`, `iterations`, `best`, `runs`, and `all`, and a successful execution or reopen reports one immutable `design-run` artifact.
 
 `--run-id <hash> --promote <candidate-id>` is the only Design-to-Candidate transition. Core first verifies the run's content hash, best-Blueprint hash, engine, current Program and Benchmark contract, and unchanged seed hash. A seed-only run cannot be promoted. A leading result is collapsed into one restricted patch from the current seed, replayed to the exact recorded Blueprint hash, and written as an ordinary immutable `candidates/<id>.candidate.json` with a `design-run` source record. Promotion does not evaluate or apply the Candidate; the existing Candidate preview/review/apply lifecycle retains those authorities.
 
 CLI uses the same Core program/brief/run objects and does not rebuild proposal or evaluation semantics.
 
-Studio exposes a route-backed `/<project>/designs/<program>[/runs/<result-hash>]` control room. It loads the same Core summaries, brief, immutable runs, and promotion operation through project-qualified APIs. A human sees the locked contract, seed/driver, bounded budget, industrial readiness, allowed decisions, score-ranked runs, every KEEP/REJECT effect, and the same Candidate handoff guard without reading JSON. Refresh, copied links, back/forward, and narrow-screen use reconstruct from the route and project artifacts rather than browser-only state.
+Studio exposes a route-backed `/<project>/designs/<program>[/runs/<result-hash>]` control room. It loads the same Core summaries, brief, immutable runs, and promotion operation through project-qualified APIs. Its Design POST supports an `application/x-ndjson` response whose progress and final-result records are produced inside the same Core invocation; structured failures terminate the stream as typed error records. A human sees the actual baseline/seed/candidate case, proposal/decision state, and completed/planned simulations while running, followed by the locked contract, industrial readiness, score-ranked immutable result, every KEEP/REJECT effect, and Candidate handoff guard. Refresh, copied links, back/forward, and narrow-screen use reconstruct from the route and project artifacts rather than browser-only state.
 
 ## Source of truth
 
@@ -94,16 +98,15 @@ Studio exposes a route-backed `/<project>/designs/<program>[/runs/<result-hash>]
 - Restricted built-in proposal strategies: `packages/inm-core/src/research.ts`
 - Project-local provider boundary: `packages/inm-core/src/design-proposal-provider.ts`
 - Robust evaluator: `packages/inm-core/src/benchmark.ts`
+- Invocation-local baseline evaluation: `packages/inm-core/src/benchmark.ts` and `packages/inm-core/src/blueprint-comparison.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio projection: `packages/inm-studio/src/design-workbench.tsx` and `packages/inm-studio/src/server.ts`
 
 ## Verification
 
-Tests must prove strict schema closure, filename identity, lock/seed/driver cross-contract validation, read purity, explicit decision-family confinement, budget enforcement, locked multi-case evaluation, deterministic result hash, artifact reuse, content/hash verification on reopen, exact promotion replay, and byte-identical seed Blueprint contents. Public CLI tests must execute the real binary and prove list/brief/run/reopen effects and artifact projection.
+Tests must prove strict schema closure, filename identity, lock/seed/driver cross-contract validation, read purity, explicit decision-family confinement, budget enforcement, locked multi-case evaluation, one baseline simulation per case, deterministic ordered progress, unchanged deterministic result hash, artifact reuse, content/hash verification on reopen, exact promotion replay, and byte-identical seed Blueprint contents. Public CLI tests must execute the real binary and prove list/brief/run/reopen effects, NDJSON progress, and artifact projection. Studio tests must consume the streamed response and structured failure record.
 
 ## Known next gaps
 
-- Add progress evidence and safe evaluation reuse so larger candidate budgets do not look stalled or repeat unchanged case work.
-- Add progress evidence and safe evaluation reuse to project-local providers as well as the built-in heuristic.
 - Allow a Design Program to invoke the implemented project-local tracked-route synthesis strategy as its declared seed instead of requiring its seed to equal the Benchmark candidate Blueprint.
 - Replace generic driver diagnostics with compatible-run fab loss attribution before making Design Programs the default project recommendation.

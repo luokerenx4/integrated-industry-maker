@@ -69,6 +69,13 @@ export interface CliErrorEnvelope {
   };
 }
 
+export interface CliProgressEnvelope<T = unknown> {
+  schemaVersion: typeof CLI_SCHEMA_VERSION;
+  type: "progress";
+  command: string;
+  progress: T;
+}
+
 export interface CliSuccessOptions {
   context?: CliContext;
   diagnostics?: unknown[];
@@ -98,6 +105,10 @@ export function cliSuccess<T>(command: string, data: T, options: CliSuccessOptio
     artifacts: options.artifacts ?? [],
     nextActions: options.nextActions ?? [],
   };
+}
+
+export function cliProgress<T>(command: string, progress: T): CliProgressEnvelope<T> {
+  return { schemaVersion: CLI_SCHEMA_VERSION, type: "progress", command, progress };
 }
 
 export function cliError(command: string, code: string, message: string, options: {

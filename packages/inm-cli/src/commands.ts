@@ -5,17 +5,38 @@ import {
   CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
+  type DesignRunProgress, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
-  CliCommandError, cliError, cliSuccess, compiledProjectContext, manifestProjectContext, operationProjectContext, workbenchContext, workspaceContext,
+  CliCommandError, cliError, cliProgress, cliSuccess, compiledProjectContext, manifestProjectContext, operationProjectContext, workbenchContext, workspaceContext,
   type CliNextAction, type CliSuccessOptions,
 } from "./contract";
 
 export interface OutputOptions { json?: boolean; section?: string }
 const write = (value: unknown, json: boolean) => process.stdout.write(json ? `${stableStringify(value, 2)}\n` : String(value));
 const writeSuccess = (command: string, data: unknown, options: CliSuccessOptions = {}) => write(cliSuccess(command, data, options), true);
+
+type DesignProgressMode = "off" | "human" | "ndjson";
+
+function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMode): void {
+  if (mode === "off") return;
+  if (mode === "ndjson") {
+    process.stderr.write(`${stableStringify(cliProgress("design", progress))}\n`);
+    return;
+  }
+  const work = `${progress.work.completedSimulations}/${progress.work.plannedSimulations}`;
+  let line: string;
+  if (progress.phase === "run-started") line = `DESIGN  ${work}  preparing ${progress.caseCount} locked cases`;
+  else if (progress.phase === "case-started") line = `CASE    ${work}  ${progress.evaluation.kind} ${progress.case.index}/${progress.case.total} ${progress.case.id}`;
+  else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
+  else if (progress.phase === "proposal-started") line = `PROPOSE ${work}  iteration ${progress.iteration}`;
+  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.strategy}`;
+  else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision}${progress.candidateScore === undefined ? ` · ${progress.error}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDeltaFromBest ?? 0).toFixed(6)}`}`;
+  else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
+  else return;
+  process.stderr.write(`${line}\n`);
+}
 
 function sectionResult(command: string, options: OutputOptions, builders: Record<string, () => unknown>): { section: string; result: unknown } {
   if (options.section && !options.json) throw new CliCommandError("cli.section-requires-json", `--section requires --json for '${command}'.`);
@@ -793,8 +814,13 @@ export async function researchCommand(projectDir: string, selection: ProjectSele
   ].join("\n"), false);
 }
 
-export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; promote?: string; maxCandidates?: number; json: boolean; section?: string }): Promise<void> {
+export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; promote?: string; maxCandidates?: number; progress?: string; json: boolean; section?: string }): Promise<void> {
   requireJsonSection("design", options);
+  if (options.progress !== undefined && !["off", "human", "ndjson"].includes(options.progress)) throw new CliCommandError(
+    "design.invalid-progress",
+    `Unknown Design progress mode '${options.progress}'. Expected one of: off, human, ndjson.`,
+  );
+  if (options.progress !== undefined && !options.run) throw new CliCommandError("design.run-required", "--progress requires --run.");
   if (!programId) {
     if (options.run || options.runId || options.promote) throw new CliCommandError("design.program-required", "--run, --run-id, and --promote require --program <id>.");
     if (options.maxCandidates !== undefined) throw new CliCommandError("design.program-required", "--max-candidates requires --program <id> --run.");
@@ -910,7 +936,11 @@ export async function designCommand(projectDir: string, programId: string | unde
     ].join("\n"), false);
     return;
   }
-  const result = await runDesignProgram(projectDir, programId, { ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}) });
+  const progressMode = (options.progress ?? (options.json ? "off" : "human")) as DesignProgressMode;
+  const result = await runDesignProgram(projectDir, programId, {
+    ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
+    onProgress: (progress) => writeDesignProgress(progress, progressMode),
+  });
   const data = sectionResult("design", options, {
     summary: () => ({
       action: "run",

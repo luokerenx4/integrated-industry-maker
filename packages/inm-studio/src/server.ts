@@ -37,7 +37,9 @@ import {
   resolveProjectDirectory,
   runDesignProgram,
   simulateProjectOperation,
+  stableStringify,
   validateProjectOperation,
+  type DesignRunProgress,
   type ProjectSelection,
 } from "@inm/core";
 
@@ -442,12 +444,41 @@ function projectSelection(url: URL): ProjectSelection {
   };
 }
 
-function errorResponse(error: unknown): Response {
+function errorDetails(error: unknown): { status: number; body: { code: string; error: string; hashes?: Record<string, string> } } {
   const message = error instanceof Error ? error.message : String(error);
-  if (error instanceof CandidateChangeSetError) return Response.json({ code: error.code, error: message }, { status: error.code === "candidate.stale-base" ? 409 : 400 });
-  if (error instanceof DesignRunError) return Response.json({ code: error.code, error: message, hashes: error.hashes }, { status: error.code.endsWith("stale") ? 409 : 400 });
+  if (error instanceof CandidateChangeSetError) return { status: error.code === "candidate.stale-base" ? 409 : 400, body: { code: error.code, error: message } };
+  if (error instanceof DesignRunError) return { status: error.code.endsWith("stale") ? 409 : 400, body: { code: error.code, error: message, hashes: error.hashes } };
   const notFound = message.startsWith("Unknown") || message.startsWith("Not an INM");
-  return Response.json({ code: notFound ? "studio.not-found" : "studio.request-failed", error: message }, { status: notFound ? 404 : 400 });
+  return { status: notFound ? 404 : 400, body: { code: notFound ? "studio.not-found" : "studio.request-failed", error: message } };
+}
+
+function errorResponse(error: unknown): Response {
+  const details = errorDetails(error);
+  return Response.json(details.body, { status: details.status });
+}
+
+function designRunStream(projectDir: string, programId: string, maxCandidates?: number): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const send = (record: unknown) => controller.enqueue(encoder.encode(`${stableStringify(record)}\n`));
+      void runDesignProgram(projectDir, programId, {
+        ...(maxCandidates === undefined ? {} : { maxCandidates }),
+        onProgress: (progress: DesignRunProgress) => send({ version: 1, type: "progress", progress }),
+      }).then((result) => {
+        send({ version: 1, type: "result", result });
+        controller.close();
+      }).catch((error) => {
+        send({ version: 1, type: "error", error: errorDetails(error).body });
+        controller.close();
+      });
+    },
+  });
+  return new Response(stream, { headers: {
+    "content-type": "application/x-ndjson; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    "x-content-type-options": "nosniff",
+  } });
 }
 
 const clients = new Set<ReadableStreamDefaultController>();
@@ -526,8 +557,11 @@ const server = Bun.serve({
         const projectDir = await projectDirectory(decoded(designExecuteMatch[1]!));
         const body = await request.json().catch(() => ({})) as { maxCandidates?: unknown };
         if (body.maxCandidates !== undefined && (!Number.isInteger(body.maxCandidates) || (body.maxCandidates as number) < 1)) throw new Error("maxCandidates must be a positive integer");
-        return Response.json(await runDesignProgram(projectDir, decoded(designExecuteMatch[2]!), {
-          ...(body.maxCandidates === undefined ? {} : { maxCandidates: body.maxCandidates as number }),
+        const programId = decoded(designExecuteMatch[2]!);
+        const maxCandidates = body.maxCandidates === undefined ? undefined : body.maxCandidates as number;
+        if (request.headers.get("accept")?.includes("application/x-ndjson")) return designRunStream(projectDir, programId, maxCandidates);
+        return Response.json(await runDesignProgram(projectDir, programId, {
+          ...(maxCandidates === undefined ? {} : { maxCandidates }),
         }));
       }
 

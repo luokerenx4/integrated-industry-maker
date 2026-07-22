@@ -6,7 +6,7 @@ Run locally with `bun run inm`, or link `packages/inm-cli/src/bin.ts` as `inm`.
 
 Use `inm help --json` to discover every public command, argument/default, effect, output section, and exit code. Use `inm schema --json` to list authored project artifact kinds and `inm schema <kind> --json` to emit their current strict JSON Schema Draft 7 projection.
 
-Every successful `--json` command writes exactly one versioned envelope to stdout with `command`, resolved `context`, `data`, `diagnostics`, `artifacts`, and exact-argv `nextActions`. Every failed `--json` command writes no stdout and one versioned error envelope to stderr with a stable code, structured issues, retryability, and any relevant current hashes. Dense commands return the `summary` section by default; request one advertised section with `--section NAME --json`, or the complete result with `--section all --json`.
+Every successful `--json` command writes exactly one versioned envelope to stdout with `command`, resolved `context`, `data`, `diagnostics`, `artifacts`, and exact-argv `nextActions`. Every failed `--json` command writes no stdout and one versioned error envelope to stderr with a stable code, structured issues, retryability, and any relevant current hashes. Dense commands return the `summary` section by default; request one advertised section with `--section NAME --json`, or the complete result with `--section all --json`. Long-running Design execution may additionally emit explicitly requested progress on stderr; it never contaminates the one final JSON value on stdout.
 
 The full contract and section semantics are defined in [[docs/design/agent-cli-contract]].
 
@@ -92,7 +92,7 @@ inm candidate examples/memory-fab --candidate stable-furnace-sleep --json
 
 The JSON result includes the proposal and its canonical hash, current and proposed Blueprint hashes, exact patch, semantic changes, fixed-case metrics, gates, verdict, review artifact, and actual write set. `--apply` is an explicit write operation: Core requires the recorded `reviewed-keep` decision, repeats evaluation, verifies the same proposal/base/proposed hashes, atomically replaces only the Benchmark candidate Blueprint, and checks the written file against the reviewed proposed hash. The resulting decision is `verified`; a subsequent unrelated Blueprint edit makes it `stale`. `DISCARD`, `UNCHANGED`, missing-review, stale, changed, invalid, or cross-Benchmark proposals are never written. See [[docs/design/experiment-workbench]].
 
-### `inm design <project-or-workspace-dir> [--project ID] [--program ID] [--run | --run-id HASH [--promote ID]] [--max-candidates N] [--json]`
+### `inm design <project-or-workspace-dir> [--project ID] [--program ID] [--run | --run-id HASH [--promote ID]] [--max-candidates N] [--progress MODE] [--json]`
 
 Lists project-local Design Programs when `--program` is omitted. Selecting a program returns its locked Benchmark, existing seed Blueprint, driver case, exact hashes, allowed decision families, bounded budget, target-rate capacity state, flow diagnostics, declarative/opaque Device counts, and topology without creating simulation or review evidence.
 
@@ -102,6 +102,10 @@ Lists project-local Design Programs when `--program` is omitted. Selecting a pro
 design-runs/<program-id>/<result-hash>/manifest.json
 design-runs/<program-id>/<result-hash>/best.blueprint.json
 ```
+
+Human output reports live baseline, seed, proposal, case, decision, and result phases on stderr. `--progress off` disables it. `--progress ndjson` emits one compact versioned `{ type: "progress", command: "design", progress }` envelope per Core event on stderr, suitable for an Agent reading incrementally while `--json` reserves stdout for the single final success envelope. Each event has a deterministic sequence, exact Program/Benchmark, candidate budget, completed/planned simulation counts, and phase-specific case, proposal, decision, or result identity. Progress is operational and does not participate in the immutable result hash.
+
+Within one run, Core validates and simulates each locked baseline case once, then reuses that invocation-local evidence for the seed and all candidates. Candidate simulations, acceptance gates, metrics, patches, and final hashes are not cached. The prepared baseline never survives the process or bypasses the Benchmark lock.
 
 `--run-id <result-hash>` verifies and reopens one completed artifact; the program brief's `runs` section lists available hashes. `--promote <candidate-id>` additionally requires a run id and accepts only a run whose best iteration advanced beyond its seed. It verifies current Program, Benchmark, engine, and seed identities, then creates one `candidates/<candidate-id>.candidate.json` whose patch replays from that seed to the exact recorded leading Blueprint hash. It never applies the Candidate; review with `inm candidate <path> --candidate <candidate-id>` and apply only through the existing guarded Candidate lifecycle.
 

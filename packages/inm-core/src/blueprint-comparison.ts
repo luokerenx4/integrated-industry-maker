@@ -238,6 +238,12 @@ export interface FactoryBlueprintComparison {
   verdict: "IMPROVED" | "REGRESSED" | "UNCHANGED";
 }
 
+export interface FactoryBlueprintEvaluation {
+  blueprintHash: string;
+  metrics: BlueprintMetricSnapshot;
+  capacityPlan: ProductionCapacityPlan;
+}
+
 function equal(left: unknown, right: unknown): boolean {
   return stableStringify(left) === stableStringify(right);
 }
@@ -584,26 +590,44 @@ function assertComparable(before: CompiledFactoryProject, after: CompiledFactory
 export function compareFactoryBlueprints(
   before: CompiledFactoryProject,
   after: CompiledFactoryProject,
-  options: { seed?: number; fromLabel?: string; toLabel?: string } = {},
+  options: { seed?: number; fromLabel?: string; toLabel?: string; beforeEvaluation?: FactoryBlueprintEvaluation } = {},
 ): FactoryBlueprintComparison {
   assertComparable(before, after);
   const seed = options.seed ?? 42;
   if (!Number.isSafeInteger(seed) || seed < 0) throw new Error("Blueprint comparison seed must be a non-negative safe integer");
-  const evaluate = (project: CompiledFactoryProject, label: string): BlueprintMetricSnapshot => {
-    try { return metricSnapshot(runUntil(project, undefined, { seed }).metrics); }
-    catch (error) { throw new Error(`Could not evaluate Blueprint '${label}': ${error instanceof Error ? error.message : String(error)}`); }
-  };
   const beforeLabel = options.fromLabel ?? "before"; const afterLabel = options.toLabel ?? "after";
-  const beforeMetrics = evaluate(before, beforeLabel);
-  const afterMetrics = evaluate(after, afterLabel);
+  if (options.beforeEvaluation && options.beforeEvaluation.blueprintHash !== before.hashes.blueprintHash) {
+    throw new Error(`Prepared Blueprint evaluation ${options.beforeEvaluation.blueprintHash} does not match '${beforeLabel}' ${before.hashes.blueprintHash}`);
+  }
+  const beforeEvaluation = options.beforeEvaluation ?? evaluateFactoryBlueprint(before, beforeLabel, seed);
+  const afterEvaluation = evaluateFactoryBlueprint(after, afterLabel, seed);
+  const beforeMetrics = beforeEvaluation.metrics;
+  const afterMetrics = afterEvaluation.metrics;
   const delta = metricDelta(beforeMetrics, afterMetrics);
   return {
-    from: { label: beforeLabel, blueprintHash: before.hashes.blueprintHash, metrics: beforeMetrics, capacityPlan: planProductionCapacity(before) },
-    to: { label: afterLabel, blueprintHash: after.hashes.blueprintHash, metrics: afterMetrics, capacityPlan: planProductionCapacity(after) },
+    from: { label: beforeLabel, blueprintHash: before.hashes.blueprintHash, metrics: beforeMetrics, capacityPlan: beforeEvaluation.capacityPlan },
+    to: { label: afterLabel, blueprintHash: after.hashes.blueprintHash, metrics: afterMetrics, capacityPlan: afterEvaluation.capacityPlan },
     seed,
     patch: createBlueprintPatch(before.blueprint, after.blueprint),
     changes: compareBlueprintSemantics(before.blueprint, after.blueprint),
     delta,
     verdict: delta.score > 1e-9 ? "IMPROVED" : delta.score < -1e-9 ? "REGRESSED" : "UNCHANGED",
   };
+}
+
+export function evaluateFactoryBlueprint(
+  project: CompiledFactoryProject,
+  label: string,
+  seed = 42,
+): FactoryBlueprintEvaluation {
+  if (!Number.isSafeInteger(seed) || seed < 0) throw new Error("Blueprint evaluation seed must be a non-negative safe integer");
+  try {
+    return {
+      blueprintHash: project.hashes.blueprintHash,
+      metrics: metricSnapshot(runUntil(project, undefined, { seed }).metrics),
+      capacityPlan: planProductionCapacity(project),
+    };
+  } catch (error) {
+    throw new Error(`Could not evaluate Blueprint '${label}': ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

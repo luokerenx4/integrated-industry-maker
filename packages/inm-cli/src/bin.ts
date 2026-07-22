@@ -54,6 +54,7 @@ COMMON OPTIONS
   --program <id>              Project-local design-programs/<id>.design.json
   --run-id <hash>             Reopen one immutable Design Run
   --promote <candidate-id>    Promote a Design Run leader to a Candidate
+  --progress <mode>           Design run progress: off, human, or ndjson
   --json                      Machine-readable JSON output
   --section <name>            Select one machine-readable result section
 `;
@@ -162,13 +163,14 @@ async function main(): Promise<void> {
   }
   if (subcommand === "design") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, program: { type: "string" }, run: { type: "boolean", default: false }, "run-id": { type: "string" }, promote: { type: "string" }, "max-candidates": { type: "string" }, json: common.json, ...section,
+      ...projectOption, program: { type: "string" }, run: { type: "boolean", default: false }, "run-id": { type: "string" }, promote: { type: "string" }, "max-candidates": { type: "string" }, progress: { type: "string" }, json: common.json, ...section,
     }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm design <project-or-workspace-dir> [--project ID] [--program ID] [--run]", values.project);
     return designCommand(projectDir, values.program, {
       run: values.run,
       runId: values["run-id"],
       promote: values.promote,
+      progress: values.progress,
       ...(values["max-candidates"] !== undefined ? { maxCandidates: Number(values["max-candidates"]) } : {}),
       json: values.json,
       section: values.section,

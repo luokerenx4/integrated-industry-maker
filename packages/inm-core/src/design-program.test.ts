@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, expect, test } from "bun:test";
 import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram } from "./design-program";
-import { listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunManifest } from "./design-run";
+import { listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunManifest, type DesignRunProgress } from "./design-run";
 import { applyResearchPatch } from "./research";
 import { loadCandidateChangeSet } from "./candidate-change-set";
 import { atomicWriteJson, hashValue } from "./utils";
@@ -60,7 +60,8 @@ test("a bounded Design Program run is deterministic, immutable, and leaves the s
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   const blueprintPath = join(copy, "blueprints", "experiment.blueprint.json");
   const before = await readFile(blueprintPath, "utf8");
-  const first = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1 });
+  const progress: DesignRunProgress[] = [];
+  const first = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1, onProgress: (event) => progress.push(event) });
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
   expect(first.artifact).toMatchObject({ created: true });
   expect(first.artifact.path.startsWith(join(copy, "design-runs", "integrated-dram-fab"))).toBeTrue();
@@ -79,8 +80,20 @@ test("a bounded Design Program run is deterministic, immutable, and leaves the s
   });
   expect(first.manifest.resultHash).toHaveLength(64);
   expect(first.manifest.best.blueprintHash).toHaveLength(64);
-  const second = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1 });
+  expect(progress.map((event) => event.sequence)).toEqual(Array.from({ length: progress.length }, (_, index) => index + 1));
+  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "baseline")).toHaveLength(5);
+  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "seed")).toHaveLength(5);
+  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(progress).toContainEqual(expect.objectContaining({ phase: "proposal-completed", iteration: 1, strategy: "dispatch:conwip-9-6-edd", decisionFamily: "dispatch" }));
+  expect(progress.at(-1)).toEqual(expect.objectContaining({
+    phase: "run-completed",
+    resultHash: first.manifest.resultHash,
+    work: { completedSimulations: 15, plannedSimulations: 15 },
+  }));
+  const repeatedProgress: DesignRunProgress[] = [];
+  const second = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1, onProgress: (event) => repeatedProgress.push(event) });
   expect(second.manifest.resultHash).toBe(first.manifest.resultHash);
+  expect(repeatedProgress).toEqual(progress);
   expect(second.artifact).toEqual({ ...first.artifact, created: false });
   expect(await loadDesignRun(copy, "integrated-dram-fab", first.manifest.resultHash)).toEqual({
     manifest: first.manifest,

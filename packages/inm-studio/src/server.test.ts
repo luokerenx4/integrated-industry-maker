@@ -199,11 +199,28 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     });
     expect(invalidRun.status).toBe(400);
 
+    const streamingFailure = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/missing-program/run`, {
+      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 1 }),
+    });
+    expect(streamingFailure.status).toBe(200);
+    expect((await streamingFailure.text()).trim().split("\n").map((line) => JSON.parse(line))).toEqual([
+      expect.objectContaining({ version: 1, type: "error", error: expect.objectContaining({ code: "studio.request-failed" }) }),
+    ]);
+
     const runResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/run`, {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 1 }),
+      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 1 }),
     });
     expect(runResponse.status).toBe(200);
-    const run = await runResponse.json() as { manifest: { resultHash: string; best: { iteration: number }; budget: { maximum: number; evaluated: number } }; artifact: { id: string; created: boolean } };
+    expect(runResponse.headers.get("content-type")).toContain("application/x-ndjson");
+    const records = (await runResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
+    const progress = records.filter((record) => record.type === "progress");
+    expect(progress[0]).toEqual(expect.objectContaining({ version: 1, progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
+    expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
+    expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
+    expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
+    const resultRecord = records.find((record) => record.type === "result");
+    expect(resultRecord).toBeDefined();
+    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number }; budget: { maximum: number; evaluated: number } }; artifact: { id: string; created: boolean } };
     expect(run).toEqual(expect.objectContaining({
       manifest: expect.objectContaining({ budget: { maximum: 1, evaluated: 1 } }),
       artifact: expect.objectContaining({ id: run.manifest.resultHash, created: true }),

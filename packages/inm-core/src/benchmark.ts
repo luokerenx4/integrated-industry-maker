@@ -1,11 +1,18 @@
 import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
-import { compareFactoryBlueprints, type BlueprintMetricSnapshot, type BlueprintSemanticChange, type FactoryBlueprintComparison } from "./blueprint-comparison";
+import {
+  compareFactoryBlueprints,
+  evaluateFactoryBlueprint,
+  type BlueprintMetricSnapshot,
+  type BlueprintSemanticChange,
+  type FactoryBlueprintComparison,
+  type FactoryBlueprintEvaluation,
+} from "./blueprint-comparison";
 import type { JsonPatchOperation } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
-import type { Blueprint, ProjectHashes } from "./types";
+import type { Blueprint, CompiledFactoryProject, ProjectHashes } from "./types";
 import { atomicWriteJson, hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -79,6 +86,32 @@ export interface BlueprintBenchmarkSummary {
   contractHash: string | null;
   cases: BlueprintBenchmarkManifest["cases"];
   acceptance: BlueprintBenchmarkManifest["acceptance"];
+}
+
+export interface BlueprintBenchmarkProgress {
+  version: 1;
+  phase: "baseline-case-started" | "baseline-case-completed" | "candidate-case-started" | "candidate-case-completed";
+  benchmark: string;
+  case: { id: string; name: string; index: number; total: number };
+  evaluationId: string;
+  baselineScore?: number;
+  candidateScore?: number;
+  scoreDelta?: number;
+  candidateCapacityReady?: boolean;
+}
+
+export type BlueprintBenchmarkProgressHandler = (progress: BlueprintBenchmarkProgress) => void;
+
+export interface PreparedBlueprintBenchmarkCase {
+  manifest: BlueprintBenchmarkManifest["cases"][number];
+  baseline: CompiledFactoryProject;
+  evaluation: FactoryBlueprintEvaluation;
+}
+
+export interface PreparedBlueprintBenchmark {
+  projectDir: string;
+  manifest: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> };
+  cases: PreparedBlueprintBenchmarkCase[];
 }
 
 function benchmarkPath(projectDir: string, benchmarkId: string): string {
@@ -177,32 +210,88 @@ function assertLockedHashes(benchmarkId: string, caseId: string, expected: Proje
 export async function evaluateBlueprintBenchmark(
   projectDir: string,
   benchmarkId: string,
-  options: { candidateBlueprint?: Blueprint } = {},
+  options: { candidateBlueprint?: Blueprint; onProgress?: BlueprintBenchmarkProgressHandler; evaluationId?: string } = {},
 ): Promise<BlueprintBenchmarkResult> {
+  const prepared = await prepareBlueprintBenchmark(projectDir, benchmarkId, {
+    onProgress: options.onProgress,
+    evaluationId: options.evaluationId ?? "evaluation",
+  });
+  return evaluatePreparedBlueprintBenchmark(prepared, options);
+}
+
+export async function prepareBlueprintBenchmark(
+  projectDir: string,
+  benchmarkId: string,
+  options: { onProgress?: BlueprintBenchmarkProgressHandler; evaluationId?: string } = {},
+): Promise<PreparedBlueprintBenchmark> {
   const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
   assertBenchmarkLock(manifest, benchmarkId);
+  const evaluationId = options.evaluationId ?? "evaluation";
+  const cases: PreparedBlueprintBenchmarkCase[] = [];
+  for (const [index, item] of manifest.cases.entries()) {
+    const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: manifest.cases.length };
+    options.onProgress?.({ version: 1, phase: "baseline-case-started", benchmark: manifest.id, case: caseIdentity, evaluationId });
+    const baseline = await openSelectedProject(projectDir, {
+      world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
+    });
+    assertLockedHashes(benchmarkId, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
+    const evaluation = evaluateFactoryBlueprint(baseline, manifest.baselineBlueprint, item.seed);
+    cases.push({ manifest: item, baseline, evaluation });
+    options.onProgress?.({
+      version: 1,
+      phase: "baseline-case-completed",
+      benchmark: manifest.id,
+      case: caseIdentity,
+      evaluationId,
+      baselineScore: evaluation.metrics.score,
+    });
+  }
+  return { projectDir: resolve(projectDir), manifest, cases };
+}
+
+export async function evaluatePreparedBlueprintBenchmark(
+  prepared: PreparedBlueprintBenchmark,
+  options: { candidateBlueprint?: Blueprint; onProgress?: BlueprintBenchmarkProgressHandler; evaluationId?: string } = {},
+): Promise<BlueprintBenchmarkResult> {
+  const { manifest, projectDir } = prepared;
+  const evaluationId = options.evaluationId ?? "evaluation";
   const comparisons: FactoryBlueprintComparison[] = [];
   const cases: BlueprintBenchmarkCaseResult[] = [];
   let weightedBaseline = 0; let weightedCandidate = 0; let totalWeight = 0; let totalSimulationTicks = 0;
-  for (const item of manifest.cases) {
+  for (const [index, preparedCase] of prepared.cases.entries()) {
+    const item = preparedCase.manifest;
+    const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: prepared.cases.length };
+    options.onProgress?.({ version: 1, phase: "candidate-case-started", benchmark: manifest.id, case: caseIdentity, evaluationId });
     const selection = { world: item.world, scenario: item.scenario, objective: item.objective };
-    const baseline = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.baselineBlueprint });
-    assertLockedHashes(benchmarkId, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
     const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
-    const comparison = compareFactoryBlueprints(baseline, candidate, {
-      seed: item.seed, fromLabel: manifest.baselineBlueprint, toLabel: manifest.candidateBlueprint,
+    const comparison = compareFactoryBlueprints(preparedCase.baseline, candidate, {
+      seed: item.seed,
+      fromLabel: manifest.baselineBlueprint,
+      toLabel: manifest.candidateBlueprint,
+      beforeEvaluation: preparedCase.evaluation,
     });
     comparisons.push(comparison);
     weightedBaseline += comparison.from.metrics.score * item.weight;
     weightedCandidate += comparison.to.metrics.score * item.weight;
     totalWeight += item.weight;
-    totalSimulationTicks += baseline.scenario.durationTicks * 2;
+    totalSimulationTicks += preparedCase.baseline.scenario.durationTicks * 2;
     cases.push({
-      id: item.id, name: item.name, weight: item.weight, seed: item.seed, durationTicks: baseline.scenario.durationTicks,
+      id: item.id, name: item.name, weight: item.weight, seed: item.seed, durationTicks: preparedCase.baseline.scenario.durationTicks,
       baselineScore: comparison.from.metrics.score, candidateScore: comparison.to.metrics.score, scoreDelta: comparison.delta.score,
       baselineMetrics: comparison.from.metrics, candidateMetrics: comparison.to.metrics,
       baselineCapacityReady: comparison.from.capacityPlan.ready, candidateCapacityReady: comparison.to.capacityPlan.ready,
       candidateCapacityGaps: comparison.to.capacityPlan.gaps.map((gap) => `[${gap.kind}] ${gap.message}`),
+    });
+    options.onProgress?.({
+      version: 1,
+      phase: "candidate-case-completed",
+      benchmark: manifest.id,
+      case: caseIdentity,
+      evaluationId,
+      baselineScore: comparison.from.metrics.score,
+      candidateScore: comparison.to.metrics.score,
+      scoreDelta: comparison.delta.score,
+      candidateCapacityReady: comparison.to.capacityPlan.ready,
     });
   }
   const baselineScore = weightedBaseline / totalWeight; const candidateScore = weightedCandidate / totalWeight;

@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/observable-design-execution]] | Make long-running memory-fab design search observable to humans and Agents while safely reusing locked baseline evaluation. | 2026-07-23 |
 
 ## Proposed plans
 

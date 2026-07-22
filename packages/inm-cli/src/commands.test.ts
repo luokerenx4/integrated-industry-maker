@@ -239,8 +239,14 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
   expect(await pathExists(join(projectDir, "design-runs"))).toBeFalse();
 
-  const executed = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run", "--max-candidates", "1", "--json"]);
-  expect({ exitCode: executed.exitCode, stderr: executed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const executed = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run", "--max-candidates", "1", "--progress", "ndjson", "--json"]);
+  expect(executed.exitCode).toBe(0);
+  const progress = executed.stderr.trim().split("\n").map((line) => JSON.parse(line));
+  expect(progress[0]).toEqual(expect.objectContaining({ schemaVersion: 1, type: "progress", command: "design", progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
+  expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
+  expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(5);
+  expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
   const run = JSON.parse(executed.stdout);
   expect(run).toEqual(expect.objectContaining({
     command: "design",
@@ -340,6 +346,7 @@ test("public CLI emits stable JSON errors for invalid section, section mode, sch
     { args: ["validate", "--json"], exitCode: 2, command: "validate", code: "cli.usage" },
     { args: ["unknown", "--json"], exitCode: 2, command: "unknown", code: "cli.usage" },
     { args: ["inspect", projectDir, "--unknown", "--json"], exitCode: 2, command: "inspect", code: "cli.usage" },
+    { args: ["design", projectDir, "--program", "missing", "--progress", "binary", "--json"], exitCode: 1, command: "design", code: "design.invalid-progress" },
   ];
   for (const item of cases) {
     const result = await runCli(item.args);

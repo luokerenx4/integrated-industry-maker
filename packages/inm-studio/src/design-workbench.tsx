@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { CandidateChangeSet, DesignProgramBrief, DesignProgramSummary, DesignRunResult, DesignRunSummary } from "@inm/core";
+import type { CandidateChangeSet, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary } from "@inm/core";
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
@@ -7,8 +7,52 @@ async function responseJson<T>(response: Response): Promise<T> {
   return value;
 }
 
+type DesignRunStreamRecord =
+  | { version: 1; type: "progress"; progress: DesignRunProgress }
+  | { version: 1; type: "result"; result: DesignRunResult }
+  | { version: 1; type: "error"; error: { code?: string; error: string } };
+
+async function responseDesignStream(response: Response, onProgress: (progress: DesignRunProgress) => void): Promise<DesignRunResult> {
+  if (!response.ok || !response.body) return responseJson<DesignRunResult>(response);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: DesignRunResult | null = null;
+  const consume = (line: string) => {
+    if (!line.trim()) return;
+    const record = JSON.parse(line) as DesignRunStreamRecord;
+    if (record.type === "progress") onProgress(record.progress);
+    else if (record.type === "result") result = record.result;
+    else throw new Error(`${record.error.code ? `[${record.error.code}] ` : ""}${record.error.error}`);
+  };
+  while (true) {
+    const chunk = await reader.read();
+    buffer += decoder.decode(chunk.value, { stream: !chunk.done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) consume(line);
+    if (chunk.done) break;
+  }
+  consume(buffer);
+  if (!result) throw new Error("Design stream ended without a completed result");
+  return result;
+}
+
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(6)}`;
 const shortHash = (value: string) => value.slice(0, 12);
+
+function progressLabel(progress: DesignRunProgress): { title: string; detail: string } {
+  if (progress.phase === "run-started") return { title: "PREPARING LOCKED BASELINE", detail: `${progress.caseCount} operating cases · ${progress.work.plannedSimulations} planned simulations` };
+  if (progress.phase === "case-started" || progress.phase === "case-completed") return {
+    title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
+    detail: `${progress.case.id} · ${progress.phase === "case-started" ? "simulating" : `complete${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
+  };
+  if (progress.phase === "proposal-started") return { title: `PROPOSAL ${progress.iteration}`, detail: "Reading current industrial evidence" };
+  if (progress.phase === "proposal-completed") return { title: `PROPOSAL ${progress.iteration} READY`, detail: progress.strategy };
+  if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: progress.candidateScore === undefined ? progress.error ?? progress.strategy : `${progress.strategy} · ${progress.candidateScore.toFixed(6)}` };
+  if (progress.phase === "run-completed") return { title: "IMMUTABLE RESULT READY", detail: `${shortHash(progress.resultHash)} · best iteration ${progress.best.iteration}` };
+  return { title: "DESIGN RUNNING", detail: progress.phase };
+}
 
 export function DesignWorkbench({
   projectId, programs, selectedProgramId, selectedRunId, onSelectProgram, onSelectRun, onCandidate, onClose,
@@ -28,6 +72,7 @@ export function DesignWorkbench({
   const [selectedRun, setSelectedRun] = useState<DesignRunResult | null>(null);
   const [budget, setBudget] = useState(1);
   const [running, setRunning] = useState(false);
+  const [runProgress, setRunProgress] = useState<DesignRunProgress | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [candidateId, setCandidateId] = useState("");
   const [promoted, setPromoted] = useState<CandidateChangeSet | null>(null);
@@ -47,7 +92,7 @@ export function DesignWorkbench({
   };
 
   useEffect(() => {
-    setBrief(null); setRuns([]); setSelectedRun(null); setPromoted(null); setError(null);
+    setBrief(null); setRuns([]); setSelectedRun(null); setPromoted(null); setRunProgress(null); setError(null);
     if (!selectedProgramId) return;
     let active = true;
     void loadProgram(selectedProgramId).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
@@ -69,12 +114,12 @@ export function DesignWorkbench({
 
   const run = async () => {
     if (!selectedProgram || running) return;
-    setRunning(true); setError(null); setPromoted(null);
+    setRunning(true); setRunProgress(null); setError(null); setPromoted(null);
     try {
-      const result = await responseJson<DesignRunResult>(await fetch(
+      const result = await responseDesignStream(await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/run`,
-        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: budget }) },
-      ));
+        { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
+      ), setRunProgress);
       await loadProgram(selectedProgram.id);
       onSelectRun(result.manifest.resultHash);
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
@@ -114,8 +159,9 @@ export function DesignWorkbench({
           <section className="design-contract">
             <div><span className="eyebrow">DESIGN CONTRACT</span><h3>{selectedProgram.name}</h3><p>{selectedProgram.description}</p><code>{selectedProgram.id} · {shortHash(selectedProgram.programHash)}</code></div>
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>SEED</i><strong>{selectedProgram.seedBlueprint}</strong><span>driver {brief.driver.case.id}</span></div>
-            <div className="design-run-control"><label>PROPOSAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running ? "EVALUATING LOCKED CASES…" : `RUN ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
+            <div className="design-run-control"><label>PROPOSAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedSimulations}/${runProgress.work.plannedSimulations}` : running ? "STARTING…" : `RUN ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
+          {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code></div><div><b>{runProgress.work.completedSimulations}/{runProgress.work.plannedSimulations}</b><small>SIMULATIONS</small><progress value={runProgress.work.completedSimulations} max={runProgress.work.plannedSimulations}/></div></section>}
           <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
           <section className="design-readiness">
             <span><small>CAPACITY</small><b className={brief.staticEvidence.capacity.state}>{brief.staticEvidence.capacity.state.toUpperCase()}</b><em>{brief.staticEvidence.capacity.gapCount} gaps</em></span>
