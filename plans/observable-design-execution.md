@@ -1,6 +1,6 @@
 # Observable design execution
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/coding-agent-optimization]], [[docs/design/agent-cli-contract]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]]
 
@@ -44,7 +44,7 @@ The complete memory-fab design loop is now robust but opaque while executing. A 
 - [x] Integrate progress and baseline reuse into Design Program execution with deterministic equivalence tests.
 - [x] Add human and NDJSON CLI projections plus machine-help documentation and public-binary tests.
 - [x] Stream progress through the project-qualified Studio API and render the shared operation state.
-- [ ] Update design documentation, verify the real memory-fab loop, complete browser/full-suite audit, commit, and push.
+- [x] Update design documentation, verify the real memory-fab loop, complete browser/full-suite audit, commit, and push.
 
 ## Findings and decisions
 
@@ -68,7 +68,8 @@ The complete memory-fab design loop is now robust but opaque while executing. A 
 - 2026-07-23 — Audited Core Design execution, Benchmark comparison, CLI command behavior, Studio POST handling, and the existing generic loading UI; plan created and indexed.
 - 2026-07-23 — Added prepared locked-Benchmark baseline evidence, the Core Design progress union, human/NDJSON CLI projection, streaming Studio API/UI, focused parity tests, and contract documentation.
 - 2026-07-23 — Exercised the visible stream twice against the live memory-fab Studio at desktop and 390 px; actual case identity/work counts updated during execution and the completed route/result remained stable.
+- 2026-07-23 — Passed the complete repository gate and committed the implementation as [8b267da](https://github.com/luokerenx4/integrated-industry-maker/commit/8b267da).
 
 ## Completion
 
-Pending.
+Completed on 2026-07-23 in [8b267da](https://github.com/luokerenx4/integrated-industry-maker/commit/8b267da). Memory-fab Design execution now has one Core-owned progress account for humans and Agents, one hash-validated baseline evaluation per locked case, explicit terminal/NDJSON/Studio streaming projections, unchanged immutable decision identity, and verified desktop/narrow-screen operation.
