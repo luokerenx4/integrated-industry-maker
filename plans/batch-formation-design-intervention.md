@@ -1,6 +1,6 @@
 # Batch-formation Design intervention
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/fab-loss-attribution]], [[docs/design/batch-processing]], and [[docs/design/coding-agent-optimization]].
 
@@ -70,4 +70,6 @@ The simulator and Blueprint already model preferred fixed batches, bounded tail 
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Shipped in `958a5a7` (`feat: investigate fab batch formation`). Memory-fab Design now recognizes `batch-formation` as an explicit decision family, proposes a guarded three-operation patch that qualifies fixed and rapid furnace recipes with a thirty-second fallback, records its locked REJECT, and continues to the next observed loss without mutating the current best. The result preserves a valuable negative experiment: driver-local waiting improves, but complete interruption robustness does not.
+
+The investigation exposed that each stored Benchmark case delta is relative to the fixed baseline, while the Design decision itself compares with the evolving current best. Explicit current-best case evidence and human-readable rejection causes are separately indexed as [[plans/current-best-decision-evidence]].
