@@ -1,13 +1,14 @@
 {
   "id": "dram-output",
-  "name": "Deliver qualified DRAM wafer lots with controlled quality loss",
-  "targetResource": "qualified-dram-wafer-lot",
+  "name": "Deliver tested DRAM devices with controlled wafer-lot service",
+  "targetResource": "tested-dram-device",
+  "trackedFamily": "dram-wafer",
   "targetRegion": "cleanroom",
-  "targetRatePerMinute": 2.5,
+  "targetRatePerMinute": 20,
   "constraints": {
-    "maxBuildCost": 170000,
-    "maxOccupiedArea": 320,
-    "minProduction": 4
+    "maxBuildCost": 210000,
+    "maxOccupiedArea": 350,
+    "minProduction": 8
   },
   "weights": {
     "throughput": 20,

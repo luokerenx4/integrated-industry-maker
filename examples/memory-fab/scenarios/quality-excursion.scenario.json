@@ -112,6 +112,104 @@
       "dueTick": 130000
     }
   ],
+  "materialDeliveries": [
+    {
+      "id": "substrate-delivery-01",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 0
+    },
+    {
+      "id": "substrate-delivery-02",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 6000
+    },
+    {
+      "id": "substrate-delivery-03",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 12000
+    },
+    {
+      "id": "substrate-delivery-04",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 18000
+    },
+    {
+      "id": "substrate-delivery-05",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 24000
+    },
+    {
+      "id": "substrate-delivery-06",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 30000
+    },
+    {
+      "id": "substrate-delivery-07",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 36000
+    },
+    {
+      "id": "substrate-delivery-08",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 42000
+    },
+    {
+      "id": "substrate-delivery-09",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 48000
+    },
+    {
+      "id": "substrate-delivery-10",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 54000
+    },
+    {
+      "id": "substrate-delivery-11",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 60000
+    },
+    {
+      "id": "substrate-delivery-12",
+      "device": "substrate-receiving",
+      "buffer": "storage",
+      "resource": "dram-package-substrate",
+      "count": 8,
+      "releaseTick": 66000
+    }
+  ],
   "initialSetups": {
     "lithography-1": "photo-mask-l1",
     "etch-1": "etch-recipe-l1"

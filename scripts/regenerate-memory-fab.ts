@@ -44,6 +44,17 @@ for (const [id, name, description, color] of resources) {
   });
   await json(join(project, "assets", "resources", id, "visual.json"), { shape: "cylinder", texture: null, color, icon: null });
 }
+for (const [id, name, description, symbol, stackSize, color, tags] of [
+  ["dram-package-substrate", "DRAM Package Substrate", "Package substrate and interconnect material consumed when qualified wafer lots are diced and packaged.", "substrate", 32, "#c7a66b", ["semiconductor", "packaging", "material"]],
+  ["packaged-dram-device", "Packaged DRAM Device", "Singulated and packaged DRAM device awaiting burn-in and final electrical test.", "device", 32, "#4b8fda", ["semiconductor", "packaging", "wip"]],
+  ["tested-dram-device", "Tested DRAM Device", "Finished DRAM device that passed package burn-in and final electrical test.", "device", 32, "#56d89b", ["semiconductor", "memory", "finished-good"]],
+] as const) {
+  await json(join(project, "assets", "resources", id, "asset.json"), {
+    assetVersion: 1, type: "resource", id, name, description, tags,
+    unit: { kind: "discrete", symbol, precision: 0 }, transport: { stackSize }, files: { visual: "visual.json" },
+  });
+  await json(join(project, "assets", "resources", id, "visual.json"), { shape: "box", texture: null, color, icon: null });
+}
 for (const [id, name, description, color] of [
   ["chamber-clean-kit", "Chamber Clean Kit", "Single-use chemistry and seals for one vacuum-process maintenance service.", "#f0b45a"],
   ["metrology-calibration-kit", "Metrology Calibration Kit", "Traceable standards and consumables for one metrology maintenance service.", "#66c6e3"],
@@ -129,9 +140,23 @@ await json(join(project, "processes", "rework-final-pattern.process.json"), {
   quality: { kind: "rework", repairs: ["critical-dimension"] },
 });
 
+await json(join(project, "processes", "dice-package-dram.process.json"), {
+  version: 1, id: "dice-package-dram", name: "Dice and package qualified DRAM devices",
+  description: "Terminates one identity-preserving qualified wafer lot and materializes eight packaged DRAM devices using explicit package substrates.",
+  category: "packaging", tags: ["dram", "back-end", "packaging", "lot-termination"], durationTicks: 12_000,
+  inputs: [{ resource: "qualified-dram-wafer-lot", count: 1 }, { resource: "dram-package-substrate", count: 8 }],
+  outputs: [{ resource: "packaged-dram-device", count: 8 }], lotTermination: { terminal: "complete" },
+});
+await json(join(project, "processes", "burn-in-test-dram.process.json"), {
+  version: 1, id: "burn-in-test-dram", name: "Burn in and final-test packaged DRAM devices",
+  description: "Runs one eight-device package batch through evaluator-visible burn-in and final electrical test before customer delivery.",
+  category: "final-test", tags: ["dram", "back-end", "burn-in", "final-test", "batch"], durationTicks: 20_000,
+  inputs: [{ resource: "packaged-dram-device", count: 8 }], outputs: [{ resource: "tested-dram-device", count: 8 }],
+});
+
 await json(join(project, "routes", "dram-front-end.route.json"), {
   version: 1, type: "route", id: "dram-front-end", name: "DRAM Front-End Wafer Route",
-  description: "Evaluator-owned process route for a DRAM wafer lot, including qualified alternatives and the final-inspection rework loop.",
+  description: "Evaluator-owned DRAM work-order route from blank wafer lot through front-end qualification and explicit termination at package conversion.",
   family: "dram-wafer", entry: { resource: "blank-dram-wafer-lot", step: "pattern-cell-layer-1" },
   steps: [
     { id: "pattern-cell-layer-1", name: "Pattern Cell Layer 1", operations: ["pattern-cell-layer-1"], transitions: [{ resource: "patterned-cell-l1-lot", to: "etch-cell-layer-1" }] },
@@ -141,11 +166,12 @@ await json(join(project, "routes", "dram-front-end.route.json"), {
     { id: "pattern-cell-layer-2", name: "Pattern Cell Layer 2", operations: ["pattern-cell-layer-2"], queueTime: { maximumTicks: 45_000, violationDefects: ["critical-dimension"] }, transitions: [{ resource: "patterned-cell-l2-lot", to: "etch-cell-layer-2" }] },
     { id: "etch-cell-layer-2", name: "Etch Cell Layer 2", operations: ["etch-cell-layer-2"], transitions: [{ resource: "dram-wafer-lot", to: "final-inspection" }] },
     { id: "final-inspection", name: "Final Pattern Inspection", operations: ["inspect-final-pattern-standard", "inspect-final-pattern-deep"], queueTime: { maximumTicks: 35_000, violationDefects: ["particle-contamination"] }, transitions: [
-      { resource: "qualified-dram-wafer-lot", terminal: "complete" },
+      { resource: "qualified-dram-wafer-lot", to: "package-dram" },
       { resource: "rework-required-dram-wafer-lot", to: "final-pattern-rework" },
       { resource: "scrap-dram-wafer-lot", terminal: "scrap" },
     ] },
     { id: "final-pattern-rework", name: "Final Pattern Rework", operations: ["rework-final-pattern"], transitions: [{ resource: "dram-wafer-lot", to: "final-inspection" }] },
+    { id: "package-dram", name: "Dice and Package DRAM", operations: ["dice-package-dram"], transitions: [] },
   ],
 });
 
@@ -181,12 +207,12 @@ async function workCenter(
       powerMultiplier: { numerator: number; denominator: number }; defects: string[];
     }>;
   },
-  equipment?: { footprint: { width: number; height: number }; idleMilliWatts: number; activeMilliWatts: number },
+  equipment?: { footprint: { width: number; height: number }; idleMilliWatts: number; activeMilliWatts: number; bufferCapacity?: number },
 ): Promise<void> {
   const buffers = [...new Set(ports.map((port) => port.buffer))].map((buffer) => ({
     id: buffer,
     role: ports.some((port) => port.buffer === buffer && port.direction === "input") ? "input" : "output",
-    capacity: 24,
+    capacity: equipment?.bufferCapacity ?? 24,
     accepts: ["*"],
   }));
   await json(join(project, "assets", "devices", id, "asset.json"), {
@@ -292,6 +318,19 @@ await workCenter("pattern-rework-bay", "Pattern Rework Bay", "Qualified recovery
   { id: "recovered-output", direction: "output", side: "east", offset: 1, buffer: "recovered-output" },
 ], ["reject-input"], ["recovered-output"], 10_000);
 
+await workCenter("dram-packaging-cell", "DRAM Packaging Cell", "Back-end work center that dices a qualified wafer lot, consumes package substrates, and ends the wafer-lot route as packaged devices.", "packaging", ["dice-package-dram"], "#b98a52", [
+  { id: "wafer-input", direction: "input", side: "east", offset: 1, buffer: "wafer-input" },
+  { id: "substrate-input", direction: "input", side: "west", offset: 1, buffer: "substrate-input" },
+  { id: "package-output", direction: "output", side: "south", offset: 1, buffer: "package-output" },
+], ["wafer-input", "substrate-input"], ["package-output"], 18_000, undefined, undefined,
+{ footprint: { width: 3, height: 3 }, idleMilliWatts: 25_000, activeMilliWatts: 210_000, bufferCapacity: 128 });
+
+await workCenter("dram-burn-in-rack", "DRAM Burn-in and Final-test Rack", "Batch back-end equipment that holds packaged DRAM devices through burn-in and final electrical test.", "final-test", ["burn-in-test-dram"], "#397bb8", [
+  { id: "package-input", direction: "input", side: "north", offset: 1, buffer: "package-input" },
+  { id: "tested-output", direction: "output", side: "west", offset: 1, buffer: "tested-output" },
+], ["package-input"], ["tested-output"], 14_000, undefined, undefined,
+{ footprint: { width: 3, height: 3 }, idleMilliWatts: 35_000, activeMilliWatts: 240_000 });
+
 await cp(join(ironworksAssets, "devices", "material-sink"), join(project, "assets", "devices", "scrap-bin"), { recursive: true, force: true });
 const scrapAsset = JSON.parse(await readFile(join(ironworksAssets, "devices", "material-sink", "asset.json"), "utf8")) as Record<string, unknown>;
 await json(join(project, "assets", "devices", "scrap-bin", "asset.json"), {
@@ -381,6 +420,7 @@ type Device = Record<string, unknown>;
 type Connection = Record<string, unknown>;
 const devices: Device[] = [
   { id: "lot-release", asset: "buffer", region: "cleanroom", position: { x: 2, y: 13 }, rotation: 0, bufferFilters: { storage: ["blank-dram-wafer-lot"] } },
+  { id: "substrate-receiving", asset: "buffer", region: "cleanroom", position: { x: 2, y: 20 }, rotation: 0, bufferFilters: { storage: ["dram-package-substrate"] } },
   {
     id: "lithography-1", asset: "lithography-bay", region: "cleanroom", position: { x: 8, y: 12 }, rotation: 0,
     recipes: [
@@ -432,7 +472,21 @@ const devices: Device[] = [
     },
     policy: { lotDispatch: "fifo", powerPriority: 6 },
   },
-  { id: "wafer-sort-boundary", asset: "material-sink", region: "cleanroom", position: { x: 8, y: 20 }, rotation: 0, bufferFilters: { input: ["qualified-dram-wafer-lot"] } },
+  {
+    id: "packaging-1", asset: "dram-packaging-cell", region: "cleanroom", position: { x: 8, y: 20 }, rotation: 0,
+    recipe: {
+      process: "dice-package-dram", mode: "qualified",
+      inputs: { "qualified-dram-wafer-lot": "wafer-input", "dram-package-substrate": "substrate-input" },
+      outputs: { "packaged-dram-device": "package-output" },
+    },
+    policy: { lotDispatch: "earliest-due-date", powerPriority: 6 },
+  },
+  {
+    id: "burn-in-1", asset: "dram-burn-in-rack", region: "cleanroom", position: { x: 8, y: 26 }, rotation: 0,
+    recipe: { process: "burn-in-test-dram", mode: "qualified", inputs: { "packaged-dram-device": "package-input" }, outputs: { "tested-dram-device": "tested-output" } },
+    policy: { powerPriority: 5 },
+  },
+  { id: "memory-customer", asset: "material-sink", region: "cleanroom", position: { x: 2, y: 27 }, rotation: 0, bufferFilters: { input: ["tested-dram-device"] } },
   { id: "quality-scrap", asset: "scrap-bin", region: "cleanroom", position: { x: 17, y: 27 }, rotation: 90, bufferFilters: { input: ["scrap-dram-wafer-lot"] } },
   { id: "reticle-stocker-1", asset: "reticle-stocker", region: "cleanroom", position: { x: 5, y: 8 }, rotation: 0 },
   { id: "maintenance-service-1", asset: "maintenance-service-bay", region: "cleanroom", position: { x: 34, y: 26 }, rotation: 0 },
@@ -442,6 +496,7 @@ const devices: Device[] = [
   { id: "cleanroom-power-c", asset: "wind-turbine", region: "cleanroom", position: { x: 20, y: 3 }, rotation: 0 },
   { id: "cleanroom-power-d", asset: "wind-turbine", region: "cleanroom", position: { x: 28, y: 3 }, rotation: 0 },
   { id: "cleanroom-power-e", asset: "wind-turbine", region: "cleanroom", position: { x: 22, y: 15 }, rotation: 0 },
+  { id: "shipping-power", asset: "wind-turbine", region: "cleanroom", position: { x: 1, y: 30 }, rotation: 0 },
 ];
 const connections: Connection[] = [];
 
@@ -481,9 +536,19 @@ connect("batch-furnace-to-lithography", { device: "furnace-1", port: "batch-outp
 connect("etch-to-inspection", { device: "etch-1", port: "final-output", side: "south" }, { device: "inspection-1", port: "wafer-input", side: "north" }, ["dram-wafer-lot"], [
   { x: 18, y: 15 }, { x: 18, y: 16 }, { x: 18, y: 17 }, { x: 18, y: 18 }, { x: 18, y: 19 },
 ]);
-connect("inspection-to-wafer-sort", { device: "inspection-1", port: "pass-output", side: "west" }, { device: "wafer-sort-boundary", port: "input", side: "west" }, ["qualified-dram-wafer-lot"], [
-  { x: 16, y: 21 }, { x: 15, y: 21 }, { x: 14, y: 21 }, { x: 13, y: 21 }, { x: 12, y: 21 }, { x: 11, y: 21 }, { x: 10, y: 21 },
-  { x: 10, y: 22 }, { x: 9, y: 22 }, { x: 8, y: 22 }, { x: 7, y: 22 }, { x: 7, y: 21 }, { x: 7, y: 20 },
+connect("inspection-to-packaging", { device: "inspection-1", port: "pass-output", side: "west" }, { device: "packaging-1", port: "wafer-input", side: "east" }, ["qualified-dram-wafer-lot"], [
+  { x: 16, y: 21 }, { x: 15, y: 21 }, { x: 14, y: 21 }, { x: 13, y: 21 }, { x: 12, y: 21 }, { x: 11, y: 21 },
+]);
+connect("substrate-receiving-to-packaging", { device: "substrate-receiving", port: "output", side: "east" }, { device: "packaging-1", port: "substrate-input", side: "west" }, ["dram-package-substrate"], [
+  { x: 3, y: 20 }, { x: 4, y: 20 }, { x: 4, y: 21 }, { x: 5, y: 21 }, { x: 6, y: 21 }, { x: 7, y: 21 },
+]);
+connect("packaging-to-burn-in", { device: "packaging-1", port: "package-output", side: "south" }, { device: "burn-in-1", port: "package-input", side: "north" }, ["packaged-dram-device"], [
+  { x: 9, y: 23 }, { x: 9, y: 24 }, { x: 9, y: 25 },
+]);
+connect("burn-in-to-customer", { device: "burn-in-1", port: "tested-output", side: "west" }, { device: "memory-customer", port: "input", side: "west" }, ["tested-dram-device"], [
+  { x: 7, y: 27 }, { x: 6, y: 27 }, { x: 5, y: 27 }, { x: 4, y: 27 },
+  { x: 4, y: 28 }, { x: 4, y: 29 }, { x: 3, y: 29 }, { x: 2, y: 29 }, { x: 1, y: 29 }, { x: 0, y: 29 },
+  { x: 0, y: 28 }, { x: 0, y: 27 }, { x: 1, y: 27 },
 ]);
 connect("inspection-to-rework", { device: "inspection-1", port: "reject-output", side: "east" }, { device: "rework-1", port: "reject-input", side: "west" }, ["rework-required-dram-wafer-lot"], [
   { x: 20, y: 21 }, { x: 21, y: 21 }, { x: 22, y: 21 }, { x: 23, y: 21 }, { x: 24, y: 21 }, { x: 25, y: 21 }, { x: 26, y: 21 },
@@ -496,7 +561,7 @@ connect("inspection-to-scrap", { device: "inspection-1", port: "scrap-output", s
   { x: 18, y: 23 }, { x: 18, y: 24 }, { x: 18, y: 25 }, { x: 17, y: 25 }, { x: 17, y: 26 },
 ]);
 
-const blueprint = { version: 1, revision: "memory-fab-batch-v4", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
+const blueprint = { version: 1, revision: "memory-fab-product-v1", devices, connections, logisticsNetworks: [], policies: { dispatch: "shortage-first", powerAllocation: "priority-load-shedding" } };
 const experimentBlueprint = structuredClone(blueprint);
 for (const device of experimentBlueprint.devices) if (["lithography-1", "etch-1"].includes(String(device.id))) {
   device.policy = { ...(device.policy as Record<string, unknown>), recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
@@ -515,7 +580,7 @@ await json(join(project, "blueprints", "tool-search-seed.blueprint.json"), {
 });
 await json(join(project, "blueprints", "experiment.blueprint.json"), experimentBlueprint);
 await json(join(project, "inm.json"), { version: 1, id: "memory-fab", name: "Re-entrant DRAM Memory Fab", defaultWorld: "cleanroom", defaultBlueprint: "baseline", defaultScenario: "production-window", defaultObjective: "dram-output" });
-await json(join(project, "worlds", "cleanroom.world.json"), { version: 1, id: "cleanroom", name: "DRAM Front-End Cleanroom", regions: [{ id: "cleanroom", name: "Memory Fab Cleanroom", kind: "industrial-zone", coordinates: { x: 0, y: 0, z: 0 }, bounds: { width: 40, height: 30 } }], resourceNodes: [] });
+await json(join(project, "worlds", "cleanroom.world.json"), { version: 1, id: "cleanroom", name: "DRAM Integrated Fab", regions: [{ id: "cleanroom", name: "Memory Fab Industrial Zone", kind: "industrial-zone", coordinates: { x: 0, y: 0, z: 0 }, bounds: { width: 40, height: 32 } }], resourceNodes: [] });
 
 const lotReleases = Array.from({ length: 12 }, (_, index) => ({
     id: `dram-lot-${String(index + 1).padStart(2, "0")}`,
@@ -524,6 +589,11 @@ const lotReleases = Array.from({ length: 12 }, (_, index) => ({
     priority: index >= 9 ? 10 : index >= 6 ? 5 : 1,
     dueTick: 240_000 - index * 10_000,
   }));
+const materialDeliveries = Array.from({ length: 12 }, (_, index) => ({
+  id: `substrate-delivery-${String(index + 1).padStart(2, "0")}`,
+  device: "substrate-receiving", buffer: "storage", resource: "dram-package-substrate",
+  count: 8, releaseTick: index * 6_000,
+}));
 const initialSetups = { "lithography-1": "photo-mask-l1", "etch-1": "etch-recipe-l1" };
 const mixedExcursions = [
   { id: "cd-excursion-lot-03", process: "etch-cell-layer-2", lot: "dram-lot-03", defects: ["critical-dimension"] },
@@ -538,7 +608,7 @@ async function scenario(
   failures: Array<{ device: string; atTick: number; durationTicks: number }> = [],
 ): Promise<void> {
   await json(join(project, "scenarios", `${id}.scenario.json`), {
-    id, name, durationTicks: 240_000, lotReleases, initialSetups, qualityExcursions,
+    id, name, durationTicks: 240_000, lotReleases, materialDeliveries, initialSetups, qualityExcursions,
     initialBuffers: {
       "maintenance-service-1": { "service-store": {
         "chamber-clean-kit": 16, "metrology-calibration-kit": 16,
@@ -566,8 +636,8 @@ await scenario("facility-interruption", "Four-minute excursion-free window with 
   { device: "fab-utility-plant-1", atTick: 48_000, durationTicks: 30_000 },
 ]);
 await json(join(project, "objectives", "dram-output.objective.json"), {
-  id: "dram-output", name: "Deliver qualified DRAM wafer lots with controlled quality loss", targetResource: "qualified-dram-wafer-lot", targetRegion: "cleanroom", targetRatePerMinute: 2.5,
-  constraints: { maxBuildCost: 170_000, maxOccupiedArea: 320, minProduction: 4 },
+  id: "dram-output", name: "Deliver tested DRAM devices with controlled wafer-lot service", targetResource: "tested-dram-device", trackedFamily: "dram-wafer", targetRegion: "cleanroom", targetRatePerMinute: 20,
+  constraints: { maxBuildCost: 210_000, maxOccupiedArea: 350, minProduction: 8 },
   weights: {
     throughput: 20, onTimeDelivery: 20, energy: 0.005, buildCost: 0.05, occupiedArea: 0.05, wip: 1.5,
     blocked: 3, cycleTime: 2, tardiness: 4, changeovers: 0.5, qualityEscapes: 15, rework: 0.5,
@@ -576,8 +646,8 @@ await json(join(project, "objectives", "dram-output.objective.json"), {
 await json(join(project, "tests", "reentrant-flow.fixture.json"), {
   name: "reentrant DRAM route closes deterministic inspection rework and scrap loops", world: "cleanroom", blueprint: "baseline", scenario: "production-window", objective: "dram-output", seed: 42,
   assertions: [
-    { kind: "metric", path: "produced.qualified-dram-wafer-lot", min: 4 },
-    { kind: "metric", path: "throughputPerMinute", min: 1 },
+    { kind: "metric", path: "produced.tested-dram-device", min: 16 },
+    { kind: "metric", path: "throughputPerMinute", min: 4 },
     { kind: "metric", path: "machineUtilization.lithography-1", min: 0.2 },
     { kind: "metric", path: "machineUtilization.etch-1", min: 0.2 },
     { kind: "metric", path: "lotFlow.released", equals: 12 },
@@ -617,6 +687,7 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "event", type: "device.maintenance-finish", present: true },
     { kind: "event", type: "device.process-drift", present: true },
     { kind: "event", type: "lot.completed", present: true },
+    { kind: "event", type: "lot.route-terminated", present: true },
     { kind: "event", type: "lot.quality-excursion", present: true },
     { kind: "event", type: "lot.inspected", present: true },
     { kind: "event", type: "lot.reworked", present: true },
@@ -672,6 +743,10 @@ const autoresearchPath = join(project, "AUTORESEARCH.md");
 const generatedAutoresearch = await readFile(autoresearchPath, "utf8");
 await text(autoresearchPath, generatedAutoresearch
   .replace(
+    "Twelve named wafer lots become available six seconds apart.",
+    "The benchmark target is a delivered tested DRAM device, not a qualified wafer-lot proxy. One qualified wafer lot plus eight scheduled package substrates enters the explicit dice/package Process; that Process terminates the tracked wafer work order and creates eight fungible packaged devices. An eight-device burn-in/final-test batch then feeds the customer boundary. Product throughput is counted in devices while cycle time, tardiness, yield, and WIP remain attached to the source `dram-wafer` family. Twelve named wafer lots and twelve eight-substrate shipments become available six seconds apart.",
+  )
+  .replace(
     "across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption.",
     "across five evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, a timed lithography interruption, and a timed fab-utility interruption.",
   )
@@ -689,7 +764,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.",
-    "The checked-in candidate contains six kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, inspection-only opportunistic preventive maintenance, and a second placed fab-utility plant. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift. Maintenance is physical factory work followed by a separate equipment-release phase. Lithography, etch, and ALD jobs atomically reserve finite high-vacuum and hazardous-exhaust capacity; a provider outage interlocks affected work, while the second costed plant keeps subsequent work moving as N+1 capacity. The five-case locked aggregate is `-69.031038`, while every workload remains at least `+12.664030` above its baseline. Continue from this candidate rather than resetting it.",
+    "The checked-in candidate contains six kept hypotheses: earliest-due-date lot dispatch, deep inspection, single-lot rapid anneal, dedicated layer-2 lithography/etch tools, inspection-only opportunistic preventive maintenance, and a second placed fab-utility plant. The physical specialization is an ordinary Blueprint diff: it copies project-local equipment assets, narrows each Device qualification, splits exact Resource lanes, routes a short elevated crossing, and owns separate setup and maintenance state. Equipment assets also own deterministic usage drift. Maintenance is physical factory work followed by a separate equipment-release phase. Lithography, etch, and ALD jobs atomically reserve finite high-vacuum and hazardous-exhaust capacity; a provider outage interlocks affected work, while the second costed plant keeps subsequent work moving as N+1 capacity. The current checked-in benchmark lock is the score authority; continue from this candidate rather than resetting it.",
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
@@ -711,6 +786,10 @@ await text(autoresearchPath, generatedAutoresearch
 const projectReadmePath = join(project, "README.md");
 const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
+  .replace(
+    "\n\nEquipment condition is equally physical.",
+    "\n\nThe modeled factory now crosses the wafer-to-product boundary. Twelve fixed shipments of eight package substrates enter through a placed receiving buffer and a physical lane. Each qualified wafer lot is diced and packaged into eight ordinary packaged devices; that Process explicitly completes the tracked wafer work order rather than renaming one lot into eight objects. Burn-in and final electrical test run in eight-device batches before the customer boundary. The Objective counts delivered tested devices while retaining `dram-wafer` cycle, tardiness, WIP, and quality service. This mirrors the public wafer-probe → package-good-die → final-test/burn-in structure while keeping all timing and yield values synthetic.\n\nEquipment condition is equally physical.",
+  )
   .replace(
     "\n\nEquipment condition is equally physical.",
     "\n\nThe static target-rate planner now models that same equipment boundary: required layer-1 and layer-2 work is fractionally allocated across the physical lithography and etch qualification graphs, while the twelve Scenario-scheduled blank-wafer lots are fixed external supply. The candidate's extra tools reduce each toolset's planned load instead of creating duplicate paper capacity. Capacity READY is a hard gate in all five benchmark cases; time-dependent losses remain simulation-owned.\n\nEquipment condition is equally physical.",

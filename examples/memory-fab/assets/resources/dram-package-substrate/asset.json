@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "dram-package-substrate",
+  "name": "DRAM Package Substrate",
+  "description": "Package substrate and interconnect material consumed when qualified wafer lots are diced and packaged.",
+  "tags": [
+    "semiconductor",
+    "packaging",
+    "material"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "substrate",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 32
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

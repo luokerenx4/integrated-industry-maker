@@ -12,6 +12,7 @@ Read the relevant linked document before changing a subsystem:
 - System principles and package boundaries: [[docs/ARCHITECTURE]]
 - Workspace, project, and self-contained asset boundaries: [[docs/design/project-boundaries]]
 - Resources, configurable recipes, ports, buffers, and instance filters: [[docs/design/material-contracts]]
+- Purchased-material arrivals, lot-to-product conversion, and split product/work-order scoring: [[docs/design/industrial-boundaries]]
 - Treated material lots, treatment Devices/agents, grade-aware dispatch, and synthesis: [[docs/design/material-treatment]]
 - Standard, accelerated, and productive job semantics: [[docs/design/production-modes]]
 - Multi-operation equipment qualification, re-entrant routes, and ready-WIP dispatch: [[docs/design/work-center-dispatch]]

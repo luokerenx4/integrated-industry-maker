@@ -175,6 +175,7 @@ interface ProcessCatalogAsset {
     kind: "inspection" | "rework"; detects?: string[]; repairs?: string[];
     rejectResource?: string; scrapResource?: string; maxReworkCycles?: number;
   };
+  lotTermination?: { terminal: "complete" | "scrap" };
   durationTicks: number;
   inputs: Array<{ resource: string; count: number }>;
   tooling?: Array<{ resource: string; count: number }>;
@@ -1082,12 +1083,14 @@ function AssetBrowser({ data, onClose }: { data: StudioData; onClose: () => void
                 <div><label>CYCLE</label><strong>{(selected.durationTicks / 1000).toFixed(2)} s</strong></div>
                 {selected.setupGroup && <div><label>SETUP GROUP</label><strong>{selected.setupGroup}</strong></div>}
                 {selected.quality && <div><label>QUALITY MODE</label><strong>{selected.quality.kind}</strong></div>}
+                {selected.lotTermination && <div><label>LOT TERMINAL</label><strong>{selected.lotTermination.terminal}</strong></div>}
                 <div><label>INPUT STREAMS</label><strong>{selected.inputs.length}</strong></div>
                 <div><label>REUSABLE TOOLING</label><strong>{selected.tooling?.length ?? 0}</strong></div>
                 <div><label>FACILITY UTILITIES</label><strong>{selected.utilities?.length ?? 0}</strong></div>
                 <div><label>OUTPUT STREAMS</label><strong>{selected.outputs.length}</strong></div>
               </div>
               <section className="asset-section"><h4>Material transformation</h4><div className="process-flow"><div><label>INPUT</label>{selected.inputs.map((amount) => <span key={amount.resource}><b>{amount.count}×</b> {amount.resource}</span>)}</div><i>→</i><div><label>OUTPUT</label>{selected.outputs.map((amount) => <span key={amount.resource}><b>{amount.count}×</b> {amount.resource}</span>)}</div></div></section>
+              {selected.lotTermination && <section className="asset-section"><h4>Tracked-lot boundary</h4><div className="asset-table"><div><b>{selected.lotTermination.terminal.toUpperCase()}</b><strong>source work-lot lifecycle ends here</strong><span>ordinary outputs continue as fungible product inventory</span><code>explicit Process contract</code></div></div></section>}
               {(selected.tooling?.length ?? 0) > 0 && <section className="asset-section"><h4>Reusable production tooling</h4><div className="asset-table">{selected.tooling!.map((tool) => <div key={tool.resource}><b>{tool.count}× {tool.resource}</b><strong>reserved, not consumed</strong><span>held through power loss and failure recovery</span><code>external tooling provider</code></div>)}</div></section>}
               {(selected.utilities?.length ?? 0) > 0 && <section className="asset-section"><h4>Facility utility demand</h4><div className="asset-table">{selected.utilities!.map((utility) => <div key={utility.utility}><b>{utility.units}× {utility.utility}</b><strong>finite shared capacity</strong><span>atomically reserved for the complete physical job</span><code>spatial utility provider</code></div>)}</div></section>}
               {selected.quality?.kind === "inspection" && <section className="asset-section"><h4>Quality disposition</h4><div className="asset-table"><div><b>detects</b><strong>{selected.quality.detects?.join(", ")}</strong><span>rework</span><code>{selected.quality.rejectResource}</code></div><div><b>terminal scrap</b><strong>{selected.quality.scrapResource ?? "none"}</strong><span>after rework cycles</span><code>{selected.quality.maxReworkCycles ?? "unlimited"}</code></div></div></section>}

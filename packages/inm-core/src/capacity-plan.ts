@@ -362,7 +362,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const processDemandPerMinute = rawProcessDemand[resource] ?? 0;
     const infrastructureDemandPerMinute = infrastructureDemand[resource] ?? 0;
     const totalDemandPerMinute = processDemandPerMinute + infrastructureDemandPerMinute;
-    const scheduledSupply = (project.scenario.lotReleases ?? []).filter((lot) => lot.resource === resource).length;
+    const scheduledSupply = (project.scenario.lotReleases ?? []).filter((lot) => lot.resource === resource).length
+      + (project.scenario.materialDeliveries ?? []).filter((delivery) => delivery.resource === resource).reduce((sum, delivery) => sum + delivery.count, 0);
     const scheduledSupplyPerMinute = scenarioMinutes > 0 ? scheduledSupply / scenarioMinutes : 0;
     const configuredSupplyPerMinute = configuredExtractionPerMinute + scheduledSupplyPerMinute;
     const supplyDeficitPerMinute = Math.max(0, totalDemandPerMinute - configuredSupplyPerMinute);
@@ -533,8 +534,8 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     message: `${treatment.process} needs ${treatment.requiredDevices} ${treatment.asset}/${treatment.treatmentMode} for ${treatment.requiredItemsPerMinute.toFixed(3)} ${treatment.resource}@${treatment.minimumLevel}+/min but configures ${treatment.configuredDevices}; add ${treatment.additionalDevices}`,
   });
   for (const raw of rawResources) {
-    if (raw.supplyDeficitPerMinute > 1e-9) gaps.push({ kind: "extraction", entity: raw.resource, message: `${raw.resource} supply is short by ${raw.supplyDeficitPerMinute.toFixed(3)}/min after ${raw.scheduledSupplyPerMinute.toFixed(3)}/min scheduled lot releases; add ${raw.additionalExtractors} extractor(s)` });
-    if (raw.scenarioBalance < -1e-9) gaps.push({ kind: "reserve", entity: raw.resource, message: `${raw.resource} Scenario supply is short by ${(-raw.scenarioBalance).toFixed(3)} items after ${raw.scheduledSupply.toFixed(3)} scheduled lot releases` });
+    if (raw.supplyDeficitPerMinute > 1e-9) gaps.push({ kind: "extraction", entity: raw.resource, message: `${raw.resource} supply is short by ${raw.supplyDeficitPerMinute.toFixed(3)}/min after ${raw.scheduledSupplyPerMinute.toFixed(3)}/min scheduled external supply; add ${raw.additionalExtractors} extractor(s)` });
+    if (raw.scenarioBalance < -1e-9) gaps.push({ kind: "reserve", entity: raw.resource, message: `${raw.resource} Scenario supply is short by ${(-raw.scenarioBalance).toFixed(3)} items after ${raw.scheduledSupply.toFixed(3)} scheduled external supply` });
   }
   for (const link of transport) if (link.capacityDeficitPerMinute > 1e-9) gaps.push({ kind: "transport", entity: `${link.process}:${link.direction}:${link.resource}`, message: `${link.process} ${link.direction} transport for ${link.resource} is short by ${link.capacityDeficitPerMinute.toFixed(3)}/min` });
   for (const network of stationNetworks) if (network.additionalCarriers > 0) gaps.push({ kind: "station", entity: network.network, message: `${network.network} needs ${network.requiredCarriers} carriers for ${network.resource}; add ${network.additionalCarriers}` });

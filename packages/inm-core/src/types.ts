@@ -83,6 +83,8 @@ export interface IndustrialProcessManifest {
       /** Latent defect classes removed by one successful rework cycle. */
       repairs: string[];
     };
+  /** Explicitly ends one tracked Route lot while ordinary untracked outputs continue downstream. */
+  lotTermination?: { terminal: "complete" | "scrap" };
   durationTicks: Tick;
   inputs: ProcessAmount[];
   /** Reusable production assets reserved from one in-range tooling provider for the full physical job. */
@@ -551,6 +553,15 @@ export interface Scenario {
     priority?: number;
     dueTick?: Tick;
   }>;
+  /** Scenario-owned external deliveries of untracked purchased materials to a placed receiving boundary. */
+  materialDeliveries?: Array<{
+    id: string;
+    device: DeviceInstanceId;
+    buffer: BufferId;
+    resource: ResourceId;
+    count: number;
+    releaseTick: Tick;
+  }>;
   /** Scenario-owned setup state at tick zero for setup-sensitive production Devices. */
   initialSetups?: Record<DeviceInstanceId, string>;
   /** Fixed, deterministic process excursions applied once to named lots when the matching operation completes. */
@@ -574,6 +585,8 @@ export interface Objective {
   targetResource: ResourceId;
   targetRegion: string;
   targetRatePerMinute: number;
+  /** Optional source work-lot family used for service and quality metrics when the target Resource is untracked. */
+  trackedFamily?: string;
   constraints?: { maxBuildCost?: number; maxOccupiedArea?: number; minProduction?: number };
   weights: {
     throughput: number;
@@ -649,6 +662,8 @@ export interface CompiledDevice extends BlueprintDevice {
     priority: number;
     /** Identity-preserving input/output pairs. Counts are always equal. */
     lotTransfers: Array<{ family: string; input: ResourceBufferQuantity; output: ResourceBufferQuantity }>;
+    /** Tracked inputs deliberately terminated by this Process while untracked outputs continue. */
+    lotTerminations: Array<{ family: string; input: ResourceBufferQuantity; terminal: "complete" | "scrap" }>;
     quality?:
       | {
         kind: "inspection";
@@ -837,6 +852,7 @@ export interface ActiveDeviceJob {
   fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
   treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
   lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
+  lotTerminations?: Array<{ lotIds: string[]; terminal: "complete" | "scrap" }>;
   changeover?: { from: string | null; to: string };
   /** Marks evaluator-owned equipment maintenance rather than a material-processing job. */
   maintenance?: {
@@ -1101,10 +1117,12 @@ export interface FactoryState {
 
 export type FactoryEvent =
   | { type: "lot.released"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; family: string; resource: ResourceId; plannedReleaseTick: Tick; releaseDelayTicks: Tick; releaseControl: "open-loop" | "conwip"; activeWipBeforeRelease: number }
+  | { type: "material.delivered"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; delivery: string; resource: ResourceId; count: number; plannedReleaseTick: Tick; deliveryDelayTicks: Tick }
   | { type: "lot.release-blocked"; tick: Tick; device: DeviceInstanceId; buffer: BufferId; lot: string; reason: LotReleaseBlockReason; activeWip: number; maximumWip: number | null }
   | { type: "lot.release-control-opened"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number; cause: "reopen-threshold" | "maximum-release-delay" }
   | { type: "lot.release-control-closed"; tick: Tick; activeWip: number; reopenAtWip: number; maximumWip: number }
   | { type: "lot.route-advanced"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; fromStep: string; process: ProcessId; outputResource: ResourceId; toStep: string | null; terminal: "complete" | "scrap" | null; visit: number; reentrant: boolean }
+  | { type: "lot.route-terminated"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; fromStep: string; process: ProcessId; inputResource: ResourceId; terminal: "complete" | "scrap" }
   | { type: "lot.queue-time-violation"; tick: Tick; device: DeviceInstanceId; lot: string; route: RouteId; step: string; process: ProcessId; queueTicks: Tick; maximumTicks: Tick; defects: string[] }
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick }
@@ -1150,7 +1168,7 @@ export type FactoryEvent =
   | { type: "lot.quality-excursion"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; excursion: string; defects: string[] }
   | { type: "lot.inspected"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; result: "pass" | "reject" | "scrap"; detectedDefects: string[]; reworkCycles: number }
   | { type: "lot.reworked"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; repairedDefects: string[]; remainingDefects: string[]; reworkCycles: number }
-  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" | "facility-interlock" | "quality-rejection" }
+  | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" | "facility-interlock" | "quality-rejection" | "process-termination" }
   | { type: "material.treated"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; fromLevel: number; toLevel: number; agentResource: ResourceId; agentCount: number }
   | { type: "buffer.blocked"; tick: Tick; device: DeviceInstanceId }
   | { type: "buffer.unblocked"; tick: Tick; device: DeviceInstanceId }

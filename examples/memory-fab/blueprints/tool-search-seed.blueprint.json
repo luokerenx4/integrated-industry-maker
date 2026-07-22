@@ -18,6 +18,21 @@
       }
     },
     {
+      "id": "substrate-receiving",
+      "asset": "buffer",
+      "region": "cleanroom",
+      "position": {
+        "x": 2,
+        "y": 20
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "storage": [
+          "dram-package-substrate"
+        ]
+      }
+    },
+    {
       "id": "lithography-1",
       "asset": "lithography-bay",
       "region": "cleanroom",
@@ -193,17 +208,65 @@
       }
     },
     {
-      "id": "wafer-sort-boundary",
-      "asset": "material-sink",
+      "id": "packaging-1",
+      "asset": "dram-packaging-cell",
       "region": "cleanroom",
       "position": {
         "x": 8,
         "y": 20
       },
       "rotation": 0,
+      "recipe": {
+        "process": "dice-package-dram",
+        "mode": "qualified",
+        "inputs": {
+          "qualified-dram-wafer-lot": "wafer-input",
+          "dram-package-substrate": "substrate-input"
+        },
+        "outputs": {
+          "packaged-dram-device": "package-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "earliest-due-date",
+        "powerPriority": 6
+      }
+    },
+    {
+      "id": "burn-in-1",
+      "asset": "dram-burn-in-rack",
+      "region": "cleanroom",
+      "position": {
+        "x": 8,
+        "y": 26
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "burn-in-test-dram",
+        "mode": "qualified",
+        "inputs": {
+          "packaged-dram-device": "package-input"
+        },
+        "outputs": {
+          "tested-dram-device": "tested-output"
+        }
+      },
+      "policy": {
+        "powerPriority": 5
+      }
+    },
+    {
+      "id": "memory-customer",
+      "asset": "material-sink",
+      "region": "cleanroom",
+      "position": {
+        "x": 2,
+        "y": 27
+      },
+      "rotation": 0,
       "bufferFilters": {
         "input": [
-          "qualified-dram-wafer-lot"
+          "tested-dram-device"
         ]
       }
     },
@@ -299,6 +362,16 @@
       "position": {
         "x": 22,
         "y": 15
+      },
+      "rotation": 0
+    },
+    {
+      "id": "shipping-power",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 1,
+        "y": 30
       },
       "rotation": 0
     },
@@ -483,7 +556,7 @@
       }
     },
     {
-      "id": "inspection-to-wafer-sort-loader",
+      "id": "inspection-to-packaging-loader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -492,22 +565,112 @@
       },
       "rotation": 180,
       "transportEndpoint": {
-        "connection": "inspection-to-wafer-sort",
+        "connection": "inspection-to-packaging",
         "stage": "loader",
         "distance": 1
       }
     },
     {
-      "id": "inspection-to-wafer-sort-unloader",
+      "id": "inspection-to-packaging-unloader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
-        "x": 7,
+        "x": 11,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "inspection-to-packaging",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "substrate-receiving-to-packaging-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 3,
         "y": 20
       },
       "rotation": 0,
       "transportEndpoint": {
-        "connection": "inspection-to-wafer-sort",
+        "connection": "substrate-receiving-to-packaging",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "substrate-receiving-to-packaging-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 7,
+        "y": 21
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "substrate-receiving-to-packaging",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "packaging-to-burn-in-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 9,
+        "y": 23
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "packaging-to-burn-in",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "packaging-to-burn-in-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 9,
+        "y": 25
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "packaging-to-burn-in",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "burn-in-to-customer-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 7,
+        "y": 27
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "burn-in-to-customer",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "burn-in-to-customer-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 1,
+        "y": 27
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "burn-in-to-customer",
         "stage": "unloader",
         "distance": 1
       }
@@ -952,14 +1115,14 @@
       }
     },
     {
-      "id": "inspection-to-wafer-sort",
+      "id": "inspection-to-packaging",
       "from": {
         "device": "inspection-1",
         "port": "pass-output"
       },
       "to": {
-        "device": "wafer-sort-boundary",
-        "port": "input"
+        "device": "packaging-1",
+        "port": "wafer-input"
       },
       "resources": [
         "qualified-dram-wafer-lot"
@@ -988,45 +1151,186 @@
         {
           "x": 11,
           "y": 21
-        },
-        {
-          "x": 10,
-          "y": 21
-        },
-        {
-          "x": 10,
-          "y": 22
-        },
-        {
-          "x": 9,
-          "y": 22
-        },
-        {
-          "x": 8,
-          "y": 22
-        },
-        {
-          "x": 7,
-          "y": 22
-        },
-        {
-          "x": 7,
-          "y": 21
-        },
-        {
-          "x": 7,
-          "y": 20
         }
       ],
       "logistics": {
         "loader": {
-          "device": "inspection-to-wafer-sort-loader"
+          "device": "inspection-to-packaging-loader"
         },
         "line": {
           "deviceAsset": "conveyor"
         },
         "unloader": {
-          "device": "inspection-to-wafer-sort-unloader"
+          "device": "inspection-to-packaging-unloader"
+        }
+      }
+    },
+    {
+      "id": "substrate-receiving-to-packaging",
+      "from": {
+        "device": "substrate-receiving",
+        "port": "output"
+      },
+      "to": {
+        "device": "packaging-1",
+        "port": "substrate-input"
+      },
+      "resources": [
+        "dram-package-substrate"
+      ],
+      "path": [
+        {
+          "x": 3,
+          "y": 20
+        },
+        {
+          "x": 4,
+          "y": 20
+        },
+        {
+          "x": 4,
+          "y": 21
+        },
+        {
+          "x": 5,
+          "y": 21
+        },
+        {
+          "x": 6,
+          "y": 21
+        },
+        {
+          "x": 7,
+          "y": 21
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "substrate-receiving-to-packaging-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "substrate-receiving-to-packaging-unloader"
+        }
+      }
+    },
+    {
+      "id": "packaging-to-burn-in",
+      "from": {
+        "device": "packaging-1",
+        "port": "package-output"
+      },
+      "to": {
+        "device": "burn-in-1",
+        "port": "package-input"
+      },
+      "resources": [
+        "packaged-dram-device"
+      ],
+      "path": [
+        {
+          "x": 9,
+          "y": 23
+        },
+        {
+          "x": 9,
+          "y": 24
+        },
+        {
+          "x": 9,
+          "y": 25
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "packaging-to-burn-in-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "packaging-to-burn-in-unloader"
+        }
+      }
+    },
+    {
+      "id": "burn-in-to-customer",
+      "from": {
+        "device": "burn-in-1",
+        "port": "tested-output"
+      },
+      "to": {
+        "device": "memory-customer",
+        "port": "input"
+      },
+      "resources": [
+        "tested-dram-device"
+      ],
+      "path": [
+        {
+          "x": 7,
+          "y": 27
+        },
+        {
+          "x": 6,
+          "y": 27
+        },
+        {
+          "x": 5,
+          "y": 27
+        },
+        {
+          "x": 4,
+          "y": 27
+        },
+        {
+          "x": 4,
+          "y": 28
+        },
+        {
+          "x": 4,
+          "y": 29
+        },
+        {
+          "x": 3,
+          "y": 29
+        },
+        {
+          "x": 2,
+          "y": 29
+        },
+        {
+          "x": 1,
+          "y": 29
+        },
+        {
+          "x": 0,
+          "y": 29
+        },
+        {
+          "x": 0,
+          "y": 28
+        },
+        {
+          "x": 0,
+          "y": 27
+        },
+        {
+          "x": 1,
+          "y": 27
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "burn-in-to-customer-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "burn-in-to-customer-unloader"
         }
       }
     },

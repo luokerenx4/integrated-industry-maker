@@ -1,11 +1,11 @@
 {
   "version": 1,
   "id": "cleanroom",
-  "name": "DRAM Front-End Cleanroom",
+  "name": "DRAM Integrated Fab",
   "regions": [
     {
       "id": "cleanroom",
-      "name": "Memory Fab Cleanroom",
+      "name": "Memory Fab Industrial Zone",
       "kind": "industrial-zone",
       "coordinates": {
         "x": 0,
@@ -14,7 +14,7 @@
       },
       "bounds": {
         "width": 40,
-        "height": 30
+        "height": 32
       }
     }
   ],

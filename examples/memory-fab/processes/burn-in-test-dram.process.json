@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "burn-in-test-dram",
+  "name": "Burn in and final-test packaged DRAM devices",
+  "description": "Runs one eight-device package batch through evaluator-visible burn-in and final electrical test before customer delivery.",
+  "category": "final-test",
+  "tags": [
+    "dram",
+    "back-end",
+    "burn-in",
+    "final-test",
+    "batch"
+  ],
+  "durationTicks": 20000,
+  "inputs": [
+    {
+      "resource": "packaged-dram-device",
+      "count": 8
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "tested-dram-device",
+      "count": 8
+    }
+  ]
+}

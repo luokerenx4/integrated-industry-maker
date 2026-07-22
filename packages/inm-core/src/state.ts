@@ -11,6 +11,7 @@ export type FactoryStateMutation =
   | { kind: "lot.depart"; lotIds: string[]; device: string; buffer: string; nextStatus: "processing" | "transport"; nextLocation: { kind: "device"; device: string } | { kind: "transit"; transit: string } }
   | { kind: "lot.arrive"; lotIds: string[]; device: string; buffer: string; resource: string; treatmentLevel?: number }
   | { kind: "lot.route-advance"; lotIds: string[]; route: string; fromStep: string; toStep: string | null; terminal: "complete" | "scrap" | null }
+  | { kind: "lot.terminate"; lotIds: string[]; device: string; route: string; fromStep: string; terminal: "complete" | "scrap"; reason: string }
   | { kind: "lot.route-start"; lotId: string; route: string; step: string; queueTicks: Tick; violated: boolean }
   | { kind: "lot.complete"; lotIds: string[]; device: string; buffer: string }
   | { kind: "lot.scrap"; lotIds: string[]; device: string; reason: string }
@@ -192,6 +193,27 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
           if (visits > 1) lot.route.reentrantTransitions += 1;
           lot.route.visits[mutation.toStep] = visits;
         }
+      }
+      return;
+    }
+    case "lot.terminate": {
+      for (const id of mutation.lotIds) {
+        const lot = state.lots[id];
+        if (!lot) throw new Error(`Unknown lot '${id}'`);
+        if (lot.status !== "processing" || lot.location.kind !== "device" || lot.location.device !== mutation.device) {
+          throw new Error(`Lot '${id}' is not processing on ${mutation.device}`);
+        }
+        if (lot.route.id !== mutation.route || lot.route.step !== mutation.fromStep || lot.route.terminal) {
+          throw new Error(`Lot '${id}' is not at Route step '${mutation.route}/${mutation.fromStep}'`);
+        }
+        lot.route.completedSteps += 1;
+        lot.route.step = null;
+        lot.route.terminal = mutation.terminal;
+        lot.route.stepEnteredAtTick = null;
+        if (mutation.terminal === "complete") {
+          setLotStatus(lot, state.tick, "completed", { kind: "completed", device: mutation.device });
+          lot.completedAtTick = state.tick;
+        } else setLotStatus(lot, state.tick, "scrapped", { kind: "scrapped", device: mutation.device, reason: mutation.reason });
       }
       return;
     }

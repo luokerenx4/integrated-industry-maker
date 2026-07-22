@@ -92,7 +92,7 @@ Splitting presentation and execution from identity is intentional. Catalog tools
 
 A Resource asset describes a kind of flow. Runtime quantities are `(resource id, integer count)` values held in named device buffers or in transit. `unit.kind: continuous` and non-zero precision reserve the file contract for continuous resources; the current engine executes integer quantities only.
 
-An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family": "dram-wafer", "route": "dram-front-end" }`. Every route-stage Resource for the same physical lot uses the same family and project-local Route. Tracked Resources must be discrete and must be transformed one-for-one by Processes; their ids, priorities, due dates, locations, elapsed-state clocks, and explicit Route state survive Resource changes. See [[docs/design/lot-tracking]] and [[docs/design/product-routes]].
+An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family": "dram-wafer", "route": "dram-front-end" }`. Every route-stage Resource for the same physical lot uses the same family and project-local Route. Tracked Resources must be discrete. They are normally transformed one-for-one; an explicit terminating Process may instead end the source lot while producing untracked outputs. Their ids, priorities, due dates, locations, elapsed-state clocks, and explicit Route state survive until that boundary. See [[docs/design/lot-tracking]], [[docs/design/product-routes]], and [[docs/design/industrial-boundaries]].
 
 ## Routes
 
@@ -119,7 +119,7 @@ An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family":
 }
 ```
 
-Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Optional `queueTime` fixes the maximum elapsed ticks from entering the step to actual Device-job start and the deterministic defects added when it is exceeded. Its clock includes physical transport, batching, setup, maintenance, power and equipment waiting. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Scenario lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]].
+Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). A step may instead have no transitions only when every qualified operation explicitly terminates the tracked lot. Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Optional `queueTime` fixes the maximum elapsed ticks from entering the step to actual Device-job start and the deterministic defects added when it is exceeded. Its clock includes physical transport, batching, setup, maintenance, power and equipment waiting. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Scenario lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]] and [[docs/design/industrial-boundaries]].
 
 A combustible Resource declares how much energy one unit contains. The value is an integer number of millijoules and is consumed only through a fuel generator's compiled generation job:
 
@@ -467,6 +467,8 @@ Processes are project-local data, not shared assets. `processes/smelt-iron.proce
 
 The filename must match `id`; every resource is compiler-resolved. Inputs and outputs may each contain multiple distinct Resources. Optional `tooling` declares discrete, non-lot reusable Resources reserved from a placed `toolingProvider` for the entire physical job and returned on completion; it is not a consumed recipe input. A tooling provider owns an input-only inventory buffer, a service radius, and mandatory asset-bundled `stock`; each placed instance purchases that complete stock package as part of its Device build cost. Scenarios cannot inject free provider stock. Optional `utilities` declares named integer facility-capacity demands such as high vacuum or hazardous exhaust. Utilities are neither Resources nor inventories: the compiler resolves in-range providers and the runtime acquires all demands atomically before consuming material, holds them through power pauses, then releases them on completion or immediately when equipment failure cancels the process. Optional `setupGroup` names retained equipment state; switching a setup-sensitive Device to a different group creates a separate powered changeover job. Optional `quality` makes a one-lot Process an inspection or selective rework operation. A blueprint `recipe` selects one Process for a dedicated Device; `recipes` qualifies several Process/mode operations on a shared work center. Every entry explicitly maps each declared material Resource to one of the Device's permitted input/output ports. The compiler rejects missing, extra, incompatible, duplicate, or unknown bindings before producing exact buffer-bound plans. Process content has its own catalog hash and therefore invalidates cached runs when changed. See [[docs/design/reusable-production-tooling]], [[docs/design/fab-facility-utilities]], [[docs/design/equipment-changeover]], and [[docs/design/quality-flow]].
 
+`lotTermination: { "terminal": "complete" | "scrap" }` declares that a Process consumes one tracked input kind, produces no tracked output, and ends the source Route after successful work; ordinary untracked inputs and outputs continue normally. It cannot be combined with inspection or rework. See [[docs/design/industrial-boundaries]].
+
 An inspection declares a normal pass output in `outputs` plus alternate rework and optional scrap Resources:
 
 ```json
@@ -707,6 +709,9 @@ Initial quantities address device and buffer explicitly:
   "lotReleases": [
     { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "releaseTick": 0, "priority": 10, "dueTick": 90000 }
   ],
+  "materialDeliveries": [
+    { "id": "substrates-01", "device": "substrate-receiving", "buffer": "storage", "resource": "dram-package-substrate", "count": 8, "releaseTick": 0 }
+  ],
   "initialSetups": { "lithography-1": "photo-mask-l1" },
   "qualityExcursions": [
     { "id": "cd-lot-03", "process": "etch-cell-layer-2", "lot": "dram-lot-03", "defects": ["critical-dimension"] }
@@ -745,6 +750,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `lotReleases` is the only Scenario entry path for tracked Resources. Each lot id is unique and names its release Device/buffer/Resource, required absolute `releaseTick`, optional integer priority, and optional due tick. A scheduled lot exists as identity but occupies no factory buffer or WIP before its release tick. Target-rate planning credits the authored count as evaluator-owned external supply over the Scenario horizon; it cannot be edited by a candidate Blueprint. Admission waits when the target buffer or Resource quota is full or when the Blueprint CONWIP controller is closed, so simulation still owns actual release time, delay, blocking cause, and controller state. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `lotReleases`, duplicate identities, incompatible buffers, releases outside the Scenario, due dates before release, and buffers unable to hold one lot. See [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], and [[docs/design/fab-capacity-planning]].
 
+`materialDeliveries` is the scheduled entry path for purchased, untracked materials. Each unique delivery id names a placed receiving Device/buffer, Resource, positive atomic count, and absolute `releaseTick`. A due shipment waits outside the plant until the complete count fits, emits `material.delivered` with its delay, and must then use ordinary physical transport. Capacity planning credits its count as fixed external supply. The compiler rejects tracked Resources, incompatible buffers, duplicate ids, oversized atomic deliveries, and arrivals after Scenario end. See [[docs/design/industrial-boundaries]] and [[docs/design/fab-capacity-planning]].
+
 `initialSetups` maps setup-sensitive Device ids to qualified Process setup groups at tick zero. An omitted Device starts unconfigured and must perform a first changeover when ready WIP arrives. Scenario setup is fixed benchmark input; a candidate Blueprint cannot edit the physical starting state.
 
 `qualityExcursions` is fixed deterministic benchmark workload. Each unique id names one initial lot, one Process, and one or more latent defect classes. The excursion is applied once when that lot first completes the Process. It is not a random seed or probability: every candidate Blueprint receives the same named quality challenge.
@@ -756,6 +763,7 @@ Capacity planning integrates these curves against the Objective-derived constant
   "targetResource": "gear",
   "targetRegion": "assembly-zone",
   "targetRatePerMinute": 12,
+  "trackedFamily": "dram-wafer",
   "constraints": { "maxBuildCost": 20000, "maxOccupiedArea": 64, "minProduction": 5 },
   "weights": {
     "throughput": 10,
@@ -773,6 +781,8 @@ Capacity planning integrates these curves against the Objective-derived constant
   }
 }
 ```
+
+Optional `trackedFamily` lets an untracked finished-good target retain work-order WIP, quality, due-date, cycle-time, and tardiness evaluation from a declared tracked family; throughput and minimum production still count the finished Resource. See [[docs/design/industrial-boundaries]].
 
 `targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by all Scenario-scheduled lots, so blocked or delayed admission cannot improve service by withholding work. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 

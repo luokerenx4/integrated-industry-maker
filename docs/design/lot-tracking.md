@@ -1,8 +1,8 @@
 # Identity-preserving industrial lots
 
-Status: explicit WIP identity, scheduled and controlled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, and cycle-time evaluation implemented through engine version `inm-sim/0.53.0`.
+Status: explicit WIP identity, scheduled and controlled release, due-date dispatch, setup-aware queueing, fixed batch membership, quality state, Process-owned route termination, and cycle-time evaluation implemented through engine version `inm-sim/0.66.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/industrial-boundaries]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
 ## Why identity is industrial state
 
@@ -12,7 +12,7 @@ A Resource opts into identity with `tracking: { kind: "lot", family }`. Differen
 
 ## Compile-time contract
 
-Tracked Resources must be discrete. Every Process that touches a tracked family transforms exactly one tracked input Resource into exactly one tracked output Resource with an equal count. A production mode must preserve that equality after applying `inputCycles` and `outputCycles`. Tracked Resources cannot be auxiliary inputs, fuels, or fungible world deposits.
+Tracked Resources must be discrete. An identity-preserving Process transforms exactly one tracked input Resource into exactly one tracked output Resource with an equal count. A production mode must preserve that equality after applying `inputCycles` and `outputCycles`. Alternatively, a Process with explicit `lotTermination` consumes one tracked input kind, produces only untracked Resources, and ends the source Route. Tracked Resources cannot be auxiliary inputs, fuels, or fungible world deposits.
 
 Scenario work is declared through `lotReleases`, never by placing a tracked Resource count in `initialBuffers`. Every entry names a stable kebab-case id, Device, buffer, current Resource, required planned release tick, optional integer priority, and optional due tick. Compilation checks identity uniqueness, Resource tracking, physical buffer acceptance, horizon, and one-lot capacity. A Blueprint may then gate eligible identities through [[docs/design/wip-release-control]] without editing Scenario workload. See [[docs/design/lot-release-scheduling]].
 
@@ -29,7 +29,7 @@ queued buffer → transport → queued buffer → processing
               scrapped on an interrupted equipment job or terminal quality disposition
 ```
 
-Physical belt and station transits carry exact lot ids. A production start removes selected ids from the input buffer and holds them on the active Device job. Completion changes their Resource to the compiled output stage, increments `routeStep`, and queues the same ids in the output buffer. A boundary consumer marks them completed. An equipment breakdown that cancels an active job marks its held identities `scrapped` rather than leaving invisible WIP. `lot.completed` and `lot.scrapped` expose both outcomes in the immutable event stream.
+Physical belt and station transits carry exact lot ids. A production start removes selected ids from the input buffer and holds them on the active Device job. Completion normally changes their Resource to the compiled output stage, increments the Route step, and queues the same ids in the output buffer. A terminating Process instead completes or scraps the held work order after producing its untracked outputs. A boundary consumer may still complete a tracked terminal Resource. An equipment breakdown that cancels an active job marks its held identities `scrapped` rather than leaving invisible WIP. `lot.route-terminated`, `lot.completed`, and `lot.scrapped` expose the outcomes in the immutable event stream.
 
 For every completed lot, this conservation invariant holds:
 
@@ -50,13 +50,13 @@ Shared work-center `recipeDispatch` also accepts `oldest-lot`, `earliest-due-dat
 
 ## Evaluation
 
-For the Objective target Resource's tracked family, runtime metrics report scheduled/released/pending/completed/scrapped/in-progress lots, release cadence and admission delay, on-time count, mean/p95/maximum cycle time, mean queue/process/transport time, and mean/maximum tardiness. `onTimeDelivery` becomes on-time completed lots divided by scheduled lots, so delayed admission, in-progress, and scrapped work remain in the denominator. Untracked Objectives retain rate-attainment semantics.
+For the Objective target Resource's tracked family, or an explicit Objective `trackedFamily`, runtime metrics report scheduled/released/pending/completed/scrapped/in-progress lots, release cadence and admission delay, on-time count, mean/p95/maximum cycle time, mean queue/process/transport time, and mean/maximum tardiness. `onTimeDelivery` becomes on-time completed lots divided by scheduled lots, so delayed admission, in-progress, and scrapped work remain in the denominator. An untracked finished-good Objective can therefore use product throughput while retaining source work-order service and quality metrics. Untracked Objectives without `trackedFamily` retain rate-attainment semantics.
 
 Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean minute. Throughput, WIP, energy, build cost, area, and blocking remain simultaneous terms, so a Coding Agent cannot improve due-date service by silently ignoring factory economics.
 
 ## Current boundary
 
-Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity is preserved, but the route itself is still represented by explicit stage Resources and Processes rather than one declarative route sheet. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]], and usage-based equipment maintenance is explicit in [[docs/design/usage-based-maintenance]]. Partial/timeout batches, chamber cleaning, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
+Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity and a declarative Route sheet are explicit. Conversion from a tracked route into fungible downstream products is modeled through [[docs/design/industrial-boundaries]]. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]], and usage-based equipment maintenance is explicit in [[docs/design/usage-based-maintenance]]. Partial/timeout batches, chamber cleaning, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
 
 ## Verification
 

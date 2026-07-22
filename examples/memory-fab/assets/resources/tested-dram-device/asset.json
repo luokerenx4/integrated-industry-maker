@@ -1,0 +1,23 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "tested-dram-device",
+  "name": "Tested DRAM Device",
+  "description": "Finished DRAM device that passed package burn-in and final electrical test.",
+  "tags": [
+    "semiconductor",
+    "memory",
+    "finished-good"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "device",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 32
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

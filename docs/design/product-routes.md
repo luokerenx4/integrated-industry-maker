@@ -1,8 +1,8 @@
 # Product routes
 
-Status: explicit project-local product-route state machines implemented in `inm-sim/0.57.0`.
+Status: explicit project-local product-route state machines, including terminating conversion operations, implemented in `inm-sim/0.66.0`.
 
-Related: [[docs/design/lot-tracking]], [[docs/design/work-center-dispatch]], [[docs/design/quality-flow]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/lot-tracking]], [[docs/design/industrial-boundaries]], [[docs/design/work-center-dispatch]], [[docs/design/quality-flow]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Boundary
 
@@ -17,9 +17,9 @@ Each Route has one entry step and one or more named steps. A step declares:
 - one or more qualified Process ids;
 - an optional evaluator-owned Q-time window and deterministic violation defects;
 - every tracked Resource that those Processes can actually output;
-- either the next step or a `complete` / `scrap` terminal for each output.
+- either the next step or a `complete` / `scrap` terminal for each tracked output; or no transitions when every operation explicitly terminates the tracked lot.
 
-This is a graph rather than a flat list. The memory-fab Route uses a final-inspection rejection transition into rework, then returns to final inspection. Batch anneal and rapid anneal are alternative operations at the same step. Pass and scrap are terminal transitions.
+This is a graph rather than a flat list. The memory-fab Route uses a final-inspection rejection transition into rework, then returns to final inspection. Batch anneal and rapid anneal are alternative operations at the same step. Scrap is a terminal transition, while the pass branch continues into dicing/packaging; that Process explicitly completes the source wafer work order as it creates ordinary packaged devices.
 
 The compiler rejects unknown or duplicated operations, missing output transitions, input Resources that cannot enter a step, unreachable steps, unknown next steps, family/Route mismatches, Routes without a complete terminal, tracked Processes not owned by a Route step, and intermediate-Resource Scenario releases.
 
@@ -27,7 +27,7 @@ The compiler rejects unknown or duplicated operations, missing output transition
 
 Every WorkLot records its Route id, current step, visit counts, completed transition count, re-entrant transition count, and terminal disposition. Process readiness counts only identities whose current step allows that exact Process. A physically present but out-of-sequence lot therefore leaves the Device waiting for eligible input instead of being silently transformed.
 
-Successful production resolves the actual tracked output, advances the same lot identities through the declared transition, and emits `lot.route-advanced`. Inspection rework and scrap decisions use the actual disposition Resource. Delivery is legal only after a `complete` terminal; discard is legal only after a `scrap` terminal.
+Successful identity-preserving production resolves the actual tracked output, advances the same lot identities through the declared transition, and emits `lot.route-advanced`. Successful terminating production emits `lot.route-terminated`, completes or scraps the held ids, and leaves only untracked Process outputs downstream. Inspection rework and scrap decisions use the actual disposition Resource. Delivery is legal only after a `complete` terminal; discard is legal only after a `scrap` terminal.
 
 ## Q-time windows
 

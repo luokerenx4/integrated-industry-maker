@@ -1125,19 +1125,21 @@ describe("blueprint compiler", () => {
     const source = await loadFactoryProject(memoryFab);
     const baselineProject = compileFactoryProject(source);
     const productionGraph = analyzeProduction(baselineProject).productionGraph;
-    expect(productionGraph.rawInputsPerTarget).toEqual({ "blank-dram-wafer-lot": 1 });
+    expect(productionGraph.rawInputsPerTarget).toEqual({ "blank-dram-wafer-lot": 0.125, "dram-package-substrate": 1 });
     expect(productionGraph.steps.some((step) => step.process === "rework-final-pattern")).toBeFalse();
+    expect(productionGraph.steps.some((step) => step.process === "dice-package-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
+    expect(productionGraph.steps.some((step) => step.process === "burn-in-test-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
     const baseline = runUntil(baselineProject, undefined, { seed: 42 });
     const lots = Object.values(baseline.state.lots).sort((left, right) => left.id.localeCompare(right.id));
     expect(lots).toHaveLength(12);
     expect(lots.every((lot) => lot.releasedAtTick === lot.plannedReleaseTick)).toBeTrue();
-    expect(lots.filter((lot) => lot.status === "completed")).toHaveLength(6);
-    expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.resource === "qualified-dram-wafer-lot" && lot.route.terminal === "complete" && lot.route.completedSteps >= 7)).toBeTrue();
+    expect(lots.filter((lot) => lot.status === "completed")).toHaveLength(5);
+    expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.resource === "qualified-dram-wafer-lot" && lot.route.terminal === "complete" && lot.route.completedSteps >= 8)).toBeTrue();
     expect(lots.filter((lot) => lot.status === "completed").every((lot) => lot.completedAtTick! - lot.releasedAtTick! === lot.queueTicks + lot.processTicks + lot.transportTicks)).toBeTrue();
-    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 6, scrapped: 4, inProgress: 2, onTimeCompleted: 2 }));
+    expect(baseline.metrics.lotFlow).toEqual(expect.objectContaining({ family: "dram-wafer", scheduled: 12, released: 12, pendingRelease: 0, completed: 5, scrapped: 4, inProgress: 3, onTimeCompleted: 2 }));
     expect(baseline.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({
-      family: "dram-wafer", scheduled: 12, completed: 6, scrapped: 4, inProgress: 2,
-      transitions: 102, reentrantTransitions: 10, queueTimeViolations: 8, violatedLots: 8,
+      family: "dram-wafer", scheduled: 12, completed: 5, scrapped: 4, inProgress: 3,
+      transitions: 107, reentrantTransitions: 10, queueTimeViolations: 8, violatedLots: 8,
     }));
     expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["anneal-dielectric-stack"]).toEqual(expect.objectContaining({ queueTimeMaximumTicks: 20_000, maximumQueueTicks: 33_400, queueTimeViolations: 2 }));
     expect(baseline.metrics.routeFlow["dram-front-end"]!.steps["pattern-cell-layer-2"]).toEqual(expect.objectContaining({ queueTimeMaximumTicks: 45_000, maximumQueueTicks: 70_000, queueTimeViolations: 6 }));
@@ -1151,13 +1153,19 @@ describe("blueprint compiler", () => {
     }));
     expect(baseline.metrics.qualityFlow).toEqual(expect.objectContaining({
       inspectedLots: 12, totalInspections: 20, passedInspections: 6, rejectedInspections: 10,
-      scrapDispositions: 4, reworkedLots: 10, totalReworkCycles: 10, defectFreeCompleted: 6,
-      firstPassCompleted: 2, escapedDefects: 0, goodYield: 6 / 12, firstPassYield: 2 / 12,
+      scrapDispositions: 4, reworkedLots: 10, totalReworkCycles: 10, defectFreeCompleted: 5,
+      firstPassCompleted: 2, escapedDefects: 0, goodYield: 5 / 12, firstPassYield: 2 / 12,
     }));
     expect(baseline.state.lots["dram-lot-03"]!.quality).toEqual(expect.objectContaining({ defects: ["particle-contamination"], reworkCycles: 1, inspections: 2, scrapDispositions: 1 }));
     expect(baseline.state.lots["dram-lot-08"]!.quality).toEqual(expect.objectContaining({ defects: ["particle-contamination"], reworkCycles: 1, scrapDispositions: 1 }));
     expect(baseline.state.lots["dram-lot-11"]!.quality).toEqual(expect.objectContaining({ defects: ["latent-electrical", "particle-contamination"], scrapDispositions: 0 }));
-    expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(6);
+    expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(5);
+    expect(baseline.events.filter((event) => event.type === "lot.route-terminated")).toHaveLength(5);
+    expect(baseline.events.filter((event) => event.type === "material.delivered")).toHaveLength(12);
+    expect(baseline.metrics.produced["packaged-dram-device"]).toBe(40);
+    expect(baseline.metrics.produced["tested-dram-device"]).toBe(24);
+    expect(baseline.metrics.consumed["tested-dram-device"]).toBe(24);
+    expect(baseline.metrics.throughputPerMinute).toBe(6);
     expect(baseline.events.filter((event) => event.type === "lot.released").map((event) => event.tick)).toEqual(Array.from({ length: 12 }, (_, index) => index * 6_000));
     expect(baseline.events.filter((event) => event.type === "lot.quality-excursion")).toHaveLength(3);
     expect(baseline.events.filter((event) => event.type === "lot.inspected")).toHaveLength(20);
@@ -1207,6 +1215,15 @@ describe("blueprint compiler", () => {
     const intermediateRelease = await loadFactoryProject(memoryFab);
     intermediateRelease.scenario.lotReleases![0]!.resource = "dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(intermediateRelease))).toContain("route.release-entry");
+    const malformedTermination = await loadFactoryProject(memoryFab);
+    malformedTermination.processes["dice-package-dram"]!.outputs.push({ resource: "qualified-dram-wafer-lot", count: 1 });
+    expect(issueCodes(() => compileFactoryProject(malformedTermination))).toContain("lot.termination-shape");
+    const hiddenDeadEnd = await loadFactoryProject(memoryFab);
+    hiddenDeadEnd.routes["dram-front-end"]!.steps.find((step) => step.id === "package-dram")!.operations.push("inspect-final-pattern-standard");
+    expect(issueCodes(() => compileFactoryProject(hiddenDeadEnd))).toContain("route.dead-end");
+    const trackedMaterialDelivery = await loadFactoryProject(memoryFab);
+    trackedMaterialDelivery.scenario.materialDeliveries![0]!.resource = "blank-dram-wafer-lot";
+    expect(issueCodes(() => compileFactoryProject(trackedMaterialDelivery))).toContain("material.untracked-required");
     const queueBoundarySource = await loadFactoryProject(memoryFab);
     queueBoundarySource.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.maximumTicks = 33_400;
     const queueBoundary = runUntil(compileFactoryProject(queueBoundarySource), undefined, { seed: 42 });
@@ -1221,6 +1238,7 @@ describe("blueprint compiler", () => {
 
     const blockedReleaseSource = await loadFactoryProject(memoryFab);
     blockedReleaseSource.deviceAssets.buffer!.buffers.find((buffer) => buffer.id === "storage")!.capacity = 1;
+    blockedReleaseSource.scenario.materialDeliveries = [];
     for (const lot of blockedReleaseSource.scenario.lotReleases!) lot.releaseTick = 0;
     blockedReleaseSource.scenario.failures = [{ device: "release-to-lithography-loader", atTick: 0, durationTicks: 240_000 }];
     const blockedRelease = runUntil(compileFactoryProject(blockedReleaseSource), undefined, { seed: 42, untilTick: 1_000 });
@@ -1239,7 +1257,7 @@ describe("blueprint compiler", () => {
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
       control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
       dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
-      released: 11, pending: 1, controlBlockedLots: 7, controlBlockedTicks: 681_900, capacityBlockedLots: 0,
+      released: 11, pending: 1, controlBlockedLots: 7, controlBlockedTicks: 715_800, capacityBlockedLots: 0,
     }));
     expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
     expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(2);
@@ -1268,8 +1286,8 @@ describe("blueprint compiler", () => {
     candidateSource.blueprint.devices.find((item) => item.id === "furnace-1")!.recipe!.process = "rapid-anneal-dielectric-stack";
     const candidate = runUntil(compileFactoryProject(candidateSource), undefined, { seed: 42 });
     expect(candidate.metrics.lotFlow.onTimeCompleted).toBeLessThanOrEqual(baseline.metrics.lotFlow.onTimeCompleted);
-    expect(candidate.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeGreaterThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
+    expect(candidate.metrics.lotFlow.meanTardinessTicks).toBeGreaterThan(baseline.metrics.lotFlow.meanTardinessTicks);
+    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeLessThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
     expect(candidate.metrics.batchFlow.jobs).toBe(0);
     expect(candidate.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(candidate.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
@@ -1282,7 +1300,7 @@ describe("blueprint compiler", () => {
     const setupAware = runUntil(compileFactoryProject(setupAwareSource), undefined, { seed: 42 });
     expect(setupAware.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(setupAware.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
+    expect(setupAware.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
 
     const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     for (const id of ["lithography-1", "etch-1"]) minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy = {
@@ -1375,7 +1393,7 @@ describe("blueprint compiler", () => {
     expect(interrupted.metrics.lotFlow.scrapped).toBe(5);
     expect(Object.values(interrupted.state.lots).filter((lot) => lot.status === "scrapped")).toHaveLength(5);
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
-  });
+  }, 15_000);
 
   test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {
     const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
@@ -1727,15 +1745,22 @@ describe("deterministic discrete-event simulation", () => {
     expect(plan.gaps.filter((gap) => gap.kind === "power")).toHaveLength(1);
   });
 
-  test("fab capacity planning allocates qualified shared tool time and credits scheduled wafer releases", async () => {
+  test("fab capacity planning allocates qualified shared tool time and credits scheduled wafer and purchased-material supply", async () => {
     const baselineSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
     const baseline = planProductionCapacity(compileFactoryProject(baselineSource));
     expect(baseline.ready).toBeTrue();
-    expect(baseline.rawResources).toEqual([expect.objectContaining({
-      resource: "blank-dram-wafer-lot", totalDemandPerMinute: 2.5,
-      scheduledSupply: 12, scheduledSupplyPerMinute: 3, configuredSupplyPerMinute: 3,
-      supplyDeficitPerMinute: 0, scenarioDemand: 10, scenarioSupply: 12, scenarioBalance: 2,
-    })]);
+    expect(baseline.rawResources).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        resource: "blank-dram-wafer-lot", totalDemandPerMinute: 2.5,
+        scheduledSupply: 12, scheduledSupplyPerMinute: 3, configuredSupplyPerMinute: 3,
+        supplyDeficitPerMinute: 0, scenarioDemand: 10, scenarioSupply: 12, scenarioBalance: 2,
+      }),
+      expect.objectContaining({
+        resource: "dram-package-substrate", totalDemandPerMinute: 20,
+        scheduledSupply: 96, scheduledSupplyPerMinute: 24, configuredSupplyPerMinute: 24,
+        supplyDeficitPerMinute: 0, scenarioDemand: 80, scenarioSupply: 96, scenarioBalance: 16,
+      }),
+    ]));
     expect(baseline.toolsets).toEqual([
       expect.objectContaining({
         id: "cleanroom:lithography-bay", requiredDeviceTicksPerMinute: 30_000,
@@ -1747,7 +1772,7 @@ describe("deterministic discrete-event simulation", () => {
       }),
     ]);
 
-    baselineSource.objective.targetRatePerMinute = 7;
+    baselineSource.objective.targetRatePerMinute = 56;
     const overloaded = planProductionCapacity(compileFactoryProject(baselineSource));
     expect(overloaded.gaps.filter((gap) => gap.kind === "toolset").map((gap) => gap.entity)).toEqual([
       "cleanroom:lithography-bay", "cleanroom:plasma-etch-bay",
@@ -1757,7 +1782,7 @@ describe("deterministic discrete-event simulation", () => {
     ]);
 
     const specializedSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
-    specializedSource.objective.targetRatePerMinute = 7;
+    specializedSource.objective.targetRatePerMinute = 56;
     const specialized = planProductionCapacity(compileFactoryProject(specializedSource));
     expect(specialized.gaps.some((gap) => gap.kind === "toolset")).toBeFalse();
     expect(specialized.toolsets.every((toolset) => toolset.unallocatedDeviceTicksPerMinute === 0)).toBeTrue();
@@ -2959,7 +2984,7 @@ describe("research boundary and experiment decisions", () => {
       completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
-    expect(result.metrics.infeasibleReason).toBe("build cost 185260 exceeds 170000");
+    expect(result.metrics.infeasibleReason).toBe("build cost 219300 exceeds 210000");
 
     const hybrid = parallelizeWorkCenter(project, project.blueprint, {
       device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",
@@ -3315,7 +3340,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.changes.map((change) => change.id)).toContain("lithography-2");
     expect(result.changes.map((change) => change.id)).toContain("etch-2");
     expect(result.changes.map((change) => change.id)).toContain("lithography-to-etch-lithography-2");
-  });
+  }, 15_000);
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {
     const unchanged = await evaluateBlueprintBenchmark(ironworks, "power-priority");

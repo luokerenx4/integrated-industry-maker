@@ -45,6 +45,7 @@ export const processSchema = z.object({
     }).strict(),
     z.object({ kind: z.literal("rework"), repairs: z.array(id).min(1) }).strict(),
   ]).optional(),
+  lotTermination: z.object({ terminal: z.enum(["complete", "scrap"]) }).strict().optional(),
   durationTicks: positiveInt, inputs: z.array(processAmountSchema), tooling: z.array(processAmountSchema).min(1).optional(),
   utilities: z.array(utilityDemandSchema).min(1).optional(), outputs: z.array(processAmountSchema).min(1),
 }).strict();
@@ -56,7 +57,7 @@ export const routeSchema = z.object({
     id, name: z.string().min(1), operations: z.array(id).min(1),
     queueTime: z.object({ maximumTicks: positiveInt, violationDefects: z.array(id).min(1) }).strict().optional(),
     transitions: z.array(z.object({ resource: id, to: id.optional(), terminal: z.enum(["complete", "scrap"]).optional() }).strict()
-      .refine((transition) => Number(transition.to !== undefined) + Number(transition.terminal !== undefined) === 1, "transition must declare exactly one of to or terminal")).min(1),
+      .refine((transition) => Number(transition.to !== undefined) + Number(transition.terminal !== undefined) === 1, "transition must declare exactly one of to or terminal")),
   }).strict()).min(1),
 }).strict();
 
@@ -256,6 +257,9 @@ export const scenarioSchema = z.object({
     id, device: id, buffer: id, resource: id,
     releaseTick: nonNegativeInt, priority: z.number().int().optional(), dueTick: nonNegativeInt.optional(),
   }).strict()).optional(),
+  materialDeliveries: z.array(z.object({
+    id, device: id, buffer: id, resource: id, count: positiveInt, releaseTick: nonNegativeInt,
+  }).strict()).optional(),
   initialSetups: z.record(id).optional(),
   qualityExcursions: z.array(z.object({
     id, process: id, lot: id, defects: z.array(id).min(1),
@@ -278,6 +282,7 @@ export const scenarioSchema = z.object({
 
 export const objectiveSchema = z.object({
   id, name: z.string().min(1), targetResource: id, targetRegion: id, targetRatePerMinute: z.number().positive(),
+  trackedFamily: id.optional(),
   constraints: z.object({ maxBuildCost: nonNegativeInt.optional(), maxOccupiedArea: nonNegativeInt.optional(), minProduction: nonNegativeInt.optional() }).strict().optional(),
   weights: z.object({
     throughput: z.number(), onTimeDelivery: z.number().optional(), energy: z.number(),

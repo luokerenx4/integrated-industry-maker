@@ -42,10 +42,12 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     + Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.fleets.reduce((fleetSum, fleet) => fleetSum + fleet.asset.economics.buildCost * fleet.count, 0), 0);
   const targetProduced = stats.consumedByRegion[project.objective.targetRegion]?.[project.objective.targetResource] ?? 0;
   const throughputPerMinute = targetProduced * 60_000 / duration;
-  const targetFamily = project.resources[project.objective.targetResource]?.tracking?.family ?? null;
+  const targetFamily = project.objective.trackedFamily ?? project.resources[project.objective.targetResource]?.tracking?.family ?? null;
   const targetLots = targetFamily ? Object.values(state.lots).filter((lot) => lot.family === targetFamily) : [];
   const releasedTargetLots = targetLots.filter((lot) => lot.releasedAtTick !== undefined);
-  const completedTargetLots = releasedTargetLots.filter((lot) => lot.status === "completed" && lot.resource === project.objective.targetResource && lot.completedAtTick !== undefined);
+  const completedTargetLots = releasedTargetLots.filter((lot) => lot.status === "completed"
+    && (project.objective.trackedFamily ? lot.route.terminal === "complete" : lot.resource === project.objective.targetResource)
+    && lot.completedAtTick !== undefined);
   const mean = (values: number[]): number => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   const intervals = (ticks: number[]): number[] => {
     const sorted = [...ticks].sort((a, b) => a - b);

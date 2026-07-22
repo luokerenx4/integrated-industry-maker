@@ -8,13 +8,13 @@
   "assertions": [
     {
       "kind": "metric",
-      "path": "produced.qualified-dram-wafer-lot",
-      "min": 4
+      "path": "produced.tested-dram-device",
+      "min": 16
     },
     {
       "kind": "metric",
       "path": "throughputPerMinute",
-      "min": 1
+      "min": 4
     },
     {
       "kind": "metric",
@@ -209,6 +209,11 @@
     {
       "kind": "event",
       "type": "lot.completed",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "lot.route-terminated",
       "present": true
     },
     {

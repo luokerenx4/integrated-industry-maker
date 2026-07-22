@@ -11,6 +11,7 @@ import { mutateFactoryState } from "./state";
 
 type InternalEvent =
   | { kind: "lot-release"; lotIds: string[] }
+  | { kind: "material-delivery"; deliveryIds: string[] }
   | { kind: "complete"; device: string; generation: number }
   | { kind: "belt-step"; connection: string; transitId: string }
   | { kind: "arrive"; connection: string; transitId: string }
@@ -266,6 +267,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const scheduledDispatchTick: Record<string, number | undefined> = {};
   const scheduledPowerBoundaryTick: Record<string, number | undefined> = {};
   const eligibleLotReleases = new Set<string>();
+  const pendingMaterialDeliveries = new Set<string>();
+  const materialDeliveries = Object.fromEntries((project.scenario.materialDeliveries ?? []).map((delivery) => [delivery.id, delivery]));
   const releasePolicy = project.blueprint.policies.lotRelease;
   const activeLotWip = () => Object.values(state.lots)
     .filter((lot) => lot.releasedAtTick !== undefined && lot.status !== "completed" && lot.status !== "scrapped").length;
@@ -620,6 +623,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const sourceTreatmentLevel = (device: string, buffer: string, resource: string, minimumTreatmentLevel = 0): number | undefined => materialLevels(device, buffer, resource)
     .find(([level]) => level >= minimumTreatmentLevel)?.[0];
   const isTracked = (resource: string): boolean => Boolean(project.resources[resource]?.tracking);
+  const trackedJobLotIds = (job: ActiveDeviceJob): string[] => [
+    ...(job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? []),
+    ...(job.lotTerminations?.flatMap((termination) => termination.lotIds) ?? []),
+  ];
   const rankedLotIds = (device: CompiledDevice, buffer: string, resource: string, treatmentLevel?: number): string[] => {
     const ids = [...(state.devices[device.id]!.lotIds[buffer]?.[resource] ?? [])]
       .filter((id) => treatmentLevel === undefined || state.lots[id]!.treatmentLevel === treatmentLevel);
@@ -1259,9 +1266,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         process: selectedProcessPlan.definition.id, allocations: structuredClone(utilityAllocations),
       });
     }
-    const routeStarts = (selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
-      rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, selectedProcessPlan!.definition.id, transfer.input.minimumTreatmentLevel ?? 0)
-        .slice(0, transfer.input.count).map((id) => routeQueueAssessment(id, selectedProcessPlan!.definition.id)!));
+    const selectedLotInputs = selectedProcessPlan ? [
+      ...selectedProcessPlan.lotTransfers.map((transfer) => transfer.input),
+      ...selectedProcessPlan.lotTerminations.map((termination) => termination.input),
+    ] : [];
+    const routeStarts = selectedLotInputs.flatMap((input) =>
+      rankedProcessLotIds(device, input.buffer, input.resource, selectedProcessPlan!.definition.id, input.minimumTreatmentLevel ?? 0)
+        .slice(0, input.count).map((id) => routeQueueAssessment(id, selectedProcessPlan!.definition.id)!));
     for (const assessment of routeStarts) {
       mutateFactoryState(state, {
         kind: "lot.route-start", lotId: assessment.lotId, route: assessment.route, step: assessment.step,
@@ -1281,15 +1292,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         });
       }
     }
-    const lotQueueWaitAtStart = Object.fromEntries((selectedProcessPlan?.lotTransfers ?? []).flatMap((transfer) =>
-      rankedProcessLotIds(device, transfer.input.buffer, transfer.input.resource, selectedProcessPlan!.definition.id, transfer.input.minimumTreatmentLevel ?? 0)
-        .slice(0, transfer.input.count)
+    const lotQueueWaitAtStart = Object.fromEntries(selectedLotInputs.flatMap((input) =>
+      rankedProcessLotIds(device, input.buffer, input.resource, selectedProcessPlan!.definition.id, input.minimumTreatmentLevel ?? 0)
+        .slice(0, input.count)
         .map((id) => [id, state.lots[id]!.status === "queued" ? state.tick - state.lots[id]!.statusSinceTick : 0])));
     const consumedLots = applyConsume(device, decision.consume, "process", selectedProcessPlan?.definition.id);
     let lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
       lotIds: consumedLots[amountKey(transfer.input)] ?? [],
       output: { ...transfer.output },
     })).filter((transfer) => transfer.lotIds.length) ?? [];
+    const lotTerminations = selectedProcessPlan?.lotTerminations.map((termination) => ({
+      lotIds: consumedLots[amountKey(termination.input)] ?? [], terminal: termination.terminal,
+    })).filter((termination) => termination.lotIds.length) ?? [];
     let actualProduce = structuredClone(decision.produce);
     let quality: ActiveDeviceJob["quality"];
     const processQuality = selectedProcessPlan?.quality;
@@ -1316,6 +1330,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       } } : {}),
       ...(utilityAllocations?.length ? { utilities: structuredClone(utilityAllocations) } : {}),
       ...(lotTransfers.length ? { lotTransfers } : {}),
+      ...(lotTerminations.length ? { lotTerminations } : {}),
       ...(quality ? { quality } : {}),
       ...(selectedProcessPlan && runtime.maintenance ? { production: true as const } : {}),
       ...(equipmentDrift ? { equipmentDrift: {
@@ -1326,12 +1341,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         defects: [...equipmentDrift.defects],
       } } : {}),
     };
-    const jobLotIds = lotTransfers.flatMap((transfer) => transfer.lotIds);
+    const jobLotIds = [...lotTransfers.flatMap((transfer) => transfer.lotIds), ...lotTerminations.flatMap((termination) => termination.lotIds)];
     if (selectedProcessPlan && jobLotIds.length) {
       const key = `${device.id}:${selectedProcessPlan.definition.id}:${selectedProcessPlan.mode.id}`;
       const operation = stats.lotProcessBatches[key] ??= {
         device: device.id, process: selectedProcessPlan.definition.id, mode: selectedProcessPlan.mode.id,
-        expectedLotsPerJob: selectedProcessPlan.lotTransfers.reduce((sum, transfer) => sum + transfer.input.count, 0),
+        expectedLotsPerJob: selectedLotInputs.reduce((sum, input) => sum + input.count, 0),
         jobs: 0, lots: 0, queueWaitTicks: 0, maximumLotsPerJob: 0,
       };
       operation.jobs += 1;
@@ -2006,6 +2021,24 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         if (releasePolicy && activeLotWip() >= releasePolicy.maximumWip) releaseControlChanged = setReleaseControlOpen(false) || releaseControlChanged;
         lotsReleased = true;
       }
+      let materialDelivered = false;
+      for (const id of [...pendingMaterialDeliveries].sort()) {
+        const delivery = materialDeliveries[id]!;
+        const device = project.devices[delivery.device]!;
+        const buffer = device.buffers[delivery.buffer]!;
+        const inventory = state.devices[delivery.device]!.buffers[delivery.buffer]!;
+        const resourceCapacity = buffer.resourceCapacities?.[delivery.resource];
+        if (quantity(inventory) + incomingQuantity(delivery.device, delivery.buffer) + delivery.count > buffer.capacity) continue;
+        if (resourceCapacity !== undefined && (inventory[delivery.resource] ?? 0) + incomingQuantity(delivery.device, delivery.buffer, delivery.resource) + delivery.count > resourceCapacity) continue;
+        mutateFactoryState(state, { kind: "buffer", device: delivery.device, buffer: delivery.buffer, resource: delivery.resource, delta: delivery.count, treatmentLevel: 0 });
+        pendingMaterialDeliveries.delete(id);
+        emit({
+          type: "material.delivered", tick: state.tick, device: delivery.device, buffer: delivery.buffer,
+          delivery: id, resource: delivery.resource, count: delivery.count,
+          plannedReleaseTick: delivery.releaseTick, deliveryDelayTicks: state.tick - delivery.releaseTick,
+        });
+        materialDelivered = true;
+      }
       const evaluationOrder = Object.values(project.devices).sort((a, b) => Number(Boolean(b.generationPlan)) - Number(Boolean(a.generationPlan)) || comparePowerRank(a, b));
       let generationChanged = false;
       for (const device of evaluationOrder.filter((item) => item.generationPlan)) if (tryEvaluate(device)) generationChanged = true;
@@ -2014,7 +2047,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const jobPowerChanged = proportionalPower ? rebalanceProportionalPower() : rebalanceActivePower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
-      changed = releaseControlChanged || lotsReleased || generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
+      changed = releaseControlChanged || lotsReleased || materialDelivered || generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
       for (const device of evaluationOrder.filter((item) => !item.generationPlan)) if (tryEvaluate(device)) changed = true;
     }
     syncPowerAvailability();
@@ -2033,6 +2066,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     releaseGroups.set(lot.releaseTick, group);
   }
   for (const [releaseTick, lotIds] of [...releaseGroups].sort(([left], [right]) => left - right)) schedule(releaseTick, 2, { kind: "lot-release", lotIds: lotIds.sort() });
+  const materialDeliveryGroups = new Map<number, string[]>();
+  for (const delivery of project.scenario.materialDeliveries ?? []) {
+    const group = materialDeliveryGroups.get(delivery.releaseTick) ?? [];
+    group.push(delivery.id);
+    materialDeliveryGroups.set(delivery.releaseTick, group);
+  }
+  for (const [releaseTick, deliveryIds] of [...materialDeliveryGroups].sort(([left], [right]) => left - right)) schedule(releaseTick, 2, { kind: "material-delivery", deliveryIds: deliveryIds.sort() });
   for (const [device, runtime] of Object.entries(state.devices).sort(([left], [right]) => left.localeCompare(right))) {
     const campaign = runtime.setup?.campaign;
     if (campaign) schedule(Math.max(state.tick, campaign.deadlineTick), 3, {
@@ -2056,6 +2096,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const event = item.value;
     if (event.kind === "lot-release") {
       for (const id of event.lotIds) if (state.lots[id]?.status === "scheduled") eligibleLotReleases.add(id);
+    } else if (event.kind === "material-delivery") {
+      for (const id of event.deliveryIds) pendingMaterialDeliveries.add(id);
     } else if (event.kind === "complete") {
       if (event.generation !== generations[event.device] || state.devices[event.device]!.status !== "processing") continue;
       const runtime = state.devices[event.device]!; const job = runtime.activeJob!;
@@ -2173,7 +2215,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           });
         }
       }
-      for (const id of job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? []) {
+      for (const id of trackedJobLotIds(job)) {
         for (const excursion of (project.scenario.qualityExcursions ?? []).filter((candidate) => candidate.process === job.operation && candidate.lot === id)) {
           if (state.lots[id]!.quality.appliedExcursions.includes(excursion.id)) continue;
           mutateFactoryState(state, { kind: "lot.quality-excursion", lotIds: [id], excursion: excursion.id, defects: excursion.defects });
@@ -2183,7 +2225,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           });
         }
       }
-      const driftLotIds = job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
+      const driftLotIds = trackedJobLotIds(job);
       let driftDefectsIntroduced = 0;
       if (job.equipmentDrift) {
         for (const id of driftLotIds) {
@@ -2203,6 +2245,33 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           defects: [...job.equipmentDrift.defects],
         });
       }
+      for (const termination of job.lotTerminations ?? []) for (const id of termination.lotIds) {
+        const lot = state.lots[id]!;
+        const fromStep = lot.route.step;
+        const step = fromStep ? project.routes[lot.route.id]!.steps.find((candidate) => candidate.id === fromStep) : undefined;
+        const definition = project.processes[job.operation];
+        if (!fromStep || !step?.operations.includes(job.operation) || definition?.lotTermination?.terminal !== termination.terminal) {
+          throw new Error(`Process '${job.operation}' cannot terminate Lot '${id}' from Route '${lot.route.id}/${fromStep ?? "terminal"}'`);
+        }
+        const inputResource = lot.resource;
+        const route = lot.route.id;
+        mutateFactoryState(state, {
+          kind: "lot.terminate", lotIds: [id], device: event.device, route, fromStep,
+          terminal: termination.terminal, reason: `process:${job.operation}`,
+        });
+        emit({
+          type: "lot.route-terminated", tick: state.tick, device: event.device, lot: id, route, fromStep,
+          process: job.operation, inputResource, terminal: termination.terminal,
+        });
+        if (termination.terminal === "complete") {
+          const cycleTicks = state.tick - lot.releasedAtTick!;
+          const tardinessTicks = Math.max(0, state.tick - (lot.dueTick ?? state.tick));
+          emit({ type: "lot.completed", tick: state.tick, device: event.device, lot: id, family: lot.family, resource: inputResource, cycleTicks, tardinessTicks });
+        } else emit({
+          type: "lot.scrapped", tick: state.tick, device: event.device, lot: id,
+          family: lot.family, resource: inputResource, reason: "process-termination",
+        });
+      }
       if (job.extraction) {
         const node = project.resourceNodes[job.extraction.node]!;
         mutateFactoryState(state, { kind: "resource.extracted", node: node.id, count: job.extraction.count });
@@ -2220,7 +2289,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       });
       setStatus(event.device, "idle"); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce),
-        ...(job.lotTransfers?.length ? { lotIds: job.lotTransfers.flatMap((transfer) => transfer.lotIds) } : {}) });
+        ...(trackedJobLotIds(job).length ? { lotIds: trackedJobLotIds(job) } : {}) });
       }
     } else if (event.kind === "belt-step") {
       const transit = state.transports[event.connection]?.find((item) => item.id === event.transitId);
@@ -2388,7 +2457,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
               provider: job.tooling.provider, tooling: structuredClone(job.tooling.amounts), occupiedTicks, outcome: "cancelled",
             });
           }
-          const scrappedLots = job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
+          const scrappedLots = trackedJobLotIds(job);
           if (scrappedLots.length) {
             mutateFactoryState(state, { kind: "lot.scrap", lotIds: scrappedLots, device: deviceId, reason: "facility-interlock" });
             for (const id of scrappedLots) {
@@ -2450,7 +2519,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           process: activeJob.operation, allocations: structuredClone(activeJob.utilities), occupiedTicks, outcome: "cancelled",
         });
       }
-      const scrappedLots = activeJob?.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? [];
+      const scrappedLots = activeJob ? trackedJobLotIds(activeJob) : [];
       if (scrappedLots.length) {
         mutateFactoryState(state, { kind: "lot.scrap", lotIds: scrappedLots, device: event.device, reason: "equipment-breakdown" });
         for (const id of scrappedLots) {

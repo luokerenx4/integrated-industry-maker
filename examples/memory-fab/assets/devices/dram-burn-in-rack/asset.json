@@ -1,0 +1,108 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "dram-burn-in-rack",
+  "name": "DRAM Burn-in and Final-test Rack",
+  "description": "Batch back-end equipment that holds packaged DRAM devices through burn-in and final electrical test.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "final-test"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "package-input",
+        "direction": "input",
+        "side": "north",
+        "offset": 1,
+        "buffer": "package-input",
+        "kind": "resource"
+      },
+      {
+        "id": "tested-output",
+        "direction": "output",
+        "side": "west",
+        "offset": 1,
+        "buffer": "tested-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "package-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "tested-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "processes": [
+      "burn-in-test-dram"
+    ],
+    "categories": [
+      "final-test"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "package-input"
+    ],
+    "outputPorts": [
+      "tested-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 35000,
+    "activeMilliWatts": 240000
+  },
+  "economics": {
+    "buildCost": 14000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

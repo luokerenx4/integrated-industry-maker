@@ -103,18 +103,27 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     const trackedInputs = process.inputs.filter((amount) => resources[amount.resource]?.tracking);
     const trackedOutputs = process.outputs.filter((amount) => resources[amount.resource]?.tracking);
     const families = new Set([...trackedInputs, ...trackedOutputs].map((amount) => resources[amount.resource]!.tracking!.family));
-    for (const family of [...families].sort()) {
-      const inputs = trackedInputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
-      const outputs = trackedOutputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
-      if (inputs.length !== 1 || outputs.length !== 1) issues.push({
-        path: `processes/${id}.process.json`, code: "lot.identity-flow",
-        message: `Process '${id}' must transform exactly one tracked '${family}' Resource input into exactly one tracked '${family}' Resource output`,
+    if (process.lotTermination) {
+      if (trackedInputs.length !== 1 || trackedOutputs.length !== 0) issues.push({
+        path: `processes/${id}.process.json/lotTermination`, code: "lot.termination-shape",
+        message: `Lot-terminating Process '${id}' must consume exactly one tracked Resource kind and produce only untracked Resources`,
       });
-      else if (inputs[0]!.count !== outputs[0]!.count) issues.push({
-        path: `processes/${id}.process.json`, code: "lot.identity-count",
-        message: `Process '${id}' cannot create or destroy '${family}' lot identities (${inputs[0]!.count} in, ${outputs[0]!.count} out)`,
+      if (process.quality) issues.push({
+        path: `processes/${id}.process.json`, code: "lot.termination-quality",
+        message: `Lot-terminating Process '${id}' cannot also be an inspection or rework Process`,
       });
-    }
+    } else for (const family of [...families].sort()) {
+        const inputs = trackedInputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
+        const outputs = trackedOutputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
+        if (inputs.length !== 1 || outputs.length !== 1) issues.push({
+          path: `processes/${id}.process.json`, code: "lot.identity-flow",
+          message: `Process '${id}' must transform exactly one tracked '${family}' Resource input into exactly one tracked '${family}' Resource output`,
+        });
+        else if (inputs[0]!.count !== outputs[0]!.count) issues.push({
+          path: `processes/${id}.process.json`, code: "lot.identity-count",
+          message: `Process '${id}' cannot create or destroy '${family}' lot identities (${inputs[0]!.count} in, ${outputs[0]!.count} out)`,
+        });
+      }
     if (process.quality?.kind === "inspection") {
       const path = `processes/${id}.process.json/quality`;
       const input = process.inputs[0]; const output = process.outputs[0];
@@ -472,6 +481,12 @@ function validateRoutes(resources: Record<string, ResourceAsset>, processes: Rec
     let hasComplete = false;
     for (const [stepIndex, step] of route.steps.entries()) {
       const stepPath = `${routePath}/steps/${stepIndex}`;
+      const terminatingOperations = step.operations.filter((operationId) => processes[operationId]?.lotTermination);
+      if (!step.transitions.length && terminatingOperations.length !== step.operations.length) issues.push({
+        path: `${stepPath}/transitions`, code: "route.dead-end",
+        message: `Route step '${step.id}' needs output transitions unless every qualified operation explicitly terminates the tracked lot`,
+      });
+      if (terminatingOperations.some((operationId) => processes[operationId]!.lotTermination!.terminal === "complete")) hasComplete = true;
       if (step.queueTime && new Set(step.queueTime.violationDefects).size !== step.queueTime.violationDefects.length) issues.push({
         path: `${stepPath}/queueTime/violationDefects`, code: "route.queue-time-duplicate-defect", message: `Step '${step.id}' declares a queue-time defect more than once`,
       });
@@ -1011,6 +1026,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         const compiledInputs = [] as NonNullable<CompiledDevice["processPlan"]>["inputs"];
         const compiledOutputs = [] as NonNullable<CompiledDevice["processPlan"]>["outputs"];
         const lotTransfers: NonNullable<CompiledDevice["processPlan"]>["lotTransfers"] = [];
+        const lotTerminations: NonNullable<CompiledDevice["processPlan"]>["lotTerminations"] = [];
         const compiledBindings = { inputs: {} as Record<ResourceId, string>, outputs: {} as Record<ResourceId, string> };
         const inspectionAlternatives = definition.quality?.kind === "inspection" ? [
           { resource: definition.quality.rejectResource, count: definition.outputs[0]!.count },
@@ -1075,7 +1091,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             for (const input of trackedInputs) {
               const family = loaded.resources[input.resource]!.tracking!.family;
               const outputs = trackedOutputs.filter((amount) => loaded.resources[amount.resource]!.tracking!.family === family);
-              if (outputs.length !== 1 || input.count !== outputs[0]!.count) {
+              if (definition.lotTermination && outputs.length === 0) lotTerminations.push({
+                family, input: { ...input }, terminal: definition.lotTermination.terminal,
+              });
+              else if (outputs.length !== 1 || input.count !== outputs[0]!.count) {
                 issues.push({
                   path: `${recipePath}/mode`, code: "lot.mode-identity-count",
                   message: `Production mode '${mode.id}' must preserve each '${family}' lot identity one-for-one`,
@@ -1136,6 +1155,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             outputs: compiledOutputs,
             priority: recipe.priority ?? 0,
             lotTransfers,
+            lotTerminations,
             ...(quality ? { quality } : {}),
             ...(definition.setupGroup ? { setupGroup: definition.setupGroup } : {}),
             ...(asset.production.changeover ? {
@@ -1623,6 +1643,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
 
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
   if (!regions[loaded.objective.targetRegion]) issues.push({ path: "objective/targetRegion", code: "reference.region", message: `Unknown target region '${loaded.objective.targetRegion}'` });
+  if (loaded.objective.trackedFamily && !Object.values(loaded.resources).some((resource) => resource.tracking?.family === loaded.objective.trackedFamily)) issues.push({
+    path: "objective/trackedFamily", code: "reference.lot-family",
+    message: `Objective tracked family '${loaded.objective.trackedFamily}' is not declared by a project Resource`,
+  });
   for (const [deviceId, buffers] of Object.entries(loaded.scenario.initialBuffers ?? {})) {
     const device = devices[deviceId];
     if (!device) { issues.push({ path: `scenario/initialBuffers/${deviceId}`, code: "reference.device-instance", message: `Unknown device instance '${deviceId}'` }); continue; }
@@ -1645,6 +1669,24 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       }
       if (buffer && Object.values(inventory).reduce((sum, count) => sum + count, 0) > buffer.capacity) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}`, code: "buffer.capacity", message: `Initial quantity exceeds buffer capacity ${buffer.capacity}` });
     }
+  }
+  const materialDeliveryIds = new Set<string>();
+  for (const [index, delivery] of (loaded.scenario.materialDeliveries ?? []).entries()) {
+    const path = `scenario/materialDeliveries/${index}`;
+    if (materialDeliveryIds.has(delivery.id)) issues.push({ path: `${path}/id`, code: "material.duplicate-delivery-id", message: `Material delivery '${delivery.id}' is declared more than once` });
+    materialDeliveryIds.add(delivery.id);
+    const device = devices[delivery.device];
+    const buffer = device?.buffers[delivery.buffer];
+    const resource = loaded.resources[delivery.resource];
+    if (!device) issues.push({ path: `${path}/device`, code: "reference.device-instance", message: `Unknown device instance '${delivery.device}'` });
+    else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${delivery.buffer}'` });
+    if (!resource) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${delivery.resource}'` });
+    else if (resource.tracking) issues.push({ path: `${path}/resource`, code: "material.untracked-required", message: `Tracked Resource '${delivery.resource}' must use lotReleases instead of materialDeliveries` });
+    else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(delivery.resource)) issues.push({ path: `${path}/resource`, code: "buffer.resource-contract", message: `Buffer '${delivery.buffer}' does not accept '${delivery.resource}'` });
+    if (buffer && delivery.count > buffer.capacity) issues.push({ path: `${path}/count`, code: "buffer.capacity", message: `Delivery count ${delivery.count} exceeds buffer capacity ${buffer.capacity}` });
+    const resourceCapacity = buffer?.resourceCapacities?.[delivery.resource];
+    if (resourceCapacity !== undefined && delivery.count > resourceCapacity) issues.push({ path: `${path}/count`, code: "buffer.resource-capacity", message: `Delivery count ${delivery.count} exceeds '${delivery.resource}' capacity ${resourceCapacity} in buffer '${delivery.buffer}'` });
+    if (delivery.releaseTick > loaded.scenario.durationTicks) issues.push({ path: `${path}/releaseTick`, code: "scenario.delivery-after-end", message: `Delivery '${delivery.id}' is scheduled after Scenario end` });
   }
   const lotIds = new Set<string>();
   for (const [index, lot] of (loaded.scenario.lotReleases ?? []).entries()) {

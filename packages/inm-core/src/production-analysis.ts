@@ -23,6 +23,7 @@ export interface DeviceProductionRate {
   outputsPerMinute: Record<ResourceId, number>;
   inputPorts: Record<ResourceId, string>;
   outputPorts: Record<ResourceId, string>;
+  lotTermination?: { terminal: "complete" | "scrap" };
   tooling?: ProcessAmount[];
   toolingProviders?: Array<{ device: string; distance: number }>;
   utilities?: ProcessUtilityDemand[];
@@ -437,6 +438,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
           ...Object.fromEntries(processPlan.mode.auxiliaryInputs.map((input) => [input.resource, input.port])),
         },
         outputPorts: { ...(authoredRecipe?.outputs ?? {}) },
+        ...(processPlan.definition.lotTermination ? { lotTermination: { ...processPlan.definition.lotTermination } } : {}),
         ...(processPlan.tooling.length ? {
           tooling: structuredClone(processPlan.tooling),
           toolingProviders: processPlan.toolingProviders.map((provider) => ({ ...provider })),

@@ -1,6 +1,6 @@
 # Fab capacity planning
 
-Status: qualification-aware toolset allocation and Scenario-scheduled tracked-lot supply implemented in `inm-sim/0.65.0`.
+Status: qualification-aware toolset allocation plus Scenario-scheduled tracked-lot and purchased-material supply implemented in `inm-sim/0.66.0`.
 
 Related: [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
@@ -24,16 +24,16 @@ The ordinary per-Process rows remain useful: they show the exclusive rate, confi
 
 The target-producing operation is anchored to the Objective's `targetRegion`. When an upstream operation is physically installed in several regions, the non-spatial material demand is divided across those regions in proportion to installed qualified cycle capacity before toolset, transport, and power checks. This preserves real regional machine ownership for already-authored and synthesized factories; the spatial synthesis solver remains responsible for choosing the actual regional production and shipment mix.
 
-## Scheduled tracked-lot supply
+## Scheduled external supply
 
-Every matching `Scenario.lotReleases` entry is evaluator-owned external supply over the selected Scenario horizon. The raw-capacity row exposes:
+Every matching `Scenario.lotReleases` lot and `Scenario.materialDeliveries` item is evaluator-owned external supply over the selected Scenario horizon. The raw-capacity row exposes:
 
 - configured extraction per minute;
 - scheduled lot count and scheduled supply per minute;
 - their combined configured supply rate;
 - Scenario demand, total supply, and balance.
 
-The planner raises a raw-rate gap only when extraction plus scheduled releases cannot sustain the target. It raises a Scenario balance gap when finite deposits plus scheduled releases cannot cover the full horizon. Scheduled lots are counted at their authored quantity even though their actual admission may later wait for buffer space or Blueprint CONWIP; that temporal admission behavior belongs to simulation.
+The planner raises a raw-rate gap only when extraction plus scheduled external supply cannot sustain the target. It raises a Scenario balance gap when finite deposits plus scheduled supply cannot cover the full horizon. Scheduled lots and purchased items are counted at their authored quantity even though actual admission may wait for receiving capacity or Blueprint CONWIP; that temporal behavior belongs to simulation.
 
 ## AutoResearch contract
 

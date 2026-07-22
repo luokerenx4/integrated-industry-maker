@@ -3,7 +3,7 @@
   "type": "route",
   "id": "dram-front-end",
   "name": "DRAM Front-End Wafer Route",
-  "description": "Evaluator-owned process route for a DRAM wafer lot, including qualified alternatives and the final-inspection rework loop.",
+  "description": "Evaluator-owned DRAM work-order route from blank wafer lot through front-end qualification and explicit termination at package conversion.",
   "family": "dram-wafer",
   "entry": {
     "resource": "blank-dram-wafer-lot",
@@ -117,7 +117,7 @@
       "transitions": [
         {
           "resource": "qualified-dram-wafer-lot",
-          "terminal": "complete"
+          "to": "package-dram"
         },
         {
           "resource": "rework-required-dram-wafer-lot",
@@ -141,6 +141,14 @@
           "to": "final-inspection"
         }
       ]
+    },
+    {
+      "id": "package-dram",
+      "name": "Dice and Package DRAM",
+      "operations": [
+        "dice-package-dram"
+      ],
+      "transitions": []
     }
   ]
 }
