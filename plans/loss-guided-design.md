@@ -1,6 +1,6 @@
 # Loss-guided Design decisions
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/fab-loss-attribution]], [[docs/design/design-programs]], [[docs/design/blueprint-optimization]], [[docs/design/agent-cli-contract]], and [[docs/design/experiment-workbench]].
 
@@ -33,12 +33,12 @@ The driver simulation is iteration-local evidence, not a persisted compatible ru
 
 ## Acceptance
 
-- [ ] Each Design iteration records a hash of its driver metrics and a source-neutral loss profile derived from those exact metrics; no fake immutable run identity is created.
-- [ ] A project proposal receives the same frozen profile, names an observed loss bucket it addresses, and is rejected when the claim is absent or not present in the profile.
-- [ ] Memory-fab selects the first valid unused candidate matched to ranked measured losses, with a deterministic fallback only when no tracked-route profile exists.
-- [ ] CLI progress/JSON and Studio show the primary loss chain and the proposal's targeted loss with consistent terminology.
-- [ ] Existing compatible-run workbench attribution remains hash-pinned and unchanged in meaning.
-- [ ] Focused Core/provider/UI tests, documentation checks, memory-fab fixtures, a real Design run, and the complete repository suite pass.
+- [x] Each Design iteration records a hash of its driver metrics and a source-neutral loss profile derived from those exact metrics; no fake immutable run identity is created.
+- [x] A project proposal receives the same frozen profile, names an observed loss bucket it addresses, and is rejected when the claim is absent or not present in the profile.
+- [x] Memory-fab selects the first valid unused candidate matched to ranked measured losses, with a deterministic fallback only when no tracked-route profile exists.
+- [x] CLI progress/JSON and Studio show the primary loss chain and the proposal's targeted loss with consistent terminology.
+- [x] Existing compatible-run workbench attribution remains hash-pinned and unchanged in meaning.
+- [x] Focused Core/provider/UI tests, documentation checks, memory-fab fixtures, a real Design run, and the complete repository suite pass.
 
 ## Work
 
@@ -48,7 +48,7 @@ The driver simulation is iteration-local evidence, not a persisted compatible ru
 - [x] Make the memory-fab strategy loss-guided and update its project-local runtime types.
 - [x] Add CLI and Studio human projections while retaining complete machine-readable evidence.
 - [x] Update design/reference documentation and tests.
-- [ ] Run focused, project, full-suite, and real-run verification; audit every acceptance item.
+- [x] Run focused, project, full-suite, and real-run verification; audit every acceptance item.
 
 ## Findings and decisions
 
@@ -65,13 +65,17 @@ The driver simulation is iteration-local evidence, not a persisted compatible ru
 - `bun test packages/inm-core/src/design-proposal-provider.test.ts` — deterministic loss-guided selection plus missing/fabricated target rejection pass.
 - `bun test packages/inm-core/src/design-program.test.ts --test-name-pattern '^a synthesis-seeded'` — the 43-second complete greenfield Design/Candidate proof passes with exact driver metrics identity and source-neutral loss evidence.
 - Focused public CLI and Studio streaming tests pass with queue-starvation diagnosis/target parity.
-- Full repository, project fixture, real-run, and browser verification pending.
+- `bun run test` — 186 tests / 1581 assertions, documentation, all TypeScript projects, and 8 Ironworks fixtures pass.
+- `bun run inm test examples/memory-fab` — both tracked-route memory-fab fixtures pass.
+- Real `greenfield-dram-fab` execution — immutable result `e7c9c08e52723c2178b42cf9a04516f368eb2fca11655906eb01595922566120`; deterministic reuse; 35 ordered events; 15/15 simulations; driver metrics `9a334360ae910cdd57961a6ea80a68bf1aeeecefbb2c0f0f44f4044e5b8f04a5`; observed `q-time → yield-quality → queue-starvation → maintenance-qualification → transport-blocking`; proposal addresses `q-time`; iteration 1 KEEP at `+24.190636`.
+- Studio API and browser deep-link QA — latest run reopens on desktop and 390 px, shows the same observed chain and target, has no page/result horizontal overflow at 390 px, and emits no console warnings or errors.
 
 ## Progress log
 
 - 2026-07-23 — Plan created and activated after auditing the existing loss attribution, Design proposal, and immutable run boundaries.
 - 2026-07-23 — Core evidence, provider API V2, memory-fab loss matching, immutable manifests/progress, CLI/Studio projections, focused tests, and design documentation implemented; full regression and runtime QA remain.
+- 2026-07-23 — Acceptance audited against full regression, project fixtures, deterministic real-run reuse, Studio API, desktop/narrow browser rendering, and console evidence; implementation committed as `fd8a049`.
 
 ## Completion
 
-Pending.
+Shipped in `fd8a049` (`feat: guide Design with fab loss evidence`). Design now turns its exact iteration-local driver metrics into Core-owned source-neutral fab-loss evidence, requires the memory-fab project strategy to name an observed target, and preserves the full loss → proposal → locked KEEP/REJECT chain for both CLI Agents and Studio operators. Compatible persisted-run attribution retains its separate hash-pinned provenance. The old local V1 Design artifact was moved to the system Trash and replaced by deterministic result `e7c9c08e5272`; no compatibility path remains. Future intervention coverage for currently unmatched setup, maintenance, facility, transport, and quality losses remains an explicitly documented product gap rather than hidden fallback behavior.

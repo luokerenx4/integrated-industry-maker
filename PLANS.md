@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/loss-guided-design]] | Make each memory-fab Design iteration explain its measured loss chain and require the project strategy to target one measured loss. | 2026-07-23 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/loss-guided-design]] | Make each memory-fab Design iteration explain its measured loss chain and require the project strategy to target one measured loss. | 2026-07-23 |
 | [[plans/generative-design-seed]] | Join project-local memory-fab synthesis, locked robust optimization, immutable evidence, and guarded Candidate handoff in one Design Program. | 2026-07-23 |
 | [[plans/observable-design-execution]] | Make long-running memory-fab design search observable to humans and Agents while safely reusing locked baseline evaluation. | 2026-07-23 |
 | [[plans/memory-fab-design-loop]] | Turn the memory-fab north star from a hand-authored evaluation fixture into a project-local generate, diagnose, search, and review loop. | 2026-07-22 |
