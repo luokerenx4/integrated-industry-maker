@@ -19,6 +19,15 @@ const writeSuccess = (command: string, data: unknown, options: CliSuccessOptions
 
 type DesignProgressMode = "off" | "human" | "ndjson";
 
+function designDecisionDetail(evidence: NonNullable<DesignRunIteration["decisionEvidence"]>): string {
+  const limiting = evidence.cases.find((item) => item.id === evidence.limitingCase)!;
+  const basis = evidence.basis === "current-best-improvement"
+    ? "improves current best"
+    : evidence.basis === "benchmark-gate" ? "fails locked gate" : "does not improve current best";
+  const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
+  return `${basis}${gate} · limiting ${limiting.id} ${signed(limiting.scoreDelta, 6)}`;
+}
+
 function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMode): void {
   if (mode === "off") return;
   if (mode === "ndjson") {
@@ -32,7 +41,7 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
   else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
   else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
-  else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision}${progress.candidateScore === undefined ? ` · ${progress.error}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDeltaFromBest ?? 0).toFixed(6)}`}`;
+  else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
   else return;
   process.stderr.write(`${line}\n`);
@@ -40,7 +49,7 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
 
 function designIterationLine(iteration: DesignRunIteration): string {
   const lossChain = iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss";
-  return `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${iteration.candidateScore === undefined ? iteration.error : signed(iteration.scoreDeltaFromBest ?? 0, 6)} · ${iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no loss target"} · observed ${lossChain}`;
+  return `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${!iteration.decisionEvidence ? iteration.error : `${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no loss target"} · observed ${lossChain}`;
 }
 
 function sectionResult(command: string, options: OutputOptions, builders: Record<string, () => unknown>): { section: string; result: unknown } {

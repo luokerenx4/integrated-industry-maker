@@ -268,6 +268,15 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-completed", addressedLoss: "queue-starvation",
   }) }));
+  expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    phase: "candidate-completed",
+    decisionEvidence: expect.objectContaining({
+      basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement/),
+      aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
+      cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number) })]),
+      limitingCase: expect.any(String),
+    }),
+  }) }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
   const run = JSON.parse(executed.stdout);
   expect(run).toEqual(expect.objectContaining({
@@ -288,6 +297,11 @@ test("public Design Program workflow discovers, inspects, and executes without m
       decision: expect.stringMatching(/KEEP|REJECT/),
       addressedLoss: "queue-starvation",
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
+      decisionEvidence: expect.objectContaining({
+        aggregate: expect.objectContaining({ previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number) }),
+        cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number) })]),
+        limitingCase: expect.any(String),
+      }),
     })] },
     artifacts: [expect.objectContaining({ kind: "design-run", id: resultHash, immutable: true })],
   }));
@@ -296,6 +310,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: humanRun.exitCode, stderr: humanRun.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(humanRun.stdout).toContain("addresses queue-starvation");
   expect(humanRun.stdout).toContain("observed queue-starvation →");
+  expect(humanRun.stdout).toContain("limiting ");
 
   const runs = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--section", "runs", "--json"]);
   expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });

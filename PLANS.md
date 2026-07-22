@@ -12,13 +12,13 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
-
-## Proposed plans
-
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/current-best-decision-evidence]] | Explain every Design KEEP or REJECT with exact aggregate and per-case deltas against the current best on both CLI and Studio. | 2026-07-23 |
+
+## Proposed plans
+
+There are no proposed plans.
 
 ## Paused plans
 

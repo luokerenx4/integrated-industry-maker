@@ -34,6 +34,22 @@ export interface DesignDriverEvidence {
   fabLoss: FabLossProfile | null;
 }
 
+export interface DesignCurrentBestCaseEvidence {
+  id: string;
+  name: string;
+  previousBestScore: number;
+  candidateScore: number;
+  scoreDelta: number;
+}
+
+export interface DesignDecisionEvidence {
+  basis: "current-best-improvement" | "benchmark-gate" | "no-current-best-improvement";
+  aggregate: { previousBestScore: number; candidateScore: number; scoreDelta: number };
+  cases: DesignCurrentBestCaseEvidence[];
+  limitingCase: string;
+  gateReasons?: string[];
+}
+
 export interface DesignRunIteration {
   iteration: number;
   strategy: string;
@@ -45,11 +61,9 @@ export interface DesignRunIteration {
   proposalHash: string;
   patch: ResearchProposal["patch"];
   candidateBlueprintHash?: string;
-  previousBestScore: number;
-  candidateScore?: number;
-  scoreDeltaFromBest?: number;
   decision: "KEEP" | "REJECT";
   evaluation?: BlueprintBenchmarkResult;
+  decisionEvidence?: DesignDecisionEvidence;
   error?: string;
 }
 
@@ -110,8 +124,7 @@ export type DesignRunProgress =
     iteration: number;
     strategy: string;
     decision: "KEEP" | "REJECT";
-    candidateScore?: number;
-    scoreDeltaFromBest?: number;
+    decisionEvidence?: DesignDecisionEvidence;
     error?: string;
   }
   | DesignRunProgressBase & { phase: "run-completed"; resultHash: string; stopReason: DesignRunManifest["stopReason"]; best: DesignRunManifest["best"] };
@@ -173,7 +186,92 @@ function validDesignRunIteration(value: unknown): value is DesignRunIteration {
   return validDriverEvidence(iteration.driverEvidence)
     && /^[0-9a-f]{64}$/.test(iteration.proposalHash ?? "")
     && (iteration.addressedLoss === undefined
-      || iteration.driverEvidence.fabLoss?.chain.includes(iteration.addressedLoss) === true);
+      || iteration.driverEvidence.fabLoss?.chain.includes(iteration.addressedLoss) === true)
+    && (iteration.error === undefined
+      ? /^[0-9a-f]{64}$/.test(iteration.candidateBlueprintHash ?? "")
+        && typeof iteration.evaluation === "object"
+        && typeof iteration.decisionEvidence === "object"
+      : typeof iteration.error === "string" && iteration.error.length > 0
+        && iteration.decision === "REJECT"
+        && iteration.candidateBlueprintHash === undefined
+        && iteration.evaluation === undefined
+        && iteration.decisionEvidence === undefined);
+}
+
+function currentBestDecisionEvidence(
+  previousBest: BlueprintBenchmarkResult,
+  candidate: BlueprintBenchmarkResult,
+): DesignDecisionEvidence {
+  if (previousBest.cases.length !== candidate.cases.length) throw new Error("Design current-best comparison changed locked Benchmark case count");
+  const cases = candidate.cases.map((candidateCase, index): DesignCurrentBestCaseEvidence => {
+    const previousCase = previousBest.cases[index]!;
+    if (candidateCase.id !== previousCase.id || candidateCase.name !== previousCase.name) throw new Error(
+      `Design current-best comparison changed locked Benchmark case ${index + 1}`,
+    );
+    return {
+      id: candidateCase.id,
+      name: candidateCase.name,
+      previousBestScore: previousCase.candidateScore,
+      candidateScore: candidateCase.candidateScore,
+      scoreDelta: candidateCase.candidateScore - previousCase.candidateScore,
+    };
+  });
+  const aggregate = {
+    previousBestScore: previousBest.candidateScore,
+    candidateScore: candidate.candidateScore,
+    scoreDelta: candidate.candidateScore - previousBest.candidateScore,
+  };
+  const basis: DesignDecisionEvidence["basis"] = !candidate.accepted
+    ? "benchmark-gate"
+    : aggregate.scoreDelta > 1e-9 ? "current-best-improvement" : "no-current-best-improvement";
+  const limitingCase = cases.reduce((limiting, item) => item.scoreDelta < limiting.scoreDelta ? item : limiting, cases[0]!);
+  return {
+    basis,
+    aggregate,
+    cases,
+    limitingCase: limitingCase.id,
+    ...(basis === "benchmark-gate" ? { gateReasons: [...candidate.reasons] } : {}),
+  };
+}
+
+function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
+  let previousBest = manifest.seed.evaluation;
+  let bestIteration = 0;
+  for (const iteration of manifest.iterations) {
+    if (iteration.error !== undefined) continue;
+    if (!iteration.evaluation || !iteration.decisionEvidence) return false;
+    let expected: DesignDecisionEvidence;
+    try { expected = currentBestDecisionEvidence(previousBest, iteration.evaluation); } catch { return false; }
+    if (stableStringify(iteration.decisionEvidence) !== stableStringify(expected)) return false;
+    const decision = expected.basis === "current-best-improvement" ? "KEEP" : "REJECT";
+    if (iteration.decision !== decision) return false;
+    if (decision === "KEEP") {
+      previousBest = iteration.evaluation;
+      bestIteration = iteration.iteration;
+    }
+  }
+  return manifest.best.iteration === bestIteration
+    && manifest.best.candidateScore === previousBest.candidateScore
+    && manifest.best.scoreDelta === previousBest.scoreDelta
+    && manifest.best.verdict === previousBest.verdict;
+}
+
+function researchHistoryFromIterations(iterations: DesignRunIteration[], seedScore: number): ResearchHistoryEntry[] {
+  let currentBestScore = seedScore;
+  return iterations.map((item) => {
+    const evidence = item.decisionEvidence;
+    const history: ResearchHistoryEntry = {
+      iteration: item.iteration,
+      strategy: item.strategy,
+      hypothesis: item.hypothesis,
+      ...(item.addressedLoss ? { addressedLoss: item.addressedLoss } : {}),
+      decision: item.decision === "KEEP" ? "KEEP" : "REVERT",
+      score: evidence?.aggregate.candidateScore ?? currentBestScore,
+      scoreDelta: evidence?.aggregate.scoreDelta ?? 0,
+    };
+    if (item.decision === "KEEP" && evidence) currentBestScore = evidence.aggregate.candidateScore;
+    return history;
+  });
 }
 
 async function writeDesignRunArtifact(projectDir: string, manifest: DesignRunManifest, bestBlueprint: Blueprint): Promise<DesignRunResult["artifact"]> {
@@ -215,7 +313,8 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
     || !Number.isInteger(manifest.best?.promotionPatchOperations)
     || manifest.best.promotionPatchOperations < 0
     || !Array.isArray(manifest.iterations)
-    || manifest.iterations.some((iteration) => !validDesignRunIteration(iteration))) {
+    || manifest.iterations.some((iteration) => !validDesignRunIteration(iteration))
+    || !validDesignDecisionSequence(manifest)) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest seed, promotion base, or best-design evidence is invalid`);
   }
   const { resultHash: recorded, ...withoutHash } = manifest;
@@ -395,15 +494,7 @@ export async function runDesignProgram(
       metricsHash: hashValue(driverResult.metrics),
       fabLoss: analyzeFabLossProfile(driverResult.metrics, driverProject.scenario.durationTicks),
     };
-    const history: ResearchHistoryEntry[] = iterations.map((item) => ({
-      iteration: item.iteration,
-      strategy: item.strategy,
-      hypothesis: item.hypothesis,
-      ...(item.addressedLoss ? { addressedLoss: item.addressedLoss } : {}),
-      decision: item.decision === "KEEP" ? "KEEP" : "REVERT",
-      score: item.candidateScore ?? item.previousBestScore,
-      scoreDelta: item.scoreDeltaFromBest ?? 0,
-    }));
+    const history = researchHistoryFromIterations(iterations, seedEvaluation.candidateScore);
     let proposal: ResearchProposal;
     emit({ phase: "proposal-started", iteration, driverEvidence });
     try {
@@ -429,7 +520,6 @@ export async function runDesignProgram(
     const family = decisionFamily(strategy, program.proposal.decisionFamilies);
     const proposalHash = hashValue({ strategy, hypothesis: proposal.hypothesis, expectedEffect: proposal.expectedEffect, addressedLoss: proposal.addressedLoss, patch: proposal.patch });
     emit({ phase: "proposal-completed", iteration, strategy, decisionFamily: family, ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}), driverEvidence, proposalHash });
-    const previousBestScore = bestEvaluation.candidateScore;
     try {
       const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
       // Every accumulated best remains promotable as one exact Candidate patch from
@@ -441,8 +531,8 @@ export async function runDesignProgram(
         evaluationId: `candidate-${iteration}`,
         onProgress: benchmarkProgress("candidate", iteration),
       });
-      const scoreDeltaFromBest = evaluation.candidateScore - previousBestScore;
-      const keep = evaluation.accepted && scoreDeltaFromBest > 1e-9;
+      const decisionEvidence = currentBestDecisionEvidence(bestEvaluation, evaluation);
+      const keep = decisionEvidence.basis === "current-best-improvement";
       iterations.push({
         iteration,
         strategy,
@@ -454,11 +544,9 @@ export async function runDesignProgram(
         proposalHash,
         patch: proposal.patch,
         candidateBlueprintHash: hashValue(candidateBlueprint),
-        previousBestScore,
-        candidateScore: evaluation.candidateScore,
-        scoreDeltaFromBest,
         decision: keep ? "KEEP" : "REJECT",
         evaluation,
+        decisionEvidence,
       });
       if (keep) {
         bestBlueprint = candidateBlueprint;
@@ -471,8 +559,7 @@ export async function runDesignProgram(
         iteration,
         strategy,
         decision: keep ? "KEEP" : "REJECT",
-        candidateScore: evaluation.candidateScore,
-        scoreDeltaFromBest,
+        decisionEvidence,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -486,7 +573,6 @@ export async function runDesignProgram(
         driverEvidence,
         proposalHash,
         patch: proposal.patch,
-        previousBestScore,
         decision: "REJECT",
         error: message,
       });

@@ -150,6 +150,10 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     decisionFamily: "batch-formation",
     addressedLoss: "batch-formation",
     decision: "REJECT",
+    decisionEvidence: {
+      basis: "no-current-best-improvement",
+      limitingCase: "lithography-interruption",
+    },
   });
   expect(first.manifest.iterations[4]).toMatchObject({
     iteration: 5,
@@ -157,9 +161,16 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     decisionFamily: "setup-campaign",
     addressedLoss: "setup-campaign",
     decision: "KEEP",
+    decisionEvidence: {
+      basis: "current-best-improvement",
+      limitingCase: "lithography-interruption",
+    },
   });
-  expect(first.manifest.iterations[3]!.scoreDeltaFromBest! < 0).toBeTrue();
-  expect(first.manifest.iterations[4]!.scoreDeltaFromBest! > 0).toBeTrue();
+  const batchEvidence = first.manifest.iterations[3]!.decisionEvidence!;
+  expect(batchEvidence.aggregate.scoreDelta < 0).toBeTrue();
+  expect(batchEvidence.cases.map((item) => item.id)).toEqual(["steady-production", "mixed-quality", "quality-excursion", "lithography-interruption", "facility-interruption"]);
+  expect(batchEvidence.cases.find((item) => item.id === batchEvidence.limitingCase)!.scoreDelta < -12).toBeTrue();
+  expect(first.manifest.iterations[4]!.decisionEvidence!.aggregate.scoreDelta > 0).toBeTrue();
   expect(first.manifest.resultHash).toHaveLength(64);
   expect(first.manifest.best.blueprintHash).toHaveLength(64);
   expect(progress.map((event) => event.sequence)).toEqual(Array.from({ length: progress.length }, (_, index) => index + 1));
@@ -173,6 +184,12 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "proposal-completed", iteration: 1, strategy: "dispatch:conwip-9-6-edd", decisionFamily: "dispatch", addressedLoss: "q-time",
     driverEvidence: expect.objectContaining({ metricsHash: hashValue(driverMetrics) }),
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "candidate-completed",
+    iteration: 4,
+    decision: "REJECT",
+    decisionEvidence: expect.objectContaining({ basis: "no-current-best-improvement", limitingCase: "lithography-interruption" }),
   }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",

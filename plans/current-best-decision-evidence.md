@@ -1,6 +1,6 @@
 # Current-best Design decision evidence
 
-- Status: `proposed`
+- Status: `active`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/coding-agent-optimization]], [[docs/design/agent-cli-contract]], and [[docs/design/experiment-workbench]].
 
@@ -31,31 +31,42 @@ The batch-formation experiment makes the gap concrete. Its driver batch wait fal
 
 ## Acceptance
 
-- [ ] Every valid iteration records ordered per-case current-best and candidate scores, deltas, and one deterministic limiting case; invalid candidates retain their existing error evidence.
-- [ ] Decision evidence distinguishes a failed locked gate from a non-positive current-best aggregate delta and from a successful KEEP without duplicating evaluator authority.
-- [ ] CLI progress/human/JSON and Studio show the same concise decision reason and limiting case while retaining full machine-readable evidence.
-- [ ] The batch candidate visibly explains its aggregate REJECT and lithography-interruption regression without cross-iteration calculation.
-- [ ] Focused Core/CLI/Studio tests, a real Design run, project fixtures, documentation checks, and full regression pass.
+- [x] Every valid iteration records ordered per-case current-best and candidate scores, deltas, and one deterministic limiting case; invalid candidates retain their existing error evidence.
+- [x] Decision evidence distinguishes a failed locked gate from a non-positive current-best aggregate delta and from a successful KEEP without duplicating evaluator authority.
+- [x] CLI progress/human/JSON and Studio show the same concise decision reason and limiting case while retaining full machine-readable evidence.
+- [x] The batch candidate visibly explains its aggregate REJECT and lithography-interruption regression without cross-iteration calculation.
+- [x] Focused Core/CLI/Studio tests, a real Design run, project fixtures, documentation checks, and full regression pass.
 
 ## Work
 
-- [ ] Define the source-of-truth current-best comparison contract and deterministic limiting-case ordering.
-- [ ] Calculate and store decision evidence before advancing the best evaluation.
-- [ ] Project concise and complete forms through CLI and Studio.
-- [ ] Update design/reference documentation and cross-surface tests.
-- [ ] Regenerate real evidence, run full regression, and audit acceptance.
+- [x] Define the source-of-truth current-best comparison contract and deterministic limiting-case ordering.
+- [x] Calculate and store decision evidence before advancing the best evaluation.
+- [x] Project concise and complete forms through CLI and Studio.
+- [x] Update design/reference documentation and cross-surface tests.
+- [x] Regenerate real evidence, run full regression, and audit acceptance.
 
 ## Findings and decisions
 
 - 2026-07-23 — `BlueprintBenchmarkCaseResult.scoreDelta` remains correctly defined against the fixed Benchmark baseline. Design needs a separate explicitly named current-best comparison rather than changing that existing meaning.
+- 2026-07-23 — `decisionEvidence` replaces the three loose iteration score fields. Its normalized contract owns one decision `basis`, aggregate comparison, ordered per-case comparisons, limiting-case id, and evaluator-owned gate reasons only when a locked gate fails.
+- 2026-07-23 — Valid-run reopening must replay the current-best evaluation lineage from seed through each KEEP and reject any mismatch; structural shape checking alone is insufficient for immutable decision evidence.
 
 ## Verification
 
-- Pending.
+- Focused Core Design test passed with 42 assertions, including exact batch and setup current-best case evidence.
+- Focused CLI and Studio server tests passed with 53 assertions across both public projections.
+- Real `greenfield-dram-fab` Design result `7ce2c27a085372360ffcb5ee6bc91853e7e366921f4a4026707ce18ed1bea418` completed six iterations and retained best iteration 5 at `-244.352902`, `+35.817909` versus the locked baseline.
+- CLI human output and Studio both report iteration 4 as `no-current-best-improvement`, aggregate `-1.612859`, limited by `lithography-interruption` at `-12.596903`; the Studio page rendered without horizontal overflow at a 677 px viewport.
+- `bun run docs:check` resolved 505 documentation links.
+- `bun run typecheck` passed Core, CLI, Studio, and both example asset projects.
+- `bun run inm test examples/memory-fab` passed both project fixtures.
+- `bun run test` passed 187 tests and 1597 assertions with zero failures, then passed all eight Ironworks project fixtures.
 
 ## Progress log
 
 - 2026-07-23 — Proposed from the manual cross-iteration calculation required to explain the new batch-formation REJECT; no implementation started.
+- 2026-07-23 — Activated after auditing Core, progress, CLI, and Studio projections and defining one replacement current-best evidence contract with no legacy manifest adapter.
+- 2026-07-23 — Implemented immutable lineage-validated evidence, regenerated the real six-iteration Design result, removed the incompatible pre-contract local run, and completed cross-surface plus full-regression verification.
 
 ## Completion
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { CandidateChangeSet, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary } from "@inm/core";
+import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary } from "@inm/core";
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
@@ -41,6 +41,15 @@ async function responseDesignStream(response: Response, onProgress: (progress: D
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(6)}`;
 const shortHash = (value: string) => value.slice(0, 12);
 
+function decisionDetail(evidence: DesignDecisionEvidence): string {
+  const limiting = evidence.cases.find((item) => item.id === evidence.limitingCase)!;
+  const basis = evidence.basis === "current-best-improvement"
+    ? "IMPROVES CURRENT BEST"
+    : evidence.basis === "benchmark-gate" ? "FAILS LOCKED GATE" : "NO CURRENT-BEST IMPROVEMENT";
+  const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
+  return `${basis}${gate} · LIMITING ${limiting.id} ${signed(limiting.scoreDelta)}`;
+}
+
 function progressLabel(progress: DesignRunProgress): { title: string; detail: string } {
   if (progress.phase === "run-started") return { title: "PREPARING LOCKED BASELINE", detail: `${progress.caseCount} operating cases · ${progress.work.plannedSimulations} planned simulations` };
   if (progress.phase === "case-started" || progress.phase === "case-completed") return {
@@ -55,7 +64,7 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
     title: `PROPOSAL ${progress.iteration} READY`,
     detail: `${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`,
   };
-  if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: progress.candidateScore === undefined ? progress.error ?? progress.strategy : `${progress.strategy} · ${progress.candidateScore.toFixed(6)}` };
+  if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: !progress.decisionEvidence ? progress.error ?? progress.strategy : `${progress.strategy} · ${signed(progress.decisionEvidence.aggregate.scoreDelta)} · ${decisionDetail(progress.decisionEvidence)}` };
   if (progress.phase === "run-completed") return { title: "IMMUTABLE RESULT READY", detail: `${shortHash(progress.resultHash)} · best iteration ${progress.best.iteration}` };
   return { title: "DESIGN RUNNING", detail: progress.phase };
 }
@@ -187,7 +196,7 @@ export function DesignWorkbench({
           </section>
           {selectedRun && <section className="design-result" data-testid="design-result">
             <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code></div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
-            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong>{iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO LOSS TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small><small>{iteration.hypothesis}</small></span><em>{iteration.candidateScore === undefined ? "INVALID" : signed(iteration.scoreDeltaFromBest ?? 0)}</em></div>)}</div>
+            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong>{iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO LOSS TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <small>{decisionDetail(iteration.decisionEvidence)}</small>}<small>{iteration.hypothesis}</small></span><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
             {selectedRunPromotable ? <div className="design-promotion"><div><small>CANDIDATE HANDOFF</small><strong>Freeze this accepted design for ordinary review</strong><span>Promotion creates a hash-pinned Candidate against {selectedRun.manifest.promotionBase.blueprint}. It does not apply the Blueprint.</span></div>{promoted ? <button className="promoted" onClick={() => onCandidate(promoted.benchmark, promoted.id)}>OPEN {promoted.id} →</button> : <><input aria-label="Candidate id" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} pattern="[a-z0-9][a-z0-9-]*"/><button data-testid="promote-design" disabled={promoting || !candidateId} onClick={() => void promote()}>{promoting ? "VERIFYING…" : "CREATE CANDIDATE"}</button></>}</div>
               : <div className="design-no-leader"><strong>NO PROMOTABLE ACCEPTED DESIGN</strong><span>The best result either failed a locked gate or equals its promotion base. There is nothing honest to promote.</span></div>}
           </section>}
