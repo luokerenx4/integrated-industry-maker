@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "package-known-good-dram",
+  "name": "Package one known-good DRAM die",
+  "description": "Consumes one Probe-qualified bare die and one package substrate to create one packaged DRAM device.",
+  "category": "packaging",
+  "tags": [
+    "dram",
+    "back-end",
+    "packaging"
+  ],
+  "durationTicks": 1500,
+  "inputs": [
+    {
+      "resource": "known-good-dram-die",
+      "count": 1
+    },
+    {
+      "resource": "dram-package-substrate",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "packaged-dram-device",
+      "count": 1
+    }
+  ]
+}

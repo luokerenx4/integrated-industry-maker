@@ -2,7 +2,7 @@
 
 Status: deterministic process excursions, latent lot defects, inline inspection, selective rework, terminal scrap, quality metrics, and Blueprint benchmarking implemented in engine version `inm-sim/0.50.0`.
 
-Related: [[docs/design/lot-tracking]], [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/lot-tracking]], [[docs/design/lot-derived-output]], [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why quality is not another inventory count
 
@@ -50,6 +50,8 @@ A rework job removes only its declared repairable defect classes and increments 
 An inspection Process must transform exactly one tracked lot input into one declared tracked pass output per job. Reject and scrap Resources must be distinct, exist in the same tracking family, and have explicit Blueprint output bindings. A configured rework limit requires a scrap Resource. The compiler also rejects duplicate excursion ids, unknown lots or Processes, duplicate defect classes, an excursion outside the lot family, and a Process that no placed Device is qualified to execute.
 
 Pass, reject, and scrap are alternative outputs, not coproducts. Nominal production planning follows the declared pass path; event simulation is authoritative for actual yield loss and rework load.
+
+Inspection disposition is also distinct from lot-derived quantity. A lot may pass inline inspection, retain an undetected latent defect, and later produce fewer fungible units at its terminating Probe Process. That Process uses fixed `lotOutputProfiles`; see [[docs/design/lot-derived-output]].
 
 ## Metrics and scoring
 

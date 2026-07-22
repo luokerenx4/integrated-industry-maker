@@ -3,7 +3,7 @@
   "type": "device",
   "id": "dram-packaging-cell",
   "name": "DRAM Packaging Cell",
-  "description": "Back-end work center that dices a qualified wafer lot, consumes package substrates, and ends the wafer-lot route as packaged devices.",
+  "description": "Back-end work center that packages Probe-qualified bare dies one device at a time using explicit substrates.",
   "tags": [
     "semiconductor",
     "work-center",
@@ -20,11 +20,11 @@
     "rotatable": true,
     "ports": [
       {
-        "id": "wafer-input",
+        "id": "die-input",
         "direction": "input",
         "side": "east",
         "offset": 1,
-        "buffer": "wafer-input",
+        "buffer": "die-input",
         "kind": "resource"
       },
       {
@@ -47,7 +47,7 @@
   },
   "buffers": [
     {
-      "id": "wafer-input",
+      "id": "die-input",
       "role": "input",
       "capacity": 128,
       "accepts": [
@@ -73,7 +73,7 @@
   ],
   "production": {
     "processes": [
-      "dice-package-dram"
+      "package-known-good-dram"
     ],
     "categories": [
       "packaging"
@@ -83,7 +83,7 @@
       "denominator": 1
     },
     "inputPorts": [
-      "wafer-input",
+      "die-input",
       "substrate-input"
     ],
     "outputPorts": [

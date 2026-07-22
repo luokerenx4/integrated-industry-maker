@@ -189,19 +189,43 @@
       }
     },
     {
-      "id": "packaging-1",
-      "asset": "dram-packaging-cell",
+      "id": "probe-1",
+      "asset": "dram-wafer-probe-cell",
       "region": "cleanroom",
       "position": {
-        "x": 8,
+        "x": 12,
         "y": 20
       },
       "rotation": 0,
       "recipe": {
-        "process": "dice-package-dram",
+        "process": "probe-sort-dram-standard",
         "mode": "qualified",
         "inputs": {
-          "qualified-dram-wafer-lot": "wafer-input",
+          "qualified-dram-wafer-lot": "wafer-input"
+        },
+        "outputs": {
+          "known-good-dram-die": "die-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "earliest-due-date",
+        "powerPriority": 6
+      }
+    },
+    {
+      "id": "packaging-1",
+      "asset": "dram-packaging-cell",
+      "region": "cleanroom",
+      "position": {
+        "x": 7,
+        "y": 20
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "package-known-good-dram",
+        "mode": "qualified",
+        "inputs": {
+          "known-good-dram-die": "die-input",
           "dram-package-substrate": "substrate-input"
         },
         "outputs": {
@@ -580,7 +604,7 @@
       }
     },
     {
-      "id": "inspection-to-packaging-loader",
+      "id": "inspection-to-probe-loader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -589,13 +613,28 @@
       },
       "rotation": 180,
       "transportEndpoint": {
-        "connection": "inspection-to-packaging",
+        "connection": "inspection-to-probe",
         "stage": "loader",
         "distance": 1
       }
     },
     {
-      "id": "inspection-to-packaging-unloader",
+      "id": "inspection-to-probe-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 15,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "inspection-to-probe",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "probe-to-packaging-loader",
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
@@ -604,7 +643,22 @@
       },
       "rotation": 180,
       "transportEndpoint": {
-        "connection": "inspection-to-packaging",
+        "connection": "probe-to-packaging",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "probe-to-packaging-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 10,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "probe-to-packaging",
         "stage": "unloader",
         "distance": 1
       }
@@ -629,7 +683,7 @@
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
-        "x": 7,
+        "x": 6,
         "y": 21
       },
       "rotation": 0,
@@ -644,7 +698,7 @@
       "asset": "sorter",
       "region": "cleanroom",
       "position": {
-        "x": 9,
+        "x": 8,
         "y": 23
       },
       "rotation": 90,
@@ -1140,13 +1194,13 @@
       }
     },
     {
-      "id": "inspection-to-packaging",
+      "id": "inspection-to-probe",
       "from": {
         "device": "inspection-1",
         "port": "pass-output"
       },
       "to": {
-        "device": "packaging-1",
+        "device": "probe-1",
         "port": "wafer-input"
       },
       "resources": [
@@ -1160,33 +1214,52 @@
         {
           "x": 15,
           "y": 21
-        },
-        {
-          "x": 14,
-          "y": 21
-        },
-        {
-          "x": 13,
-          "y": 21
-        },
-        {
-          "x": 12,
-          "y": 21
-        },
-        {
-          "x": 11,
-          "y": 21
         }
       ],
       "logistics": {
         "loader": {
-          "device": "inspection-to-packaging-loader"
+          "device": "inspection-to-probe-loader"
         },
         "line": {
           "deviceAsset": "conveyor"
         },
         "unloader": {
-          "device": "inspection-to-packaging-unloader"
+          "device": "inspection-to-probe-unloader"
+        }
+      }
+    },
+    {
+      "id": "probe-to-packaging",
+      "from": {
+        "device": "probe-1",
+        "port": "die-output"
+      },
+      "to": {
+        "device": "packaging-1",
+        "port": "die-input"
+      },
+      "resources": [
+        "known-good-dram-die"
+      ],
+      "path": [
+        {
+          "x": 11,
+          "y": 21
+        },
+        {
+          "x": 10,
+          "y": 21
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "probe-to-packaging-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "probe-to-packaging-unloader"
         }
       }
     },
@@ -1223,10 +1296,6 @@
         {
           "x": 6,
           "y": 21
-        },
-        {
-          "x": 7,
-          "y": 21
         }
       ],
       "logistics": {
@@ -1256,8 +1325,12 @@
       ],
       "path": [
         {
-          "x": 9,
+          "x": 8,
           "y": 23
+        },
+        {
+          "x": 8,
+          "y": 24
         },
         {
           "x": 9,

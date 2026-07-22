@@ -35,7 +35,7 @@
     }
   ],
   "constraints": {
-    "maxBuildCost": 210000,
+    "maxBuildCost": 230000,
     "maxOccupiedArea": 350,
     "minProduction": 8
   },

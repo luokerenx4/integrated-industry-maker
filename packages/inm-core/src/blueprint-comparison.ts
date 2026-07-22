@@ -42,6 +42,9 @@ export interface BlueprintMetricSnapshot {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  lotOutputJobs: number;
+  lotOutputRatio: number;
+  lotOutputLostUnits: number;
   queueTimeViolations: number;
   queueTimeViolatedLots: number;
   maximumQueueTimeOverrunTicks: number;
@@ -133,6 +136,9 @@ export interface BlueprintMetricDelta {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  lotOutputJobs: number;
+  lotOutputRatio: number;
+  lotOutputLostUnits: number;
   queueTimeViolations: number;
   queueTimeViolatedLots: number;
   maximumQueueTimeOverrunTicks: number;
@@ -347,6 +353,9 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     firstPassYield: metrics.qualityFlow.firstPassYield,
     qualityEscapes: metrics.qualityFlow.escapedDefects,
     reworkCycles: metrics.qualityFlow.totalReworkCycles,
+    lotOutputJobs: metrics.lotOutputFlow.jobs,
+    lotOutputRatio: metrics.lotOutputFlow.outputRatio,
+    lotOutputLostUnits: metrics.lotOutputFlow.lostUnits,
     queueTimeViolations: routes.reduce((sum, route) => sum + route.queueTimeViolations, 0),
     queueTimeViolatedLots: routes.reduce((sum, route) => sum + route.violatedLots, 0),
     maximumQueueTimeOverrunTicks: routes.reduce((maximum, route) => Math.max(maximum, ...Object.values(route.steps).map((step) =>
@@ -441,6 +450,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     firstPassYield: after.firstPassYield - before.firstPassYield,
     qualityEscapes: after.qualityEscapes - before.qualityEscapes,
     reworkCycles: after.reworkCycles - before.reworkCycles,
+    lotOutputJobs: after.lotOutputJobs - before.lotOutputJobs,
+    lotOutputRatio: after.lotOutputRatio - before.lotOutputRatio,
+    lotOutputLostUnits: after.lotOutputLostUnits - before.lotOutputLostUnits,
     queueTimeViolations: after.queueTimeViolations - before.queueTimeViolations,
     queueTimeViolatedLots: after.queueTimeViolatedLots - before.queueTimeViolatedLots,
     maximumQueueTimeOverrunTicks: after.maximumQueueTimeOverrunTicks - before.maximumQueueTimeOverrunTicks,

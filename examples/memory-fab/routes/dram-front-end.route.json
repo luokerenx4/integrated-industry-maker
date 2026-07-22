@@ -3,7 +3,7 @@
   "type": "route",
   "id": "dram-front-end",
   "name": "DRAM Front-End Wafer Route",
-  "description": "Evaluator-owned DRAM work-order route from blank wafer lot through front-end qualification and explicit termination at package conversion.",
+  "description": "Evaluator-owned DRAM work-order route from blank wafer lot through front-end qualification and explicit termination at wafer Probe and die sort.",
   "family": "dram-wafer",
   "entry": {
     "resource": "blank-dram-wafer-lot",
@@ -117,7 +117,7 @@
       "transitions": [
         {
           "resource": "qualified-dram-wafer-lot",
-          "to": "package-dram"
+          "to": "probe-dram"
         },
         {
           "resource": "rework-required-dram-wafer-lot",
@@ -143,10 +143,11 @@
       ]
     },
     {
-      "id": "package-dram",
-      "name": "Dice and Package DRAM",
+      "id": "probe-dram",
+      "name": "Wafer Probe and Die Sort",
       "operations": [
-        "dice-package-dram"
+        "probe-sort-dram-standard",
+        "probe-sort-dram-adaptive"
       ],
       "transitions": []
     }

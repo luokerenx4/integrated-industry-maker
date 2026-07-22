@@ -365,6 +365,7 @@ async function loadStudioData(projectId: string, runName?: string) {
         setupGroup: process.setupGroup,
         quality: process.quality,
         lotTermination: process.lotTermination,
+        lotOutputProfiles: process.lotOutputProfiles,
         durationTicks: process.durationTicks,
         inputs: process.inputs,
         tooling: process.tooling,

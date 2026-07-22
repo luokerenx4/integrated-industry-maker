@@ -238,7 +238,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     releaseControlServiceLevelOpenings: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {}, stationFleetBusyArea: {}, stationFleetCompletedReturns: {},
-    lotProcessBatches: {},
+    lotProcessBatches: {}, lotOutputProfiles: {},
     consumedByRegion: {},
     powerGrids: Object.fromEntries(Object.keys(project.powerGrids).sort().map((grid) => [grid, {
       generatedMilliJoules: 0, demandMilliJoules: 0, servedMilliJoules: 0, unservedMilliJoules: 0, curtailedMilliJoules: 0,
@@ -1035,6 +1035,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         : quality.rejectOutput;
     return { lotId, detectedDefects, result, output };
   };
+  const resolveLotOutputExecution = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]) => {
+    if (!plan.lotOutputProfiles.length) return undefined;
+    const termination = plan.lotTerminations[0];
+    if (!termination || termination.input.count !== 1) return undefined;
+    const lotId = rankedProcessLotIds(device, termination.input.buffer, termination.input.resource, plan.definition.id, termination.input.minimumTreatmentLevel ?? 0)[0];
+    if (!lotId) return undefined;
+    const lot = state.lots[lotId]!;
+    const assessment = routeQueueAssessment(lotId, plan.definition.id);
+    const defects = [...new Set([...lot.quality.defects, ...(assessment?.defects ?? [])])].sort();
+    const profile = plan.lotOutputProfiles.find((candidate) => candidate.defectsAny.some((defect) => defects.includes(defect)));
+    return { lotId, defects, profile: profile?.id ?? "nominal", outputs: structuredClone(profile?.outputs ?? plan.outputs) };
+  };
   const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], disposition: "process" | "deliver" | "scrap", process?: string): Record<string, string[]> => {
     const consumedLots: Record<string, string[]> = {};
     for (const amount of amounts) {
@@ -1225,7 +1237,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const required = equipmentDrift ? scaledCeil(nominalPowerMilliWatts, equipmentDrift.powerMultiplier) : nominalPowerMilliWatts;
     const inspectionExecution = selectedProcessPlan?.quality?.kind === "inspection"
       ? resolveInspectionExecution(device, selectedProcessPlan) : undefined;
-    const capacityOutputs = inspectionExecution ? [inspectionExecution.output] : decision.produce;
+    const lotOutputExecution = selectedProcessPlan ? resolveLotOutputExecution(device, selectedProcessPlan) : undefined;
+    const capacityOutputs = inspectionExecution ? [inspectionExecution.output] : lotOutputExecution?.outputs ?? decision.produce;
     if (!outputFits(device, capacityOutputs)) {
       if (runtime.status !== "blocked-output") { setStatus(device.id, "blocked-output"); emit({ type: "buffer.blocked", tick: state.tick, device: device.id }); }
       return false;
@@ -1306,6 +1319,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     })).filter((termination) => termination.lotIds.length) ?? [];
     let actualProduce = structuredClone(decision.produce);
     let quality: ActiveDeviceJob["quality"];
+    let lotOutput: ActiveDeviceJob["lotOutput"];
     const processQuality = selectedProcessPlan?.quality;
     if (processQuality?.kind === "inspection") {
       const lotIds = lotTransfers.flatMap((transfer) => transfer.lotIds);
@@ -1320,6 +1334,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         kind: "rework", lotIds: lotTransfers.flatMap((transfer) => transfer.lotIds),
         repairs: [...processQuality.repairs],
       };
+    } else if (lotOutputExecution) {
+      const lotIds = lotTerminations.flatMap((termination) => termination.lotIds);
+      if (lotIds.length !== 1 || lotIds[0] !== lotOutputExecution.lotId) throw new Error(`Lot output selection changed while starting '${selectedProcessPlan!.definition.id}'`);
+      actualProduce = structuredClone(lotOutputExecution.outputs);
+      lotOutput = {
+        lotId: lotOutputExecution.lotId, profile: lotOutputExecution.profile,
+        defects: [...lotOutputExecution.defects], nominalOutputs: structuredClone(selectedProcessPlan!.outputs),
+      };
     }
     const job = {
       operation: decision.operation, startedAt: state.tick, durationTicks: effectiveDurationTicks,
@@ -1331,6 +1353,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ...(utilityAllocations?.length ? { utilities: structuredClone(utilityAllocations) } : {}),
       ...(lotTransfers.length ? { lotTransfers } : {}),
       ...(lotTerminations.length ? { lotTerminations } : {}),
+      ...(lotOutput ? { lotOutput } : {}),
       ...(quality ? { quality } : {}),
       ...(selectedProcessPlan && runtime.maintenance ? { production: true as const } : {}),
       ...(equipmentDrift ? { equipmentDrift: {
@@ -1411,8 +1434,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
       || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count))
       && (!isContractDispatchDevice(device) || contractContribution(device, plan) > 0)
-      && outputFits(device,
-      plan.quality?.kind === "inspection" ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput] : plan.outputs);
+      && outputFits(device, plan.quality?.kind === "inspection"
+        ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput]
+        : resolveLotOutputExecution(device, plan)?.outputs ?? plan.outputs);
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     processPlanMaterialReady(device, plan)
       && (!plan.tooling.length || Boolean(toolingProviderFor(device, plan)))
@@ -2227,6 +2251,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           });
         } else mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count, treatmentLevel: output.treatmentLevel });
         mutateFactoryState(state, { kind: "produced", resource: output.resource, count: output.count });
+      }
+      if (job.lotOutput) {
+        const measured = stats.lotOutputProfiles[job.operation] ??= { jobs: 0, profiles: {}, nominalOutputs: {}, actualOutputs: {} };
+        measured.jobs += 1;
+        measured.profiles[job.lotOutput.profile] = (measured.profiles[job.lotOutput.profile] ?? 0) + 1;
+        for (const output of job.lotOutput.nominalOutputs) measured.nominalOutputs[output.resource] = (measured.nominalOutputs[output.resource] ?? 0) + output.count;
+        for (const output of job.produce) measured.actualOutputs[output.resource] = (measured.actualOutputs[output.resource] ?? 0) + output.count;
+        emit({
+          type: "lot.output-profile", tick: state.tick, device: event.device, lot: job.lotOutput.lotId,
+          process: job.operation, profile: job.lotOutput.profile, defects: [...job.lotOutput.defects],
+          nominalOutputs: job.lotOutput.nominalOutputs.map(({ resource, count }) => ({ resource, count })),
+          actualOutputs: job.produce.map(({ resource, count }) => ({ resource, count })),
+        });
       }
       if (job.quality?.kind === "inspection") {
         mutateFactoryState(state, { kind: "lot.inspect", lotIds: job.quality.lotIds, result: job.quality.result });

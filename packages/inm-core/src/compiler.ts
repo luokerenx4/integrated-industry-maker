@@ -112,6 +112,10 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         path: `processes/${id}.process.json`, code: "lot.termination-quality",
         message: `Lot-terminating Process '${id}' cannot also be an inspection or rework Process`,
       });
+      if (trackedInputs[0]?.count !== 1) issues.push({
+        path: `processes/${id}.process.json/lotTermination`, code: "lot.termination-single-lot",
+        message: `Lot-terminating Process '${id}' must consume exactly one tracked lot per base Process cycle`,
+      });
     } else for (const family of [...families].sort()) {
         const inputs = trackedInputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
         const outputs = trackedOutputs.filter((amount) => resources[amount.resource]!.tracking!.family === family);
@@ -124,6 +128,29 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
           message: `Process '${id}' cannot create or destroy '${family}' lot identities (${inputs[0]!.count} in, ${outputs[0]!.count} out)`,
         });
       }
+    if (process.lotOutputProfiles) {
+      const path = `processes/${id}.process.json/lotOutputProfiles`;
+      if (!process.lotTermination) issues.push({ path, code: "lot.output-termination-required", message: `Lot output profiles require Process '${id}' to terminate one tracked lot` });
+      const outputResources = process.outputs.map((amount) => amount.resource).sort();
+      const nominalUnits = process.outputs.reduce((sum, amount) => sum + amount.count, 0);
+      const profileIds = new Set<string>();
+      for (const [index, profile] of process.lotOutputProfiles.entries()) {
+        const profilePath = `${path}/${index}`;
+        if (profileIds.has(profile.id)) issues.push({ path: `${profilePath}/id`, code: "lot.output-duplicate-profile", message: `Process '${id}' declares output profile '${profile.id}' more than once` });
+        profileIds.add(profile.id);
+        if (new Set(profile.defectsAny).size !== profile.defectsAny.length) issues.push({ path: `${profilePath}/defectsAny`, code: "lot.output-duplicate-defect", message: `Output profile '${profile.id}' declares one defect more than once` });
+        const actualResources = Object.keys(profile.outputCounts).sort();
+        if (actualResources.join("\0") !== outputResources.join("\0")) issues.push({
+          path: `${profilePath}/outputCounts`, code: "lot.output-resource-shape",
+          message: `Output profile '${profile.id}' must declare exactly the Process output Resources: ${outputResources.join(", ")}`,
+        });
+        const actualUnits = Object.values(profile.outputCounts).reduce((sum, count) => sum + count, 0);
+        if (actualUnits > nominalUnits) issues.push({
+          path: `${profilePath}/outputCounts`, code: "lot.output-exceeds-nominal",
+          message: `Output profile '${profile.id}' produces ${actualUnits} units, above Process nominal ${nominalUnits}`,
+        });
+      }
+    }
     if (process.quality?.kind === "inspection") {
       const path = `processes/${id}.process.json/quality`;
       const input = process.inputs[0]; const output = process.outputs[0];
@@ -1086,6 +1113,16 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             const amounts = compileProductionAmounts(definition, mode, compiledBindings);
             compiledInputs.splice(0, compiledInputs.length, ...amounts.inputs);
             compiledOutputs.splice(0, compiledOutputs.length, ...amounts.outputs);
+            const lotOutputProfiles = (definition.lotOutputProfiles ?? []).map((profile) => ({
+              id: profile.id, defectsAny: [...profile.defectsAny],
+              outputs: definition.outputs.flatMap((amount) => {
+                const count = (profile.outputCounts[amount.resource] ?? 0) * mode.outputCycles;
+                return count > 0 ? [{
+                  buffer: compiledBindings.outputs[amount.resource]!, resource: amount.resource,
+                  count, treatmentLevel: 0,
+                }] : [];
+              }),
+            }));
             const trackedInputs = compiledInputs.filter((amount) => loaded.resources[amount.resource]?.tracking);
             const trackedOutputs = compiledOutputs.filter((amount) => loaded.resources[amount.resource]?.tracking);
             for (const input of trackedInputs) {
@@ -1109,9 +1146,9 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
               });
               bindingValid = false;
             }
-            for (const bufferId of [...new Set([...compiledInputs, ...compiledOutputs].map((amount) => amount.buffer))]) {
-              const amountsInBuffer = recipeBufferRequirements(bufferId, compiledInputs, compiledOutputs);
-              const required = amountsInBuffer.reduce((sum, amount) => sum + amount.count, 0);
+            for (const bufferId of [...new Set([...compiledInputs, ...compiledOutputs, ...lotOutputProfiles.flatMap((profile) => profile.outputs)].map((amount) => amount.buffer))]) {
+              const required = Math.max(...[compiledOutputs, ...lotOutputProfiles.map((profile) => profile.outputs)].map((outputs) =>
+                recipeBufferRequirements(bufferId, compiledInputs, outputs).reduce((sum, amount) => sum + amount.count, 0)));
               const capacity = effectiveBuffers[bufferId]?.capacity;
               if (capacity !== undefined && required > capacity) {
                 issues.push({ path: `${recipePath}/mode`, code: "production-mode.job-capacity", message: `Production mode '${mode.id}' requires ${required} total items in shared buffer '${bufferId}', exceeding capacity ${capacity}` });
@@ -1156,6 +1193,16 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
             priority: recipe.priority ?? 0,
             lotTransfers,
             lotTerminations,
+            lotOutputProfiles: (definition.lotOutputProfiles ?? []).map((profile) => ({
+              id: profile.id, defectsAny: [...profile.defectsAny],
+              outputs: definition.outputs.flatMap((amount) => {
+                const count = (profile.outputCounts[amount.resource] ?? 0) * mode.outputCycles;
+                return count > 0 ? [{
+                  buffer: compiledBindings.outputs[amount.resource]!, resource: amount.resource,
+                  count, treatmentLevel: 0,
+                }] : [];
+              }),
+            })),
             ...(quality ? { quality } : {}),
             ...(definition.setupGroup ? { setupGroup: definition.setupGroup } : {}),
             ...(asset.production.changeover ? {

@@ -36,10 +36,11 @@ The policy lives in the Blueprint; contracts and evaluation live in the locked h
 
 ## DRAM north-star model
 
-The memory-fab project turns qualified wafer lots into fungible packaged devices and then selects between commercial screen and extended reliability/speed-bin programs. Three contracts represent commercial, performance, and automotive grades. Their timing, yields, and values are synthetic, but the abstraction deliberately separates:
+The memory-fab project turns qualified wafer lots into a realized count of known-good dies at Probe, packages each die, and then selects between commercial screen and extended reliability/speed-bin programs. Three contracts represent commercial, performance, and automotive grades. Their timing, yields, and values are synthetic, but the abstraction deliberately separates:
 
 - identity-preserving wafer work-order flow;
-- terminating dice/package conversion;
+- terminating wafer-Probe yield conversion;
+- die-by-die packaging;
 - fungible product grading;
 - customer demand floors and shortage economics;
 - equipment-time competition among test programs.

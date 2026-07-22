@@ -1,0 +1,109 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "dram-wafer-probe-cell",
+  "name": "DRAM Wafer Probe Cell",
+  "description": "Electrical Probe and die-sort work center that converts one tracked qualified wafer lot into its measured known-good die output.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "wafer-probe"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "wafer-input",
+        "direction": "input",
+        "side": "east",
+        "offset": 1,
+        "buffer": "wafer-input",
+        "kind": "resource"
+      },
+      {
+        "id": "die-output",
+        "direction": "output",
+        "side": "west",
+        "offset": 1,
+        "buffer": "die-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "wafer-input",
+      "role": "input",
+      "capacity": 128,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "die-output",
+      "role": "output",
+      "capacity": 128,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "processes": [
+      "probe-sort-dram-standard",
+      "probe-sort-dram-adaptive"
+    ],
+    "categories": [
+      "wafer-probe"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "wafer-input"
+    ],
+    "outputPorts": [
+      "die-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ]
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 28000,
+    "activeMilliWatts": 230000
+  },
+  "economics": {
+    "buildCost": 20000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

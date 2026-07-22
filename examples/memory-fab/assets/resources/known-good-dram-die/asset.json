@@ -1,0 +1,24 @@
+{
+  "assetVersion": 1,
+  "type": "resource",
+  "id": "known-good-dram-die",
+  "name": "Known-good DRAM Die",
+  "description": "Electrically passing bare DRAM die released by wafer Probe for downstream packaging.",
+  "tags": [
+    "semiconductor",
+    "wafer-probe",
+    "known-good-die",
+    "wip"
+  ],
+  "unit": {
+    "kind": "discrete",
+    "symbol": "die",
+    "precision": 0
+  },
+  "transport": {
+    "stackSize": 64
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

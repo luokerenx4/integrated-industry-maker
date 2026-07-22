@@ -215,6 +215,17 @@
     "scheduled": 0,
     "scrapped": 0
   },
+  "lotOutputFlow": {
+    "actualOutputs": {},
+    "actualUnits": 0,
+    "jobs": 0,
+    "lostOutputs": {},
+    "lostUnits": 0,
+    "nominalOutputs": {},
+    "nominalUnits": 0,
+    "outputRatio": 1,
+    "processes": {}
+  },
   "machineUtilization": {
     "assembler-1": 0.225,
     "coal-assembly-to-splitter-loader": 0.0625,

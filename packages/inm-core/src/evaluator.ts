@@ -23,6 +23,12 @@ export interface SimulationStats {
     device: string; process: string; mode: string; expectedLotsPerJob: number;
     jobs: number; lots: number; queueWaitTicks: number; maximumLotsPerJob: number;
   }>;
+  lotOutputProfiles: Record<string, {
+    jobs: number;
+    profiles: Record<string, number>;
+    nominalOutputs: Record<string, number>;
+    actualOutputs: Record<string, number>;
+  }>;
   consumedByRegion: Record<string, Record<string, number>>;
   powerGrids: Record<string, {
     generatedMilliJoules: number; demandMilliJoules: number; servedMilliJoules: number; unservedMilliJoules: number; curtailedMilliJoules: number;
@@ -201,6 +207,36 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   const totalBatchQueueWait = Object.values(batchOperations)
     .reduce((sum, operation) => sum + operation.meanQueueWaitTicksPerLot * operation.lots, 0);
   batchFlow.meanQueueWaitTicksPerLot = batchFlow.lots ? totalBatchQueueWait / batchFlow.lots : 0;
+  const outputAmounts = (values: Record<string, number>): number => Object.values(values).reduce((sum, count) => sum + count, 0);
+  const outputLosses = (nominal: Record<string, number>, actual: Record<string, number>): Record<string, number> => Object.fromEntries(
+    [...new Set([...Object.keys(nominal), ...Object.keys(actual)])].sort().map((resource) => [resource, Math.max(0, (nominal[resource] ?? 0) - (actual[resource] ?? 0))]),
+  );
+  const lotOutputProcesses = Object.fromEntries(Object.entries(stats.lotOutputProfiles).sort(([left], [right]) => left.localeCompare(right)).map(([process, measured]) => {
+    const nominalUnits = outputAmounts(measured.nominalOutputs);
+    const actualUnits = outputAmounts(measured.actualOutputs);
+    const lostOutputs = outputLosses(measured.nominalOutputs, measured.actualOutputs);
+    return [process, {
+      jobs: measured.jobs, nominalUnits, actualUnits, lostUnits: Math.max(0, nominalUnits - actualUnits),
+      outputRatio: nominalUnits ? actualUnits / nominalUnits : 1,
+      profiles: { ...measured.profiles }, nominalOutputs: { ...measured.nominalOutputs },
+      actualOutputs: { ...measured.actualOutputs }, lostOutputs,
+    }];
+  }));
+  const nominalOutputs = Object.values(lotOutputProcesses).reduce<Record<string, number>>((totals, process) => {
+    for (const [resource, count] of Object.entries(process.nominalOutputs)) totals[resource] = (totals[resource] ?? 0) + count;
+    return totals;
+  }, {});
+  const actualOutputs = Object.values(lotOutputProcesses).reduce<Record<string, number>>((totals, process) => {
+    for (const [resource, count] of Object.entries(process.actualOutputs)) totals[resource] = (totals[resource] ?? 0) + count;
+    return totals;
+  }, {});
+  const lostOutputs = outputLosses(nominalOutputs, actualOutputs);
+  const nominalUnits = outputAmounts(nominalOutputs); const actualUnits = outputAmounts(actualOutputs);
+  const lotOutputFlow: FactoryMetrics["lotOutputFlow"] = {
+    jobs: Object.values(lotOutputProcesses).reduce((sum, process) => sum + process.jobs, 0),
+    nominalUnits, actualUnits, lostUnits: Math.max(0, nominalUnits - actualUnits), outputRatio: nominalUnits ? actualUnits / nominalUnits : 1,
+    nominalOutputs, actualOutputs, lostOutputs, processes: lotOutputProcesses,
+  };
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
   const waitingInputTime: Record<string, Tick> = {};
@@ -513,7 +549,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

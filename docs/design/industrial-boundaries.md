@@ -1,14 +1,14 @@
 # Purchased-material and tracked-lot boundaries
 
-Status: scheduled untracked material deliveries, explicit tracked-lot Process termination, multi-product delivery contracts, and contract-aware recipe dispatch are implemented in `inm-sim/0.67.0`.
+Status: scheduled untracked material deliveries, explicit tracked-lot Process termination with lot-derived fungible output, multi-product delivery contracts, and contract-aware recipe dispatch are implemented in `inm-sim/0.68.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/lot-tracking]], [[docs/design/product-routes]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/lot-tracking]], [[docs/design/lot-derived-output]], [[docs/design/product-routes]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
 ## Why these are separate boundaries
 
 An industrial model has three identities that must not be flattened into one Resource count: purchased material arriving from outside the modeled plant; an identity-preserving work order or wafer lot moving through controlled operations; and fungible sellable units produced when that work order is split, assembled, or otherwise converted.
 
-The DRAM example makes the distinction concrete. Package substrates are purchased inbound material. A wafer lot retains one stable id through front-end processing, inspection, and rework. Dicing and packaging consumes one qualified lot and eight substrates, ends that wafer work order, and creates eight ordinary packaged devices. Alternate final-test programs then create commercial, performance-bin, and automotive-screened products. Customer delivery operates on device counts rather than pretending that one wafer lot is one memory device.
+The DRAM example makes the distinction concrete. Package substrates are purchased inbound material. A wafer lot retains one stable id through front-end processing, inspection, and rework. Wafer Probe ends that work order and creates the measured number of known-good dies; packaging then consumes each die with one substrate. Alternate final-test programs create commercial, performance-bin, and automotive-screened products. Customer delivery operates on device counts rather than pretending that one wafer lot is one memory device.
 
 ## Scheduled purchased material
 
@@ -26,7 +26,7 @@ A Process may declare:
 
 Such a Process must consume exactly one tracked Resource kind and produce no tracked Resource. Ordinary untracked inputs and outputs remain allowed. It cannot also be an inspection or rework Process. Its owning Route step has no Resource transition: successful completion explicitly ends each held source lot as `complete` or `scrap`, emits `lot.route-terminated`, and leaves only the declared fungible outputs in downstream buffers.
 
-This is a conservation boundary, not an implicit sink. The simulator holds the exact lot ids on the active equipment job, includes their final packaging work in process/cycle time, applies failure semantics while they are resident, and only terminates them after the ordinary outputs fit and the physical job completes.
+This is a conservation boundary, not an implicit sink. The simulator holds the exact lot id on the active equipment job, includes its Probe work in process/cycle time, applies failure semantics while it is resident, and only terminates it after the actual fungible outputs fit and the physical job completes. Optional `lotOutputProfiles` select those actual counts from the incoming lot's defects while preserving the Process `outputs` as the nominal planning envelope; see [[docs/design/lot-derived-output]].
 
 ## Product throughput plus work-order service
 
@@ -43,7 +43,8 @@ The project-local `examples/memory-fab` line is now end-to-end:
 ```text
 scheduled blank wafer lots → re-entrant front end → inspection/rework
 scheduled package substrates ───────────────────────┐
-qualified wafer lot + 8 substrates → dice/package ─┴→ 8 packaged devices
+qualified wafer lot → Probe / die sort → actual known-good dies
+known-good die + substrate → package ─────────────────→ packaged device
 8 packaged devices → commercial screen ───────────→ 8 commercial devices
 8 packaged devices → extended burn-in/speed bin ─→ 2 commercial + 4 performance + 2 automotive devices
 three fixed customer contracts → all-delivery product value − shortfall penalty

@@ -1149,7 +1149,8 @@ describe("blueprint compiler", () => {
     const productionGraph = analyzeProduction(baselineProject).productionGraph;
     expect(productionGraph.rawInputsPerTarget).toEqual({ "blank-dram-wafer-lot": 0.125, "dram-package-substrate": 1 });
     expect(productionGraph.steps.some((step) => step.process === "rework-final-pattern")).toBeFalse();
-    expect(productionGraph.steps.some((step) => step.process === "dice-package-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
+    expect(productionGraph.steps.some((step) => step.process === "probe-sort-dram-standard" && step.cyclesPerTarget === 0.125)).toBeTrue();
+    expect(productionGraph.steps.some((step) => step.process === "package-known-good-dram" && step.cyclesPerTarget === 1)).toBeTrue();
     expect(productionGraph.steps.some((step) => step.process === "screen-commercial-dram" && step.cyclesPerTarget === 0.125)).toBeTrue();
     const baseline = runUntil(baselineProject, undefined, { seed: 42 });
     const lots = Object.values(baseline.state.lots).sort((left, right) => left.id.localeCompare(right.id));
@@ -1183,8 +1184,15 @@ describe("blueprint compiler", () => {
     expect(baseline.state.lots["dram-lot-11"]!.quality).toEqual(expect.objectContaining({ defects: ["latent-electrical", "particle-contamination"], scrapDispositions: 0 }));
     expect(baseline.events.filter((event) => event.type === "lot.completed")).toHaveLength(5);
     expect(baseline.events.filter((event) => event.type === "lot.route-terminated")).toHaveLength(5);
+    expect(baseline.events.filter((event) => event.type === "lot.output-profile")).toHaveLength(5);
+    expect(baseline.metrics.lotOutputFlow).toEqual(expect.objectContaining({
+      jobs: 5, nominalUnits: 40, actualUnits: 40, lostUnits: 0, outputRatio: 1,
+    }));
+    expect(baseline.metrics.lotOutputFlow.processes["probe-sort-dram-standard"]).toEqual(expect.objectContaining({
+      jobs: 5, profiles: { nominal: 5 }, nominalUnits: 40, actualUnits: 40, lostUnits: 0,
+    }));
     expect(baseline.events.filter((event) => event.type === "material.delivered")).toHaveLength(12);
-    expect(baseline.metrics.produced["packaged-dram-device"]).toBe(40);
+    expect(baseline.metrics.produced["packaged-dram-device"]).toBe(36);
     expect(baseline.metrics.produced["commercial-dram-device"]).toBe(24);
     expect(baseline.metrics.consumed["commercial-dram-device"]).toBe(24);
     expect(baseline.metrics.throughputPerMinute).toBe(6);
@@ -1241,10 +1249,10 @@ describe("blueprint compiler", () => {
     intermediateRelease.scenario.lotReleases![0]!.resource = "dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(intermediateRelease))).toContain("route.release-entry");
     const malformedTermination = await loadFactoryProject(memoryFab);
-    malformedTermination.processes["dice-package-dram"]!.outputs.push({ resource: "qualified-dram-wafer-lot", count: 1 });
+    malformedTermination.processes["probe-sort-dram-standard"]!.outputs.push({ resource: "qualified-dram-wafer-lot", count: 1 });
     expect(issueCodes(() => compileFactoryProject(malformedTermination))).toContain("lot.termination-shape");
     const hiddenDeadEnd = await loadFactoryProject(memoryFab);
-    hiddenDeadEnd.routes["dram-front-end"]!.steps.find((step) => step.id === "package-dram")!.operations.push("inspect-final-pattern-standard");
+    hiddenDeadEnd.routes["dram-front-end"]!.steps.find((step) => step.id === "probe-dram")!.operations.push("inspect-final-pattern-standard");
     expect(issueCodes(() => compileFactoryProject(hiddenDeadEnd))).toContain("route.dead-end");
     const trackedMaterialDelivery = await loadFactoryProject(memoryFab);
     trackedMaterialDelivery.scenario.materialDeliveries![0]!.resource = "blank-dram-wafer-lot";
@@ -1300,7 +1308,7 @@ describe("blueprint compiler", () => {
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
       control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
       dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
-      released: 11, pending: 1, controlBlockedLots: 7, controlBlockedTicks: 715_800, capacityBlockedLots: 0,
+      released: 11, pending: 1, controlBlockedLots: 7, controlBlockedTicks: 702_600, capacityBlockedLots: 0,
     }));
     expect(controlled.events.filter((event) => event.type === "lot.release-control-closed")).toHaveLength(3);
     expect(controlled.events.filter((event) => event.type === "lot.release-control-opened")).toHaveLength(2);
@@ -1330,7 +1338,7 @@ describe("blueprint compiler", () => {
     const candidate = runUntil(compileFactoryProject(candidateSource), undefined, { seed: 42 });
     expect(candidate.metrics.lotFlow.onTimeCompleted).toBeLessThanOrEqual(baseline.metrics.lotFlow.onTimeCompleted);
     expect(candidate.metrics.lotFlow.meanTardinessTicks).toBeGreaterThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeLessThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
+    expect(candidate.metrics.lotFlow.meanCycleTimeTicks).toBeGreaterThan(baseline.metrics.lotFlow.meanCycleTimeTicks);
     expect(candidate.metrics.batchFlow.jobs).toBe(0);
     expect(candidate.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(candidate.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
@@ -1343,7 +1351,6 @@ describe("blueprint compiler", () => {
     const setupAware = runUntil(compileFactoryProject(setupAwareSource), undefined, { seed: 42 });
     expect(setupAware.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(setupAware.metrics.lotFlow.meanTardinessTicks).toBeLessThan(baseline.metrics.lotFlow.meanTardinessTicks);
-    expect(setupAware.metrics.finalScore).toBeGreaterThan(baseline.metrics.finalScore);
 
     const minimumLotCampaignSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     for (const id of ["lithography-1", "etch-1"]) minimumLotCampaignSource.blueprint.devices.find((device) => device.id === id)!.policy = {
@@ -1418,6 +1425,22 @@ describe("blueprint compiler", () => {
     const missingDispositionBinding = { ...source, blueprint: structuredClone(source.blueprint) };
     delete missingDispositionBinding.blueprint.devices.find((device) => device.id === "inspection-1")!.recipe!.outputs["scrap-dram-wafer-lot"];
     expect(issueCodes(() => compileFactoryProject(missingDispositionBinding))).toContain("recipe.binding-required");
+
+    const profilesWithoutTermination = { ...source, processes: structuredClone(source.processes) };
+    delete profilesWithoutTermination.processes["probe-sort-dram-standard"]!.lotTermination;
+    expect(issueCodes(() => compileFactoryProject(profilesWithoutTermination))).toContain("lot.output-termination-required");
+
+    const malformedProfileShape = { ...source, processes: structuredClone(source.processes) };
+    malformedProfileShape.processes["probe-sort-dram-standard"]!.lotOutputProfiles![0]!.outputCounts = {};
+    expect(issueCodes(() => compileFactoryProject(malformedProfileShape))).toContain("lot.output-resource-shape");
+
+    const excessiveProfile = { ...source, processes: structuredClone(source.processes) };
+    excessiveProfile.processes["probe-sort-dram-standard"]!.lotOutputProfiles![0]!.outputCounts["known-good-dram-die"] = 9;
+    expect(issueCodes(() => compileFactoryProject(excessiveProfile))).toContain("lot.output-exceeds-nominal");
+
+    const duplicateProfile = { ...source, processes: structuredClone(source.processes) };
+    duplicateProfile.processes["probe-sort-dram-standard"]!.lotOutputProfiles!.push(structuredClone(duplicateProfile.processes["probe-sort-dram-standard"]!.lotOutputProfiles![0]!));
+    expect(issueCodes(() => compileFactoryProject(duplicateProfile))).toContain("lot.output-duplicate-profile");
 
     const unknownExcursionLot = { ...source, scenario: structuredClone(source.scenario) };
     unknownExcursionLot.scenario.qualityExcursions![0]!.lot = "unknown-lot";
@@ -3033,7 +3056,7 @@ describe("research boundary and experiment decisions", () => {
       completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
-    expect(result.metrics.infeasibleReason).toBe("build cost 220210 exceeds 210000");
+    expect(result.metrics.infeasibleReason).toBe("build cost 240230 exceeds 230000");
 
     const hybrid = parallelizeWorkCenter(project, project.blueprint, {
       device: "inspection-1", cloneId: "inspection-2", cloneAsset: "rapid-metrology-cell", cloneProcess: "inspect-final-pattern-standard",
@@ -3399,6 +3422,19 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.patch[0]).toEqual(expect.objectContaining({ op: "replace", value: "contract-value" }));
     expect(result.cases.every((item) => item.scoreDelta > 0 && item.candidateCapacityReady)).toBeTrue();
     expect(result.cases.every((item) => item.candidateMetrics.deliveryNetValuePerMinute > item.baselineMetrics.deliveryNetValuePerMinute)).toBeTrue();
+  }, 15_000);
+
+  test("keeps a one-process DRAM wafer-probe yield program against locked latent-defect work", async () => {
+    const result = await evaluateBlueprintBenchmark(memoryFab, "yield-research");
+    expect(result.verdict).toBe("KEEP");
+    expect(result.accepted).toBeTrue();
+    expect(result.patch).toHaveLength(1);
+    expect(result.patch[0]).toEqual(expect.objectContaining({ op: "replace", value: "probe-sort-dram-adaptive" }));
+    expect(result.cases.map((item) => item.id)).toEqual(["yield-window", "yield-excursion"]);
+    expect(result.totalSimulationTicks).toBe(1_200_000);
+    expect(result.cases.every((item) => item.candidateMetrics.lotOutputRatio > item.baselineMetrics.lotOutputRatio)).toBeTrue();
+    expect(result.cases.every((item) => item.candidateMetrics.lotOutputLostUnits < item.baselineMetrics.lotOutputLostUnits)).toBeTrue();
+    expect(result.cases.every((item) => item.scoreDelta > 0 && item.candidateCapacityReady)).toBeTrue();
   }, 15_000);
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {

@@ -46,6 +46,9 @@ export const processSchema = z.object({
     z.object({ kind: z.literal("rework"), repairs: z.array(id).min(1) }).strict(),
   ]).optional(),
   lotTermination: z.object({ terminal: z.enum(["complete", "scrap"]) }).strict().optional(),
+  lotOutputProfiles: z.array(z.object({
+    id, defectsAny: z.array(id).min(1), outputCounts: z.record(id, nonNegativeInt),
+  }).strict()).min(1).optional(),
   durationTicks: positiveInt, inputs: z.array(processAmountSchema), tooling: z.array(processAmountSchema).min(1).optional(),
   utilities: z.array(utilityDemandSchema).min(1).optional(), outputs: z.array(processAmountSchema).min(1),
 }).strict();

@@ -85,6 +85,14 @@ export interface IndustrialProcessManifest {
     };
   /** Explicitly ends one tracked Route lot while ordinary untracked outputs continue downstream. */
   lotTermination?: { terminal: "complete" | "scrap" };
+  /** Deterministic actual-output profiles selected from the terminating lot's latent defects. */
+  lotOutputProfiles?: Array<{
+    id: string;
+    /** The first authored profile containing any current defect wins. */
+    defectsAny: string[];
+    /** Complete actual output counts by declared output Resource; zero represents total loss of that output. */
+    outputCounts: Record<ResourceId, number>;
+  }>;
   durationTicks: Tick;
   inputs: ProcessAmount[];
   /** Reusable production assets reserved from one in-range tooling provider for the full physical job. */
@@ -678,6 +686,8 @@ export interface CompiledDevice extends BlueprintDevice {
     lotTransfers: Array<{ family: string; input: ResourceBufferQuantity; output: ResourceBufferQuantity }>;
     /** Tracked inputs deliberately terminated by this Process while untracked outputs continue. */
     lotTerminations: Array<{ family: string; input: ResourceBufferQuantity; terminal: "complete" | "scrap" }>;
+    /** Mode-scaled alternative outputs selected by the terminating lot's fixed quality state. */
+    lotOutputProfiles: Array<{ id: string; defectsAny: string[]; outputs: ResourceBufferQuantity[] }>;
     quality?:
       | {
         kind: "inspection";
@@ -867,6 +877,13 @@ export interface ActiveDeviceJob {
   treatment?: { resource: ResourceId; fromLevel: number; toLevel: number; count: number; agentResource: ResourceId; agentCount: number };
   lotTransfers?: Array<{ lotIds: string[]; output: ResourceBufferQuantity }>;
   lotTerminations?: Array<{ lotIds: string[]; terminal: "complete" | "scrap" }>;
+  /** Actual fungible output selected from the terminating lot's evaluator-owned quality state. */
+  lotOutput?: {
+    lotId: string;
+    profile: string;
+    defects: string[];
+    nominalOutputs: ResourceBufferQuantity[];
+  };
   changeover?: { from: string | null; to: string };
   /** Marks evaluator-owned equipment maintenance rather than a material-processing job. */
   maintenance?: {
@@ -1180,6 +1197,7 @@ export type FactoryEvent =
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; lotIds?: string[] }
   | { type: "lot.completed"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; cycleTicks: Tick; tardinessTicks: Tick }
   | { type: "lot.quality-excursion"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; excursion: string; defects: string[] }
+  | { type: "lot.output-profile"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; profile: string; defects: string[]; nominalOutputs: ProcessAmount[]; actualOutputs: ProcessAmount[] }
   | { type: "lot.inspected"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; result: "pass" | "reject" | "scrap"; detectedDefects: string[]; reworkCycles: number }
   | { type: "lot.reworked"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; repairedDefects: string[]; remainingDefects: string[]; reworkCycles: number }
   | { type: "lot.scrapped"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; reason: "equipment-breakdown" | "facility-interlock" | "quality-rejection" | "process-termination" }
@@ -1325,6 +1343,27 @@ export interface FactoryMetrics {
     activeDefects: number;
     goodYield: number;
     firstPassYield: number;
+  };
+  lotOutputFlow: {
+    jobs: number;
+    nominalUnits: number;
+    actualUnits: number;
+    lostUnits: number;
+    outputRatio: number;
+    nominalOutputs: Record<ResourceId, number>;
+    actualOutputs: Record<ResourceId, number>;
+    lostOutputs: Record<ResourceId, number>;
+    processes: Record<ProcessId, {
+      jobs: number;
+      nominalUnits: number;
+      actualUnits: number;
+      lostUnits: number;
+      outputRatio: number;
+      profiles: Record<string, number>;
+      nominalOutputs: Record<ResourceId, number>;
+      actualOutputs: Record<ResourceId, number>;
+      lostOutputs: Record<ResourceId, number>;
+    }>;
   };
   batchFlow: {
     batchOperations: number;

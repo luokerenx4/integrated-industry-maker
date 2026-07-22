@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "id": "probe-sort-dram-adaptive",
+  "name": "Adaptive DRAM wafer Probe and sort",
+  "description": "Adaptive DRAM wafer Probe and sort terminates the tracked wafer lot and materializes the actual known-good die count. The nominal eight-die plan falls to 7 under latent electrical variability.",
+  "category": "wafer-probe",
+  "tags": [
+    "dram",
+    "back-end",
+    "wafer-probe",
+    "die-sort",
+    "lot-termination"
+  ],
+  "durationTicks": 8000,
+  "inputs": [
+    {
+      "resource": "qualified-dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "known-good-dram-die",
+      "count": 8
+    }
+  ],
+  "lotTermination": {
+    "terminal": "complete"
+  },
+  "lotOutputProfiles": [
+    {
+      "id": "latent-electrical-yield",
+      "defectsAny": [
+        "latent-electrical"
+      ],
+      "outputCounts": {
+        "known-good-dram-die": 7
+      }
+    }
+  ]
+}

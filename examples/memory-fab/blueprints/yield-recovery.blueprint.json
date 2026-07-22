@@ -1,0 +1,1826 @@
+{
+  "version": 1,
+  "revision": "memory-fab-product-v1",
+  "devices": [
+    {
+      "id": "lot-release",
+      "asset": "buffer",
+      "region": "cleanroom",
+      "position": {
+        "x": 2,
+        "y": 13
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "storage": [
+          "blank-dram-wafer-lot"
+        ]
+      }
+    },
+    {
+      "id": "substrate-receiving",
+      "asset": "buffer",
+      "region": "cleanroom",
+      "position": {
+        "x": 2,
+        "y": 20
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "storage": [
+          "dram-package-substrate"
+        ]
+      }
+    },
+    {
+      "id": "lithography-1",
+      "asset": "lithography-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 8,
+        "y": 12
+      },
+      "rotation": 0,
+      "recipes": [
+        {
+          "process": "pattern-cell-layer-1",
+          "mode": "qualified",
+          "priority": 1,
+          "inputs": {
+            "blank-dram-wafer-lot": "release-input"
+          },
+          "outputs": {
+            "patterned-cell-l1-lot": "pattern-output"
+          }
+        },
+        {
+          "process": "pattern-cell-layer-2",
+          "mode": "qualified",
+          "priority": 10,
+          "inputs": {
+            "annealed-dielectric-stack-lot": "reentrant-input"
+          },
+          "outputs": {
+            "patterned-cell-l2-lot": "pattern-output"
+          }
+        }
+      ],
+      "policy": {
+        "recipeDispatch": "authored-order",
+        "lotDispatch": "fifo",
+        "powerPriority": 10
+      }
+    },
+    {
+      "id": "etch-1",
+      "asset": "plasma-etch-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 17,
+        "y": 12
+      },
+      "rotation": 0,
+      "recipes": [
+        {
+          "process": "etch-cell-layer-1",
+          "mode": "qualified",
+          "priority": 1,
+          "inputs": {
+            "patterned-cell-l1-lot": "pattern-input"
+          },
+          "outputs": {
+            "etched-cell-l1-lot": "loop-output"
+          }
+        },
+        {
+          "process": "etch-cell-layer-2",
+          "mode": "qualified",
+          "priority": 10,
+          "inputs": {
+            "patterned-cell-l2-lot": "pattern-input"
+          },
+          "outputs": {
+            "dram-wafer-lot": "final-output"
+          }
+        }
+      ],
+      "policy": {
+        "recipeDispatch": "authored-order",
+        "lotDispatch": "fifo",
+        "powerPriority": 9
+      }
+    },
+    {
+      "id": "deposition-1",
+      "asset": "ald-deposition-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 25,
+        "y": 12
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "deposit-dielectric-stack",
+        "mode": "qualified",
+        "inputs": {
+          "etched-cell-l1-lot": "etch-input"
+        },
+        "outputs": {
+          "dielectric-stack-lot": "return-output"
+        }
+      },
+      "policy": {
+        "powerPriority": 8
+      }
+    },
+    {
+      "id": "furnace-1",
+      "asset": "thermal-batch-furnace",
+      "region": "cleanroom",
+      "position": {
+        "x": 25,
+        "y": 5
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "batch-anneal-dielectric-stack",
+        "mode": "qualified",
+        "inputs": {
+          "dielectric-stack-lot": "batch-input"
+        },
+        "outputs": {
+          "annealed-dielectric-stack-lot": "batch-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "fifo",
+        "powerPriority": 8
+      }
+    },
+    {
+      "id": "inspection-1",
+      "asset": "wafer-inspection-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 17,
+        "y": 20
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "inspect-final-pattern-standard",
+        "mode": "qualified",
+        "inputs": {
+          "dram-wafer-lot": "wafer-input"
+        },
+        "outputs": {
+          "qualified-dram-wafer-lot": "pass-output",
+          "rework-required-dram-wafer-lot": "reject-output",
+          "scrap-dram-wafer-lot": "scrap-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "fifo",
+        "powerPriority": 7
+      }
+    },
+    {
+      "id": "rework-1",
+      "asset": "pattern-rework-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 27,
+        "y": 20
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "rework-final-pattern",
+        "mode": "qualified",
+        "inputs": {
+          "rework-required-dram-wafer-lot": "reject-input"
+        },
+        "outputs": {
+          "dram-wafer-lot": "recovered-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "fifo",
+        "powerPriority": 6
+      }
+    },
+    {
+      "id": "probe-1",
+      "asset": "dram-wafer-probe-cell",
+      "region": "cleanroom",
+      "position": {
+        "x": 12,
+        "y": 20
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "probe-sort-dram-adaptive",
+        "mode": "qualified",
+        "inputs": {
+          "qualified-dram-wafer-lot": "wafer-input"
+        },
+        "outputs": {
+          "known-good-dram-die": "die-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "earliest-due-date",
+        "powerPriority": 6
+      }
+    },
+    {
+      "id": "packaging-1",
+      "asset": "dram-packaging-cell",
+      "region": "cleanroom",
+      "position": {
+        "x": 7,
+        "y": 20
+      },
+      "rotation": 0,
+      "recipe": {
+        "process": "package-known-good-dram",
+        "mode": "qualified",
+        "inputs": {
+          "known-good-dram-die": "die-input",
+          "dram-package-substrate": "substrate-input"
+        },
+        "outputs": {
+          "packaged-dram-device": "package-output"
+        }
+      },
+      "policy": {
+        "lotDispatch": "earliest-due-date",
+        "powerPriority": 6
+      }
+    },
+    {
+      "id": "burn-in-1",
+      "asset": "dram-burn-in-rack",
+      "region": "cleanroom",
+      "position": {
+        "x": 8,
+        "y": 26
+      },
+      "rotation": 0,
+      "recipes": [
+        {
+          "process": "screen-commercial-dram",
+          "mode": "qualified",
+          "priority": 1,
+          "inputs": {
+            "packaged-dram-device": "package-input"
+          },
+          "outputs": {
+            "commercial-dram-device": "commercial-output"
+          }
+        },
+        {
+          "process": "screen-performance-mix",
+          "mode": "qualified",
+          "priority": 10,
+          "inputs": {
+            "packaged-dram-device": "package-input"
+          },
+          "outputs": {
+            "commercial-dram-device": "commercial-output",
+            "performance-dram-device": "performance-output",
+            "automotive-dram-device": "automotive-output"
+          }
+        }
+      ],
+      "policy": {
+        "recipeDispatch": "contract-value",
+        "powerPriority": 5
+      }
+    },
+    {
+      "id": "commercial-customer",
+      "asset": "material-sink",
+      "region": "cleanroom",
+      "position": {
+        "x": 2,
+        "y": 27
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "input": [
+          "commercial-dram-device"
+        ]
+      }
+    },
+    {
+      "id": "performance-customer",
+      "asset": "material-sink",
+      "region": "cleanroom",
+      "position": {
+        "x": 13,
+        "y": 29
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "input": [
+          "performance-dram-device"
+        ]
+      }
+    },
+    {
+      "id": "automotive-customer",
+      "asset": "material-sink",
+      "region": "cleanroom",
+      "position": {
+        "x": 15,
+        "y": 26
+      },
+      "rotation": 0,
+      "bufferFilters": {
+        "input": [
+          "automotive-dram-device"
+        ]
+      }
+    },
+    {
+      "id": "quality-scrap",
+      "asset": "scrap-bin",
+      "region": "cleanroom",
+      "position": {
+        "x": 17,
+        "y": 27
+      },
+      "rotation": 90,
+      "bufferFilters": {
+        "input": [
+          "scrap-dram-wafer-lot"
+        ]
+      }
+    },
+    {
+      "id": "reticle-stocker-1",
+      "asset": "reticle-stocker",
+      "region": "cleanroom",
+      "position": {
+        "x": 5,
+        "y": 8
+      },
+      "rotation": 0
+    },
+    {
+      "id": "maintenance-service-1",
+      "asset": "maintenance-service-bay",
+      "region": "cleanroom",
+      "position": {
+        "x": 34,
+        "y": 26
+      },
+      "rotation": 0
+    },
+    {
+      "id": "fab-utility-plant-1",
+      "asset": "fab-utility-plant",
+      "region": "cleanroom",
+      "position": {
+        "x": 34,
+        "y": 12
+      },
+      "rotation": 0
+    },
+    {
+      "id": "cleanroom-power-a",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 4,
+        "y": 3
+      },
+      "rotation": 0
+    },
+    {
+      "id": "cleanroom-power-b",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 12,
+        "y": 3
+      },
+      "rotation": 0
+    },
+    {
+      "id": "cleanroom-power-c",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 20,
+        "y": 3
+      },
+      "rotation": 0
+    },
+    {
+      "id": "cleanroom-power-d",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 28,
+        "y": 3
+      },
+      "rotation": 0
+    },
+    {
+      "id": "cleanroom-power-e",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 22,
+        "y": 15
+      },
+      "rotation": 0
+    },
+    {
+      "id": "shipping-power",
+      "asset": "wind-turbine",
+      "region": "cleanroom",
+      "position": {
+        "x": 1,
+        "y": 30
+      },
+      "rotation": 0
+    },
+    {
+      "id": "release-to-lithography-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 3,
+        "y": 13
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "release-to-lithography",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "release-to-lithography-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 7,
+        "y": 13
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "release-to-lithography",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "lithography-to-etch-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 11,
+        "y": 13
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "lithography-to-etch",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "lithography-to-etch-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 16,
+        "y": 13
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "lithography-to-etch",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "etch-to-deposition-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 20,
+        "y": 13
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "etch-to-deposition",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "etch-to-deposition-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 24,
+        "y": 13
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "etch-to-deposition",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "deposition-to-batch-furnace-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 26,
+        "y": 11
+      },
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "deposition-to-batch-furnace",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "deposition-to-batch-furnace-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 26,
+        "y": 8
+      },
+      "rotation": 270,
+      "transportEndpoint": {
+        "connection": "deposition-to-batch-furnace",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "batch-furnace-to-lithography-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 24,
+        "y": 6
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "batch-furnace-to-lithography",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "batch-furnace-to-lithography-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 9,
+        "y": 11
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "batch-furnace-to-lithography",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "etch-to-inspection-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 18,
+        "y": 15
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "etch-to-inspection",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "etch-to-inspection-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 18,
+        "y": 19
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "etch-to-inspection",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "inspection-to-probe-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 16,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "inspection-to-probe",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "inspection-to-probe-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 15,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "inspection-to-probe",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "probe-to-packaging-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 11,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "probe-to-packaging",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "probe-to-packaging-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 10,
+        "y": 21
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "probe-to-packaging",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "substrate-receiving-to-packaging-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 3,
+        "y": 20
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "substrate-receiving-to-packaging",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "substrate-receiving-to-packaging-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 6,
+        "y": 21
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "substrate-receiving-to-packaging",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "packaging-to-burn-in-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 8,
+        "y": 23
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "packaging-to-burn-in",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "packaging-to-burn-in-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 9,
+        "y": 25
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "packaging-to-burn-in",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "commercial-to-customer-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 7,
+        "y": 27
+      },
+      "rotation": 180,
+      "transportEndpoint": {
+        "connection": "commercial-to-customer",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "commercial-to-customer-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 1,
+        "y": 27
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "commercial-to-customer",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "performance-to-customer-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 9,
+        "y": 29
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "performance-to-customer",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "performance-to-customer-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 12,
+        "y": 29
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "performance-to-customer",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "automotive-to-customer-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 11,
+        "y": 27
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "automotive-to-customer",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "automotive-to-customer-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 14,
+        "y": 26
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "automotive-to-customer",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "inspection-to-rework-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 20,
+        "y": 21
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "inspection-to-rework",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "inspection-to-rework-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 26,
+        "y": 21
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "inspection-to-rework",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "rework-to-inspection-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 30,
+        "y": 21
+      },
+      "rotation": 0,
+      "transportEndpoint": {
+        "connection": "rework-to-inspection",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "rework-to-inspection-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 18,
+        "y": 19
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "rework-to-inspection",
+        "stage": "unloader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "inspection-to-scrap-loader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 18,
+        "y": 23
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "inspection-to-scrap",
+        "stage": "loader",
+        "distance": 1
+      }
+    },
+    {
+      "id": "inspection-to-scrap-unloader",
+      "asset": "sorter",
+      "region": "cleanroom",
+      "position": {
+        "x": 17,
+        "y": 26
+      },
+      "rotation": 90,
+      "transportEndpoint": {
+        "connection": "inspection-to-scrap",
+        "stage": "unloader",
+        "distance": 1
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "release-to-lithography",
+      "from": {
+        "device": "lot-release",
+        "port": "output"
+      },
+      "to": {
+        "device": "lithography-1",
+        "port": "release-input"
+      },
+      "resources": [
+        "blank-dram-wafer-lot"
+      ],
+      "path": [
+        {
+          "x": 3,
+          "y": 13
+        },
+        {
+          "x": 4,
+          "y": 13
+        },
+        {
+          "x": 5,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 13
+        },
+        {
+          "x": 7,
+          "y": 13
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "release-to-lithography-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "release-to-lithography-unloader"
+        }
+      }
+    },
+    {
+      "id": "lithography-to-etch",
+      "from": {
+        "device": "lithography-1",
+        "port": "pattern-output"
+      },
+      "to": {
+        "device": "etch-1",
+        "port": "pattern-input"
+      },
+      "resources": [
+        "patterned-cell-l1-lot",
+        "patterned-cell-l2-lot"
+      ],
+      "path": [
+        {
+          "x": 11,
+          "y": 13
+        },
+        {
+          "x": 12,
+          "y": 13
+        },
+        {
+          "x": 13,
+          "y": 13
+        },
+        {
+          "x": 14,
+          "y": 13
+        },
+        {
+          "x": 15,
+          "y": 13
+        },
+        {
+          "x": 16,
+          "y": 13
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "lithography-to-etch-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "lithography-to-etch-unloader"
+        }
+      }
+    },
+    {
+      "id": "etch-to-deposition",
+      "from": {
+        "device": "etch-1",
+        "port": "loop-output"
+      },
+      "to": {
+        "device": "deposition-1",
+        "port": "etch-input"
+      },
+      "resources": [
+        "etched-cell-l1-lot"
+      ],
+      "path": [
+        {
+          "x": 20,
+          "y": 13
+        },
+        {
+          "x": 21,
+          "y": 13
+        },
+        {
+          "x": 22,
+          "y": 13
+        },
+        {
+          "x": 23,
+          "y": 13
+        },
+        {
+          "x": 24,
+          "y": 13
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "etch-to-deposition-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "etch-to-deposition-unloader"
+        }
+      }
+    },
+    {
+      "id": "deposition-to-batch-furnace",
+      "from": {
+        "device": "deposition-1",
+        "port": "return-output"
+      },
+      "to": {
+        "device": "furnace-1",
+        "port": "batch-input"
+      },
+      "resources": [
+        "dielectric-stack-lot"
+      ],
+      "path": [
+        {
+          "x": 26,
+          "y": 11
+        },
+        {
+          "x": 26,
+          "y": 10
+        },
+        {
+          "x": 26,
+          "y": 9
+        },
+        {
+          "x": 26,
+          "y": 8
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "deposition-to-batch-furnace-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "deposition-to-batch-furnace-unloader"
+        }
+      }
+    },
+    {
+      "id": "batch-furnace-to-lithography",
+      "from": {
+        "device": "furnace-1",
+        "port": "batch-output"
+      },
+      "to": {
+        "device": "lithography-1",
+        "port": "reentrant-input"
+      },
+      "resources": [
+        "annealed-dielectric-stack-lot"
+      ],
+      "path": [
+        {
+          "x": 24,
+          "y": 6
+        },
+        {
+          "x": 23,
+          "y": 6
+        },
+        {
+          "x": 22,
+          "y": 6
+        },
+        {
+          "x": 21,
+          "y": 6
+        },
+        {
+          "x": 20,
+          "y": 6
+        },
+        {
+          "x": 19,
+          "y": 6
+        },
+        {
+          "x": 18,
+          "y": 6
+        },
+        {
+          "x": 17,
+          "y": 6
+        },
+        {
+          "x": 16,
+          "y": 6
+        },
+        {
+          "x": 15,
+          "y": 6
+        },
+        {
+          "x": 14,
+          "y": 6
+        },
+        {
+          "x": 13,
+          "y": 6
+        },
+        {
+          "x": 12,
+          "y": 6
+        },
+        {
+          "x": 11,
+          "y": 6
+        },
+        {
+          "x": 10,
+          "y": 6
+        },
+        {
+          "x": 9,
+          "y": 6
+        },
+        {
+          "x": 9,
+          "y": 7
+        },
+        {
+          "x": 9,
+          "y": 8
+        },
+        {
+          "x": 9,
+          "y": 9
+        },
+        {
+          "x": 9,
+          "y": 10
+        },
+        {
+          "x": 9,
+          "y": 11
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "batch-furnace-to-lithography-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "batch-furnace-to-lithography-unloader"
+        }
+      }
+    },
+    {
+      "id": "etch-to-inspection",
+      "from": {
+        "device": "etch-1",
+        "port": "final-output"
+      },
+      "to": {
+        "device": "inspection-1",
+        "port": "wafer-input"
+      },
+      "resources": [
+        "dram-wafer-lot"
+      ],
+      "path": [
+        {
+          "x": 18,
+          "y": 15
+        },
+        {
+          "x": 18,
+          "y": 16
+        },
+        {
+          "x": 18,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 18
+        },
+        {
+          "x": 18,
+          "y": 19
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "etch-to-inspection-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "etch-to-inspection-unloader"
+        }
+      }
+    },
+    {
+      "id": "inspection-to-probe",
+      "from": {
+        "device": "inspection-1",
+        "port": "pass-output"
+      },
+      "to": {
+        "device": "probe-1",
+        "port": "wafer-input"
+      },
+      "resources": [
+        "qualified-dram-wafer-lot"
+      ],
+      "path": [
+        {
+          "x": 16,
+          "y": 21
+        },
+        {
+          "x": 15,
+          "y": 21
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "inspection-to-probe-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "inspection-to-probe-unloader"
+        }
+      }
+    },
+    {
+      "id": "probe-to-packaging",
+      "from": {
+        "device": "probe-1",
+        "port": "die-output"
+      },
+      "to": {
+        "device": "packaging-1",
+        "port": "die-input"
+      },
+      "resources": [
+        "known-good-dram-die"
+      ],
+      "path": [
+        {
+          "x": 11,
+          "y": 21
+        },
+        {
+          "x": 10,
+          "y": 21
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "probe-to-packaging-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "probe-to-packaging-unloader"
+        }
+      }
+    },
+    {
+      "id": "substrate-receiving-to-packaging",
+      "from": {
+        "device": "substrate-receiving",
+        "port": "output"
+      },
+      "to": {
+        "device": "packaging-1",
+        "port": "substrate-input"
+      },
+      "resources": [
+        "dram-package-substrate"
+      ],
+      "path": [
+        {
+          "x": 3,
+          "y": 20
+        },
+        {
+          "x": 4,
+          "y": 20
+        },
+        {
+          "x": 4,
+          "y": 21
+        },
+        {
+          "x": 5,
+          "y": 21
+        },
+        {
+          "x": 6,
+          "y": 21
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "substrate-receiving-to-packaging-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "substrate-receiving-to-packaging-unloader"
+        }
+      }
+    },
+    {
+      "id": "packaging-to-burn-in",
+      "from": {
+        "device": "packaging-1",
+        "port": "package-output"
+      },
+      "to": {
+        "device": "burn-in-1",
+        "port": "package-input"
+      },
+      "resources": [
+        "packaged-dram-device"
+      ],
+      "path": [
+        {
+          "x": 8,
+          "y": 23
+        },
+        {
+          "x": 8,
+          "y": 24
+        },
+        {
+          "x": 9,
+          "y": 24
+        },
+        {
+          "x": 9,
+          "y": 25
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "packaging-to-burn-in-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "packaging-to-burn-in-unloader"
+        }
+      }
+    },
+    {
+      "id": "commercial-to-customer",
+      "from": {
+        "device": "burn-in-1",
+        "port": "commercial-output"
+      },
+      "to": {
+        "device": "commercial-customer",
+        "port": "input"
+      },
+      "resources": [
+        "commercial-dram-device"
+      ],
+      "path": [
+        {
+          "x": 7,
+          "y": 27
+        },
+        {
+          "x": 6,
+          "y": 27
+        },
+        {
+          "x": 5,
+          "y": 27
+        },
+        {
+          "x": 4,
+          "y": 27
+        },
+        {
+          "x": 4,
+          "y": 28
+        },
+        {
+          "x": 4,
+          "y": 29
+        },
+        {
+          "x": 3,
+          "y": 29
+        },
+        {
+          "x": 2,
+          "y": 29
+        },
+        {
+          "x": 1,
+          "y": 29
+        },
+        {
+          "x": 0,
+          "y": 29
+        },
+        {
+          "x": 0,
+          "y": 28
+        },
+        {
+          "x": 0,
+          "y": 27
+        },
+        {
+          "x": 1,
+          "y": 27
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "commercial-to-customer-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "commercial-to-customer-unloader"
+        }
+      }
+    },
+    {
+      "id": "performance-to-customer",
+      "from": {
+        "device": "burn-in-1",
+        "port": "performance-output"
+      },
+      "to": {
+        "device": "performance-customer",
+        "port": "input"
+      },
+      "resources": [
+        "performance-dram-device"
+      ],
+      "path": [
+        {
+          "x": 9,
+          "y": 29
+        },
+        {
+          "x": 10,
+          "y": 29
+        },
+        {
+          "x": 11,
+          "y": 29
+        },
+        {
+          "x": 12,
+          "y": 29
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "performance-to-customer-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "performance-to-customer-unloader"
+        }
+      }
+    },
+    {
+      "id": "automotive-to-customer",
+      "from": {
+        "device": "burn-in-1",
+        "port": "automotive-output"
+      },
+      "to": {
+        "device": "automotive-customer",
+        "port": "input"
+      },
+      "resources": [
+        "automotive-dram-device"
+      ],
+      "path": [
+        {
+          "x": 11,
+          "y": 27
+        },
+        {
+          "x": 12,
+          "y": 27
+        },
+        {
+          "x": 13,
+          "y": 27
+        },
+        {
+          "x": 13,
+          "y": 26
+        },
+        {
+          "x": 14,
+          "y": 26
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "automotive-to-customer-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "automotive-to-customer-unloader"
+        }
+      }
+    },
+    {
+      "id": "inspection-to-rework",
+      "from": {
+        "device": "inspection-1",
+        "port": "reject-output"
+      },
+      "to": {
+        "device": "rework-1",
+        "port": "reject-input"
+      },
+      "resources": [
+        "rework-required-dram-wafer-lot"
+      ],
+      "path": [
+        {
+          "x": 20,
+          "y": 21
+        },
+        {
+          "x": 21,
+          "y": 21
+        },
+        {
+          "x": 22,
+          "y": 21
+        },
+        {
+          "x": 23,
+          "y": 21
+        },
+        {
+          "x": 24,
+          "y": 21
+        },
+        {
+          "x": 25,
+          "y": 21
+        },
+        {
+          "x": 26,
+          "y": 21
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "inspection-to-rework-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "inspection-to-rework-unloader"
+        }
+      }
+    },
+    {
+      "id": "rework-to-inspection",
+      "from": {
+        "device": "rework-1",
+        "port": "recovered-output"
+      },
+      "to": {
+        "device": "inspection-1",
+        "port": "wafer-input"
+      },
+      "resources": [
+        "dram-wafer-lot"
+      ],
+      "path": [
+        {
+          "x": 30,
+          "y": 21
+        },
+        {
+          "x": 31,
+          "y": 21
+        },
+        {
+          "x": 31,
+          "y": 20
+        },
+        {
+          "x": 31,
+          "y": 19
+        },
+        {
+          "x": 31,
+          "y": 18
+        },
+        {
+          "x": 31,
+          "y": 17
+        },
+        {
+          "x": 30,
+          "y": 17
+        },
+        {
+          "x": 29,
+          "y": 17
+        },
+        {
+          "x": 28,
+          "y": 17
+        },
+        {
+          "x": 27,
+          "y": 17
+        },
+        {
+          "x": 26,
+          "y": 17
+        },
+        {
+          "x": 25,
+          "y": 17
+        },
+        {
+          "x": 24,
+          "y": 17
+        },
+        {
+          "x": 23,
+          "y": 17
+        },
+        {
+          "x": 22,
+          "y": 17
+        },
+        {
+          "x": 21,
+          "y": 17
+        },
+        {
+          "x": 20,
+          "y": 17
+        },
+        {
+          "x": 19,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 18
+        },
+        {
+          "x": 18,
+          "y": 19
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "rework-to-inspection-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "rework-to-inspection-unloader"
+        }
+      }
+    },
+    {
+      "id": "inspection-to-scrap",
+      "from": {
+        "device": "inspection-1",
+        "port": "scrap-output"
+      },
+      "to": {
+        "device": "quality-scrap",
+        "port": "input"
+      },
+      "resources": [
+        "scrap-dram-wafer-lot"
+      ],
+      "path": [
+        {
+          "x": 18,
+          "y": 23
+        },
+        {
+          "x": 18,
+          "y": 24
+        },
+        {
+          "x": 18,
+          "y": 25
+        },
+        {
+          "x": 17,
+          "y": 25
+        },
+        {
+          "x": 17,
+          "y": 26
+        }
+      ],
+      "logistics": {
+        "loader": {
+          "device": "inspection-to-scrap-loader"
+        },
+        "line": {
+          "deviceAsset": "conveyor"
+        },
+        "unloader": {
+          "device": "inspection-to-scrap-unloader"
+        }
+      }
+    }
+  ],
+  "logisticsNetworks": [],
+  "policies": {
+    "dispatch": "shortage-first",
+    "powerAllocation": "priority-load-shedding"
+  }
+}
