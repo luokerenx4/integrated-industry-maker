@@ -73,11 +73,17 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
   expect(await readFile(candidatePath, "utf8")).toBe(candidateBefore);
 });
 
-test("candidate CLI previews, explicitly applies, and rejects replay as machine-readable JSON", async () => {
+test("CLI-only operator discovers, inspects, previews, applies, and verifies a Candidate", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
   const before = await readFile(blueprintPath, "utf8");
+  const discovery = await runCli(["help", "--json"]);
+  expect({ exitCode: discovery.exitCode, stderr: discovery.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect((JSON.parse(discovery.stdout).data.commands as Array<{ id: string }>).map((command) => command.id)).toContain("candidate");
+  const inspection = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
+  expect({ exitCode: inspection.exitCode, stderr: inspection.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.arrayContaining([expect.objectContaining({ id: "stable-furnace-sleep", benchmark: "equipment-energy-research" })]));
   const runCandidate = async (apply = false) => {
     const child = Bun.spawn([
       process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
@@ -110,6 +116,13 @@ test("candidate CLI previews, explicitly applies, and rejects replay as machine-
     }),
   }));
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
+
+  const verified = await runCli(["benchmark", projectDir, "--benchmark", "equipment-energy-research", "--json"]);
+  expect({ exitCode: verified.exitCode, stderr: verified.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(verified.stdout).data).toEqual(expect.objectContaining({
+    result: expect.objectContaining({ benchmark: "equipment-energy-research", verdict: "KEEP" }),
+    operation: expect.objectContaining({ operation: "benchmark.evaluate", effect: "read-only" }),
+  }));
 
   const replay = await runCandidate(true);
   expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });

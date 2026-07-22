@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/human-ai-workbench]] | Give humans and Coding Agents two task-appropriate projections of one inspectable, hash-pinned industrial operating surface. | 2026-07-22 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/human-ai-workbench]] | Give humans and Coding Agents two task-appropriate projections of one inspectable, hash-pinned industrial operating surface. | 2026-07-22 |
 | [[plans/candidate-change-set-workbench]] | Make experiment candidates reviewable and safely applicable as exact Blueprint change sets in both CLI and Studio. | 2026-07-22 |
 
 ## Superseded plans

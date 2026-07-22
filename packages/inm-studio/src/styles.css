@@ -672,7 +672,6 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
   .project-nav { gap: 0; }
   .project-nav button { padding-inline: 8px; font-size: 7px; }
   .project-nav button b { display: none; }
-  .project-nav button:nth-child(n+5) { display: none; }
   .header-tools > :not(.assets-button):not(.experiments-button) { display: none; }
   .assets-button { padding: 7px 8px; }
   .workspace { grid-template-columns: 1fr; }

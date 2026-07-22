@@ -124,7 +124,7 @@ export function ExperimentWorkbench({
             <div className="experiment-section-title"><span>REVIEW TARGET</span><b>{candidates.length} PROJECT-LOCAL PROPOSALS</b></div>
             <div className="candidate-tabs">
               <button className={!selectedCandidateId ? "selected" : ""} onClick={() => onSelectCandidate(null)}>CURRENT CANDIDATE FILE</button>
-              {candidates.map((candidate) => <button className={candidate.id === selectedCandidateId ? "selected" : ""} key={candidate.id} onClick={() => onSelectCandidate(candidate.id)}>{candidate.name}<code>{candidate.id}</code></button>)}
+              {candidates.map((candidate) => <button className={candidate.id === selectedCandidateId ? "selected" : ""} key={candidate.id} data-testid={`candidate-${candidate.id}`} onClick={() => onSelectCandidate(candidate.id)}>{candidate.name}<code>{candidate.id}</code></button>)}
             </div>
             {activeCandidate && <div className="candidate-hypothesis">
               <span><small>HYPOTHESIS</small>{activeCandidate.hypothesis}</span>
@@ -152,13 +152,13 @@ export function ExperimentWorkbench({
             </section>
             {candidatePreview && <section className="candidate-review" aria-label="Candidate application">
               <div><small>REVIEWED HASHES</small><code>PROPOSAL {shortHash(candidatePreview.proposalHash)} · BLUEPRINT {shortHash(candidatePreview.currentCandidateHash)} → {shortHash(candidatePreview.proposedCandidateHash)}</code></div>
-              {applied ? <strong className="candidate-applied">APPLIED · PROPOSAL IS NOW STALE</strong> : !applyArmed ? <button disabled={result.verdict !== "KEEP"} onClick={() => setApplyArmed(true)}>ARM BLUEPRINT WRITE</button> : <button className="confirm" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
+              {applied ? <strong className="candidate-applied" data-testid="candidate-applied">APPLIED · PROPOSAL IS NOW STALE</strong> : !applyArmed ? <button data-testid="arm-candidate-apply" disabled={result.verdict !== "KEEP"} onClick={() => setApplyArmed(true)}>ARM BLUEPRINT WRITE</button> : <button className="confirm" data-testid="confirm-candidate-apply" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
             </section>}
             {result.reasons.length > 0 && <section className="experiment-reasons"><div className="experiment-section-title"><span>GATE DECISION</span><b>{result.reasons.length} REASONS</b></div>{result.reasons.map((reason) => <p key={reason}>{reason}</p>)}</section>}
             <section className="experiment-cases">
               <div className="experiment-section-title"><span>CASE EVALUATION</span><b>{result.totalSimulationTicks.toLocaleString()} SIMULATED TICKS</b></div>
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>THROUGHPUT</span><span>CONTRACTS</span></div>
-              {result.cases.map((item) => <div className="experiment-case-result" key={item.id}>
+              {result.cases.map((item) => <div className="experiment-case-result" key={item.id} data-testid={`experiment-case-${item.id}`}>
                 <strong>{item.name}<code>{item.id} · seed {item.seed} · ×{item.weight}</code></strong><span>{item.baselineScore.toFixed(3)} → {item.candidateScore.toFixed(3)}</span>
                 <b className={item.scoreDelta >= 0 ? "positive" : "negative"}>{signed(item.scoreDelta)}</b><span>{item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}</span>
                 <span>{item.baselineMetrics.throughputPerMinute.toFixed(2)} → {item.candidateMetrics.throughputPerMinute.toFixed(2)}</span><span>{percent(item.baselineMetrics.contractFulfillment)} → {percent(item.candidateMetrics.contractFulfillment)}</span>

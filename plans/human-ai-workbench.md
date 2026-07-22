@@ -1,6 +1,6 @@
 # Human and AI workbench
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-22`
 - Related design: [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
 
@@ -91,9 +91,9 @@ Both surfaces must answer the same questions from shared data:
 - [x] Every Studio operation states whether it is read-only or mutating, shows the effective selection, exposes an equivalent copyable `inm` command, and renders the shared result.
 - [x] Simulation and evaluation operations expose progress/failure state and link their immutable result or reviewed proposal without inventing browser-only history.
 - [x] Mutating operation tests prove preview purity, exact write scope, stale-input rejection, deliberate confirmation, and post-operation verification.
-- [ ] A browser-only operator can complete the memory-fab review loop using named controls and textual evidence without interacting with the canvas.
-- [ ] A CLI-only operator can complete the equivalent loop from discovery through verification using JSON output and stable exit/error codes.
-- [ ] `bun run test` and documented browser QA pass with no checked-in project mutation.
+- [x] A browser-only operator can complete the memory-fab review loop using named controls and textual evidence without interacting with the canvas.
+- [x] A CLI-only operator can complete the equivalent loop from discovery through verification using JSON output and stable exit/error codes.
+- [x] `bun run test` and documented browser QA pass with no checked-in project mutation.
 
 ## Work
 
@@ -136,19 +136,19 @@ Both surfaces must answer the same questions from shared data:
 
 ### Slice 5 — browser-Agent and end-to-end proof
 
-- [ ] Give important controls, diagnostics, assets, actions, result sections, and factory objects stable accessible names/test ids derived from domain ids.
-- [ ] Ensure every essential fact shown visually also has a textual semantic representation; the canvas remains optional for operation.
-- [ ] Add route/reload/history tests across Overview, Catalog, Analysis, Factory object inspection, Runs, Experiments, and Candidates.
-- [ ] Add a temporary-project human-flow test: select memory-fab → identify energy opportunity → open candidate → preview → deliberately apply → re-evaluate → inspect resulting evidence.
-- [ ] Add the equivalent CLI-flow test starting from machine-readable discovery and compact project inspection.
-- [ ] Perform actual browser QA at desktop and narrow viewport sizes and record the evidence here.
+- [x] Give important controls, diagnostics, assets, actions, result sections, and factory objects stable accessible names/test ids derived from domain ids.
+- [x] Ensure every essential fact shown visually also has a textual semantic representation; the canvas remains optional for operation.
+- [x] Add route/reload/history tests across Overview, Catalog, Analysis, Factory object inspection, Runs, Experiments, and Candidates.
+- [x] Add a temporary-project human-flow test: select memory-fab → identify energy opportunity → open candidate → preview → deliberately apply → re-evaluate → inspect resulting evidence.
+- [x] Add the equivalent CLI-flow test starting from machine-readable discovery and compact project inspection.
+- [x] Perform actual browser QA at desktop and narrow viewport sizes and record the evidence here.
 
 ### Completion audit
 
-- [ ] Update [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/CLI]], and any affected schema/design documents to describe only the shipped model.
-- [ ] Remove superseded Studio/CLI projections and output shapes rather than preserving compatibility aliases.
-- [ ] Verify every acceptance item against tests or recorded manual evidence.
-- [ ] Move this plan to Completed in [[PLANS]] only when no unchecked work remains.
+- [x] Update [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/CLI]], and any affected schema/design documents to describe only the shipped model.
+- [x] Remove superseded Studio/CLI projections and output shapes rather than preserving compatibility aliases.
+- [x] Verify every acceptance item against tests or recorded manual evidence.
+- [x] Move this plan to Completed in [[PLANS]] only when no unchecked work remains.
 
 ## Findings and decisions
 
@@ -177,6 +177,11 @@ Both surfaces must answer the same questions from shared data:
 - Slice 4 focused gate: named Core operation, public CLI, Studio server/selection, and type tests passed. Operation tests cover read-only purity, immutable run creation/cache reuse, Benchmark evaluation, Candidate preview, CLI metadata, and Studio projection.
 - Slice 4 browser QA: memory-fab Validate and Plan controls completed through the shared endpoint; result dialogs exposed textual outcome, selection/hash, empty write set, verification, exact CLI, and zero fresh console errors. Simulation mutation was covered only on a temporary project.
 - Slice 4 full gate: `bun run test` — documentation and type checks passed, 169 package tests passed with 1388 assertions, and all eight Ironworks public CLI fixtures passed.
+- Slice 5 route/semantic gate: `routes.test.ts` covers encoded Overview, Catalog asset, focused Analysis diagnostic, Factory Device/connection, Runs, Experiment, Candidate, malformed, reload, back, and forward reconstruction; domain-derived test ids cover projects, views, diagnostics, assets, operations/results, runs, factory inspectors, experiments/cases, Candidates, and the two mutation controls.
+- Slice 5 CLI flow: public `inm help --json` discovery → scoped Candidate inspection → preview → guarded apply → locked Benchmark verification → stale replay rejection passed on a temporary memory-fab copy.
+- Slice 5 browser flow: a temporary memory-fab copy completed Overview opportunity identification → stable Candidate route → KEEP preview → ARM → CONFIRM → current-candidate locked re-evaluation → KEEP case evidence. Only `equipment-energy-sleep.blueprint.json` changed outside the disposable Studio cache, and the fresh console had zero errors.
+- Slice 5 responsive QA: desktop 1280 px and narrow 390 × 844 px Overview retained all six semantic navigation controls with no body overflow; the narrow Catalog dialog fit 390 px and retained the selected Thermal Batch Furnace textual detail. The viewport override was reset afterward.
+- Completion full gate: `bun run test` — documentation and type checks passed, 172 package tests passed with 1410 assertions across eight files, and all eight Ironworks public CLI fixtures passed. Git reported no checked-in example mutation.
 - Per-slice contract checks: `bun test packages/inm-core packages/inm-cli packages/inm-studio`.
 - Public CLI checks must invoke `bun run inm ... --json` against both examples and parse stdout as exactly one valid JSON value.
 - Full completion gate: `bun run test`.
@@ -191,7 +196,9 @@ Both surfaces must answer the same questions from shared data:
 - 2026-07-22 — Slice 2 implemented: all JSON commands now use one versioned success/error contract, public machine help advertises effects/defaults/sections/exit codes, all authored project artifact schemas are discoverable, and dense results are summary-first with explicit sections. Slice 3 is next.
 - 2026-07-22 — Slice 3 implemented: Studio now opens on a shared task-oriented Overview, preserves every major workbench/asset/diagnostic/Factory-object context in stable project routes, filters dense Catalog/Analysis evidence, and keeps 3D replay in the dedicated Factory route. Slice 4 is next.
 - 2026-07-22 — Slice 4 implemented: named Core operations now drive CLI and Studio validation/analysis/plan/simulation/Benchmark/Candidate work, report one effect/context/hash/artifact/write-set/result contract, and preserve immutable-run and hash-pinned Candidate guarantees. Slice 5 is next.
+- 2026-07-22 — Slice 5 implemented: domain-derived semantic ids, pure stable-route reconstruction tests, a complete temporary-project browser Candidate review/apply/re-evaluate loop, an equivalent public-CLI flow, and desktop/narrow browser QA prove that the canvas is optional for essential operation. Completion audit is next.
+- 2026-07-22 — Completion audit passed: all acceptance items have test or browser evidence, shipped design documents describe the final contracts, superseded runtime projections are removed, the full gate is green, and this plan moved to Completed.
 
 ## Completion
 
-Pending. Completion requires all acceptance and completion-audit items above; partial slices remain recorded in the progress log while this plan stays active.
+Completed on 2026-07-22. The shipped system now gives humans and Coding Agents task-appropriate projections of the same project context, diagnostics, operations, evidence, and hash-guarded mutation protocol.

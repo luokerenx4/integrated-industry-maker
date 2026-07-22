@@ -6,10 +6,10 @@ import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, us
 import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
+import { analysisPath, catalogPath, experimentPath, factoryObjectPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
-type AssetKind = "devices" | "resources" | "processes" | "routes";
 
 interface Visual {
   shape?: string;
@@ -564,56 +564,7 @@ const STATUS_LABELS: Record<Status, string> = {
 const formatTick = (tick: number) => `${(tick / 1000).toFixed(1)}s`;
 const jobQuantity = (rates: Record<string, number>, cyclesPerMinute: number) => Object.values(rates).reduce((sum, rate) => sum + rate, 0) / cyclesPerMinute;
 const formatQuantity = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
-type StudioView = "overview" | "factory" | "runs" | "catalog" | "analysis" | "experiments";
-interface StudioRoute {
-  projectId: string | null;
-  view: StudioView;
-  experimentId: string | null;
-  candidateId: string | null;
-  selection: StudioSelection | null;
-  assetKind: AssetKind | null;
-  assetId: string | null;
-  diagnosticId: string | null;
-}
-const projectPath = (projectId: string) => `/${encodeURIComponent(projectId)}`;
-const viewPath = (projectId: string, view: Exclude<StudioView, "overview">) => `${projectPath(projectId)}/${view}`;
-const factoryObjectPath = (projectId: string, selection?: StudioSelection | null) => `${viewPath(projectId, "factory")}${selection ? `/${selection.kind === "device" ? "devices" : "connections"}/${encodeURIComponent(selection.id)}` : ""}`;
-const catalogPath = (projectId: string, kind?: AssetKind | null, assetId?: string | null) => `${viewPath(projectId, "catalog")}${kind ? `/${kind}` : ""}${kind && assetId ? `/${encodeURIComponent(assetId)}` : ""}`;
-const analysisPath = (projectId: string, diagnosticId?: string | null) => `${viewPath(projectId, "analysis")}${diagnosticId ? `/diagnostics/${encodeURIComponent(diagnosticId)}` : ""}`;
-const experimentPath = (projectId: string, experimentId?: string, candidateId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}${candidateId ? `/candidates/${encodeURIComponent(candidateId)}` : ""}`;
 const fileUrl = (projectId: string, path: string) => `/api/projects/${encodeURIComponent(projectId)}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
-
-function studioRoute(): StudioRoute {
-  const segments = window.location.pathname.split("/").filter(Boolean);
-  try {
-    const projectId = segments[0] ? decodeURIComponent(segments[0]) : null;
-    const base = { projectId, experimentId: null, candidateId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
-    if (segments.length === 1 && projectId) return { ...base, view: "overview" };
-    if (projectId && segments[1] === "factory" && (segments.length === 2 || segments.length === 4)) {
-      const kind = segments[2] === "devices" ? "device" : segments[2] === "connections" ? "connection" : null;
-      if (segments.length === 4 && !kind) throw new Error("Invalid factory object kind");
-      return { ...base, view: "factory", selection: kind && segments[3] ? { kind, id: decodeURIComponent(segments[3]) } : null };
-    }
-    if (projectId && segments.length === 2 && segments[1] === "runs") return { ...base, view: "runs" };
-    if (projectId && segments[1] === "catalog" && segments.length <= 4) {
-      const kind = segments[2] && ["devices", "resources", "processes", "routes"].includes(segments[2]) ? segments[2] as AssetKind : null;
-      return { ...base, view: "catalog", assetKind: kind, assetId: kind && segments[3] ? decodeURIComponent(segments[3]) : null };
-    }
-    if (projectId && segments[1] === "analysis" && (segments.length === 2 || (segments.length === 4 && segments[2] === "diagnostics"))) {
-      return { ...base, view: "analysis", diagnosticId: segments[3] ? decodeURIComponent(segments[3]) : null };
-    }
-    if ((segments.length === 2 || segments.length === 3) && segments[1] === "experiments") return {
-      ...base, view: "experiments",
-      experimentId: segments[2] ? decodeURIComponent(segments[2]) : "",
-    };
-    if (segments.length === 5 && segments[1] === "experiments" && segments[3] === "candidates") return {
-      ...base, view: "experiments",
-      experimentId: decodeURIComponent(segments[2]!),
-      candidateId: decodeURIComponent(segments[4]!),
-    };
-  } catch { /* malformed routes fall back to the launcher */ }
-  return { projectId: null, view: "overview", experimentId: null, candidateId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
-}
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { error?: string };
@@ -933,7 +884,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
     ["NO POWER", data.metrics.unpoweredTime[device.id] ?? 0],
     ["FAILED", data.metrics.failedTime[device.id] ?? 0],
   ] as const : [];
-  return <section className="scene-inspector" aria-label={`Device inspector: ${device.id}`}>
+  return <section className="scene-inspector" aria-label={`Device inspector: ${device.id}`} data-testid={`device-inspector-${device.id}`}>
     <InspectorHeader kind="DEVICE INSTANCE" id={device.id} title={device.name} subtitle={`${device.assetId} · ${device.region}`} onClose={onClose} />
     <div className="scene-inspector-scroll">
       <div className="inspector-status-row">
@@ -1041,7 +992,7 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
   const stageUtilization = data.metrics?.transportStageUtilization[connection.id];
   const liveCargo = frame.transits.filter((transit) => transit.kind === "belt" && transit.path === connection.id);
   const diagnostics = data.analysis.diagnostics.filter((diagnostic) => diagnostic.connection === connection.id);
-  return <section className="scene-inspector connection-inspector" aria-label={`Connection inspector: ${connection.id}`}>
+  return <section className="scene-inspector connection-inspector" aria-label={`Connection inspector: ${connection.id}`} data-testid={`connection-inspector-${connection.id}`}>
     <InspectorHeader kind="PHYSICAL CONNECTION" id={connection.id} title={`${connection.fromDevice} → ${connection.toDevice}`} subtitle={`${analysis?.pathCells ?? connection.points.length - 2} belt cells · ${analysis?.maxLevel ? `raised to L${analysis.maxLevel}` : "ground route"}`} onClose={onClose} />
     <div className="scene-inspector-scroll">
       <div className="inspector-status-row connection-kpis">
@@ -1139,15 +1090,15 @@ function AssetBrowser({ data, initialKind = "devices", initialId, onNavigate, on
       </header>
       <div className="asset-browser-body">
         <nav className="asset-kinds" aria-label="Asset categories">
-          <button className={kind === "devices" ? "active" : ""} onClick={() => chooseKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
-          <button className={kind === "resources" ? "active" : ""} onClick={() => chooseKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
-          <button className={kind === "processes" ? "active" : ""} onClick={() => chooseKind("processes")}><span>PROCESS</span><b>{data.assets.processes.length}</b></button>
-          <button className={kind === "routes" ? "active" : ""} onClick={() => chooseKind("routes")}><span>ROUTE</span><b>{data.assets.routes.length}</b></button>
+          <button data-testid="asset-kind-devices" className={kind === "devices" ? "active" : ""} onClick={() => chooseKind("devices")}><span>DEVICE</span><b>{data.assets.devices.length}</b></button>
+          <button data-testid="asset-kind-resources" className={kind === "resources" ? "active" : ""} onClick={() => chooseKind("resources")}><span>RESOURCE</span><b>{data.assets.resources.length}</b></button>
+          <button data-testid="asset-kind-processes" className={kind === "processes" ? "active" : ""} onClick={() => chooseKind("processes")}><span>PROCESS</span><b>{data.assets.processes.length}</b></button>
+          <button data-testid="asset-kind-routes" className={kind === "routes" ? "active" : ""} onClick={() => chooseKind("routes")}><span>ROUTE</span><b>{data.assets.routes.length}</b></button>
         </nav>
         <div className="asset-list" role="listbox" aria-label={kind}>
           <label className="asset-search"><span>SEARCH</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Filter ${kind}`} /></label>
           <div className="asset-list-title">{kind.toUpperCase()} <span>{items.length} / {baseItems.length}</span></div>
-          {items.map((asset) => <button key={asset.id} role="option" aria-selected={selected?.id === asset.id} className={selected?.id === asset.id ? "selected" : ""} onClick={() => chooseAsset(asset.id)}>
+          {items.map((asset) => <button key={asset.id} role="option" aria-selected={selected?.id === asset.id} data-testid={`asset-${kind}-${asset.id}`} className={selected?.id === asset.id ? "selected" : ""} onClick={() => chooseAsset(asset.id)}>
             <AssetGlyph projectId={data.projectId} asset={asset} />
             <span><strong>{asset.name}</strong><small>{asset.id}</small></span>
             {asset.type === "device" && <em>{asset.fleetCount ? `${asset.fleetCount} fleet` : `${asset.instanceCount}×`}</em>}
@@ -1394,7 +1345,7 @@ function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (proj
     <header className="launcher-header"><div className="brand"><div className="mark">INM</div><div><h1>Integrated Industry Maker</h1><p>PROJECT WORKSPACE</p></div></div><span className="engine-status"><i /> ENGINE READY</span></header>
     <section className="launcher-content">
       <div className="launcher-intro"><span className="eyebrow">{index.workspace ? "ENGINE WORKSPACE" : "STANDALONE PROJECT"}</span><h2>{index.name}</h2><p>Choose a self-contained industrial project. Its route, assets, runs, and simulation state remain isolated from every other project.</p></div>
-      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <button className="project-card" key={project.id} onClick={() => onOpen(project.id)}>
+      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <button className="project-card" key={project.id} data-testid={`project-${project.id}`} onClick={() => onOpen(project.id)}>
         <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
@@ -1435,7 +1386,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
       <div><div className="breadcrumb"><span>{indexName}</span><b>/</b><code>{data.projectId}</code></div><h1>{data.name}</h1></div>
     </div>
     <nav className="project-nav" aria-label="Project workbench">
-      {tabs.map((tab) => <button key={tab.view} className={view === tab.view ? "active" : ""} onClick={() => onNavigate(tab.view)}>{tab.label}{tab.count !== undefined && <b>{tab.count}</b>}</button>)}
+      {tabs.map((tab) => <button key={tab.view} data-testid={`view-${tab.view}`} className={view === tab.view ? "active" : ""} onClick={() => onNavigate(tab.view)}>{tab.label}{tab.count !== undefined && <b>{tab.count}</b>}</button>)}
     </nav>
     <div className="header-tools compact-tools">
       <span className="project-local"><i /> PROJECT LOCAL</span>
@@ -1463,7 +1414,7 @@ function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperat
   const validation = result.operation === "validate" ? data as { valid?: boolean; devices?: number; connections?: number; regions?: number; resourceNodes?: number } : null;
   const copy = () => { void navigator.clipboard.writeText(cli); };
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-    <section className="operation-result" role="dialog" aria-modal="true" aria-label={`Operation result: ${result.operation}`}>
+    <section className="operation-result" role="dialog" aria-modal="true" aria-label={`Operation result: ${result.operation}`} data-testid={`operation-result-${result.operation}`}>
       <header><div><span className="eyebrow">SHARED CORE OPERATION</span><h2>{result.operation}</h2><p>{result.effect} · {result.status} in {result.durationMs.toFixed(1)} ms</p></div><button className="icon-button" onClick={onClose} aria-label="Close operation result">×</button></header>
       <div className="operation-context">
         <div><small>SELECTION</small><strong>{result.context.selection.blueprint}</strong><code>{result.context.selection.world} / {result.context.selection.scenario} / {result.context.selection.objective}</code></div>
@@ -1508,7 +1459,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onC
     <div className="overview-grid">
       <section className="overview-panel priority-panel">
         <header><div><span className="eyebrow">NEXT ATTENTION</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>OPEN ANALYSIS →</button></header>
-        <div className="overview-diagnostics">{priority.length ? priority.map((diagnostic) => <button key={diagnostic.id} className={diagnostic.severity} data-diagnostic-id={diagnostic.id} onClick={() => onDiagnostic(diagnostic)}>
+        <div className="overview-diagnostics">{priority.length ? priority.map((diagnostic) => <button key={diagnostic.id} className={diagnostic.severity} data-diagnostic-id={diagnostic.id} data-testid={`diagnostic-${diagnostic.id}`} onClick={() => onDiagnostic(diagnostic)}>
           <span>{diagnostic.severity === "blocking" ? "!" : diagnostic.severity === "warning" ? "△" : "·"}</span><div><code>{diagnostic.code}</code><strong>{diagnostic.message}</strong><small>{diagnostic.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</small></div><b>→</b>
         </button>) : <div className="overview-empty positive"><b>✓</b><span>No static readiness or analysis issue is open.</span></div>}</div>
       </section>
@@ -1534,7 +1485,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onC
           const review = operation.id.startsWith("candidate") || operation.id === "benchmark.evaluate";
           const current = operation.id === "inspect";
           const action = runnable ? () => onOperation(operation, cli) : review ? () => onNavigate("experiments") : () => { void navigator.clipboard.writeText(cli); };
-          return <article key={operation.id} data-operation-id={operation.id}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current} onClick={action}>{runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><button onClick={() => { void navigator.clipboard.writeText(cli); }}>COPY CLI</button></div></article>;
+          return <article key={operation.id} data-operation-id={operation.id} data-testid={`operation-${operation.id}`}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current} onClick={action}>{runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><button onClick={() => { void navigator.clipboard.writeText(cli); }}>COPY CLI</button></div></article>;
         })}</div>
       </section>
     </div>
@@ -1544,7 +1495,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onC
 function RunsOverview({ snapshot, onOpenFactory }: { snapshot: ProjectWorkbenchSnapshot; onOpenFactory: (runId: string) => void }) {
   return <section className="runs-page" aria-label="Project runs">
     <header><span className="eyebrow">IMMUTABLE EVIDENCE</span><h2>Simulation runs</h2><p>Every result is reconstructed from project files; browser memory is not authoritative.</p></header>
-    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
+    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
   </section>;
 }
 

@@ -2,7 +2,7 @@
 
 Status: V1 shared evaluation and V2 project-local candidate change-set review/guarded application implemented.
 
-Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Product boundary
 
@@ -16,7 +16,7 @@ Capability parity does not require interaction parity. A model should not scrape
 
 ## One authoritative protocol
 
-`evaluateBlueprintBenchmark()` remains the only evaluator. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, capacity readiness, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
+`evaluateBlueprintBenchmark()` remains the only evaluator. The named `benchmark.evaluate`, `candidate.preview`, and `candidate.apply` Core operations wrap that evaluator with the shared effect/context/hash/artifact/write-set result contract. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, capacity readiness, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
 
 `listBlueprintBenchmarks()` discovers project-local `benchmarks/*.benchmark.json` files in stable id order and projects their immutable case and acceptance contracts. Studio does not invent sessions or copy Benchmark state into browser storage.
 
@@ -83,4 +83,4 @@ bun run inm candidate examples/memory-fab --candidate stable-furnace-sleep --jso
 bun run inm studio examples/memory-fab --port 4176 --no-open
 ```
 
-Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, and absence of run/Blueprint writes. Browser QA must open a direct experiment URL, run it, verify the visible verdict and case/diff content, navigate between experiments, close back to the project, and inspect console errors.
+Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, and absence of run/Blueprint writes. Browser QA must use the domain-derived accessible ids to open a direct Candidate URL on a temporary project, run it, verify the visible verdict and case/diff content, deliberately arm and confirm an accepted write, re-evaluate the updated candidate Blueprint, observe stale proposal state, navigate between experiments, and inspect console errors.
