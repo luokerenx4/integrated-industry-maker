@@ -45,9 +45,9 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   if (progress.phase === "run-started") line = `DESIGN  ${work}  preparing ${progress.caseCount} locked cases`;
   else if (progress.phase === "case-started") line = `CASE    ${work}  ${progress.evaluation.kind} ${progress.case.index}/${progress.case.total} ${progress.case.id}`;
   else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
-  else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
-  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
-  else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
+  else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.branch.role} ${progress.branch.nodeId} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
+  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.branch.nodeId} → ${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
+  else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision} · ${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · leader Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
   else return;
   process.stderr.write(`${line}\n`);
@@ -55,7 +55,8 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
 
 function designIterationLine(iteration: DesignRunIteration): string {
   const lossChain = iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss";
-  return `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${!iteration.decisionEvidence ? iteration.error : `${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no loss target"} · observed ${lossChain}`;
+  const lineage = `${iteration.frontierEvidence.parent.nodeId} → ${iteration.frontierEvidence.candidateNodeId ?? "invalid"} · ${iteration.frontierEvidence.outcome}`;
+  return `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${lineage} · ${!iteration.decisionEvidence ? iteration.error : `leader ${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · parent ${signed(iteration.frontierEvidence.parentScoreDelta ?? 0, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no loss target"} · observed ${lossChain}`;
 }
 
 function sectionResult(command: string, options: OutputOptions, builders: Record<string, () => unknown>): { section: string; result: unknown } {
@@ -902,6 +903,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
       static: () => brief.staticEvidence,
       iterations: () => result.manifest.iterations,
+      frontier: () => result.manifest.frontier,
       best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
       runs: () => [result.manifest],
       all: () => result.manifest,
@@ -922,6 +924,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Result: ${result.manifest.resultHash}`,
       `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
+      `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · next ${result.manifest.frontier.selectionOrder[0]}`,
       ...result.manifest.iterations.map(designIterationLine),
       `Artifact: ${result.artifact.path}`,
       ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
@@ -935,6 +938,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       summary: () => ({ program: brief.program, benchmark: brief.benchmark, seed: brief.seed, promotionBase: brief.promotionBase, driver: brief.driver, staticEvidence: brief.staticEvidence }),
       static: () => brief.staticEvidence,
       iterations: () => [],
+      frontier: () => ({ policy: brief.program.frontier, runs: runs.map((run) => ({ id: run.id, best: run.best })) }),
       best: () => null,
       runs: () => runs,
       all: () => ({ ...brief, runs }),
@@ -955,6 +959,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Will update: ${brief.promotionBase.blueprint}@${brief.promotionBase.hash.slice(0, 12)} · driver ${brief.driver.case.id}`,
       `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
       `Current-best guardrail: ${brief.program.currentBestGuardrail.kind}${brief.program.currentBestGuardrail.kind === "uniform" ? ` · max ${brief.program.currentBestGuardrail.maximumCaseScoreRegression.toFixed(6)} regression/case` : brief.program.currentBestGuardrail.kind === "case-specific" ? ` · ${Object.keys(brief.program.currentBestGuardrail.maximumCaseScoreRegression).length} case budgets` : ""}`,
+      `Frontier: 1 leader + up to ${brief.program.frontier.maximumAlternativeBranches} alternative branch${brief.program.frontier.maximumAlternativeBranches === 1 ? "" : "es"}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
       `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
       "",
@@ -981,6 +986,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     }),
     static: () => brief.staticEvidence,
     iterations: () => result.manifest.iterations,
+    frontier: () => result.manifest.frontier,
     best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
     all: () => result.manifest,
   });
@@ -998,6 +1004,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     `Result: ${result.manifest.resultHash}`,
     `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
     `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
+    `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · next ${result.manifest.frontier.selectionOrder[0]}`,
     ...result.manifest.iterations.map(designIterationLine),
     `Artifact: ${result.artifact.path}`, "",
   ].join("\n"), false);

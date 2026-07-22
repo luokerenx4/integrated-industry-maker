@@ -5,13 +5,14 @@ import { pathToFileURL } from "node:url";
 import type { ProductionCapacityPlan } from "./capacity-plan";
 import type { ProductionAnalysis } from "./production-analysis";
 import type { FabLossProfile } from "./fab-loss-analysis";
-import type { BlueprintResearchAgent, ResearchHistoryEntry, ResearchInput, ResearchProposal } from "./research";
+import type { BranchResearchInput, ResearchBranchContext, ResearchHistoryEntry, ResearchProposal } from "./research";
 import type { Blueprint, FactoryMetrics } from "./types";
 import { stableStringify } from "./utils";
 
 export interface ProjectProposalContext {
-  apiVersion: 3;
+  apiVersion: 4;
   iteration: number;
+  branch: ResearchBranchContext;
   blueprint: Blueprint;
   metrics: FactoryMetrics;
   fabLoss: FabLossProfile | null;
@@ -21,7 +22,7 @@ export interface ProjectProposalContext {
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 3;
+  apiVersion: 4;
   propose(context: Readonly<ProjectProposalContext>): ResearchProposal | null;
 }
 
@@ -61,7 +62,7 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
   };
 }
 
-export class ProjectStrategyResearchAgent implements BlueprintResearchAgent {
+export class ProjectStrategyResearchAgent {
   private readonly provider: Promise<ProjectProposalProvider>;
 
   constructor(private readonly projectDir: string, private readonly entry: string) {
@@ -81,17 +82,18 @@ export class ProjectStrategyResearchAgent implements BlueprintResearchAgent {
       throw new Error(`Cannot load project proposal provider '${this.entry}': ${error instanceof Error ? error.message : String(error)}`);
     }
     const provider = module.default;
-    if (!isRecord(provider) || provider.apiVersion !== 3 || typeof provider.propose !== "function") {
-      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 3 and synchronous propose(context)`);
+    if (!isRecord(provider) || provider.apiVersion !== 4 || typeof provider.propose !== "function") {
+      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 4 and synchronous propose(context)`);
     }
     return provider as unknown as ProjectProposalProvider;
   }
 
-  async propose(input: ResearchInput): Promise<ResearchProposal> {
+  async propose(input: BranchResearchInput): Promise<ResearchProposal> {
     const provider = await this.provider;
     const context = (): Readonly<ProjectProposalContext> => freezeDeep({
-      apiVersion: 3,
+      apiVersion: 4,
       iteration: input.iteration,
+      branch: structuredClone(input.branch),
       blueprint: structuredClone(input.blueprint),
       metrics: structuredClone(input.metrics),
       fabLoss: structuredClone(input.fabLoss),

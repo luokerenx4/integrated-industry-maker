@@ -758,11 +758,23 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .design-result header code { color: #5c8077; font: 7px var(--mono); }
 .design-result header > strong { display: grid; gap: 5px; color: #7ce4c1; text-align: right; font: 16px var(--mono); }
 .design-result header small { color: #5a8075; font: 6px var(--mono); }
+.design-frontier { padding: 13px; border-bottom: 1px solid #1b3a33; background: #091817; }
+.design-frontier > div:last-child { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; }
+.design-frontier article { min-width: 0; display: grid; gap: 5px; padding: 11px; border: 1px solid #2b4942; border-radius: 4px; background: #0b1b19; }
+.design-frontier article.leader { border-color: #3b947a; background: #0d2922; box-shadow: inset 3px 0 #65dcb8; }
+.design-frontier article.alternative { border-color: #665633; background: #211d12; box-shadow: inset 3px 0 #c5a653; }
+.design-frontier article small { color: #66867d; font: 6px var(--mono); letter-spacing: .08em; }
+.design-frontier article.alternative small { color: #aa9460; }
+.design-frontier article strong { color: #c5e1d9; font: 10px var(--mono); }
+.design-frontier article code, .design-frontier article span { overflow: hidden; color: #58766e; font: 7px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.design-frontier article b { color: #7ce4c1; font: 12px var(--mono); }
+.design-frontier article.alternative b { color: #d2b76d; }
 .design-iteration-head, .design-iterations > div { display: grid; grid-template-columns: 35px 65px minmax(0, 1fr) 100px; align-items: center; gap: 9px; padding: 10px 13px; border-top: 1px solid #142c28; }
 .design-iteration-head { color: #4e6d66; font: 6px var(--mono); letter-spacing: .08em; }
 .design-iterations b, .design-iterations em { color: #68877f; font: normal 8px var(--mono); }
 .design-iterations i { padding: 4px; text-align: center; border-radius: 3px; font: normal 700 7px var(--mono); }
 .design-iterations i.keep { color: #76e6c1; background: #133c30; }
+.design-iterations i.branch { color: #e0bf70; background: #3b3118; }
 .design-iterations i.reject { color: #d38f82; background: #2c1c1a; }
 .design-iterations span { display: grid; gap: 4px; }
 .design-iterations strong { color: #a8c9c0; font: 8px var(--mono); }

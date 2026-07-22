@@ -198,7 +198,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(generatedProgramResponse.status).toBe(200);
     expect(await generatedProgramResponse.json()).toEqual(expect.objectContaining({
       brief: expect.objectContaining({
-        program: expect.objectContaining({ seed: { kind: "synthesis", inputBlueprint: "greenfield" } }),
+        program: expect.objectContaining({ seed: { kind: "synthesis", inputBlueprint: "greenfield" }, frontier: { maximumAlternativeBranches: 1 } }),
         seed: expect.objectContaining({ synthesis: expect.objectContaining({ method: "project-strategy", entry: "strategies/reentrant-dram-fab.ts" }) }),
         promotionBase: expect.objectContaining({ blueprint: "generated-dram-fab" }),
       }),
@@ -231,11 +231,13 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "proposal-started",
+      branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "queue-starvation" }) }) }),
     }) }));
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "proposal-completed", addressedLoss: "queue-starvation" }) }));
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "candidate-completed",
+      frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1", leaderAfter: expect.any(String), selectionOrderAfter: expect.any(Array) }),
       decisionEvidence: expect.objectContaining({
         basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
         aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
@@ -251,10 +253,12 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(run).toEqual(expect.objectContaining({
       manifest: expect.objectContaining({
         budget: { maximum: 1, evaluated: 1 },
+        frontier: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), selectionOrder: expect.any(Array), nodes: expect.any(Array) }),
         iterations: [expect.objectContaining({
           addressedLoss: "queue-starvation",
           driverEvidence: expect.objectContaining({ fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
           decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String), guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean) }), cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]) }),
+          frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1" }),
         })],
       }),
       artifact: expect.objectContaining({ id: run.manifest.resultHash, created: true }),

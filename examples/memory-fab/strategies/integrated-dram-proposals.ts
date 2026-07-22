@@ -134,7 +134,7 @@ const candidates: Candidate[] = [
 ];
 
 export default {
-  apiVersion: 3,
+  apiVersion: 4,
   propose(context) {
     const used = new Set(context.history.map((item) => item.strategy));
     const lossChain = context.fabLoss?.chain ?? [];

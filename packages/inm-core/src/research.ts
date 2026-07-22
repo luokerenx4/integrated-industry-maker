@@ -26,12 +26,22 @@ export interface ResearchInput {
   capacityPlan: ProductionCapacityPlan;
   history: ResearchHistoryEntry[];
 }
+export interface ResearchBranchContext {
+  nodeId: string;
+  parentNodeId?: string;
+  role: "leader" | "alternative";
+  depth: number;
+  leaderNodeId: string;
+}
+export interface BranchResearchInput extends ResearchInput {
+  branch: ResearchBranchContext;
+}
 export interface ResearchHistoryEntry {
   iteration: number;
   strategy: string;
   hypothesis: string;
   addressedLoss?: FabLossBucketId;
-  decision: "KEEP" | "REVERT";
+  decision: "KEEP" | "BRANCH" | "REVERT";
   score: number;
   scoreDelta: number;
 }

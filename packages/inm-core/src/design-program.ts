@@ -62,6 +62,10 @@ export const designCurrentBestGuardrailSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("case-specific"), maximumCaseScoreRegression: caseRegressionBudgetsSchema }).strict(),
 ]);
 
+export const designFrontierPolicySchema = z.object({
+  maximumAlternativeBranches: z.number().int().min(0).max(8),
+}).strict();
+
 export const designProgramSchema = z.object({
   version: z.literal(1),
   id,
@@ -71,6 +75,7 @@ export const designProgramSchema = z.object({
   seed: designSeedSchema,
   driverCase: id,
   currentBestGuardrail: designCurrentBestGuardrailSchema,
+  frontier: designFrontierPolicySchema,
   proposal: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("heuristic"), decisionFamilies: decisionFamiliesSchema }).strict(),
     z.object({ kind: z.literal("project-strategy"), entry: strategyEntry, decisionFamilies: decisionFamiliesSchema }).strict(),
@@ -83,6 +88,7 @@ export const designProgramSchema = z.object({
 export type DesignDecisionFamily = z.infer<typeof designDecisionFamilySchema>;
 export type DesignSeed = z.infer<typeof designSeedSchema>;
 export type DesignCurrentBestGuardrail = z.infer<typeof designCurrentBestGuardrailSchema>;
+export type DesignFrontierPolicy = z.infer<typeof designFrontierPolicySchema>;
 export type DesignProgramManifest = z.infer<typeof designProgramSchema>;
 
 export function currentBestCaseScoreRegressionLimit(policy: DesignCurrentBestGuardrail, caseId: string): number | null {
@@ -134,6 +140,7 @@ export interface DesignProgramSummary {
   seed: DesignSeed;
   driverCase: string;
   currentBestGuardrail: DesignCurrentBestGuardrail;
+  frontier: DesignFrontierPolicy;
   proposal: DesignProgramManifest["proposal"];
   budget: DesignProgramManifest["budget"];
   programHash: string;
@@ -234,6 +241,7 @@ export async function listDesignPrograms(projectDir: string): Promise<DesignProg
       seed: structuredClone(program.seed),
       driverCase: program.driverCase,
       currentBestGuardrail: structuredClone(program.currentBestGuardrail),
+      frontier: { ...program.frontier },
       proposal: proposalSummary(program.proposal),
       budget: { ...program.budget },
       programHash: await designProgramHash(projectDir, program),
@@ -300,6 +308,7 @@ export async function prepareDesignProgram(projectDir: string, programId: string
     seed: structuredClone(program.seed),
     driverCase: program.driverCase,
     currentBestGuardrail: structuredClone(program.currentBestGuardrail),
+    frontier: { ...program.frontier },
     proposal: proposalSummary(program.proposal),
     budget: { ...program.budget },
     programHash: await designProgramHash(projectDir, program),

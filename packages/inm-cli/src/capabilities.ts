@@ -127,8 +127,8 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "promote", form: "option", value: "string", required: false, description: "Create this Candidate id from the reopened run's exact leading design." },
       { name: "max-candidates", form: "option", value: "integer", required: false, description: "Candidate budget, bounded by the Design Program manifest." },
       { name: "progress", form: "option", value: "string", required: false, description: "Run progress on stderr: off, human, or one machine-readable NDJSON envelope per Core event." },
-      sectionArgument(["summary", "static", "iterations", "best", "runs", "all"]), json],
-    outputSections: ["summary", "static", "iterations", "best", "runs", "all"],
+      sectionArgument(["summary", "static", "iterations", "frontier", "best", "runs", "all"]), json],
+    outputSections: ["summary", "static", "iterations", "frontier", "best", "runs", "all"],
   },
   {
     id: "synthesize", usage: "inm synthesize <path> [selection] [--output ID] [--json]", description: "Generate a complete Blueprint with the project strategy or fungible-flow solver.",

@@ -12,13 +12,13 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
-
-## Proposed plans
-
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/pareto-branch-design-search]] | Retain and explore bounded non-dominated Design branches without weakening the policy-compliant promotable leader. | 2026-07-23 |
+
+## Proposed plans
+
+There are no proposed plans.
 
 ## Paused plans
 

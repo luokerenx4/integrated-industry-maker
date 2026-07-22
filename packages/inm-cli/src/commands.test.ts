@@ -192,7 +192,7 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   const commands = envelope.data.commands as Array<{ id: string; effect: string; exitCodes: { success: number; failure: number[]; usage: number }; arguments: Array<{ name: string; default?: unknown }>; outputSections: string[] }>;
   expect(commands.map((command) => command.id)).toContain("candidate");
   expect(commands.map((command) => command.id)).toContain("design");
-  expect(commands.find((command) => command.id === "design")!.outputSections).toEqual(["summary", "static", "iterations", "best", "runs", "all"]);
+  expect(commands.find((command) => command.id === "design")!.outputSections).toEqual(["summary", "static", "iterations", "frontier", "best", "runs", "all"]);
   expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "next-action", "diagnostics", "losses", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
   expect(commands.find((command) => command.id === "simulate")!.effect).toBe("creates-artifact");
   expect(commands.find((command) => command.id === "compare")!.arguments.find((argument) => argument.name === "seed")!.default).toBe(42);
@@ -228,8 +228,8 @@ test("public Design Program workflow discovers, inspects, and executes without m
     data: {
       action: "list",
       programs: [
-        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }),
-        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }),
+        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
+        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
       ],
     },
     artifacts: [],
@@ -240,12 +240,13 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const inspection = JSON.parse(inspected.stdout);
   expect(inspection.data).toEqual(expect.objectContaining({
     section: "summary",
-    result: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
+    result: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
   }));
   expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
   expect(await pathExists(join(projectDir, "design-runs"))).toBeFalse();
   const humanInspection = await runCli(["design", projectDir, "--program", "integrated-dram-fab"]);
   expect(humanInspection.stdout).toContain("Current-best guardrail: uniform · max 0.000000 regression/case");
+  expect(humanInspection.stdout).toContain("Frontier: 1 leader + up to 1 alternative branch");
 
   const generated = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--json"]);
   expect({ exitCode: generated.exitCode, stderr: generated.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -265,6 +266,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-started",
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
     driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "queue-starvation" }) }) }),
   }) }));
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
@@ -272,6 +274,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   }) }));
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
+    frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, leaderAfter: expect.any(String), selectionOrderAfter: expect.any(Array) }),
     decisionEvidence: expect.objectContaining({
       basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
       aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
@@ -297,7 +300,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
     command: "design",
     data: { section: "iterations", result: [expect.objectContaining({
       iteration: 1,
-      decision: expect.stringMatching(/KEEP|REJECT/),
+      decision: expect.stringMatching(/KEEP|BRANCH|REJECT/),
       addressedLoss: "queue-starvation",
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
       decisionEvidence: expect.objectContaining({
@@ -306,6 +309,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
         guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
         limitingCase: expect.any(String),
       }),
+      frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1" }),
     })] },
     artifacts: [expect.objectContaining({ kind: "design-run", id: resultHash, immutable: true })],
   }));
@@ -315,6 +319,14 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(humanRun.stdout).toContain("addresses queue-starvation");
   expect(humanRun.stdout).toContain("observed queue-starvation →");
   expect(humanRun.stdout).toContain("limiting ");
+  expect(humanRun.stdout).toContain("Frontier: leader ");
+
+  const frontier = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--section", "frontier", "--json"]);
+  expect({ exitCode: frontier.exitCode, stderr: frontier.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(frontier.stdout).data).toEqual({
+    section: "frontier",
+    result: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), selectionOrder: expect.any(Array), nodes: expect.any(Array) }),
+  });
 
   const runs = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--section", "runs", "--json"]);
   expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -330,7 +342,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const guardedIteration = JSON.parse(guardedJson.stdout).data.result[2];
   expect(guardedIteration).toMatchObject({
     iteration: 3,
-    decision: "REJECT",
+    decision: "BRANCH",
     decisionEvidence: {
       basis: "current-best-case-guardrail",
       aggregate: { scoreDelta: expect.any(Number) },
@@ -338,9 +350,19 @@ test("public Design Program workflow discovers, inspects, and executes without m
       cases: expect.arrayContaining([expect.objectContaining({ id: "facility-interruption", maximumScoreRegression: 0, guardrailPassed: false })]),
       limitingCase: "facility-interruption",
     },
+    frontierEvidence: {
+      parent: { nodeId: "candidate-2", role: "leader", depth: 2 },
+      candidateNodeId: "candidate-3",
+      outcome: "branch-retained",
+      reason: "pareto-frontier",
+      leaderAfter: "candidate-2",
+      alternativesAfter: ["candidate-3"],
+      selectionOrderAfter: ["candidate-3", "candidate-2"],
+    },
   });
   const guardedHuman = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash]);
   expect(guardedHuman.stdout).toContain("fails current-best case guardrail · facility-interruption -3.915879 · allowed regression 0.000000");
+  expect(guardedHuman.stdout).toContain("candidate-2 → candidate-3 · branch-retained");
 
   if (run.data.result.best.promotionPatchOperations === 0) {
     const refused = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--promote", "no-leading-design", "--json"]);

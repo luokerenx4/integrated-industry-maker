@@ -18,6 +18,7 @@ async function memoryFabInput() {
   const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
   const input = {
     iteration: 1,
+    branch: { nodeId: "seed", role: "leader" as const, depth: 0, leaderNodeId: "seed" },
     project,
     blueprint: project.blueprint,
     metrics,
@@ -132,8 +133,8 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
   const providerRoot = await mkdtemp(`${tmpdir()}/inm-loss-provider-`);
   await mkdir(resolve(providerRoot, "strategies"));
   const proposal = `{ strategy: "dispatch:test", hypothesis: "test", patch: [{ op: "add", path: "/policies/lotRelease", value: {} }] }`;
-  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 3, propose() { return ${proposal}; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 3, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 4, propose() { return ${proposal}; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 4, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/missing.ts").propose(input)).rejects.toThrow("must name addressedLoss");
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/fabricated.ts").propose(input)).rejects.toThrow("addressed unobserved loss 'release-admission'");
 });

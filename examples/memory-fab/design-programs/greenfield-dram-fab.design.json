@@ -13,6 +13,9 @@
     "kind": "uniform",
     "maximumCaseScoreRegression": 0
   },
+  "frontier": {
+    "maximumAlternativeBranches": 1
+  },
   "proposal": {
     "kind": "project-strategy",
     "entry": "strategies/integrated-dram-proposals.ts",
