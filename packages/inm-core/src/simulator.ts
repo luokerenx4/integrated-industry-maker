@@ -22,6 +22,7 @@ type InternalEvent =
   | { kind: "generation-boundary"; device: string }
   | { kind: "campaign-timeout"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "batch-timeout"; device: string; preferredProcess: string; deadlineTick: Tick }
+  | { kind: "maintenance-boundary"; device: string; qualifiedAtTick: Tick }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
 
@@ -89,6 +90,9 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
       } } : {}),
       ...(project.devices[id]!.assetDef.production?.maintenance ? { maintenance: {
         jobsSinceMaintenance: 0,
+        qualifiedAtTick: 0,
+        usageTriggered: 0,
+        calendarTriggered: 0,
         completed: 0,
         mandatory: 0,
         opportunistic: 0,
@@ -1707,21 +1711,37 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(state.tick + transition.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
-  const maintenanceCause = (device: CompiledDevice, opportunistic: boolean): "mandatory" | "opportunistic" | null => {
+  type MaintenanceDecision = { cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar" };
+  const maintenanceDecision = (device: CompiledDevice, opportunistic: boolean): MaintenanceDecision | null => {
     const contract = device.assetDef.production?.maintenance;
     const runtime = state.devices[device.id]!.maintenance;
     if (!contract || !runtime) return null;
-    const minimumJobs = device.policy?.preventiveMaintenance?.minimumJobs;
-    if (runtime.jobsSinceMaintenance >= contract.maximumJobs) {
-      return opportunistic ? (minimumJobs === undefined ? null : "opportunistic") : "mandatory";
+    const policy = device.policy?.preventiveMaintenance;
+    const qualificationAgeTicks = state.tick - runtime.qualifiedAtTick;
+    const mandatoryTrigger = runtime.jobsSinceMaintenance >= contract.maximumJobs
+      ? "usage" as const
+      : qualificationAgeTicks >= contract.maximumQualificationTicks ? "calendar" as const : null;
+    if (mandatoryTrigger) {
+      if (!opportunistic) return { cause: "mandatory", trigger: mandatoryTrigger };
+      const enabled = mandatoryTrigger === "usage" ? policy?.minimumJobs !== undefined : policy?.minimumQualificationTicks !== undefined;
+      return enabled ? { cause: "opportunistic", trigger: mandatoryTrigger } : null;
     }
-    return opportunistic && minimumJobs !== undefined && runtime.jobsSinceMaintenance >= minimumJobs ? "opportunistic" : null;
+    if (!opportunistic || !policy) return null;
+    if (policy.minimumJobs !== undefined && runtime.jobsSinceMaintenance >= policy.minimumJobs) {
+      return { cause: "opportunistic", trigger: "usage" };
+    }
+    if (policy.minimumQualificationTicks !== undefined && qualificationAgeTicks >= policy.minimumQualificationTicks) {
+      return { cause: "opportunistic", trigger: "calendar" };
+    }
+    return null;
   };
   const tryStartMaintenancePhase = (
     device: CompiledDevice,
     cause: "mandatory" | "opportunistic",
+    trigger: "usage" | "calendar",
     phase: "service" | "qualification",
     jobsSinceMaintenance: number,
+    qualificationAgeTicks: Tick,
   ): boolean => {
     const runtime = state.devices[device.id]!;
     const maintenance = runtime.maintenance;
@@ -1746,7 +1766,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "maintenance.wait", device: device.id, phase, reason });
       setStatus(device.id, "waiting-input");
       if (changed) emit({
-        type: "device.maintenance-blocked", tick: state.tick, device: device.id, phase, cause, reason,
+        type: "device.maintenance-blocked", tick: state.tick, device: device.id, phase, cause, trigger,
+        qualificationAgeTicks, reason,
         skill: service.skill, crews: service.crews, inputs: structuredClone(service.inputs),
       });
       return false;
@@ -1779,7 +1800,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       powerMilliWatts: required,
       produce: [],
       maintenance: {
-        phase, cause, provider: provider.device, skill: service.skill, crews: service.crews,
+        phase, cause, trigger, qualificationAgeTicks,
+        provider: provider.device, skill: service.skill, crews: service.crews,
         inputs: structuredClone(service.inputs),
       },
     };
@@ -1787,21 +1809,28 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     mutateFactoryState(state, { kind: "job.start", device: device.id, job });
     if (phase === "service") emit({
       type: "device.maintenance-start", tick: state.tick, device: device.id, cause,
-      jobsSinceMaintenance, durationTicks: phaseContract.durationTicks,
+      trigger, jobsSinceMaintenance, qualificationAgeTicks, durationTicks: phaseContract.durationTicks,
       provider: provider.device, skill: service.skill, crews: service.crews, inputs: structuredClone(service.inputs),
     }); else emit({
       type: "device.qualification-start", tick: state.tick, device: device.id, cause,
-      jobsSinceMaintenance, durationTicks: phaseContract.durationTicks,
+      trigger, jobsSinceMaintenance, qualificationAgeTicks, durationTicks: phaseContract.durationTicks,
       provider: provider.device, skill: service.skill, crews: service.crews, inputs: structuredClone(service.inputs),
     });
     schedule(state.tick + phaseContract.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
-  const tryStartMaintenance = (device: CompiledDevice, cause: "mandatory" | "opportunistic"): boolean =>
-    tryStartMaintenancePhase(device, cause, "service", state.devices[device.id]!.maintenance!.jobsSinceMaintenance);
+  const tryStartMaintenance = (device: CompiledDevice, decision: MaintenanceDecision): boolean => {
+    const maintenance = state.devices[device.id]!.maintenance!;
+    return tryStartMaintenancePhase(
+      device, decision.cause, decision.trigger, "service", maintenance.jobsSinceMaintenance,
+      state.tick - maintenance.qualifiedAtTick,
+    );
+  };
   const tryStartQualification = (device: CompiledDevice): boolean => {
     const pending = state.devices[device.id]!.maintenance?.qualificationPending;
-    return pending ? tryStartMaintenancePhase(device, pending.cause, "qualification", pending.jobsSinceMaintenance) : false;
+    return pending ? tryStartMaintenancePhase(
+      device, pending.cause, pending.trigger, "qualification", pending.jobsSinceMaintenance, pending.qualificationAgeTicks,
+    ) : false;
   };
   const tryEvaluate = (device: CompiledDevice): boolean => {
     const runtime = state.devices[device.id]!;
@@ -1823,9 +1852,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         plan.utilities.length > 0 && processPlanMaterialReady(device, plan) && !utilityAllocationsFor(plan));
     const previousUtilityWait = runtime.productionUtilities?.wait;
     const productionReady = Boolean(selectedProcessPlan && processPlanReady(device, selectedProcessPlan));
-    const mandatoryMaintenance = maintenanceCause(device, false);
+    const mandatoryMaintenance = maintenanceDecision(device, false);
     if (mandatoryMaintenance && productionReady) return tryStartMaintenance(device, mandatoryMaintenance);
-    const opportunisticMaintenance = maintenanceCause(device,
+    const opportunisticMaintenance = maintenanceDecision(device,
       campaignSelection.held || !productionReady);
     if (opportunisticMaintenance) {
       if (previousToolingWait) mutateFactoryState(state, {
@@ -2255,6 +2284,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (batchHold) schedule(Math.max(state.tick, batchHold.deadlineTick), 3, {
       kind: "batch-timeout", device, preferredProcess: batchHold.preferredProcess, deadlineTick: batchHold.deadlineTick,
     });
+    const minimumQualificationTicks = project.devices[device]!.policy?.preventiveMaintenance?.minimumQualificationTicks;
+    if (runtime.maintenance && minimumQualificationTicks !== undefined) {
+      schedule(Math.max(state.tick, runtime.maintenance.qualifiedAtTick + minimumQualificationTicks), 3, {
+        kind: "maintenance-boundary", device, qualifiedAtTick: runtime.maintenance.qualifiedAtTick,
+      });
+    }
   }
   for (const deviceId of Object.values(project.devices).filter((device) => device.generationPlan?.kind === "renewable" && renewableProfileFor(project, device.id)).map((device) => device.id).sort()) {
     const device = project.devices[deviceId]!; const output = generatorOutputAt(project, deviceId, state.tick);
@@ -2290,30 +2325,41 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         if (job.maintenance.phase === "service") {
           mutateFactoryState(state, {
             kind: "maintenance.service-finish", device: event.device, cause: job.maintenance.cause,
-            jobsSinceMaintenance, durationTicks: job.durationTicks,
+            trigger: job.maintenance.trigger, jobsSinceMaintenance,
+            qualificationAgeTicks: job.maintenance.qualificationAgeTicks, durationTicks: job.durationTicks,
           });
           emit({
             type: "device.maintenance-service-finish", tick: state.tick, device: event.device,
-            cause: job.maintenance.cause, provider: job.maintenance.provider, skill: job.maintenance.skill,
+            cause: job.maintenance.cause, trigger: job.maintenance.trigger,
+            qualificationAgeTicks: job.maintenance.qualificationAgeTicks,
+            provider: job.maintenance.provider, skill: job.maintenance.skill,
             crews: job.maintenance.crews, inputs: structuredClone(job.maintenance.inputs),
             jobsSinceMaintenance, durationTicks: job.durationTicks,
           });
         } else {
           mutateFactoryState(state, {
             kind: "maintenance.qualification-finish", device: event.device,
-            cause: job.maintenance.cause, durationTicks: job.durationTicks,
+            cause: job.maintenance.cause, trigger: job.maintenance.trigger,
+            qualifiedAtTick: state.tick, durationTicks: job.durationTicks,
           });
           emit({
             type: "device.qualification-finish", tick: state.tick, device: event.device,
-            cause: job.maintenance.cause, provider: job.maintenance.provider, skill: job.maintenance.skill,
+            cause: job.maintenance.cause, trigger: job.maintenance.trigger,
+            qualificationAgeTicks: job.maintenance.qualificationAgeTicks,
+            provider: job.maintenance.provider, skill: job.maintenance.skill,
             crews: job.maintenance.crews, inputs: structuredClone(job.maintenance.inputs),
             jobsSinceMaintenance, durationTicks: job.durationTicks,
           });
           emit({
             type: "device.maintenance-finish", tick: state.tick, device: event.device,
-            cause: job.maintenance.cause, jobsSinceMaintenance,
+            cause: job.maintenance.cause, trigger: job.maintenance.trigger,
+            qualificationAgeTicks: job.maintenance.qualificationAgeTicks, jobsSinceMaintenance,
             serviceDurationTicks: project.devices[event.device]!.assetDef.production!.maintenance!.durationTicks,
             qualificationDurationTicks: job.durationTicks,
+          });
+          const minimumQualificationTicks = project.devices[event.device]!.policy?.preventiveMaintenance?.minimumQualificationTicks;
+          if (minimumQualificationTicks !== undefined) schedule(state.tick + minimumQualificationTicks, 3, {
+            kind: "maintenance-boundary", device: event.device, qualifiedAtTick: state.tick,
           });
         }
       } else if (job.changeover) {
@@ -2616,6 +2662,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     } else if (event.kind === "batch-timeout") {
       const hold = state.devices[event.device]?.batchFormation?.hold;
       if (!hold || hold.preferredProcess !== event.preferredProcess || hold.deadlineTick !== event.deadlineTick) continue;
+    } else if (event.kind === "maintenance-boundary") {
+      const maintenance = state.devices[event.device]?.maintenance;
+      if (!maintenance || maintenance.qualifiedAtTick !== event.qualifiedAtTick) continue;
     } else if (event.kind === "breakdown") {
       if (project.devices[event.device]!.assetDef.utilityProvider) {
         const interruptedJobs = Object.entries(state.devices)
@@ -2683,6 +2732,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         });
         const cancellation = {
           tick: state.tick, device: event.device, cause: activeJob.maintenance.cause,
+          trigger: activeJob.maintenance.trigger,
+          qualificationAgeTicks: activeJob.maintenance.qualificationAgeTicks,
           provider: activeJob.maintenance.provider, skill: activeJob.maintenance.skill,
           crews: activeJob.maintenance.crews, inputs: structuredClone(activeJob.maintenance.inputs),
           jobsSinceMaintenance: state.devices[event.device]!.maintenance!.jobsSinceMaintenance,

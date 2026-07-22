@@ -34,6 +34,7 @@ export interface DeviceProductionRate {
   setupGroup?: string;
   changeoverTransitions?: EquipmentChangeoverTransition[];
   maintenanceMaximumJobs?: number;
+  maintenanceMaximumQualificationTicks?: number;
   maintenanceDurationTicks?: number;
   maintenancePowerMilliWatts?: number;
   maintenanceServiceSkill?: string;
@@ -47,6 +48,7 @@ export interface DeviceProductionRate {
   qualificationServiceInputs?: ProcessAmount[];
   qualificationProviders?: Array<{ device: string; distance: number }>;
   preventiveMaintenanceMinimumJobs?: number;
+  preventiveMaintenanceMinimumQualificationTicks?: number;
 }
 
 export interface RecipeOptionAnalysis {
@@ -455,6 +457,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         } : {}),
         ...(device.assetDef.production?.maintenance ? {
           maintenanceMaximumJobs: device.assetDef.production.maintenance.maximumJobs,
+          maintenanceMaximumQualificationTicks: device.assetDef.production.maintenance.maximumQualificationTicks,
           maintenanceDurationTicks: device.assetDef.production.maintenance.durationTicks,
           maintenancePowerMilliWatts: device.assetDef.production.maintenance.powerMilliWatts,
           maintenanceServiceSkill: device.assetDef.production.maintenance.service.skill,
@@ -469,7 +472,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
           qualificationProviders: device.qualificationProviders.map((provider) => ({ ...provider })),
         } : {}),
         ...(device.policy?.preventiveMaintenance ? {
-          preventiveMaintenanceMinimumJobs: device.policy.preventiveMaintenance.minimumJobs,
+          ...(device.policy.preventiveMaintenance.minimumJobs !== undefined
+            ? { preventiveMaintenanceMinimumJobs: device.policy.preventiveMaintenance.minimumJobs } : {}),
+          ...(device.policy.preventiveMaintenance.minimumQualificationTicks !== undefined
+            ? { preventiveMaintenanceMinimumQualificationTicks: device.policy.preventiveMaintenance.minimumQualificationTicks } : {}),
         } : {}),
       });
     }

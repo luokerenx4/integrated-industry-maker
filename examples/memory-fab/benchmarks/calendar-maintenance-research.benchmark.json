@@ -4,36 +4,36 @@
     "minimumAggregateScoreDelta": 0.001,
     "requireCandidateCapacityReady": true
   },
-  "baselineBlueprint": "tool-search-seed",
-  "candidateBlueprint": "changeover-specialized",
+  "baselineBlueprint": "calendar-maintenance-base",
+  "candidateBlueprint": "calendar-maintenance-window",
   "cases": [
     {
-      "id": "changeover-pressure",
-      "name": "Directed mask and etch cleanup pressure",
+      "id": "calendar-maintenance-window",
+      "name": "Two release waves across qualification expiry",
       "objective": "dram-output",
-      "scenario": "changeover-pressure",
+      "scenario": "calendar-maintenance-window",
       "seed": 42,
       "weight": 1,
       "world": "cleanroom"
     }
   ],
-  "id": "changeover-specialization-research",
+  "id": "calendar-maintenance-research",
   "lock": {
     "cases": {
-      "changeover-pressure": {
-        "blueprintHash": "d6d0e86c9a117449019ac833b251c18fa74473be64d7e8699b1a89709f47b797",
+      "calendar-maintenance-window": {
+        "blueprintHash": "328d58d40986173895002516eef1e1eaee5b7c4145904f16df1cf25d7466dd03",
         "deviceCatalogHash": "8ba1e54deb2e9ad61a8af156935218c3be2bbb2d398bbc93a180b3ef996963f6",
         "engineVersion": "inm-sim/0.72.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
         "routeCatalogHash": "a02c853df7b9855e2aa4f3c64dd6a4bcab305bc2bca6622feedc4a9dca30061d",
-        "scenarioHash": "ad5993e6cc1d59f10109a65113b228b5e70bf057dc4479a1235914d777b91d5b",
+        "scenarioHash": "2be54aa42e1e2a154e1fe9ea1b52b1eecf748a4a9c13b319b12c74473ba46c77",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "eb4408810e2dd2cd49eb7146c8cfd709b112bfd7106d47d554347db733dc9a81"
+    "contractHash": "3026ead0cd2e574865a9280cd198e1c947c5cb8b55f422d4f23963ebb5135229"
   },
-  "name": "DRAM Directed Changeover Specialization Research",
+  "name": "DRAM Calendar Maintenance Window Research",
   "version": 1
 }

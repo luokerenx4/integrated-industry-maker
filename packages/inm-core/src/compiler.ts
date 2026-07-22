@@ -1407,10 +1407,18 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         path: maintenancePath, code: "production.maintenance-required",
         message: `Preventive maintenance policy on '${instance.id}' requires a maintenance-capable production Device`,
       });
-      else if (instance.policy.preventiveMaintenance.minimumJobs > asset.production.maintenance.maximumJobs) issues.push({
-        path: `${maintenancePath}/minimumJobs`, code: "production.maintenance-threshold",
-        message: `Preventive maintenance threshold ${instance.policy.preventiveMaintenance.minimumJobs} exceeds the physical maximum of ${asset.production.maintenance.maximumJobs} jobs`,
-      });
+      else {
+        const minimumJobs = instance.policy.preventiveMaintenance.minimumJobs;
+        if (minimumJobs !== undefined && minimumJobs > asset.production.maintenance.maximumJobs) issues.push({
+          path: `${maintenancePath}/minimumJobs`, code: "production.maintenance-threshold",
+          message: `Preventive maintenance threshold ${minimumJobs} exceeds the physical maximum of ${asset.production.maintenance.maximumJobs} jobs`,
+        });
+        const minimumQualificationTicks = instance.policy.preventiveMaintenance.minimumQualificationTicks;
+        if (minimumQualificationTicks !== undefined && minimumQualificationTicks > asset.production.maintenance.maximumQualificationTicks) issues.push({
+          path: `${maintenancePath}/minimumQualificationTicks`, code: "production.maintenance-calendar-threshold",
+          message: `Preventive qualification-age threshold ${minimumQualificationTicks} exceeds the physical maximum of ${asset.production.maintenance.maximumQualificationTicks} ticks`,
+        });
+      }
     }
     devices[instance.id] = {
       ...instance, assetDef: asset, footprint,

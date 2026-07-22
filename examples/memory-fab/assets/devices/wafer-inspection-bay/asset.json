@@ -127,6 +127,7 @@
     ],
     "maintenance": {
       "maximumJobs": 5,
+      "maximumQualificationTicks": 120000,
       "durationTicks": 6000,
       "powerMilliWatts": 150000,
       "service": {

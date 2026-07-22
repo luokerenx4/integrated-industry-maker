@@ -48,8 +48,8 @@ export type FactoryStateMutation =
   | { kind: "job.finish"; device: string }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
   | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
-  | { kind: "maintenance.service-finish"; device: string; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick }
-  | { kind: "maintenance.qualification-finish"; device: string; cause: "mandatory" | "opportunistic"; durationTicks: Tick }
+  | { kind: "maintenance.service-finish"; device: string; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick }
+  | { kind: "maintenance.qualification-finish"; device: string; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; qualifiedAtTick: Tick; durationTicks: Tick }
   | { kind: "maintenance.cancel"; device: string; phase: "service" | "qualification" }
   | { kind: "maintenance.wait"; device: string; phase: "service" | "qualification"; reason: "consumable" | "crew" | null }
   | { kind: "maintenance.service-start"; device: string; phase: "service" | "qualification"; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
@@ -429,15 +429,22 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.maintenanceTicks += mutation.durationTicks;
-      maintenance.qualificationPending = { cause: mutation.cause, jobsSinceMaintenance: mutation.jobsSinceMaintenance };
+      maintenance.qualificationPending = {
+        cause: mutation.cause,
+        trigger: mutation.trigger,
+        jobsSinceMaintenance: mutation.jobsSinceMaintenance,
+        qualificationAgeTicks: mutation.qualificationAgeTicks,
+      };
       return;
     }
     case "maintenance.qualification-finish": {
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.jobsSinceMaintenance = 0;
+      maintenance.qualifiedAtTick = mutation.qualifiedAtTick;
       maintenance.completed++;
       maintenance[mutation.cause]++;
+      maintenance[mutation.trigger === "usage" ? "usageTriggered" : "calendarTriggered"]++;
       maintenance.maintenanceTicks += mutation.durationTicks;
       maintenance.qualificationCompleted++;
       maintenance.qualificationTicks += mutation.durationTicks;

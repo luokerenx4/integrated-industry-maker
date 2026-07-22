@@ -22,8 +22,8 @@
     "cases": {
       "incomplete-tail": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "deviceCatalogHash": "e46fa5fb14351bf083a3311f520ec97e5b298db0a2cf6664cc4bc631f1a82a65",
-        "engineVersion": "inm-sim/0.71.0",
+        "deviceCatalogHash": "8ba1e54deb2e9ad61a8af156935218c3be2bbb2d398bbc93a180b3ef996963f6",
+        "engineVersion": "inm-sim/0.72.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",

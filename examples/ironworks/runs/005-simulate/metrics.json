@@ -72,6 +72,7 @@
     "providers": {},
     "qualificationConsumables": {},
     "serviceConsumables": {},
+    "totalCalendarTriggered": 0,
     "totalCancelled": 0,
     "totalCompleted": 0,
     "totalCrewBlocks": 0,
@@ -88,7 +89,8 @@
     "totalQualificationCompleted": 0,
     "totalQualificationCrewTicks": 0,
     "totalQualificationTicks": 0,
-    "totalServiceCrewTicks": 0
+    "totalServiceCrewTicks": 0,
+    "totalUsageTriggered": 0
   },
   "equipmentSetups": {
     "campaignMaximumHoldReleases": 0,

@@ -84,6 +84,8 @@ export interface BlueprintMetricSnapshot {
   totalMaintenanceCompleted: number;
   totalMandatoryMaintenance: number;
   totalOpportunisticMaintenance: number;
+  totalUsageTriggeredMaintenance: number;
+  totalCalendarTriggeredMaintenance: number;
   totalMaintenanceCancelled: number;
   totalMaintenanceTicks: number;
   totalQualificationCompleted: number;
@@ -182,6 +184,8 @@ export interface BlueprintMetricDelta {
   totalMaintenanceCompleted: number;
   totalMandatoryMaintenance: number;
   totalOpportunisticMaintenance: number;
+  totalUsageTriggeredMaintenance: number;
+  totalCalendarTriggeredMaintenance: number;
   totalMaintenanceCancelled: number;
   totalMaintenanceTicks: number;
   totalQualificationCompleted: number;
@@ -404,6 +408,8 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalMaintenanceCompleted: metrics.equipmentMaintenance.totalCompleted,
     totalMandatoryMaintenance: metrics.equipmentMaintenance.totalMandatory,
     totalOpportunisticMaintenance: metrics.equipmentMaintenance.totalOpportunistic,
+    totalUsageTriggeredMaintenance: metrics.equipmentMaintenance.totalUsageTriggered,
+    totalCalendarTriggeredMaintenance: metrics.equipmentMaintenance.totalCalendarTriggered,
     totalMaintenanceCancelled: metrics.equipmentMaintenance.totalCancelled,
     totalMaintenanceTicks: metrics.equipmentMaintenance.totalMaintenanceTicks,
     totalQualificationCompleted: metrics.equipmentMaintenance.totalQualificationCompleted,
@@ -504,6 +510,8 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalMaintenanceCompleted: after.totalMaintenanceCompleted - before.totalMaintenanceCompleted,
     totalMandatoryMaintenance: after.totalMandatoryMaintenance - before.totalMandatoryMaintenance,
     totalOpportunisticMaintenance: after.totalOpportunisticMaintenance - before.totalOpportunisticMaintenance,
+    totalUsageTriggeredMaintenance: after.totalUsageTriggeredMaintenance - before.totalUsageTriggeredMaintenance,
+    totalCalendarTriggeredMaintenance: after.totalCalendarTriggeredMaintenance - before.totalCalendarTriggeredMaintenance,
     totalMaintenanceCancelled: after.totalMaintenanceCancelled - before.totalMaintenanceCancelled,
     totalMaintenanceTicks: after.totalMaintenanceTicks - before.totalMaintenanceTicks,
     totalQualificationCompleted: after.totalQualificationCompleted - before.totalQualificationCompleted,

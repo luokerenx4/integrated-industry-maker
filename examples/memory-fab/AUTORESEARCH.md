@@ -20,7 +20,7 @@ The TypeScript commands `bun run memory-fab:research-release` and `bun run memor
 
 `bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement.
 
-`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Its pre-utility sweep selected lithography off / etch off / inspection 4; rerun it after facility changes rather than treating the historical score as timeless.
+`bun run memory-fab:research-maintenance` searches 27 Blueprint job-count timing policies without changing asset physics. Its pre-utility sweep selected lithography off / etch off / inspection 4; rerun it after facility changes rather than treating the historical score as timeless. `bun run memory-fab:research-calendar` separately searches qualification-age windows against two fixed six-lot release waves. The checked-in 130-second lithography window moves service into the inter-wave idle gap, remains capacity READY, and improves the focused locked score by `+3.853927`.
 
 `bun run memory-fab:research-metrology` compares seven explicit equipment architectures across capital layouts, equipment-specific maintenance, and lot dispatch. Re-run this search after changing equipment physics; its prior rejection remains historical evidence rather than a timeless result.
 
@@ -38,6 +38,8 @@ bun run inm benchmark examples/memory-fab --benchmark product-mix-research
 bun run inm benchmark examples/memory-fab --benchmark yield-research
 bun run inm benchmark examples/memory-fab --benchmark batch-formation-research
 bun run inm benchmark examples/memory-fab --benchmark changeover-specialization-research
+bun run inm benchmark examples/memory-fab --benchmark calendar-maintenance-research
+bun run memory-fab:research-calendar
 bun run memory-fab:research-release -- --min-cap 10 --max-cap 12
 bun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo
 bun run memory-fab:research-campaign

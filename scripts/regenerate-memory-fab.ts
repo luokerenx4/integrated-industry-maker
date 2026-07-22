@@ -239,7 +239,7 @@ async function workCenter(
   buildCost: number,
   changeover?: { transitions: ChangeoverTransition[] },
   maintenance?: {
-    maximumJobs: number; durationTicks: number; powerMilliWatts: number;
+    maximumJobs: number; maximumQualificationTicks: number; durationTicks: number; powerMilliWatts: number;
     service: { skill: string; crews: number; inputs: Array<{ resource: string; count: number }> };
     qualification: {
       durationTicks: number; powerMilliWatts: number;
@@ -282,7 +282,7 @@ await workCenter("lithography-bay", "Lithography Bay", "A scarce qualified litho
 ], ["release-input", "reentrant-input"], ["pattern-output"], 18_000,
 twoGroupChangeover("photo-mask-l1", "photo-mask-l2", 4_000, 45_000),
 {
-  maximumJobs: 8, durationTicks: 9_000, powerMilliWatts: 220_000,
+  maximumJobs: 8, maximumQualificationTicks: 150_000, durationTicks: 9_000, powerMilliWatts: 220_000,
   service: { skill: "vacuum-process", crews: 1, inputs: [{ resource: "chamber-clean-kit", count: 1 }] },
   qualification: {
     durationTicks: 4_000, powerMilliWatts: 260_000,
@@ -303,7 +303,7 @@ await workCenter("plasma-etch-bay", "Plasma Etch Bay", "A shared etch work cente
 ], ["pattern-input"], ["loop-output", "final-output"], 12_000,
 twoGroupChangeover("etch-recipe-l1", "etch-recipe-l2", 3_000, 35_000),
 {
-  maximumJobs: 8, durationTicks: 7_000, powerMilliWatts: 200_000,
+  maximumJobs: 8, maximumQualificationTicks: 165_000, durationTicks: 7_000, powerMilliWatts: 200_000,
   service: { skill: "vacuum-process", crews: 1, inputs: [{ resource: "chamber-clean-kit", count: 1 }] },
   qualification: {
     durationTicks: 3_500, powerMilliWatts: 220_000,
@@ -334,7 +334,7 @@ await workCenter("wafer-inspection-bay", "Wafer Inspection Bay", "Inline pattern
   { id: "scrap-output", direction: "output", side: "south", offset: 1, buffer: "scrap-output" },
 ], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 22_000, undefined,
 {
-  maximumJobs: 5, durationTicks: 6_000, powerMilliWatts: 150_000,
+  maximumJobs: 5, maximumQualificationTicks: 120_000, durationTicks: 6_000, powerMilliWatts: 150_000,
   service: { skill: "metrology", crews: 1, inputs: [{ resource: "metrology-calibration-kit", count: 1 }] },
   qualification: {
     durationTicks: 3_000, powerMilliWatts: 170_000,
@@ -349,7 +349,7 @@ await workCenter("rapid-metrology-cell", "Rapid Optical Metrology Cell", "Compac
   { id: "scrap-output", direction: "output", side: "south", offset: 1, buffer: "scrap-output" },
 ], ["wafer-input"], ["pass-output", "reject-output", "scrap-output"], 6_500, undefined,
 {
-  maximumJobs: 8, durationTicks: 4_000, powerMilliWatts: 90_000,
+  maximumJobs: 8, maximumQualificationTicks: 180_000, durationTicks: 4_000, powerMilliWatts: 90_000,
   service: { skill: "metrology", crews: 1, inputs: [{ resource: "metrology-calibration-kit", count: 1 }] },
   qualification: {
     durationTicks: 2_000, powerMilliWatts: 110_000,
@@ -755,6 +755,20 @@ await scenario("yield-excursion", "Five-minute systematic latent-yield excursion
   { id: "latent-electrical-lot-04", process: "etch-cell-layer-2", lot: "dram-lot-04", defects: ["latent-electrical"] },
 ], [], 300_000);
 await scenario("batch-tail", "Six-minute eleven-lot furnace tail window", [], [], 360_000, lotReleases.slice(0, 11), materialDeliveries.slice(0, 11));
+const calendarWaveReleases = lotReleases.map((lot, index) => ({
+  ...lot,
+  releaseTick: index < 6 ? index * 6_000 : 180_000 + (index - 6) * 6_000,
+  dueTick: index < 6 ? 170_000 + index * 6_000 : 350_000 + (index - 6) * 6_000,
+}));
+const calendarWaveDeliveries = materialDeliveries.map((delivery, index) => ({
+  ...delivery,
+  releaseTick: index < 6 ? index * 6_000 : 180_000 + (index - 6) * 6_000,
+}));
+await scenario(
+  "calendar-maintenance-window",
+  "Six-minute two-wave DRAM qualification-expiry window",
+  [], [], 360_000, calendarWaveReleases, calendarWaveDeliveries,
+);
 await json(join(project, "objectives", "dram-output.objective.json"), {
   id: "dram-output", name: "Fulfill a value-weighted DRAM product portfolio with controlled wafer-lot service", targetResource: "commercial-dram-device", trackedFamily: "dram-wafer", targetRegion: "cleanroom", targetRatePerMinute: 8,
   deliveryContracts: [
@@ -911,6 +925,20 @@ specializedProject = compileFactoryProject(specializedSource);
 await json(join(project, "blueprints", "experiment.blueprint.json"), {
   ...specializedProject.blueprint, revision: "memory-fab-facility-utilities-v1",
 });
+const calendarMaintenanceBaseBlueprint = structuredClone(specializedProject.blueprint);
+const calendarMaintenanceWindowBlueprint = structuredClone(calendarMaintenanceBaseBlueprint);
+const calendarLithography = calendarMaintenanceWindowBlueprint.devices.find((device) => device.id === "lithography-1");
+if (!calendarLithography) throw new Error("Calendar-maintenance candidate requires lithography-1");
+calendarLithography.policy = {
+  ...calendarLithography.policy,
+  preventiveMaintenance: { minimumQualificationTicks: 130_000 },
+};
+await json(join(project, "blueprints", "calendar-maintenance-base.blueprint.json"), {
+  ...calendarMaintenanceBaseBlueprint, revision: "memory-fab-calendar-maintenance-research-v1",
+});
+await json(join(project, "blueprints", "calendar-maintenance-window.blueprint.json"), {
+  ...calendarMaintenanceWindowBlueprint, revision: "memory-fab-calendar-maintenance-research-v1",
+});
 await json(join(project, "blueprints", "changeover-specialized.blueprint.json"), {
   ...changeoverSpecializedBlueprint, revision: "memory-fab-directed-changeover-specialization-v1",
 });
@@ -922,11 +950,20 @@ await json(join(project, "benchmarks", "changeover-specialization-research.bench
   ],
   acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 0, requireCandidateCapacityReady: true },
 });
+await json(join(project, "benchmarks", "calendar-maintenance-research.benchmark.json"), {
+  version: 1, id: "calendar-maintenance-research", name: "DRAM Calendar Maintenance Window Research",
+  baselineBlueprint: "calendar-maintenance-base", candidateBlueprint: "calendar-maintenance-window",
+  cases: [
+    { id: "calendar-maintenance-window", name: "Two release waves across qualification expiry", world: "cleanroom", scenario: "calendar-maintenance-window", objective: "dram-output", seed: 42, weight: 1 },
+  ],
+  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 0, requireCandidateCapacityReady: true },
+});
 await lockBlueprintBenchmark(project, "dispatch-research");
 await lockBlueprintBenchmark(project, "product-mix-research");
 await lockBlueprintBenchmark(project, "yield-research");
 await lockBlueprintBenchmark(project, "batch-formation-research");
 await lockBlueprintBenchmark(project, "changeover-specialization-research");
+await lockBlueprintBenchmark(project, "calendar-maintenance-research");
 
 await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nTwelve named wafer lots become available six seconds apart. Before each Scenario-owned \`releaseTick\` a lot is scheduled outside the fab; admission into \`lot-release\` is capacity-gated and records actual release delay. Planned starts, due dates, quality excursions, and failures are fixed test workload, so a candidate cannot improve its score by deleting or postponing work. A candidate may add \`policies.lotRelease\` as explicit CONWIP code: \`maximumWip\` is the hard card count, \`reopenAtWip\` controls replenishment-wave hysteresis, and \`dispatch\` chooses among eligible identities.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses identity-preserving wafer lots within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nBetween deposition and the second lithography pass, the baseline furnace requires three dielectric-stack lots before one fixed twelve-second anneal job may start. The same three lot identities leave together, and the evaluator owns actual lots/job plus pre-start batch queue wait. A six-second single-lot rapid-anneal Process is qualified on the same physical furnace, so batch policy is a visible Blueprint recipe choice instead of scheduler magic.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses fixed-batch anneal, standard inspection, authored operation order, FIFO lots, and open-loop admission.\n\nThe checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.\n\nThe TypeScript command \`bun run memory-fab:research-release\` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or \`policies.lotRelease\` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
 await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots become available six seconds apart, carry priority and due dates through lithography → etch → deposition → thermal anneal, then return to the same lithography and etch work centers before inline inspection. Scheduled lots remain outside factory WIP until their capacity-gated and optional Blueprint CONWIP release succeeds. Their identities and latent defect state then survive processing and physical transport. The baseline furnace starts only when three lots are resident and returns the same three identities after one fixed batch job; its alternative rapid-anneal Process handles one lot at a time. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise repairable critical-dimension defects, terminal particle contamination, and latent electrical defects missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nEquipment condition is equally physical. Usage drift changes cycle time, power, and defect exposure until a provider performs maintenance with the required clean/calibration kit. Service completion then creates a separate qualification job: vacuum tools consume sacrificial tool-qualification wafers, metrology consumes reference wafers, the corresponding skilled crew is reserved, and production remains locked until that powered qualification finishes. A failed qualification retries only the release phase instead of repeating completed service.\n\nThe locked Coding Agent benchmark evaluates one candidate Blueprint across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption. This prevents a layout or policy from winning only by memorizing one defect schedule. The evaluator measures scheduled/released/pending work, planned and actual release cadence, peak active lots, physical/controller blocked lot-time, good and first-pass yield, inspection count, rework, scrap, quality escape, actual lots per batch, pre-start batch queue wait, complete cycle, queue, processing, transport, changeover, maintenance/qualification work and consumables, on-time service, tardiness, and per-case score instead of inferring them from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters. Start with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, \`bun run inm benchmark examples/memory-fab --benchmark dispatch-research\`, \`bun run memory-fab:research-release\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
@@ -959,7 +996,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "The TypeScript command `bun run memory-fab:research-release` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.",
-    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier sweeps are retained as historical negative evidence. Because physical specialization and facility capacity change the queueing regime, rerun them against the current candidate before adopting a controller.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint timing policies without changing asset physics. Its pre-utility sweep selected lithography off / etch off / inspection 4; rerun it after facility changes rather than treating the historical score as timeless.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures across capital layouts, equipment-specific maintenance, and lot dispatch. Re-run this search after changing equipment physics; its prior rejection remains historical evidence rather than a timeless result.",
+    "The TypeScript commands `bun run memory-fab:research-release` and `bun run memory-fab:research-campaign` search admission and setup control without editing a Blueprint. Their earlier sweeps are retained as historical negative evidence. Because physical specialization and facility capacity change the queueing regime, rerun them against the current candidate before adopting a controller.\n\n`bun run memory-fab:research-tools` starts from the frozen `tool-search-seed` Blueprint, extracts layer-2 qualifications into project-local dedicated tools, jointly ranks position and rotation, compares ground and elevated routes, rebuilds explicit sorter ownership, and evaluates every topology across the locked cases. `--write-best` writes only a strict gate-passing improvement.\n\n`bun run memory-fab:research-maintenance` searches 27 Blueprint job-count timing policies without changing asset physics. Its pre-utility sweep selected lithography off / etch off / inspection 4; rerun it after facility changes rather than treating the historical score as timeless. `bun run memory-fab:research-calendar` separately searches qualification-age windows against two fixed six-lot release waves. The checked-in 130-second lithography window moves service into the inter-wave idle gap, remains capacity READY, and improves the focused locked score by `+3.853927`.\n\n`bun run memory-fab:research-metrology` compares seven explicit equipment architectures across capital layouts, equipment-specific maintenance, and lot dispatch. Re-run this search after changing equipment physics; its prior rejection remains historical evidence rather than a timeless result.",
   )
   .replace(
     "Coding Agents may next test `minimize-changeover`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or `policies.lotRelease` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.",
@@ -971,7 +1008,7 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run inm benchmark examples/memory-fab --benchmark product-mix-research\nbun run inm benchmark examples/memory-fab --benchmark yield-research\nbun run inm benchmark examples/memory-fab --benchmark batch-formation-research\nbun run inm benchmark examples/memory-fab --benchmark changeover-specialization-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
+    "bun run inm benchmark examples/memory-fab --benchmark product-mix-research\nbun run inm benchmark examples/memory-fab --benchmark yield-research\nbun run inm benchmark examples/memory-fab --benchmark batch-formation-research\nbun run inm benchmark examples/memory-fab --benchmark changeover-specialization-research\nbun run inm benchmark examples/memory-fab --benchmark calendar-maintenance-research\nbun run memory-fab:research-calendar\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
   )
   .replace(
     "The aggregate score must improve, and no individual operating condition may regress by more than the declared gate.",
@@ -991,7 +1028,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "\n\nEquipment condition is equally physical.",
-    "\n\nThe static target-rate planner now models that same equipment boundary: required layer-1 and layer-2 work is fractionally allocated across the physical lithography and etch qualification graphs, while the twelve Scenario-scheduled blank-wafer lots are fixed external supply. The candidate's extra tools reduce each toolset's planned load instead of creating duplicate paper capacity. Capacity READY is a hard gate in all five benchmark cases; time-dependent losses remain simulation-owned.\n\nEquipment condition is equally physical.",
+    "\n\nThe static target-rate planner now models that same equipment boundary: required layer-1 and layer-2 work is fractionally allocated across the physical lithography and etch qualification graphs, while the twelve Scenario-scheduled blank-wafer lots are fixed external supply. The candidate's extra tools reduce each toolset's planned load instead of creating duplicate paper capacity. Capacity READY is a hard gate in all five benchmark cases; time-dependent losses remain simulation-owned.\n\nEquipment condition is equally physical. Every maintained tool has both a completed-job limit and a wall-clock qualification-age limit; whichever expires first blocks the next production start. A Blueprint may only pull immutable service and qualification earlier into an idle window. The focused `calendar-maintenance-research` benchmark freezes two six-lot release waves. Its single-policy candidate moves lithography service into the gap, keeps all twelve lots on time, and reduces mean cycle time from 97.4 to 90.9 seconds.",
   )
   .replace(
     "across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption.",
@@ -1011,7 +1048,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",
-    "`bun run inm benchmark examples/memory-fab --benchmark product-mix-research`, `bun run inm benchmark examples/memory-fab --benchmark yield-research`, `bun run inm benchmark examples/memory-fab --benchmark batch-formation-research`, `bun run inm benchmark examples/memory-fab --benchmark changeover-specialization-research`, `bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-metrology`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
+    "`bun run inm benchmark examples/memory-fab --benchmark product-mix-research`, `bun run inm benchmark examples/memory-fab --benchmark yield-research`, `bun run inm benchmark examples/memory-fab --benchmark batch-formation-research`, `bun run inm benchmark examples/memory-fab --benchmark changeover-specialization-research`, `bun run inm benchmark examples/memory-fab --benchmark calendar-maintenance-research`, `bun run memory-fab:research-calendar`, `bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-metrology`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

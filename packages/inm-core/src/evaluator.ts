@@ -443,6 +443,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => {
       const maintenance = {
         ...runtime.maintenance!,
+        qualificationAgeTicks: state.tick - runtime.maintenance!.qualifiedAtTick,
         serviceConsumables: { ...runtime.maintenance!.serviceConsumables },
         qualificationConsumables: { ...runtime.maintenance!.qualificationConsumables },
         ...(runtime.maintenance!.qualificationPending ? { qualificationPending: { ...runtime.maintenance!.qualificationPending } } : {}),
@@ -479,6 +480,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     totalCompleted: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.completed, 0),
     totalMandatory: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.mandatory, 0),
     totalOpportunistic: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.opportunistic, 0),
+    totalUsageTriggered: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.usageTriggered, 0),
+    totalCalendarTriggered: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.calendarTriggered, 0),
     totalCancelled: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.cancelled, 0),
     totalMaintenanceTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.maintenanceTicks, 0),
     totalQualificationCompleted: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.qualificationCompleted, 0),

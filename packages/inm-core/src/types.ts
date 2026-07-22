@@ -215,6 +215,8 @@ export interface DeviceAssetManifest {
     /** Evaluator-owned usage limit, deterministic process drift, and fixed physical restoration work. */
     maintenance?: {
       maximumJobs: number;
+      /** Maximum wall-clock qualification age before another production start requires restoration. */
+      maximumQualificationTicks: Tick;
       durationTicks: Tick;
       powerMilliWatts: number;
       /** Physical service resources acquired from one in-range maintenance provider. */
@@ -481,8 +483,11 @@ export interface BlueprintDevice {
       /** Maximum time an otherwise-ready smaller compatible job may wait for the preferred batch. */
       maximumWaitTicks: Tick;
     };
-    /** Pull fixed maintenance into an idle window after this many completed production jobs. */
-    preventiveMaintenance?: { minimumJobs: number };
+    /** Pull fixed maintenance into an idle window after either authored early threshold. */
+    preventiveMaintenance?: {
+      minimumJobs?: number;
+      minimumQualificationTicks?: Tick;
+    };
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
     powerPriority?: number;
     /** Station-only grid draw used to recharge its carrier-launch energy buffer. */
@@ -902,6 +907,8 @@ export interface ActiveDeviceJob {
   maintenance?: {
     phase: "service" | "qualification";
     cause: "mandatory" | "opportunistic";
+    trigger: "usage" | "calendar";
+    qualificationAgeTicks: Tick;
     provider: DeviceInstanceId;
     skill: string;
     crews: number;
@@ -1005,6 +1012,9 @@ export interface DeviceRuntimeState {
   };
   maintenance?: {
     jobsSinceMaintenance: number;
+    qualifiedAtTick: Tick;
+    usageTriggered: number;
+    calendarTriggered: number;
     completed: number;
     mandatory: number;
     opportunistic: number;
@@ -1022,7 +1032,12 @@ export interface DeviceRuntimeState {
     crewBlocks: number;
     serviceConsumables: Record<ResourceId, number>;
     qualificationConsumables: Record<ResourceId, number>;
-    qualificationPending?: { cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number };
+    qualificationPending?: {
+      cause: "mandatory" | "opportunistic";
+      trigger: "usage" | "calendar";
+      jobsSinceMaintenance: number;
+      qualificationAgeTicks: Tick;
+    };
     wait?: { phase: "service" | "qualification"; reason: "consumable" | "crew"; sinceTick: Tick };
   };
   maintenanceProvider?: {
@@ -1179,14 +1194,14 @@ export type FactoryEvent =
   | { type: "device.changeover-start"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick; powerMilliWatts: number }
   | { type: "device.changeover-finish"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; durationTicks: Tick; powerMilliWatts: number }
   | { type: "device.changeover-cancelled"; tick: Tick; device: DeviceInstanceId; from: string | null; to: string; reason: "equipment-breakdown" }
-  | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; phase: "service" | "qualification"; cause: "mandatory" | "opportunistic"; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
-  | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
-  | { type: "device.maintenance-service-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
-  | { type: "device.qualification-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
-  | { type: "device.qualification-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
-  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; serviceDurationTicks: Tick; qualificationDurationTicks: Tick }
-  | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
-  | { type: "device.qualification-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
+  | { type: "device.maintenance-blocked"; tick: Tick; device: DeviceInstanceId; phase: "service" | "qualification"; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; qualificationAgeTicks: Tick; reason: "consumable" | "crew"; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-service-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.qualification-start"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.qualification-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[] }
+  | { type: "device.maintenance-finish"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; serviceDurationTicks: Tick; qualificationDurationTicks: Tick }
+  | { type: "device.maintenance-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; qualificationAgeTicks: Tick; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
+  | { type: "device.qualification-cancelled"; tick: Tick; device: DeviceInstanceId; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; qualificationAgeTicks: Tick; jobsSinceMaintenance: number; provider: DeviceInstanceId; skill: string; crews: number; inputs: ProcessAmount[]; reason: "equipment-breakdown" }
   | { type: "device.tooling-blocked"; tick: Tick; device: DeviceInstanceId; process: ProcessId; tooling: ProcessAmount[] }
   | { type: "device.tooling-acquired"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; tooling: ProcessAmount[] }
   | { type: "device.tooling-released"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; tooling: ProcessAmount[]; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
@@ -1507,6 +1522,8 @@ export interface FactoryMetrics {
     totalCompleted: number;
     totalMandatory: number;
     totalOpportunistic: number;
+    totalUsageTriggered: number;
+    totalCalendarTriggered: number;
     totalCancelled: number;
     totalMaintenanceTicks: Tick;
     totalQualificationCompleted: number;
@@ -1525,6 +1542,10 @@ export interface FactoryMetrics {
     qualificationConsumables: Record<ResourceId, number>;
     devices: Record<DeviceInstanceId, {
       jobsSinceMaintenance: number;
+      qualifiedAtTick: Tick;
+      qualificationAgeTicks: Tick;
+      usageTriggered: number;
+      calendarTriggered: number;
       completed: number;
       mandatory: number;
       opportunistic: number;
@@ -1542,7 +1563,12 @@ export interface FactoryMetrics {
       crewBlocks: number;
       serviceConsumables: Record<ResourceId, number>;
       qualificationConsumables: Record<ResourceId, number>;
-      qualificationPending?: { cause: "mandatory" | "opportunistic"; jobsSinceMaintenance: number };
+      qualificationPending?: {
+        cause: "mandatory" | "opportunistic";
+        trigger: "usage" | "calendar";
+        jobsSinceMaintenance: number;
+        qualificationAgeTicks: Tick;
+      };
       wait?: { phase: "service" | "qualification"; reason: "consumable" | "crew"; sinceTick: Tick };
     }>;
     providers: Record<DeviceInstanceId, {

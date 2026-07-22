@@ -100,7 +100,8 @@ export const deviceAssetSchema = z.object({
       }).strict()).min(1),
     }).strict().optional(),
     maintenance: z.object({
-      maximumJobs: positiveInt, durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
+      maximumJobs: positiveInt, maximumQualificationTicks: positiveInt,
+      durationTicks: positiveInt, powerMilliWatts: nonNegativeInt,
       service: z.object({
         skill: id, crews: positiveInt,
         inputs: z.array(z.object({ resource: id, count: positiveInt }).strict()),
@@ -216,7 +217,12 @@ export const blueprintSchema = z.object({
       lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),
       batchFormation: z.object({ preferredProcess: id, maximumWaitTicks: nonNegativeInt }).strict().optional(),
-      preventiveMaintenance: z.object({ minimumJobs: positiveInt }).strict().optional(),
+      preventiveMaintenance: z.object({
+        minimumJobs: positiveInt.optional(),
+        minimumQualificationTicks: positiveInt.optional(),
+      }).strict().refine((policy) => policy.minimumJobs !== undefined || policy.minimumQualificationTicks !== undefined, {
+        message: "must declare minimumJobs or minimumQualificationTicks",
+      }).optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),
       highSpeedTransport: z.object({ enabled: z.boolean(), minimumDistance: nonNegativeInt }).strict().optional(),

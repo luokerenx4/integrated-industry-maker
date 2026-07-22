@@ -49,7 +49,7 @@ The event stream records the selected Process id and tracked lot ids in `device.
 
 The static allocation intentionally excludes sequence-dependent setup, batch formation, maintenance, failures, utility/tooling waits, and queue policy. Locked event simulation remains the score authority for those temporal effects and for re-entrant work-center optimization.
 
-Fixed full-batch formation, bounded setup campaigns, physical work-center specialization, and usage-based preventive maintenance are now executable; see [[docs/design/batch-processing]], [[docs/design/setup-campaign-control]], [[docs/design/work-center-specialization]], and [[docs/design/usage-based-maintenance]]. The next industrial layers should make that coupling richer rather than hide it: chamber cleaning consumables, qualification expiry, repair crew/spare capacity, and stochastic-but-seeded yield.
+Fixed full-batch formation, bounded setup campaigns, physical work-center specialization, and usage/calendar preventive maintenance are now executable; see [[docs/design/batch-processing]], [[docs/design/setup-campaign-control]], [[docs/design/work-center-specialization]], and [[docs/design/usage-based-maintenance]]. The next industrial layers should make that coupling richer rather than hide it: chamber cleaning consumables, repair crew/spare capacity, and stochastic-but-seeded yield.
 
 ## Memory-fab reference project
 
