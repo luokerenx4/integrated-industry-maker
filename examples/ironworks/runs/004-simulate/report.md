@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `synthesized`
 - Score: **52.511**
-- Result hash: `86384712cc79017d5a70288891f04ee6f7861ba9ce32677217deac2e83c66aa1`
+- Result hash: `1120a230ad4606c27f13220ca8a417a8ca25cf8ca3825ddf109f0c00f813789b`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Delivery portfolio: 100.0% demand attainment · 24.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min

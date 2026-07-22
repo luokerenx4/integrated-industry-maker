@@ -175,6 +175,8 @@ async function loadStudioData(projectId: string, runName?: string) {
       name: device.assetDef.name,
       capabilities: device.assetDef.capabilities,
       powerPriority: device.policy?.powerPriority ?? 0,
+      recipeDispatch: device.policy?.recipeDispatch ?? "authored-order",
+      lotDispatch: device.policy?.lotDispatch ?? "fifo",
       ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
       ...(device.policy?.batchFormation ? { batchFormation: { ...device.policy.batchFormation } } : {}),
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),

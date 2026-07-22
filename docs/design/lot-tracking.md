@@ -46,7 +46,7 @@ completedAtTick − releasedAtTick = queueTicks + processTicks + transportTicks
 - `earliest-due-date`: earliest finite due tick;
 - `highest-priority`: largest authored lot priority.
 
-Shared work-center `recipeDispatch` also accepts `oldest-lot`, `earliest-due-date`, and `highest-lot-priority`. These rank ready route steps by their best resident lot, while `lotDispatch` selects the exact identities consumed after an operation wins. Active jobs remain non-preemptive; stable lot ids and authored operation order resolve ties.
+Shared work-center `recipeDispatch` also accepts `oldest-lot`, `earliest-due-date`, `least-slack`, and `highest-lot-priority`. These rank ready route steps by their best resident lot, while `lotDispatch` selects the exact identities consumed after an operation wins. `least-slack` subtracts nominal remaining Route work from the lot's remaining time to due date, exposing the decisive lot and calculation in `device.start`. Active jobs remain non-preemptive; stable lot ids and authored operation order resolve ties.
 
 ## Evaluation
 
@@ -56,7 +56,7 @@ Optional Objective weights `cycleTime` and `tardiness` apply penalties per mean 
 
 ## Current boundary
 
-Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity and a declarative Route sheet are explicit. Conversion from a tracked route into fungible downstream products is modeled through [[docs/design/industrial-boundaries]]. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation is explicit in [[docs/design/batch-processing]], and usage-based equipment maintenance is explicit in [[docs/design/usage-based-maintenance]]. Partial/timeout batches, chamber cleaning, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
+Deterministic scheduled releases and capacity-gated admission are explicit in [[docs/design/lot-release-scheduling]]. Route identity and a declarative Route sheet are explicit. Conversion from a tracked route into fungible downstream products is modeled through [[docs/design/industrial-boundaries]]. Deterministic excursion, inspection, selective rework, scrap, yield, and quality escape are explicit; see [[docs/design/quality-flow]]. Fixed full-batch formation and bounded preference for a compatible smaller tail process are explicit in [[docs/design/batch-processing]], and usage-based equipment maintenance is explicit in [[docs/design/usage-based-maintenance]]. Arbitrary partial Process execution, chamber cleaning, sampling plans, and correlated equipment-level excursions remain later industrial layers. Sequence-dependent equipment setup is explicit in [[docs/design/equipment-changeover]].
 
 ## Verification
 

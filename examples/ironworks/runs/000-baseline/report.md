@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **5.138**
-- Result hash: `dbb929af7f68082e738277696dba19d7afa779f4e8e5a7df18b120869a86e975`
+- Result hash: `4e09290371f3c8a4d937795df52f69bb7f03cb8046a40bd155d672f44c4a96d3`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
 - Delivery portfolio: 37.5% demand attainment · 9.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min

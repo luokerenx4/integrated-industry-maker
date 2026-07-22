@@ -407,7 +407,7 @@ export interface IndustrialWorld {
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
-export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "contract-value" | "oldest-lot" | "earliest-due-date" | "highest-lot-priority";
+export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "contract-value" | "oldest-lot" | "earliest-due-date" | "least-slack" | "highest-lot-priority";
 export type LotDispatchPolicy = "fifo" | "oldest-release" | "earliest-due-date" | "highest-priority";
 export type LotReleaseDispatchPolicy = "fifo" | "earliest-due-date" | "highest-priority";
 export interface ConwipReleasePolicy {
@@ -1193,7 +1193,7 @@ export type FactoryEvent =
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
   | { type: "device.batch-held"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; preferredLots: number; deadlineTick: Tick }
   | { type: "device.batch-released"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; heldTicks: Tick; cause: "preferred-ready" | "maximum-wait" }
-  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
+  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[]; routeDispatch?: { policy: "least-slack"; lot: string; remainingRouteTicks: Tick; slackTicks: Tick } }
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
   | { type: "transport.stage-finish"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string }

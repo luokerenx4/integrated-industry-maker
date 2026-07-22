@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `xray-cracking-factory`
 - Score: **402.334**
-- Result hash: `c616a7f1ade8386e16ac8df18ae314c624e8953737cb525a9b31adb07884c850`
+- Result hash: `7f258e7bb431a2b1c7295d8210d9def8df283a16251d9117c0ea3165db77e4eb`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Delivery portfolio: 390.0% demand attainment · 78.000 / 20.000 valued / demanded · 58.000 above demand · 0.000 net value/min

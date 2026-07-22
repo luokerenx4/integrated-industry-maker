@@ -1,6 +1,6 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, fixed-batch-, setup-campaign-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.55.0`.
+Status: multi-operation qualification plus operation-, lot-, route-slack-, fixed-batch-, setup-campaign-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.70.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
@@ -25,8 +25,10 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 - `shortest-cycle`: shortest compiled duration among ready operations, with authored order as the tie-break;
 - `highest-priority`: largest recipe `priority` among ready operations, with authored order as the tie-break.
 - `minimize-changeover`: an operation matching the Device's current setup group wins, then authored order resolves ties;
+- `contract-value`: greatest marginal evaluator-owned delivery value per equipment tick;
 - `oldest-lot`: operation containing the earliest-released tracked lot;
 - `earliest-due-date`: operation containing the tracked lot with the earliest finite due tick;
+- `least-slack`: operation whose most urgent tracked lot has the smallest `dueTick - currentTick - nominalRemainingRouteTicks`;
 - `highest-lot-priority`: operation containing the tracked lot with the greatest authored priority.
 
 `lotDispatch` independently chooses the exact identities consumed after an operation wins: `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority`. Operation dispatch and lot dispatch are separate because a shared work center first chooses a route step and then chooses WIP within that step. See [[docs/design/lot-tracking]].
@@ -37,7 +39,9 @@ Selection occurs only while the Device is idle. A ready operation has every exac
 
 The engine selects one compiled plan before calling the project-local TypeScript program. `context.process` still contains one operation, keeping Device programs simple. The returned `start` action must exactly match that selected plan. Stable authored indices resolve every equal rank, so no decision depends on object iteration, wall clock, or browser state.
 
-The event stream records the selected Process id and tracked lot ids in `device.start` and `device.finish`. Existing utilization, waiting, blocking, power, WIP, and transport metrics measure shared-equipment contention because one Device can own only one active job; lot clocks additionally measure the scheduling consequences.
+For `least-slack`, the current operation contributes its exact compiled duration. Downstream work is the shortest complete path through the Route using immutable base Process durations; scrap exits are not completion paths. It is deliberately a nominal dispatch estimate, not a forecast of future setup, transport, batching, rework, failure, or queue delay. Every qualified operation on that Device must consume a tracked Route lot, which the compiler enforces. Undated lots rank after finite-slack lots.
+
+The event stream records the selected Process id and tracked lot ids in `device.start` and `device.finish`. A least-slack start additionally records the decisive lot, nominal remaining Route ticks, and computed slack, so a replay can explain the choice without recomputing live state. Existing utilization, waiting, blocking, power, WIP, and transport metrics measure shared-equipment contention because one Device can own only one active job; lot clocks additionally measure the scheduling consequences.
 
 ## Static analysis boundary
 

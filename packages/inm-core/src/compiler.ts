@@ -1332,6 +1332,11 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         message: `Every operation on campaign-controlled Device '${instance.id}' must preserve tracked lot identities`,
       });
     }
+    if (instance.policy?.recipeDispatch === "least-slack" && (!processPlans.length || processPlans.some((plan) =>
+      plan.lotTransfers.length === 0 && plan.lotTerminations.length === 0))) issues.push({
+      path: `${path}/policy/recipeDispatch`, code: "production.route-dispatch-tracking-required",
+      message: `Least-slack Device '${instance.id}' requires qualified operations that all consume a tracked Route lot`,
+    });
     if (instance.policy?.batchFormation) {
       const formationPath = `${path}/policy/batchFormation`;
       const preferred = processPlans.filter((plan) => plan.definition.id === instance.policy!.batchFormation!.preferredProcess);

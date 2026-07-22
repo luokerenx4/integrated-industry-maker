@@ -1343,6 +1343,31 @@ describe("blueprint compiler", () => {
     expect(candidate.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(candidate.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
+    const leastSlackSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
+    leastSlackSource.scenario.lotReleases!.forEach((lot, index) => { lot.dueTick = 180_000 + index * 1_000; });
+    for (const id of ["lithography-1", "etch-1"]) {
+      const device = leastSlackSource.blueprint.devices.find((item) => item.id === id)!;
+      device.policy = { ...device.policy, recipeDispatch: "least-slack", lotDispatch: "earliest-due-date" };
+    }
+    leastSlackSource.blueprint.devices.find((item) => item.id === "furnace-1")!.recipe!.process = "rapid-anneal-dielectric-stack";
+    const leastSlack = runUntil(compileFactoryProject(leastSlackSource), undefined, { seed: 42 });
+    const firstContendedLithographyStart = leastSlack.events.find((event) =>
+      event.type === "device.start" && event.device === "lithography-1" && event.tick >= 31_000)!;
+    expect(firstContendedLithographyStart).toEqual(expect.objectContaining({
+      type: "device.start", tick: 31_000, operation: "pattern-cell-layer-1", lotIds: ["dram-lot-06"],
+      routeDispatch: { policy: "least-slack", lot: "dram-lot-06", remainingRouteTicks: 47_000, slackTicks: 107_000 },
+    }));
+    expect(leastSlack.events.filter((event) => event.type === "device.start" && event.routeDispatch)
+      .every((event) => event.type === "device.start" && event.routeDispatch!.slackTicks
+        === leastSlack.state.lots[event.routeDispatch!.lot]!.dueTick! - event.tick - event.routeDispatch!.remainingRouteTicks)).toBeTrue();
+
+    const untrackedRouteDispatch = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    untrackedRouteDispatch.blueprint.devices.find((device) => device.id === "burn-in-1")!.policy = { recipeDispatch: "least-slack" };
+    expect(issueCodes(() => compileFactoryProject(untrackedRouteDispatch))).toContain("production.route-dispatch-tracking-required");
+    const nonProductionRouteDispatch = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    nonProductionRouteDispatch.blueprint.devices.find((device) => device.id === "lot-release")!.policy = { recipeDispatch: "least-slack" };
+    expect(issueCodes(() => compileFactoryProject(nonProductionRouteDispatch))).toContain("production.route-dispatch-tracking-required");
+
     const boundedBatchSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
     boundedBatchSource.scenario.lotReleases = boundedBatchSource.scenario.lotReleases!.slice(0, 11);
     boundedBatchSource.scenario.materialDeliveries = boundedBatchSource.scenario.materialDeliveries!.slice(0, 11);

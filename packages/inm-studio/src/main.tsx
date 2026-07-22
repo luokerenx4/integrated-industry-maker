@@ -58,6 +58,8 @@ interface Device {
   name: string;
   region: string;
   powerPriority: number;
+  recipeDispatch: string;
+  lotDispatch: string;
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
   batchFormation?: { preferredProcess: string; maximumWaitTicks: number };
   preventiveMaintenance?: { minimumJobs: number };
@@ -873,6 +875,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <span><small>FOOTPRINT</small><b>{device.footprint.width} × {device.footprint.height}</b></span>
         <span><small>BUILD COST</small><b>{asset?.economics.buildCost.toLocaleString() ?? "—"}</b></span>
         <span><small>POWER PRIORITY</small><b>P{device.powerPriority}</b></span>
+        {configuredRecipes.length > 0 && <span><small>OPERATION / LOT DISPATCH</small><b>{device.recipeDispatch} / {device.lotDispatch}</b></span>}
         <span><small>IDLE → ACTIVE POWER</small><b>{(idlePowerMilliWatts / 1000).toFixed(1)} → {(powerMilliWatts / 1000).toFixed(1)} W</b></span>
         {setup && <span><small>FINAL SETUP</small><b>{setup.group ?? "UNCONFIGURED"}</b></span>}
         {setup && <span><small>CHANGEOVERS</small><b>{setup.changeovers} · {formatTick(setup.setupTicks)}</b></span>}

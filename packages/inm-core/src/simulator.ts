@@ -225,6 +225,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const maxEvents = options.maxEvents ?? 1_000_000;
   const seed = options.seed ?? 0;
   const state: FactoryState = structuredClone(initialState);
+  const routeDownstreamTicks: Record<string, Record<string, number>> = Object.fromEntries(Object.values(project.routes).map((route) => {
+    const remaining: Record<string, number> = Object.fromEntries(route.steps.map((step) => [step.id, Number.POSITIVE_INFINITY]));
+    for (let pass = 0; pass < route.steps.length; pass++) for (const step of route.steps) {
+      const candidates = step.transitions.flatMap((transition) => {
+        if (transition.terminal === "complete") return [0];
+        if (!transition.to || !Number.isFinite(remaining[transition.to])) return [];
+        const next = route.steps.find((candidate) => candidate.id === transition.to)!;
+        const nextDuration = Math.min(...next.operations.map((process) => project.processes[process]!.durationTicks));
+        return [nextDuration + remaining[transition.to]!];
+      });
+      if (!step.transitions.length && step.operations.some((process) => project.processes[process]!.lotTermination?.terminal === "complete")) candidates.push(0);
+      if (candidates.length) remaining[step.id] = Math.min(remaining[step.id]!, ...candidates);
+    }
+    return [route.id, remaining];
+  }));
   const proportionalPower = project.blueprint.policies.powerAllocation === "proportional";
   const criticalDepths = resourceCriticalDepth(project);
   const dispatchProfiles = Object.fromEntries(Object.values(project.connections).map((connection) => [
@@ -648,6 +663,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const lot = state.lots[lotId]!;
     if (!lot.route.step || lot.route.terminal) return false;
     return project.routes[lot.route.id]!.steps.find((step) => step.id === lot.route.step)?.operations.includes(process) ?? false;
+  };
+  const remainingRouteTicks = (lotId: string, plan: CompiledDevice["processPlans"][number]): Tick => {
+    const lot = state.lots[lotId]!;
+    const downstream = lot.route.step ? routeDownstreamTicks[lot.route.id]?.[lot.route.step] : undefined;
+    return plan.durationTicks + (Number.isFinite(downstream) ? downstream! : 0);
+  };
+  const lotSlackTicks = (lotId: string, plan: CompiledDevice["processPlans"][number]): Tick => {
+    const lot = state.lots[lotId]!;
+    return lot.dueTick === undefined ? Number.MAX_SAFE_INTEGER : lot.dueTick - state.tick - remainingRouteTicks(lotId, plan);
   };
   const routeQueueAssessment = (lotId: string, process: string) => {
     const lot = state.lots[lotId]!;
@@ -1382,8 +1406,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       operation.maximumLotsPerJob = Math.max(operation.maximumLotsPerJob, jobLotIds.length);
     }
     setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
+    const routeDispatchLot = selectedProcessPlan && device.policy?.recipeDispatch === "least-slack" && jobLotIds.length
+      ? [...jobLotIds].sort((left, right) => lotSlackTicks(left, selectedProcessPlan) - lotSlackTicks(right, selectedProcessPlan) || left.localeCompare(right))[0]
+      : undefined;
     emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: effectiveDurationTicks,
-      ...(jobLotIds.length ? { lotIds: jobLotIds } : {}) });
+      ...(jobLotIds.length ? { lotIds: jobLotIds } : {}),
+      ...(routeDispatchLot && selectedProcessPlan ? { routeDispatch: {
+        policy: "least-slack", lot: routeDispatchLot,
+        remainingRouteTicks: remainingRouteTicks(routeDispatchLot, selectedProcessPlan),
+        slackTicks: lotSlackTicks(routeDispatchLot, selectedProcessPlan),
+      } } : {}) });
     schedule(state.tick + effectiveDurationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
@@ -1462,7 +1494,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const rightValue = contractContribution(device, right.plan) / right.plan.durationTicks;
       return rightValue - leftValue || right.plan.priority - left.plan.priority || left.index - right.index;
     });
-    else if (policy === "oldest-lot" || policy === "earliest-due-date" || policy === "highest-lot-priority") {
+    else if (policy === "oldest-lot" || policy === "earliest-due-date" || policy === "least-slack" || policy === "highest-lot-priority") {
       const candidateLot = (plan: CompiledDevice["processPlans"][number]) => {
         const lots = plan.inputs.filter((amount) => isTracked(amount.resource))
           .flatMap((amount) => rankedLotIds(device, amount.buffer, amount.resource)
@@ -1471,6 +1503,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           ? left.releasedAtTick! - right.releasedAtTick! || left.id.localeCompare(right.id)
           : policy === "earliest-due-date"
             ? (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id)
+            : policy === "least-slack"
+              ? lotSlackTicks(left.id, plan) - lotSlackTicks(right.id, plan) || left.id.localeCompare(right.id)
             : right.priority - left.priority || left.id.localeCompare(right.id));
         return lots[0];
       };
@@ -1479,6 +1513,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         if (!leftLot || !rightLot) return Number(Boolean(rightLot)) - Number(Boolean(leftLot)) || left.index - right.index;
         if (policy === "oldest-lot") return leftLot.releasedAtTick! - rightLot.releasedAtTick! || left.index - right.index;
         if (policy === "earliest-due-date") return (leftLot.dueTick ?? Number.MAX_SAFE_INTEGER) - (rightLot.dueTick ?? Number.MAX_SAFE_INTEGER) || left.index - right.index;
+        if (policy === "least-slack") return lotSlackTicks(leftLot.id, left.plan) - lotSlackTicks(rightLot.id, right.plan) || left.index - right.index;
         return rightLot.priority - leftLot.priority || left.index - right.index;
       });
     }
