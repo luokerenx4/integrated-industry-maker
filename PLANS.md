@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/loss-guided-design]] | Make each memory-fab Design iteration explain its measured loss chain and require the project strategy to target one measured loss. | 2026-07-23 |
 
 ## Proposed plans
 

@@ -229,17 +229,28 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress[0]).toEqual(expect.objectContaining({ version: 1, progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
     expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
     expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
+    expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+      phase: "proposal-started",
+      driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "queue-starvation" }) }) }),
+    }) }));
+    expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "proposal-completed", addressedLoss: "queue-starvation" }) }));
     expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
     const resultRecord = records.find((record) => record.type === "result");
     expect(resultRecord).toBeDefined();
-    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number } }; artifact: { id: string; created: boolean } };
+    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; iterations: Array<{ addressedLoss?: string; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null } }> }; artifact: { id: string; created: boolean } };
     expect(run).toEqual(expect.objectContaining({
-      manifest: expect.objectContaining({ budget: { maximum: 1, evaluated: 1 } }),
+      manifest: expect.objectContaining({
+        budget: { maximum: 1, evaluated: 1 },
+        iterations: [expect.objectContaining({ addressedLoss: "queue-starvation", driverEvidence: expect.objectContaining({ fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }) })],
+      }),
       artifact: expect.objectContaining({ id: run.manifest.resultHash, created: true }),
     }));
     const reopened = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/runs/${run.manifest.resultHash}`);
     expect(reopened.status).toBe(200);
-    expect(await reopened.json()).toEqual(expect.objectContaining({ manifest: expect.objectContaining({ resultHash: run.manifest.resultHash }) }));
+    expect(await reopened.json()).toEqual(expect.objectContaining({ manifest: expect.objectContaining({
+      resultHash: run.manifest.resultHash,
+      iterations: [expect.objectContaining({ addressedLoss: "queue-starvation", driverEvidence: expect.objectContaining({ metricsHash: expect.any(String) }) })],
+    }) }));
     const promotion = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/runs/${run.manifest.resultHash}/promote`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: "studio-leading-design" }),
     });

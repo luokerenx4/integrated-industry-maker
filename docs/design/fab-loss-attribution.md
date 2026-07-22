@@ -1,14 +1,14 @@
-# Compatible-run fab loss attribution
+# Fab loss profiles and compatible-run attribution
 
-Status: V1 measured loss ranking for hash-compatible tracked-lot runs is implemented in Core, CLI, and Studio.
+Status: V1 measured loss ranking is reusable as source-neutral simulation evidence and is projected from both hash-compatible runs and loss-guided Design iterations.
 
-Related: [[docs/design/industrial-boundaries]], [[docs/design/lot-tracking]], [[docs/design/product-routes]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/CLI]], [[plans/memory-fab-design-loop]].
+Related: [[docs/design/industrial-boundaries]], [[docs/design/lot-tracking]], [[docs/design/product-routes]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/CLI]], [[plans/memory-fab-design-loop]], [[plans/loss-guided-design]].
 
 ## Purpose and authority
 
 Nominal production analysis answers whether configured jobs and material contracts can balance. It does not explain why a re-entrant fab lost realized service during one operating window. Once a completed run exactly matches the current engine, catalogs, World, Blueprint, Scenario, Objective, and selection, the workbench may derive a second evidence layer from its recorded `FactoryMetrics`.
 
-`analyzeFabLosses()` is a deterministic projection of existing evaluator-owned measurements. It does not simulate again, invent hidden utilization discounts, change a score, or claim calibrated semiconductor economics.
+`analyzeFabLossProfile()` is a deterministic source-neutral projection of existing evaluator-owned measurements. It does not simulate again, invent hidden utilization discounts, change a score, or claim calibrated semiconductor economics. `analyzeFabLosses()` adds one hash-compatible persisted-run identity to that profile for Workbench use; the ranking model itself owns no run provenance.
 
 ## Compatibility gate
 
@@ -43,6 +43,14 @@ The contract always carries this caveat. Product language uses “ranked signal�
 
 `inm inspect --section losses --json` returns the complete structured attribution. The default summary includes the outcome, primary bucket, chain, and caveat. Studio uses the same object for the Realized Fab Loss Chain panel and deep-links Device, connection, and Route subjects through existing project-qualified surfaces.
 
+## Design iteration projection
+
+A Design Program executes the exact driver case against its current best Blueprint before every proposal. Core hashes those complete driver metrics and derives a source-neutral `FabLossProfile` from them. The immutable iteration records both as `driverEvidence`; it never invents a persisted run id or calls invocation-local evidence “compatible.”
+
+Project proposal-provider API V2 receives a deeply frozen copy of the same profile. When its ranked `chain` is non-empty, a project provider must return `addressedLoss` naming one bucket in that chain. Missing and fabricated targets are rejected before candidate compilation. The target is the proposal's falsifiable rationale, not proof that its patch will reduce the bucket: the complete locked Benchmark still supplies KEEP/REJECT authority.
+
+The memory-fab provider annotates each candidate with the loss buckets it can honestly address, ranks unused candidates by the current chain, and stops when it has no matching intervention. It falls back to authored order only when there is no tracked-route profile. CLI progress and immutable JSON, plus Studio live and reopened result views, project the same observed chain and selected target.
+
 ## Source of truth
 
 - Ranking model: `packages/inm-core/src/fab-loss-analysis.ts`
@@ -52,4 +60,4 @@ The contract always carries this caveat. Product language uses “ranked signal�
 
 ## Verification
 
-Tests must prove exact hash compatibility, no attribution for missing/incompatible or untracked runs, deterministic ordering, stable primary/chain values for a checked-in tracked-lot fixture, priority above nominal warnings and below capacity blockers, and Core/CLI/Studio projection parity.
+Tests must prove exact hash compatibility, no attribution for missing/incompatible or untracked runs, deterministic ordering, stable primary/chain values for a checked-in tracked-lot fixture, priority above nominal warnings and below capacity blockers, source-neutral Design evidence with an exact metrics hash, project-provider target validation, and Core/CLI/Studio projection parity.

@@ -14,12 +14,14 @@ import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-
 import { atomicWriteJson, hashValue } from "./utils";
 import { findBlueprintConnectionPath, rotatePortSide, rotatedFootprint, transportCellId, transportEndpointRotation } from "./routing";
 import { evaluatePowerEnvelope, renewableProfileFor } from "./power-envelope";
+import { analyzeFabLossProfile, type FabLossBucketId, type FabLossProfile } from "./fab-loss-analysis";
 
 export interface ResearchInput {
   iteration: number;
   project: CompiledFactoryProject;
   blueprint: Blueprint;
   metrics: FactoryMetrics;
+  fabLoss: FabLossProfile | null;
   production: ProductionAnalysis;
   capacityPlan: ProductionCapacityPlan;
   history: ResearchHistoryEntry[];
@@ -32,7 +34,7 @@ export interface ResearchHistoryEntry {
   score: number;
   scoreDelta: number;
 }
-export interface ResearchProposal { hypothesis: string; patch: JsonPatchOperation[]; expectedEffect?: string; strategy?: string }
+export interface ResearchProposal { hypothesis: string; patch: JsonPatchOperation[]; expectedEffect?: string; strategy?: string; addressedLoss?: FabLossBucketId }
 export interface BlueprintResearchAgent { propose(input: ResearchInput): Promise<ResearchProposal> }
 export interface LlmResearchProvider {
   complete(input: { system: string; project: ResearchInput }): Promise<ResearchProposal>;
@@ -42,7 +44,7 @@ export class ProviderResearchAgent implements BlueprintResearchAgent {
   constructor(private readonly provider: LlmResearchProvider) {}
   propose(input: ResearchInput): Promise<ResearchProposal> {
     return this.provider.complete({
-      system: "Return a hypothesis and an RFC 6902 patch. Read the target-rate capacity plan, static production diagnostics, measured runtime metrics, and experiment history; address a concrete process, resource, logistics, station, or power gap and do not repeat a reverted strategy. You may modify only blueprint devices, connections, logisticsNetworks, and policies. Never modify assets, worlds, scenarios, objectives, simulator, or evaluator.",
+      system: "Return a hypothesis and an RFC 6902 patch. Read the Core-derived fab loss profile, target-rate capacity plan, static production diagnostics, measured runtime metrics, and experiment history; address a concrete measured process, resource, logistics, station, or power gap and do not repeat a reverted strategy. You may modify only blueprint devices, connections, logisticsNetworks, and policies. Never modify assets, worlds, scenarios, objectives, simulator, or evaluator.",
       project: input,
     });
   }
@@ -1171,6 +1173,7 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
     }));
     const proposal = await agent.propose({
       iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics,
+      fabLoss: analyzeFabLossProfile(bestResult.metrics, project.scenario.durationTicks),
       production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history,
     });
     const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);

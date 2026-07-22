@@ -47,8 +47,14 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
     title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
     detail: `${progress.case.id} · ${progress.phase === "case-started" ? "simulating" : `complete${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
   };
-  if (progress.phase === "proposal-started") return { title: `PROPOSAL ${progress.iteration}`, detail: "Reading current industrial evidence" };
-  if (progress.phase === "proposal-completed") return { title: `PROPOSAL ${progress.iteration} READY`, detail: progress.strategy };
+  if (progress.phase === "proposal-started") return {
+    title: `DIAGNOSING ITERATION ${progress.iteration}`,
+    detail: progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "No tracked fab loss in the driver simulation",
+  };
+  if (progress.phase === "proposal-completed") return {
+    title: `PROPOSAL ${progress.iteration} READY`,
+    detail: `${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`,
+  };
   if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: progress.candidateScore === undefined ? progress.error ?? progress.strategy : `${progress.strategy} · ${progress.candidateScore.toFixed(6)}` };
   if (progress.phase === "run-completed") return { title: "IMMUTABLE RESULT READY", detail: `${shortHash(progress.resultHash)} · best iteration ${progress.best.iteration}` };
   return { title: "DESIGN RUNNING", detail: progress.phase };
@@ -181,7 +187,7 @@ export function DesignWorkbench({
           </section>
           {selectedRun && <section className="design-result" data-testid="design-result">
             <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code></div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
-            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong>{iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>{iteration.hypothesis}</small></span><em>{iteration.candidateScore === undefined ? "INVALID" : signed(iteration.scoreDeltaFromBest ?? 0)}</em></div>)}</div>
+            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong>{iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO LOSS TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small><small>{iteration.hypothesis}</small></span><em>{iteration.candidateScore === undefined ? "INVALID" : signed(iteration.scoreDeltaFromBest ?? 0)}</em></div>)}</div>
             {selectedRunPromotable ? <div className="design-promotion"><div><small>CANDIDATE HANDOFF</small><strong>Freeze this accepted design for ordinary review</strong><span>Promotion creates a hash-pinned Candidate against {selectedRun.manifest.promotionBase.blueprint}. It does not apply the Blueprint.</span></div>{promoted ? <button className="promoted" onClick={() => onCandidate(promoted.benchmark, promoted.id)}>OPEN {promoted.id} →</button> : <><input aria-label="Candidate id" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} pattern="[a-z0-9][a-z0-9-]*"/><button data-testid="promote-design" disabled={promoting || !candidateId} onClick={() => void promote()}>{promoting ? "VERIFYING…" : "CREATE CANDIDATE"}</button></>}</div>
               : <div className="design-no-leader"><strong>NO PROMOTABLE ACCEPTED DESIGN</strong><span>The best result either failed a locked gate or equals its promotion base. There is nothing honest to promote.</span></div>}
           </section>}

@@ -261,6 +261,13 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    phase: "proposal-started",
+    driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "queue-starvation" }) }) }),
+  }) }));
+  expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    phase: "proposal-completed", addressedLoss: "queue-starvation",
+  }) }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
   const run = JSON.parse(executed.stdout);
   expect(run).toEqual(expect.objectContaining({
@@ -276,9 +283,19 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(reopened.stdout)).toEqual(expect.objectContaining({
     command: "design",
-    data: { section: "iterations", result: [expect.objectContaining({ iteration: 1, decision: expect.stringMatching(/KEEP|REJECT/) })] },
+    data: { section: "iterations", result: [expect.objectContaining({
+      iteration: 1,
+      decision: expect.stringMatching(/KEEP|REJECT/),
+      addressedLoss: "queue-starvation",
+      driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
+    })] },
     artifacts: [expect.objectContaining({ kind: "design-run", id: resultHash, immutable: true })],
   }));
+
+  const humanRun = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash]);
+  expect({ exitCode: humanRun.exitCode, stderr: humanRun.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(humanRun.stdout).toContain("addresses queue-starvation");
+  expect(humanRun.stdout).toContain("observed queue-starvation →");
 
   const runs = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--section", "runs", "--json"]);
   expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });

@@ -37,22 +37,57 @@ export interface JsonPatchOperation {
   value?: unknown;
 }
 
+export type FabLossBucketId =
+  | "release-admission"
+  | "queue-starvation"
+  | "batch-formation"
+  | "setup-campaign"
+  | "maintenance-qualification"
+  | "tooling-contention"
+  | "facility-contention"
+  | "equipment-failure"
+  | "power-interruption"
+  | "transport-blocking"
+  | "q-time"
+  | "yield-quality";
+
+export interface FabLossProfile {
+  version: 1;
+  family: string;
+  outcome: Record<string, number>;
+  primary: FabLossBucket | null;
+  chain: FabLossBucketId[];
+  buckets: FabLossBucket[];
+  caveat: string;
+}
+
+export interface FabLossBucket {
+  id: FabLossBucketId;
+  label: string;
+  score: number;
+  summary: string;
+  subjects: Array<{ kind: "project" | "device" | "connection" | "route"; id: string }>;
+  evidence: Record<string, number>;
+}
+
 export interface ProjectProposalContext {
-  apiVersion: 1;
+  apiVersion: 2;
   iteration: number;
   blueprint: Blueprint;
   metrics: Record<string, unknown>;
+  fabLoss: FabLossProfile | null;
   production: Record<string, unknown>;
   capacityPlan: Record<string, unknown>;
   history: Array<{ iteration: number; strategy: string; hypothesis: string; decision: "KEEP" | "REVERT"; score: number; scoreDelta: number }>;
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 1;
+  apiVersion: 2;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;
     expectedEffect?: string;
+    addressedLoss?: FabLossBucketId;
     patch: JsonPatchOperation[];
   } | null;
 }

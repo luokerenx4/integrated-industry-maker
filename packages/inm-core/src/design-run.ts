@@ -27,6 +27,12 @@ import {
 import { runUntil } from "./simulator";
 import { blueprintSchema } from "./schema";
 import { atomicWriteJson, ENGINE_VERSION, hashValue, pathExists, readJson, stableStringify } from "./utils";
+import { analyzeFabLossProfile, type FabLossBucketId, type FabLossProfile } from "./fab-loss-analysis";
+
+export interface DesignDriverEvidence {
+  metricsHash: string;
+  fabLoss: FabLossProfile | null;
+}
 
 export interface DesignRunIteration {
   iteration: number;
@@ -34,6 +40,8 @@ export interface DesignRunIteration {
   decisionFamily: DesignDecisionFamily;
   hypothesis: string;
   expectedEffect?: string;
+  addressedLoss?: FabLossBucketId;
+  driverEvidence: DesignDriverEvidence;
   proposalHash: string;
   patch: ResearchProposal["patch"];
   candidateBlueprintHash?: string;
@@ -95,8 +103,8 @@ export type DesignRunProgress =
     scoreDelta?: number;
     candidateCapacityReady?: boolean;
   }
-  | DesignRunProgressBase & { phase: "proposal-started"; iteration: number }
-  | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; strategy: string; decisionFamily: DesignDecisionFamily; proposalHash: string }
+  | DesignRunProgressBase & { phase: "proposal-started"; iteration: number; driverEvidence: DesignDriverEvidence }
+  | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; strategy: string; decisionFamily: DesignDecisionFamily; addressedLoss?: FabLossBucketId; driverEvidence: DesignDriverEvidence; proposalHash: string }
   | DesignRunProgressBase & {
     phase: "candidate-completed";
     iteration: number;
@@ -146,6 +154,28 @@ function manifestHashInput(manifest: Omit<DesignRunManifest, "resultHash">): unk
   return manifest;
 }
 
+function validDriverEvidence(value: unknown): value is DesignDriverEvidence {
+  if (!value || typeof value !== "object") return false;
+  const evidence = value as DesignDriverEvidence;
+  if (!/^[0-9a-f]{64}$/.test(evidence.metricsHash ?? "")) return false;
+  if (evidence.fabLoss === null) return true;
+  return evidence.fabLoss?.version === 1
+    && typeof evidence.fabLoss.family === "string"
+    && !Object.hasOwn(evidence.fabLoss, "run")
+    && Array.isArray(evidence.fabLoss.chain)
+    && Array.isArray(evidence.fabLoss.buckets)
+    && evidence.fabLoss.chain.every((id) => evidence.fabLoss!.buckets.some((bucket) => bucket.id === id));
+}
+
+function validDesignRunIteration(value: unknown): value is DesignRunIteration {
+  if (!value || typeof value !== "object") return false;
+  const iteration = value as DesignRunIteration;
+  return validDriverEvidence(iteration.driverEvidence)
+    && /^[0-9a-f]{64}$/.test(iteration.proposalHash ?? "")
+    && (iteration.addressedLoss === undefined
+      || iteration.driverEvidence.fabLoss?.chain.includes(iteration.addressedLoss) === true);
+}
+
 async function writeDesignRunArtifact(projectDir: string, manifest: DesignRunManifest, bestBlueprint: Blueprint): Promise<DesignRunResult["artifact"]> {
   const id = manifest.resultHash;
   const path = join(projectDir, "design-runs", manifest.program.id, id);
@@ -183,7 +213,9 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
     || typeof manifest.promotionBase?.blueprint !== "string"
     || !/^[0-9a-f]{64}$/.test(manifest.promotionBase?.hash ?? "")
     || !Number.isInteger(manifest.best?.promotionPatchOperations)
-    || manifest.best.promotionPatchOperations < 0) {
+    || manifest.best.promotionPatchOperations < 0
+    || !Array.isArray(manifest.iterations)
+    || manifest.iterations.some((iteration) => !validDesignRunIteration(iteration))) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest seed, promotion base, or best-design evidence is invalid`);
   }
   const { resultHash: recorded, ...withoutHash } = manifest;
@@ -359,6 +391,10 @@ export async function runDesignProgram(
   for (let iteration = 1; iteration <= maximum; iteration++) {
     const driverProject = compileFactoryProject(withBlueprint(loaded, bestBlueprint));
     const driverResult = runUntil(driverProject, undefined, { seed: driverCase.seed });
+    const driverEvidence: DesignDriverEvidence = {
+      metricsHash: hashValue(driverResult.metrics),
+      fabLoss: analyzeFabLossProfile(driverResult.metrics, driverProject.scenario.durationTicks),
+    };
     const history: ResearchHistoryEntry[] = iterations.map((item) => ({
       iteration: item.iteration,
       strategy: item.strategy,
@@ -368,13 +404,14 @@ export async function runDesignProgram(
       scoreDelta: item.scoreDeltaFromBest ?? 0,
     }));
     let proposal: ResearchProposal;
-    emit({ phase: "proposal-started", iteration });
+    emit({ phase: "proposal-started", iteration, driverEvidence });
     try {
       proposal = await agent.propose({
         iteration,
         project: driverProject,
         blueprint: bestBlueprint,
         metrics: driverResult.metrics,
+        fabLoss: driverEvidence.fabLoss,
         production: analyzeProduction(driverProject),
         capacityPlan: planProductionCapacity(driverProject),
         history,
@@ -389,8 +426,8 @@ export async function runDesignProgram(
     }
     const strategy = proposal.strategy ?? hashValue(proposal.patch);
     const family = decisionFamily(strategy, program.proposal.decisionFamilies);
-    const proposalHash = hashValue({ strategy, hypothesis: proposal.hypothesis, expectedEffect: proposal.expectedEffect, patch: proposal.patch });
-    emit({ phase: "proposal-completed", iteration, strategy, decisionFamily: family, proposalHash });
+    const proposalHash = hashValue({ strategy, hypothesis: proposal.hypothesis, expectedEffect: proposal.expectedEffect, addressedLoss: proposal.addressedLoss, patch: proposal.patch });
+    emit({ phase: "proposal-completed", iteration, strategy, decisionFamily: family, ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}), driverEvidence, proposalHash });
     const previousBestScore = bestEvaluation.candidateScore;
     try {
       const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
@@ -411,6 +448,8 @@ export async function runDesignProgram(
         decisionFamily: family,
         hypothesis: proposal.hypothesis,
         ...(proposal.expectedEffect ? { expectedEffect: proposal.expectedEffect } : {}),
+        ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}),
+        driverEvidence,
         proposalHash,
         patch: proposal.patch,
         candidateBlueprintHash: hashValue(candidateBlueprint),
@@ -442,6 +481,8 @@ export async function runDesignProgram(
         decisionFamily: family,
         hypothesis: proposal.hypothesis,
         ...(proposal.expectedEffect ? { expectedEffect: proposal.expectedEffect } : {}),
+        ...(proposal.addressedLoss ? { addressedLoss: proposal.addressedLoss } : {}),
+        driverEvidence,
         proposalHash,
         patch: proposal.patch,
         previousBestScore,

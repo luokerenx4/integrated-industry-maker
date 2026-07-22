@@ -5,7 +5,7 @@ import {
   CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type DesignRunProgress, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
+  type DesignRunIteration, type DesignRunProgress, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -30,12 +30,17 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   if (progress.phase === "run-started") line = `DESIGN  ${work}  preparing ${progress.caseCount} locked cases`;
   else if (progress.phase === "case-started") line = `CASE    ${work}  ${progress.evaluation.kind} ${progress.case.index}/${progress.case.total} ${progress.case.id}`;
   else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
-  else if (progress.phase === "proposal-started") line = `PROPOSE ${work}  iteration ${progress.iteration}`;
-  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.strategy}`;
+  else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
+  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.strategy}${progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
   else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision}${progress.candidateScore === undefined ? ` · ${progress.error}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDeltaFromBest ?? 0).toFixed(6)}`}`;
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
   else return;
   process.stderr.write(`${line}\n`);
+}
+
+function designIterationLine(iteration: DesignRunIteration): string {
+  const lossChain = iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss";
+  return `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${iteration.candidateScore === undefined ? iteration.error : signed(iteration.scoreDeltaFromBest ?? 0, 6)} · ${iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no loss target"} · observed ${lossChain}`;
 }
 
 function sectionResult(command: string, options: OutputOptions, builders: Record<string, () => unknown>): { section: string; result: unknown } {
@@ -902,6 +907,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Result: ${result.manifest.resultHash}`,
       `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
+      ...result.manifest.iterations.map(designIterationLine),
       `Artifact: ${result.artifact.path}`,
       ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
       "",
@@ -976,7 +982,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     `Result: ${result.manifest.resultHash}`,
     `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
     `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
-    ...result.manifest.iterations.map((iteration) => `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${iteration.candidateScore === undefined ? iteration.error : signed(iteration.scoreDeltaFromBest ?? 0, 6)}`),
+    ...result.manifest.iterations.map(designIterationLine),
     `Artifact: ${result.artifact.path}`, "",
   ].join("\n"), false);
 }

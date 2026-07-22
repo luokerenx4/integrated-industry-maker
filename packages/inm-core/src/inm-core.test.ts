@@ -3415,7 +3415,7 @@ describe("research boundary and experiment decisions", () => {
   test("external command adapter accepts vendor-neutral proposal JSON", async () => {
     const command = `cat >/dev/null; printf '%s' '{"hypothesis":"Use FIFO","patch":[{"op":"replace","path":"/policies","value":{"dispatch":"fifo"}}]}'`;
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
-    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [] });
+    const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.hypothesis).toBe("Use FIFO"); expect(proposal.patch[0]!.path).toBe("/policies");
   });
 
@@ -3440,7 +3440,7 @@ describe("research boundary and experiment decisions", () => {
   test("heuristic strategies read diagnostics and do not immediately repeat experiment history", async () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
     const agent = new HeuristicResearchAgent();
-    const base = { project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project) };
+    const base = { project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project) };
     const first = await agent.propose({ iteration: 1, ...base, history: [] });
     expect(first.strategy).toBe("power:power-deficit:generator-1");
     const firstHistory = [{
@@ -3471,7 +3471,7 @@ describe("research boundary and experiment decisions", () => {
     delete source.scenario.initialBuffers?.["generator-1"];
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy?.startsWith("power:power-disconnected:")).toBeTrue();
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
@@ -3488,7 +3488,7 @@ describe("research boundary and experiment decisions", () => {
     const measured = result.metrics.powerGrids["grid-forge-zone-accumulator-1"]!;
     expect(measured.unservedMilliJoules).toBeGreaterThan(0);
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics,
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null,
       production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy).toBe("storage:grid-forge-zone-accumulator-1:1->4");
@@ -3511,7 +3511,7 @@ describe("research boundary and experiment decisions", () => {
     const measured = result.metrics.powerGrids["grid-forge-zone-accumulator-1"]!;
     expect(measured.generatedMilliJoules).toBeLessThan(measured.demandMilliJoules);
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics,
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null,
       production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy).toBe("generation:grid-forge-zone-accumulator-1:wind-turbine:+1");
@@ -3534,7 +3534,7 @@ describe("research boundary and experiment decisions", () => {
     const project = compileFactoryProject(source); const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const analysis = analyzeProduction(project);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "input-logistics")).toBeTrue();
-    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
+    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.strategy?.startsWith("logistics:ore-to-smelter:")).toBeTrue();
     expect(proposal.patch).toHaveLength(2);
     const candidate = compileFactoryProject({ ...source, blueprint: applyResearchPatch(project.blueprint, proposal.patch) });
@@ -3556,7 +3556,7 @@ describe("research boundary and experiment decisions", () => {
     };
     expect(Object.values(result.metrics.transportFlows).some((flow) => flow.utilization >= 0.7)).toBeTrue();
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: withoutStaticLogistics, capacityPlan: planProductionCapacity(project), history: [],
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: withoutStaticLogistics, capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy?.startsWith("logistics:")).toBeTrue();
     expect(proposal.strategy).toContain("stack-sorter");
@@ -3584,7 +3584,7 @@ describe("research boundary and experiment decisions", () => {
     const analysis = analyzeProduction(project);
     expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "station-fleet-deficit")).toBeTrue();
     const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
-    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
+    const proposal = await new HeuristicResearchAgent().propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analysis, capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.strategy).toBe("station-fleet:inter-zone-main:station-supply:80");
     expect(proposal.patch).toEqual([{ op: "replace", path: "/logisticsNetworks/0/stations/0/fleet/count", value: 80 }]);
   });
@@ -3606,7 +3606,7 @@ describe("research boundary and experiment decisions", () => {
     const project = compileFactoryProject(source);
     const result = runUntil(project, undefined, { seed: 42, untilTick: 10_000 });
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics,
+      iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null,
       production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [],
     });
     expect(proposal.strategy).toContain("station-high-speed:station-supply:inter-zone-main");
@@ -3632,7 +3632,7 @@ describe("research boundary and experiment decisions", () => {
     const project = compileFactoryProject(source);
     const result = runUntil(project, undefined, { seed: 42, untilTick: 1_000 });
     const proposal = await new HeuristicResearchAgent().propose({
-      iteration: 2, project, blueprint: project.blueprint, metrics: result.metrics, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project),
+      iteration: 2, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project),
       history: [{ iteration: 1, strategy: "dispatch:fifo", hypothesis: "already tested", decision: "REVERT", score: result.metrics.finalScore, scoreDelta: 0 }],
     });
     expect(proposal.strategy).toBe("station-dispatch:local-main:fifo");

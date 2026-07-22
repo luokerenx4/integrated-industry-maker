@@ -28,9 +28,8 @@ export interface FabLossBucket {
   evidence: Record<string, number>;
 }
 
-export interface FabLossAttribution {
+export interface FabLossProfile {
   version: 1;
-  run: { id: string; resultHash: string };
   family: string;
   outcome: {
     scheduled: number;
@@ -48,16 +47,19 @@ export interface FabLossAttribution {
   caveat: string;
 }
 
+export interface FabLossAttribution extends FabLossProfile {
+  run: { id: string; resultHash: string };
+}
+
 const sum = (values: Record<string, number>) => Object.values(values).reduce((total, value) => total + value, 0);
 const ratio = (numerator: number, denominator: number) => denominator > 0 ? numerator / denominator : 0;
 const topKey = (values: Record<string, number>): string | null => Object.entries(values)
   .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? null;
 
-export function analyzeFabLosses(
+export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
-  run: { id: string; resultHash: string },
-): FabLossAttribution | null {
+): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
   const scheduled = Math.max(1, metrics.lotFlow.scheduled);
   const cycleTicks = Math.max(1, metrics.lotFlow.meanCycleTimeTicks);
@@ -153,7 +155,6 @@ export function analyzeFabLosses(
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
     version: 1,
-    run,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,
@@ -165,4 +166,13 @@ export function analyzeFabLosses(
     buckets,
     caveat: "Bucket scores are deterministic ranking signals derived from overlapping measured delays and losses; they are not additive units of foregone output or calibrated causal estimates.",
   };
+}
+
+export function analyzeFabLosses(
+  metrics: FactoryMetrics,
+  durationTicks: number,
+  run: { id: string; resultHash: string },
+): FabLossAttribution | null {
+  const profile = analyzeFabLossProfile(metrics, durationTicks);
+  return profile ? { ...profile, run } : null;
 }

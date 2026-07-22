@@ -2,11 +2,13 @@ import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, expect, test } from "bun:test";
-import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram } from "./design-program";
+import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram, prepareDesignProgram } from "./design-program";
 import { listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
 import { applyResearchPatch } from "./research";
 import { applyCandidateChangeSet, loadCandidateChangeSet, previewCandidateChangeSet } from "./candidate-change-set";
 import { hashValue } from "./utils";
+import { compileFactoryProject } from "./compiler";
+import { runUntil } from "./simulator";
 
 const projectDir = resolve("examples/memory-fab");
 const temporaryDirectories: string[] = [];
@@ -96,6 +98,9 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   const targetBefore = await readFile(targetPath, "utf8");
   const tunedBefore = await readFile(tunedPath, "utf8");
   const progress: DesignRunProgress[] = [];
+  const prepared = await prepareDesignProgram(copy, "greenfield-dram-fab");
+  const driverProject = compileFactoryProject({ ...prepared.loaded, blueprint: prepared.seedBlueprint });
+  const driverMetrics = runUntil(driverProject, undefined, { seed: prepared.benchmark.cases.find((item) => item.id === prepared.manifest.driverCase)!.seed }).metrics;
   const first = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 1, onProgress: (event) => progress.push(event) });
   expect(await readFile(sourcePath, "utf8")).toBe(sourceBefore);
   expect(await readFile(targetPath, "utf8")).toBe(targetBefore);
@@ -123,16 +128,29 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(first.manifest.iterations[0]).toMatchObject({
     iteration: 1,
     decisionFamily: expect.any(String),
+    addressedLoss: "q-time",
+    driverEvidence: {
+      metricsHash: hashValue(driverMetrics),
+      fabLoss: { version: 1, family: "dram-wafer", primary: { id: "q-time" }, chain: expect.arrayContaining(["q-time", "yield-quality", "queue-starvation"]) },
+    },
     proposalHash: expect.any(String),
     decision: expect.stringMatching(/KEEP|REJECT/),
   });
+  expect(Object.hasOwn(first.manifest.iterations[0]!.driverEvidence.fabLoss!, "run")).toBeFalse();
   expect(first.manifest.resultHash).toHaveLength(64);
   expect(first.manifest.best.blueprintHash).toHaveLength(64);
   expect(progress.map((event) => event.sequence)).toEqual(Array.from({ length: progress.length }, (_, index) => index + 1));
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "seed")).toHaveLength(5);
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(5);
-  expect(progress).toContainEqual(expect.objectContaining({ phase: "proposal-completed", iteration: 1, strategy: "dispatch:conwip-9-6-edd", decisionFamily: "dispatch" }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "proposal-started", iteration: 1,
+    driverEvidence: expect.objectContaining({ metricsHash: hashValue(driverMetrics), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "q-time" }) }) }),
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "proposal-completed", iteration: 1, strategy: "dispatch:conwip-9-6-edd", decisionFamily: "dispatch", addressedLoss: "q-time",
+    driverEvidence: expect.objectContaining({ metricsHash: hashValue(driverMetrics) }),
+  }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",
     resultHash: first.manifest.resultHash,
