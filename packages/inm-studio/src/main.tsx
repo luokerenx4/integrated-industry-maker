@@ -1,5 +1,5 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BlueprintBenchmarkSummary, ProjectWorkbenchSnapshot, WorkbenchDiagnostic } from "@inm/core";
+import type { BlueprintBenchmarkSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -1445,12 +1445,53 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
   </header>;
 }
 
-function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onCandidate }: {
+function operationCli(snapshot: ProjectWorkbenchSnapshot, operation: WorkbenchOperationDescriptor): string {
+  const argument = (value: string) => /^[a-zA-Z0-9_./:@+-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+  const root = argument(snapshot.project.rootDir);
+  const selection = `--world ${argument(snapshot.selection.world.id)} --blueprint ${argument(snapshot.selection.blueprint.id)} --scenario ${argument(snapshot.selection.scenario.id)} --objective ${argument(snapshot.selection.objective.id)}`;
+  if (operation.id === "benchmark.evaluate") return `inm benchmark ${root} --benchmark ${argument(snapshot.experiments.find((item) => item.locked)?.id ?? "<benchmark-id>")} --json`;
+  if (operation.id === "candidate.preview" || operation.id === "candidate.apply") return `inm candidate ${root} --candidate ${argument(snapshot.candidates[0]?.id ?? "<candidate-id>")}${operation.id === "candidate.apply" ? " --apply" : ""} --json`;
+  if (operation.id === "synthesize") return `inm synthesize ${root} ${selection} --output '<new-blueprint-id>' --json`;
+  return `inm ${operation.id} ${root} ${selection} --json`;
+}
+
+function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperationResult<unknown>; cli: string; onClose: () => void }) {
+  const data = result.data as Record<string, unknown>;
+  const analysis = result.operation === "analyze" ? data as { diagnostics?: unknown[]; devices?: unknown[]; connections?: unknown[]; powerGrids?: unknown[] } : null;
+  const plan = result.operation === "plan" ? data as { ready?: boolean; gaps?: unknown[]; targetRatePerMinute?: number; targetResource?: string } : null;
+  const simulation = result.operation === "simulate" ? data as { cached?: boolean; run?: { id?: string; path?: string }; resultHash?: string; metrics?: { finalScore?: number; throughputPerMinute?: number; bottleneckEntity?: string | null; deliveryPortfolio?: { fulfillment?: number } } } : null;
+  const validation = result.operation === "validate" ? data as { valid?: boolean; devices?: number; connections?: number; regions?: number; resourceNodes?: number } : null;
+  const copy = () => { void navigator.clipboard.writeText(cli); };
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <section className="operation-result" role="dialog" aria-modal="true" aria-label={`Operation result: ${result.operation}`}>
+      <header><div><span className="eyebrow">SHARED CORE OPERATION</span><h2>{result.operation}</h2><p>{result.effect} · {result.status} in {result.durationMs.toFixed(1)} ms</p></div><button className="icon-button" onClick={onClose} aria-label="Close operation result">×</button></header>
+      <div className="operation-context">
+        <div><small>SELECTION</small><strong>{result.context.selection.blueprint}</strong><code>{result.context.selection.world} / {result.context.selection.scenario} / {result.context.selection.objective}</code></div>
+        <div><small>INPUT HASH</small><strong>{result.context.hashes.engineVersion}</strong><code>{result.context.hashes.blueprintHash.slice(0, 16)}</code></div>
+        <div><small>WRITE SET</small><strong>{result.writeSet.length ? `${result.writeSet.length} DECLARED` : "READ ONLY"}</strong><code>{result.writeSet.join(" · ") || "no project files"}</code></div>
+      </div>
+      <div className="operation-result-body">
+        <section className="operation-outcome"><span className="eyebrow">OUTCOME</span>
+          {validation && <><strong>{validation.valid ? "PROJECT VALID" : "INVALID"}</strong><p>{validation.regions} zones · {validation.resourceNodes} deposits · {validation.devices} devices · {validation.connections} links</p></>}
+          {analysis && <><strong>{analysis.diagnostics?.length ?? 0} DIAGNOSTICS</strong><p>{analysis.devices?.length ?? 0} production bindings · {analysis.connections?.length ?? 0} logistics links · {analysis.powerGrids?.length ?? 0} power grids</p></>}
+          {plan && <><strong>{plan.ready ? "CAPACITY READY" : `${plan.gaps?.length ?? 0} CAPACITY GAPS`}</strong><p>{plan.targetRatePerMinute} {plan.targetResource}/min requested</p></>}
+          {simulation && <><strong>{simulation.cached ? "IMMUTABLE RUN REUSED" : "IMMUTABLE RUN CREATED"}</strong><p>{simulation.run?.id} · score {simulation.metrics?.finalScore?.toFixed(3)} · throughput {simulation.metrics?.throughputPerMinute?.toFixed(3)}/min</p><code>{simulation.resultHash}</code></>}
+        </section>
+        <section className="operation-evidence"><span className="eyebrow">EVIDENCE</span><div><b>{result.diagnostics.length}</b><small>DIAGNOSTICS</small></div><div><b>{result.artifacts.length}</b><small>ARTIFACTS</small></div>{result.artifacts.map((artifact) => <code key={artifact.path}>{artifact.kind}:{artifact.id} · {artifact.path}</code>)}</section>
+        <section className="operation-verify"><span className="eyebrow">VERIFY NEXT</span>{result.verification.map((item) => <div key={item.id}><strong>{item.id}</strong><p>{item.description}</p></div>)}</section>
+        <section className="operation-cli"><span className="eyebrow">EXACT CLI REPRODUCTION</span><code>{cli}</code><button onClick={copy}>COPY COMMAND</button></section>
+      </div>
+    </section>
+  </div>;
+}
+
+function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onCandidate, onOperation }: {
   snapshot: ProjectWorkbenchSnapshot;
   onNavigate: (view: StudioView) => void;
   onDiagnostic: (diagnostic: WorkbenchDiagnostic) => void;
   onExperiment: (id: string) => void;
   onCandidate: (benchmarkId: string, candidateId: string) => void;
+  onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
   const latestRun = snapshot.runs.at(-1);
   const priority = snapshot.diagnostics.slice(0, 6);
@@ -1487,7 +1528,14 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onC
       </section>
       <section className="overview-panel operations-panel">
         <header><div><span className="eyebrow">SHARED OPERATIONS</span><h3>Available tasks</h3></div></header>
-        <div className="operation-grid">{availableOperations.map((operation) => <div key={operation.id} data-operation-id={operation.id}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code></div>)}</div>
+        <div className="operation-grid">{availableOperations.map((operation) => {
+          const cli = operationCli(snapshot, operation);
+          const runnable = ["validate", "analyze", "plan", "simulate"].includes(operation.id);
+          const review = operation.id.startsWith("candidate") || operation.id === "benchmark.evaluate";
+          const current = operation.id === "inspect";
+          const action = runnable ? () => onOperation(operation, cli) : review ? () => onNavigate("experiments") : () => { void navigator.clipboard.writeText(cli); };
+          return <article key={operation.id} data-operation-id={operation.id}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current} onClick={action}>{runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><button onClick={() => { void navigator.clipboard.writeText(cli); }}>COPY CLI</button></div></article>;
+        })}</div>
       </section>
     </div>
   </section>;
@@ -1518,6 +1566,9 @@ function App() {
   const [speed, setSpeed] = useState(4);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [operationStatus, setOperationStatus] = useState<{ id: string; cli: string } | null>(null);
+  const [operationResult, setOperationResult] = useState<ProjectOperationResult<unknown> | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
   const [selection, setSelection] = useState<StudioSelection | null>(initialRoute.selection);
   const runRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
@@ -1712,8 +1763,30 @@ function App() {
     if (subject?.kind === "process") { navigateView("catalog"); queueMicrotask(() => navigateCatalog("processes", subject.id)); return; }
     navigateAnalysisDiagnostic(diagnostic.id);
   };
+  const executeOperation = async (operation: WorkbenchOperationDescriptor, cli: string) => {
+    setOperationStatus({ id: operation.id, cli });
+    setOperationResult(null);
+    setOperationError(null);
+    try {
+      const selection = {
+        world: overview.selection.world.id,
+        blueprint: overview.selection.blueprint.id,
+        scenario: overview.selection.scenario.id,
+        objective: overview.selection.objective.id,
+      };
+      const result = await responseJson<ProjectOperationResult<unknown>>(await fetch(`/api/projects/${encodeURIComponent(data.projectId)}/operations/${operation.id}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ selection }),
+      }));
+      setOperationResult(result);
+      if (operation.id === "simulate") await loadProject(data.projectId, result.artifacts.find((artifact) => artifact.kind === "run")?.id ?? runRef.current);
+    } catch (nextError) {
+      setOperationError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  };
   const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic}
-    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} />;
+    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
 
   if (routeView !== "factory") {
     const focusedDiagnostic = routeDiagnostic ? overview.diagnostics.find((diagnostic) => diagnostic.id === routeDiagnostic) : undefined;
@@ -1726,6 +1799,8 @@ function App() {
         projectId={data.projectId} experiments={data.experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
         onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onClose={() => navigateView("overview")}
       />}
+      {operationStatus && !operationResult && <div className="modal-backdrop"><section className={`operation-progress ${operationError ? "failed" : ""}`} role="dialog" aria-modal="true" aria-label={`Operation progress: ${operationStatus.id}`}><span className="eyebrow">SHARED CORE OPERATION</span><h2>{operationError ? "OPERATION FAILED" : "OPERATION RUNNING"}</h2><strong>{operationStatus.id}</strong>{operationError ? <><p>{operationError}</p><button onClick={() => { setOperationStatus(null); setOperationError(null); }}>CLOSE</button></> : <><div className="loading-bar"><i /></div><code>{operationStatus.cli}</code></>}</section></div>}
+      {operationStatus && operationResult && <OperationResultDialog result={operationResult} cli={operationStatus.cli} onClose={() => { setOperationStatus(null); setOperationResult(null); setOperationError(null); }} />}
     </main>;
   }
 

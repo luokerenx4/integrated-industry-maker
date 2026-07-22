@@ -5,11 +5,12 @@ import { parseArgs } from "node:util";
 import {
   CandidateChangeSetError,
   analyzeProduction,
-  applyCandidateChangeSet,
+  analyzeProjectOperation,
+  applyCandidateOperation,
   blueprintSchema,
   compileFactoryProject,
   ENGINE_VERSION,
-  evaluateBlueprintBenchmark,
+  evaluateBenchmarkOperation,
   listBlueprintBenchmarks,
   listCandidateChangeSets,
   loadCandidateChangeSet,
@@ -22,10 +23,13 @@ import {
   openFactoryProject,
   openProjectWorkbenchSnapshot,
   pathExists,
+  planProjectOperation,
   planProductionCapacity,
-  previewCandidateChangeSet,
+  previewCandidateOperation,
   readJson,
   resolveProjectDirectory,
+  simulateProjectOperation,
+  validateProjectOperation,
   type ProjectSelection,
 } from "@inm/core";
 
@@ -462,6 +466,27 @@ const server = Bun.serve({
         return Response.json(await loadStudioData(decoded(dataMatch[1]!), url.searchParams.get("run") ?? undefined));
       }
 
+      const operationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/(validate|analyze|plan|simulate)$/);
+      if (operationMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(operationMatch[1]!));
+        const body = await request.json().catch(() => ({})) as {
+          selection?: ProjectSelection;
+          seed?: number;
+          untilTick?: number;
+          maxEvents?: number;
+        };
+        const selection = body.selection ?? {};
+        if (operationMatch[2] === "validate") return Response.json(await validateProjectOperation(projectDir, selection));
+        if (operationMatch[2] === "analyze") return Response.json(await analyzeProjectOperation(projectDir, selection));
+        if (operationMatch[2] === "plan") return Response.json(await planProjectOperation(projectDir, selection));
+        return Response.json(await simulateProjectOperation(projectDir, selection, {
+          ...(body.seed === undefined ? {} : { seed: body.seed }),
+          ...(body.untilTick === undefined ? {} : { untilTick: body.untilTick }),
+          ...(body.maxEvents === undefined ? {} : { maxEvents: body.maxEvents }),
+        }));
+      }
+
       const experimentsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments$/);
       if (experimentsMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
@@ -474,7 +499,8 @@ const server = Bun.serve({
         if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(experimentRunMatch[1]!));
         const benchmarkId = decoded(experimentRunMatch[2]!);
-        return Response.json({ command: "benchmark", ...await evaluateBlueprintBenchmark(projectDir, benchmarkId) });
+        const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId);
+        return Response.json({ command: "benchmark", ...operation.data, operation });
       }
 
       const experimentCandidatesMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/candidates$/);
@@ -494,17 +520,17 @@ const server = Bun.serve({
         const candidate = await loadCandidateChangeSet(projectDir, candidateId);
         if (candidate.benchmark !== benchmarkId) throw new CandidateChangeSetError("candidate.benchmark-mismatch", `Candidate '${candidateId}' belongs to Benchmark '${candidate.benchmark}', not '${benchmarkId}'`);
         if (action === "preview") {
-          const preview = await previewCandidateChangeSet(projectDir, candidateId);
-          return Response.json({ command: "candidate", action, ...preview });
+          const operation = await previewCandidateOperation(projectDir, candidateId);
+          return Response.json({ command: "candidate", action, ...operation.data, operation });
         }
         const reviewed = await request.json() as { proposalHash?: unknown; currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
         if (typeof reviewed.proposalHash !== "string" || typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed proposalHash, currentCandidateHash, and proposedCandidateHash");
-        const applied = await applyCandidateChangeSet(projectDir, candidateId, {
+        const operation = await applyCandidateOperation(projectDir, candidateId, {
           proposalHash: reviewed.proposalHash,
           currentCandidateHash: reviewed.currentCandidateHash,
           proposedCandidateHash: reviewed.proposedCandidateHash,
         });
-        return Response.json({ command: "candidate", action, ...applied });
+        return Response.json({ command: "candidate", action, ...operation.data, operation });
       }
 
       const fileMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)$/);

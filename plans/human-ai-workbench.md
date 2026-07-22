@@ -2,7 +2,7 @@
 
 - Status: `active`
 - Updated: `2026-07-22`
-- Related design: [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
+- Related design: [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
 
 ## Outcome
 
@@ -88,9 +88,9 @@ Both surfaces must answer the same questions from shared data:
 - [x] A Coding Agent can request a compact overview or one detailed section without receiving the complete analysis payload.
 - [x] The Studio project root presents objective, readiness, priority issues, recent evidence, and available tasks before requiring the 3D factory view.
 - [x] Catalog, Analysis, Factory, Runs, Experiments, Candidates, and individual diagnostics/objects have stable project-qualified routes or route-backed dialogs.
-- [ ] Every Studio operation states whether it is read-only or mutating, shows the effective selection, exposes an equivalent copyable `inm` command, and renders the shared result.
-- [ ] Simulation and evaluation operations expose progress/failure state and link their immutable result or reviewed proposal without inventing browser-only history.
-- [ ] Mutating operation tests prove preview purity, exact write scope, stale-input rejection, deliberate confirmation, and post-operation verification.
+- [x] Every Studio operation states whether it is read-only or mutating, shows the effective selection, exposes an equivalent copyable `inm` command, and renders the shared result.
+- [x] Simulation and evaluation operations expose progress/failure state and link their immutable result or reviewed proposal without inventing browser-only history.
+- [x] Mutating operation tests prove preview purity, exact write scope, stale-input rejection, deliberate confirmation, and post-operation verification.
 - [ ] A browser-only operator can complete the memory-fab review loop using named controls and textual evidence without interacting with the canvas.
 - [ ] A CLI-only operator can complete the equivalent loop from discovery through verification using JSON output and stable exit/error codes.
 - [ ] `bun run test` and documented browser QA pass with no checked-in project mutation.
@@ -127,12 +127,12 @@ Both surfaces must answer the same questions from shared data:
 
 ### Slice 4 — shared operation loop
 
-- [ ] Project validation, nominal analysis, capacity planning, simulation, Benchmark evaluation, and Candidate preview call named shared Core operations and return one operation-result model.
-- [ ] Studio can launch the appropriate read-only operations, display progress and results, and copy the exact equivalent CLI command.
-- [ ] Simulation writes only its declared immutable run artifact and refreshes Runs/Factory views from that artifact.
-- [ ] Candidate application keeps the existing two-step hash-pinned guard and becomes the reference implementation for any later Blueprint mutation.
-- [ ] Operation results expose input hashes, duration, diagnostics, generated artifacts, write set, and recommended verification without hidden reruns.
-- [ ] A refreshed browser and a new CLI process can reconstruct the result from project files; browser memory is never authoritative.
+- [x] Project validation, nominal analysis, capacity planning, simulation, Benchmark evaluation, and Candidate preview call named shared Core operations and return one operation-result model.
+- [x] Studio can launch the appropriate read-only operations, display progress and results, and copy the exact equivalent CLI command.
+- [x] Simulation writes only its declared immutable run artifact and refreshes Runs/Factory views from that artifact.
+- [x] Candidate application keeps the existing two-step hash-pinned guard and becomes the reference implementation for any later Blueprint mutation.
+- [x] Operation results expose input hashes, duration, diagnostics, generated artifacts, write set, and recommended verification without hidden reruns.
+- [x] A refreshed browser and a new CLI process can reconstruct the result from project files; browser memory is never authoritative.
 
 ### Slice 5 — browser-Agent and end-to-end proof
 
@@ -174,6 +174,9 @@ Both surfaces must answer the same questions from shared data:
 - Slice 3 focused gate: `bun run typecheck`, Studio server/selection tests, documentation links, and diff checks passed; stable deep-link HTTP fallbacks cover Overview, Factory objects, Runs, Catalog assets, Analysis diagnostics, Experiments, and Candidates.
 - Slice 3 full gate: `bun run test` — documentation and type checks passed, 165 package tests passed with 1356 assertions, and all eight Ironworks public CLI fixtures passed.
 - Slice 3 browser QA: memory-fab Overview, Catalog asset/search, focused Analysis diagnostic/search, Factory Device inspector, Runs, reload, and back/forward restored exact routes; a fresh browser session reported zero console errors.
+- Slice 4 focused gate: named Core operation, public CLI, Studio server/selection, and type tests passed. Operation tests cover read-only purity, immutable run creation/cache reuse, Benchmark evaluation, Candidate preview, CLI metadata, and Studio projection.
+- Slice 4 browser QA: memory-fab Validate and Plan controls completed through the shared endpoint; result dialogs exposed textual outcome, selection/hash, empty write set, verification, exact CLI, and zero fresh console errors. Simulation mutation was covered only on a temporary project.
+- Slice 4 full gate: `bun run test` — documentation and type checks passed, 169 package tests passed with 1388 assertions, and all eight Ironworks public CLI fixtures passed.
 - Per-slice contract checks: `bun test packages/inm-core packages/inm-cli packages/inm-studio`.
 - Public CLI checks must invoke `bun run inm ... --json` against both examples and parse stdout as exactly one valid JSON value.
 - Full completion gate: `bun run test`.
@@ -187,6 +190,7 @@ Both surfaces must answer the same questions from shared data:
 - 2026-07-22 — Slice 1 implemented: one Core project workbench snapshot now powers `inm inspect` and the project-qualified Studio Overview API with full-structure parity tests. Slice 2 is next.
 - 2026-07-22 — Slice 2 implemented: all JSON commands now use one versioned success/error contract, public machine help advertises effects/defaults/sections/exit codes, all authored project artifact schemas are discoverable, and dense results are summary-first with explicit sections. Slice 3 is next.
 - 2026-07-22 — Slice 3 implemented: Studio now opens on a shared task-oriented Overview, preserves every major workbench/asset/diagnostic/Factory-object context in stable project routes, filters dense Catalog/Analysis evidence, and keeps 3D replay in the dedicated Factory route. Slice 4 is next.
+- 2026-07-22 — Slice 4 implemented: named Core operations now drive CLI and Studio validation/analysis/plan/simulation/Benchmark/Candidate work, report one effect/context/hash/artifact/write-set/result contract, and preserve immutable-run and hash-pinned Candidate guarantees. Slice 5 is next.
 
 ## Completion
 

@@ -1,4 +1,4 @@
-import type { CompiledFactoryProject, InmManifest, ProjectHashes, ProjectWorkbenchSnapshot } from "@inm/core";
+import type { CompiledFactoryProject, InmManifest, ProjectHashes, ProjectOperationContext, ProjectWorkbenchSnapshot } from "@inm/core";
 
 export const CLI_SCHEMA_VERSION = 1 as const;
 
@@ -115,6 +115,15 @@ export function compiledProjectContext(project: CompiledFactoryProject): CliCont
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection: { ...project.selection },
     hashes: { ...project.hashes },
+  };
+}
+
+export function operationProjectContext(context: ProjectOperationContext): CliContext {
+  return {
+    scope: "project",
+    project: { ...context.project },
+    selection: { ...context.selection },
+    hashes: { ...context.hashes },
   };
 }
 

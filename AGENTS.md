@@ -52,6 +52,7 @@ Read the relevant linked document before changing a subsystem:
 - Versioned CLI envelopes, machine discovery, artifact schemas, scoped output, and exit behavior: [[docs/design/agent-cli-contract]]
 - Exact Blueprint patches, semantic changes, and controlled before/after evaluation: [[docs/design/blueprint-comparison]]
 - Project launcher, stable routes, asset catalog, analysis, and 3D replay: [[docs/design/studio-debugger]]
+- Named Core operations, effects, actual write sets, results, and cross-surface projection: [[docs/design/operation-workbench]]
 - Canonical on-disk schemas and examples: [[docs/PROJECT_FORMAT]]
 - Command behavior and machine-readable output: [[docs/CLI]]
 

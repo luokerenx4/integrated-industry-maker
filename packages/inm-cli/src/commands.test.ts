@@ -92,10 +92,11 @@ test("candidate CLI previews, explicitly applies, and rejects replay as machine-
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const result = JSON.parse(stdout);
   expect(result).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "candidate" }));
-  expect(result.data).toEqual({
+  expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
     result: expect.objectContaining({ action: "preview", candidate: "stable-furnace-sleep", verdict: "KEEP", scoreDelta: expect.any(Number) }),
-  });
+    operation: expect.objectContaining({ operation: "candidate.preview", effect: "read-only", writeSet: [], artifacts: [] }),
+  }));
   expect(result.nextActions).toEqual([expect.objectContaining({ id: "candidate.apply", effect: "mutates-project" })]);
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
 
@@ -103,7 +104,10 @@ test("candidate CLI previews, explicitly applies, and rejects replay as machine-
   expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
     schemaVersion: 1, ok: true, command: "candidate",
-    data: { section: "summary", result: expect.objectContaining({ action: "apply", applied: true }) },
+    data: expect.objectContaining({
+      section: "summary", result: expect.objectContaining({ action: "apply", applied: true }),
+      operation: expect.objectContaining({ operation: "candidate.apply", effect: "mutates-blueprint", writeSet: [blueprintPath] }),
+    }),
   }));
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
 
@@ -186,6 +190,28 @@ test("dense public JSON defaults to compact summary and selects one explicit sec
   expect(all.data.section).toBe("all");
   expect(all.data.result).toEqual(expect.objectContaining({ catalog: expect.any(Object), runs: expect.any(Array), operations: expect.any(Array) }));
   expect(summaryResult.stdout.length).toBeLessThan(allResult.stdout.length);
+});
+
+test("public industrial commands project shared Core operation metadata", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-cli-operation-"));
+  const projectDir = join(parent, "ironworks");
+  await cp(join(repository, "examples/ironworks"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") });
+  const invocations = [
+    { id: "validate", args: ["validate", projectDir, "--json"], effect: "read-only" },
+    { id: "analyze", args: ["analyze", projectDir, "--json"], effect: "read-only" },
+    { id: "plan", args: ["plan", projectDir, "--json"], effect: "read-only" },
+    { id: "simulate", args: ["simulate", projectDir, "--seed", "9", "--until-tick", "1000", "--json"], effect: "creates-artifact" },
+  ];
+  for (const invocation of invocations) {
+    const emitted = await runCli(invocation.args);
+    expect({ id: invocation.id, exitCode: emitted.exitCode, stderr: emitted.stderr }).toEqual({ id: invocation.id, exitCode: 0, stderr: "" });
+    const envelope = JSON.parse(emitted.stdout);
+    expect(envelope.data.operation).toEqual(expect.objectContaining({
+      version: 1, operation: invocation.id, effect: invocation.effect, status: "completed",
+      context: expect.objectContaining({ project: expect.objectContaining({ id: "ironworks" }), hashes: expect.any(Object) }),
+      writeSet: expect.any(Array), verification: expect.any(Array),
+    }));
+  }
 });
 
 test("public CLI emits stable JSON errors for invalid section, section mode, schema kind, and usage", async () => {

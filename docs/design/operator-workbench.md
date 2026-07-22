@@ -1,8 +1,8 @@
 # Shared operator workbench
 
-Status: V1 shared project orientation, AI-native CLI projection, and Studio task-oriented project root implemented; the shared operation loop remains active work.
+Status: V1 shared project orientation, AI-native CLI projection, Studio task-oriented project root, and shared operation loop implemented; browser-Agent proof remains active work.
 
-Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
+Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
 
 ## Scope
 
@@ -107,4 +107,3 @@ Tests must prove exact CLI `data.result`/Core and Studio/Core snapshot parity, d
 ## Known next gaps
 
 - Per-Candidate cheap stale/lock status without executing a Benchmark.
-- Shared operation invocation/result views across Core, CLI, and Studio.

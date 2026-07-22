@@ -25,6 +25,7 @@ export * from "./benchmark";
 export * from "./candidate-change-set";
 export * from "./workbench";
 export * from "./artifact-schema";
+export * from "./operation";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

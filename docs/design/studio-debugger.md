@@ -2,7 +2,7 @@
 
 Status: task-oriented project Overview, stable workbench/experiment/candidate/object routes, shared Benchmark and candidate-review workbench, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
@@ -15,6 +15,8 @@ The root route presents available projects. Selecting one establishes `/<project
 ## Project orientation API
 
 `GET /api/projects/<project-id>/overview` returns the exact Core [[docs/design/operator-workbench]] snapshot used by `inm inspect --json`. Optional World, Blueprint, Scenario, and Objective query selectors are explicit and never fall back when invalid. The endpoint is read-only and does not select a run, execute a Benchmark, preview a Candidate, or create Studio state. The project Overview renders its selection and hashes, Objective/contracts, target-rate readiness, prioritized diagnostics, recent immutable evidence, proposals, and operation descriptors. The richer `/data` endpoint separately supplies Factory replay data and its selected immutable run.
+
+The Overview operation cards project the shared [[docs/design/operation-workbench]] contract. Before invocation they state effect, selection scope, guards, and exact CLI reproduction. Validation, analysis, planning, and simulation run through project-qualified operation endpoints; progress/failure and completed results are textual dialogs. Simulation refreshes Overview/Runs/Factory from its immutable artifact. Benchmark and Candidate routes invoke the same Core operation layer while retaining their richer comparison and guarded-review workbenches.
 
 ## Experiment workbench
 

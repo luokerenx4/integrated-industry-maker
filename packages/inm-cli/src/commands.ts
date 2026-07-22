@@ -2,14 +2,14 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, applyCandidateChangeSet, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBlueprintBenchmark, findCachedRun, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, previewCandidateChangeSet, projectArtifactJsonSchema, readJson,
+  CandidateChangeSetError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, readJson, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
-  researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, writeRunArtifact, ExternalCommandResearchAgent,
+  researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
-  CliCommandError, cliError, cliSuccess, compiledProjectContext, manifestProjectContext, workbenchContext, workspaceContext,
+  CliCommandError, cliError, cliSuccess, compiledProjectContext, manifestProjectContext, operationProjectContext, workbenchContext, workspaceContext,
   type CliNextAction, type CliSuccessOptions,
 } from "./contract";
 
@@ -40,6 +40,11 @@ async function projectDirectoryContext(projectDir: string) {
 
 function nextAction(id: string, description: string, argv: string[], effect: CliNextAction["effect"] = "read-only"): CliNextAction {
   return { id, description, argv, effect };
+}
+
+function operationMetadata<T extends { data: unknown }>(operation: T): Omit<T, "data"> {
+  const { data: _, ...metadata } = operation;
+  return metadata;
 }
 
 function selectionArgs(selection: { world: string; blueprint: string; scenario: string; objective: string }): string[] {
@@ -172,21 +177,13 @@ export async function projectDefaultCommand(workspaceDir: string, id: string, op
 
 export async function validateCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
   rejectSection("validate", options);
-  const project = await openFactoryProject(projectDir, selection);
-  const summary = {
-    valid: true, project: project.manifest.name, blueprintHash: project.hashes.blueprintHash,
-    regions: Object.keys(project.regions).length,
-    resourceNodes: Object.keys(project.resourceNodes).length,
-    devices: Object.keys(project.devices).length,
-    connections: Object.keys(project.connections).length,
-    logisticsNetworks: Object.keys(project.logisticsNetworks).length,
-    logisticsRoutes: Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.routes.length, 0),
-  };
-  if (options.json) writeSuccess("validate", summary, {
-    context: compiledProjectContext(project),
-    nextActions: [nextAction("inspect", "Read the shared project workbench snapshot.", ["inm", "inspect", project.rootDir, ...selectionArgs(project.selection), "--json"])],
+  const operation = await validateProjectOperation(projectDir, selection);
+  const summary = operation.data;
+  if (options.json) writeSuccess("validate", { ...summary, operation: operationMetadata(operation) }, {
+    context: operationProjectContext(operation.context),
+    nextActions: [nextAction("inspect", "Read the shared project workbench snapshot.", ["inm", "inspect", operation.context.project.rootDir, ...selectionArgs(operation.context.selection), "--json"])],
   });
-  else write(`✓ ${summary.project}: valid (${summary.regions} ${summary.regions === 1 ? "region" : "regions"}, ${summary.resourceNodes} finite resource ${summary.resourceNodes === 1 ? "node" : "nodes"}, ${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nWorld ${project.hashes.worldHash.slice(0, 12)} · Blueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
+  else write(`✓ ${summary.project}: valid (${summary.regions} ${summary.regions === 1 ? "region" : "regions"}, ${summary.resourceNodes} finite resource ${summary.resourceNodes === 1 ? "node" : "nodes"}, ${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nWorld ${operation.context.hashes.worldHash.slice(0, 12)} · Blueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
 }
 
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
@@ -233,8 +230,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
 
 export async function analyzeCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
   requireJsonSection("analyze", options);
-  const project = await openFactoryProject(projectDir, selection);
-  const analysis = analyzeProduction(project);
+  const operation = await analyzeProjectOperation(projectDir, selection);
+  const analysis = operation.data;
   if (options.json) {
     const data = sectionResult("analyze", options, {
       summary: () => ({
@@ -249,14 +246,14 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
       power: () => ({ generationDevices: analysis.generationDevices, storageDevices: analysis.storageDevices, powerGrids: analysis.powerGrids }),
       all: () => analysis,
     });
-    writeSuccess("analyze", data, {
-      context: compiledProjectContext(project), diagnostics: data.section === "diagnostics" || data.section === "all" ? analysis.diagnostics : data.section === "summary" ? analysis.diagnostics.slice(0, 5) : [],
-      nextActions: [nextAction("plan", "Plan installed capacity for this exact selection.", ["inm", "plan", project.rootDir, ...selectionArgs(project.selection), "--json"])],
+    writeSuccess("analyze", { ...data, operation: operationMetadata(operation) }, {
+      context: operationProjectContext(operation.context), diagnostics: data.section === "diagnostics" || data.section === "all" ? analysis.diagnostics : data.section === "summary" ? analysis.diagnostics.slice(0, 5) : [],
+      nextActions: [nextAction("plan", "Plan installed capacity for this exact selection.", ["inm", "plan", operation.context.project.rootDir, ...selectionArgs(operation.context.selection), "--json"])],
     });
     return;
   }
   const lines = [
-    `${project.manifest.name} · nominal production analysis`,
+    `${operation.context.project.name} · nominal production analysis`,
     `Coverage: ${analysis.declarativeDevices} declarative industrial devices, ${analysis.opaqueDevices} opaque/boundary devices`,
     `Power allocation: ${analysis.powerAllocation}`,
     "",
@@ -286,7 +283,7 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
     ...analysis.productionGraph.steps.map((step) => `  ${step.device.padEnd(24)} ${`${step.process}/${step.mode}`.padEnd(32)} ${step.cyclesPerTarget.toFixed(3)} jobs`),
     "",
     "Recipe alternatives",
-    ...analysis.recipeOptions.filter((option) => !option.selected).map((option) => `  ${option.device.padEnd(24)} ${`${option.process}/${option.mode}`.padEnd(32)} ${option.targetOutputPerMinute.toFixed(3)} ${project.objective.targetResource}/min · P${option.powerPriority} · ${(option.idlePowerMilliWatts / 1000).toFixed(3)} W idle / ${(option.powerMilliWatts / 1000).toFixed(3)} W active${option.minimumInputTreatmentLevel ? ` · inputs @${option.minimumInputTreatmentLevel}+` : ""}  ${Object.entries(option.inputPorts).map(([resource, port]) => `${resource}→${port}`).join(" + ")} ⇒ ${Object.entries(option.outputPorts).map(([resource, port]) => `${resource}→${port}`).join(" + ")}`),
+    ...analysis.recipeOptions.filter((option) => !option.selected).map((option) => `  ${option.device.padEnd(24)} ${`${option.process}/${option.mode}`.padEnd(32)} ${option.targetOutputPerMinute.toFixed(3)} ${analysis.productionGraph.targetResource}/min · P${option.powerPriority} · ${(option.idlePowerMilliWatts / 1000).toFixed(3)} W idle / ${(option.powerMilliWatts / 1000).toFixed(3)} W active${option.minimumInputTreatmentLevel ? ` · inputs @${option.minimumInputTreatmentLevel}+` : ""}  ${Object.entries(option.inputPorts).map(([resource, port]) => `${resource}→${port}`).join(" + ")} ⇒ ${Object.entries(option.outputPorts).map(([resource, port]) => `${resource}→${port}`).join(" + ")}`),
     ...(analysis.recipeOptions.some((option) => !option.selected) ? [] : ["  none"]),
     "",
     "Material treatment",
@@ -331,8 +328,8 @@ export async function analyzeCommand(projectDir: string, selection: ProjectSelec
 
 export async function planCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
   requireJsonSection("plan", options);
-  const project = await openFactoryProject(projectDir, selection);
-  const plan = planProductionCapacity(project);
+  const operation = await planProjectOperation(projectDir, selection);
+  const plan = operation.data;
   if (options.json) {
     const data = sectionResult("plan", options, {
       summary: () => ({ targetResource: plan.targetResource, targetRatePerMinute: plan.targetRatePerMinute, deliveryTargets: plan.deliveryTargets, scenarioMinutes: plan.scenarioMinutes, targetItemsForScenario: plan.targetItemsForScenario, ready: plan.ready, gapCount: plan.gaps.length }),
@@ -343,14 +340,14 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
       power: () => plan.power,
       all: () => plan,
     });
-    writeSuccess("plan", data, {
-      context: compiledProjectContext(project), diagnostics: data.section === "gaps" || data.section === "all" ? plan.gaps : data.section === "summary" ? plan.gaps.slice(0, 5) : [],
-      nextActions: [nextAction("simulate", "Run deterministic simulation for this exact selection.", ["inm", "simulate", project.rootDir, ...selectionArgs(project.selection), "--json"], "creates-artifact")],
+    writeSuccess("plan", { ...data, operation: operationMetadata(operation) }, {
+      context: operationProjectContext(operation.context), diagnostics: data.section === "gaps" || data.section === "all" ? plan.gaps : data.section === "summary" ? plan.gaps.slice(0, 5) : [],
+      nextActions: [nextAction("simulate", "Run deterministic simulation for this exact selection.", ["inm", "simulate", operation.context.project.rootDir, ...selectionArgs(operation.context.selection), "--json"], "creates-artifact")],
     });
     return;
   }
   write([
-    `${project.manifest.name} · target-rate capacity plan`,
+    `${operation.context.project.name} · target-rate capacity plan`,
     `Primary target: ${plan.targetRatePerMinute.toFixed(3)} ${plan.targetResource}/min · ${plan.targetItemsForScenario.toFixed(3)} items over ${plan.scenarioMinutes.toFixed(3)} min`,
     "Delivery portfolio",
     ...plan.deliveryTargets.map((target) => `  ${target.id.padEnd(24)} ${target.ratePerMinute.toFixed(3).padStart(8)} ${target.resource}/min @ ${target.region} · ${target.itemsForScenario.toFixed(3)} items`),
@@ -518,12 +515,13 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
 
 export async function simulateCommand(projectDir: string, selection: ProjectSelection, options: { seed: number; untilTick?: number; maxEvents?: number; json: boolean; section?: string }): Promise<void> {
   requireJsonSection("simulate", options);
-  const project = await openFactoryProject(projectDir, selection);
-  const result = runUntil(project, undefined, { seed: options.seed, ...(options.untilTick ? { untilTick: options.untilTick } : {}), ...(options.maxEvents ? { maxEvents: options.maxEvents } : {}) });
-  const cached = await findCachedRun(project.rootDir, result.runKey);
-  const run = cached ?? await writeRunArtifact(project, result, { label: "simulate", seed: options.seed, decision: "BASELINE" });
-  const summary = { cached: Boolean(cached), run: run.path, resultHash: result.resultHash, runKey: result.runKey, metrics: result.metrics };
-  if (options.json) writeSuccess("simulate", sectionResult("simulate", options, {
+  const operation = await simulateProjectOperation(projectDir, selection, { seed: options.seed, ...(options.untilTick === undefined ? {} : { untilTick: options.untilTick }), ...(options.maxEvents === undefined ? {} : { maxEvents: options.maxEvents }) });
+  const result = { metrics: operation.data.metrics, resultHash: operation.data.resultHash, runKey: operation.data.runKey };
+  const cached = operation.data.cached;
+  const run = operation.data.run;
+  const summary = { cached, run: run.path, resultHash: result.resultHash, runKey: result.runKey, metrics: result.metrics };
+  if (options.json) {
+    const data = sectionResult("simulate", options, {
     summary: () => ({ cached: summary.cached, run: summary.run, resultHash: summary.resultHash, runKey: summary.runKey, metrics: {
       finalScore: result.metrics.finalScore, throughputPerMinute: result.metrics.throughputPerMinute, demandAttainment: result.metrics.deliveryPortfolio.fulfillment,
       bottleneckEntity: result.metrics.bottleneckEntity, deliveryPortfolio: result.metrics.deliveryPortfolio,
@@ -532,11 +530,13 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     artifact: () => ({ cached: summary.cached, run: summary.run, resultHash: summary.resultHash, runKey: summary.runKey }),
     metrics: () => summary.metrics,
     all: () => summary,
-  }), {
-    context: compiledProjectContext(project),
-    artifacts: [{ kind: "run", id: run.name, path: run.path, immutable: true }],
-    nextActions: [nextAction("runs", "List completed immutable runs.", ["inm", "runs", project.rootDir, "--json"])],
-  });
+    });
+    writeSuccess("simulate", { ...data, operation: operationMetadata(operation) }, {
+      context: operationProjectContext(operation.context),
+      artifacts: operation.artifacts.map((artifact) => ({ kind: "run" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
+      nextActions: [nextAction("runs", "List completed immutable runs.", ["inm", "runs", operation.context.project.rootDir, "--json"])],
+    });
+  }
   else {
     const flowLines = Object.entries(result.metrics.transportFlows).sort(([, a], [, b]) => b.utilization - a.utilization || b.blockedItemTicks - a.blockedItemTicks).map(([connection, flow]) => {
       const resources = Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "no deliveries";
@@ -648,7 +648,8 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     else write(`Locked Blueprint benchmark '${benchmark.id}' across ${benchmark.cases.length} deterministic case(s).\n`, false);
     return;
   }
-  const result = await evaluateBlueprintBenchmark(projectDir, benchmarkId);
+  const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId);
+  const result = operation.data;
   if (options.json) {
     const data = sectionResult("benchmark", options, {
       summary: () => ({ action: "evaluate", benchmark: result.benchmark, name: result.name, baselineBlueprint: result.baselineBlueprint, candidateBlueprint: result.candidateBlueprint, baselineBlueprintHash: result.baselineBlueprintHash, candidateBlueprintHash: result.candidateBlueprintHash, baselineScore: result.baselineScore, candidateScore: result.candidateScore, scoreDelta: result.scoreDelta, verdict: result.verdict, accepted: result.accepted, reasons: result.reasons, totalSimulationTicks: result.totalSimulationTicks, caseCount: result.cases.length, patchOperations: result.patch.length, semanticChanges: result.changes.length }),
@@ -656,7 +657,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
       changes: () => ({ patch: result.patch, changes: result.changes }),
       all: () => ({ action: "evaluate", ...result }),
     });
-    writeSuccess("benchmark", data, { context: await projectDirectoryContext(projectDir), diagnostics: result.reasons }); return;
+    writeSuccess("benchmark", { ...data, operation: operationMetadata(operation) }, { context: operationProjectContext(operation.context), diagnostics: result.reasons }); return;
   }
   write([
     `${result.name} · coding-agent Blueprint benchmark`,
@@ -705,17 +706,19 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
 
 export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean; section?: string }): Promise<void> {
   requireJsonSection("candidate", options);
-  const preview = await previewCandidateChangeSet(projectDir, candidateId);
+  const previewOperation = await previewCandidateOperation(projectDir, candidateId);
+  const preview = previewOperation.data;
   if (options.apply) {
-    const applied = await applyCandidateChangeSet(projectDir, candidateId, preview);
-    if (options.json) { writeSuccess("candidate", sectionResult("candidate", options, {
+    const operation = await applyCandidateOperation(projectDir, candidateId, preview);
+    const applied = operation.data;
+    if (options.json) { const data = sectionResult("candidate", options, {
       summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, scoreDelta: applied.result.scoreDelta, applied: true, blueprintPath: applied.blueprintPath }),
       proposal: () => ({ action: "apply", candidate: applied.candidate, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, blueprintPath: applied.blueprintPath }),
       evaluation: () => applied.result,
       all: () => ({ action: "apply", ...applied }),
-    }), {
-      context: await projectDirectoryContext(projectDir), diagnostics: applied.result.reasons,
-      artifacts: [{ kind: "blueprint", id: applied.result.candidateBlueprint, path: applied.blueprintPath, immutable: false }],
+    }); writeSuccess("candidate", { ...data, operation: operationMetadata(operation) }, {
+      context: operationProjectContext(operation.context), diagnostics: applied.result.reasons,
+      artifacts: operation.artifacts.map((artifact) => ({ kind: "blueprint" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
     }); return; }
     write([
       `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
@@ -724,13 +727,13 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     ].join("\n"), false);
     return;
   }
-  if (options.json) { writeSuccess("candidate", sectionResult("candidate", options, {
+  if (options.json) { const data = sectionResult("candidate", options, {
     summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, scoreDelta: preview.result.scoreDelta, reasons: preview.result.reasons, patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
     proposal: () => ({ action: "preview", candidate: preview.candidate, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
     evaluation: () => preview.result,
     all: () => ({ action: "preview", ...preview }),
-  }), {
-    context: await projectDirectoryContext(projectDir), diagnostics: preview.result.reasons,
+  }); writeSuccess("candidate", { ...data, operation: operationMetadata(previewOperation) }, {
+    context: operationProjectContext(previewOperation.context), diagnostics: preview.result.reasons,
     nextActions: preview.result.verdict === "KEEP" ? [nextAction(
       "candidate.apply", "Re-evaluate and apply this exact Candidate under all hash guards.",
       ["inm", "candidate", resolve(projectDir), "--candidate", preview.candidate.id, "--apply", "--json"], "mutates-project",
