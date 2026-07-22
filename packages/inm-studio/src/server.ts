@@ -20,11 +20,13 @@ import {
   manifestSchema,
   worldSchema,
   openFactoryProject,
+  openProjectWorkbenchSnapshot,
   pathExists,
   planProductionCapacity,
   previewCandidateChangeSet,
   readJson,
   resolveProjectDirectory,
+  type ProjectSelection,
 } from "@inm/core";
 
 const { values, positionals } = parseArgs({
@@ -416,6 +418,16 @@ function decoded(value: string): string {
   catch { throw new Error("Malformed URL component"); }
 }
 
+function projectSelection(url: URL): ProjectSelection {
+  const selected = (key: keyof ProjectSelection) => url.searchParams.get(key) || undefined;
+  return {
+    world: selected("world"),
+    blueprint: selected("blueprint"),
+    scenario: selected("scenario"),
+    objective: selected("objective"),
+  };
+}
+
 function errorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof CandidateChangeSetError) return Response.json({ code: error.code, error: message }, { status: error.code === "candidate.stale-base" ? 409 : 400 });
@@ -437,6 +449,13 @@ const server = Bun.serve({
         return await file.exists() ? new Response(file) : new Response("Not found", { status: 404 });
       }
       if (url.pathname === "/api/projects") return Response.json(await loadProjectIndex());
+
+      const overviewMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/overview$/);
+      if (overviewMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(overviewMatch[1]!));
+        return Response.json(await openProjectWorkbenchSnapshot(projectDir, projectSelection(url)));
+      }
 
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);
       if (dataMatch) {

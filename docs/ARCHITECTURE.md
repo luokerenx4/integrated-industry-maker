@@ -36,7 +36,7 @@
 
 The first product keeps only three packages:
 
-- `@inm/core` owns schemas, loading, compilation, runtime state, deterministic simulation, evaluation, run artifacts, research, and renderer-independent scene projection.
+- `@inm/core` owns schemas, loading, compilation, runtime state, deterministic simulation, evaluation, run artifacts, research, renderer-independent scene projection, and the shared human/AI operator-workbench projection.
 - `@inm/cli` is the sole human and agent-facing command surface: `inm`.
 - `@inm/studio` serves a local, read-only React Three Fiber replay UI.
 

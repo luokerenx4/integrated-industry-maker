@@ -26,7 +26,7 @@ Runs schema validation, immutable world and finite resource-node resolution, ext
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
-Prints the selected world, finite deposits, project topology, region kinds/world coordinates/bounds, asset catalogs, capability counts, selected benchmark, content hashes, and completed runs.
+Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, target-rate readiness, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` emits the Core `ProjectWorkbenchSnapshot` exactly, including deterministic catalog/run/Benchmark/Candidate summaries, diagnostic codes/subjects/evidence, and declared operation write sets/guards. Inspection is read-only and an invalid explicit selection never falls back to a project default.
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 

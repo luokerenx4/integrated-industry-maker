@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { listRuns, listWorkspaceProjects, openFactoryProject, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
@@ -95,3 +95,33 @@ test("candidate CLI previews, explicitly applies, and rejects replay as machine-
   expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });
   expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({ error: "candidate", code: "candidate.stale-base" }));
 }, 30_000);
+
+test("public inspect JSON is the shared Core workbench snapshot", async () => {
+  const repository = resolve(import.meta.dir, "../../..");
+  const projectDir = join(repository, "examples/ironworks");
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "inspect", projectDir, "--json",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode, expected] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+    openProjectWorkbenchSnapshot(projectDir),
+  ]);
+  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(stdout)).toEqual(expected);
+});
+
+test("public inspect rejects an invalid explicit selection", async () => {
+  const repository = resolve(import.meta.dir, "../../..");
+  const projectDir = join(repository, "examples/ironworks");
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "inspect", projectDir,
+    "--blueprint", "missing-blueprint", "--json",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
+  ]);
+  expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
+  expect(JSON.parse(stderr)).toEqual(expect.objectContaining({ error: "runtime", message: expect.stringContaining("missing-blueprint.blueprint.json") }));
+});

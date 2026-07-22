@@ -2,7 +2,7 @@
 
 - Status: `active`
 - Updated: `2026-07-22`
-- Related design: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
+- Related design: [[docs/design/operator-workbench]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
 
 ## Outcome
 
@@ -83,7 +83,7 @@ Both surfaces must answer the same questions from shared data:
 
 ## Acceptance
 
-- [ ] Core produces one serializable project workbench snapshot used by both `inm` and Studio; parity tests prove identical selection, hashes, readiness, diagnostic codes, and operation ids.
+- [x] Core produces one serializable project workbench snapshot used by both `inm` and Studio; parity tests prove identical selection, hashes, readiness, diagnostic codes, and operation ids.
 - [ ] A Coding Agent can discover commands and project artifact schemas without reading CLI source, and every machine-readable success/error follows one versioned envelope.
 - [ ] A Coding Agent can request a compact overview or one detailed section without receiving the complete analysis payload.
 - [ ] The Studio project root presents objective, readiness, priority issues, recent evidence, and available tasks before requiring the 3D factory view.
@@ -99,11 +99,11 @@ Both surfaces must answer the same questions from shared data:
 
 ### Slice 1 — shared project orientation
 
-- [ ] Add a design document for the shared operator workbench and define the authoritative Core projection types.
-- [ ] Extract project summary, current selection, hashes, static readiness, prioritized diagnostics, catalog/run/experiment/candidate summaries, and operation descriptors into Core.
-- [ ] Give each diagnostic a stable code, severity, subject reference, evidence summary, and supported navigation/action references.
-- [ ] Make `inm inspect --json` and a project-qualified Studio endpoint consume the same snapshot.
-- [ ] Add parity tests for Ironworks, memory-fab, empty runs, and invalid selections.
+- [x] Add a design document for the shared operator workbench and define the authoritative Core projection types.
+- [x] Extract project summary, current selection, hashes, static readiness, prioritized diagnostics, catalog/run/experiment/candidate summaries, and operation descriptors into Core.
+- [x] Give each diagnostic a stable code, severity, subject reference, evidence summary, and supported navigation/action references.
+- [x] Make `inm inspect --json` and a project-qualified Studio endpoint consume the same snapshot.
+- [x] Add parity tests for Ironworks, memory-fab, empty runs, and invalid selections.
 
 ### Slice 2 — AI-native CLI contract
 
@@ -158,10 +158,16 @@ Both surfaces must answer the same questions from shared data:
 - 2026-07-22 — Catalog and Analysis should remain editor-style dialogs where useful, as requested, but their open state and selected subject must become addressable by stable routes.
 - 2026-07-22 — CLI is the preferred high-bandwidth AI surface; browser operation is a supported semantic projection and verification path, not a requirement for headless Agents.
 - 2026-07-22 — No embedded model runtime is needed for this plan. AI-first means making domain operations legible and safely composable by an Agent, not putting an AI-themed UI inside the product.
+- 2026-07-22 — Project orientation is selection-scoped rather than run-scoped. Studio's richer Factory data may select an immutable run, but the shared Overview compiles the explicitly selected current project inputs just like `inm inspect`.
+- 2026-07-22 — Candidate preview/application are advertised as `conditional`, not `available`: discovering a Candidate does not prove its base hash, Benchmark lock, or KEEP gate still holds.
+- 2026-07-22 — Snapshot construction lists Candidate manifests but never evaluates them. Project orientation must remain cheap and read-only; guarded evaluation belongs to the explicit Candidate operation.
 
 ## Verification
 
 - Planning baseline: `bun run docs:check`.
+- Slice 1: `bun test packages/inm-core/src/workbench.test.ts packages/inm-cli/src/commands.test.ts packages/inm-studio/src/server.test.ts` — 11 passed, 0 failed, including exact CLI/Core and Studio/Core parity.
+- Slice 1: `bun run typecheck` — passed for Core, CLI, Studio, and both example TypeScript asset catalogs.
+- Slice 1 full gate: `bun run test` — 159 passed, 0 failed, 1144 assertions; all Ironworks fixture scenarios passed.
 - Per-slice contract checks: `bun test packages/inm-core packages/inm-cli packages/inm-studio`.
 - Public CLI checks must invoke `bun run inm ... --json` against both examples and parse stdout as exactly one valid JSON value.
 - Full completion gate: `bun run test`.
@@ -172,6 +178,7 @@ Both surfaces must answer the same questions from shared data:
 
 - 2026-07-22 — Audited current CLI commands, Studio navigation/analysis/catalog/replay, shared experiment/candidate workbench, memory-fab program, and existing design boundaries.
 - 2026-07-22 — Plan created and registered as the active product-interface program. Slice 1 is the next implementation target.
+- 2026-07-22 — Slice 1 implemented: one Core project workbench snapshot now powers `inm inspect --json` and the project-qualified Studio Overview API with full-structure parity tests. Slice 2 is next.
 
 ## Completion
 

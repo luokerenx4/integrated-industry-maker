@@ -2,7 +2,7 @@
 
 Status: project launcher, stable project/experiment/candidate routes, shared Benchmark and candidate-review workbench, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/project-boundaries]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
@@ -11,6 +11,10 @@ Studio is a debugger for compiled industrial systems and completed runs plus an 
 ## Navigation
 
 The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context. `/<project-id>/experiments/<benchmark-id>` opens a stable experiment view; `/<project-id>/experiments/<benchmark-id>/candidates/<candidate-id>` opens a stable proposal review. The back button returns to the launcher. Every data, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+
+## Project orientation API
+
+`GET /api/projects/<project-id>/overview` returns the exact Core [[docs/design/operator-workbench]] snapshot used by `inm inspect --json`. Optional World, Blueprint, Scenario, and Objective query selectors are explicit and never fall back when invalid. The endpoint is read-only and does not select a run, execute a Benchmark, preview a Candidate, or create Studio state. The current project route has not yet adopted the planned task-oriented Overview UI; until that slice ships, the richer `/data` endpoint continues to supply the Factory debugger and selected immutable run.
 
 ## Experiment workbench
 
@@ -61,6 +65,7 @@ Inspectors are navigation and debugging surfaces only. They contain no Blueprint
 ## Source of truth
 
 - Renderer-independent projection: `packages/inm-core/src/frontend.ts`
+- Shared project orientation projection: `packages/inm-core/src/workbench.ts`
 - Project/run data server: `packages/inm-studio/src/server.ts`
 - React/Three UI: `packages/inm-studio/src/main.tsx`
 - Project-scoped selection state: `packages/inm-studio/src/selection.ts`

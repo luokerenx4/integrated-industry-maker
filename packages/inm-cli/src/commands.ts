@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, applyCandidateChangeSet, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBlueprintBenchmark, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, openFactoryProject, pathExists, previewCandidateChangeSet,
+  CandidateChangeSetError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, applyCandidateChangeSet, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBlueprintBenchmark, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, previewCandidateChangeSet,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
@@ -104,30 +104,27 @@ export async function validateCommand(projectDir: string, selection: ProjectSele
 }
 
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
-  const project = await openFactoryProject(projectDir, selection);
-  const runs = await listRuns(project.rootDir);
-  const capabilityCounts: Record<string, number> = {};
-  for (const device of Object.values(project.devices)) for (const capability of device.assetDef.capabilities) capabilityCounts[capability] = (capabilityCounts[capability] ?? 0) + 1;
-  const summary = {
-    name: project.manifest.name, rootDir: project.rootDir,
-    world: { id: project.world.id, name: project.world.name },
-    regions: project.world.regions.map((region) => ({ id: region.id, name: region.name, kind: region.kind, coordinates: region.coordinates, bounds: region.bounds })),
-    resourceNodes: Object.values(project.resourceNodes).map((node) => ({ id: node.id, region: node.region, resource: node.resource, amount: node.amount, position: node.position })),
-    resources: Object.keys(project.resources), processes: Object.keys(project.processes), deviceAssets: Object.keys(project.deviceAssets),
-    deviceInstances: Object.keys(project.devices).length, capabilityCounts, connections: Object.keys(project.connections).length,
-    logisticsNetworks: Object.keys(project.logisticsNetworks).length,
-    logisticsRoutes: Object.values(project.logisticsNetworks).reduce((sum, network) => sum + network.routes.length, 0),
-    scenario: { id: project.scenario.id, durationTicks: project.scenario.durationTicks }, objective: project.objective,
-    hashes: project.hashes, runs: runs.map((run) => ({ name: run.name, score: run.score, decision: run.manifest.decision })),
-  };
-  if (options.json) write(summary, true);
+  const snapshot = await openProjectWorkbenchSnapshot(projectDir, selection);
+  if (options.json) write(snapshot, true);
   else write([
-    `${summary.name}`, `Project: ${summary.rootDir}`, `World: ${summary.world.name} [${summary.world.id}] · ${summary.regions.length} ${summary.regions.length === 1 ? "region" : "regions"} · ${summary.resourceNodes.length} finite resource ${summary.resourceNodes.length === 1 ? "node" : "nodes"}`, `Blueprint: ${summary.deviceInstances} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"}`,
-    `Regions: ${summary.regions.map((region) => `${region.name} [${region.id}] ${region.kind} @ (${region.coordinates.x},${region.coordinates.y},${region.coordinates.z}) ${region.bounds.width}×${region.bounds.height}`).join("; ")}`,
-    `Resources: ${summary.resources.join(", ")}`, `Processes: ${summary.processes.join(", ")}`, `Capabilities: ${Object.entries(summary.capabilityCounts).map(([name, count]) => `${name}:${count}`).join(", ")}`, `Scenario: ${summary.scenario.id} (${summary.scenario.durationTicks} ticks)`,
-    `Objective: ${summary.objective.name} → ${summary.objective.targetRatePerMinute} ${summary.objective.targetResource}/min @ ${summary.objective.targetRegion}`,
-    ...(summary.objective.deliveryContracts?.length ? [`Contracts: ${summary.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`] : []),
-    `Runs: ${summary.runs.length}`, "",
+    `${snapshot.project.name} · project workbench`,
+    `Project: ${snapshot.project.rootDir}`,
+    `Selection: ${snapshot.selection.world.id} / ${snapshot.selection.blueprint.id} / ${snapshot.selection.scenario.id} / ${snapshot.selection.objective.id}`,
+    `Hashes: World ${snapshot.hashes.worldHash.slice(0, 12)} · Blueprint ${snapshot.hashes.blueprintHash.slice(0, 12)} · Scenario ${snapshot.hashes.scenarioHash.slice(0, 12)} · Objective ${snapshot.hashes.objectiveHash.slice(0, 12)}`,
+    `Objective: ${snapshot.objective.targetRatePerMinute} ${snapshot.objective.targetResource}/min @ ${snapshot.objective.targetRegion}`,
+    `Contracts: ${snapshot.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`,
+    `Capacity: ${snapshot.readiness.ready ? "READY" : `${snapshot.readiness.gapCount} GAPS`}`,
+    `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
+    `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
+    `Evidence: runs ${snapshot.counts.runs} · experiments ${snapshot.counts.experiments} · candidates ${snapshot.counts.candidates}`,
+    "",
+    `Priority diagnostics (${snapshot.diagnostics.length})`,
+    ...(snapshot.diagnostics.length ? snapshot.diagnostics.slice(0, 12).map((diagnostic) => `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}] ${diagnostic.message}`) : ["  none"]),
+    ...(snapshot.diagnostics.length > 12 ? [`  … ${snapshot.diagnostics.length - 12} more; use --json for the complete set`] : []),
+    "",
+    "Available operations",
+    ...snapshot.operations.map((operation) => `  ${operation.availability.state === "available" ? "✓" : operation.availability.state === "conditional" ? "?" : "·"} ${operation.id.padEnd(20)} ${operation.effect} · ${operation.description}${operation.availability.reasons.length ? ` [${operation.availability.reasons.join("; ")}]` : ""}`),
+    "",
   ].join("\n"), false);
 }
 

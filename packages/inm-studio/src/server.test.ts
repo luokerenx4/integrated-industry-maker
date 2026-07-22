@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { evaluateBlueprintBenchmark, hashValue, stableStringify, type Blueprint } from "@inm/core";
+import { evaluateBlueprintBenchmark, hashValue, openProjectWorkbenchSnapshot, stableStringify, type Blueprint } from "@inm/core";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
@@ -48,6 +48,19 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const data = await response.json() as { selectedRun: string | null; runs: unknown[] };
     expect(data.selectedRun).toBeNull();
     expect(data.runs).toEqual([]);
+
+    const overviewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/overview?world=main&blueprint=main&scenario=baseline&objective=default`);
+    expect(overviewResponse.status).toBe(200);
+    expect(await overviewResponse.json()).toEqual(await openProjectWorkbenchSnapshot(projectDir, {
+      world: "main", blueprint: "main", scenario: "baseline", objective: "default",
+    }));
+    const invalidOverview = await fetch(`http://localhost:${port}/api/projects/ironworks/overview?blueprint=missing-blueprint`);
+    expect(invalidOverview.status).toBe(400);
+    expect(await invalidOverview.json()).toEqual(expect.objectContaining({
+      code: "studio.request-failed", error: expect.stringContaining("missing-blueprint.blueprint.json"),
+    }));
+    const overviewMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/overview`, { method: "POST" });
+    expect(overviewMethod.status).toBe(405);
 
     const catalogResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments`);
     expect(catalogResponse.status).toBe(200);
