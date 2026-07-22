@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/human-ai-workbench]] | Give humans and Coding Agents two task-appropriate projections of one inspectable, hash-pinned industrial operating surface. | 2026-07-22 |
 
 ## Proposed plans
 
