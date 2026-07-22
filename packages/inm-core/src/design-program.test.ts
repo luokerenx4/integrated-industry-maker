@@ -22,6 +22,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       benchmark: "greenfield-dram-design",
       seed: { kind: "synthesis", inputBlueprint: "greenfield" },
       driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       locked: true,
       budget: { maxCandidates: 6 },
     }),
@@ -30,6 +31,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       benchmark: "dispatch-research",
       seed: { kind: "blueprint", blueprint: "experiment" },
       driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       locked: true,
       budget: { maxCandidates: 6 },
     }),
@@ -41,7 +43,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
   expect(brief).toMatchObject({
     version: 1,
     project: { id: "memory-fab" },
-    program: { id: "integrated-dram-fab", locked: true },
+    program: { id: "integrated-dram-fab", locked: true, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } },
     benchmark: { id: "dispatch-research", cases: 5 },
     driver: { case: { id: "mixed-quality", seed: 42 }, selection: { blueprint: "experiment", scenario: "production-window" } },
     staticEvidence: { capacity: { state: "ready", gapCount: 0 }, devices: { total: 61 }, topology: { trackedRoutes: 1 } },
@@ -51,7 +53,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
 
   const greenfield = await buildDesignProgramBrief(projectDir, "greenfield-dram-fab");
   expect(greenfield).toMatchObject({
-    program: { id: "greenfield-dram-fab", seed: { kind: "synthesis", inputBlueprint: "greenfield" } },
+    program: { id: "greenfield-dram-fab", seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } },
     benchmark: { id: "greenfield-dram-design", cases: 5 },
     seed: {
       source: { kind: "synthesis", inputBlueprint: "greenfield" },
@@ -84,6 +86,32 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   delete program.seed;
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
   await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("seed");
+
+  const valid = JSON.parse(await readFile(join(projectDir, "design-programs", "integrated-dram-fab.design.json"), "utf8"));
+  delete valid.currentBestGuardrail;
+  await writeFile(path, `${JSON.stringify(valid, null, 2)}\n`);
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("currentBestGuardrail");
+
+  valid.currentBestGuardrail = { kind: "unrestricted" };
+  await writeFile(path, `${JSON.stringify(valid, null, 2)}\n`);
+  expect((await loadDesignProgram(copy, "integrated-dram-fab")).currentBestGuardrail).toEqual({ kind: "unrestricted" });
+
+  valid.currentBestGuardrail = {
+    kind: "case-specific",
+    maximumCaseScoreRegression: {
+      "steady-production": 0,
+      "mixed-quality": 0.5,
+      "quality-excursion": 0,
+      "lithography-interruption": 1,
+      "facility-interruption": 0,
+    },
+  };
+  await writeFile(path, `${JSON.stringify(valid, null, 2)}\n`);
+  expect((await prepareDesignProgram(copy, "integrated-dram-fab")).manifest.currentBestGuardrail).toEqual(valid.currentBestGuardrail);
+
+  valid.currentBestGuardrail = { kind: "case-specific", maximumCaseScoreRegression: { "steady-production": 0, "not-a-benchmark-case": 1 } };
+  await writeFile(path, `${JSON.stringify(valid, null, 2)}\n`);
+  await expect(prepareDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("must match Benchmark 'dispatch-research' cases exactly");
 });
 
 test("a synthesis-seeded Design Program is deterministic, immutable, and applies only through an exact Candidate", async () => {
@@ -110,7 +138,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(first.manifest).toMatchObject({
     status: "completed",
     project: "memory-fab",
-    program: { id: "greenfield-dram-fab" },
+    program: { id: "greenfield-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } },
     benchmark: { id: "greenfield-dram-design" },
     seed: {
       source: { kind: "synthesis", inputBlueprint: "greenfield" },
@@ -121,7 +149,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     },
     promotionBase: { blueprint: "generated-dram-fab", hash: hashValue(JSON.parse(targetBefore)) },
     budget: { maximum: 5, evaluated: 5 },
-    best: { iteration: 5, verdict: "KEEP" },
+    best: { iteration: 4, verdict: "KEEP" },
   });
   const promotionPatchOperations = first.manifest.best.promotionPatchOperations;
   expect(promotionPatchOperations).toBeGreaterThan(0);
@@ -144,33 +172,38 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     addressedLoss: "yield-quality",
     decision: "KEEP",
   });
-  expect(first.manifest.iterations[3]).toMatchObject({
-    iteration: 4,
-    strategy: "batch-formation:furnace-flex-30000",
-    decisionFamily: "batch-formation",
-    addressedLoss: "batch-formation",
+  expect(first.manifest.iterations[2]).toMatchObject({
+    iteration: 3,
+    strategy: "dispatch:conwip-8-5-edd",
+    decisionFamily: "dispatch",
+    addressedLoss: "queue-starvation",
     decision: "REJECT",
     decisionEvidence: {
-      basis: "no-current-best-improvement",
-      limitingCase: "lithography-interruption",
+      basis: "current-best-case-guardrail",
+      limitingCase: "facility-interruption",
+      guardrail: { kind: "uniform", passed: false, violations: ["facility-interruption"] },
     },
   });
-  expect(first.manifest.iterations[4]).toMatchObject({
-    iteration: 5,
+  expect(first.manifest.iterations[3]).toMatchObject({
+    iteration: 4,
     strategy: "setup-campaign:lithography-3-12000",
     decisionFamily: "setup-campaign",
     addressedLoss: "setup-campaign",
     decision: "KEEP",
     decisionEvidence: {
       basis: "current-best-improvement",
-      limitingCase: "lithography-interruption",
+      limitingCase: "facility-interruption",
+      guardrail: { kind: "uniform", passed: true, violations: [] },
     },
   });
-  const batchEvidence = first.manifest.iterations[3]!.decisionEvidence!;
-  expect(batchEvidence.aggregate.scoreDelta < 0).toBeTrue();
-  expect(batchEvidence.cases.map((item) => item.id)).toEqual(["steady-production", "mixed-quality", "quality-excursion", "lithography-interruption", "facility-interruption"]);
-  expect(batchEvidence.cases.find((item) => item.id === batchEvidence.limitingCase)!.scoreDelta < -12).toBeTrue();
-  expect(first.manifest.iterations[4]!.decisionEvidence!.aggregate.scoreDelta > 0).toBeTrue();
+  const guardedEvidence = first.manifest.iterations[2]!.decisionEvidence!;
+  expect(guardedEvidence.aggregate.scoreDelta > 7).toBeTrue();
+  expect(guardedEvidence.cases.map((item) => item.id)).toEqual(["steady-production", "mixed-quality", "quality-excursion", "lithography-interruption", "facility-interruption"]);
+  const guardedFacility = guardedEvidence.cases.find((item) => item.id === "facility-interruption")!;
+  expect(guardedFacility.maximumScoreRegression).toBe(0);
+  expect(guardedFacility.guardrailPassed).toBeFalse();
+  expect(guardedFacility.scoreDelta < -3.9).toBeTrue();
+  expect(first.manifest.iterations[3]!.decisionEvidence!.aggregate.scoreDelta > 5.9).toBeTrue();
   expect(first.manifest.resultHash).toHaveLength(64);
   expect(first.manifest.best.blueprintHash).toHaveLength(64);
   expect(progress.map((event) => event.sequence)).toEqual(Array.from({ length: progress.length }, (_, index) => index + 1));
@@ -187,9 +220,13 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   }));
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "candidate-completed",
-    iteration: 4,
+    iteration: 3,
     decision: "REJECT",
-    decisionEvidence: expect.objectContaining({ basis: "no-current-best-improvement", limitingCase: "lithography-interruption" }),
+    decisionEvidence: expect.objectContaining({
+      basis: "current-best-case-guardrail",
+      limitingCase: "facility-interruption",
+      guardrail: { kind: "uniform", passed: false, violations: ["facility-interruption"] },
+    }),
   }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",

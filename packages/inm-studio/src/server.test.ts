@@ -183,15 +183,15 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(listResponse.status).toBe(200);
     expect(await listResponse.json()).toEqual({
       programs: [
-        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, budget: { maxCandidates: 6 } }),
-        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, budget: { maxCandidates: 6 } }),
+        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 6 } }),
+        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 6 } }),
       ],
       runs: [],
     });
     const programResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab`);
     expect(programResponse.status).toBe(200);
     expect(await programResponse.json()).toEqual(expect.objectContaining({
-      brief: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab" }), benchmark: expect.objectContaining({ cases: 5 }) }),
+      brief: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
       runs: [],
     }));
     const generatedProgramResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab`);
@@ -237,9 +237,10 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "candidate-completed",
       decisionEvidence: expect.objectContaining({
-        basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement/),
+        basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
         aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
-        cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number) })]),
+        cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]),
+        guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
         limitingCase: expect.any(String),
       }),
     }) }));
@@ -253,7 +254,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         iterations: [expect.objectContaining({
           addressedLoss: "queue-starvation",
           driverEvidence: expect.objectContaining({ fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
-          decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String), cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number) })]) }),
+          decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String), guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean) }), cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]) }),
         })],
       }),
       artifact: expect.objectContaining({ id: run.manifest.resultHash, created: true }),

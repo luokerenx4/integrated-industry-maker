@@ -48,6 +48,20 @@ export const designSeedSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("synthesis"), inputBlueprint: id }).strict(),
 ]);
 
+const caseRegressionBudgetsSchema = z.record(z.number().nonnegative()).superRefine((budgets, context) => {
+  const cases = Object.keys(budgets);
+  if (cases.length === 0) context.addIssue({ code: "custom", message: "must declare at least one operating-case budget" });
+  for (const caseId of cases) if (!/^[a-z0-9][a-z0-9-]*$/.test(caseId)) context.addIssue({
+    code: "custom", path: [caseId], message: "case id must use lowercase kebab-case",
+  });
+});
+
+export const designCurrentBestGuardrailSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("unrestricted") }).strict(),
+  z.object({ kind: z.literal("uniform"), maximumCaseScoreRegression: z.number().nonnegative() }).strict(),
+  z.object({ kind: z.literal("case-specific"), maximumCaseScoreRegression: caseRegressionBudgetsSchema }).strict(),
+]);
+
 export const designProgramSchema = z.object({
   version: z.literal(1),
   id,
@@ -56,6 +70,7 @@ export const designProgramSchema = z.object({
   benchmark: id,
   seed: designSeedSchema,
   driverCase: id,
+  currentBestGuardrail: designCurrentBestGuardrailSchema,
   proposal: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("heuristic"), decisionFamilies: decisionFamiliesSchema }).strict(),
     z.object({ kind: z.literal("project-strategy"), entry: strategyEntry, decisionFamilies: decisionFamiliesSchema }).strict(),
@@ -67,7 +82,16 @@ export const designProgramSchema = z.object({
 
 export type DesignDecisionFamily = z.infer<typeof designDecisionFamilySchema>;
 export type DesignSeed = z.infer<typeof designSeedSchema>;
+export type DesignCurrentBestGuardrail = z.infer<typeof designCurrentBestGuardrailSchema>;
 export type DesignProgramManifest = z.infer<typeof designProgramSchema>;
+
+export function currentBestCaseScoreRegressionLimit(policy: DesignCurrentBestGuardrail, caseId: string): number | null {
+  if (policy.kind === "unrestricted") return null;
+  if (policy.kind === "uniform") return policy.maximumCaseScoreRegression;
+  const limit = policy.maximumCaseScoreRegression[caseId];
+  if (limit === undefined) throw new Error(`Current-best case guardrail has no budget for '${caseId}'`);
+  return limit;
+}
 
 function projectEntryPath(projectDir: string, entry: string, label: string): string {
   const root = resolve(projectDir);
@@ -109,6 +133,7 @@ export interface DesignProgramSummary {
   benchmark: string;
   seed: DesignSeed;
   driverCase: string;
+  currentBestGuardrail: DesignCurrentBestGuardrail;
   proposal: DesignProgramManifest["proposal"];
   budget: DesignProgramManifest["budget"];
   programHash: string;
@@ -208,6 +233,7 @@ export async function listDesignPrograms(projectDir: string): Promise<DesignProg
       benchmark: program.benchmark,
       seed: structuredClone(program.seed),
       driverCase: program.driverCase,
+      currentBestGuardrail: structuredClone(program.currentBestGuardrail),
       proposal: proposalSummary(program.proposal),
       budget: { ...program.budget },
       programHash: await designProgramHash(projectDir, program),
@@ -231,6 +257,15 @@ export async function prepareDesignProgram(projectDir: string, programId: string
   const program = await loadDesignProgram(projectDir, programId);
   const benchmark = await loadBlueprintBenchmark(projectDir, program.benchmark);
   if (!benchmark.lock) throw new Error(`Design Program '${program.id}' requires locked Benchmark '${benchmark.id}'`);
+  if (program.currentBestGuardrail.kind === "case-specific") {
+    const declared = Object.keys(program.currentBestGuardrail.maximumCaseScoreRegression).sort();
+    const expected = benchmark.cases.map((item) => item.id).sort();
+    const missing = expected.filter((caseId) => !declared.includes(caseId));
+    const unknown = declared.filter((caseId) => !expected.includes(caseId));
+    if (missing.length || unknown.length) throw new Error(
+      `Design Program '${program.id}' current-best case guardrail must match Benchmark '${benchmark.id}' cases exactly${missing.length ? `; missing ${missing.join(", ")}` : ""}${unknown.length ? `; unknown ${unknown.join(", ")}` : ""}`,
+    );
+  }
   const lockedBenchmark: PreparedDesignProgram["benchmark"] = { ...benchmark, lock: benchmark.lock };
   const driverCase = benchmark.cases.find((item) => item.id === program.driverCase);
   if (!driverCase) throw new Error(`Design Program '${program.id}' driver case '${program.driverCase}' does not exist in Benchmark '${benchmark.id}'`);
@@ -264,6 +299,7 @@ export async function prepareDesignProgram(projectDir: string, programId: string
     benchmark: program.benchmark,
     seed: structuredClone(program.seed),
     driverCase: program.driverCase,
+    currentBestGuardrail: structuredClone(program.currentBestGuardrail),
     proposal: proposalSummary(program.proposal),
     budget: { ...program.budget },
     programHash: await designProgramHash(projectDir, program),

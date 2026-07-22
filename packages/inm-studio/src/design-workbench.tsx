@@ -43,11 +43,24 @@ const shortHash = (value: string) => value.slice(0, 12);
 
 function decisionDetail(evidence: DesignDecisionEvidence): string {
   const limiting = evidence.cases.find((item) => item.id === evidence.limitingCase)!;
+  const violation = evidence.guardrail.violations.length
+    ? evidence.cases.find((item) => item.id === evidence.guardrail.violations[0])!
+    : null;
   const basis = evidence.basis === "current-best-improvement"
     ? "IMPROVES CURRENT BEST"
-    : evidence.basis === "benchmark-gate" ? "FAILS LOCKED GATE" : "NO CURRENT-BEST IMPROVEMENT";
+    : evidence.basis === "benchmark-gate"
+      ? "FAILS LOCKED GATE"
+      : evidence.basis === "current-best-case-guardrail" ? "FAILS CURRENT-BEST CASE GUARDRAIL" : "NO CURRENT-BEST IMPROVEMENT";
   const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
+  if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta)} · ALLOWED REGRESSION ${violation.maximumScoreRegression!.toFixed(6)}`;
   return `${basis}${gate} · LIMITING ${limiting.id} ${signed(limiting.scoreDelta)}`;
+}
+
+function guardrailDetail(program: DesignProgramSummary): { title: string; detail: string } {
+  const policy = program.currentBestGuardrail;
+  if (policy.kind === "unrestricted") return { title: "UNRESTRICTED", detail: "aggregate improvement may trade operating cases" };
+  if (policy.kind === "uniform") return { title: `MAX ${policy.maximumCaseScoreRegression.toFixed(6)}`, detail: "regression per current-best case" };
+  return { title: `${Object.keys(policy.maximumCaseScoreRegression).length} CASE BUDGETS`, detail: "explicit current-best regression limits" };
 }
 
 function progressLabel(progress: DesignRunProgress): { title: string; detail: string } {
@@ -175,7 +188,7 @@ export function DesignWorkbench({
         {selectedProgram && brief && <>
           <section className="design-contract">
             <div><span className="eyebrow">DESIGN CONTRACT</span><h3>{selectedProgram.name}</h3><p>{selectedProgram.description}</p><code>{selectedProgram.id} · {shortHash(selectedProgram.programHash)}</code></div>
-            <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>WILL UPDATE</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
+            <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>WILL UPDATE</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
             <div className="design-run-control"><label>PROPOSAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedSimulations}/${runProgress.work.plannedSimulations}` : running ? "STARTING…" : `RUN ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
           {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code></div><div><b>{runProgress.work.completedSimulations}/{runProgress.work.plannedSimulations}</b><small>SIMULATIONS</small><progress value={runProgress.work.completedSimulations} max={runProgress.work.plannedSimulations}/></div></section>}

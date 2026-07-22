@@ -228,8 +228,8 @@ test("public Design Program workflow discovers, inspects, and executes without m
     data: {
       action: "list",
       programs: [
-        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" } }),
-        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" } }),
+        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }),
+        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }),
       ],
     },
     artifacts: [],
@@ -240,10 +240,12 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const inspection = JSON.parse(inspected.stdout);
   expect(inspection.data).toEqual(expect.objectContaining({
     section: "summary",
-    result: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab" }), benchmark: expect.objectContaining({ cases: 5 }) }),
+    result: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
   }));
   expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
   expect(await pathExists(join(projectDir, "design-runs"))).toBeFalse();
+  const humanInspection = await runCli(["design", projectDir, "--program", "integrated-dram-fab"]);
+  expect(humanInspection.stdout).toContain("Current-best guardrail: uniform · max 0.000000 regression/case");
 
   const generated = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--json"]);
   expect({ exitCode: generated.exitCode, stderr: generated.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -271,9 +273,10 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
     decisionEvidence: expect.objectContaining({
-      basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement/),
+      basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
       aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
-      cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number) })]),
+      cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]),
+      guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
       limitingCase: expect.any(String),
     }),
   }) }));
@@ -299,7 +302,8 @@ test("public Design Program workflow discovers, inspects, and executes without m
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
       decisionEvidence: expect.objectContaining({
         aggregate: expect.objectContaining({ previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number) }),
-        cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number) })]),
+        cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]),
+        guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
         limitingCase: expect.any(String),
       }),
     })] },
@@ -318,6 +322,25 @@ test("public Design Program workflow discovers, inspects, and executes without m
     section: "runs",
     result: [expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" })],
   });
+
+  const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "3", "--json"]);
+  expect(guardedExecuted.exitCode).toBe(0);
+  const guardedRunHash = JSON.parse(guardedExecuted.stdout).data.result.resultHash as string;
+  const guardedJson = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "iterations", "--json"]);
+  const guardedIteration = JSON.parse(guardedJson.stdout).data.result[2];
+  expect(guardedIteration).toMatchObject({
+    iteration: 3,
+    decision: "REJECT",
+    decisionEvidence: {
+      basis: "current-best-case-guardrail",
+      aggregate: { scoreDelta: expect.any(Number) },
+      guardrail: { kind: "uniform", passed: false, violations: ["facility-interruption"] },
+      cases: expect.arrayContaining([expect.objectContaining({ id: "facility-interruption", maximumScoreRegression: 0, guardrailPassed: false })]),
+      limitingCase: "facility-interruption",
+    },
+  });
+  const guardedHuman = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash]);
+  expect(guardedHuman.stdout).toContain("fails current-best case guardrail · facility-interruption -3.915879 · allowed regression 0.000000");
 
   if (run.data.result.best.promotionPatchOperations === 0) {
     const refused = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--promote", "no-leading-design", "--json"]);

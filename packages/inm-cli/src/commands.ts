@@ -21,10 +21,16 @@ type DesignProgressMode = "off" | "human" | "ndjson";
 
 function designDecisionDetail(evidence: NonNullable<DesignRunIteration["decisionEvidence"]>): string {
   const limiting = evidence.cases.find((item) => item.id === evidence.limitingCase)!;
+  const violation = evidence.guardrail.violations.length
+    ? evidence.cases.find((item) => item.id === evidence.guardrail.violations[0])!
+    : null;
   const basis = evidence.basis === "current-best-improvement"
     ? "improves current best"
-    : evidence.basis === "benchmark-gate" ? "fails locked gate" : "does not improve current best";
+    : evidence.basis === "benchmark-gate"
+      ? "fails locked gate"
+      : evidence.basis === "current-best-case-guardrail" ? "fails current-best case guardrail" : "does not improve current best";
   const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
+  if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta, 6)} · allowed regression ${violation.maximumScoreRegression!.toFixed(6)}`;
   return `${basis}${gate} · limiting ${limiting.id} ${signed(limiting.scoreDelta, 6)}`;
 }
 
@@ -948,6 +954,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Seed: ${seedLabel} · ${brief.seed.synthesis?.method ?? "authored"} · ${brief.seed.blueprintHash.slice(0, 12)}`,
       `Will update: ${brief.promotionBase.blueprint}@${brief.promotionBase.hash.slice(0, 12)} · driver ${brief.driver.case.id}`,
       `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
+      `Current-best guardrail: ${brief.program.currentBestGuardrail.kind}${brief.program.currentBestGuardrail.kind === "uniform" ? ` · max ${brief.program.currentBestGuardrail.maximumCaseScoreRegression.toFixed(6)} regression/case` : brief.program.currentBestGuardrail.kind === "case-specific" ? ` · ${Object.keys(brief.program.currentBestGuardrail.maximumCaseScoreRegression).length} case budgets` : ""}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
       `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
       "",

@@ -57,7 +57,7 @@ Core executes the strategy twice and rejects nondeterministic output, schema-val
 
 `examples/memory-fab/strategies/reentrant-dram-fab.ts` is the first implementation. It expands `greenfield.blueprint.json` into a complete re-entrant DRAM line, then the public command proves compilation, capacity READY, physical route transitions, tracked-lot completion, and delivery under `production-window`. The same in-memory Blueprint is also valid input to the locked five-case Benchmark evaluator.
 
-The `greenfield-dram-fab` [[docs/design/design-programs|Design Program]] composes that synthesis boundary with bounded robust search. It records the empty input hash and strategy source hash, normalizes the generated Blueprint onto the independent `generated-dram-fab` promotion target, evaluates every candidate through `greenfield-dram-design`, and writes only immutable run evidence. The tuned `experiment` Blueprint is a different optimization line and is never used as the greenfield write target.
+The `greenfield-dram-fab` [[docs/design/design-programs|Design Program]] composes that synthesis boundary with bounded robust search. It records the empty input hash and strategy source hash, normalizes the generated Blueprint onto the independent `generated-dram-fab` promotion target, evaluates every candidate through `greenfield-dram-design`, and requires strict zero-regression current-best Pareto preservation across all five locked cases before a candidate advances. It writes only immutable run evidence. The tuned `experiment` Blueprint is a different optimization line and is never used as the greenfield write target.
 
 ## Research boundary
 

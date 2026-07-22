@@ -9,6 +9,10 @@
     "inputBlueprint": "greenfield"
   },
   "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
   "proposal": {
     "kind": "project-strategy",
     "entry": "strategies/integrated-dram-proposals.ts",

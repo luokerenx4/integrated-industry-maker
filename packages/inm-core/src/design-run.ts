@@ -7,10 +7,13 @@ import { createBlueprintPatch } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
 import { compileFactoryProject } from "./compiler";
 import {
+  currentBestCaseScoreRegressionLimit,
+  designCurrentBestGuardrailSchema,
   designProgramHash,
   designSeedSchema,
   loadDesignProgram,
   prepareDesignProgram,
+  type DesignCurrentBestGuardrail,
   type DesignDecisionFamily,
   type DesignProgramBrief,
 } from "./design-program";
@@ -40,13 +43,16 @@ export interface DesignCurrentBestCaseEvidence {
   previousBestScore: number;
   candidateScore: number;
   scoreDelta: number;
+  maximumScoreRegression: number | null;
+  guardrailPassed: boolean;
 }
 
 export interface DesignDecisionEvidence {
-  basis: "current-best-improvement" | "benchmark-gate" | "no-current-best-improvement";
+  basis: "current-best-improvement" | "benchmark-gate" | "no-current-best-improvement" | "current-best-case-guardrail";
   aggregate: { previousBestScore: number; candidateScore: number; scoreDelta: number };
   cases: DesignCurrentBestCaseEvidence[];
   limitingCase: string;
+  guardrail: { kind: DesignCurrentBestGuardrail["kind"]; passed: boolean; violations: string[] };
   gateReasons?: string[];
 }
 
@@ -72,7 +78,7 @@ export interface DesignRunManifest {
   status: "completed";
   engineVersion: string;
   project: string;
-  program: { id: string; hash: string };
+  program: { id: string; hash: string; currentBestGuardrail: DesignCurrentBestGuardrail };
   benchmark: { id: string; contractHash: string };
   seed: DesignProgramBrief["seed"] & { evaluation: BlueprintBenchmarkResult };
   promotionBase: DesignProgramBrief["promotionBase"];
@@ -201,6 +207,7 @@ function validDesignRunIteration(value: unknown): value is DesignRunIteration {
 function currentBestDecisionEvidence(
   previousBest: BlueprintBenchmarkResult,
   candidate: BlueprintBenchmarkResult,
+  policy: DesignCurrentBestGuardrail,
 ): DesignDecisionEvidence {
   if (previousBest.cases.length !== candidate.cases.length) throw new Error("Design current-best comparison changed locked Benchmark case count");
   const cases = candidate.cases.map((candidateCase, index): DesignCurrentBestCaseEvidence => {
@@ -208,12 +215,16 @@ function currentBestDecisionEvidence(
     if (candidateCase.id !== previousCase.id || candidateCase.name !== previousCase.name) throw new Error(
       `Design current-best comparison changed locked Benchmark case ${index + 1}`,
     );
+    const scoreDelta = candidateCase.candidateScore - previousCase.candidateScore;
+    const maximumScoreRegression = currentBestCaseScoreRegressionLimit(policy, candidateCase.id);
     return {
       id: candidateCase.id,
       name: candidateCase.name,
       previousBestScore: previousCase.candidateScore,
       candidateScore: candidateCase.candidateScore,
-      scoreDelta: candidateCase.candidateScore - previousCase.candidateScore,
+      scoreDelta,
+      maximumScoreRegression,
+      guardrailPassed: maximumScoreRegression === null || scoreDelta >= -maximumScoreRegression - 1e-9,
     };
   });
   const aggregate = {
@@ -221,15 +232,20 @@ function currentBestDecisionEvidence(
     candidateScore: candidate.candidateScore,
     scoreDelta: candidate.candidateScore - previousBest.candidateScore,
   };
+  const violations = cases.filter((item) => !item.guardrailPassed).map((item) => item.id);
+  const guardrail = { kind: policy.kind, passed: violations.length === 0, violations };
   const basis: DesignDecisionEvidence["basis"] = !candidate.accepted
     ? "benchmark-gate"
-    : aggregate.scoreDelta > 1e-9 ? "current-best-improvement" : "no-current-best-improvement";
+    : aggregate.scoreDelta <= 1e-9
+      ? "no-current-best-improvement"
+      : !guardrail.passed ? "current-best-case-guardrail" : "current-best-improvement";
   const limitingCase = cases.reduce((limiting, item) => item.scoreDelta < limiting.scoreDelta ? item : limiting, cases[0]!);
   return {
     basis,
     aggregate,
     cases,
     limitingCase: limitingCase.id,
+    guardrail,
     ...(basis === "benchmark-gate" ? { gateReasons: [...candidate.reasons] } : {}),
   };
 }
@@ -241,7 +257,7 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
     if (iteration.error !== undefined) continue;
     if (!iteration.evaluation || !iteration.decisionEvidence) return false;
     let expected: DesignDecisionEvidence;
-    try { expected = currentBestDecisionEvidence(previousBest, iteration.evaluation); } catch { return false; }
+    try { expected = currentBestDecisionEvidence(previousBest, iteration.evaluation, manifest.program.currentBestGuardrail); } catch { return false; }
     if (stableStringify(iteration.decisionEvidence) !== stableStringify(expected)) return false;
     const decision = expected.basis === "current-best-improvement" ? "KEEP" : "REJECT";
     if (iteration.decision !== decision) return false;
@@ -304,7 +320,8 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
   if (manifest.version !== 1 || manifest.status !== "completed" || manifest.program?.id !== programId || manifest.resultHash !== resultHash) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest identity or completion state is invalid`);
   }
-  if (!designSeedSchema.safeParse(manifest.seed?.source).success
+  if (!designCurrentBestGuardrailSchema.safeParse(manifest.program?.currentBestGuardrail).success
+    || !designSeedSchema.safeParse(manifest.seed?.source).success
     || !/^[0-9a-f]{64}$/.test(manifest.seed?.sourceBlueprintHash ?? "")
     || !/^[0-9a-f]{64}$/.test(manifest.seed?.blueprintHash ?? "")
     || typeof manifest.seed?.evaluation !== "object"
@@ -531,7 +548,7 @@ export async function runDesignProgram(
         evaluationId: `candidate-${iteration}`,
         onProgress: benchmarkProgress("candidate", iteration),
       });
-      const decisionEvidence = currentBestDecisionEvidence(bestEvaluation, evaluation);
+      const decisionEvidence = currentBestDecisionEvidence(bestEvaluation, evaluation, program.currentBestGuardrail);
       const keep = decisionEvidence.basis === "current-best-improvement";
       iterations.push({
         iteration,
@@ -585,7 +602,7 @@ export async function runDesignProgram(
     status: "completed",
     engineVersion: ENGINE_VERSION,
     project: brief.project.id,
-    program: { id: program.id, hash: brief.program.programHash },
+    program: { id: program.id, hash: brief.program.programHash, currentBestGuardrail: structuredClone(program.currentBestGuardrail) },
     benchmark: { id: benchmark.id, contractHash: benchmark.lock!.contractHash },
     seed: { ...structuredClone(brief.seed), evaluation: seedEvaluation },
     promotionBase: { ...brief.promotionBase },
