@@ -1,6 +1,6 @@
 # Loss intervention portfolio
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/fab-loss-attribution]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], and [[docs/design/coding-agent-optimization]].
 
@@ -75,4 +75,6 @@ The Blueprint model already owns explicit `preventiveMaintenance` and `setupCamp
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Shipped in `db2c0e5` (`feat: diversify fab loss interventions`). Project proposal-provider API V3 now carries every earlier Core-validated target, and memory-fab spends its bounded search budget across least-attempted current losses. Existing Blueprint maintenance and setup controls became explicit decision families and project-local candidates; the real six-round run kept four distinct interventions and improved the locked aggregate by `+35.817909` without bypassing Candidate review.
+
+The improved fab exposes `batch-formation` in its later loss chain, but this plan deliberately did not invent an unmeasured response after completing its researched portfolio. That follow-up is separately indexed as [[plans/batch-formation-design-intervention]].
