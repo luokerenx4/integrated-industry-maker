@@ -716,7 +716,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
   .breadcrumb span, .breadcrumb b { display: none; }
   .header-project h1 { max-width: calc(100vw - 86px); font-size: 13px; }
   .project-nav { grid-row: 2; width: 100%; display: grid; grid-template-columns: repeat(6, minmax(64px, 1fr)); gap: 0; margin: 0; overflow-x: auto; border-top: 1px solid #132a31; }
-  .project-nav a { min-width: 64px; justify-content: center; padding-inline: 5px; font-size: 7px; }
+  .project-nav a { min-width: 64px; min-height: 44px; justify-content: center; padding-inline: 5px; font-size: 7px; }
   .project-nav a b { display: none; }
   .header-tools { display: none; }
   .workspace { grid-template-columns: 1fr; }
@@ -778,7 +778,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
   .recommendation-index { display: none; }
   .recommendation-copy h3 { font-size: 18px; }
   .recommendation-copy p { font-size: 10px; }
-  .operator-recommendation > button { width: 100%; min-width: 0; }
+  .operator-recommendation > button { width: 100%; min-width: 0; min-height: 44px; }
   .selection-disclosure > summary { grid-template-columns: 1fr auto; gap: 7px 12px; }
   .selection-disclosure > summary code { grid-column: 1 / -1; grid-row: 2; }
   .selection-disclosure > summary > b { grid-column: 2; grid-row: 1; }
