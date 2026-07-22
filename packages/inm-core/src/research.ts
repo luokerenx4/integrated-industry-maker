@@ -1071,6 +1071,20 @@ function plannedCapacityCandidates(input: ResearchInput): StrategyCandidate[] {
   });
 }
 
+function plannedToolsetCapacityCandidates(input: ResearchInput): StrategyCandidate[] {
+  return input.capacityPlan.toolsets.filter((toolset) => toolset.minimumAdditionalDevices > 0).flatMap((toolset) => {
+    const selected = [...toolset.devices].sort((left, right) => right.qualifiedOperations.length - left.qualifiedOperations.length
+      || right.allocatedDeviceTicksPerMinute - left.allocatedDeviceTicksPerMinute || left.device.localeCompare(right.device))[0];
+    const original = selected ? input.project.devices[selected.device] : undefined;
+    if (!original) return [];
+    const strategy = `toolset-capacity:${toolset.id}:${toolset.devices.length}->${toolset.devices.length + 1}`;
+    const candidate = duplicateProcessorCandidate(input, original,
+      `the ${toolset.id} qualification matrix cannot allocate ${(toolset.unallocatedDeviceTicksPerMinute / 60_000).toFixed(3)} machine-equivalents across ${toolset.operations.map((operation) => `${operation.process}/${operation.mode}`).join(" + ")}`,
+      strategy);
+    return candidate ? [candidate] : [];
+  });
+}
+
 function workCenterSpecializationCandidates(input: ResearchInput): StrategyCandidate[] {
   return input.blueprint.devices.filter((device) => (device.recipes?.length ?? 0) > 1).flatMap((device) => {
     const compiled = input.project.devices[device.id];
@@ -1096,7 +1110,7 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
       ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationHighSpeedCandidates(input), ...stationCandidates(input), ...stationChargeCandidates(input),
-      ...recipeCandidates(input), ...plannedCapacityCandidates(input), ...workCenterSpecializationCandidates(input),
+      ...recipeCandidates(input), ...plannedToolsetCapacityCandidates(input), ...plannedCapacityCandidates(input), ...workCenterSpecializationCandidates(input),
     ];
     const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;

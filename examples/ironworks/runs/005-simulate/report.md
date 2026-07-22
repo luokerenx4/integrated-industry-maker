@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.090**
-- Result hash: `cda00d06e78eaca37d55c5154de69813dfdd5ec4b7737746e27c7e33cda3cf1e`
+- Result hash: `17e821034b23d62eaee60ef7d99a84a87ad57a0d795ab97bf3595ee0f6825a79`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
@@ -31,7 +31,7 @@
 
 ## Capacity-plan gaps
 
-- **extraction** `iron-ore`: iron-ore extraction is short by 240.000/min; add 1 extractor(s)
+- **extraction** `iron-ore`: iron-ore supply is short by 240.000/min after 0.000/min scheduled lot releases; add 1 extractor(s)
 
 ## Measured transport flows
 

@@ -118,6 +118,8 @@ See [project format](docs/PROJECT_FORMAT.md), the complete [Ironworks example](e
 
 ## Architecture
 
+The capacity plan treats flexible equipment as finite qualified toolsets: Objective-required device-time is allocated across exact Process/mode qualifications instead of lending one work center's full clock to every route step. Scenario-scheduled tracked lots are fixed external supply, while actual release blocking, setup, maintenance, utilities, failures, and queueing remain event-simulation concerns.
+
 ```text
 Project files
   → strict schema validation

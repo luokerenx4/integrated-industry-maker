@@ -427,6 +427,12 @@ interface CapacityPlan {
     inputsPerMinute: Record<string, number>; outputsPerMinute: Record<string, number>; capacityPerMachine: number; configuredMachines: number; configuredCapacityPerMinute: number;
     requiredMachines: number; additionalMachines: number; region: string; powerMilliWattsPerMachine: number; minimumInputTreatmentLevel: number;
   }>;
+  toolsets: Array<{
+    id: string; asset: string; region: string; requiredDeviceTicksPerMinute: number; configuredDeviceTicksPerMinute: number;
+    allocatedDeviceTicksPerMinute: number; unallocatedDeviceTicksPerMinute: number; utilization: number; minimumAdditionalDevices: number;
+    operations: Array<{ process: string; mode: string; requiredDeviceTicksPerMinute: number; allocatedDeviceTicksPerMinute: number; unallocatedDeviceTicksPerMinute: number; qualifiedDevices: string[] }>;
+    devices: Array<{ device: string; allocatedDeviceTicksPerMinute: number; utilization: number; qualifiedOperations: string[] }>;
+  }>;
   treatments: Array<{
     process: string; mode: string; resource: string; region: string; minimumLevel: number; asset: string; treatmentMode: string; agentResource: string;
     requiredItemsPerMinute: number; requiredAgentPerMinute: number; capacityPerDevice: number; requiredDevices: number; configuredDevices: number;
@@ -434,8 +440,9 @@ interface CapacityPlan {
   }>;
   rawResources: Array<{
     resource: string; processDemandPerMinute: number; infrastructureDemandPerMinute: number; totalDemandPerMinute: number;
-    configuredExtractors: number; configuredExtractionPerMinute: number; extractionDeficitPerMinute: number; additionalExtractors: number;
-    finiteReserve: number; lifetimeMinutes: number | null; scenarioDemand: number; reserveAfterScenario: number;
+    configuredExtractors: number; configuredExtractionPerMinute: number; scheduledSupply: number; scheduledSupplyPerMinute: number;
+    configuredSupplyPerMinute: number; supplyDeficitPerMinute: number; additionalExtractors: number;
+    finiteReserve: number; lifetimeMinutes: number | null; scenarioDemand: number; scenarioSupply: number; scenarioBalance: number;
   }>;
   transport: Array<{ direction: "input" | "output"; process: string; resource: string; devices: string[]; connections: string[]; requiredItemsPerMinute: number; configuredCapacityPerMinute: number; capacityDeficitPerMinute: number }>;
   stationNetworks: Array<{ network: string; resource: string; routes: string[]; requiredItemsPerMinute: number; perCarrierItemsPerMinute: number; energyLimitedItemsPerMinute: number; configuredItemsPerMinute: number; requiredCarriers: number; configuredCarriers: number; additionalCarriers: number; additionalChargeMilliWatts: number }>;
@@ -1132,12 +1139,17 @@ function AnalysisBrowser({ data, onClose }: { data: StudioData; onClose: () => v
             <div className="pipeline-head"><span><strong>{process.process} / {process.mode}</strong><small>{process.region} · {process.asset} · {Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")} → {Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(2)} ${resource}/min`).join(" + ")}</small></span><b>{process.configuredMachines} / {process.requiredMachines} MACHINES</b></div>
             <footer><span>CAPACITY {process.configuredCapacityPerMinute.toFixed(2)} / {process.requiredOutputPerMinute.toFixed(2)}/MIN</span><span>{process.additionalMachines ? `ADD ${process.additionalMachines} ${process.asset.toUpperCase()}` : "CAPACITY READY"}</span><span>{(process.powerMilliWattsPerMachine / 1000).toFixed(0)} W / MACHINE</span></footer>
           </div>)}</div>
+          <div className="analysis-section-title"><span>QUALIFIED TOOLSET ALLOCATION</span><b>{plan.toolsets.length} SHARED TOOLSETS</b></div>
+          <div className="pipeline-list">{plan.toolsets.map((toolset) => <div className="pipeline-card" key={toolset.id}>
+            <div className="pipeline-head"><span><strong>{toolset.id}</strong><small>{toolset.operations.map((operation) => `${operation.process}/${operation.mode}: ${(operation.allocatedDeviceTicksPerMinute / 60_000).toFixed(2)}/${(operation.requiredDeviceTicksPerMinute / 60_000).toFixed(2)} machine-eq`).join(" · ")}</small></span><b className={toolset.unallocatedDeviceTicksPerMinute > 0 ? "negative" : "positive"}>{(toolset.allocatedDeviceTicksPerMinute / 60_000).toFixed(2)} / {(toolset.requiredDeviceTicksPerMinute / 60_000).toFixed(2)} ALLOCATED</b></div>
+            <footer><span>{toolset.devices.length} PHYSICAL DEVICES · {(toolset.utilization * 100).toFixed(1)}% INSTALLED LOAD</span><span>{toolset.minimumAdditionalDevices ? `ADD ${toolset.minimumAdditionalDevices} QUALIFIED ${toolset.asset.toUpperCase()}` : "QUALIFICATION READY"}</span><span>{toolset.devices.map((device) => `${device.device} ${(device.utilization * 100).toFixed(0)}%`).join(" · ")}</span></footer>
+          </div>)}</div>
           <div className="pipeline-list">{plan.treatments.map((treatment) => <div className="pipeline-card" key={`${treatment.process}-${treatment.resource}-${treatment.minimumLevel}`}>
             <div className="pipeline-head"><span><strong>{treatment.resource}@{treatment.minimumLevel}+ treatment</strong><small>{treatment.process} / {treatment.mode} · {treatment.asset} / {treatment.treatmentMode} · {treatment.region}</small></span><b>{treatment.configuredDevices} / {treatment.requiredDevices} COATERS</b></div>
             <footer><span>{treatment.requiredItemsPerMinute.toFixed(2)} ITEMS/MIN</span><span>{treatment.requiredAgentPerMinute.toFixed(2)} {treatment.agentResource.toUpperCase()}/MIN</span><span>{treatment.additionalDevices ? `ADD ${treatment.additionalDevices}` : "TREATMENT READY"}</span></footer>
           </div>)}</div>
-          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACTION</span><span>RESERVE AFTER RUN</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>
-            <strong>{resource.resource}</strong><span>{resource.totalDemandPerMinute.toFixed(3)}</span><span>{resource.configuredExtractionPerMinute.toFixed(3)}</span><b className={resource.reserveAfterScenario < 0 ? "negative" : "positive"}>{resource.reserveAfterScenario.toFixed(3)}</b><small>{resource.lifetimeMinutes === null ? "∞" : `${resource.lifetimeMinutes.toFixed(2)} min lifetime`}</small>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACT + SCHEDULE</span><span>SCENARIO BALANCE</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>
+            <strong>{resource.resource}</strong><span>{resource.totalDemandPerMinute.toFixed(3)}</span><span>{resource.configuredExtractionPerMinute.toFixed(3)} + {resource.scheduledSupplyPerMinute.toFixed(3)}</span><b className={resource.scenarioBalance < 0 ? "negative" : "positive"}>{resource.scenarioBalance.toFixed(3)}</b><small>{resource.scheduledSupply} scheduled lots · {resource.lifetimeMinutes === null ? "no deposit" : `${resource.lifetimeMinutes.toFixed(2)} min deposit lifetime`}</small>
           </div>)}</div>
           <div className="pipeline-list">{plan.power.map((power) => <div className="pipeline-card" key={`plan-power-${power.region}`}>
             <div className="pipeline-head"><span><strong>{power.region} temporal power</strong><small>Scenario generated {(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)} / demanded {(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ · curtailed {(power.scenarioCurtailedMilliJoules / 1e6).toFixed(3)} MJ</small></span><b className={power.scenarioUnservedMilliJoules > 0 ? "negative" : "positive"}>{(power.scenarioUnservedMilliJoules / 1e6).toFixed(3)} MJ UNSERVED</b></div>

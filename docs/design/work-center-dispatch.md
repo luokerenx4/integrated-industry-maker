@@ -2,7 +2,7 @@
 
 Status: multi-operation qualification plus operation-, lot-, fixed-batch-, setup-campaign-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.55.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
 ## Why this exists
 
@@ -41,7 +41,9 @@ The event stream records the selected Process id and tracked lot ids in `device.
 
 ## Static analysis boundary
 
-`inm analyze` emits one row per qualified operation. Its cycles/min value is an exclusive maximum: the rate if that operation owned the work center continuously. A `shared-work-center` diagnostic names the dispatch policy and warns that those maxima cannot run simultaneously. Material-balance and capacity planning enumerate every qualified operation, but the first implementation does not yet solve a coupled allocation variable across all operations on one physical Device. Locked event simulation is therefore the score authority for re-entrant work-center optimization.
+`inm analyze` emits one row per qualified operation. Its cycles/min value is an exclusive maximum: the rate if that operation owned the work center continuously. A `shared-work-center` diagnostic names the dispatch policy and warns that those maxima cannot run simultaneously. `inm plan` separately allocates the Objective-required device-time across the complete Process/mode-to-Device qualification matrix, so two operations cannot each borrow the same physical work center at 100%. A remaining deficit is a `toolset` gap and recommends additional qualified physical Devices. See [[docs/design/fab-capacity-planning]].
+
+The static allocation intentionally excludes sequence-dependent setup, batch formation, maintenance, failures, utility/tooling waits, and queue policy. Locked event simulation remains the score authority for those temporal effects and for re-entrant work-center optimization.
 
 Fixed full-batch formation, bounded setup campaigns, physical work-center specialization, and usage-based preventive maintenance are now executable; see [[docs/design/batch-processing]], [[docs/design/setup-campaign-control]], [[docs/design/work-center-specialization]], and [[docs/design/usage-based-maintenance]]. The next industrial layers should make that coupling richer rather than hide it: chamber cleaning consumables, qualification expiry, repair crew/spare capacity, and stochastic-but-seeded yield.
 

@@ -26,6 +26,32 @@ export interface ProcessCapacityRequirement {
   minimumInputTreatmentLevel: number;
 }
 
+export interface ToolsetCapacityRequirement {
+  id: string;
+  asset: string;
+  region: string;
+  requiredDeviceTicksPerMinute: number;
+  configuredDeviceTicksPerMinute: number;
+  allocatedDeviceTicksPerMinute: number;
+  unallocatedDeviceTicksPerMinute: number;
+  utilization: number;
+  minimumAdditionalDevices: number;
+  operations: Array<{
+    process: string;
+    mode: string;
+    requiredDeviceTicksPerMinute: number;
+    allocatedDeviceTicksPerMinute: number;
+    unallocatedDeviceTicksPerMinute: number;
+    qualifiedDevices: string[];
+  }>;
+  devices: Array<{
+    device: string;
+    allocatedDeviceTicksPerMinute: number;
+    utilization: number;
+    qualifiedOperations: string[];
+  }>;
+}
+
 export interface TreatmentCapacityRequirement {
   process: string;
   mode: string;
@@ -51,12 +77,16 @@ export interface RawCapacityRequirement {
   totalDemandPerMinute: number;
   configuredExtractors: number;
   configuredExtractionPerMinute: number;
-  extractionDeficitPerMinute: number;
+  scheduledSupply: number;
+  scheduledSupplyPerMinute: number;
+  configuredSupplyPerMinute: number;
+  supplyDeficitPerMinute: number;
   additionalExtractors: number;
   finiteReserve: number;
   lifetimeMinutes: number | null;
   scenarioDemand: number;
-  reserveAfterScenario: number;
+  scenarioSupply: number;
+  scenarioBalance: number;
 }
 
 export interface TransportCapacityRequirement {
@@ -107,17 +137,119 @@ export interface ProductionCapacityPlan {
   scenarioMinutes: number;
   targetItemsForScenario: number;
   processes: ProcessCapacityRequirement[];
+  toolsets: ToolsetCapacityRequirement[];
   treatments: TreatmentCapacityRequirement[];
   rawResources: RawCapacityRequirement[];
   transport: TransportCapacityRequirement[];
   stationNetworks: StationCapacityRequirement[];
   power: PowerCapacityRequirement[];
-  gaps: Array<{ kind: "process" | "treatment" | "extraction" | "transport" | "station" | "power" | "reserve"; entity: string; message: string }>;
+  gaps: Array<{ kind: "process" | "toolset" | "treatment" | "extraction" | "transport" | "station" | "power" | "reserve"; entity: string; message: string }>;
   ready: boolean;
 }
 
 function add(target: Record<string, number>, key: string, value: number): void {
   target[key] = (target[key] ?? 0) + value;
+}
+
+interface FlowEdge { to: number; reverse: number; capacity: number; initialCapacity: number }
+
+function addFlowEdge(graph: FlowEdge[][], from: number, to: number, capacity: number): FlowEdge {
+  const forward: FlowEdge = { to, reverse: graph[to]!.length, capacity, initialCapacity: capacity };
+  const reverse: FlowEdge = { to: from, reverse: graph[from]!.length, capacity: 0, initialCapacity: 0 };
+  graph[from]!.push(forward);
+  graph[to]!.push(reverse);
+  return forward;
+}
+
+function allocateToolsets(project: CompiledFactoryProject, processes: ProcessCapacityRequirement[]): ToolsetCapacityRequirement[] {
+  const grouped = new Map<string, ProcessCapacityRequirement[]>();
+  for (const process of processes) {
+    const key = `${process.region}\0${process.asset}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), process]);
+  }
+  return [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right)).flatMap(([key, unsorted]) => {
+    const operations = [...unsorted].sort((left, right) => left.process.localeCompare(right.process) || left.mode.localeCompare(right.mode));
+    if (operations.length < 2) return [];
+    const [region, asset] = key.split("\0") as [string, string];
+    const devices = Object.values(project.devices).filter((device) => device.region === region && device.asset === asset
+      && operations.some((operation) => device.processPlans.some((plan) => plan.definition.id === operation.process && plan.mode.id === operation.mode)))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const source = 0;
+    const operationOffset = 1;
+    const deviceOffset = operationOffset + operations.length;
+    const sink = deviceOffset + devices.length;
+    const graph: FlowEdge[][] = Array.from({ length: sink + 1 }, () => []);
+    const operationDemands = operations.map((operation) => {
+      const template = project.devices[operation.templateDevice]!;
+      const plan = template.processPlans.find((candidate) => candidate.definition.id === operation.process && candidate.mode.id === operation.mode)!;
+      return operation.requiredCyclesPerMinute * plan.durationTicks;
+    });
+    const operationDeviceEdges = new Map<string, FlowEdge>();
+    for (const [operationIndex, operation] of operations.entries()) {
+      addFlowEdge(graph, source, operationOffset + operationIndex, operationDemands[operationIndex]!);
+      for (const [deviceIndex, device] of devices.entries()) {
+        if (!device.processPlans.some((plan) => plan.definition.id === operation.process && plan.mode.id === operation.mode)) continue;
+        operationDeviceEdges.set(`${operationIndex}:${deviceIndex}`,
+          addFlowEdge(graph, operationOffset + operationIndex, deviceOffset + deviceIndex, operationDemands[operationIndex]!));
+      }
+    }
+    for (const deviceIndex of devices.keys()) addFlowEdge(graph, deviceOffset + deviceIndex, sink, 60_000);
+    let allocated = 0;
+    while (true) {
+      const parentNode = Array<number>(graph.length).fill(-1);
+      const parentEdge = Array<number>(graph.length).fill(-1);
+      const queue = [source]; parentNode[source] = source;
+      for (let cursor = 0; cursor < queue.length && parentNode[sink]! < 0; cursor++) {
+        const node = queue[cursor]!;
+        for (const [edgeIndex, edge] of graph[node]!.entries()) {
+          if (edge.capacity <= 1e-9 || parentNode[edge.to]! >= 0) continue;
+          parentNode[edge.to] = node; parentEdge[edge.to] = edgeIndex; queue.push(edge.to);
+          if (edge.to === sink) break;
+        }
+      }
+      if (parentNode[sink]! < 0) break;
+      let increment = Number.POSITIVE_INFINITY;
+      for (let node = sink; node !== source; node = parentNode[node]!) increment = Math.min(increment, graph[parentNode[node]!]![parentEdge[node]!]!.capacity);
+      for (let node = sink; node !== source; node = parentNode[node]!) {
+        const edge = graph[parentNode[node]!]![parentEdge[node]!]!;
+        edge.capacity -= increment;
+        graph[node]![edge.reverse]!.capacity += increment;
+      }
+      allocated += increment;
+    }
+    const allocatedByOperation = operations.map((_, operationIndex) => devices.reduce((sum, __, deviceIndex) => {
+      const edge = operationDeviceEdges.get(`${operationIndex}:${deviceIndex}`);
+      return sum + (edge ? edge.initialCapacity - edge.capacity : 0);
+    }, 0));
+    const allocatedByDevice = devices.map((_, deviceIndex) => operations.reduce((sum, __, operationIndex) => {
+      const edge = operationDeviceEdges.get(`${operationIndex}:${deviceIndex}`);
+      return sum + (edge ? edge.initialCapacity - edge.capacity : 0);
+    }, 0));
+    const required = operationDemands.reduce((sum, demand) => sum + demand, 0);
+    const unallocated = Math.max(0, required - allocated);
+    return [{
+      id: `${region}:${asset}`, asset, region,
+      requiredDeviceTicksPerMinute: required,
+      configuredDeviceTicksPerMinute: devices.length * 60_000,
+      allocatedDeviceTicksPerMinute: allocated,
+      unallocatedDeviceTicksPerMinute: unallocated,
+      utilization: devices.length ? allocated / (devices.length * 60_000) : 0,
+      minimumAdditionalDevices: Math.ceil(unallocated / 60_000 - 1e-9),
+      operations: operations.map((operation, operationIndex) => ({
+        process: operation.process, mode: operation.mode,
+        requiredDeviceTicksPerMinute: operationDemands[operationIndex]!,
+        allocatedDeviceTicksPerMinute: allocatedByOperation[operationIndex]!,
+        unallocatedDeviceTicksPerMinute: Math.max(0, operationDemands[operationIndex]! - allocatedByOperation[operationIndex]!),
+        qualifiedDevices: devices.filter((device) => device.processPlans.some((plan) => plan.definition.id === operation.process && plan.mode.id === operation.mode)).map((device) => device.id),
+      })),
+      devices: devices.map((device, deviceIndex) => ({
+        device: device.id, allocatedDeviceTicksPerMinute: allocatedByDevice[deviceIndex]!,
+        utilization: allocatedByDevice[deviceIndex]! / 60_000,
+        qualifiedOperations: operations.filter((operation) => device.processPlans.some((plan) => plan.definition.id === operation.process && plan.mode.id === operation.mode))
+          .map((operation) => `${operation.process}/${operation.mode}`),
+      })),
+    }];
+  });
 }
 
 export function planProductionCapacity(project: CompiledFactoryProject): ProductionCapacityPlan {
@@ -149,30 +281,49 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   });
   const rawProcessDemand = demandPlan.rawDemandPerMinute;
 
-  const processes: ProcessCapacityRequirement[] = demandPlan.processes.map((row) => {
+  const processes: ProcessCapacityRequirement[] = demandPlan.processes.flatMap((row) => {
     const template = row.candidate.data.template;
     const primaryOutput = row.candidate.outputs.find((amount) => amount.resource === row.primaryResource)!;
     const plan = row.candidate.data.processPlan;
-    const matching = Object.values(project.devices).filter((device) => device.asset === template.asset
+    const allMatching = Object.values(project.devices).filter((device) => device.asset === template.asset
       && device.processPlans.some((candidate) => candidate.definition.id === plan.definition.id && candidate.mode.id === plan.mode.id));
-    const configuredCapacityPerMinute = matching.reduce((sum, device) => {
-      const matchingPlan = device.processPlans.find((candidate) => candidate.definition.id === plan.definition.id && candidate.mode.id === plan.mode.id)!;
-      const output = matchingPlan.outputs.find((amount) => amount.resource === row.primaryResource)?.count ?? 0;
-      return sum + output * 60_000 / matchingPlan.durationTicks;
-    }, 0);
     const capacityPerMachine = primaryOutput.count * 60_000 / plan.durationTicks;
     const cyclesPerMachine = 60_000 / plan.durationTicks;
-    const requiredMachines = Math.ceil(row.requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
-    const additionalMachines = Math.max(0, requiredMachines - matching.length);
-    return {
-      resource: row.primaryResource, process: plan.definition.id, mode: plan.mode.id, asset: template.asset, templateDevice: template.id,
-      requiredOutputPerMinute: row.outputsPerMinute[row.primaryResource]!, requiredCyclesPerMinute: row.requiredCyclesPerMinute,
-      inputsPerMinute: row.inputsPerMinute, outputsPerMinute: row.outputsPerMinute,
-      outputPerCycle: primaryOutput.count, capacityPerMachine, configuredMachines: matching.length, configuredCapacityPerMinute,
-      requiredMachines, additionalMachines, region: template.region, powerMilliWattsPerMachine: plan.powerMilliWatts,
-      minimumInputTreatmentLevel: plan.mode.minimumInputTreatmentLevel,
-    };
-  }).sort((a, b) => a.process.localeCompare(b.process) || a.resource.localeCompare(b.resource));
+    const matchingByRegion = new Map<string, typeof allMatching>();
+    for (const device of allMatching) matchingByRegion.set(device.region, [...(matchingByRegion.get(device.region) ?? []), device]);
+    const targetRegion = project.objective.targetRegion;
+    const regions = row.primaryResource === project.objective.targetResource
+      ? [targetRegion]
+      : [...matchingByRegion.keys()].sort();
+    const totalConfiguredCycles = regions.reduce((sum, region) => sum + (matchingByRegion.get(region)?.length ?? 0) * cyclesPerMachine, 0);
+    return regions.map((region, regionIndex) => {
+      const matching = matchingByRegion.get(region) ?? [];
+      const requiredCyclesPerMinute = regionIndex === regions.length - 1
+        ? row.requiredCyclesPerMinute - regions.slice(0, regionIndex).reduce((sum, previousRegion) =>
+          sum + row.requiredCyclesPerMinute * (matchingByRegion.get(previousRegion)?.length ?? 0) * cyclesPerMachine / totalConfiguredCycles, 0)
+        : totalConfiguredCycles > 0
+          ? row.requiredCyclesPerMinute * matching.length * cyclesPerMachine / totalConfiguredCycles
+          : row.requiredCyclesPerMinute;
+      const scale = row.requiredCyclesPerMinute > 0 ? requiredCyclesPerMinute / row.requiredCyclesPerMinute : 0;
+      const configuredCapacityPerMinute = matching.reduce((sum, device) => {
+        const matchingPlan = device.processPlans.find((candidate) => candidate.definition.id === plan.definition.id && candidate.mode.id === plan.mode.id)!;
+        const output = matchingPlan.outputs.find((amount) => amount.resource === row.primaryResource)?.count ?? 0;
+        return sum + output * 60_000 / matchingPlan.durationTicks;
+      }, 0);
+      const requiredMachines = Math.ceil(requiredCyclesPerMinute / cyclesPerMachine - 1e-9);
+      return {
+        resource: row.primaryResource, process: plan.definition.id, mode: plan.mode.id, asset: template.asset,
+        templateDevice: matching[0]?.id ?? template.id,
+        requiredOutputPerMinute: row.outputsPerMinute[row.primaryResource]! * scale, requiredCyclesPerMinute,
+        inputsPerMinute: Object.fromEntries(Object.entries(row.inputsPerMinute).map(([resource, rate]) => [resource, rate * scale])),
+        outputsPerMinute: Object.fromEntries(Object.entries(row.outputsPerMinute).map(([resource, rate]) => [resource, rate * scale])),
+        outputPerCycle: primaryOutput.count, capacityPerMachine, configuredMachines: matching.length, configuredCapacityPerMinute,
+        requiredMachines, additionalMachines: Math.max(0, requiredMachines - matching.length), region,
+        powerMilliWattsPerMachine: plan.powerMilliWatts, minimumInputTreatmentLevel: plan.mode.minimumInputTreatmentLevel,
+      };
+    });
+  }).sort((a, b) => a.process.localeCompare(b.process) || a.region.localeCompare(b.region) || a.resource.localeCompare(b.resource));
+  const toolsets = allocateToolsets(project, processes);
 
   const treatments: TreatmentCapacityRequirement[] = processes.flatMap((requirement) => {
     if (requirement.minimumInputTreatmentLevel <= 0) return [];
@@ -211,20 +362,24 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const processDemandPerMinute = rawProcessDemand[resource] ?? 0;
     const infrastructureDemandPerMinute = infrastructureDemand[resource] ?? 0;
     const totalDemandPerMinute = processDemandPerMinute + infrastructureDemandPerMinute;
-    const extractionDeficitPerMinute = Math.max(0, totalDemandPerMinute - configuredExtractionPerMinute);
-    const additionalExtractors = extractionDeficitPerMinute > 0 && perExtractor > 0 ? Math.ceil(extractionDeficitPerMinute / perExtractor - 1e-9) : extractionDeficitPerMinute > 0 ? 1 : 0;
+    const scheduledSupply = (project.scenario.lotReleases ?? []).filter((lot) => lot.resource === resource).length;
+    const scheduledSupplyPerMinute = scenarioMinutes > 0 ? scheduledSupply / scenarioMinutes : 0;
+    const configuredSupplyPerMinute = configuredExtractionPerMinute + scheduledSupplyPerMinute;
+    const supplyDeficitPerMinute = Math.max(0, totalDemandPerMinute - configuredSupplyPerMinute);
+    const additionalExtractors = supplyDeficitPerMinute > 0 && perExtractor > 0 ? Math.ceil(supplyDeficitPerMinute / perExtractor - 1e-9) : supplyDeficitPerMinute > 0 ? 1 : 0;
     const finiteReserve = Object.values(project.resourceNodes).filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
     const scenarioDemand = totalDemandPerMinute * scenarioMinutes;
     return {
       resource, processDemandPerMinute, infrastructureDemandPerMinute, totalDemandPerMinute,
-      configuredExtractors: extractors.length, configuredExtractionPerMinute, extractionDeficitPerMinute, additionalExtractors,
-      finiteReserve, lifetimeMinutes: totalDemandPerMinute > 0 ? finiteReserve / totalDemandPerMinute : null,
-      scenarioDemand, reserveAfterScenario: finiteReserve - scenarioDemand,
+      configuredExtractors: extractors.length, configuredExtractionPerMinute,
+      scheduledSupply, scheduledSupplyPerMinute, configuredSupplyPerMinute, supplyDeficitPerMinute, additionalExtractors,
+      finiteReserve, lifetimeMinutes: finiteReserve > 0 && totalDemandPerMinute > 0 ? finiteReserve / totalDemandPerMinute : null,
+      scenarioDemand, scenarioSupply: finiteReserve + scheduledSupply, scenarioBalance: finiteReserve + scheduledSupply - scenarioDemand,
     };
   });
 
   const transport: TransportCapacityRequirement[] = processes.flatMap((requirement) => {
-    const devices = Object.values(project.devices).filter((device) => device.asset === requirement.asset
+    const devices = Object.values(project.devices).filter((device) => device.region === requirement.region && device.asset === requirement.asset
       && device.processPlans.some((plan) => plan.definition.id === requirement.process && plan.mode.id === requirement.mode));
     const ids = new Set(devices.map((device) => device.id));
     const rows: TransportCapacityRequirement[] = [];
@@ -312,7 +467,15 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   }).sort((a, b) => a.network.localeCompare(b.network) || a.source.localeCompare(b.source) || a.resource.localeCompare(b.resource));
 
   const requiredPowerByRegion: Record<string, number> = {};
-  for (const process of processes) add(requiredPowerByRegion, process.region, process.requiredMachines * process.powerMilliWattsPerMachine);
+  const toolsetOperations = new Set(toolsets.flatMap((toolset) => toolset.operations.map((operation) => `${toolset.region}\0${toolset.asset}\0${operation.process}\0${operation.mode}`)));
+  for (const toolset of toolsets) {
+    const maximumPower = Math.max(...toolset.operations.map((operation) => processes.find((process) => process.region === toolset.region && process.asset === toolset.asset
+      && process.process === operation.process && process.mode === operation.mode)!.powerMilliWattsPerMachine));
+    add(requiredPowerByRegion, toolset.region, Math.ceil(toolset.requiredDeviceTicksPerMinute / 60_000 - 1e-9) * maximumPower);
+  }
+  for (const process of processes) if (!toolsetOperations.has(`${process.region}\0${process.asset}\0${process.process}\0${process.mode}`)) {
+    add(requiredPowerByRegion, process.region, process.requiredMachines * process.powerMilliWattsPerMachine);
+  }
   for (const treatment of treatments) add(requiredPowerByRegion, treatment.region,
     treatment.requiredDevices * project.deviceAssets[treatment.asset]!.power.activeMilliWatts);
   for (const raw of rawResources) {
@@ -361,13 +524,17 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
 
   const gaps: ProductionCapacityPlan["gaps"] = [];
   for (const process of processes) if (process.additionalMachines > 0) gaps.push({ kind: "process", entity: process.process, message: `${process.process} needs ${process.requiredMachines} ${process.asset} but configures ${process.configuredMachines}; add ${process.additionalMachines}` });
+  for (const toolset of toolsets) if (toolset.unallocatedDeviceTicksPerMinute > 1e-9) gaps.push({
+    kind: "toolset", entity: toolset.id,
+    message: `${toolset.id} qualification load leaves ${(toolset.unallocatedDeviceTicksPerMinute / 60_000).toFixed(3)} machine-equivalents unallocated across ${toolset.operations.map((operation) => `${operation.process}/${operation.mode}`).join(" + ")}; add ${toolset.minimumAdditionalDevices} qualified ${toolset.asset}`,
+  });
   for (const treatment of treatments) if (treatment.additionalDevices > 0) gaps.push({
     kind: "treatment", entity: `${treatment.process}:${treatment.resource}@${treatment.minimumLevel}`,
     message: `${treatment.process} needs ${treatment.requiredDevices} ${treatment.asset}/${treatment.treatmentMode} for ${treatment.requiredItemsPerMinute.toFixed(3)} ${treatment.resource}@${treatment.minimumLevel}+/min but configures ${treatment.configuredDevices}; add ${treatment.additionalDevices}`,
   });
   for (const raw of rawResources) {
-    if (raw.extractionDeficitPerMinute > 1e-9) gaps.push({ kind: "extraction", entity: raw.resource, message: `${raw.resource} extraction is short by ${raw.extractionDeficitPerMinute.toFixed(3)}/min; add ${raw.additionalExtractors} extractor(s)` });
-    if (raw.reserveAfterScenario < -1e-9) gaps.push({ kind: "reserve", entity: raw.resource, message: `${raw.resource} reserve is short by ${(-raw.reserveAfterScenario).toFixed(3)} items over the scenario` });
+    if (raw.supplyDeficitPerMinute > 1e-9) gaps.push({ kind: "extraction", entity: raw.resource, message: `${raw.resource} supply is short by ${raw.supplyDeficitPerMinute.toFixed(3)}/min after ${raw.scheduledSupplyPerMinute.toFixed(3)}/min scheduled lot releases; add ${raw.additionalExtractors} extractor(s)` });
+    if (raw.scenarioBalance < -1e-9) gaps.push({ kind: "reserve", entity: raw.resource, message: `${raw.resource} Scenario supply is short by ${(-raw.scenarioBalance).toFixed(3)} items after ${raw.scheduledSupply.toFixed(3)} scheduled lot releases` });
   }
   for (const link of transport) if (link.capacityDeficitPerMinute > 1e-9) gaps.push({ kind: "transport", entity: `${link.process}:${link.direction}:${link.resource}`, message: `${link.process} ${link.direction} transport for ${link.resource} is short by ${link.capacityDeficitPerMinute.toFixed(3)}/min` });
   for (const network of stationNetworks) if (network.additionalCarriers > 0) gaps.push({ kind: "station", entity: network.network, message: `${network.network} needs ${network.requiredCarriers} carriers for ${network.resource}; add ${network.additionalCarriers}` });
@@ -386,6 +553,6 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   return {
     targetResource: project.objective.targetResource, targetRatePerMinute, scenarioMinutes,
     targetItemsForScenario: targetRatePerMinute * scenarioMinutes,
-    processes, treatments, rawResources, transport, stationNetworks, power, gaps, ready: gaps.length === 0,
+    processes, toolsets, treatments, rawResources, transport, stationNetworks, power, gaps, ready: gaps.length === 0,
   };
 }

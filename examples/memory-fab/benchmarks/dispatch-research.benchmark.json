@@ -2,7 +2,7 @@
   "acceptance": {
     "maximumCaseScoreRegression": 2,
     "minimumAggregateScoreDelta": 0.001,
-    "requireCandidateCapacityReady": false
+    "requireCandidateCapacityReady": true
   },
   "baselineBlueprint": "baseline",
   "candidateBlueprint": "experiment",
@@ -59,7 +59,7 @@
       "facility-interruption": {
         "blueprintHash": "517f54dd13d3140b1bd51b6f6edcabc02ba87c6cdc0409bc685357553cc1f6e0",
         "deviceCatalogHash": "5cbf546a48df60ff50409c968d246b7ac67038def7b9a3b5685601dace20c25c",
-        "engineVersion": "inm-sim/0.64.0",
+        "engineVersion": "inm-sim/0.65.0",
         "objectiveHash": "78b966af0b71255251019d78b026bb0f2cd18b845e1de9992ecc5f882a9f508b",
         "processCatalogHash": "49536367d23e02e01f528ca1a00b8411876a28c17288e95e0a627531e77e0ed0",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
@@ -70,7 +70,7 @@
       "lithography-interruption": {
         "blueprintHash": "517f54dd13d3140b1bd51b6f6edcabc02ba87c6cdc0409bc685357553cc1f6e0",
         "deviceCatalogHash": "5cbf546a48df60ff50409c968d246b7ac67038def7b9a3b5685601dace20c25c",
-        "engineVersion": "inm-sim/0.64.0",
+        "engineVersion": "inm-sim/0.65.0",
         "objectiveHash": "78b966af0b71255251019d78b026bb0f2cd18b845e1de9992ecc5f882a9f508b",
         "processCatalogHash": "49536367d23e02e01f528ca1a00b8411876a28c17288e95e0a627531e77e0ed0",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
@@ -81,7 +81,7 @@
       "mixed-quality": {
         "blueprintHash": "517f54dd13d3140b1bd51b6f6edcabc02ba87c6cdc0409bc685357553cc1f6e0",
         "deviceCatalogHash": "5cbf546a48df60ff50409c968d246b7ac67038def7b9a3b5685601dace20c25c",
-        "engineVersion": "inm-sim/0.64.0",
+        "engineVersion": "inm-sim/0.65.0",
         "objectiveHash": "78b966af0b71255251019d78b026bb0f2cd18b845e1de9992ecc5f882a9f508b",
         "processCatalogHash": "49536367d23e02e01f528ca1a00b8411876a28c17288e95e0a627531e77e0ed0",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
@@ -92,7 +92,7 @@
       "quality-excursion": {
         "blueprintHash": "517f54dd13d3140b1bd51b6f6edcabc02ba87c6cdc0409bc685357553cc1f6e0",
         "deviceCatalogHash": "5cbf546a48df60ff50409c968d246b7ac67038def7b9a3b5685601dace20c25c",
-        "engineVersion": "inm-sim/0.64.0",
+        "engineVersion": "inm-sim/0.65.0",
         "objectiveHash": "78b966af0b71255251019d78b026bb0f2cd18b845e1de9992ecc5f882a9f508b",
         "processCatalogHash": "49536367d23e02e01f528ca1a00b8411876a28c17288e95e0a627531e77e0ed0",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
@@ -103,7 +103,7 @@
       "steady-production": {
         "blueprintHash": "517f54dd13d3140b1bd51b6f6edcabc02ba87c6cdc0409bc685357553cc1f6e0",
         "deviceCatalogHash": "5cbf546a48df60ff50409c968d246b7ac67038def7b9a3b5685601dace20c25c",
-        "engineVersion": "inm-sim/0.64.0",
+        "engineVersion": "inm-sim/0.65.0",
         "objectiveHash": "78b966af0b71255251019d78b026bb0f2cd18b845e1de9992ecc5f882a9f508b",
         "processCatalogHash": "49536367d23e02e01f528ca1a00b8411876a28c17288e95e0a627531e77e0ed0",
         "resourceCatalogHash": "24fc8194c85fab62ac82a30f2c07edfe204ed312e2bb4a28926a11cab2fae5af",
@@ -112,7 +112,7 @@
         "worldHash": "603451115e704661d6fd4d09db60b902daa2b560a5b197e01335a9a992318829"
       }
     },
-    "contractHash": "7e2c7b1f97fb1791c259ea329a10bb0572e2e15c4a17812f7958ef5ba13bd604"
+    "contractHash": "dba2a560ad5470f62a019d37699c2ae07badf90e2f847a2070557139ae19740e"
   },
   "name": "DRAM Multi-condition Blueprint Research",
   "version": 1

@@ -633,7 +633,7 @@ await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
     { id: "lithography-interruption", name: "Timed lithography interruption", world: "cleanroom", scenario: "lithography-interruption", objective: "dram-output", seed: 42, weight: 1 },
     { id: "facility-interruption", name: "Timed fab utility interruption", world: "cleanroom", scenario: "facility-interruption", objective: "dram-output", seed: 42, weight: 1 },
   ],
-  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 2, requireCandidateCapacityReady: false },
+  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 2, requireCandidateCapacityReady: true },
 });
 let specializedSource = await loadFactoryProject(project, {
   blueprint: "experiment", world: "cleanroom", scenario: "steady-production", objective: "dram-output",
@@ -680,6 +680,10 @@ await text(autoresearchPath, generatedAutoresearch
     "`reopenAtWip` controls replenishment-wave hysteresis, optional `maximumReleaseDelayTicks` protects admission service without exceeding the cap, and `dispatch` chooses among eligible identities.",
   )
   .replace(
+    "\n\nThe wafer route revisits `lithography-1` and `etch-1`.",
+    "\n\n`inm plan` treats those twelve scheduled blank-wafer lots as fixed external supply over the four-minute Scenario instead of demanding a fictional extractor. It also allocates required lithography and etch device-time across the exact qualification matrix. A shared bay owns one clock even when it qualifies both DRAM layers; the dedicated candidate tools provide separate physical clocks. The benchmark requires every candidate case to report capacity READY, so a score improvement cannot hide a toolset, raw-supply, logistics, utility-power, or other target-rate gap. Setup, maintenance, utility contention, failures, and dispatch-dependent queues are still judged by the locked event simulation.\n\nThe wafer route revisits `lithography-1` and `etch-1`.",
+  )
+  .replace(
     "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.",
     "Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power. Each lithography Process also reserves its own finite physical reticle set from the placed `reticle-stocker-1` for the complete job; power loss retains that reservation and equipment failure traps it until recovery. Reticles remain in provider inventory and are never counted as consumed material. The stocker's project-local Device asset bundles one layer-1 and one layer-2 set into every placed instance, so duplicating it in the Blueprint purchases another complete package with real cost, area, power, and service reach; Scenarios cannot inject free reticles. Optional `policy.setupCampaign` may hold that switch until `minimumReadyLots` are resident, with `maximumHoldTicks` as the starvation guard. Route-owned Q-time windows measure the complete delay from step entry to physical job start; transport, batch formation, setup, maintenance, power loss and tool queues consume the same clock, and a late start adds fixed defects before ordinary inspection/rework/scrap disposition.",
   )
@@ -698,11 +702,19 @@ await text(autoresearchPath, generatedAutoresearch
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
+  )
+  .replace(
+    "The aggregate score must improve, and no individual operating condition may regress by more than the declared gate.",
+    "The aggregate score must improve, every candidate case must remain capacity READY, and no individual operating condition may regress by more than the declared gate.",
   ));
 
 const projectReadmePath = join(project, "README.md");
 const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
+  .replace(
+    "\n\nEquipment condition is equally physical.",
+    "\n\nThe static target-rate planner now models that same equipment boundary: required layer-1 and layer-2 work is fractionally allocated across the physical lithography and etch qualification graphs, while the twelve Scenario-scheduled blank-wafer lots are fixed external supply. The candidate's extra tools reduce each toolset's planned load instead of creating duplicate paper capacity. Capacity READY is a hard gate in all five benchmark cases; time-dependent losses remain simulation-owned.\n\nEquipment condition is equally physical.",
+  )
   .replace(
     "across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption.",
     "across excursion-free production, mixed quality work, a systematic excursion, a timed lithography interruption, and a timed fab-utility interruption. The last condition interlocks affected in-flight work and lets surviving capacity serve subsequent starts.",

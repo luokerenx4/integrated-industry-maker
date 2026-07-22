@@ -15,6 +15,7 @@ Read the relevant linked document before changing a subsystem:
 - Treated material lots, treatment Devices/agents, grade-aware dispatch, and synthesis: [[docs/design/material-treatment]]
 - Standard, accelerated, and productive job semantics: [[docs/design/production-modes]]
 - Multi-operation equipment qualification, re-entrant routes, and ready-WIP dispatch: [[docs/design/work-center-dispatch]]
+- Qualified toolset allocation, scheduled lot supply, and target-rate readiness: [[docs/design/fab-capacity-planning]]
 - Identity-preserving WIP lots, due dates, and cycle-time evaluation: [[docs/design/lot-tracking]]
 - Scheduled lot availability, fab admission, cadence, and release-delay evaluation: [[docs/design/lot-release-scheduling]]
 - Blueprint CONWIP, release waves, WIP cards, and causal admission blocking: [[docs/design/wip-release-control]]

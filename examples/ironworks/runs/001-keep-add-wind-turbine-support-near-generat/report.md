@@ -3,7 +3,7 @@
 - Decision: **KEEP**
 - Blueprint: `main`
 - Score: **8.707**
-- Result hash: `9460377eded4aad90b0c28bd2a5e5ce027206e6b877bc2934c19914808f67528`
+- Result hash: `e9a0d8378b74f0e46c1e9bb9f6b308c42a9bf9fb1ade8a49d2c5f59243b1eeb6`
 - Bottleneck: smelter-1
 - Throughput/min: 5.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
@@ -32,7 +32,7 @@
 ## Capacity-plan gaps
 
 - **process** `smelt-iron`: smelt-iron needs 2 smelter but configures 1; add 1
-- **reserve** `iron-ore`: iron-ore reserve is short by 6.000 items over the scenario
+- **reserve** `iron-ore`: iron-ore Scenario supply is short by 6.000 items after 0.000 scheduled lot releases
 
 ## Measured transport flows
 

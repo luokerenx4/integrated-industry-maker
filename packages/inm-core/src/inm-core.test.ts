@@ -292,7 +292,14 @@ describe("factory synthesis", () => {
     })]);
 
     const project = compileFactoryProject({ ...source, blueprint: synthesis.blueprint });
-    expect(planProductionCapacity(project).ready).toBeTrue();
+    const plan = planProductionCapacity(project);
+    expect(plan.ready).toBeTrue();
+    expect(plan.processes.filter((process) => process.process === "smelt-iron").map((process) => ({
+      region: process.region, requiredCyclesPerMinute: process.requiredCyclesPerMinute, configuredMachines: process.configuredMachines,
+    }))).toEqual([
+      { region: "assembly-zone", requiredCyclesPerMinute: 9, configuredMachines: 1 },
+      { region: "forge-zone", requiredCyclesPerMinute: 9, configuredMachines: 1 },
+    ]);
     expect(runUntil(project).metrics.infeasibleReason).toBeNull();
   });
 
@@ -1695,7 +1702,12 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({ process: "smelt-iron", requiredOutputPerMinute: 24, configuredMachines: 1, requiredMachines: 2, additionalMachines: 1 }),
     ]));
     expect(plan.rawResources).toEqual(expect.arrayContaining([
-      expect.objectContaining({ resource: "iron-ore", totalDemandPerMinute: 48, configuredExtractionPerMinute: 60, finiteReserve: 90, scenarioDemand: 96, reserveAfterScenario: -6 }),
+      expect.objectContaining({
+        resource: "iron-ore", totalDemandPerMinute: 48, configuredExtractionPerMinute: 60,
+        scheduledSupply: 0, scheduledSupplyPerMinute: 0, configuredSupplyPerMinute: 60,
+        supplyDeficitPerMinute: 0, finiteReserve: 90, scenarioDemand: 96,
+        scenarioSupply: 90, scenarioBalance: -6,
+      }),
     ]));
     expect(plan.transport.find((flow) => flow.process === "smelt-iron" && flow.direction === "input")).toEqual(expect.objectContaining({ resource: "iron-ore", requiredItemsPerMinute: 48, configuredCapacityPerMinute: 80 }));
     expect(plan.stationNetworks).toContainEqual(expect.objectContaining({ network: "inter-zone-main", resource: "iron-plate", requiredItemsPerMinute: 24, requiredCarriers: 1, configuredCarriers: 1 }));
@@ -1713,6 +1725,42 @@ describe("deterministic discrete-event simulation", () => {
     ]));
     expect(plan.ready).toBeFalse();
     expect(plan.gaps.filter((gap) => gap.kind === "power")).toHaveLength(1);
+  });
+
+  test("fab capacity planning allocates qualified shared tool time and credits scheduled wafer releases", async () => {
+    const baselineSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
+    const baseline = planProductionCapacity(compileFactoryProject(baselineSource));
+    expect(baseline.ready).toBeTrue();
+    expect(baseline.rawResources).toEqual([expect.objectContaining({
+      resource: "blank-dram-wafer-lot", totalDemandPerMinute: 2.5,
+      scheduledSupply: 12, scheduledSupplyPerMinute: 3, configuredSupplyPerMinute: 3,
+      supplyDeficitPerMinute: 0, scenarioDemand: 10, scenarioSupply: 12, scenarioBalance: 2,
+    })]);
+    expect(baseline.toolsets).toEqual([
+      expect.objectContaining({
+        id: "cleanroom:lithography-bay", requiredDeviceTicksPerMinute: 30_000,
+        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 0.5,
+      }),
+      expect.objectContaining({
+        id: "cleanroom:plasma-etch-bay", requiredDeviceTicksPerMinute: 25_000,
+        configuredDeviceTicksPerMinute: 60_000, unallocatedDeviceTicksPerMinute: 0, utilization: 25_000 / 60_000,
+      }),
+    ]);
+
+    baselineSource.objective.targetRatePerMinute = 7;
+    const overloaded = planProductionCapacity(compileFactoryProject(baselineSource));
+    expect(overloaded.gaps.filter((gap) => gap.kind === "toolset").map((gap) => gap.entity)).toEqual([
+      "cleanroom:lithography-bay", "cleanroom:plasma-etch-bay",
+    ]);
+    expect(overloaded.toolsets.map((toolset) => [toolset.id, toolset.unallocatedDeviceTicksPerMinute, toolset.minimumAdditionalDevices])).toEqual([
+      ["cleanroom:lithography-bay", 24_000, 1], ["cleanroom:plasma-etch-bay", 10_000, 1],
+    ]);
+
+    const specializedSource = await loadFactoryProject(memoryFab, { blueprint: "experiment", scenario: "steady-production" });
+    specializedSource.objective.targetRatePerMinute = 7;
+    const specialized = planProductionCapacity(compileFactoryProject(specializedSource));
+    expect(specialized.gaps.some((gap) => gap.kind === "toolset")).toBeFalse();
+    expect(specialized.toolsets.every((toolset) => toolset.unallocatedDeviceTicksPerMinute === 0)).toBeTrue();
   });
 
   test("station shortage profiles traverse same-buffer pass-through links to the real Process batch", async () => {
@@ -3257,6 +3305,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.cases.some((item) => item.candidateMetrics.totalMandatoryMaintenance < item.baselineMetrics.totalMandatoryMaintenance)).toBeTrue();
     expect(result.cases.every((item) => item.candidateMetrics.totalQualificationCompleted === item.candidateMetrics.totalMaintenanceCompleted)).toBeTrue();
     expect(result.cases.every((item) => item.candidateMetrics.totalQualificationTicks > 0)).toBeTrue();
+    expect(result.cases.every((item) => item.candidateCapacityReady)).toBeTrue();
     const facilityInterruption = result.cases.find((item) => item.id === "facility-interruption")!;
     expect(facilityInterruption.baselineMetrics.totalUtilityProviderInterruptions).toBeGreaterThan(0);
     expect(facilityInterruption.candidateMetrics.totalUtilityProviderInterruptions)

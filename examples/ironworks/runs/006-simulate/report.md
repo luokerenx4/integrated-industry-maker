@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `scaled-factory`
 - Score: **122.079**
-- Result hash: `cc46c72e908ca89a8d2b21dada4e5a5e556df31abf30a675939d3d4b8a8a21fe`
+- Result hash: `26d4fb8b10fe82eb38ca6bf59d6f013127a20761e34f49cba903595f98c2e624`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
