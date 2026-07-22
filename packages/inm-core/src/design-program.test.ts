@@ -42,7 +42,7 @@ test("Design Program validation rejects unknown fields and cross-contract drift"
   const root = await mkdtemp(join(tmpdir(), "inm-design-program-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
-  await cp(projectDir, copy, { recursive: true });
+  await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   const path = join(copy, "design-programs", "integrated-dram-fab.design.json");
   const program = JSON.parse(await readFile(path, "utf8"));
   await writeFile(path, `${JSON.stringify({ ...program, surprise: true }, null, 2)}\n`);
@@ -57,7 +57,7 @@ test("a bounded Design Program run is deterministic, immutable, and leaves the s
   const root = await mkdtemp(join(tmpdir(), "inm-design-run-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
-  await cp(projectDir, copy, { recursive: true });
+  await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   const blueprintPath = join(copy, "blueprints", "experiment.blueprint.json");
   const before = await readFile(blueprintPath, "utf8");
   const first = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1 });
@@ -101,7 +101,7 @@ test("a leading Design Run is promoted as one exact hash-pinned Candidate withou
   const root = await mkdtemp(join(tmpdir(), "inm-design-promote-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
-  await cp(projectDir, copy, { recursive: true });
+  await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   const seedPath = join(copy, "blueprints", "experiment.blueprint.json");
   const seedBefore = await readFile(seedPath, "utf8");
   const original = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1 });

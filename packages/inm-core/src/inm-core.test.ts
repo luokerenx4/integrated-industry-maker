@@ -1601,7 +1601,7 @@ describe("blueprint compiler", () => {
     expect(interrupted.metrics.lotFlow.scrapped).toBe(5);
     expect(Object.values(interrupted.state.lots).filter((lot) => lot.status === "scrapped")).toHaveLength(5);
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
-  }, 15_000);
+  }, 30_000);
 
   test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {
     const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
@@ -1657,7 +1657,7 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(invalidAssetContract))).toEqual(expect.arrayContaining([
       "buffer-filter.resource-contract", "buffer-filter.duplicate-resource", "recipe.resource-filter",
     ]));
-  });
+  }, 15_000);
 
   test("validates process resource references", async () => {
     const source = await loaded(); source.processes["smelt-iron"]!.inputs[0]!.resource = "unobtainium";

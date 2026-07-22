@@ -681,6 +681,8 @@ export interface InmManifest {
   defaultBlueprint: string;
   defaultScenario: string;
   defaultObjective: string;
+  /** Optional project-owned TypeScript strategy used by `inm synthesize`. */
+  synthesis?: { strategy: string };
 }
 
 export interface InmWorkspaceManifest {

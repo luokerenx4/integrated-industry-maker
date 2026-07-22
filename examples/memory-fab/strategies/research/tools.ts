@@ -1,9 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
+// Project-local exhaustive search retained for focused operator research.
 import { join, resolve } from "node:path";
 import {
   compileFactoryProject, hashValue, loadFactoryProject, runUntil, specializeSharedWorkCenterCandidates, stableStringify,
-} from "../packages/inm-core/src/index";
-import type { Blueprint, CompiledFactoryProject, FactoryMetrics } from "../packages/inm-core/src/types";
+} from "../../../../packages/inm-core/src/index";
+import type { Blueprint, CompiledFactoryProject, FactoryMetrics } from "../../../../packages/inm-core/src/types";
 
 interface BenchmarkCase {
   id: string;
@@ -49,7 +50,7 @@ interface SearchRow extends PhysicalVariant {
   placements: string;
 }
 
-const projectDir = resolve(import.meta.dir, "../examples/memory-fab");
+const projectDir = resolve(import.meta.dir, "../..");
 const definition = JSON.parse(await readFile(join(projectDir, "benchmarks/dispatch-research.benchmark.json"), "utf8")) as BenchmarkDefinition;
 const searchSeedBlueprint = "tool-search-seed";
 

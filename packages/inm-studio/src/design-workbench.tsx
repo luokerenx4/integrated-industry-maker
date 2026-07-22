@@ -116,6 +116,7 @@ export function DesignWorkbench({
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>SEED</i><strong>{selectedProgram.seedBlueprint}</strong><span>driver {brief.driver.case.id}</span></div>
             <div className="design-run-control"><label>PROPOSAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running ? "EVALUATING LOCKED CASES…" : `RUN ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
+          <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
           <section className="design-readiness">
             <span><small>CAPACITY</small><b className={brief.staticEvidence.capacity.state}>{brief.staticEvidence.capacity.state.toUpperCase()}</b><em>{brief.staticEvidence.capacity.gapCount} gaps</em></span>
             <span><small>FLOW SIGNALS</small><b>{brief.staticEvidence.flow.warningCount}</b><em>warnings</em></span>

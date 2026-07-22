@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
-import { compileFactoryProject, loadBlueprintBenchmark, loadFactoryProject, runUntil } from "../packages/inm-core/src/index";
+// Project-local exhaustive search retained for focused operator research.
+import { compileFactoryProject, loadBlueprintBenchmark, loadFactoryProject, runUntil } from "../../../../packages/inm-core/src/index";
 
-const projectDir = resolve(import.meta.dir, "../examples/memory-fab");
+const projectDir = resolve(import.meta.dir, "../..");
 const benchmark = await loadBlueprintBenchmark(projectDir, "dispatch-research");
 const json = process.argv.includes("--json");
 

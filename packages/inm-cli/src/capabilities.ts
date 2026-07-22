@@ -130,7 +130,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     outputSections: ["summary", "static", "iterations", "best", "runs", "all"],
   },
   {
-    id: "synthesize", usage: "inm synthesize <path> [selection] [--output ID] [--json]", description: "Generate a new complete Blueprint from project-local assets.",
+    id: "synthesize", usage: "inm synthesize <path> [selection] [--output ID] [--json]", description: "Generate a complete Blueprint with the project strategy or fungible-flow solver.",
     effect: "creates-artifact", supportsJson: true, arguments: [path, project, ...selection,
       { name: "output", form: "option", value: "string", required: false, description: "New Blueprint id.", default: "synthesized" }, sectionArgument(["summary", "topology", "optimization", "all"]), json], outputSections: ["summary", "topology", "optimization", "all"],
   },

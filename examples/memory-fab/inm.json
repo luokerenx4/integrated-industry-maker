@@ -5,5 +5,8 @@
   "defaultWorld": "cleanroom",
   "defaultBlueprint": "baseline",
   "defaultScenario": "production-window",
-  "defaultObjective": "dram-output"
+  "defaultObjective": "dram-output",
+  "synthesis": {
+    "strategy": "strategies/reentrant-dram-fab.ts"
+  }
 }

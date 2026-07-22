@@ -1,5 +1,5 @@
-import { readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readFile, readdir } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import { z } from "zod";
 import { loadBlueprintBenchmark } from "./benchmark";
 import { planProductionCapacity } from "./capacity-plan";
@@ -9,6 +9,7 @@ import { analyzeProduction } from "./production-analysis";
 import { hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
+const strategyEntry = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes("..") && value.endsWith(".ts"), "must be a project-relative TypeScript file");
 
 export const designDecisionFamilySchema = z.enum([
   "power",
@@ -44,10 +45,10 @@ export const designProgramSchema = z.object({
   benchmark: id,
   seedBlueprint: id,
   driverCase: id,
-  proposal: z.object({
-    kind: z.literal("heuristic"),
-    decisionFamilies: decisionFamiliesSchema,
-  }).strict(),
+  proposal: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("heuristic"), decisionFamilies: decisionFamiliesSchema }).strict(),
+    z.object({ kind: z.literal("project-strategy"), entry: strategyEntry, decisionFamilies: decisionFamiliesSchema }).strict(),
+  ]),
   budget: z.object({
     maxCandidates: z.number().int().min(1).max(100),
   }).strict(),
@@ -55,6 +56,20 @@ export const designProgramSchema = z.object({
 
 export type DesignDecisionFamily = z.infer<typeof designDecisionFamilySchema>;
 export type DesignProgramManifest = z.infer<typeof designProgramSchema>;
+
+export async function designProgramHash(projectDir: string, program: DesignProgramManifest): Promise<string> {
+  if (program.proposal.kind === "heuristic") return hashValue(program);
+  const root = resolve(projectDir);
+  const entryPath = resolve(root, program.proposal.entry);
+  if (entryPath !== root && !entryPath.startsWith(`${root}${sep}`)) throw new Error(`Design proposal strategy escapes the project directory: ${program.proposal.entry}`);
+  return hashValue({ manifest: program, providerSource: await readFile(entryPath, "utf8") });
+}
+
+function proposalSummary(proposal: DesignProgramManifest["proposal"]): DesignProgramManifest["proposal"] {
+  return proposal.kind === "heuristic"
+    ? { kind: proposal.kind, decisionFamilies: [...proposal.decisionFamilies] }
+    : { kind: proposal.kind, entry: proposal.entry, decisionFamilies: [...proposal.decisionFamilies] };
+}
 
 export interface DesignProgramSummary {
   id: string;
@@ -143,9 +158,9 @@ export async function listDesignPrograms(projectDir: string): Promise<DesignProg
       benchmark: program.benchmark,
       seedBlueprint: program.seedBlueprint,
       driverCase: program.driverCase,
-      proposal: { kind: program.proposal.kind, decisionFamilies: [...program.proposal.decisionFamilies] },
+      proposal: proposalSummary(program.proposal),
       budget: { ...program.budget },
-      programHash: hashValue(program),
+      programHash: await designProgramHash(projectDir, program),
       locked: Boolean(benchmark.lock),
     };
   }));
@@ -179,9 +194,9 @@ export async function buildDesignProgramBrief(projectDir: string, programId: str
     benchmark: program.benchmark,
     seedBlueprint: program.seedBlueprint,
     driverCase: program.driverCase,
-    proposal: { kind: program.proposal.kind, decisionFamilies: [...program.proposal.decisionFamilies] },
+    proposal: proposalSummary(program.proposal),
     budget: { ...program.budget },
-    programHash: hashValue(program),
+    programHash: await designProgramHash(projectDir, program),
     locked: true,
   };
   return {

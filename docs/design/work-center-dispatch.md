@@ -62,7 +62,7 @@ Fixed full-batch formation, bounded setup campaigns, physical work-center specia
 - Ready-operation selection and enforcement: `packages/inm-core/src/simulator.ts`
 - Static projection: `packages/inm-core/src/production-analysis.ts`, `packages/inm-core/src/capacity-plan.ts`
 - Studio projection: `packages/inm-studio/src/server.ts`, `packages/inm-studio/src/main.tsx`
-- Executable project generator: `scripts/regenerate-memory-fab.ts`
+- Executable project seed strategy: `examples/memory-fab/strategies/reentrant-dram-fab.ts`
 
 ## Verification
 

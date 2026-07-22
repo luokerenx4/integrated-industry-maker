@@ -1,6 +1,6 @@
 # Blueprint synthesis and optimization loop
 
-Status: target-rate planning, full blueprint synthesis, bounded research, explicit comparison, and CLI evaluation loop implemented.
+Status: target-rate planning, fungible-flow synthesis, project-local TypeScript synthesis strategies, bounded research, explicit comparison, and CLI evaluation loop implemented.
 
 Related: [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/work-center-specialization]], [[docs/design/logistics]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-comparison]], [[docs/design/coding-agent-optimization]], [[docs/CLI]].
 
@@ -49,6 +49,14 @@ The capacity plan turns that solution into required Process machines, treatment 
 
 The generated factory has no synthetic capacity: every port, backing buffer partition, belt cell, stage, station-owned carrier, generator, and Device is ordinary compiled state. Synthesis sizes carriers from full round-trip throughput, sets the minimum station batch to the planned production accumulated over a service cycle, and writes `shortage-first` onto every generated network. Local fan-out and routes competing for one source station's home fleet therefore respond to downstream batch coverage and Objective criticality; symmetric generated junction trees may explicitly retain round-robin arbitration.
 
+### Project-local synthesis strategy
+
+Tracked work orders cannot be flattened into the continuous material balance above. A project may therefore declare `inm.json.synthesis.strategy` as a relative TypeScript entry inside its own directory. `inm synthesize` passes that strategy a deeply frozen, data-only view of the selected empty/minimal Blueprint, project ids, catalogs, Product Routes, World, Scenario, and Objective. The strategy must synchronously return one ordinary Blueprint plus a compact summary.
+
+Core executes the strategy twice and rejects nondeterministic output, schema-validates its result, compiles it, requires the same target-rate capacity plan used everywhere else, and exercises the selected Scenario before an atomic write. The strategy is project code, never a shared engine catalog or an evaluator escape hatch: it cannot alter assets, Processes, Routes, Scenario workload, Objective weights, or Benchmark locks. The generated Blueprint must explicitly own equipment qualification, lanes and sorter endpoints, reusable tooling, facility providers, maintenance, and power like any hand-authored factory.
+
+`examples/memory-fab/strategies/reentrant-dram-fab.ts` is the first implementation. It expands `greenfield.blueprint.json` into a complete re-entrant DRAM line, then the public command proves compilation, capacity READY, physical route transitions, tracked-lot completion, and delivery under `production-window`. The same in-memory Blueprint is also valid input to the locked five-case Benchmark evaluator.
+
 ## Research boundary
 
 Research proposals are RFC 6902 patches limited to Blueprint `devices`, `connections`, `logisticsNetworks`, and `policies`. Worlds, deposits, assets, Processes, Scenarios, Objectives, simulator, and evaluator are benchmark inputs and cannot be patched.
@@ -60,6 +68,7 @@ Each candidate is applied to a copy, schema-validated, compiled, simulated, scor
 - Material solvers: `packages/inm-core/src/production-demand.ts`
 - Capacity plan: `packages/inm-core/src/capacity-plan.ts`
 - Synthesis: `packages/inm-core/src/synthesis.ts`
+- Project-local synthesis boundary: `packages/inm-core/src/project-synthesis.ts`
 - Research/patch boundary: `packages/inm-core/src/research.ts`
 - Blueprint comparison: `packages/inm-core/src/blueprint-comparison.ts`
 - Coding Agent benchmark: `packages/inm-core/src/benchmark.ts`
@@ -70,6 +79,7 @@ Each candidate is applied to a copy, schema-validated, compiled, simulated, scor
 
 ```bash
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output scratch
+bun run inm synthesize examples/memory-fab --blueprint greenfield --scenario production-window --output generated-dram-fab
 bun run inm validate examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm plan examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm simulate examples/ironworks --blueprint scratch --scenario cold-start

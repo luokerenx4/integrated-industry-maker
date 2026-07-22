@@ -12,6 +12,7 @@
   },
   "include": [
     "runtime-api.ts",
-    "devices/**/*.ts"
+    "devices/**/*.ts",
+    "../strategies/**/*.ts"
   ]
 }

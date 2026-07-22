@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
+// Project-local exhaustive search retained for focused operator research.
 import { join, resolve } from "node:path";
-import { openFactoryProject, runUntil } from "../packages/inm-core/src/index";
+import { openFactoryProject, runUntil } from "../../../../packages/inm-core/src/index";
 import type {
   CompiledFactoryProject, LotDispatchPolicy, LotReleaseDispatchPolicy, RecipeDispatchPolicy,
-} from "../packages/inm-core/src/types";
+} from "../../../../packages/inm-core/src/types";
 
 interface BenchmarkCase {
   id: string;
@@ -38,7 +39,7 @@ interface SearchRow {
   releaseDelayTicks: number[];
 }
 
-const projectDir = resolve(import.meta.dir, "../examples/memory-fab");
+const projectDir = resolve(import.meta.dir, "../..");
 const definition = JSON.parse(await readFile(join(projectDir, "benchmarks/dispatch-research.benchmark.json"), "utf8")) as BenchmarkDefinition;
 function numericArgument(name: string, fallback: number): number {
   const index = Bun.argv.indexOf(name);

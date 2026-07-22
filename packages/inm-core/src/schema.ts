@@ -6,6 +6,7 @@ const nonNegativeInt = z.number().int().nonnegative();
 const visualColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const relativeAssetFile = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes(".."), "must be a relative path inside the asset directory");
 const runtimeEntry = relativeAssetFile.refine((value) => value.endsWith(".ts"), "device runtime entry must be a TypeScript file");
+const strategyEntry = relativeAssetFile.refine((value) => value.endsWith(".ts"), "synthesis strategy must be a TypeScript file");
 const relativeDirectory = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes(".."), "must be a relative directory inside the workspace");
 
 export const resourceVisualSchema = z.object({
@@ -328,6 +329,7 @@ export const objectiveSchema = z.object({
 
 export const manifestSchema = z.object({
   version: z.literal(1), id, name: z.string().min(1), defaultWorld: id, defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
+  synthesis: z.object({ strategy: strategyEntry }).strict().optional(),
 }).strict();
 
 export const workspaceSchema = z.object({

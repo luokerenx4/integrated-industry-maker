@@ -4,7 +4,7 @@ import { parse as parseYaml } from "yaml";
 import {
   CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
-  researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, ExternalCommandResearchAgent,
+  researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
@@ -455,11 +455,10 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
   requireJsonSection("synthesize", options);
   if (!/^[a-z0-9][a-z0-9-]*$/.test(options.output)) throw new Error("Output blueprint id must use lowercase kebab-case");
   const loaded = await loadFactoryProject(projectDir, selection);
-  const inputProject = compileFactoryProject(loaded);
-  const synthesis = synthesizeFactoryBlueprint(loaded);
+  const synthesis = await synthesizeProjectBlueprint(loaded);
   const outputPath = join(loaded.rootDir, "blueprints", `${options.output}.blueprint.json`);
   if (await pathExists(outputPath)) throw new Error(`Blueprint already exists: ${outputPath}`);
-  const verificationScenario = {
+  const verificationScenario = synthesis.method === "project-strategy" ? loaded.scenario : {
     ...loaded.scenario,
     initialBuffers: {},
     lotReleases: [],
@@ -467,44 +466,63 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
     initialEnergyMilliJoules: {},
     failures: [],
   };
-  const project = compileFactoryProject({ ...loaded, blueprint: synthesis.blueprint, scenario: verificationScenario });
+  const project = compileFactoryProject({
+    ...loaded,
+    selection: { ...loaded.selection, blueprint: options.output },
+    blueprint: synthesis.blueprint,
+    scenario: verificationScenario,
+  });
   const plan = planProductionCapacity(project); const simulation = runUntil(project);
+  if (synthesis.method === "project-strategy" && !plan.ready) throw new Error(
+    `Project synthesis strategy '${synthesis.strategy.entry}' returned a Blueprint with ${plan.gaps.length} target-rate capacity gap(s)`,
+  );
+  if (synthesis.method === "project-strategy" && simulation.metrics.infeasibleReason) throw new Error(
+    `Project synthesis strategy '${synthesis.strategy.entry}' failed its selected operating Scenario: ${simulation.metrics.infeasibleReason}`,
+  );
   await atomicWriteJson(outputPath, synthesis.blueprint);
+  const flow = synthesis.method === "fungible-flow" ? synthesis.result : null;
   const summary = {
-    output: options.output, outputPath, target: synthesis.target,
+    output: options.output, outputPath, method: synthesis.method,
+    strategy: synthesis.method === "project-strategy" ? synthesis.strategy : null,
+    target: flow?.target ?? { resource: loaded.objective.targetResource, region: loaded.objective.targetRegion, ratePerMinute: loaded.objective.targetRatePerMinute },
     devices: synthesis.blueprint.devices.length, connections: synthesis.blueprint.connections.length,
     pathCells: synthesis.blueprint.connections.reduce((sum, connection) => sum + connection.path.length, 0),
-    stationNetworks: synthesis.stationNetworks, plannedTransports: synthesis.plannedTransports, optimization: synthesis.optimization,
-    localLogistics: synthesis.localLogistics,
-    selectedProcesses: synthesis.selectedProcesses, extraction: synthesis.extraction, power: synthesis.power,
+    stationNetworks: flow?.stationNetworks ?? [], plannedTransports: flow?.plannedTransports ?? [], optimization: flow?.optimization ?? null,
+    localLogistics: flow?.localLogistics ?? [],
+    selectedProcesses: flow?.selectedProcesses ?? [], extraction: flow?.extraction ?? [], power: flow?.power ?? [],
     planReady: plan.ready, planGaps: plan.gaps, measured: {
       throughputPerMinute: simulation.metrics.throughputPerMinute, occupiedArea: simulation.metrics.occupiedArea,
       totalBuildCost: simulation.metrics.totalBuildCost, finalScore: simulation.metrics.finalScore, infeasibleReason: simulation.metrics.infeasibleReason,
+      releasedLots: simulation.metrics.lotFlow.released, completedLots: simulation.metrics.lotFlow.completed,
     },
   };
   if (options.json) writeSuccess("synthesize", sectionResult("synthesize", options, {
-    summary: () => ({ output: summary.output, outputPath: summary.outputPath, target: summary.target, devices: summary.devices, connections: summary.connections, pathCells: summary.pathCells, stationNetworks: summary.stationNetworks.length, planReady: summary.planReady, planGaps: summary.planGaps, measured: summary.measured }),
+    summary: () => ({ output: summary.output, outputPath: summary.outputPath, method: summary.method, strategy: summary.strategy, target: summary.target, devices: summary.devices, connections: summary.connections, pathCells: summary.pathCells, stationNetworks: summary.stationNetworks.length, planReady: summary.planReady, planGaps: summary.planGaps, measured: summary.measured }),
     topology: () => ({ devices: summary.devices, connections: summary.connections, pathCells: summary.pathCells, stationNetworks: summary.stationNetworks, plannedTransports: summary.plannedTransports, localLogistics: summary.localLogistics, power: summary.power }),
     optimization: () => ({ target: summary.target, optimization: summary.optimization, selectedProcesses: summary.selectedProcesses, extraction: summary.extraction }),
     all: () => summary,
   }), {
-    context: compiledProjectContext(inputProject), diagnostics: plan.gaps,
+    context: compiledProjectContext(project), diagnostics: plan.gaps,
     artifacts: [{ kind: "blueprint", id: options.output, path: outputPath, immutable: false }],
-    nextActions: [nextAction("validate", "Validate the generated Blueprint in the selected project context.", ["inm", "validate", inputProject.rootDir, "--world", inputProject.selection.world, "--blueprint", options.output, "--scenario", inputProject.selection.scenario, "--objective", inputProject.selection.objective, "--json"])],
+    nextActions: [nextAction("validate", "Validate the generated Blueprint in the selected project context.", ["inm", "validate", project.rootDir, "--world", project.selection.world, "--blueprint", options.output, "--scenario", project.selection.scenario, "--objective", project.selection.objective, "--json"])],
   });
   else write([
     `Synthesized '${options.output}' from project-local recipes and assets`, `Blueprint: ${outputPath}`,
-    `Target: ${synthesis.target.ratePerMinute.toFixed(3)} ${synthesis.target.resource}/min @ ${synthesis.target.region}`,
-    "Optimized process mix:",
-    ...synthesis.selectedProcesses.map((process) => `  ${`${process.process}/${process.mode}`.padEnd(32)} ${process.requiredCyclesPerMinute.toFixed(3)} jobs/min · ${Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ") || "no inputs"} → ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ")}`),
-    ...(synthesis.plannedTransports.length ? ["Optimized inter-region flows:", ...synthesis.plannedTransports.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3)}/min · ${flow.fromRegion} → ${flow.toRegion}`)] : []),
-    "Capacity-aware local logistics:",
-    ...synthesis.localLogistics.map((flow) => `  ${flow.resource.padEnd(18)} ${flow.requiredPerMinute.toFixed(3).padStart(8)}/${flow.capacityPerMinute.toFixed(3)} items/min · stack×${flow.stackSize} · ${flow.loader}@${flow.loaderDistance} → ${flow.line} → ${flow.unloader}@${flow.unloaderDistance}`),
-    "Spatial power networks:",
-    ...synthesis.power.map((power) => `  ${power.region.padEnd(18)} ${power.devices} ${power.asset} (${power.capacityDevices} rated minimum, ${power.coverageTargets} targets)${power.storageDevices ? ` + ${power.storageDevices} ${power.storageAsset}` : ""} · ${(power.generationMilliWatts / 1000).toFixed(3)}/${(power.ratedLoadMilliWatts / 1000).toFixed(3)} W · Scenario ${(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)}/${(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ${power.profileApplied ? " profiled" : ""}`),
+    `Method: ${summary.method}${summary.strategy ? ` · ${summary.strategy.entry}` : ""}`,
+    ...(summary.strategy ? [summary.strategy.summary.title, ...summary.strategy.summary.notes.map((note) => `  ${note}`)] : []),
+    `Target: ${summary.target.ratePerMinute.toFixed(3)} ${summary.target.resource}/min @ ${summary.target.region}`,
+    ...(flow ? [
+      "Optimized process mix:",
+      ...flow.selectedProcesses.map((process) => `  ${`${process.process}/${process.mode}`.padEnd(32)} ${process.requiredCyclesPerMinute.toFixed(3)} jobs/min · ${Object.entries(process.inputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ") || "no inputs"} → ${Object.entries(process.outputsPerMinute).map(([resource, rate]) => `${rate.toFixed(3)} ${resource}`).join(" + ")}`),
+      ...(flow.plannedTransports.length ? ["Optimized inter-region flows:", ...flow.plannedTransports.map((item) => `  ${item.resource.padEnd(18)} ${item.requiredPerMinute.toFixed(3)}/min · ${item.fromRegion} → ${item.toRegion}`)] : []),
+      "Capacity-aware local logistics:",
+      ...flow.localLogistics.map((item) => `  ${item.resource.padEnd(18)} ${item.requiredPerMinute.toFixed(3).padStart(8)}/${item.capacityPerMinute.toFixed(3)} items/min · stack×${item.stackSize} · ${item.loader}@${item.loaderDistance} → ${item.line} → ${item.unloader}@${item.unloaderDistance}`),
+      "Spatial power networks:",
+      ...flow.power.map((power) => `  ${power.region.padEnd(18)} ${power.devices} ${power.asset} (${power.capacityDevices} rated minimum, ${power.coverageTargets} targets)${power.storageDevices ? ` + ${power.storageDevices} ${power.storageAsset}` : ""} · ${(power.generationMilliWatts / 1000).toFixed(3)}/${(power.ratedLoadMilliWatts / 1000).toFixed(3)} W · Scenario ${(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)}/${(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ${power.profileApplied ? " profiled" : ""}`),
+    ] : []),
     `Factory: ${summary.devices} devices · ${summary.connections} connections / ${summary.pathCells} belt cells · ${summary.stationNetworks.length} station network${summary.stationNetworks.length === 1 ? "" : "s"}`,
     `Capacity plan: ${plan.ready ? "READY" : `${plan.gaps.length} GAP${plan.gaps.length === 1 ? "" : "S"}`}`,
-    `Cold-start measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${synthesis.target.resource}/min · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,
+    `${synthesis.method === "project-strategy" ? "Locked-case" : "Cold-start"} measurement: ${simulation.metrics.throughputPerMinute.toFixed(3)} ${summary.target.resource}/min · ${simulation.metrics.lotFlow.completed}/${simulation.metrics.lotFlow.released} tracked lots completed/released · area ${simulation.metrics.occupiedArea} · build cost ${simulation.metrics.totalBuildCost} · score ${simulation.metrics.finalScore.toFixed(3)}`,
     ...(simulation.metrics.infeasibleReason ? [`Constraint: ${simulation.metrics.infeasibleReason}`] : []), "",
   ].join("\n"), false);
 }
@@ -884,6 +902,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `${brief.program.name} · Design Program`,
       `${brief.program.id} · ${brief.benchmark.id} (${brief.benchmark.cases} locked cases)`,
       `Seed: ${brief.program.seedBlueprint} · driver ${brief.driver.case.id} · ${brief.driver.hashes.blueprintHash.slice(0, 12)}`,
+      `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
       `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
       "",

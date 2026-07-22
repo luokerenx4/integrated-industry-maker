@@ -1,6 +1,6 @@
 # Project-local Design Programs
 
-Status: V1 strict Design Program, read-only design brief, bounded heuristic search over a locked Benchmark, immutable content-addressed design-run evidence, hash-addressed reopening, and exact Candidate promotion implemented.
+Status: strict Design Program, read-only design brief, bounded heuristic or project-local TypeScript proposal search over a locked Benchmark, immutable content-addressed design-run evidence, hash-addressed reopening, and exact Candidate promotion implemented.
 
 Related: [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/project-boundaries]], [[docs/PROJECT_FORMAT]], [[docs/CLI]], [[plans/memory-fab-design-loop]].
 
@@ -31,10 +31,14 @@ The program does not own World, asset, Process, Product Route, Scenario, Objecti
 - one locked Benchmark id;
 - one existing seed Blueprint, which in V1 must be the Benchmark candidate Blueprint;
 - one driver case belonging to that Benchmark;
-- the `heuristic` proposal provider and a unique allowlist of decision families;
+- either the Core `heuristic` provider or one project-relative TypeScript `project-strategy` entry, plus a unique allowlist of decision families;
 - a positive `budget.maxCandidates`, capped at 100.
 
 Decision families are stable industrial mutation scopes implemented by the shared research strategies: power, storage, generation, local logistics, station fleet/charge/high-speed control, buffering, local/station dispatch, recipe selection, generic or plan-derived capacity, qualified toolset expansion, and work-center specialization. Runtime `--max-candidates` may lower the authored budget but never raise it.
+
+A `project-strategy` provider receives only a deeply frozen, data-only copy of the current Blueprint, driver metrics, production analysis, target-rate capacity plan, iteration number, and proposal history. Its synchronous `propose()` returns one named strategy, hypothesis, optional expected effect, and restricted Blueprint patch, or `null` when exhausted. Core invokes it twice for the same input and rejects nondeterminism. The strategy prefix must belong to the Program's declared decision families, and the ordinary patch validator, compiler, complete locked Benchmark, and KEEP gates remain authoritative. The Design Program hash covers both its JSON manifest and provider source, so edited strategy code makes prior runs stale rather than silently changing their meaning.
+
+The memory-fab Program uses `strategies/integrated-dram-proposals.ts`. Focused exhaustive research tools remain beside it under `strategies/research/`; they can discover candidate policies, but only the declared provider participates in the shared bounded Design run and immutable evidence contract.
 
 The public JSON Schema is discoverable as `inm schema design-program --json`. Unknown fields are rejected. Loading a brief additionally rejects an unlocked Benchmark, a driver case outside the Benchmark, a seed different from the Benchmark candidate, or ordinary project compilation failure.
 
@@ -87,7 +91,8 @@ Studio exposes a route-backed `/<project>/designs/<program>[/runs/<result-hash>]
 
 - Manifest, catalog, and brief: `packages/inm-core/src/design-program.ts`
 - Execution and immutable artifact: `packages/inm-core/src/design-run.ts`
-- Restricted proposal strategies: `packages/inm-core/src/research.ts`
+- Restricted built-in proposal strategies: `packages/inm-core/src/research.ts`
+- Project-local provider boundary: `packages/inm-core/src/design-proposal-provider.ts`
 - Robust evaluator: `packages/inm-core/src/benchmark.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio projection: `packages/inm-studio/src/design-workbench.tsx` and `packages/inm-studio/src/server.ts`
@@ -99,6 +104,6 @@ Tests must prove strict schema closure, filename identity, lock/seed/driver cros
 ## Known next gaps
 
 - Add progress evidence and safe evaluation reuse so larger candidate budgets do not look stalled or repeat unchanged case work.
-- Add project-local TypeScript proposal providers after their confinement and deterministic interface are explicit.
-- Add tracked re-entrant seed synthesis; V1 deliberately starts from an existing Blueprint rather than misusing the fungible-flow synthesizer.
+- Add progress evidence and safe evaluation reuse to project-local providers as well as the built-in heuristic.
+- Allow a Design Program to invoke the implemented project-local tracked-route synthesis strategy as its declared seed instead of requiring its seed to equal the Benchmark candidate Blueprint.
 - Replace generic driver diagnostics with compatible-run fab loss attribution before making Design Programs the default project recommendation.

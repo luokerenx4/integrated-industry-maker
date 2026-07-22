@@ -46,6 +46,8 @@ factory/
         runtime.ts
         ... private implementation files
   processes/<id>.process.json
+  strategies/<id>.ts
+  strategies/research/<focused-search>.ts
   worlds/<id>.world.json
   blueprints/<id>.blueprint.json
   benchmarks/<id>.benchmark.json
@@ -61,9 +63,9 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
 
-A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Synthesis reads only this project tree: its Objective determines the required rate and delivery region, its Processes define material transformations, its regional Resource nodes constrain extraction over Scenario time, and its Device packages supply all processors, junctions, transport tiers, stations, carriers, consumers, and power generation. The spatial optimizer jointly selects region-qualified Process rates, finite raw-source rates, and directed inter-region Resource flows before physical placement. Required items/min then propagate through the explicit junction graph; transport tiers are selected only from this project's Device packages by evaluating each `planTransport()` contract and the Resource stack limit. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
+A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Without a declared strategy, synthesis reads only this project tree and applies the generic fungible-flow optimizer. With a declared strategy, Core gives the project-local TypeScript entry a frozen data-only catalog/Route/World/Scenario/Objective context and empty/minimal seed. The synchronous result must be deterministic across two executions, pass the Blueprint schema and compiler, report target-rate capacity READY, and run the selected operating Scenario before it is atomically written. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
 
 Splitting presentation and execution from identity is intentional. Catalog tools can inspect `asset.json` without executing code, artists can replace files named by `visual.json`, and device authors can edit `runtime.ts` without turning the blueprint into a script container. The hash of an asset covers every file in its package.
 

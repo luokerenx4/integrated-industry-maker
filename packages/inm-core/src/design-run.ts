@@ -8,10 +8,12 @@ import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-ch
 import { compileFactoryProject } from "./compiler";
 import {
   buildDesignProgramBrief,
+  designProgramHash,
   loadDesignProgram,
   type DesignDecisionFamily,
   type DesignProgramBrief,
 } from "./design-program";
+import { ProjectProposalExhaustedError, ProjectStrategyResearchAgent } from "./design-proposal-provider";
 import { loadFactoryProject, type LoadedFactoryProject } from "./loader";
 import { analyzeProduction } from "./production-analysis";
 import { planProductionCapacity } from "./capacity-plan";
@@ -182,7 +184,7 @@ export async function promoteDesignRun(
   const program = await loadDesignProgram(projectDir, programId);
   const benchmark = await loadBlueprintBenchmark(projectDir, program.benchmark);
   const run = await loadDesignRun(projectDir, programId, resultHash);
-  if (!benchmark.lock || benchmark.lock.contractHash !== run.manifest.benchmark.contractHash || hashValue(program) !== run.manifest.program.hash) {
+  if (!benchmark.lock || benchmark.lock.contractHash !== run.manifest.benchmark.contractHash || await designProgramHash(projectDir, program) !== run.manifest.program.hash) {
     throw new DesignRunError("design.run-stale", `Design run '${resultHash}' no longer matches its Design Program or locked Benchmark`);
   }
   if (run.manifest.engineVersion !== ENGINE_VERSION) throw new DesignRunError("design.run-stale", `Design run '${resultHash}' used ${run.manifest.engineVersion}, not ${ENGINE_VERSION}`);
@@ -251,7 +253,9 @@ export async function runDesignProgram(
   let bestEvaluation = seedEvaluation;
   const seedHash = hashValue(bestBlueprint);
   const iterations: DesignRunIteration[] = [];
-  const agent = new HeuristicResearchAgent(program.proposal.decisionFamilies);
+  const agent = program.proposal.kind === "project-strategy"
+    ? new ProjectStrategyResearchAgent(projectDir, program.proposal.entry)
+    : new HeuristicResearchAgent(program.proposal.decisionFamilies);
   let stopReason: DesignRunManifest["stopReason"] = "budget-exhausted";
   let bestIteration = 0;
 
@@ -278,7 +282,8 @@ export async function runDesignProgram(
         history,
       });
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("Heuristic agent found no valid blueprint strategy")) {
+      if (error instanceof ProjectProposalExhaustedError
+        || (error instanceof Error && error.message.startsWith("Heuristic agent found no valid blueprint strategy"))) {
         stopReason = "strategy-exhausted";
         break;
       }

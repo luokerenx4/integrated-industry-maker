@@ -1,6 +1,6 @@
 # Memory-fab design loop
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-22`
 - Related design: [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/design/operator-workbench]], [[docs/design/fab-capacity-planning]], [[docs/design/fab-loss-attribution]], [[docs/design/industrial-boundaries]]
 
@@ -43,8 +43,8 @@ INM remains pre-alpha. This plan may replace research and design contracts direc
 - [x] Promotion creates one ordinary Candidate Change Set pinned to the current Benchmark candidate Blueprint; review, confirmation, KEEP, hash guards, atomic apply, and verified/stale state remain owned by the existing shared Candidate lifecycle.
 - [x] CLI, Core, Studio API, and visible Studio surfaces project the same Design Program/run/next-action objects and effects; an Agent never needs to scrape prose and a human never needs raw JSON to understand the leading design.
 - [x] Fab diagnosis explains the primary realized loss chain and named loss buckets for a completed compatible run; nominal tracked-route supply does not dominate the operator queue when stronger route/run evidence exists.
-- [ ] A blank or deliberately minimal memory-fab seed can be expanded into a compileable, target-rate-ready, powered and physically connected re-entrant factory, then exercised by at least one locked operating case.
-- [ ] Documentation, public schemas/help, focused tests, full test gates, and desktop/390 px browser QA pass without incidental mutation of checked-in projects.
+- [x] A blank or deliberately minimal memory-fab seed can be expanded into a compileable, target-rate-ready, powered and physically connected re-entrant factory, then exercised by at least one locked operating case.
+- [x] Documentation, public schemas/help, focused tests, full test gates, and desktop/390 px browser QA pass without incidental mutation of checked-in projects.
 
 ## Work
 
@@ -53,9 +53,9 @@ INM remains pre-alpha. This plan may replace research and design contracts direc
 - [x] Add CLI discovery/inspect/run sections and exact promotion into Candidate Change Sets, with public-binary parity tests.
 - [x] Project programs, runs, ranking, and Candidate handoff through the Studio API and route-backed human workbench.
 - [x] Add compatible-run fab loss attribution and route-aware diagnostic priority shared by CLI and Studio.
-- [ ] Extend synthesis with the first tracked re-entrant memory-fab seed path and prove compile/plan/simulate/Benchmark viability.
-- [ ] Migrate useful memory-fab TypeScript searches into the shared strategy/provider boundary and remove superseded orchestration.
-- [ ] Complete docs, examples, browser QA, full-suite audit, commit, and push.
+- [x] Extend synthesis with the first tracked re-entrant memory-fab seed path and prove compile/plan/simulate/Benchmark viability.
+- [x] Migrate useful memory-fab TypeScript searches into the shared strategy/provider boundary and remove superseded orchestration.
+- [x] Complete docs, examples, browser QA, full-suite audit, commit, and push.
 
 ## Findings and decisions
 
@@ -72,6 +72,10 @@ INM remains pre-alpha. This plan may replace research and design contracts direc
 - 2026-07-22 — Studio Design is an explicit project-qualified surface, not browser-only orchestration. Routes address Programs and result hashes; the API delegates to Core; the UI exposes bounded execution, readiness, ranking, iteration effects, honest seed leadership, and Candidate handoff.
 - 2026-07-22 — Run compatibility now requires the complete current project hash set, not just selection ids and engine version. Compatible tracked-lot evidence ranks realized losses above nominal warnings while capacity blockers retain authority.
 - 2026-07-22 — Fab bucket scores deliberately overlap and only prioritize investigation; the product does not mislabel them as additive foregone output or calibrated causal recovery.
+- 2026-07-22 — Tracked-route greenfield synthesis is a project-owned synchronous TypeScript strategy behind the shared `inm synthesize` contract. Core runs it twice, schema-validates, compiles, plans, exercises the selected Scenario, and writes only after the strategy returns a deterministic feasible ordinary Blueprint.
+- 2026-07-22 — The empty `greenfield` memory-fab seed expands to 56 Devices and 16 explicit lanes. The four-minute locked workload releases 12 lots, completes 5, records 10 re-entrant transitions, remains capacity READY, and runs as an in-memory candidate through all five locked Benchmark cases.
+- 2026-07-22 — Design Programs now accept a confined project-local proposal provider whose source participates in the Program hash. The memory-fab provider found a gate-passing 9-card/6-reopen CONWIP improvement (`+0.410863` versus the tuned seed) in its first bounded candidate.
+- 2026-07-22 — Eight focused exhaustive searches moved under the self-contained memory-fab project. The obsolete generator that copied assets from ironworks was removed; checked-in assets and the project seed strategy are now the only memory-fab authoring sources.
 
 ## Verification
 
@@ -82,7 +86,12 @@ INM remains pre-alpha. This plan may replace research and design contracts direc
 - `bun test packages/inm-core/src/workbench.test.ts` — 6 tests and 42 expectations pass, including exact run hash compatibility, deterministic memory-fab loss ranking, priority above nominal analysis, and read purity.
 - `bun test packages/inm-studio/src/routes.test.ts` — 4 route reconstruction tests and 23 expectations pass, including Design Program and Design Run deep links.
 - `bun test packages/inm-studio/src/server.test.ts` — 2 server tests and 65 expectations pass, including real memory-fab Design list/brief/execute/reopen/no-leader-promotion behavior and byte-identical seed.
-- Browser QA at desktop and 390 px — `memory-fab/designs/integrated-dram-fab/runs/<hash>` loads without console warnings/errors; a UI-triggered one-candidate run appears in ranking and explains that the seed remains the leader.
+- Browser QA at desktop and 390 px — `memory-fab/designs/integrated-dram-fab/runs/843724d…` loads without console warnings/errors; the project provider is visible, the improving `KEEP` result ranks first, and the 390 px viewport has no horizontal overflow.
+- `bun test packages/inm-core/src/project-synthesis.test.ts` — deterministic empty-site generation, compile, capacity READY, operating Scenario, re-entry, delivery, and five-case Benchmark viability pass.
+- `bun test packages/inm-core/src/design-proposal-provider.test.ts` — project-local provider is deterministic, returns one allowed confined patch, and produces a compileable Blueprint.
+- Public `inm design ... --run --max-candidates 1` on an isolated memory-fab copy — provider proposal `dispatch:conwip-9-6-edd` passes all locked gates and improves aggregate candidate score by `+0.410863`.
+- `bun run memory-fab:research-qtime --json` — moved project-local focused research entry executes successfully against all five Benchmark cases.
+- `bun run test` — documentation, TypeScript, 186 Core/CLI/Studio tests with 1,532 expectations, and all eight Ironworks project tests pass.
 
 ## Progress log
 
@@ -91,7 +100,10 @@ INM remains pre-alpha. This plan may replace research and design contracts direc
 - 2026-07-22 — Added verified hash-addressed Design Run listing/reopen, exact winner-to-Candidate promotion, stable no-leader refusal, public CLI next actions, and Core/public-binary parity coverage.
 - 2026-07-22 — Added the Studio Design control room, project-qualified Design APIs and routes, desktop/390 px industrial layout, real UI execution/ranking verification, and route/server tests.
 - 2026-07-22 — Added V3 compatible-run fab loss attribution, full-hash evidence gating, named loss buckets, Core-owned diagnostic priority, `inspect --section losses`, Studio selection/run parity, and a visible Realized Fab Loss Chain.
+- 2026-07-22 — Added the project strategy synthesis boundary, deterministic memory-fab greenfield generator, empty seed, compile/plan/Scenario/Benchmark proof, and public CLI reporting.
+- 2026-07-22 — Added deterministic project-local Design proposal providers, migrated memory-fab to its own provider, moved all focused research tools into the project, and removed the cross-project regeneration script.
+- 2026-07-22 — Proved the project provider with immutable run `843724d…`, exposed its contract in Studio, completed desktop/390 px browser QA, passed the full suite, and closed the plan.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-22. Memory-fab now owns its greenfield synthesis strategy, proposal provider, focused research tools, locked multi-case design evaluation, immutable result evidence, and human/AI review surfaces without borrowing another project's assets.

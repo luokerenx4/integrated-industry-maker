@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/memory-fab-design-loop]] | Turn the memory-fab north star from a hand-authored evaluation fixture into a project-local generate, diagnose, search, and review loop. | 2026-07-22 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/memory-fab-design-loop]] | Turn the memory-fab north star from a hand-authored evaluation fixture into a project-local generate, diagnose, search, and review loop. | 2026-07-22 |
 | [[plans/decision-loop-convergence]] | Make capacity, flow risk, review state, and the next Candidate decision one shared human/AI operating loop. | 2026-07-22 |
 | [[plans/operator-interaction-refinement]] | Turn the project Overview into a decisive operator brief with one contextual next action, progressive disclosure, and predictable route-backed interaction. | 2026-07-22 |
 | [[plans/human-ai-workbench]] | Give humans and Coding Agents two task-appropriate projections of one inspectable, hash-pinned industrial operating surface. | 2026-07-22 |

@@ -57,6 +57,15 @@ test("synthesize command writes a new compileable blueprint and refuses overwrit
   expect(synthesizeCommand(projectDir, { blueprint: "blank", scenario: "cold-start" }, { output: "generated-test", json: false })).rejects.toThrow("Blueprint already exists");
 });
 
+test("synthesize command executes a project-local TypeScript strategy from a blank memory-fab site", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-memory-synthesize-")); const projectDir = join(parent, "memory-fab");
+  await cp(resolve(import.meta.dir, "../../../examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") });
+  await synthesizeCommand(projectDir, { blueprint: "greenfield", scenario: "production-window", objective: "dram-output" }, { output: "generated-test", json: false });
+  const project = await openFactoryProject(projectDir, { blueprint: "generated-test", scenario: "production-window", objective: "dram-output" });
+  expect(project.blueprint.devices).toHaveLength(56);
+  expect(planProductionCapacity(project).ready).toBeTrue();
+});
+
 test("compare command evaluates two Blueprints without writing a run artifact", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-compare-")); const projectDir = join(parent, "ironworks");
   await cp(resolve(import.meta.dir, "../../../examples/ironworks"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") });
