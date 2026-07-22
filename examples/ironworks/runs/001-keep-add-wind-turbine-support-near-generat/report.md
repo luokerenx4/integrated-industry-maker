@@ -3,7 +3,7 @@
 - Decision: **KEEP**
 - Blueprint: `main`
 - Score: **8.707**
-- Result hash: `506d41280292e731949fb74f74c23c9d88c8b4796a542429476ebd25150974a9`
+- Result hash: `ac7bbea1af7adad289d70400bc4b6499ac60950d1d179d5cc30eda3138f83095`
 - Bottleneck: smelter-1
 - Throughput/min: 5.000
 - Delivery portfolio: 41.7% demand attainment · 10.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -15,7 +15,7 @@
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Lot-derived output: 0 / 0 actual / nominal units · 100.0% realization · 0 lost
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
-- Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
+- Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Primary target rate: 12.000 gear/min
 - Capacity delivery targets: 12.000 gear/min

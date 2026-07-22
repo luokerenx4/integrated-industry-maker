@@ -52,6 +52,10 @@ export interface BlueprintMetricSnapshot {
   batchLots: number;
   averageLotsPerBatch: number;
   meanBatchQueueWaitTicksPerLot: number;
+  batchFormationHolds: number;
+  batchFormationHoldTicks: number;
+  batchPreferredReleases: number;
+  batchTimeoutReleases: number;
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -146,6 +150,10 @@ export interface BlueprintMetricDelta {
   batchLots: number;
   averageLotsPerBatch: number;
   meanBatchQueueWaitTicksPerLot: number;
+  batchFormationHolds: number;
+  batchFormationHoldTicks: number;
+  batchPreferredReleases: number;
+  batchTimeoutReleases: number;
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -364,6 +372,10 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     batchLots: metrics.batchFlow.lots,
     averageLotsPerBatch: metrics.batchFlow.averageLotsPerJob,
     meanBatchQueueWaitTicksPerLot: metrics.batchFlow.meanQueueWaitTicksPerLot,
+    batchFormationHolds: metrics.batchFlow.formationHolds,
+    batchFormationHoldTicks: metrics.batchFlow.formationHoldTicks,
+    batchPreferredReleases: metrics.batchFlow.preferredReleases,
+    batchTimeoutReleases: metrics.batchFlow.timeoutReleases,
     meanCycleTimeTicks: metrics.lotFlow.meanCycleTimeTicks,
     p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
     meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,
@@ -460,6 +472,10 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     batchLots: after.batchLots - before.batchLots,
     averageLotsPerBatch: after.averageLotsPerBatch - before.averageLotsPerBatch,
     meanBatchQueueWaitTicksPerLot: after.meanBatchQueueWaitTicksPerLot - before.meanBatchQueueWaitTicksPerLot,
+    batchFormationHolds: after.batchFormationHolds - before.batchFormationHolds,
+    batchFormationHoldTicks: after.batchFormationHoldTicks - before.batchFormationHoldTicks,
+    batchPreferredReleases: after.batchPreferredReleases - before.batchPreferredReleases,
+    batchTimeoutReleases: after.batchTimeoutReleases - before.batchTimeoutReleases,
     meanCycleTimeTicks: after.meanCycleTimeTicks - before.meanCycleTimeTicks,
     p95CycleTimeTicks: after.p95CycleTimeTicks - before.p95CycleTimeTicks,
     meanQueueTimeTicks: after.meanQueueTimeTicks - before.meanQueueTimeTicks,

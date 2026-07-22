@@ -1,6 +1,6 @@
 # Identity-preserving batch processing
 
-Status: fixed-size tracked-lot batches, full-batch start gating, per-job identity conservation, batch wait metrics, CLI/run/Studio observability, and Blueprint-selectable batch alternatives implemented through engine version `inm-sim/0.51.0`.
+Status: fixed-size tracked-lot batches, full-batch start gating, per-job identity conservation, batch wait metrics, Blueprint-selectable alternatives, and bounded full-batch preference with smaller-job tail draining implemented through engine version `inm-sim/0.69.0`.
 
 Related: [[docs/design/lot-tracking]], [[docs/design/lot-release-scheduling]], [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
@@ -54,11 +54,15 @@ Batching is currently selected by Process binding. The memory-fab furnace qualif
 - fixed batch anneal: three lots in, three lots out, twelve seconds/job;
 - rapid anneal: one lot in, one lot out, six seconds/job.
 
-The immutable baseline selects fixed batch anneal. The candidate Blueprint selects rapid anneal. The locked four-condition benchmark therefore evaluates formation delay, tool occupancy, downstream service, quality work, changeovers, energy, cost, and area together. It does not reward a batch size in isolation.
+The immutable baseline selects fixed batch anneal. One candidate Blueprint selects rapid anneal. A second candidate qualifies both and authors `policy.batchFormation`: the three-lot Process starts whenever complete, while an otherwise-ready single-lot Process waits for companions only up to a fixed limit. A preferred batch arriving during that hold releases immediately. Timeout releases the smaller alternative and drains the currently resident tail without restarting the clock after every single-lot job.
+
+The focused `batch-formation-research` case freezes eleven incoming wafer lots. Fixed batching completes three furnace loads and strands the two-lot tail. Bounded formation preserves those three efficient loads, then drains the remainder through rapid anneal. Its additional delivered memory remains valuable above contract demand and is reported separately as overflow.
+
+Runtime emits `device.batch-held` and `device.batch-released`; the release cause is either `preferred-ready` or `maximum-wait`. Metrics expose hold count/time and both release counts globally and per Device in CLI output, run reports, and the Studio Device inspector.
 
 ## Current boundary
 
-The implemented contract is deliberately fixed and full-batch only. Scenario-owned dynamic lot release is explicit in [[docs/design/lot-release-scheduling]], but there is no authored minimum/maximum batch range, batch timeout, partial batch, incompatible-product grouping rule, carrier identity, chamber slot model, or overlapping load/process/unload phase yet. Those should be added as explicit industrial state when a benchmark requires them, not inferred inside Device scripts.
+The Process contract remains fixed-size: INM does not resize a physical recipe or pretend a partial furnace load has identical physics. Bounded formation switches between two separately qualified fixed Processes. There is still no carrier identity, chamber-slot model, incompatible-product grouping rule, or overlapping load/process/unload phase. Those should be added as explicit industrial state when a benchmark requires them, not inferred inside Device scripts.
 
 ## Verification
 
@@ -67,5 +71,6 @@ bun run inm validate examples/memory-fab
 bun run inm analyze examples/memory-fab
 bun run inm simulate examples/memory-fab --blueprint baseline
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
+bun run inm benchmark examples/memory-fab --benchmark batch-formation-research
 bun run inm test examples/memory-fab
 ```

@@ -1,0 +1,39 @@
+{
+  "acceptance": {
+    "maximumCaseScoreRegression": 0,
+    "minimumAggregateScoreDelta": 0.001,
+    "requireCandidateCapacityReady": false
+  },
+  "baselineBlueprint": "baseline",
+  "candidateBlueprint": "batch-flex",
+  "cases": [
+    {
+      "id": "incomplete-tail",
+      "name": "Eleven-lot production tail",
+      "objective": "dram-output",
+      "scenario": "batch-tail",
+      "seed": 42,
+      "weight": 1,
+      "world": "cleanroom"
+    }
+  ],
+  "id": "batch-formation-research",
+  "lock": {
+    "cases": {
+      "incomplete-tail": {
+        "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
+        "deviceCatalogHash": "ec2a3e27fd7ef281d9c70e76bc6ef267c5e00e7e7b2455fbb4590c706c5e5ecb",
+        "engineVersion": "inm-sim/0.69.0",
+        "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
+        "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
+        "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
+        "routeCatalogHash": "a02c853df7b9855e2aa4f3c64dd6a4bcab305bc2bca6622feedc4a9dca30061d",
+        "scenarioHash": "ccdb119ae7e4dc409e83c3c0bce7539bc7390098c6dcadd3ea97d1ac3cb2990f",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      }
+    },
+    "contractHash": "1f73d71120969dfb33687fb616fe6b91fd12c6f4468a5c7c7cbebf48c3211017"
+  },
+  "name": "DRAM Bounded Furnace Batch Research",
+  "version": 1
+}

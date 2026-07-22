@@ -635,6 +635,17 @@ const yieldRecoveryProbe = yieldRecoveryBlueprint.devices.find((device) => devic
 if (yieldRecoveryProbe?.recipe && typeof yieldRecoveryProbe.recipe === "object") {
   (yieldRecoveryProbe.recipe as Record<string, unknown>).process = "probe-sort-dram-adaptive";
 }
+const batchFlexBlueprint = structuredClone(blueprint);
+const batchFlexFurnace = batchFlexBlueprint.devices.find((device) => device.id === "furnace-1");
+if (batchFlexFurnace?.recipe && typeof batchFlexFurnace.recipe === "object") {
+  const batchRecipe = structuredClone(batchFlexFurnace.recipe);
+  batchFlexFurnace.recipes = [batchRecipe, { ...structuredClone(batchRecipe), process: "rapid-anneal-dielectric-stack" }];
+  delete batchFlexFurnace.recipe;
+  batchFlexFurnace.policy = {
+    ...(batchFlexFurnace.policy as Record<string, unknown>),
+    batchFormation: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 15_000 },
+  };
+}
 const experimentBlueprint = structuredClone(blueprint);
 for (const device of experimentBlueprint.devices) if (["lithography-1", "etch-1"].includes(String(device.id))) {
   device.policy = { ...(device.policy as Record<string, unknown>), recipeDispatch: "earliest-due-date", lotDispatch: "earliest-due-date" };
@@ -654,6 +665,7 @@ if (experimentProductTester) experimentProductTester.policy = {
 await json(join(project, "blueprints", "baseline.blueprint.json"), blueprint);
 await json(join(project, "blueprints", "product-mix.blueprint.json"), productMixBlueprint);
 await json(join(project, "blueprints", "yield-recovery.blueprint.json"), yieldRecoveryBlueprint);
+await json(join(project, "blueprints", "batch-flex.blueprint.json"), { ...batchFlexBlueprint, revision: "memory-fab-bounded-batch-v1" });
 await json(join(project, "blueprints", "tool-search-seed.blueprint.json"), {
   ...experimentBlueprint, revision: "memory-fab-tool-search-seed-v1",
 });
@@ -686,9 +698,11 @@ async function scenario(
   qualityExcursions: Array<{ id: string; process: string; lot: string; defects: string[] }>,
   failures: Array<{ device: string; atTick: number; durationTicks: number }> = [],
   durationTicks = 240_000,
+  releases = lotReleases,
+  deliveries = materialDeliveries,
 ): Promise<void> {
   await json(join(project, "scenarios", `${id}.scenario.json`), {
-    id, name, durationTicks, lotReleases, materialDeliveries, initialSetups, qualityExcursions,
+    id, name, durationTicks, lotReleases: releases, materialDeliveries: deliveries, initialSetups, qualityExcursions,
     initialBuffers: {
       "maintenance-service-1": { "service-store": {
         "chamber-clean-kit": 16, "metrology-calibration-kit": 16,
@@ -724,6 +738,7 @@ await scenario("yield-excursion", "Five-minute systematic latent-yield excursion
   { id: "latent-electrical-lot-02", process: "etch-cell-layer-2", lot: "dram-lot-02", defects: ["latent-electrical"] },
   { id: "latent-electrical-lot-04", process: "etch-cell-layer-2", lot: "dram-lot-04", defects: ["latent-electrical"] },
 ], [], 300_000);
+await scenario("batch-tail", "Six-minute eleven-lot furnace tail window", [], [], 360_000, lotReleases.slice(0, 11), materialDeliveries.slice(0, 11));
 await json(join(project, "objectives", "dram-output.objective.json"), {
   id: "dram-output", name: "Fulfill a value-weighted DRAM product portfolio with controlled wafer-lot service", targetResource: "commercial-dram-device", trackedFamily: "dram-wafer", targetRegion: "cleanroom", targetRatePerMinute: 8,
   deliveryContracts: [
@@ -797,6 +812,21 @@ await json(join(project, "tests", "reentrant-flow.fixture.json"), {
     { kind: "event", type: "lot.scrapped", present: true },
   ],
 });
+await json(join(project, "tests", "bounded-batch.fixture.json"), {
+  name: "bounded batch formation prefers full furnace loads and drains the incomplete tail", world: "cleanroom", blueprint: "batch-flex", scenario: "batch-tail", objective: "dram-output", seed: 42,
+  assertions: [
+    { kind: "metric", path: "batchFlow.jobs", equals: 3 },
+    { kind: "metric", path: "batchFlow.averageLotsPerJob", equals: 3 },
+    { kind: "metric", path: "batchFlow.formationHolds", equals: 4 },
+    { kind: "metric", path: "batchFlow.preferredReleases", equals: 3 },
+    { kind: "metric", path: "batchFlow.timeoutReleases", equals: 1 },
+    { kind: "metric", path: "deliveryPortfolio.delivered", equals: 56 },
+    { kind: "metric", path: "deliveryPortfolio.valued", equals: 56 },
+    { kind: "metric", path: "deliveryPortfolio.overflow", equals: 8 },
+    { kind: "event", type: "device.batch-held", present: true },
+    { kind: "event", type: "device.batch-released", present: true },
+  ],
+});
 await json(join(project, "benchmarks", "dispatch-research.benchmark.json"), {
   version: 1, id: "dispatch-research", name: "DRAM Multi-condition Blueprint Research",
   baselineBlueprint: "baseline", candidateBlueprint: "experiment",
@@ -826,6 +856,14 @@ await json(join(project, "benchmarks", "yield-research.benchmark.json"), {
     { id: "yield-excursion", name: "Three early latent-electrical wafer lots", world: "cleanroom", scenario: "yield-excursion", objective: "dram-output", seed: 42, weight: 2 },
   ],
   acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 1, requireCandidateCapacityReady: true },
+});
+await json(join(project, "benchmarks", "batch-formation-research.benchmark.json"), {
+  version: 1, id: "batch-formation-research", name: "DRAM Bounded Furnace Batch Research",
+  baselineBlueprint: "baseline", candidateBlueprint: "batch-flex",
+  cases: [
+    { id: "incomplete-tail", name: "Eleven-lot production tail", world: "cleanroom", scenario: "batch-tail", objective: "dram-output", seed: 42, weight: 1 },
+  ],
+  acceptance: { minimumAggregateScoreDelta: 0.001, maximumCaseScoreRegression: 0, requireCandidateCapacityReady: false },
 });
 let specializedSource = await loadFactoryProject(project, {
   blueprint: "experiment", world: "cleanroom", scenario: "steady-production", objective: "dram-output",
@@ -859,6 +897,7 @@ await json(join(project, "blueprints", "experiment.blueprint.json"), {
 await lockBlueprintBenchmark(project, "dispatch-research");
 await lockBlueprintBenchmark(project, "product-mix-research");
 await lockBlueprintBenchmark(project, "yield-research");
+await lockBlueprintBenchmark(project, "batch-formation-research");
 
 await text(join(project, "AUTORESEARCH.md"), `# Memory-fab autoresearch program\n\nEdit exactly one file: \`blueprints/experiment.blueprint.json\`. The locked benchmark compares it with \`baseline.blueprint.json\` across four evaluator-owned operating conditions: excursion-free production, mixed repair/scrap/escape work, a systematic quality excursion, and a timed lithography interruption. Case inputs are immutable; only the candidate Blueprint may change.\n\nTwelve named wafer lots become available six seconds apart. Before each Scenario-owned \`releaseTick\` a lot is scheduled outside the fab; admission into \`lot-release\` is capacity-gated and records actual release delay. Planned starts, due dates, quality excursions, and failures are fixed test workload, so a candidate cannot improve its score by deleting or postponing work. A candidate may add \`policies.lotRelease\` as explicit CONWIP code: \`maximumWip\` is the hard card count, \`reopenAtWip\` controls replenishment-wave hysteresis, and \`dispatch\` chooses among eligible identities.\n\nThe wafer route revisits \`lithography-1\` and \`etch-1\`. Their \`recipes\` arrays declare qualified operations; \`policy.recipeDispatch\` chooses among ready route steps while \`policy.lotDispatch\` chooses identity-preserving wafer lots within one step. Each route step has a setup group, and switching a shared bay between layer-1 and layer-2 work consumes fixed, evaluator-owned changeover time and power.\n\nBetween deposition and the second lithography pass, the baseline furnace requires three dielectric-stack lots before one fixed twelve-second anneal job may start. The same three lot identities leave together, and the evaluator owns actual lots/job plus pre-start batch queue wait. A six-second single-lot rapid-anneal Process is qualified on the same physical furnace, so batch policy is a visible Blueprint recipe choice instead of scheduler magic.\n\nAfter final etch, fixed named process excursions create repairable, terminal, and latent-undetected defects. The selected inspection Process determines detection coverage and pass/rework/scrap disposition; rework repairs only its declared defect class. The immutable baseline uses fixed-batch anneal, standard inspection, authored operation order, FIFO lots, and open-loop admission.\n\nThe checked-in candidate contains three kept hypotheses: earliest-due-date operation and lot dispatch on both re-entrant work centers, deep inspection, and single-lot rapid anneal. Deep inspection catches latent electrical defects and converts otherwise escaped lots into terminal scrap. Rapid anneal removes the baseline's three-lot formation gate but spends more furnace time per lot. Under scheduled arrivals the combined candidate accepts a small excursion-free score regression inside the declared per-case gate in exchange for stronger mixed-quality, excursion, and interruption results; the aggregate locked score remains the authority. Continue from this candidate rather than resetting it.\n\nThe TypeScript command \`bun run memory-fab:research-release\` sweeps CONWIP maximum/reopen/dispatch settings in memory against this incumbent without editing either Blueprint. The first 225-policy sweep found settings that improved aggregate score through lower WIP and completed-lot cycle time, but those settings exceeded the fixed per-case regression gate; settings inside the gate did not improve the incumbent aggregate. That robust negative result is intentional evidence, so the candidate remains open-loop until another layout, equipment, dispatch, or control change satisfies both conditions.\n\nCoding Agents may next test \`minimize-changeover\`, tool duplication, parallel inspection, furnace duplication, buffers, routes, power, or \`policies.lotRelease\` by editing the candidate Blueprint only. Scheduled/released/pending lots, release interval/delay, peak WIP, controller/capacity blocked lot-time, yield, quality escapes, rework, scrap, batch jobs, lots per batch, batch wait, cycle time, tardiness, changeovers, throughput, WIP, energy, cost, and area are evaluator-owned measurements.\n\nRun:\n\n\`\`\`bash\nbun run inm validate examples/memory-fab --blueprint experiment\nbun run inm analyze examples/memory-fab --blueprint experiment\nbun run inm benchmark examples/memory-fab --benchmark dispatch-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n\`\`\`\n\nKeep an experiment only when the locked benchmark reports \`verdict KEEP\`. The aggregate score must improve, and no individual operating condition may regress by more than the declared gate. Record every attempt in the ignored project-local \`results.tsv\` so failed hypotheses remain useful.\n`);
 await text(join(project, "README.md"), `# Re-entrant DRAM memory fab\n\nThis self-contained INM project is the industrial north-star example. Twelve named wafer lots become available six seconds apart, carry priority and due dates through lithography → etch → deposition → thermal anneal, then return to the same lithography and etch work centers before inline inspection. Scheduled lots remain outside factory WIP until their capacity-gated and optional Blueprint CONWIP release succeeds. Their identities and latent defect state then survive processing and physical transport. The baseline furnace starts only when three lots are resident and returns the same three identities after one fixed batch job; its alternative rapid-anneal Process handles one lot at a time. Lithography masks and etch recipes are explicit setup groups, so every layer transition occupies shared equipment, consumes power, and competes with due-date service. Fixed process excursions exercise repairable critical-dimension defects, terminal particle contamination, and latent electrical defects missed by standard inspection. Lots physically branch through pass, selective rework, or scrap routes.\n\nEquipment condition is equally physical. Usage drift changes cycle time, power, and defect exposure until a provider performs maintenance with the required clean/calibration kit. Service completion then creates a separate qualification job: vacuum tools consume sacrificial tool-qualification wafers, metrology consumes reference wafers, the corresponding skilled crew is reserved, and production remains locked until that powered qualification finishes. A failed qualification retries only the release phase instead of repeating completed service.\n\nThe locked Coding Agent benchmark evaluates one candidate Blueprint across excursion-free production, mixed quality work, a systematic excursion, and a timed lithography interruption. This prevents a layout or policy from winning only by memorizing one defect schedule. The evaluator measures scheduled/released/pending work, planned and actual release cadence, peak active lots, physical/controller blocked lot-time, good and first-pass yield, inspection count, rework, scrap, quality escape, actual lots per batch, pre-start batch queue wait, complete cycle, queue, processing, transport, changeover, maintenance/qualification work and consumables, on-time service, tardiness, and per-case score instead of inferring them from fungible inventory.\n\nThe model is deliberately a process-flow abstraction, not a claim to encode a proprietary DRAM recipe or inspection algorithm. Timing, defect, and capacity values are synthetic benchmark parameters. Start with \`bun run inm analyze examples/memory-fab\`, \`bun run inm simulate examples/memory-fab\`, \`bun run inm benchmark examples/memory-fab --benchmark dispatch-research\`, \`bun run memory-fab:research-release\`, or \`bun run inm studio examples/memory-fab --port 4176\`.\n`);
@@ -899,11 +938,11 @@ await text(autoresearchPath, generatedAutoresearch
   )
   .replace(
     "\n\nRun:\n",
-    "\n\nFor the smallest complete optimization proofs, `product-mix-research` changes exactly one final-test dispatch value, while `yield-research` changes exactly one Probe Process id from the standard program to the adaptive program. The latter uses two locked five-minute early-latent-defect cases; nominal output stays eight dies per wafer, but evaluator-owned realized output and downstream delivery change. The evaluator, factory, cases, duration, and contracts stay locked.\n\nRun:\n",
+    "\n\nFor the smallest complete optimization proofs, `product-mix-research` changes exactly one final-test dispatch value, while `yield-research` changes exactly one Probe Process id from the standard program to the adaptive program. The latter uses two locked five-minute early-latent-defect cases; nominal output stays eight dies per wafer, but evaluator-owned realized output and downstream delivery change. `batch-formation-research` is the focused scheduling proof: eleven fixed incoming lots leave a two-lot furnace tail, and `batch-flex.blueprint.json` qualifies both physical anneal Processes plus a bounded full-batch preference. It preserves three efficient full loads, releases the tail after fifteen seconds, and raises delivered devices from 40 to 56. All delivery remains valuable above demand. The evaluator, factory, cases, duration, and contracts stay locked.\n\nRun:\n",
   )
   .replace(
     "bun run memory-fab:research-release -- --min-cap 10 --max-cap 12\n```",
-    "bun run inm benchmark examples/memory-fab --benchmark product-mix-research\nbun run inm benchmark examples/memory-fab --benchmark yield-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
+    "bun run inm benchmark examples/memory-fab --benchmark product-mix-research\nbun run inm benchmark examples/memory-fab --benchmark yield-research\nbun run inm benchmark examples/memory-fab --benchmark batch-formation-research\nbun run memory-fab:research-release -- --min-cap 10 --max-cap 12\nbun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo\nbun run memory-fab:research-campaign\nbun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo\nbun run memory-fab:research-tools\nbun run memory-fab:research-maintenance\nbun run memory-fab:research-metrology\nbun run memory-fab:research-qtime\n```",
   )
   .replace(
     "The aggregate score must improve, and no individual operating condition may regress by more than the declared gate.",
@@ -915,7 +954,7 @@ const generatedReadme = await readFile(projectReadmePath, "utf8");
 await text(projectReadmePath, generatedReadme
   .replace(
     "\n\nEquipment condition is equally physical.",
-    "\n\nThe modeled factory now crosses the wafer-to-product boundary. Twelve fixed shipments of eight package substrates enter through a placed receiving buffer and a physical lane. Each qualified wafer lot reaches an explicit Probe and die-sort Process that completes the tracked work order and emits its actual known-good die count. Standard and adaptive Probe programs share an eight-die nominal envelope but have different fixed realized counts for latent-electrical lots. Packaging consumes each bare die with one substrate before final test. A shared rack chooses between a short commercial screen and an extended burn-in/speed-bin program that emits a fixed synthetic commercial/performance/automotive mix. Three evaluator-owned customer contracts define demand floors, product value, and shortfall penalty. Every delivered device remains valuable above demand, while shortage carries the additional penalty. The Objective therefore rewards service, yield recovery, and product mix without asking a scarce-memory factory to stop at quota; `dram-wafer` cycle, tardiness, WIP, and quality service remain attached to source work. All counts are synthetic.\n\nEquipment condition is equally physical.",
+    "\n\nThe focused `batch-formation-research` case fixes eleven incoming wafer lots. The `batch-flex` Blueprint qualifies both the three-lot furnace Process and the single-lot rapid Process, prefers a full load, and bounds tail wait at fifteen seconds. It preserves three efficient full batches, then drains the residual two lots instead of stranding them. Delivered memory rises from 40 to 56 devices; eight are above the commercial demand floor and remain fully valued.\n\nThe modeled factory now crosses the wafer-to-product boundary. Twelve fixed shipments of eight package substrates enter through a placed receiving buffer and a physical lane. Each qualified wafer lot reaches an explicit Probe and die-sort Process that completes the tracked work order and emits its actual known-good die count. Standard and adaptive Probe programs share an eight-die nominal envelope but have different fixed realized counts for latent-electrical lots. Packaging consumes each bare die with one substrate before final test. A shared rack chooses between a short commercial screen and an extended burn-in/speed-bin program that emits a fixed synthetic commercial/performance/automotive mix. Three evaluator-owned customer contracts define demand floors, product value, and shortfall penalty. Every delivered device remains valuable above demand, while shortage carries the additional penalty. The Objective therefore rewards service, yield recovery, and product mix without asking a scarce-memory factory to stop at quota; `dram-wafer` cycle, tardiness, WIP, and quality service remain attached to source work. All counts are synthetic.\n\nEquipment condition is equally physical.",
   )
   .replace(
     "\n\nEquipment condition is equally physical.",
@@ -939,7 +978,7 @@ await text(projectReadmePath, generatedReadme
   )
   .replace(
     "`bun run memory-fab:research-release`, or `bun run inm studio",
-    "`bun run inm benchmark examples/memory-fab --benchmark product-mix-research`, `bun run inm benchmark examples/memory-fab --benchmark yield-research`, `bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-metrology`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
+    "`bun run inm benchmark examples/memory-fab --benchmark product-mix-research`, `bun run inm benchmark examples/memory-fab --benchmark yield-research`, `bun run inm benchmark examples/memory-fab --benchmark batch-formation-research`, `bun run memory-fab:research-release`, `bun run memory-fab:research-campaign`, `bun run memory-fab:research-tools`, `bun run memory-fab:research-maintenance`, `bun run memory-fab:research-metrology`, `bun run memory-fab:research-qtime`, or `bun run inm studio",
   ));
 
 await text(join(project, ".gitignore"), ".inm/\nruns/\nresults.tsv\n");

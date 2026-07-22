@@ -64,6 +64,9 @@ export type FactoryStateMutation =
   | { kind: "utility.release"; device: string; allocations: Array<{ provider: string; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
+  | { kind: "batch.hold"; device: string; preferredProcess: string; deadlineTick: Tick }
+  | { kind: "batch.release"; device: string; cause: "preferred-ready" | "maximum-wait" }
+  | { kind: "batch.reset"; device: string }
   | { kind: "job.power"; device: string; remainingTicks: Tick; workedTicks: Tick; resumedAt: Tick; powerSatisfactionPpm: number }
   | { kind: "power.satisfaction"; grid: string; satisfactionPpm: number }
   | { kind: "progress"; device: string; progressTicks: Tick };
@@ -647,6 +650,29 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (mutation.cause === "minimum-ready-lots") setup.campaignMinimumLotReleases++;
       else setup.campaignMaximumHoldReleases++;
       delete setup.campaign;
+      return;
+    }
+    case "batch.hold": {
+      const formation = state.devices[mutation.device]!.batchFormation;
+      if (!formation || formation.hold) throw new Error(`Invalid batch-formation hold on '${mutation.device}'`);
+      formation.hold = { preferredProcess: mutation.preferredProcess, sinceTick: state.tick, deadlineTick: mutation.deadlineTick };
+      formation.holds++;
+      return;
+    }
+    case "batch.release": {
+      const formation = state.devices[mutation.device]!.batchFormation;
+      if (!formation?.hold) throw new Error(`Device '${mutation.device}' has no held batch formation`);
+      formation.holdTicks += state.tick - formation.hold.sinceTick;
+      if (mutation.cause === "preferred-ready") formation.preferredReleases++;
+      else formation.timeoutReleases++;
+      formation.draining = mutation.cause === "maximum-wait";
+      delete formation.hold;
+      return;
+    }
+    case "batch.reset": {
+      const formation = state.devices[mutation.device]!.batchFormation;
+      if (!formation) throw new Error(`Device '${mutation.device}' does not track batch formation`);
+      formation.draining = false;
       return;
     }
     case "job.power": {

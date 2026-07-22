@@ -466,6 +466,13 @@ export interface BlueprintDevice {
       /** Otherwise release the held changeover after this much equipment hold time. */
       maximumHoldTicks: Tick;
     };
+    /** Prefer an efficient tracked-lot batch, then drain smaller compatible jobs after a bounded wait. */
+    batchFormation?: {
+      /** Qualified multi-lot Process to start immediately whenever its complete batch is ready. */
+      preferredProcess: ProcessId;
+      /** Maximum time an otherwise-ready smaller compatible job may wait for the preferred batch. */
+      maximumWaitTicks: Tick;
+    };
     /** Pull fixed maintenance into an idle window after this many completed production jobs. */
     preventiveMaintenance?: { minimumJobs: number };
     /** Higher authored priority wins finite grid power; equal tiers use stable Device ids. */
@@ -972,6 +979,14 @@ export interface DeviceRuntimeState {
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   /** FIFO-preserving identities for Resources whose tracking kind is lot. */
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
+  batchFormation?: {
+    holds: number;
+    holdTicks: Tick;
+    preferredReleases: number;
+    timeoutReleases: number;
+    draining: boolean;
+    hold?: { preferredProcess: ProcessId; sinceTick: Tick; deadlineTick: Tick };
+  };
   setup?: {
     group: string | null;
     changeovers: number;
@@ -1176,6 +1191,8 @@ export type FactoryEvent =
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
+  | { type: "device.batch-held"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; preferredLots: number; deadlineTick: Tick }
+  | { type: "device.batch-released"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; heldTicks: Tick; cause: "preferred-ready" | "maximum-wait" }
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[] }
   | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
@@ -1371,6 +1388,11 @@ export interface FactoryMetrics {
     lots: number;
     averageLotsPerJob: number;
     meanQueueWaitTicksPerLot: number;
+    formationHolds: number;
+    formationHoldTicks: Tick;
+    preferredReleases: number;
+    timeoutReleases: number;
+    formationDevices: Record<DeviceInstanceId, NonNullable<DeviceRuntimeState["batchFormation"]>>;
     operations: Record<string, {
       device: string;
       process: string;

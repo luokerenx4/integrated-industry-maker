@@ -1332,6 +1332,34 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         message: `Every operation on campaign-controlled Device '${instance.id}' must preserve tracked lot identities`,
       });
     }
+    if (instance.policy?.batchFormation) {
+      const formationPath = `${path}/policy/batchFormation`;
+      const preferred = processPlans.filter((plan) => plan.definition.id === instance.policy!.batchFormation!.preferredProcess);
+      if (preferred.length !== 1) issues.push({
+        path: `${formationPath}/preferredProcess`, code: "production.batch-preferred-operation",
+        message: `Batch formation on '${instance.id}' requires exactly one qualified operation for preferred Process '${instance.policy.batchFormation.preferredProcess}'`,
+      });
+      const preferredPlan = preferred[0];
+      if (preferredPlan && (preferredPlan.lotTransfers.length === 0 || preferredPlan.lotTransfers.some((transfer) => transfer.input.count < 2))) issues.push({
+        path: `${formationPath}/preferredProcess`, code: "production.batch-preferred-multi-lot",
+        message: `Preferred Process '${preferredPlan.definition.id}' on '${instance.id}' must preserve at least two tracked lots per transfer`,
+      });
+      const compatible = preferredPlan && processPlans.some((candidate) => candidate !== preferredPlan
+        && candidate.lotTransfers.length === preferredPlan.lotTransfers.length
+        && preferredPlan.lotTransfers.every((preferredTransfer) => candidate.lotTransfers.some((candidateTransfer) =>
+          candidateTransfer.family === preferredTransfer.family
+          && candidateTransfer.input.resource === preferredTransfer.input.resource
+          && candidateTransfer.output.resource === preferredTransfer.output.resource
+          && candidateTransfer.input.count < preferredTransfer.input.count)));
+      if (preferredPlan && !compatible) issues.push({
+        path: formationPath, code: "production.batch-compatible-fallback",
+        message: `Batch formation on '${instance.id}' requires a qualified smaller tracked-lot operation compatible with '${preferredPlan.definition.id}'`,
+      });
+      if (instance.policy.setupCampaign) issues.push({
+        path: formationPath, code: "production.batch-campaign-exclusive",
+        message: `Device '${instance.id}' cannot combine batch formation and setup campaign control`,
+      });
+    }
     if (instance.policy?.preventiveMaintenance) {
       const maintenancePath = `${path}/policy/preventiveMaintenance`;
       if (!asset.production?.maintenance) issues.push({

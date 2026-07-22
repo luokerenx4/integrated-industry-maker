@@ -21,6 +21,7 @@ type InternalEvent =
   | { kind: "power-boundary"; grid: string; generation: number }
   | { kind: "generation-boundary"; device: string }
   | { kind: "campaign-timeout"; device: string; targetGroup: string; deadlineTick: Tick }
+  | { kind: "batch-timeout"; device: string; preferredProcess: string; deadlineTick: Tick }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
 
@@ -74,6 +75,9 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     const initialMilliJoules = project.scenario.initialEnergyMilliJoules?.[id] ?? 0;
     devices[id] = {
       status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds,
+      ...(project.devices[id]!.policy?.batchFormation ? { batchFormation: {
+        holds: 0, holdTicks: 0, preferredReleases: 0, timeoutReleases: 0, draining: false,
+      } } : {}),
       ...(project.devices[id]!.assetDef.production?.changeover ? { setup: {
         group: project.scenario.initialSetups?.[id] ?? null,
         changeovers: 0,
@@ -1500,11 +1504,83 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return ids.size;
   };
+  const compatibleBatchFallbacks = (
+    device: CompiledDevice,
+    preferred: CompiledDevice["processPlans"][number],
+  ): CompiledDevice["processPlans"] => device.processPlans.filter((candidate) => candidate !== preferred
+    && candidate.lotTransfers.length === preferred.lotTransfers.length
+    && preferred.lotTransfers.every((preferredTransfer) => candidate.lotTransfers.some((candidateTransfer) =>
+      candidateTransfer.family === preferredTransfer.family
+      && candidateTransfer.input.resource === preferredTransfer.input.resource
+      && candidateTransfer.output.resource === preferredTransfer.output.resource
+      && candidateTransfer.input.count < preferredTransfer.input.count)));
+  const readyTrackedLotsForPlan = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): number => {
+    const ids = new Set<string>();
+    for (const transfer of plan.lotTransfers) for (const id of rankedLotIds(device, transfer.input.buffer, transfer.input.resource)) {
+      if (state.lots[id]!.treatmentLevel >= (transfer.input.minimumTreatmentLevel ?? 0)) ids.add(id);
+    }
+    return ids.size;
+  };
+  const selectBatchFormationProcessPlan = (device: CompiledDevice): {
+    plan?: CompiledDevice["processPlans"][number]; held: boolean; changed: boolean;
+  } => {
+    const policy = device.policy?.batchFormation;
+    const formation = state.devices[device.id]!.batchFormation;
+    if (!policy || !formation) return { plan: selectProcessPlan(device), held: false, changed: false };
+    const preferred = device.processPlans.find((plan) => plan.definition.id === policy.preferredProcess)!;
+    const fallbacks = compatibleBatchFallbacks(device, preferred);
+    const preferredReady = processPlanReady(device, preferred);
+    const fallback = selectProcessPlan(device, fallbacks, false);
+    const readyLots = readyTrackedLotsForPlan(device, preferred);
+    const preferredLots = Math.max(...preferred.lotTransfers.map((transfer) => transfer.input.count));
+    if (preferredReady) {
+      let changed = false;
+      if (formation.hold) {
+        emit({
+          type: "device.batch-released", tick: state.tick, device: device.id, preferredProcess: preferred.definition.id,
+          readyLots, heldTicks: state.tick - formation.hold.sinceTick, cause: "preferred-ready",
+        });
+        mutateFactoryState(state, { kind: "batch.release", device: device.id, cause: "preferred-ready" });
+        changed = true;
+      } else if (formation.draining) {
+        mutateFactoryState(state, { kind: "batch.reset", device: device.id });
+        changed = true;
+      }
+      return { plan: preferred, held: false, changed };
+    }
+    if (formation.hold) {
+      if (state.tick < formation.hold.deadlineTick) return { held: true, changed: false };
+      emit({
+        type: "device.batch-released", tick: state.tick, device: device.id, preferredProcess: preferred.definition.id,
+        readyLots, heldTicks: state.tick - formation.hold.sinceTick, cause: "maximum-wait",
+      });
+      mutateFactoryState(state, { kind: "batch.release", device: device.id, cause: "maximum-wait" });
+      return { plan: fallback, held: false, changed: true };
+    }
+    if (formation.draining) {
+      if (fallback) return { plan: fallback, held: false, changed: false };
+      if (fallbacks.some((plan) => readyTrackedLotsForPlan(device, plan) > 0)) {
+        return { plan: selectProcessPlan(device, fallbacks), held: false, changed: false };
+      }
+      mutateFactoryState(state, { kind: "batch.reset", device: device.id });
+      return { plan: selectProcessPlan(device), held: false, changed: true };
+    }
+    if (!fallback || policy.maximumWaitTicks === 0) return { plan: fallback ?? selectProcessPlan(device), held: false, changed: false };
+    const deadlineTick = state.tick + policy.maximumWaitTicks;
+    mutateFactoryState(state, { kind: "batch.hold", device: device.id, preferredProcess: preferred.definition.id, deadlineTick });
+    emit({
+      type: "device.batch-held", tick: state.tick, device: device.id, preferredProcess: preferred.definition.id,
+      readyLots, preferredLots, deadlineTick,
+    });
+    schedule(deadlineTick, 3, { kind: "batch-timeout", device: device.id, preferredProcess: preferred.definition.id, deadlineTick });
+    return { held: true, changed: true };
+  };
   const selectCampaignProcessPlan = (device: CompiledDevice): {
     plan?: CompiledDevice["processPlans"][number];
     held: boolean;
     changed: boolean;
   } => {
+    if (device.policy?.batchFormation) return selectBatchFormationProcessPlan(device);
     const policy = device.policy?.setupCampaign;
     const setup = state.devices[device.id]!.setup;
     if (!policy || !setup || setup.group === null) return { plan: selectProcessPlan(device), held: false, changed: false };
@@ -2133,6 +2209,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (campaign) schedule(Math.max(state.tick, campaign.deadlineTick), 3, {
       kind: "campaign-timeout", device, targetGroup: campaign.targetGroup, deadlineTick: campaign.deadlineTick,
     });
+    const batchHold = runtime.batchFormation?.hold;
+    if (batchHold) schedule(Math.max(state.tick, batchHold.deadlineTick), 3, {
+      kind: "batch-timeout", device, preferredProcess: batchHold.preferredProcess, deadlineTick: batchHold.deadlineTick,
+    });
   }
   for (const deviceId of Object.values(project.devices).filter((device) => device.generationPlan?.kind === "renewable" && renewableProfileFor(project, device.id)).map((device) => device.id).sort()) {
     const device = project.devices[deviceId]!; const output = generatorOutputAt(project, deviceId, state.tick);
@@ -2491,6 +2571,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     } else if (event.kind === "campaign-timeout") {
       const campaign = state.devices[event.device]?.setup?.campaign;
       if (!campaign || campaign.targetGroup !== event.targetGroup || campaign.deadlineTick !== event.deadlineTick) continue;
+    } else if (event.kind === "batch-timeout") {
+      const hold = state.devices[event.device]?.batchFormation?.hold;
+      if (!hold || hold.preferredProcess !== event.preferredProcess || hold.deadlineTick !== event.deadlineTick) continue;
     } else if (event.kind === "breakdown") {
       if (project.devices[event.device]!.assetDef.utilityProvider) {
         const interruptedJobs = Object.entries(state.devices)

@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `scaled-factory`
 - Score: **122.079**
-- Result hash: `064a1b474a95b6cb9cdaee3bccbf42e3f73e5fcef82a1cbaa1a6348c09daf7c4`
+- Result hash: `e36b28a1d89fb321c55c0779caf022286ea4ee8134dcf239f90ac6c81d8154fd`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
 - Delivery portfolio: 83.3% demand attainment · 40.000 / 48.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -15,7 +15,7 @@
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Lot-derived output: 0 / 0 actual / nominal units · 100.0% realization · 0 lost
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
-- Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot
+- Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Primary target rate: 24.000 gear/min
 - Capacity delivery targets: 24.000 gear/min

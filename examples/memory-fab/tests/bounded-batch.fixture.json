@@ -1,0 +1,60 @@
+{
+  "name": "bounded batch formation prefers full furnace loads and drains the incomplete tail",
+  "world": "cleanroom",
+  "blueprint": "batch-flex",
+  "scenario": "batch-tail",
+  "objective": "dram-output",
+  "seed": 42,
+  "assertions": [
+    {
+      "kind": "metric",
+      "path": "batchFlow.jobs",
+      "equals": 3
+    },
+    {
+      "kind": "metric",
+      "path": "batchFlow.averageLotsPerJob",
+      "equals": 3
+    },
+    {
+      "kind": "metric",
+      "path": "batchFlow.formationHolds",
+      "equals": 4
+    },
+    {
+      "kind": "metric",
+      "path": "batchFlow.preferredReleases",
+      "equals": 3
+    },
+    {
+      "kind": "metric",
+      "path": "batchFlow.timeoutReleases",
+      "equals": 1
+    },
+    {
+      "kind": "metric",
+      "path": "deliveryPortfolio.delivered",
+      "equals": 56
+    },
+    {
+      "kind": "metric",
+      "path": "deliveryPortfolio.valued",
+      "equals": 56
+    },
+    {
+      "kind": "metric",
+      "path": "deliveryPortfolio.overflow",
+      "equals": 8
+    },
+    {
+      "kind": "event",
+      "type": "device.batch-held",
+      "present": true
+    },
+    {
+      "kind": "event",
+      "type": "device.batch-released",
+      "present": true
+    }
+  ]
+}

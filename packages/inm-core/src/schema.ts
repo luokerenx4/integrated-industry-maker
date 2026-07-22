@@ -211,6 +211,7 @@ export const blueprintSchema = z.object({
       recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "contract-value", "oldest-lot", "earliest-due-date", "highest-lot-priority"]).optional(),
       lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),
+      batchFormation: z.object({ preferredProcess: id, maximumWaitTicks: nonNegativeInt }).strict().optional(),
       preventiveMaintenance: z.object({ minimumJobs: positiveInt }).strict().optional(),
       powerPriority: nonNegativeInt.optional(),
       stationChargeMilliWatts: nonNegativeInt.optional(),

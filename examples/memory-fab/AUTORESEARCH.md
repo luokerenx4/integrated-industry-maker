@@ -26,7 +26,7 @@ The TypeScript commands `bun run memory-fab:research-release` and `bun run memor
 
 Coding Agents may next test utility-plant count/placement, reticle-stocker count/placement, paired same-layer lithography capacity, a second service crew, service-bay placement, qualification-wafer inventory, furnace duplication, buffers, routes, power, `policies.lotRelease`, or `policy.setupCampaign` by editing the candidate Blueprint only. Facility allocations, capacity-unit time, waits, blocks, provider trips, reusable-tool occupancy, maintenance, quality, cycle time, tardiness, throughput, WIP, energy, cost, and area are evaluator-owned measurements.
 
-For the smallest complete optimization proofs, `product-mix-research` changes exactly one final-test dispatch value, while `yield-research` changes exactly one Probe Process id from the standard program to the adaptive program. The latter uses two locked five-minute early-latent-defect cases; nominal output stays eight dies per wafer, but evaluator-owned realized output and downstream delivery change. The evaluator, factory, cases, duration, and contracts stay locked.
+For the smallest complete optimization proofs, `product-mix-research` changes exactly one final-test dispatch value, while `yield-research` changes exactly one Probe Process id from the standard program to the adaptive program. The latter uses two locked five-minute early-latent-defect cases; nominal output stays eight dies per wafer, but evaluator-owned realized output and downstream delivery change. `batch-formation-research` is the focused scheduling proof: eleven fixed incoming lots leave a two-lot furnace tail, and `batch-flex.blueprint.json` qualifies both physical anneal Processes plus a bounded full-batch preference. It preserves three efficient full loads, releases the tail after fifteen seconds, and raises delivered devices from 40 to 56. All delivery remains valuable above demand. The evaluator, factory, cases, duration, and contracts stay locked.
 
 Run:
 
@@ -36,6 +36,7 @@ bun run inm analyze examples/memory-fab --blueprint experiment
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 bun run inm benchmark examples/memory-fab --benchmark product-mix-research
 bun run inm benchmark examples/memory-fab --benchmark yield-research
+bun run inm benchmark examples/memory-fab --benchmark batch-formation-research
 bun run memory-fab:research-release -- --min-cap 10 --max-cap 12
 bun run memory-fab:research-release -- --joint --min-cap 10 --max-cap 10 --min-reopen 3 --max-reopen 7 --release-dispatch fifo
 bun run memory-fab:research-campaign

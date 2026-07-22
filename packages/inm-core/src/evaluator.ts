@@ -195,12 +195,25 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       maximumLotsPerJob: operation.maximumLotsPerJob,
       meanQueueWaitTicksPerLot: operation.lots ? operation.queueWaitTicks / operation.lots : 0,
     }]));
+  const formationDevices = Object.fromEntries(Object.entries(state.devices)
+    .filter(([, runtime]) => runtime.batchFormation)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([id, runtime]) => [id, {
+      ...runtime.batchFormation!,
+      holdTicks: runtime.batchFormation!.holdTicks
+        + (runtime.batchFormation!.hold ? state.tick - runtime.batchFormation!.hold.sinceTick : 0),
+    }]));
   const batchFlow: FactoryMetrics["batchFlow"] = {
     batchOperations: Object.keys(batchOperations).length,
     jobs: Object.values(batchOperations).reduce((sum, operation) => sum + operation.jobs, 0),
     lots: Object.values(batchOperations).reduce((sum, operation) => sum + operation.lots, 0),
     averageLotsPerJob: 0,
     meanQueueWaitTicksPerLot: 0,
+    formationHolds: Object.values(formationDevices).reduce((sum, formation) => sum + formation.holds, 0),
+    formationHoldTicks: Object.values(formationDevices).reduce((sum, formation) => sum + formation.holdTicks, 0),
+    preferredReleases: Object.values(formationDevices).reduce((sum, formation) => sum + formation.preferredReleases, 0),
+    timeoutReleases: Object.values(formationDevices).reduce((sum, formation) => sum + formation.timeoutReleases, 0),
+    formationDevices,
     operations: batchOperations,
   };
   batchFlow.averageLotsPerJob = batchFlow.jobs ? batchFlow.lots / batchFlow.jobs : 0;

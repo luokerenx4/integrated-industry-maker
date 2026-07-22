@@ -176,6 +176,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       capabilities: device.assetDef.capabilities,
       powerPriority: device.policy?.powerPriority ?? 0,
       ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
+      ...(device.policy?.batchFormation ? { batchFormation: { ...device.policy.batchFormation } } : {}),
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),
       ...(device.assetDef.production?.maintenance ? { maintenance: { ...device.assetDef.production.maintenance } } : {}),
       maintenanceProviders: device.maintenanceProviders.map((provider) => ({ ...provider })),

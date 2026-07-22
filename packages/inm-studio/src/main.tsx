@@ -59,6 +59,7 @@ interface Device {
   region: string;
   powerPriority: number;
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
+  batchFormation?: { preferredProcess: string; maximumWaitTicks: number };
   preventiveMaintenance?: { minimumJobs: number };
   maintenance?: {
     maximumJobs: number; durationTicks: number; powerMilliWatts: number;
@@ -275,6 +276,8 @@ interface Metrics {
   };
   batchFlow: {
     batchOperations: number; jobs: number; lots: number; averageLotsPerJob: number; meanQueueWaitTicksPerLot: number;
+    formationHolds: number; formationHoldTicks: number; preferredReleases: number; timeoutReleases: number;
+    formationDevices: Record<string, { holds: number; holdTicks: number; preferredReleases: number; timeoutReleases: number; draining: boolean; hold?: { preferredProcess: string; sinceTick: number; deadlineTick: number } }>;
     operations: Record<string, { device: string; process: string; mode: string; expectedLotsPerJob: number; jobs: number; lots: number; averageLotsPerJob: number; maximumLotsPerJob: number; meanQueueWaitTicksPerLot: number }>;
   };
   energyConsumedMilliJoules: number;
@@ -841,6 +844,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const powerMilliWatts = device.recipe?.powerMilliWatts ?? extraction?.powerMilliWatts ?? asset?.power.activeMilliWatts ?? 0;
   const utilization = data.metrics?.machineUtilization[device.id];
   const setup = data.metrics?.equipmentSetups.devices[device.id];
+  const batchFormation = data.metrics?.batchFlow.formationDevices[device.id];
   const tooling = data.metrics?.productionTooling.devices[device.id];
   const toolingProvider = data.metrics?.productionTooling.providers[device.id];
   const utilities = data.metrics?.productionUtilities.devices[device.id];
@@ -874,6 +878,8 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         {setup && <span><small>CHANGEOVERS</small><b>{setup.changeovers} · {formatTick(setup.setupTicks)}</b></span>}
         {device.setupCampaign && <span><small>SETUP CAMPAIGN</small><b>{device.setupCampaign.minimumReadyLots} LOTS · {formatTick(device.setupCampaign.maximumHoldTicks)} MAX</b></span>}
         {setup && <span><small>CAMPAIGN HOLDS</small><b>{setup.campaignHolds} · {formatTick(setup.campaignHoldTicks)}</b></span>}
+        {device.batchFormation && <span><small>PREFERRED BATCH</small><b>{device.batchFormation.preferredProcess} · {formatTick(device.batchFormation.maximumWaitTicks)} MAX WAIT</b></span>}
+        {batchFormation && <span><small>BATCH HOLDS</small><b>{batchFormation.holds} · {formatTick(batchFormation.holdTicks)} · {batchFormation.preferredReleases} FULL / {batchFormation.timeoutReleases} TIMEOUT</b></span>}
         {tooling && <span><small>TOOLING ALLOCATIONS</small><b>{tooling.allocations} · {tooling.completed} COMPLETE / {tooling.cancelled} CANCEL</b></span>}
         {tooling && <span><small>TOOLING OCCUPANCY</small><b>{formatTick(tooling.occupiedTicks)} EQUIPMENT · {formatTick(tooling.unitTicks)} UNIT-TIME</b></span>}
         {tooling && <span><small>TOOLING WAIT</small><b>{formatTick(tooling.inputWaitTicks)} · {tooling.inputBlocks} BLOCKS{tooling.wait ? ` · ${tooling.wait.process}` : ""}</b></span>}

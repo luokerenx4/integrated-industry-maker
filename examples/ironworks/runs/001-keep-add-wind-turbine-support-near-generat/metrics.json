@@ -5,10 +5,15 @@
   "batchFlow": {
     "averageLotsPerJob": 0,
     "batchOperations": 0,
+    "formationDevices": {},
+    "formationHolds": 0,
+    "formationHoldTicks": 0,
     "jobs": 0,
     "lots": 0,
     "meanQueueWaitTicksPerLot": 0,
-    "operations": {}
+    "operations": {},
+    "preferredReleases": 0,
+    "timeoutReleases": 0
   },
   "beltCellUtilization": 0.017611111111111112,
   "blockedOutputTime": {

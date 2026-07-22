@@ -1343,6 +1343,35 @@ describe("blueprint compiler", () => {
     expect(candidate.metrics.equipmentSetups.totalChangeovers).toBe(baseline.metrics.equipmentSetups.totalChangeovers);
     expect(candidate.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
+    const boundedBatchSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
+    boundedBatchSource.scenario.lotReleases = boundedBatchSource.scenario.lotReleases!.slice(0, 11);
+    boundedBatchSource.scenario.materialDeliveries = boundedBatchSource.scenario.materialDeliveries!.slice(0, 11);
+    boundedBatchSource.scenario.durationTicks = 360_000;
+    const boundedFurnace = boundedBatchSource.blueprint.devices.find((device) => device.id === "furnace-1")!;
+    const batchRecipe = structuredClone(boundedFurnace.recipe!);
+    boundedFurnace.recipes = [batchRecipe, { ...structuredClone(batchRecipe), process: "rapid-anneal-dielectric-stack" }];
+    delete boundedFurnace.recipe;
+    boundedFurnace.policy = {
+      ...boundedFurnace.policy,
+      batchFormation: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 15_000 },
+    };
+    const boundedBatch = runUntil(compileFactoryProject(boundedBatchSource), undefined, { seed: 42 });
+    expect(boundedBatch.metrics.batchFlow).toEqual(expect.objectContaining({
+      jobs: 3, lots: 9, formationHolds: 4, formationHoldTicks: 52_000,
+      preferredReleases: 3, timeoutReleases: 1,
+    }));
+    expect(boundedBatch.metrics.deliveryPortfolio).toEqual(expect.objectContaining({ delivered: 56, valued: 56, overflow: 8 }));
+    expect(boundedBatch.events.filter((event) => event.type === "device.batch-released").map((event) =>
+      event.type === "device.batch-released" ? event.cause : null)).toEqual([
+      "preferred-ready", "preferred-ready", "maximum-wait", "preferred-ready",
+    ]);
+
+    const invalidBatchSource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    invalidBatchSource.blueprint.devices.find((device) => device.id === "furnace-1")!.policy = {
+      batchFormation: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 15_000 },
+    };
+    expect(issueCodes(() => compileFactoryProject(invalidBatchSource))).toContain("production.batch-compatible-fallback");
+
     const setupAwareSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
       const device = setupAwareSource.blueprint.devices.find((item) => item.id === id)!;
@@ -3435,6 +3464,22 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.cases.every((item) => item.candidateMetrics.lotOutputRatio > item.baselineMetrics.lotOutputRatio)).toBeTrue();
     expect(result.cases.every((item) => item.candidateMetrics.lotOutputLostUnits < item.baselineMetrics.lotOutputLostUnits)).toBeTrue();
     expect(result.cases.every((item) => item.scoreDelta > 0 && item.candidateCapacityReady)).toBeTrue();
+  }, 15_000);
+
+  test("keeps bounded DRAM furnace batches while draining an incomplete production tail", async () => {
+    const result = await evaluateBlueprintBenchmark(memoryFab, "batch-formation-research");
+    expect(result.verdict).toBe("KEEP");
+    expect(result.accepted).toBeTrue();
+    expect(result.cases.map((item) => item.id)).toEqual(["incomplete-tail"]);
+    expect(result.totalSimulationTicks).toBe(720_000);
+    expect(result.scoreDelta).toBeCloseTo(16.29494, 5);
+    expect(result.cases[0]!.baselineMetrics.batchJobs).toBe(3);
+    expect(result.cases[0]!.candidateMetrics).toEqual(expect.objectContaining({
+      batchJobs: 3, averageLotsPerBatch: 3, batchFormationHolds: 4,
+      batchPreferredReleases: 3, batchTimeoutReleases: 1, deliveryOverflow: 8,
+    }));
+    expect(result.cases[0]!.candidateMetrics.completedLots).toBeGreaterThan(result.cases[0]!.baselineMetrics.completedLots);
+    expect(result.cases[0]!.candidateMetrics.deliveryNetValuePerMinute).toBeGreaterThan(result.cases[0]!.baselineMetrics.deliveryNetValuePerMinute);
   }, 15_000);
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {
