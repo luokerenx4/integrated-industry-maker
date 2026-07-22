@@ -1,6 +1,6 @@
 # Coding Agent Blueprint optimization
 
-Status: locked multi-case Blueprint benchmarks and a file-native Coding Agent loop are implemented.
+Status: locked multi-case Blueprint benchmarks, project-local Candidate Change Sets, and a guarded human/Agent application loop are implemented.
 
 Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/experiment-workbench]], [[docs/design/work-center-dispatch]], [[docs/design/work-center-specialization]], [[docs/design/reusable-production-tooling]], [[docs/design/usage-based-maintenance]], [[docs/design/equipment-energy-states]], [[docs/design/electricity-tariffs]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/lot-derived-output]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
@@ -49,6 +49,8 @@ INM is not a game-data clone. Project-local assets and TypeScript runtimes defin
 
 `inm benchmark --lock` compiles every baseline case and writes its engine, catalog, World, Blueprint, Scenario, and Objective hashes plus a hash of the benchmark contract. Normal evaluation refuses to run when any fixed input or the case contract has drifted. The candidate Blueprint content is deliberately excluded from the lock.
 
+An Agent that should not mutate the candidate directly can instead author `candidates/<id>.candidate.json`. The artifact pins the current candidate hash, names its Benchmark, records the hypothesis, and carries only a restricted Blueprint patch. `inm candidate --json` previews it through the locked suite; `--apply` repeats the evaluation and writes only a hash-identical reviewed `KEEP`. Studio exposes the same proposal and confirmation boundary to humans. Applied proposals remain as stale, non-replayable project history rather than silently retargeting later Blueprint state.
+
 The command is read-only unless `--lock` is explicitly supplied. It creates no run artifact and does not mutate either Blueprint. Human output ends with stable, grep-friendly fields:
 
 ```text
@@ -82,6 +84,7 @@ Its focused `product-mix-research` benchmark is one minimal proof of the loop. B
 ## Source of truth
 
 - Benchmark schema, locking, evaluation, and aggregation: `packages/inm-core/src/benchmark.ts`
+- Candidate schema, preview, and guarded application: `packages/inm-core/src/candidate-change-set.ts`
 - Controlled single-case comparison: `packages/inm-core/src/blueprint-comparison.ts`
 - CLI rendering: `packages/inm-cli/src/commands.ts`
 - Example fixed harness: `examples/ironworks/benchmarks/autoresearch.benchmark.json`
@@ -101,6 +104,7 @@ bun run inm benchmark examples/memory-fab --benchmark product-mix-research
 bun run inm benchmark examples/memory-fab --benchmark yield-research
 bun run inm benchmark examples/memory-fab --benchmark calendar-maintenance-research
 bun run inm benchmark examples/memory-fab --benchmark equipment-energy-research
+bun run inm candidate examples/memory-fab --candidate stable-furnace-sleep
 bun run memory-fab:research-energy
 bun run memory-fab:research-calendar
 bun run memory-fab:research-tools

@@ -1,20 +1,20 @@
 # Studio visual debugger
 
-Status: project launcher, stable project and experiment routes, shared Benchmark workbench, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
+Status: project launcher, stable project/experiment/candidate routes, shared Benchmark and candidate-review workbench, asset catalog, industrial analysis, direct factory-object inspection, and immutable run replay implemented.
 
 Related: [[docs/design/project-boundaries]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Scope
 
-Studio is a read-only debugger for compiled industrial systems and completed runs plus an explicit projection of the shared locked Benchmark evaluator. It is not a Blueprint editor, an independent simulator authority, or a project switcher embedded in a runtime sidebar.
+Studio is a debugger for compiled industrial systems and completed runs plus an explicit projection of the shared locked Benchmark evaluator. Its only authoring operation is guarded application of a reviewed project-local Candidate Change Set to that Benchmark's candidate Blueprint. It is not a free-form Blueprint editor, an independent simulator authority, or a project switcher embedded in a runtime sidebar.
 
 ## Navigation
 
-The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context. `/<project-id>/experiments/<benchmark-id>` opens a stable, reloadable experiment view inside that context. The back button returns to the launcher. Every data, experiment, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+The root route presents available projects. Selecting one establishes `/<project-id>` as the sole project context. `/<project-id>/experiments/<benchmark-id>` opens a stable experiment view; `/<project-id>/experiments/<benchmark-id>/candidates/<candidate-id>` opens a stable proposal review. The back button returns to the launcher. Every data, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
 ## Experiment workbench
 
-The workbench lists project-local locked Benchmarks, displays fixed cases and acceptance gates, and runs the same `evaluateBlueprintBenchmark()` used by `inm benchmark --json`. It presents aggregate verdict, per-case score/capacity/throughput/service, gate reasons, and semantic Blueprint changes. Execution is explicit and read-only: opening the page never runs a hidden simulation, while pressing the named evaluation button writes no run artifact, Blueprint, lock, or history.
+The workbench lists project-local locked Benchmarks and Candidate Change Sets, displays fixed cases and acceptance gates, and uses the same Core preview as `inm candidate --json`. It presents the hypothesis, authored patch, reviewed hashes, aggregate verdict, per-case score/capacity/throughput/service, gate reasons, and semantic Blueprint changes. Opening the page never runs a hidden simulation. Evaluation is read-only. A KEEP proposal exposes a two-step arm/confirm control; confirm re-evaluates, verifies both reviewed hashes, atomically writes only the candidate Blueprint, and leaves the proposal stale. Studio never changes locks, fixed inputs, assets, runs, or Git.
 
 ## Project-local catalog
 
@@ -73,7 +73,7 @@ bun test packages/inm-studio
 bun run inm studio examples/ironworks --port 4178 --no-open
 ```
 
-Browser QA should verify `/`, `/<project-id>`, `/<project-id>/experiments/<benchmark-id>`, experiment selection/execution/verdict/diff, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. Merely confirming that the HTTP server responds does not prove the UI.
+Browser QA should verify `/`, `/<project-id>`, `/<project-id>/experiments/<benchmark-id>`, `/<project-id>/experiments/<benchmark-id>/candidates/<candidate-id>`, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, Catalog, Analysis, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on a temporary project must cover actual apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.
 
 ## Change checklist
 

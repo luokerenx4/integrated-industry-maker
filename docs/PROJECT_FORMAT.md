@@ -47,6 +47,7 @@ factory/
   worlds/<id>.world.json
   blueprints/<id>.blueprint.json
   benchmarks/<id>.benchmark.json
+  candidates/<id>.candidate.json
   AUTORESEARCH.md
   scenarios/<id>.scenario.json
   objectives/<id>.objective.json
@@ -892,5 +893,30 @@ Ids use lowercase kebab-case. Cases must have unique ids, non-negative integer s
 Evaluation reports the weighted aggregate, the lowest raw baseline/candidate case score, and the minimum individual-case score delta. The latter two are stable outputs for robustness-oriented Coding Agent loops; the acceptance gate still uses the declared aggregate threshold and maximum permitted regression for every case.
 
 The `lock` is written only by an explicit `inm benchmark --lock`. `contractHash` covers every benchmark field except the lock itself, including the candidate filename but not its content. Each case lock captures the complete compiled baseline identity. Normal evaluation rejects missing locks, contract edits, case-set edits, engine changes, and any catalog/World/baseline/Scenario/Objective drift. The candidate Blueprint is the sole variable.
+
+## Candidate change set
+
+`candidates/<id>.candidate.json` is an optional project-local proposal against one Benchmark candidate Blueprint:
+
+```json
+{
+  "version": 1,
+  "id": "stable-furnace-sleep",
+  "name": "Stable furnace sleep threshold",
+  "benchmark": "equipment-energy-research",
+  "hypothesis": "A conservative threshold retains the accepted energy gain without an extra wake cycle.",
+  "expectedEffect": "Retain the long standby saving.",
+  "baseCandidateHash": "<sha256>",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/5/policy/idleEnergy/sleepAfterTicks",
+      "value": 35000
+    }
+  ]
+}
+```
+
+The filename must match `id`. `baseCandidateHash` is the canonical content hash of the Benchmark's current candidate Blueprint. Patches must be non-empty and may use only `add`, `remove`, or `replace` below `/devices`, `/connections`, `/logisticsNetworks`, or `/policies`. Core owns the resulting revision lineage. Preview compiles the patched Blueprint across every locked case without writing. Apply requires the same reviewed base and proposed hashes plus a `KEEP` verdict, then atomically writes only the candidate Blueprint. Because the proposal keeps its original base hash, successful application makes it stale and non-repeatable.
 
 The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks); shared work-center qualification and re-entrant flow are demonstrated in [[examples/memory-fab]].

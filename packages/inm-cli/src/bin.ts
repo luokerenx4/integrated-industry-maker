@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, compareCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
@@ -29,6 +29,7 @@ PROJECT COMMANDS
   plan <path>                 Size the factory for the objective target rate
   compare <path>              Diff and evaluate two Blueprint files
   benchmark <path>            Score one editable Blueprint on a locked case suite
+  candidate <path>            Preview or explicitly apply a project-local change set
   synthesize <path>           Generate a complete blueprint from the objective
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
@@ -47,6 +48,7 @@ COMMON OPTIONS
   --seed <n>                  Deterministic seed (default 42)
   --agent-command <command>   External proposal process; receives JSON on stdin
   --benchmark <id>            Locked Blueprint benchmark id (default autoresearch)
+  --candidate <id>            Project-local candidates/<id>.candidate.json
   --json                      Machine-readable JSON output
 `;
 
@@ -125,6 +127,14 @@ async function main(): Promise<void> {
     }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm benchmark <project-or-workspace-dir> [--project ID] [--benchmark ID] [--lock]", values.project);
     return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock });
+  }
+  if (subcommand === "candidate") {
+    const { values, positionals } = parseArgs({ args, options: {
+      ...projectOption, candidate: { type: "string" }, apply: { type: "boolean", default: false }, json: common.json,
+    }, allowPositionals: true });
+    if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--apply] [--json]");
+    const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--apply]", values.project);
+    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply });
   }
   if (subcommand === "simulate") {
     const { values, positionals } = parseArgs({ args, options: { ...common, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });

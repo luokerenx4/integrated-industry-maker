@@ -565,19 +565,25 @@ const formatTick = (tick: number) => `${(tick / 1000).toFixed(1)}s`;
 const jobQuantity = (rates: Record<string, number>, cyclesPerMinute: number) => Object.values(rates).reduce((sum, rate) => sum + rate, 0) / cyclesPerMinute;
 const formatQuantity = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
 const projectPath = (projectId: string) => `/${encodeURIComponent(projectId)}`;
-const experimentPath = (projectId: string, experimentId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}`;
+const experimentPath = (projectId: string, experimentId?: string, candidateId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}${candidateId ? `/candidates/${encodeURIComponent(candidateId)}` : ""}`;
 const fileUrl = (projectId: string, path: string) => `/api/projects/${encodeURIComponent(projectId)}/files/${path.split("/").map(encodeURIComponent).join("/")}`;
 
-function studioRoute(): { projectId: string | null; experimentId: string | null } {
+function studioRoute(): { projectId: string | null; experimentId: string | null; candidateId: string | null } {
   const segments = window.location.pathname.split("/").filter(Boolean);
   try {
-    if (segments.length === 1) return { projectId: decodeURIComponent(segments[0]!), experimentId: null };
+    if (segments.length === 1) return { projectId: decodeURIComponent(segments[0]!), experimentId: null, candidateId: null };
     if ((segments.length === 2 || segments.length === 3) && segments[1] === "experiments") return {
       projectId: decodeURIComponent(segments[0]!),
       experimentId: segments[2] ? decodeURIComponent(segments[2]) : "",
+      candidateId: null,
+    };
+    if (segments.length === 5 && segments[1] === "experiments" && segments[3] === "candidates") return {
+      projectId: decodeURIComponent(segments[0]!),
+      experimentId: decodeURIComponent(segments[2]!),
+      candidateId: decodeURIComponent(segments[4]!),
     };
   } catch { /* malformed routes fall back to the launcher */ }
-  return { projectId: null, experimentId: null };
+  return { projectId: null, experimentId: null, candidateId: null };
 }
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -1355,6 +1361,7 @@ function App() {
   const initialRoute = useMemo(() => studioRoute(), []);
   const [routeProject, setRouteProject] = useState<string | null>(initialRoute.projectId);
   const [routeExperiment, setRouteExperiment] = useState<string | null>(initialRoute.experimentId);
+  const [routeCandidate, setRouteCandidate] = useState<string | null>(initialRoute.candidateId);
   const [index, setIndex] = useState<ProjectIndex | null>(null);
   const [data, setData] = useState<StudioData | null>(null);
   const [run, setRun] = useState<string | null>(null);
@@ -1403,6 +1410,7 @@ function App() {
     runRef.current = null;
     setRouteProject(projectId);
     setRouteExperiment(null);
+    setRouteCandidate(null);
     setAssetsOpen(false);
     setAnalysisOpen(false);
     setSelection(null);
@@ -1418,10 +1426,17 @@ function App() {
     if (!routeProject) return;
     window.history.pushState({}, "", experimentId === null ? projectPath(routeProject) : experimentPath(routeProject, experimentId || undefined));
     setRouteExperiment(experimentId);
+    setRouteCandidate(null);
     setAssetsOpen(false);
     setAnalysisOpen(false);
     setSelection(null);
   }, [routeProject]);
+
+  const navigateCandidate = useCallback((candidateId: string | null) => {
+    if (!routeProject || !routeExperiment) return;
+    window.history.pushState({}, "", experimentPath(routeProject, routeExperiment, candidateId || undefined));
+    setRouteCandidate(candidateId);
+  }, [routeExperiment, routeProject]);
 
   useEffect(() => { void loadIndex(); }, [loadIndex]);
   useEffect(() => {
@@ -1430,6 +1445,7 @@ function App() {
       projectRef.current = nextRoute.projectId;
       setRouteProject(nextRoute.projectId);
       setRouteExperiment(nextRoute.experimentId);
+      setRouteCandidate(nextRoute.candidateId);
       setAssetsOpen(false);
       setAnalysisOpen(false);
       setSelection(null);
@@ -1452,8 +1468,8 @@ function App() {
   }, [loadIndex, loadProject]);
   useEffect(() => {
     const experiment = routeExperiment && data?.experiments.find((item) => item.id === routeExperiment);
-    document.title = experiment ? `${experiment.name} · ${data!.name} · INM Studio` : data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
-  }, [data, index, routeExperiment]);
+    document.title = experiment ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${data!.name} · INM Studio` : data ? `${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
+  }, [data, index, routeCandidate, routeExperiment]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -1548,7 +1564,9 @@ function App() {
       projectId={data.projectId}
       experiments={data.experiments}
       selectedId={routeExperiment || null}
+      selectedCandidateId={routeCandidate}
       onSelect={(experimentId) => navigateExperiment(experimentId)}
+      onSelectCandidate={navigateCandidate}
       onClose={() => navigateExperiment(null)}
     />}
   </main>;

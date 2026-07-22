@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
+  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
-  stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
+  hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
 } from "./index";
@@ -3791,6 +3791,42 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(prioritized.scoreDelta).toBeGreaterThan(1_000_000);
     expect(prioritized.patch).toHaveLength(3);
     expect(prioritized.changes.every((change) => change.kind === "device" && change.fields?.includes("policy"))).toBeTrue();
+  });
+
+  test("previews and atomically applies a hash-pinned KEEP candidate change set", async () => {
+    const dir = await projectCopy();
+    const blueprintPath = join(dir, "blueprints/power-priority-candidate.blueprint.json");
+    const blueprint = JSON.parse(await readFile(blueprintPath, "utf8")) as Blueprint;
+    const baseCandidateHash = hashValue(blueprint);
+    const protectedIds = new Set(["z-critical-assembler", "z-critical-link-loader", "z-critical-link-unloader"]);
+    const patch = blueprint.devices.flatMap((device, index) => !protectedIds.has(device.id) ? [] : [device.policy ? {
+      op: "add" as const, path: `/devices/${index}/policy/powerPriority`, value: 10,
+    } : {
+      op: "add" as const, path: `/devices/${index}/policy`, value: { powerPriority: 10 },
+    }]);
+    await mkdir(join(dir, "candidates"));
+    await writeFile(join(dir, "candidates/protect-critical-line.candidate.json"), `${stableStringify({
+      version: 1,
+      id: "protect-critical-line",
+      name: "Protect critical sorter line",
+      benchmark: "power-priority",
+      hypothesis: "Critical production and its physical transport endpoints should preempt discretionary loads.",
+      baseCandidateHash,
+      patch,
+    }, 2)}\n`);
+
+    expect((await listCandidateChangeSets(dir, "power-priority")).map((item) => item.id)).toEqual(["protect-critical-line"]);
+    const beforePreview = await readFile(blueprintPath, "utf8");
+    const preview = await previewCandidateChangeSet(dir, "protect-critical-line");
+    expect(preview.result.verdict).toBe("KEEP");
+    expect(preview.result.patch).toHaveLength(4);
+    expect(await readFile(blueprintPath, "utf8")).toBe(beforePreview);
+
+    const applied = await applyCandidateChangeSet(dir, "protect-critical-line", preview);
+    expect(applied.applied).toBeTrue();
+    expect(hashValue(JSON.parse(await readFile(blueprintPath, "utf8")))).toBe(preview.proposedCandidateHash);
+    expect(preview.proposedCandidateHash).not.toBe(baseCandidateHash);
+    await expect(previewCandidateChangeSet(dir, "protect-critical-line")).rejects.toMatchObject({ code: "candidate.stale-base" });
   });
 
   test("lets a coding agent improve proportional satisfaction by editing only the Blueprint", async () => {

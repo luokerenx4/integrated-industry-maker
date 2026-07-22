@@ -60,3 +60,25 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
   expect(await readFile(mainPath, "utf8")).toBe(mainBefore);
   expect(await readFile(candidatePath, "utf8")).toBe(candidateBefore);
 });
+
+test("candidate CLI previews a project-local change set as machine-readable JSON without writing", async () => {
+  const repository = resolve(import.meta.dir, "../../..");
+  const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
+  const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
+  const before = await readFile(blueprintPath, "utf8");
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
+    "--candidate", "stable-furnace-sleep", "--json",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
+  ]);
+  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const result = JSON.parse(stdout) as { command: string; action: string; candidate: { id: string }; result: { verdict: string; scoreDelta: number } };
+  expect(result).toEqual(expect.objectContaining({
+    command: "candidate", action: "preview", candidate: expect.objectContaining({ id: "stable-furnace-sleep" }),
+    result: expect.objectContaining({ verdict: "KEEP", scoreDelta: expect.any(Number) }),
+  }));
+  expect(await readFile(blueprintPath, "utf8")).toBe(before);
+}, 15_000);

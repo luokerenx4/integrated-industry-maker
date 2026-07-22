@@ -3,12 +3,16 @@ import { mkdir, readFile, readdir, watch } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  CandidateChangeSetError,
   analyzeProduction,
+  applyCandidateChangeSet,
   blueprintSchema,
   compileFactoryProject,
   ENGINE_VERSION,
   evaluateBlueprintBenchmark,
   listBlueprintBenchmarks,
+  listCandidateChangeSets,
+  loadCandidateChangeSet,
   listRuns,
   listWorkspaceProjects,
   loadFactoryProject,
@@ -18,6 +22,7 @@ import {
   openFactoryProject,
   pathExists,
   planProductionCapacity,
+  previewCandidateChangeSet,
   readJson,
   resolveProjectDirectory,
 } from "@inm/core";
@@ -413,6 +418,7 @@ function decoded(value: string): string {
 
 function errorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof CandidateChangeSetError) return Response.json({ code: error.code, error: message }, { status: error.code === "candidate.stale-base" ? 409 : 400 });
   const notFound = message.startsWith("Unknown") || message.startsWith("Not an INM");
   return Response.json({ code: notFound ? "studio.not-found" : "studio.request-failed", error: message }, { status: notFound ? 404 : 400 });
 }
@@ -452,6 +458,35 @@ const server = Bun.serve({
         return Response.json({ command: "benchmark", ...await evaluateBlueprintBenchmark(projectDir, benchmarkId) });
       }
 
+      const experimentCandidatesMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/candidates$/);
+      if (experimentCandidatesMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(experimentCandidatesMatch[1]!));
+        return Response.json({ candidates: await listCandidateChangeSets(projectDir, decoded(experimentCandidatesMatch[2]!)) });
+      }
+
+      const candidateActionMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/candidates\/([^/]+)\/(preview|apply)$/);
+      if (candidateActionMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(candidateActionMatch[1]!));
+        const benchmarkId = decoded(candidateActionMatch[2]!);
+        const candidateId = decoded(candidateActionMatch[3]!);
+        const action = candidateActionMatch[4]!;
+        const candidate = await loadCandidateChangeSet(projectDir, candidateId);
+        if (candidate.benchmark !== benchmarkId) throw new CandidateChangeSetError("candidate.benchmark-mismatch", `Candidate '${candidateId}' belongs to Benchmark '${candidate.benchmark}', not '${benchmarkId}'`);
+        if (action === "preview") {
+          const preview = await previewCandidateChangeSet(projectDir, candidateId);
+          return Response.json({ command: "candidate", action, ...preview });
+        }
+        const reviewed = await request.json() as { currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
+        if (typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed currentCandidateHash and proposedCandidateHash");
+        const applied = await applyCandidateChangeSet(projectDir, candidateId, {
+          currentCandidateHash: reviewed.currentCandidateHash,
+          proposedCandidateHash: reviewed.proposedCandidateHash,
+        });
+        return Response.json({ command: "candidate", action, ...applied });
+      }
+
       const fileMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)$/);
       if (fileMatch) {
         const projectId = decoded(fileMatch[1]!);
@@ -474,7 +509,7 @@ const server = Bun.serve({
         return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" } });
       }
 
-      if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname) || /^\/[^/]+\/experiments(?:\/[^/]+)?\/?$/.test(url.pathname)) {
+      if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname) || /^\/[^/]+\/experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?\/?$/.test(url.pathname)) {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
       }
       return new Response("Not found", { status: 404 });

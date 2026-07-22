@@ -1,0 +1,16 @@
+{
+  "baseCandidateHash": "b12392ad10a2104810da9971a86295b1aef1d3ba499a9e1521c1f060338bbdf5",
+  "benchmark": "equipment-energy-research",
+  "expectedEffect": "Avoid an unproductive short sleep while retaining most of the energy saving across the long standby window.",
+  "hypothesis": "A slightly more conservative furnace sleep threshold should retain the accepted energy gain without adding a wake cycle.",
+  "id": "stable-furnace-sleep",
+  "name": "Stable furnace sleep threshold",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/5/policy/idleEnergy/sleepAfterTicks",
+      "value": 35000
+    }
+  ],
+  "version": 1
+}

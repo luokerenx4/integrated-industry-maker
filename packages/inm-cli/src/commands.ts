@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBlueprintBenchmark, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, openFactoryProject, pathExists,
+  CandidateChangeSetError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, applyCandidateChangeSet, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBlueprintBenchmark, findCachedRun, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, openFactoryProject, pathExists, previewCandidateChangeSet,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, writeRunArtifact, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
@@ -516,6 +516,32 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   ].join("\n"), false);
 }
 
+export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean }): Promise<void> {
+  const preview = await previewCandidateChangeSet(projectDir, candidateId);
+  if (options.apply) {
+    const applied = await applyCandidateChangeSet(projectDir, candidateId, preview);
+    if (options.json) { write({ command: "candidate", action: "apply", ...applied }, true); return; }
+    write([
+      `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
+      `Reviewed ${applied.currentCandidateHash.slice(0, 12)} → ${applied.proposedCandidateHash.slice(0, 12)} · ${applied.result.verdict} · Δ ${signed(applied.result.scoreDelta, 6)}`,
+      "The proposal is now stale by design and cannot be applied twice.", "",
+    ].join("\n"), false);
+    return;
+  }
+  if (options.json) { write({ command: "candidate", action: "preview", ...preview }, true); return; }
+  write([
+    `${preview.candidate.name} · candidate change set`,
+    `${preview.candidate.benchmark} · ${preview.currentCandidateHash.slice(0, 12)} → ${preview.proposedCandidateHash.slice(0, 12)}`,
+    `Hypothesis: ${preview.candidate.hypothesis}`,
+    `Patch: ${preview.candidate.patch.length} authored ops · ${preview.result.changes.length} semantic changes`,
+    `Score: ${preview.result.baselineScore.toFixed(6)} → ${preview.result.candidateScore.toFixed(6)} · Δ ${signed(preview.result.scoreDelta, 6)}`,
+    `Verdict: ${preview.result.verdict}`,
+    ...preview.result.reasons.map((reason) => `Gate: ${reason}`),
+    "",
+    `Apply only this reviewed result: inm candidate <path> --candidate ${preview.candidate.id} --apply`, "",
+  ].join("\n"), false);
+}
+
 export async function researchCommand(projectDir: string, selection: ProjectSelection, options: { iterations: number; seed: number; json: boolean; agentCommand?: string }): Promise<void> {
   const result = await researchFactory(projectDir, { ...selection, iterations: options.iterations, seed: options.seed, ...(options.agentCommand ? { agent: new ExternalCommandResearchAgent(options.agentCommand) } : {}) });
   const summary = {
@@ -531,6 +557,7 @@ export async function researchCommand(projectDir: string, selection: ProjectSele
 }
 
 export function formatCliError(error: unknown, json: boolean): string {
+  if (error instanceof CandidateChangeSetError) return json ? `${stableStringify({ error: "candidate", code: error.code, message: error.message }, 2)}\n` : `Candidate error [${error.code}]: ${error.message}\n`;
   if (error instanceof InmValidationError) return json ? `${stableStringify({ error: "validation", issues: error.issues }, 2)}\n` : `Validation failed:\n${error.issues.map((issue) => `  ${issue.path} [${issue.code}] ${issue.message}`).join("\n")}\n`;
   const message = error instanceof Error ? error.message : String(error);
   return json ? `${stableStringify({ error: "runtime", message }, 2)}\n` : `Error: ${message}\n`;

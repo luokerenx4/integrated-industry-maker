@@ -5,7 +5,7 @@ import { compareFactoryBlueprints, type BlueprintMetricSnapshot, type BlueprintS
 import type { JsonPatchOperation } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
-import type { ProjectHashes } from "./types";
+import type { Blueprint, ProjectHashes } from "./types";
 import { atomicWriteJson, hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -94,8 +94,9 @@ function benchmarkContract(manifest: BlueprintBenchmarkManifest): unknown {
   };
 }
 
-async function openSelectedProject(projectDir: string, selection: ProjectSelection) {
-  return compileFactoryProject(await loadFactoryProject(projectDir, selection));
+async function openSelectedProject(projectDir: string, selection: ProjectSelection, blueprint?: Blueprint) {
+  const loaded = await loadFactoryProject(projectDir, selection);
+  return compileFactoryProject(blueprint ? { ...loaded, blueprint } : loaded);
 }
 
 function parseBlueprintBenchmark(value: unknown, benchmarkId: string): BlueprintBenchmarkManifest {
@@ -173,7 +174,11 @@ function assertLockedHashes(benchmarkId: string, caseId: string, expected: Proje
   }
 }
 
-export async function evaluateBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkResult> {
+export async function evaluateBlueprintBenchmark(
+  projectDir: string,
+  benchmarkId: string,
+  options: { candidateBlueprint?: Blueprint } = {},
+): Promise<BlueprintBenchmarkResult> {
   const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
   assertBenchmarkLock(manifest, benchmarkId);
   const comparisons: FactoryBlueprintComparison[] = [];
@@ -183,7 +188,7 @@ export async function evaluateBlueprintBenchmark(projectDir: string, benchmarkId
     const selection = { world: item.world, scenario: item.scenario, objective: item.objective };
     const baseline = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.baselineBlueprint });
     assertLockedHashes(benchmarkId, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
-    const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint });
+    const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
     const comparison = compareFactoryBlueprints(baseline, candidate, {
       seed: item.seed, fromLabel: manifest.baselineBlueprint, toLabel: manifest.candidateBlueprint,
     });
