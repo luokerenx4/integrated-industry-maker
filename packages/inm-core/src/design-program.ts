@@ -31,6 +31,7 @@ export const designDecisionFamilySchema = z.enum([
   "toolset-capacity",
   "specialize",
   "maintenance",
+  "batch-formation",
   "setup-campaign",
 ]);
 

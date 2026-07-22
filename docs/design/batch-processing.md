@@ -58,6 +58,8 @@ The immutable baseline selects fixed batch anneal. One candidate Blueprint selec
 
 The focused `batch-formation-research` case freezes eleven incoming wafer lots. Fixed batching completes three furnace loads and strands the two-lot tail. Bounded formation preserves those three efficient loads, then drains the remainder through rapid anneal. Its additional delivered memory remains valuable above contract demand and is reported separately as overflow.
 
+The generative memory-fab Design Program reaches a different operating point after release and maintenance improvements. Its driver runs three complete three-lot furnace jobs with no explicit formation holds, yet lots wait about 40 seconds on average for batch companions. The project proposal portfolio may therefore qualify both fixed and rapid anneal with a thirty-second fallback when `batch-formation` appears in the Core-derived loss chain. Locked probing shows the important negative result: the fallback lowers driver batch wait to about 7 seconds and improves ordinary and quality cases, but regresses the lithography-interruption case enough that robust Design rejects it. Search then continues to the setup intervention; the immutable REJECT prevents an Agent or operator from rediscovering driver-only optimization as if it were globally safe.
+
 Runtime emits `device.batch-held` and `device.batch-released`; the release cause is either `preferred-ready` or `maximum-wait`. Metrics expose hold count/time and both release counts globally and per Device in CLI output, run reports, and the Studio Device inspector.
 
 ## Current boundary
@@ -72,5 +74,6 @@ bun run inm analyze examples/memory-fab
 bun run inm simulate examples/memory-fab --blueprint baseline
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 bun run inm benchmark examples/memory-fab --benchmark batch-formation-research
+bun run inm design examples/memory-fab --program greenfield-dram-fab --run --max-candidates 6
 bun run inm test examples/memory-fab
 ```

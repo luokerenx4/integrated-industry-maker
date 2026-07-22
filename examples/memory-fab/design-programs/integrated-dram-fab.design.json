@@ -17,6 +17,7 @@
       "capacity-plan",
       "specialize",
       "maintenance",
+      "batch-formation",
       "setup-campaign",
       "recipe",
       "dispatch",

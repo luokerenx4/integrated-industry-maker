@@ -31,6 +31,30 @@ function devicePolicyPatch(
   }];
 }
 
+function furnaceBatchFormationPatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
+  const index = deviceIndex(blueprint, "furnace-1");
+  if (index < 0) return null;
+  const furnace = blueprint.devices[index]!;
+  const policy = furnace.policy;
+  const recipe = furnace.recipe;
+  if (furnace.asset !== "thermal-batch-furnace"
+    || !policy || typeof policy !== "object" || Array.isArray(policy)
+    || !recipe || typeof recipe !== "object" || Array.isArray(recipe)
+    || (recipe as Record<string, unknown>).process !== "batch-anneal-dielectric-stack"
+    || furnace.recipes !== undefined) return null;
+  const batchRecipe = structuredClone(recipe);
+  const rapidRecipe = { ...structuredClone(recipe), process: "rapid-anneal-dielectric-stack" };
+  return [
+    { op: "remove", path: `/devices/${index}/recipe` },
+    { op: "add", path: `/devices/${index}/recipes`, value: [batchRecipe, rapidRecipe] },
+    {
+      op: Object.hasOwn(policy, "batchFormation") ? "replace" : "add",
+      path: `/devices/${index}/policy/batchFormation`,
+      value: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 30_000 },
+    },
+  ];
+}
+
 const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
   strategy: `dispatch:conwip-${maximumWip}-${reopenAtWip}-edd`,
   hypothesis: `A ${maximumWip}-card CONWIP loop reopening at ${reopenAtWip} lots may reduce downstream queue and Q-time exposure without withholding the fixed twelve-lot workload.`,
@@ -60,6 +84,13 @@ const candidates: Candidate[] = [
     expectedEffect: "Reduce quality-disposition interruption without changing inspection or rework physics.",
     addresses: ["yield-quality", "maintenance-qualification"],
     patch: (blueprint) => devicePolicyPatch(blueprint, "inspection-1", "preventiveMaintenance", { minimumJobs: 4 }),
+  },
+  {
+    strategy: "batch-formation:furnace-flex-30000",
+    hypothesis: "Qualifying rapid single-lot anneal as a thirty-second fallback may reduce companion-arrival wait while preserving efficient full furnace batches whenever three lots become ready together.",
+    expectedEffect: "Reduce measured batch queue delay in ordinary production, while allowing the locked interruption cases to reject excess single-lot furnace work.",
+    addresses: ["batch-formation"],
+    patch: furnaceBatchFormationPatch,
   },
   {
     strategy: "setup-campaign:lithography-3-12000",

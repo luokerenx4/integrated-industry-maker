@@ -43,9 +43,13 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
 });
 
 test("memory-fab project provider diversifies measured loss targets from immutable history", async () => {
-  const { root, input } = await memoryFabInput();
-  const chain = ["q-time", "yield-quality", "queue-starvation", "setup-campaign", "maintenance-qualification"] as const;
-  const guided = { ...input, fabLoss: { ...input.fabLoss!, chain: [...chain] } };
+  const { root, loaded, input } = await memoryFabInput();
+  const chain = ["q-time", "yield-quality", "queue-starvation", "batch-formation", "setup-campaign", "maintenance-qualification"] as const;
+  const blueprint = structuredClone(input.blueprint);
+  const furnace = blueprint.devices.find((device) => device.id === "furnace-1")!;
+  furnace.recipe = { ...furnace.recipe!, process: "batch-anneal-dielectric-stack" };
+  delete furnace.recipes;
+  const guided = { ...input, blueprint, fabLoss: { ...input.fabLoss!, chain: [...chain] } };
   const agent = new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts");
   const history = [{
     iteration: 1,
@@ -70,7 +74,7 @@ test("memory-fab project provider diversifies measured loss targets from immutab
   }] });
   expect(release).toMatchObject({ strategy: "dispatch:conwip-8-5-edd", addressedLoss: "queue-starvation" });
 
-  const campaign = await agent.propose({ ...guided, iteration: 4, history: [...history, {
+  const batch = await agent.propose({ ...guided, iteration: 4, history: [...history, {
     iteration: 2,
     strategy: maintenance.strategy!,
     hypothesis: maintenance.hypothesis,
@@ -83,6 +87,34 @@ test("memory-fab project provider diversifies measured loss targets from immutab
     strategy: release.strategy!,
     hypothesis: release.hypothesis,
     addressedLoss: release.addressedLoss,
+    decision: "REVERT" as const,
+    score: 1,
+    scoreDelta: -1,
+  }] });
+  expect(batch).toMatchObject({ strategy: "batch-formation:furnace-flex-30000", addressedLoss: "batch-formation" });
+  expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(blueprint, batch.patch) })).not.toThrow();
+
+  const campaign = await agent.propose({ ...guided, iteration: 5, history: [...history, {
+    iteration: 2,
+    strategy: maintenance.strategy!,
+    hypothesis: maintenance.hypothesis,
+    addressedLoss: maintenance.addressedLoss,
+    decision: "KEEP" as const,
+    score: 2,
+    scoreDelta: 1,
+  }, {
+    iteration: 3,
+    strategy: release.strategy!,
+    hypothesis: release.hypothesis,
+    addressedLoss: release.addressedLoss,
+    decision: "REVERT" as const,
+    score: 1,
+    scoreDelta: -1,
+  }, {
+    iteration: 4,
+    strategy: batch.strategy!,
+    hypothesis: batch.hypothesis,
+    addressedLoss: batch.addressedLoss,
     decision: "REVERT" as const,
     score: 1,
     scoreDelta: -1,
