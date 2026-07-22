@@ -49,6 +49,8 @@ factory/
   worlds/<id>.world.json
   blueprints/<id>.blueprint.json
   benchmarks/<id>.benchmark.json
+  design-programs/<id>.design.json
+  design-runs/<program-id>/<result-hash>/
   candidates/<id>.candidate.json
   candidate-reviews/<candidate-id>/<proposal-hash>.review.json
   AUTORESEARCH.md
@@ -59,7 +61,7 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `candidate-reviews/` contains generated immutable evaluator evidence rather than authored proposals; it may be checked in like completed `runs/` so another operator reconstructs the same Candidate decision.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
 
 A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Synthesis reads only this project tree: its Objective determines the required rate and delivery region, its Processes define material transformations, its regional Resource nodes constrain extraction over Scenario time, and its Device packages supply all processors, junctions, transport tiers, stations, carriers, consumers, and power generation. The spatial optimizer jointly selects region-qualified Process rates, finite raw-source rates, and directed inter-region Resource flows before physical placement. Required items/min then propagate through the explicit junction graph; transport tiers are selected only from this project's Device packages by evaluating each `planTransport()` contract and the Resource stack limit. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
 
@@ -846,6 +848,31 @@ Optional `deliveryContracts` freezes a multi-product customer portfolio outside 
 
 Optional `weights.electricityCost` penalizes Scenario-valued electricity energy and peak-demand charges in currency units. It is separate from `weights.energy`, which values physical consumed MJ without a tariff.
 
+## Design Program
+
+`design-programs/<id>.design.json` is the strict project-local orchestration contract for bounded factory design:
+
+```json
+{
+  "version": 1,
+  "id": "integrated-dram-fab",
+  "name": "Integrated DRAM Fab Design",
+  "description": "Improve one robustly evaluated re-entrant memory factory.",
+  "benchmark": "dispatch-research",
+  "seedBlueprint": "experiment",
+  "driverCase": "mixed-quality",
+  "proposal": {
+    "kind": "heuristic",
+    "decisionFamilies": ["toolset-capacity", "specialize", "dispatch", "buffer"]
+  },
+  "budget": { "maxCandidates": 6 }
+}
+```
+
+The filename is `<id>.design.json`. The Benchmark must be locked, `driverCase` must name one of its cases, and the V1 seed must equal its candidate Blueprint. Decision families are unique stable ids for Blueprint-owned proposal strategies, not permissions to edit evaluator inputs. The maximum budget is a positive integer no greater than 100. See [[docs/design/design-programs]].
+
+A completed design execution is stored under `design-runs/<program-id>/<result-hash>/`. Its `manifest.json` owns all exact input identities, proposals, multi-case evaluations, decisions, ranking, and deterministic result hash; `best.blueprint.json` is the exact leading in-memory Blueprint. These are generated immutable evidence rather than authored inputs. Reopening verifies both hashes. Promotion is allowed only when the best iteration advanced beyond the seed and produces an ordinary Candidate rather than editing the Blueprint.
+
 ## Coding Agent benchmark
 
 `benchmarks/<id>.benchmark.json` converts one candidate Blueprint file into a locked optimization program:
@@ -909,6 +936,12 @@ The `lock` is written only by an explicit `inm benchmark --lock`. `contractHash`
   "benchmark": "equipment-energy-research",
   "hypothesis": "A conservative threshold retains the accepted energy gain without an extra wake cycle.",
   "expectedEffect": "Retain the long standby saving.",
+  "source": {
+    "kind": "design-run",
+    "program": "integrated-dram-fab",
+    "resultHash": "<sha256>",
+    "blueprintHash": "<sha256>"
+  },
   "baseCandidateHash": "<sha256>",
   "patch": [
     {
@@ -920,6 +953,6 @@ The `lock` is written only by an explicit `inm benchmark --lock`. `contractHash`
 }
 ```
 
-The filename must match `id`. `baseCandidateHash` is the canonical content hash of the Benchmark's current candidate Blueprint. Patches must be non-empty and may use only `add`, `remove`, or `replace` below `/devices`, `/connections`, `/logisticsNetworks`, or `/policies`. Core owns the resulting revision lineage. Preview compiles the patched Blueprint across every locked case without writing and returns canonical proposal, base, and proposed hashes. Apply requires those same three reviewed hashes plus a `KEEP` verdict, then atomically writes only the candidate Blueprint. Because the proposal keeps its original base hash, successful application makes it stale and non-repeatable.
+The filename must match `id`. `baseCandidateHash` is the canonical content hash of the Benchmark's current candidate Blueprint. Optional `source` records an exact Design Run promotion and its leading Blueprint hash; it does not grant different review or apply semantics. Patches must be non-empty and may use only `add`, `remove`, or `replace` below `/devices`, `/connections`, `/logisticsNetworks`, or `/policies`. Core owns the resulting revision lineage. Preview compiles the patched Blueprint across every locked case without writing and returns canonical proposal, base, and proposed hashes. Apply requires those same three reviewed hashes plus a `KEEP` verdict, then atomically writes only the candidate Blueprint. Because the proposal keeps its original base hash, successful application makes it stale and non-repeatable.
 
 The complete executable format is demonstrated in [`examples/ironworks`](../examples/ironworks); shared work-center qualification and re-entrant flow are demonstrated in [[examples/memory-fab]].

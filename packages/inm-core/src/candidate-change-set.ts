@@ -2,11 +2,11 @@ import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkResult } from "./benchmark";
-import { applyResearchPatch } from "./research";
+import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
 import { loadFactoryProject } from "./loader";
 import type { Blueprint } from "./types";
-import { atomicWriteJson, hashValue, readJson } from "./utils";
+import { atomicWriteJson, hashValue, pathExists, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
@@ -25,6 +25,12 @@ export const candidateChangeSetSchema = z.object({
   benchmark: id,
   hypothesis: z.string().min(1),
   expectedEffect: z.string().min(1).optional(),
+  source: z.object({
+    kind: z.literal("design-run"),
+    program: id,
+    resultHash: hash,
+    blueprintHash: hash,
+  }).strict().optional(),
   baseCandidateHash: hash,
   patch: z.array(patchOperationSchema).min(1),
 }).strict();
@@ -70,6 +76,15 @@ function parseCandidateChangeSet(value: unknown, candidateId: string): Candidate
 
 export async function loadCandidateChangeSet(projectDir: string, candidateId: string): Promise<CandidateChangeSet> {
   return parseCandidateChangeSet(await readJson(candidatePath(projectDir, candidateId)), candidateId);
+}
+
+export async function writeCandidateChangeSet(projectDir: string, candidate: CandidateChangeSet): Promise<string> {
+  const parsed = parseCandidateChangeSet(candidate, candidate.id);
+  validateResearchPatch(parsed.patch);
+  const path = candidatePath(projectDir, parsed.id);
+  if (await pathExists(path)) throw new CandidateChangeSetError("candidate.exists", `Candidate change set '${parsed.id}' already exists`);
+  await atomicWriteJson(path, parsed);
+  return path;
 }
 
 export async function listCandidateChangeSets(projectDir: string, benchmarkId?: string): Promise<CandidateChangeSetSummary[]> {

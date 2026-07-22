@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
@@ -31,6 +31,7 @@ PROJECT COMMANDS
   compare <path>              Diff and evaluate two Blueprint files
   benchmark <path>            Score one editable Blueprint on a locked case suite
   candidate <path>            Preview or explicitly apply a project-local change set
+  design <path>               Inspect or run a bounded project-local Design Program
   synthesize <path>           Generate a complete blueprint from the objective
   simulate <path>             Run deterministic discrete-event simulation
   test <path>                 Run scenario fixture benchmarks
@@ -50,6 +51,9 @@ COMMON OPTIONS
   --agent-command <command>   External proposal process; receives JSON on stdin
   --benchmark <id>            Locked Blueprint benchmark id (default autoresearch)
   --candidate <id>            Project-local candidates/<id>.candidate.json
+  --program <id>              Project-local design-programs/<id>.design.json
+  --run-id <hash>             Reopen one immutable Design Run
+  --promote <candidate-id>    Promote a Design Run leader to a Candidate
   --json                      Machine-readable JSON output
   --section <name>            Select one machine-readable result section
 `;
@@ -155,6 +159,20 @@ async function main(): Promise<void> {
     if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--apply] [--json]");
     const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--apply]", values.project);
     return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, section: values.section });
+  }
+  if (subcommand === "design") {
+    const { values, positionals } = parseArgs({ args, options: {
+      ...projectOption, program: { type: "string" }, run: { type: "boolean", default: false }, "run-id": { type: "string" }, promote: { type: "string" }, "max-candidates": { type: "string" }, json: common.json, ...section,
+    }, allowPositionals: true });
+    const projectDir = await selectedProject(positionals, "inm design <project-or-workspace-dir> [--project ID] [--program ID] [--run]", values.project);
+    return designCommand(projectDir, values.program, {
+      run: values.run,
+      runId: values["run-id"],
+      promote: values.promote,
+      ...(values["max-candidates"] !== undefined ? { maxCandidates: Number(values["max-candidates"]) } : {}),
+      json: values.json,
+      section: values.section,
+    });
   }
   if (subcommand === "simulate") {
     const { values, positionals } = parseArgs({ args, options: { ...common, ...section, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });

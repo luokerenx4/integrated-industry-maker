@@ -84,7 +84,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     ], outputSections: [],
   },
   ...(["validate", "inspect", "analyze", "plan"] as const).map((id): Omit<CliCommandDescriptor, "exitCodes"> => {
-    const outputSections = id === "inspect" ? ["summary", "next-action", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]
+    const outputSections = id === "inspect" ? ["summary", "next-action", "diagnostics", "losses", "catalog", "runs", "experiments", "candidates", "operations", "all"]
       : id === "analyze" ? ["summary", "diagnostics", "devices", "contracts", "logistics", "power", "all"]
         : id === "plan" ? ["summary", "gaps", "processes", "materials", "logistics", "power", "all"] : [];
     return {
@@ -117,6 +117,17 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "candidate", form: "option", value: "string", required: true, description: "Candidate Change Set id." },
       { name: "apply", form: "option", value: "boolean", required: false, description: "Re-evaluate and apply an exact reviewed KEEP proposal.", default: false }, sectionArgument(["summary", "proposal", "evaluation", "all"]), json],
     outputSections: ["summary", "proposal", "evaluation", "all"],
+  },
+  {
+    id: "design", usage: "inm design <path> [--program ID] [--run | --run-id HASH [--promote ID]] [--max-candidates N] [--json]", description: "Discover, inspect, execute, reopen, or promote a bounded project-local Design Program.",
+    effect: "mode-dependent", supportsJson: true, arguments: [path, project,
+      { name: "program", form: "option", value: "string", required: false, description: "Project-local Design Program id; omit to list programs." },
+      { name: "run", form: "option", value: "boolean", required: false, description: "Execute bounded search and write/reuse an immutable design run.", default: false },
+      { name: "run-id", form: "option", value: "string", required: false, description: "Reopen an immutable Design Run by content hash." },
+      { name: "promote", form: "option", value: "string", required: false, description: "Create this Candidate id from the reopened run's exact leading design." },
+      { name: "max-candidates", form: "option", value: "integer", required: false, description: "Candidate budget, bounded by the Design Program manifest." },
+      sectionArgument(["summary", "static", "iterations", "best", "runs", "all"]), json],
+    outputSections: ["summary", "static", "iterations", "best", "runs", "all"],
   },
   {
     id: "synthesize", usage: "inm synthesize <path> [selection] [--output ID] [--json]", description: "Generate a new complete Blueprint from project-local assets.",

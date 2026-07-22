@@ -1,8 +1,8 @@
 # Shared operator workbench
 
-Status: V2 shared decision status, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
+Status: V3 shared decision status, hash-compatible tracked-lot loss attribution, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
-Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
+Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
 ## Scope
 
@@ -28,7 +28,7 @@ Opening a snapshot is read-only. It does not create cache directories, runs, Ben
 
 ## Snapshot contract
 
-The V2 snapshot contains:
+The V3 snapshot contains:
 
 - project id, display name, and resolved project root;
 - the effective World, Blueprint, Scenario, and Objective ids/names plus complete input hashes;
@@ -39,20 +39,22 @@ The V2 snapshot contains:
 - immutable run evidence with selection, engine compatibility, decision, score, and result hash;
 - locked Benchmark summaries and Candidate summaries with cheap `proposed`, reviewed-verdict, `verified`, or `stale` decisions reconstructed from hashes and immutable review receipts without running their evaluators;
 - prioritized diagnostics and operation descriptors.
+- optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, and interpretation caveat;
 - exactly one shared next action with stable identity, reason, effect, confirmation requirement, exact CLI argv, project-qualified Studio route, and typed target.
 
 Every array is emitted in deterministic id order where its source is not already ordered. Snapshot `version` identifies this projection contract; INM is still pre-alpha, so changing it means replacing both consumers and tests in the same change rather than adding compatibility readers.
 
 ## Diagnostic contract
 
-Workbench diagnostics normalize two existing evidence sources:
+Workbench diagnostics normalize three existing evidence sources:
 
 - every target-rate capacity gap becomes `capacity.<kind>`, severity `blocking`, priority `100`;
+- the top five non-zero buckets from an exactly hash-compatible tracked-lot run become `fab-loss.<bucket>`, priorities `90` through `86`, retaining the run id and industrial subjects;
 - production-analysis diagnostics become `analysis.<code>`, retaining their `warning` or `info` severity at priorities `60` and `20`.
 
 Each diagnostic carries a deterministic id, stable namespaced code, one or more typed subject references, display message, evidence source/summary, and operation ids that can reveal more evidence. Diagnostics sort by descending priority, then code and id. The code and typed subjects are the cross-surface contract; prose may improve when the underlying analysis improves.
 
-Capacity and analysis diagnostics may intentionally overlap. A capacity gap answers whether the Objective is provisioned, while an analysis warning describes nominal configured flow risk. `status.capacity` and `status.flow` therefore remain separate: `capacity ready` may coexist with `flow at-risk` without presenting the project as unqualified `READY`. Studio may group related evidence but must not silently discard either source.
+Capacity, realized-loss, and analysis diagnostics may intentionally overlap. A capacity gap answers whether the Objective is provisioned, a compatible run measures what happened, and an analysis warning describes nominal configured flow risk. `status.capacity` and `status.flow` therefore remain separate: `capacity ready` may coexist with `flow at-risk` without presenting the project as unqualified `READY`. Studio may group related evidence but must not silently discard any source. See [[docs/design/fab-loss-attribution]] for the strict compatibility and non-additivity boundaries.
 
 ## Operation descriptors
 
@@ -66,7 +68,7 @@ The three operation effects are `read-only`, `creates-artifact`, and `mutates-bl
 
 ## CLI and Studio projections
 
-`inm inspect --json` emits a compact summary inside the versioned CLI envelope. `inm inspect --section next-action --json` returns the exact Core next-action object, and `inm inspect --section all --json` places the exact Core snapshot in `data.result`; the envelope's `nextActions` contains that same one object. Human `inm inspect` renders effective selection/hashes, Objective, the four explicit status facets, the shared next action, topology/catalog/evidence counts, highest-priority diagnostics, and operation effects. Dense analysis remains in `inm analyze` and `inm plan`. See [[docs/design/agent-cli-contract]].
+`inm inspect --json` emits a compact summary inside the versioned CLI envelope. `inm inspect --section next-action --json` returns the exact Core next-action object, `--section losses --json` returns compatible-run attribution, and `inm inspect --section all --json` places the exact Core snapshot in `data.result`; the envelope's `nextActions` contains that same one object. Human `inm inspect` renders effective selection/hashes, Objective, the four explicit status facets, the shared next action, topology/catalog/evidence counts, the primary realized loss/chain when current, highest-priority diagnostics, and operation effects. Dense analysis remains in `inm analyze` and `inm plan`. See [[docs/design/agent-cli-contract]].
 
 Studio exposes the same snapshot at:
 
@@ -75,7 +77,7 @@ GET /api/projects/<project-id>/overview
 GET /api/projects/<project-id>/overview?world=<id>&blueprint=<id>&scenario=<id>&objective=<id>
 ```
 
-Explicit query selection never falls back when invalid. The endpoint is project-qualified, accepts only GET, and creates no run or cache state. The task-oriented project root consumes this contract for selection, readiness, diagnostics, evidence, and operation descriptors. Factory uses its richer replay endpoint because its selected immutable run and event timeline are intentionally run-scoped.
+Explicit query selection never falls back when invalid. The endpoint is project-qualified, accepts only GET, and creates no run or cache state. The task-oriented project root consumes this contract for selection, readiness, diagnostics, evidence, loss attribution, and operation descriptors. When Factory selects a run, Studio requests Overview with that run's exact selection so spatial replay and workbench conclusions cannot drift apart.
 
 ### Shared next action
 
@@ -91,6 +93,7 @@ All remaining operation descriptors stay available under explicit progressive di
 - Candidate review receipts and decision reconstruction: `packages/inm-core/src/candidate-review.ts`
 - Production evidence: `packages/inm-core/src/production-analysis.ts`
 - Capacity evidence: `packages/inm-core/src/capacity-plan.ts`
+- Compatible-run fab loss evidence: `packages/inm-core/src/fab-loss-analysis.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio API projection: `packages/inm-studio/src/server.ts`
 

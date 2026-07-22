@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, readJson, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeFactoryBlueprint, ExternalCommandResearchAgent,
   type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
@@ -175,9 +175,10 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   const snapshot = await openProjectWorkbenchSnapshot(projectDir, selection);
   if (options.json) {
     const data = sectionResult("inspect", options, {
-      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, nextAction: snapshot.nextAction, counts: snapshot.counts }),
+      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
       "next-action": () => snapshot.nextAction,
       diagnostics: () => snapshot.diagnostics,
+      losses: () => snapshot.lossAttribution,
       catalog: () => snapshot.catalog,
       runs: () => snapshot.runs,
       experiments: () => snapshot.experiments,
@@ -202,6 +203,10 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
     `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
     `Evidence: runs ${snapshot.counts.runs} · experiments ${snapshot.counts.experiments} · candidates ${snapshot.counts.candidates}`,
+    ...(snapshot.lossAttribution?.primary ? [
+      `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
+      `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
+    ] : []),
     "",
     `Next action: ${snapshot.nextAction.title}`,
     `  ${snapshot.nextAction.reason}`,
@@ -770,6 +775,157 @@ export async function researchCommand(projectDir: string, selection: ProjectSele
   ].join("\n"), false);
 }
 
+export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; promote?: string; maxCandidates?: number; json: boolean; section?: string }): Promise<void> {
+  requireJsonSection("design", options);
+  if (!programId) {
+    if (options.run || options.runId || options.promote) throw new CliCommandError("design.program-required", "--run, --run-id, and --promote require --program <id>.");
+    if (options.maxCandidates !== undefined) throw new CliCommandError("design.program-required", "--max-candidates requires --program <id> --run.");
+    rejectSection("design", options);
+    const programs = await listDesignPrograms(projectDir);
+    if (options.json) writeSuccess("design", { action: "list", programs }, { context: await projectDirectoryContext(projectDir) });
+    else write([
+      "Design Programs",
+      ...(programs.length ? programs.map((program) => `  ${program.id.padEnd(24)} ${program.locked ? "LOCKED" : "UNLOCKED"} · ${program.budget.maxCandidates} candidates · ${program.name}`) : ["  none"]),
+      "",
+    ].join("\n"), false);
+    return;
+  }
+  if (options.maxCandidates !== undefined && !options.run) throw new CliCommandError("design.run-required", "--max-candidates requires --run.");
+  if (options.run && options.runId) throw new CliCommandError("design.mode-conflict", "--run and --run-id select different Design modes.");
+  if (options.promote && !options.runId) throw new CliCommandError("design.run-id-required", "--promote requires --run-id <hash>.");
+  const brief = await buildDesignProgramBrief(projectDir, programId);
+  const context = {
+    scope: "project" as const,
+    project: { ...brief.project },
+    selection: { ...brief.driver.selection },
+    hashes: { ...brief.driver.hashes },
+  };
+  if (options.runId) {
+    const result = await loadDesignRun(projectDir, programId, options.runId);
+    if (options.promote) {
+      rejectSection("design", options);
+      const promoted = await promoteDesignRun(projectDir, programId, options.runId, options.promote);
+      if (options.json) writeSuccess("design", {
+        action: "promote",
+        program: programId,
+        run: options.runId,
+        candidate: promoted.candidate,
+      }, {
+        context,
+        artifacts: [{ kind: "candidate", id: promoted.candidate.id, path: promoted.path, immutable: true }],
+        nextActions: [nextAction(
+          `candidate.preview:${promoted.candidate.id}`,
+          "Re-evaluate the exact promoted Candidate against its locked Benchmark before applying it.",
+          ["inm", "candidate", brief.project.rootDir, "--candidate", promoted.candidate.id, "--json"],
+        )],
+      });
+      else write([
+        `${brief.program.name} · promoted Design Run`,
+        `Run: ${options.runId}`,
+        `Candidate: ${promoted.candidate.id}`,
+        `Patch: ${promoted.candidate.patch.length} operations`,
+        `Artifact: ${promoted.path}`,
+        "",
+        `Review: inm candidate <path> --candidate ${promoted.candidate.id}`,
+        "",
+      ].join("\n"), false);
+      return;
+    }
+    const data = sectionResult("design", options, {
+      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
+      static: () => brief.staticEvidence,
+      iterations: () => result.manifest.iterations,
+      best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
+      runs: () => [result.manifest],
+      all: () => result.manifest,
+    });
+    const candidateId = `${programId}-${options.runId.slice(0, 8)}`;
+    if (options.json) writeSuccess("design", data, {
+      context,
+      artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
+      nextActions: result.manifest.best.iteration > 0 ? [nextAction(
+        `design.promote:${options.runId}`,
+        "Create an immutable Candidate Change Set reproducing this leading design from the current seed.",
+        ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--promote", candidateId, "--json"],
+        "creates-artifact",
+      )] : [],
+    });
+    else write([
+      `${brief.program.name} · Design Run`,
+      `Result: ${result.manifest.resultHash}`,
+      `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
+      `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
+      `Artifact: ${result.artifact.path}`,
+      ...(result.manifest.best.iteration > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
+      "",
+    ].join("\n"), false);
+    return;
+  }
+  if (!options.run) {
+    const runs = await listDesignRuns(projectDir, programId);
+    const data = sectionResult("design", options, {
+      summary: () => ({ program: brief.program, benchmark: brief.benchmark, driver: brief.driver, staticEvidence: brief.staticEvidence }),
+      static: () => brief.staticEvidence,
+      iterations: () => [],
+      best: () => null,
+      runs: () => runs,
+      all: () => ({ ...brief, runs }),
+    });
+    if (options.json) writeSuccess("design", data, {
+      context,
+      nextActions: [nextAction(
+        `design.run:${programId}`,
+        `Evaluate up to ${brief.program.budget.maxCandidates} bounded proposals through locked Benchmark '${brief.benchmark.id}'.`,
+        ["inm", "design", brief.project.rootDir, "--program", programId, "--run", "--max-candidates", String(brief.program.budget.maxCandidates), "--json"],
+        "creates-artifact",
+      )],
+    });
+    else write([
+      `${brief.program.name} · Design Program`,
+      `${brief.program.id} · ${brief.benchmark.id} (${brief.benchmark.cases} locked cases)`,
+      `Seed: ${brief.program.seedBlueprint} · driver ${brief.driver.case.id} · ${brief.driver.hashes.blueprintHash.slice(0, 12)}`,
+      `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
+      `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
+      "",
+      `Run: inm design <path> --program ${programId} --run`, "",
+    ].join("\n"), false);
+    return;
+  }
+  const result = await runDesignProgram(projectDir, programId, { ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}) });
+  const data = sectionResult("design", options, {
+    summary: () => ({
+      action: "run",
+      program: result.manifest.program,
+      benchmark: result.manifest.benchmark,
+      budget: result.manifest.budget,
+      best: result.manifest.best,
+      stopReason: result.manifest.stopReason,
+      resultHash: result.manifest.resultHash,
+    }),
+    static: () => brief.staticEvidence,
+    iterations: () => result.manifest.iterations,
+    best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
+    all: () => result.manifest,
+  });
+  if (options.json) writeSuccess("design", data, {
+    context,
+    artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
+    nextActions: [nextAction(
+      `design.open:${result.manifest.resultHash}`,
+      "Reopen this immutable Design Run by its content hash.",
+      ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", result.manifest.resultHash, "--json"],
+    )],
+  });
+  else write([
+    `${brief.program.name} · Design Run`,
+    `Result: ${result.manifest.resultHash}`,
+    `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
+    `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
+    ...result.manifest.iterations.map((iteration) => `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${iteration.candidateScore === undefined ? iteration.error : signed(iteration.scoreDeltaFromBest ?? 0, 6)}`),
+    `Artifact: ${result.artifact.path}`, "",
+  ].join("\n"), false);
+}
+
 export function formatCliError(error: unknown, json: boolean, command = "unknown"): string {
   if (error instanceof CliCommandError) return json
     ? `${stableStringify(cliError(command, error.code, error.message, error.options), 2)}\n`
@@ -777,6 +933,9 @@ export function formatCliError(error: unknown, json: boolean, command = "unknown
   if (error instanceof CandidateChangeSetError) return json
     ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes }), 2)}\n`
     : `Candidate error [${error.code}]: ${error.message}\n`;
+  if (error instanceof DesignRunError) return json
+    ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes }), 2)}\n`
+    : `Design error [${error.code}]: ${error.message}\n`;
   if (error instanceof InmValidationError) return json
     ? `${stableStringify(cliError(command, "validation.failed", "Project validation failed.", { issues: error.issues }), 2)}\n`
     : `Validation failed:\n${error.issues.map((issue) => `  ${issue.path} [${issue.code}] ${issue.message}`).join("\n")}\n`;

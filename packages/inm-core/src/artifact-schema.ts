@@ -1,5 +1,6 @@
 import { blueprintBenchmarkSchema } from "./benchmark";
 import { candidateChangeSetSchema } from "./candidate-change-set";
+import { designProgramSchema } from "./design-program";
 import { schemas } from "./schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -7,6 +8,7 @@ export const projectArtifactSchemas = {
   ...schemas,
   benchmark: blueprintBenchmarkSchema,
   candidate: candidateChangeSetSchema,
+  "design-program": designProgramSchema,
 } as const;
 
 export type ProjectArtifactSchemaKind = keyof typeof projectArtifactSchemas;

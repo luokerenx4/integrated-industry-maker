@@ -1,13 +1,15 @@
+import { join } from "node:path";
 import { listRuns } from "./artifacts";
 import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./benchmark";
 import { listCandidateChangeSets } from "./candidate-change-set";
 import { inspectCandidateDecision, type CandidateDecisionState } from "./candidate-review";
+import { analyzeFabLosses, type FabLossAttribution } from "./fab-loss-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { analyzeProduction, type ProductionAnalysis, type ProductionDiagnostic } from "./production-analysis";
-import type { CompiledFactoryProject, ProjectHashes } from "./types";
-import { ENGINE_VERSION, hashValue } from "./utils";
+import type { CompiledFactoryProject, FactoryMetrics, ProjectHashes } from "./types";
+import { ENGINE_VERSION, hashValue, readJson, stableStringify } from "./utils";
 
 export type WorkbenchDiagnosticSeverity = "blocking" | "warning" | "info";
 export type WorkbenchSubjectKind =
@@ -18,6 +20,7 @@ export type WorkbenchSubjectKind =
   | "device"
   | "connection"
   | "network"
+  | "route"
   | "capacity-gap";
 
 export interface WorkbenchSubjectReference {
@@ -33,8 +36,9 @@ export interface WorkbenchDiagnostic {
   subjects: WorkbenchSubjectReference[];
   message: string;
   evidence: {
-    source: "capacity-plan" | "production-analysis";
+    source: "capacity-plan" | "production-analysis" | "compatible-run";
     summary: string;
+    runId?: string;
   };
   actionIds: WorkbenchOperationDescriptor["id"][];
 }
@@ -76,7 +80,7 @@ export interface WorkbenchNextAction {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 2;
+  version: 3;
   project: {
     id: string;
     name: string;
@@ -161,6 +165,7 @@ export interface ProjectWorkbenchSnapshot {
     };
   }>;
   diagnostics: WorkbenchDiagnostic[];
+  lossAttribution: FabLossAttribution | null;
   operations: WorkbenchOperationDescriptor[];
   nextAction: WorkbenchNextAction;
 }
@@ -198,7 +203,7 @@ function diagnosticId(code: string, subjects: WorkbenchSubjectReference[], summa
   return `${code}:${subjectKey}:${hashValue(summary).slice(0, 10)}`;
 }
 
-function projectDiagnostics(project: CompiledFactoryProject, analysis: ProductionAnalysis, capacity: ProductionCapacityPlan): WorkbenchDiagnostic[] {
+function projectDiagnostics(project: CompiledFactoryProject, analysis: ProductionAnalysis, capacity: ProductionCapacityPlan, lossAttribution: FabLossAttribution | null): WorkbenchDiagnostic[] {
   const blocking = capacity.gaps.map((gap): WorkbenchDiagnostic => {
     const subjects = [capacitySubject(gap)];
     const code = `capacity.${gap.kind}`;
@@ -227,7 +232,24 @@ function projectDiagnostics(project: CompiledFactoryProject, analysis: Productio
       actionIds: diagnostic.severity === "warning" ? ["analyze", "plan"] : ["analyze"],
     };
   });
-  return [...blocking, ...advisory].sort((left, right) =>
+  const realized = (lossAttribution?.buckets ?? []).slice(0, 5).map((bucket, index): WorkbenchDiagnostic => {
+    const subjects = bucket.subjects.length ? bucket.subjects.map((subject) => subject.kind === "project"
+      ? { kind: "project" as const, id: project.manifest.id }
+      : { ...subject }) : [{ kind: "project" as const, id: project.manifest.id }];
+    const code = `fab-loss.${bucket.id}`;
+    const message = `${bucket.label} is ranked ${index + 1} in compatible run ${lossAttribution!.run.id} (signal ${bucket.score.toFixed(4)}). ${bucket.summary}`;
+    return {
+      id: diagnosticId(code, subjects, message),
+      code,
+      severity: bucket.score >= 0.01 ? "warning" : "info",
+      priority: 90 - index,
+      subjects,
+      message,
+      evidence: { source: "compatible-run", summary: bucket.summary, runId: lossAttribution!.run.id },
+      actionIds: ["simulate", "analyze"],
+    };
+  });
+  return [...blocking, ...realized, ...advisory].sort((left, right) =>
     right.priority - left.priority
     || left.code.localeCompare(right.code)
     || left.id.localeCompare(right.id));
@@ -466,7 +488,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     decision: run.manifest.decision,
     resultHash: run.manifest.resultHash,
     engineVersion: run.manifest.engineVersion,
-    compatible: run.manifest.engineVersion === ENGINE_VERSION,
+    compatible: run.manifest.engineVersion === ENGINE_VERSION && stableStringify(run.manifest.hashes) === stableStringify(project.hashes),
     selection: { ...run.manifest.selection },
   }));
   const candidateSummaries: ProjectWorkbenchSnapshot["candidates"] = candidates.map((candidate, index) => {
@@ -489,15 +511,20 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       },
     };
   });
-  const diagnostics = projectDiagnostics(project, analysis, capacity);
-  const operations = operationDescriptors(experiments, candidateSummaries);
   const currentRun = matchingRun(selection, runSummaries);
-  const flowWarnings = analysis.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
+  const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
+  const lossAttribution = currentArtifact && Object.keys(project.routes).length
+    ? analyzeFabLosses(await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics, project.scenario.durationTicks, { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash })
+    : null;
+  const diagnostics = projectDiagnostics(project, analysis, capacity, lossAttribution);
+  const operations = operationDescriptors(experiments, candidateSummaries);
+  const flowWarnings = diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
+  const flowInfo = diagnostics.filter((diagnostic) => diagnostic.severity === "info").length;
   const pendingReviews = candidateSummaries.filter((candidate) => candidate.decision.state !== "verified" && candidate.decision.state !== "stale").length;
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 2 as const,
+    version: 3 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -509,7 +536,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     },
     status: {
       capacity: { state: capacity.ready ? "ready" as const : "blocked" as const, gapCount: capacity.gaps.length, gapsByKind },
-      flow: { state: flowWarnings ? "at-risk" as const : "clear" as const, warningCount: flowWarnings, infoCount: analysis.diagnostics.length - flowWarnings },
+      flow: { state: flowWarnings ? "at-risk" as const : "clear" as const, warningCount: flowWarnings, infoCount: flowInfo },
       evidence: { state: !currentRun ? "missing" as const : currentRun.compatible ? "current" as const : "incompatible" as const, runId: currentRun?.id ?? null },
       review: {
         state: pendingReviews ? "pending" as const : staleReviews ? "stale" as const : "clear" as const,
@@ -549,6 +576,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     })),
     candidates: candidateSummaries,
     diagnostics,
+    lossAttribution,
     operations,
   } satisfies Omit<ProjectWorkbenchSnapshot, "nextAction">;
   return { ...snapshot, nextAction: buildNextAction(snapshot) };

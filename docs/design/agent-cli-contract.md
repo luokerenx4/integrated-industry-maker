@@ -61,7 +61,7 @@ INM is pre-alpha. An envelope/schema version change replaces commands, documenta
 - JSON support and selectable output sections;
 - success, failure, and usage exit codes.
 
-`inm schema --json` lists every authored project artifact kind. `inm schema <kind> --json` returns a deterministic JSON Schema Draft 7 projection of the authoritative strict Zod schema. This includes workspace/project manifests, World, Blueprint, Scenario, Objective, Resource/Device assets and visuals, Process, Product Route, Benchmark, and Candidate Change Set.
+`inm schema --json` lists every authored project artifact kind. `inm schema <kind> --json` returns a deterministic JSON Schema Draft 7 projection of the authoritative strict Zod schema. This includes workspace/project manifests, World, Blueprint, Scenario, Objective, Resource/Device assets and visuals, Process, Product Route, Benchmark, Candidate Change Set, and Design Program.
 
 The generated schema is authoring/discovery material. Core still performs path confinement, cross-reference resolution, geometry, runtime, and other semantic compilation checks that JSON Schema alone cannot express.
 
@@ -69,7 +69,7 @@ The generated schema is authoring/discovery material. Core still performs path c
 
 Dense JSON commands default to `{ "section": "summary", "result": ... }`. An Agent requests one advertised section with `--section <name> --json` or the complete Core result with `--section all --json`. A section is a projection of one already-computed result; it never invokes a smaller or divergent evaluator.
 
-Current sectioned commands are `inspect`, `analyze`, `plan`, `compare`, `benchmark`, `candidate`, `synthesize`, `simulate`, and `research`. `inm help --json` is the authority for each command's section names. `--section` without `--json`, and unknown sections, fail with stable CLI codes.
+Current sectioned commands are `inspect`, `analyze`, `plan`, `compare`, `benchmark`, `candidate`, `design`, `synthesize`, `simulate`, and `research`. `inm help --json` is the authority for each command's section names. `--section` without `--json`, and unknown sections, fail with stable CLI codes.
 
 Diagnostics required to understand a summary remain in the envelope's `diagnostics` field even when the selected result section is compact. `artifacts` names produced/reused paths and immutability. For `inspect`, `nextActions` contains exactly the Core-owned `ProjectWorkbenchSnapshot.nextAction`, including its exact argv, effect, confirmation requirement, Studio route, and typed target; `--section next-action --json` returns the same object in `data.result`. Other commands may return operation-specific follow-ups. An Agent never has to parse prose or shell-escape a synthesized command string.
 

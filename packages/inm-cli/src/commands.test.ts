@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -182,7 +182,9 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "help", context: { scope: "global" } }));
   const commands = envelope.data.commands as Array<{ id: string; effect: string; exitCodes: { success: number; failure: number[]; usage: number }; arguments: Array<{ name: string; default?: unknown }>; outputSections: string[] }>;
   expect(commands.map((command) => command.id)).toContain("candidate");
-  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "next-action", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
+  expect(commands.map((command) => command.id)).toContain("design");
+  expect(commands.find((command) => command.id === "design")!.outputSections).toEqual(["summary", "static", "iterations", "best", "runs", "all"]);
+  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "next-action", "diagnostics", "losses", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
   expect(commands.find((command) => command.id === "simulate")!.effect).toBe("creates-artifact");
   expect(commands.find((command) => command.id === "compare")!.arguments.find((argument) => argument.name === "seed")!.default).toBe(42);
   expect(commands.find((command) => command.id === "inspect")!.exitCodes).toEqual({ success: 0, failure: [1], usage: 2 });
@@ -192,7 +194,7 @@ test("public schema discovery lists and emits every project artifact JSON Schema
   const listed = await runCli(["schema", "--json"]);
   expect({ exitCode: listed.exitCode, stderr: listed.stderr }).toEqual({ exitCode: 0, stderr: "" });
   const kinds = JSON.parse(listed.stdout).data.kinds as string[];
-  for (const kind of ["manifest", "world", "blueprint", "scenario", "objective", "resource-asset", "device-asset", "process", "benchmark", "candidate"]) expect(kinds).toContain(kind);
+  for (const kind of ["manifest", "world", "blueprint", "scenario", "objective", "resource-asset", "device-asset", "process", "benchmark", "candidate", "design-program"]) expect(kinds).toContain(kind);
   for (const kind of kinds) {
     const emitted = await runCli(["schema", kind, "--json"]);
     expect({ kind, exitCode: emitted.exitCode, stderr: emitted.stderr }).toEqual({ kind, exitCode: 0, stderr: "" });
@@ -202,6 +204,83 @@ test("public schema discovery lists and emits every project artifact JSON Schema
     expect(envelope.data.schema).toEqual(expect.objectContaining({ $schema: "http://json-schema.org/draft-07/schema#" }));
     expect(Object.keys(envelope.data.schema).length).toBeGreaterThan(2);
   }
+});
+
+test("public Design Program workflow discovers, inspects, and executes without mutating its seed Blueprint", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-design-cli-")); const projectDir = join(parent, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") });
+  const seedPath = join(projectDir, "blueprints", "experiment.blueprint.json");
+  const seedBefore = await readFile(seedPath, "utf8");
+
+  const listed = await runCli(["design", projectDir, "--json"]);
+  expect({ exitCode: listed.exitCode, stderr: listed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(listed.stdout)).toEqual(expect.objectContaining({
+    command: "design",
+    data: { action: "list", programs: [expect.objectContaining({ id: "integrated-dram-fab", locked: true })] },
+    artifacts: [],
+  }));
+
+  const inspected = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--json"]);
+  expect({ exitCode: inspected.exitCode, stderr: inspected.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const inspection = JSON.parse(inspected.stdout);
+  expect(inspection.data).toEqual(expect.objectContaining({
+    section: "summary",
+    result: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab" }), benchmark: expect.objectContaining({ cases: 5 }) }),
+  }));
+  expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
+  expect(await pathExists(join(projectDir, "design-runs"))).toBeFalse();
+
+  const executed = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run", "--max-candidates", "1", "--json"]);
+  expect({ exitCode: executed.exitCode, stderr: executed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const run = JSON.parse(executed.stdout);
+  expect(run).toEqual(expect.objectContaining({
+    command: "design",
+    data: expect.objectContaining({ section: "summary", result: expect.objectContaining({ action: "run", budget: { maximum: 1, evaluated: 1 }, resultHash: expect.any(String) }) }),
+    artifacts: [expect.objectContaining({ kind: "design-run", immutable: true })],
+  }));
+  expect(await pathExists(run.artifacts[0].path)).toBeTrue();
+  expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
+
+  const resultHash = run.data.result.resultHash as string;
+  const reopened = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--section", "iterations", "--json"]);
+  expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(reopened.stdout)).toEqual(expect.objectContaining({
+    command: "design",
+    data: { section: "iterations", result: [expect.objectContaining({ iteration: 1, decision: expect.stringMatching(/KEEP|REJECT/) })] },
+    artifacts: [expect.objectContaining({ kind: "design-run", id: resultHash, immutable: true })],
+  }));
+
+  const runs = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--section", "runs", "--json"]);
+  expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(runs.stdout).data).toEqual({
+    section: "runs",
+    result: [expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" })],
+  });
+
+  if (run.data.result.best.iteration === 0) {
+    const refused = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--promote", "no-leading-design", "--json"]);
+    expect(refused.exitCode).toBe(1);
+    expect(JSON.parse(refused.stderr).error).toEqual(expect.objectContaining({ code: "design.no-leading-candidate" }));
+    expect(await pathExists(join(projectDir, "candidates", "no-leading-design.candidate.json"))).toBeFalse();
+  }
+}, 90_000);
+
+test("public inspect exposes compatible-run memory-fab loss attribution without prose parsing", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const result = await runCli([
+    "inspect", projectDir, "--world", "cleanroom", "--blueprint", "equipment-energy-sleep",
+    "--scenario", "equipment-energy-window", "--objective", "dram-energy", "--section", "losses", "--json",
+  ]);
+  expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(result.stdout).data).toEqual({
+    section: "losses",
+    result: expect.objectContaining({
+      run: { id: "052-simulate", resultHash: expect.any(String) },
+      family: "dram-wafer",
+      primary: expect.objectContaining({ id: "queue-starvation" }),
+      chain: expect.arrayContaining(["maintenance-qualification", "setup-campaign"]),
+    }),
+  });
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {

@@ -4,17 +4,22 @@ import { join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import {
   CandidateChangeSetError,
+  DesignRunError,
   analyzeProduction,
   analyzeProjectOperation,
   applyCandidateOperation,
   blueprintSchema,
+  buildDesignProgramBrief,
   compileFactoryProject,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
   inspectCandidateDecision,
   listBlueprintBenchmarks,
   listCandidateChangeSets,
+  listDesignPrograms,
+  listDesignRuns,
   loadCandidateChangeSet,
+  loadDesignRun,
   listRuns,
   listWorkspaceProjects,
   loadFactoryProject,
@@ -27,8 +32,10 @@ import {
   planProjectOperation,
   planProductionCapacity,
   previewCandidateOperation,
+  promoteDesignRun,
   readJson,
   resolveProjectDirectory,
+  runDesignProgram,
   simulateProjectOperation,
   validateProjectOperation,
   type ProjectSelection,
@@ -139,7 +146,7 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "industr
 
 async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
-  const experiments = await listBlueprintBenchmarks(projectDir);
+  const [experiments, designPrograms] = await Promise.all([listBlueprintBenchmarks(projectDir), listDesignPrograms(projectDir)]);
   const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
   const selected = runs.find((run) => run.name === runName)
     ?? runs.findLast((run) => run.manifest.decision === "KEEP")
@@ -170,7 +177,9 @@ async function loadStudioData(projectId: string, runName?: string) {
   return {
     name: project.manifest.name,
     projectId: project.manifest.id,
+    selection: { ...project.selection },
     experiments,
+    designPrograms,
     blueprintHash: project.hashes.blueprintHash,
     bounds: regionLayout.bounds,
     regions: regionLayout.layouts,
@@ -436,6 +445,7 @@ function projectSelection(url: URL): ProjectSelection {
 function errorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof CandidateChangeSetError) return Response.json({ code: error.code, error: message }, { status: error.code === "candidate.stale-base" ? 409 : 400 });
+  if (error instanceof DesignRunError) return Response.json({ code: error.code, error: message, hashes: error.hashes }, { status: error.code.endsWith("stale") ? 409 : 400 });
   const notFound = message.startsWith("Unknown") || message.startsWith("Not an INM");
   return Response.json({ code: notFound ? "studio.not-found" : "studio.request-failed", error: message }, { status: notFound ? 404 : 400 });
 }
@@ -493,6 +503,48 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(experimentsMatch[1]!));
         return Response.json({ experiments: await listBlueprintBenchmarks(projectDir) });
+      }
+
+      const designsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs$/);
+      if (designsMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(designsMatch[1]!));
+        return Response.json({ programs: await listDesignPrograms(projectDir), runs: await listDesignRuns(projectDir) });
+      }
+
+      const designProgramMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)$/);
+      if (designProgramMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(designProgramMatch[1]!));
+        const programId = decoded(designProgramMatch[2]!);
+        return Response.json({ brief: await buildDesignProgramBrief(projectDir, programId), runs: await listDesignRuns(projectDir, programId) });
+      }
+
+      const designExecuteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/run$/);
+      if (designExecuteMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(designExecuteMatch[1]!));
+        const body = await request.json().catch(() => ({})) as { maxCandidates?: unknown };
+        if (body.maxCandidates !== undefined && (!Number.isInteger(body.maxCandidates) || (body.maxCandidates as number) < 1)) throw new Error("maxCandidates must be a positive integer");
+        return Response.json(await runDesignProgram(projectDir, decoded(designExecuteMatch[2]!), {
+          ...(body.maxCandidates === undefined ? {} : { maxCandidates: body.maxCandidates as number }),
+        }));
+      }
+
+      const designRunMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/runs\/([^/]+)$/);
+      if (designRunMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(designRunMatch[1]!));
+        return Response.json(await loadDesignRun(projectDir, decoded(designRunMatch[2]!), decoded(designRunMatch[3]!)));
+      }
+
+      const designPromoteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/runs\/([^/]+)\/promote$/);
+      if (designPromoteMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(designPromoteMatch[1]!));
+        const body = await request.json().catch(() => ({})) as { candidateId?: unknown };
+        if (typeof body.candidateId !== "string" || !body.candidateId) throw new Error("Promotion requires candidateId");
+        return Response.json(await promoteDesignRun(projectDir, decoded(designPromoteMatch[2]!), decoded(designPromoteMatch[3]!), body.candidateId));
       }
 
       const experimentRunMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/run$/);
@@ -572,7 +624,7 @@ const server = Bun.serve({
       }
 
       if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname)
-        || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?)\/?$/.test(url.pathname)) {
+        || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?|designs(?:\/[^/]+(?:\/runs\/[^/]+)?)?)\/?$/.test(url.pathname)) {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
       }
       return new Response("Not found", { status: 404 });

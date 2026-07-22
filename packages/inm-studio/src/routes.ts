@@ -1,13 +1,15 @@
 import type { StudioSelection } from "./selection";
 
 export type AssetKind = "devices" | "resources" | "processes" | "routes";
-export type StudioView = "overview" | "factory" | "runs" | "catalog" | "analysis" | "experiments";
+export type StudioView = "overview" | "factory" | "runs" | "designs" | "catalog" | "analysis" | "experiments";
 
 export interface StudioRoute {
   projectId: string | null;
   view: StudioView;
   experimentId: string | null;
   candidateId: string | null;
+  designProgramId: string | null;
+  designRunId: string | null;
   selection: StudioSelection | null;
   assetKind: AssetKind | null;
   assetId: string | null;
@@ -20,6 +22,7 @@ export const factoryObjectPath = (projectId: string, selection?: StudioSelection
 export const catalogPath = (projectId: string, kind?: AssetKind | null, assetId?: string | null) => `${viewPath(projectId, "catalog")}${kind ? `/${kind}` : ""}${kind && assetId ? `/${encodeURIComponent(assetId)}` : ""}`;
 export const analysisPath = (projectId: string, diagnosticId?: string | null) => `${viewPath(projectId, "analysis")}${diagnosticId ? `/diagnostics/${encodeURIComponent(diagnosticId)}` : ""}`;
 export const experimentPath = (projectId: string, experimentId?: string, candidateId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}${candidateId ? `/candidates/${encodeURIComponent(candidateId)}` : ""}`;
+export const designPath = (projectId: string, programId?: string, runId?: string) => `${projectPath(projectId)}/designs${programId ? `/${encodeURIComponent(programId)}` : ""}${runId ? `/runs/${encodeURIComponent(runId)}` : ""}`;
 
 export function overlayReturnPath(projectId: string, state: unknown): string | null {
   if (!state || typeof state !== "object" || !("inmOverlayFrom" in state)) return null;
@@ -33,7 +36,7 @@ export function studioRoute(pathname = window.location.pathname): StudioRoute {
   const segments = pathname.split("/").filter(Boolean);
   try {
     const projectId = segments[0] ? decodeURIComponent(segments[0]) : null;
-    const base = { projectId, experimentId: null, candidateId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
+    const base = { projectId, experimentId: null, candidateId: null, designProgramId: null, designRunId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
     if (segments.length === 1 && projectId) return { ...base, view: "overview" };
     if (projectId && segments[1] === "factory" && (segments.length === 2 || segments.length === 4)) {
       const kind = segments[2] === "devices" ? "device" : segments[2] === "connections" ? "connection" : null;
@@ -54,6 +57,12 @@ export function studioRoute(pathname = window.location.pathname): StudioRoute {
     if (segments.length === 5 && segments[1] === "experiments" && segments[3] === "candidates") return {
       ...base, view: "experiments", experimentId: decodeURIComponent(segments[2]!), candidateId: decodeURIComponent(segments[4]!),
     };
+    if ((segments.length === 2 || segments.length === 3) && segments[1] === "designs") return {
+      ...base, view: "designs", designProgramId: segments[2] ? decodeURIComponent(segments[2]) : "",
+    };
+    if (segments.length === 5 && segments[1] === "designs" && segments[3] === "runs") return {
+      ...base, view: "designs", designProgramId: decodeURIComponent(segments[2]!), designRunId: decodeURIComponent(segments[4]!),
+    };
   } catch { /* malformed routes fall back to the launcher */ }
-  return { projectId: null, view: "overview", experimentId: null, candidateId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
+  return { projectId: null, view: "overview", experimentId: null, candidateId: null, designProgramId: null, designRunId: null, selection: null, assetKind: null, assetId: null, diagnosticId: null };
 }

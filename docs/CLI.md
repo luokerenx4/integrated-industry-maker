@@ -34,7 +34,9 @@ Runs schema validation, immutable world and finite resource-node resolution, ext
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
-Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, separate capacity/flow/evidence/review status, the one shared next action, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` defaults to a bounded orientation summary. Sections expose `next-action`, `diagnostics`, `catalog`, `runs`, `experiments`, `candidates`, and `operations`; `--section next-action --json` and the envelope's sole `nextActions` item are the exact Core action, while `--section all --json` returns the complete V2 `ProjectWorkbenchSnapshot`. Inspection is read-only and an invalid explicit selection never falls back to a project default.
+Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, separate capacity/flow/evidence/review status, the one shared next action, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` defaults to a bounded orientation summary. Sections expose `next-action`, `diagnostics`, `losses`, `catalog`, `runs`, `experiments`, `candidates`, and `operations`; `--section next-action --json` and the envelope's sole `nextActions` item are the exact Core action, while `--section all --json` returns the complete V3 `ProjectWorkbenchSnapshot`. Inspection is read-only and an invalid explicit selection never falls back to a project default.
+
+When a completed tracked-lot run exactly matches every current project hash, inspection ranks the measured fab loss chain ahead of generic nominal warnings while leaving capacity blockers first. `--section losses --json` returns release/admission, queue/starvation, batching, setup, maintenance/qualification, tooling, facility, failure, power, transport, Q-time, and yield/quality buckets with exact run identity and subjects. These are overlapping prioritization signals, not additive lost-output claims. See [[docs/design/fab-loss-attribution]].
 
 `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` invoke the named Core [[docs/design/operation-workbench]] operations. Their JSON envelope keeps the requested summary/detail section in `data.result` and places shared operation metadata in `data.operation`: effect, duration, exact context/hashes, diagnostics, artifacts, actual write set, and recommended verification. Dense operation data is not duplicated merely to expose metadata.
 
@@ -89,6 +91,21 @@ inm candidate examples/memory-fab --candidate stable-furnace-sleep --json
 ```
 
 The JSON result includes the proposal and its canonical hash, current and proposed Blueprint hashes, exact patch, semantic changes, fixed-case metrics, gates, verdict, review artifact, and actual write set. `--apply` is an explicit write operation: Core requires the recorded `reviewed-keep` decision, repeats evaluation, verifies the same proposal/base/proposed hashes, atomically replaces only the Benchmark candidate Blueprint, and checks the written file against the reviewed proposed hash. The resulting decision is `verified`; a subsequent unrelated Blueprint edit makes it `stale`. `DISCARD`, `UNCHANGED`, missing-review, stale, changed, invalid, or cross-Benchmark proposals are never written. See [[docs/design/experiment-workbench]].
+
+### `inm design <project-or-workspace-dir> [--project ID] [--program ID] [--run | --run-id HASH [--promote ID]] [--max-candidates N] [--json]`
+
+Lists project-local Design Programs when `--program` is omitted. Selecting a program returns its locked Benchmark, existing seed Blueprint, driver case, exact hashes, allowed decision families, bounded budget, target-rate capacity state, flow diagnostics, declarative/opaque Device counts, and topology without creating simulation or review evidence.
+
+`--run` explicitly executes bounded design search. The driver case supplies proposal evidence, but every in-memory candidate is accepted only through the complete locked multi-case Benchmark and must improve on the current best. `--max-candidates` may lower the manifest budget but cannot raise it. Execution never edits the seed or candidate Blueprint and writes or reuses only:
+
+```text
+design-runs/<program-id>/<result-hash>/manifest.json
+design-runs/<program-id>/<result-hash>/best.blueprint.json
+```
+
+`--run-id <result-hash>` verifies and reopens one completed artifact; the program brief's `runs` section lists available hashes. `--promote <candidate-id>` additionally requires a run id and accepts only a run whose best iteration advanced beyond its seed. It verifies current Program, Benchmark, engine, and seed identities, then creates one `candidates/<candidate-id>.candidate.json` whose patch replays from that seed to the exact recorded leading Blueprint hash. It never applies the Candidate; review with `inm candidate <path> --candidate <candidate-id>` and apply only through the existing guarded Candidate lifecycle.
+
+JSON sections are `summary`, `static`, `iterations`, `best`, `runs`, and `all`. Every iteration exposes the exact strategy family, hypothesis, proposal and Blueprint hashes, restricted patch, robust result/gate reasons or validation error, and KEEP/REJECT decision. Returned `design-run` and promoted `candidate` artifacts are immutable. See [[docs/design/design-programs]].
 
 ### `inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]`
 
@@ -162,7 +179,7 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 
 Launches the local Studio workbench. `/` is a project launcher; choosing a project navigates to the task-oriented `/<project-id>` Overview, where selection/hashes, Objective/contracts, readiness, prioritized diagnostics, recent immutable evidence, proposals, and available operations appear before spatial debugging. There is no project switcher inside the workbench—return to the launcher to open another self-contained project.
 
-Stable project-qualified routes cover Overview, Factory, Runs, Experiments, Catalog, and Analysis. Catalog/Analysis are route-backed dialogs, and selected catalog assets, diagnostics, Factory devices, Factory connections, Benchmarks, and Candidates remain addressable across reload, history, and copied links.
+Stable project-qualified routes cover Overview, Factory, Runs, Design, Experiments, Catalog, and Analysis. Catalog, Analysis, Design, and Experiments are route-backed workbenches; selected catalog assets, diagnostics, Factory devices/connections, Design Programs/runs, Benchmarks, and Candidates remain addressable across reload, history, and copied links. Design shows the same bounded Program brief, immutable score ranking, proposal effects, seed-leader refusal, and guarded Candidate handoff as `inm design`.
 
 The read-only Catalog is modeled after an editor asset browser. It separates Device and Resource packages from Process and Product Route definitions, supports category-scoped text filtering, and exposes geometry, production ports, buffers, modes, runtime, transformations, inspection/rework disposition, transport limits, generation/storage/distribution envelopes, content hashes, and instance counts. Every request is project-qualified and root-confined.
 

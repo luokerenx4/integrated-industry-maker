@@ -1,13 +1,14 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BlueprintBenchmarkSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
+import type { BlueprintBenchmarkSummary, DesignProgramSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
-import { analysisPath, catalogPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
+import { DesignWorkbench } from "./design-workbench";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 
@@ -498,7 +499,9 @@ interface CapacityPlan {
 interface StudioData {
   projectId: string;
   name: string;
+  selection: { world: string; blueprint: string; scenario: string; objective: string };
   experiments: BlueprintBenchmarkSummary[];
+  designPrograms: DesignProgramSummary[];
   blueprintHash: string;
   bounds: { width: number; height: number };
   regions: Array<{
@@ -1378,6 +1381,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
     { view: "overview", label: "OVERVIEW" },
     { view: "factory", label: "FACTORY" },
     { view: "runs", label: "RUNS", count: overview.counts.runs },
+    { view: "designs", label: "DESIGN", count: data.designPrograms.length },
     { view: "experiments", label: "EXPERIMENTS", count: overview.counts.experiments },
     { view: "analysis", label: "ANALYSIS", count: overview.diagnostics.length },
     { view: "catalog", label: "CATALOG", count: overview.counts.resourceAssets + overview.counts.deviceAssets + overview.counts.processes + overview.counts.routes },
@@ -1385,6 +1389,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
   const destination = (target: StudioView) => target === "overview" ? projectPath(data.projectId)
     : target === "catalog" ? catalogPath(data.projectId)
       : target === "analysis" ? analysisPath(data.projectId)
+        : target === "designs" ? designPath(data.projectId)
         : target === "experiments" ? experimentPath(data.projectId)
           : target === "factory" ? factoryObjectPath(data.projectId)
             : viewPath(data.projectId, "runs");
@@ -1517,6 +1522,11 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           <span>{diagnostic.severity === "blocking" ? "!" : diagnostic.severity === "warning" ? "△" : "·"}</span><div><code>{diagnostic.code}</code><strong>{diagnostic.message}</strong><small>{diagnostic.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</small></div><b>→</b>
         </button>) : <div className="overview-empty positive"><b>✓</b><span>No static readiness or analysis issue is open.</span></div>}</div>
       </section>
+      {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
+        <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
+        <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => <div key={bucket.id} className={index === 0 ? "primary" : ""}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong><small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>)}</div>
+        <footer><span>GOOD YIELD {(snapshot.lossAttribution.outcome.goodYield * 100).toFixed(1)}%</span><span>CONTRACTS {(snapshot.lossAttribution.outcome.contractFulfillment * 100).toFixed(1)}%</span><small>Ranking signals overlap; they are not additive lost output.</small></footer>
+      </section>}
       <section className="overview-panel contracts-panel">
         <header><div><span className="eyebrow">INDUSTRIAL OUTCOME</span><h3>Delivery contracts</h3></div></header>
         <div className="contract-list">{snapshot.objective.deliveryContracts.map((contract) => <div key={contract.id}><span><strong>{contract.id}</strong><code>{contract.resource} → {contract.region}</code></span><b>{contract.demandPerMinute.toFixed(2)}<small>/ MIN</small></b></div>)}</div>
@@ -1559,6 +1569,8 @@ function App() {
   const [routeView, setRouteView] = useState<StudioView>(initialRoute.view);
   const [routeExperiment, setRouteExperiment] = useState<string | null>(initialRoute.experimentId);
   const [routeCandidate, setRouteCandidate] = useState<string | null>(initialRoute.candidateId);
+  const [routeDesignProgram, setRouteDesignProgram] = useState<string | null>(initialRoute.designProgramId);
+  const [routeDesignRun, setRouteDesignRun] = useState<string | null>(initialRoute.designRunId);
   const [routeAssetKind, setRouteAssetKind] = useState<AssetKind | null>(initialRoute.assetKind);
   const [routeAssetId, setRouteAssetId] = useState<string | null>(initialRoute.assetId);
   const [routeDiagnostic, setRouteDiagnostic] = useState<string | null>(initialRoute.diagnosticId);
@@ -1590,10 +1602,9 @@ function App() {
     setError(null);
     try {
       const query = selectedRun ? `?run=${encodeURIComponent(selectedRun)}` : "";
-      const [next, nextOverview] = await Promise.all([
-        responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`)),
-        responseJson<ProjectWorkbenchSnapshot>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/overview`)),
-      ]);
+      const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`));
+      const overviewQuery = new URLSearchParams(next.selection).toString();
+      const nextOverview = await responseJson<ProjectWorkbenchSnapshot>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/overview?${overviewQuery}`));
       if (sequence !== requestSequence.current) return;
       setData(next);
       setOverview(nextOverview);
@@ -1618,6 +1629,8 @@ function App() {
     setRouteView("overview");
     setRouteExperiment(null);
     setRouteCandidate(null);
+    setRouteDesignProgram(null);
+    setRouteDesignRun(null);
     setRouteAssetKind(null);
     setRouteAssetId(null);
     setRouteDiagnostic(null);
@@ -1635,17 +1648,19 @@ function App() {
     if (!routeProject) return;
     const path = view === "overview" ? projectPath(routeProject)
       : view === "experiments" ? experimentPath(routeProject)
+        : view === "designs" ? designPath(routeProject)
         : view === "catalog" ? catalogPath(routeProject)
           : view === "analysis" ? analysisPath(routeProject)
             : view === "factory" ? factoryObjectPath(routeProject)
               : viewPath(routeProject, "runs");
     if (path === window.location.pathname) return;
-    const overlay = view === "catalog" || view === "analysis" || view === "experiments";
-    const currentOverlay = routeView === "catalog" || routeView === "analysis" || routeView === "experiments";
+    const overlay = view === "catalog" || view === "analysis" || view === "experiments" || view === "designs";
+    const currentOverlay = routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs";
     const state = overlay ? currentOverlay ? window.history.state : { inmOverlayFrom: window.location.pathname } : {};
     if (currentOverlay) window.history.replaceState(overlay ? state : {}, "", path);
     else window.history.pushState(state, "", path);
     setRouteView(view); setRouteExperiment(view === "experiments" ? "" : null); setRouteCandidate(null);
+    setRouteDesignProgram(view === "designs" ? "" : null); setRouteDesignRun(null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
   }, [routeProject, routeView]);
 
@@ -1655,6 +1670,7 @@ function App() {
     const nextRoute = studioRoute(path);
     window.history.replaceState({}, "", path);
     setRouteView(nextRoute.view); setRouteExperiment(nextRoute.experimentId); setRouteCandidate(nextRoute.candidateId);
+    setRouteDesignProgram(nextRoute.designProgramId); setRouteDesignRun(nextRoute.designRunId);
     setRouteAssetKind(nextRoute.assetKind); setRouteAssetId(nextRoute.assetId); setRouteDiagnostic(nextRoute.diagnosticId); setSelection(nextRoute.selection);
   }, [routeProject]);
 
@@ -1681,6 +1697,20 @@ function App() {
     window.history.pushState({ inmOverlayFrom: window.location.pathname }, "", experimentPath(routeProject, experimentId, candidateId));
     setRouteView("experiments"); setRouteExperiment(experimentId); setRouteCandidate(candidateId);
   }, [routeProject]);
+
+  const navigateDesignProgram = useCallback((programId: string) => {
+    if (!routeProject) return;
+    const state = routeView === "designs" ? window.history.state : { inmOverlayFrom: window.location.pathname };
+    window.history.pushState(state, "", designPath(routeProject, programId));
+    setRouteView("designs"); setRouteDesignProgram(programId); setRouteDesignRun(null);
+    setRouteExperiment(null); setRouteCandidate(null); setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
+  }, [routeProject, routeView]);
+
+  const navigateDesignRun = useCallback((runId: string | null) => {
+    if (!routeProject || !routeDesignProgram) return;
+    window.history.pushState(window.history.state, "", designPath(routeProject, routeDesignProgram, runId ?? undefined));
+    setRouteDesignRun(runId);
+  }, [routeDesignProgram, routeProject]);
 
   const navigateCatalog = useCallback((kind: AssetKind, assetId: string | null) => {
     if (!routeProject) return;
@@ -1716,6 +1746,8 @@ function App() {
       setRouteView(nextRoute.view);
       setRouteExperiment(nextRoute.experimentId);
       setRouteCandidate(nextRoute.candidateId);
+      setRouteDesignProgram(nextRoute.designProgramId);
+      setRouteDesignRun(nextRoute.designRunId);
       setRouteAssetKind(nextRoute.assetKind);
       setRouteAssetId(nextRoute.assetId);
       setRouteDiagnostic(nextRoute.diagnosticId);
@@ -1739,15 +1771,16 @@ function App() {
   }, [loadIndex, loadProject]);
   useEffect(() => {
     const experiment = routeExperiment && data?.experiments.find((item) => item.id === routeExperiment);
+    const design = routeDesignProgram && data?.designPrograms.find((item) => item.id === routeDesignProgram);
     const viewLabel = routeView === "overview" ? "" : `${routeView[0]!.toUpperCase()}${routeView.slice(1)} · `;
-    document.title = experiment ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${data!.name} · INM Studio` : data ? `${viewLabel}${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
-  }, [data, index, routeCandidate, routeExperiment, routeView]);
+    document.title = experiment ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${data!.name} · INM Studio` : design ? `${routeDesignRun ? `${routeDesignRun.slice(0, 8)} · ` : ""}${design.name} · ${data!.name} · INM Studio` : data ? `${viewLabel}${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
+  }, [data, index, routeCandidate, routeDesignProgram, routeDesignRun, routeExperiment, routeView]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (operationStatus && (operationResult || operationError)) {
         setOperationStatus(null); setOperationResult(null); setOperationError(null);
-      } else if (routeView === "catalog" || routeView === "analysis" || routeView === "experiments") closeRouteSurface();
+      } else if (routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs") closeRouteSurface();
       else if (routeView === "factory" && selection) clearFactorySelection();
     };
     window.addEventListener("keydown", keydown);
@@ -1791,6 +1824,7 @@ function App() {
     if (subject?.kind === "connection") { navigateFactoryObject({ kind: "connection", id: subject.id }); return; }
     if (subject?.kind === "resource") { navigateView("catalog"); queueMicrotask(() => navigateCatalog("resources", subject.id)); return; }
     if (subject?.kind === "process") { navigateView("catalog"); queueMicrotask(() => navigateCatalog("processes", subject.id)); return; }
+    if (subject?.kind === "route") { navigateView("catalog"); queueMicrotask(() => navigateCatalog("routes", subject.id)); return; }
     navigateAnalysisDiagnostic(diagnostic.id);
   };
   const executeOperation = async (operation: WorkbenchOperationDescriptor, cli: string) => {
@@ -1832,6 +1866,10 @@ function App() {
       {routeView === "experiments" && <ExperimentWorkbench
         projectId={data.projectId} experiments={data.experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
         onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onClose={closeRouteSurface}
+      />}
+      {routeView === "designs" && <DesignWorkbench
+        projectId={data.projectId} programs={data.designPrograms} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}
+        onSelectProgram={navigateDesignProgram} onSelectRun={navigateDesignRun} onCandidate={navigateCandidateDirect} onClose={closeRouteSurface}
       />}
       {operationStatus && !operationResult && <div className="modal-backdrop"><section className={`operation-progress ${operationError ? "failed" : ""}`} role="dialog" aria-modal="true" aria-label={`Operation progress: ${operationStatus.id}`}><span className="eyebrow">SHARED CORE OPERATION</span><h2>{operationError ? "OPERATION FAILED" : "OPERATION RUNNING"}</h2><strong>{operationStatus.id}</strong>{operationError ? <><p>{operationError}</p><button onClick={() => { setOperationStatus(null); setOperationError(null); }}>CLOSE</button></> : <><div className="loading-bar"><i /></div><code>{operationStatus.cli}</code></>}</section></div>}
       {operationStatus && operationResult && <OperationResultDialog result={operationResult} cli={operationStatus.cli} onClose={() => { setOperationStatus(null); setOperationResult(null); setOperationError(null); }} />}

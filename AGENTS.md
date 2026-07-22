@@ -46,6 +46,8 @@ Read the relevant linked document before changing a subsystem:
 - Hot standby, low-power sleep, physical wake work, and Blueprint idle policy: [[docs/design/equipment-energy-states]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]
+- Project-local Design Programs, bounded robust search, and immutable design-run evidence: [[docs/design/design-programs]]
+- Hash-compatible tracked-lot loss ranking and workbench priority: [[docs/design/fab-loss-attribution]]
 - Locked multi-case benchmarks and the Coding Agent keep/discard loop: [[docs/design/coding-agent-optimization]]
 - Shared human/AI experiment protocol, Studio workbench, CLI parity, and stable deep links: [[docs/design/experiment-workbench]]
 - Shared human/AI project orientation, prioritized diagnostics, operation effects, and cross-surface parity: [[docs/design/operator-workbench]]

@@ -1106,13 +1106,19 @@ function workCenterSpecializationCandidates(input: ResearchInput): StrategyCandi
 }
 
 export class HeuristicResearchAgent implements BlueprintResearchAgent {
+  constructor(private readonly allowedStrategyFamilies?: readonly string[]) {}
+
+  private allows(key: string): boolean {
+    return !this.allowedStrategyFamilies || this.allowedStrategyFamilies.includes(key.split(":", 1)[0]!);
+  }
+
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const used = new Set(input.history.map((entry) => entry.strategy));
     const candidates: StrategyCandidate[] = [
       ...powerCandidates(input), ...measuredGenerationCandidates(input), ...measuredStorageCandidates(input), ...logisticsCandidates(input), ...measuredLogisticsCandidates(input), ...stationHighSpeedCandidates(input), ...stationCandidates(input), ...stationChargeCandidates(input),
       ...recipeCandidates(input), ...plannedToolsetCapacityCandidates(input), ...plannedCapacityCandidates(input), ...workCenterSpecializationCandidates(input),
     ];
-    const diagnosed = candidates.find((candidate) => !used.has(candidate.key));
+    const diagnosed = candidates.find((candidate) => this.allows(candidate.key) && !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;
     for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {
       const producer = input.production.devices.filter((device) => (device.outputsPerMinute[diagnostic.resource!] ?? 0) > 0)
@@ -1132,9 +1138,9 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
       const candidate = duplicateProcessorCandidate(input, processor, `its measured utilization is ${((input.metrics.machineUtilization[processor.id] ?? 0) * 100).toFixed(1)}%`);
       if (candidate) candidates.push(candidate);
     }
-    const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.key, candidate])).values()];
+    const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.key, candidate])).values()].filter((candidate) => this.allows(candidate.key));
     const selected = uniqueCandidates.find((candidate) => !used.has(candidate.key)) ?? uniqueCandidates[input.iteration % Math.max(1, uniqueCandidates.length)];
-    if (!selected) throw new Error("Heuristic agent found no valid blueprint strategy to evaluate");
+    if (!selected) throw new Error(`Heuristic agent found no valid blueprint strategy to evaluate${this.allowedStrategyFamilies ? ` in allowed families: ${this.allowedStrategyFamilies.join(", ")}` : ""}`);
     return selected.proposal;
   }
 }

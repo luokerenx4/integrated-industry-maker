@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/memory-fab-design-loop]] | Turn the memory-fab north star from a hand-authored evaluation fixture into a project-local generate, diagnose, search, and review loop. | 2026-07-22 |
 
 ## Proposed plans
 

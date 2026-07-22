@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "integrated-dram-fab",
+  "name": "Integrated DRAM Fab Design",
+  "description": "Improve the complete re-entrant DRAM factory across ordinary production, quality excursions, equipment interruption, and fab-utility interruption without weakening any locked industrial input.",
+  "benchmark": "dispatch-research",
+  "seedBlueprint": "experiment",
+  "driverCase": "mixed-quality",
+  "proposal": {
+    "kind": "heuristic",
+    "decisionFamilies": [
+      "toolset-capacity",
+      "capacity-plan",
+      "specialize",
+      "recipe",
+      "dispatch",
+      "buffer",
+      "power",
+      "generation",
+      "storage"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 6
+  }
+}

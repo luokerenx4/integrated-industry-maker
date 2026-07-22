@@ -10,7 +10,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(2);
+  expect(snapshot.version).toBe(3);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -71,6 +71,27 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.preview")?.availability.state).toBe("conditional");
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.guards).toContain("keep-verdict");
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
+});
+
+test("a hash-compatible tracked-lot run outranks nominal warnings with measured fab loss attribution", async () => {
+  const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"), {
+    world: "cleanroom", blueprint: "equipment-energy-sleep", scenario: "equipment-energy-window", objective: "dram-energy",
+  });
+  expect(snapshot.status.evidence).toEqual({ state: "current", runId: "052-simulate" });
+  expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
+    run: { id: "052-simulate", resultHash: expect.any(String) },
+    family: "dram-wafer",
+    outcome: expect.objectContaining({ scheduled: 12, released: 12, completed: 12, goodYield: 1 }),
+    primary: expect.objectContaining({ id: "queue-starvation", score: expect.any(Number) }),
+    chain: expect.arrayContaining(["queue-starvation", "maintenance-qualification", "setup-campaign"]),
+  }));
+  expect(snapshot.lossAttribution!.buckets.every((bucket, index, buckets) => index === 0 || buckets[index - 1]!.score >= bucket.score)).toBeTrue();
+  expect(snapshot.diagnostics[0]).toEqual(expect.objectContaining({
+    code: "fab-loss.queue-starvation", priority: 90,
+    evidence: expect.objectContaining({ source: "compatible-run", runId: "052-simulate" }),
+  }));
+  expect(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code === "fab-loss.queue-starvation"))
+    .toBeLessThan(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code.startsWith("analysis.")));
 });
 
 test("Candidate review and apply advance the shared decision across reloads", async () => {

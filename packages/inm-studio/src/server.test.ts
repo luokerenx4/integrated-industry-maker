@@ -94,6 +94,7 @@ test("opening a project without runs does not write a Studio baseline", async ()
     for (const route of [
       "ironworks", "ironworks/factory", "ironworks/factory/devices/assembler-1", "ironworks/factory/connections/ore-line",
       "ironworks/runs", "ironworks/catalog", "ironworks/catalog/devices/smelter", "ironworks/analysis",
+      "ironworks/designs",
       "ironworks/analysis/diagnostics/capacity.process%3Aprocess%3Asmelter",
     ]) {
       const routeResponse = await fetch(`http://localhost:${port}/${route}`);
@@ -152,3 +153,72 @@ test("opening a project without runs does not write a Studio baseline", async ()
     await child.exited;
   }
 }, 30_000);
+
+test("Studio exposes the same memory-fab Design Program, immutable run, and guarded promotion contract", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-design-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const seedPath = join(projectDir, "blueprints/experiment.blueprint.json");
+  const seedBefore = await readFile(seedPath, "utf8");
+  const port = 49_000 + process.pid % 1_000;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+
+    const listResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs`);
+    expect(listResponse.status).toBe(200);
+    expect(await listResponse.json()).toEqual({
+      programs: [expect.objectContaining({ id: "integrated-dram-fab", locked: true, budget: { maxCandidates: 6 } })],
+      runs: [],
+    });
+    const programResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab`);
+    expect(programResponse.status).toBe(200);
+    expect(await programResponse.json()).toEqual(expect.objectContaining({
+      brief: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab" }), benchmark: expect.objectContaining({ cases: 5 }) }),
+      runs: [],
+    }));
+    const deepLink = await fetch(`http://localhost:${port}/memory-fab/designs/integrated-dram-fab`);
+    expect({ status: deepLink.status, contentType: deepLink.headers.get("content-type") }).toEqual({ status: 200, contentType: expect.stringContaining("text/html") });
+
+    const invalidRun = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/run`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 0 }),
+    });
+    expect(invalidRun.status).toBe(400);
+
+    const runResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/run`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 1 }),
+    });
+    expect(runResponse.status).toBe(200);
+    const run = await runResponse.json() as { manifest: { resultHash: string; best: { iteration: number }; budget: { maximum: number; evaluated: number } }; artifact: { id: string; created: boolean } };
+    expect(run).toEqual(expect.objectContaining({
+      manifest: expect.objectContaining({ budget: { maximum: 1, evaluated: 1 } }),
+      artifact: expect.objectContaining({ id: run.manifest.resultHash, created: true }),
+    }));
+    const reopened = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/runs/${run.manifest.resultHash}`);
+    expect(reopened.status).toBe(200);
+    expect(await reopened.json()).toEqual(expect.objectContaining({ manifest: expect.objectContaining({ resultHash: run.manifest.resultHash }) }));
+    const promotion = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/runs/${run.manifest.resultHash}/promote`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: "studio-leading-design" }),
+    });
+    expect(promotion.status).toBe(run.manifest.best.iteration > 0 ? 200 : 400);
+    if (run.manifest.best.iteration === 0) expect(await promotion.json()).toEqual(expect.objectContaining({ code: "design.no-leading-candidate" }));
+    expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
+  } finally {
+    child.kill();
+    await child.exited;
+  }
+}, 60_000);
