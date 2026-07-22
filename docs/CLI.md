@@ -2,6 +2,14 @@
 
 Run locally with `bun run inm`, or link `packages/inm-cli/src/bin.ts` as `inm`.
 
+## Machine contract
+
+Use `inm help --json` to discover every public command, argument/default, effect, output section, and exit code. Use `inm schema --json` to list authored project artifact kinds and `inm schema <kind> --json` to emit their current strict JSON Schema Draft 7 projection.
+
+Every successful `--json` command writes exactly one versioned envelope to stdout with `command`, resolved `context`, `data`, `diagnostics`, `artifacts`, and exact-argv `nextActions`. Every failed `--json` command writes no stdout and one versioned error envelope to stderr with a stable code, structured issues, retryability, and any relevant current hashes. Dense commands return the `summary` section by default; request one advertised section with `--section NAME --json`, or the complete result with `--section all --json`.
+
+The full contract and section semantics are defined in [[docs/design/agent-cli-contract]].
+
 ## Commands
 
 ### `inm workspace init <workspace-dir> [--name NAME] [--json]`
@@ -26,7 +34,7 @@ Runs schema validation, immutable world and finite resource-node resolution, ext
 
 ### `inm inspect <project-or-workspace-dir> [--project ID]`
 
-Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, target-rate readiness, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` emits the Core `ProjectWorkbenchSnapshot` exactly, including deterministic catalog/run/Benchmark/Candidate summaries, diagnostic codes/subjects/evidence, and declared operation write sets/guards. Inspection is read-only and an invalid explicit selection never falls back to a project default.
+Builds the shared [[docs/design/operator-workbench]] snapshot for the effective World, Blueprint, Scenario, and Objective. Human output is a compact orientation view: exact input hashes, normalized delivery contracts, target-rate readiness, topology/catalog/evidence counts, prioritized diagnostics, and available/conditional operations with their effects. `--json` defaults to a bounded orientation summary. Sections expose `diagnostics`, `catalog`, `runs`, `experiments`, `candidates`, and `operations`; `--section all --json` returns the exact Core `ProjectWorkbenchSnapshot` in `data.result`. Inspection is read-only and an invalid explicit selection never falls back to a project default.
 
 ### `inm analyze <project-or-workspace-dir> [--project ID]`
 
@@ -162,4 +170,4 @@ Studio can replay semantic events, scrub time, change speed, inspect status and 
 
 ## Selection and output
 
-Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `analyze`, `plan`, `synthesize`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. `compare` accepts the same benchmark selectors but replaces `--blueprint` with required `--from-blueprint` and `--to-blueprint` ids. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation.
+Every runtime command accepts either a direct project directory or a workspace directory. A workspace uses its default project unless `--project ID` is passed; `--project` is rejected for an already-direct project path. `validate`, `inspect`, `analyze`, `plan`, `synthesize`, `simulate`, and `research` accept `--world`, `--blueprint`, `--scenario`, and `--objective`. `compare` accepts the same benchmark selectors but replaces `--blueprint` with required `--from-blueprint` and `--to-blueprint` ids. Headless commands use exit code `0` for success, `1` for validation/runtime/test failure, and `2` for invalid CLI usage. Use `--json` for AI and shell automation, and consult `inm help --json` rather than hard-coding section names or defaults.

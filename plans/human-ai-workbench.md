@@ -2,7 +2,7 @@
 
 - Status: `active`
 - Updated: `2026-07-22`
-- Related design: [[docs/design/operator-workbench]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
+- Related design: [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/CLI]], [[docs/PROJECT_FORMAT]]
 
 ## Outcome
 
@@ -84,8 +84,8 @@ Both surfaces must answer the same questions from shared data:
 ## Acceptance
 
 - [x] Core produces one serializable project workbench snapshot used by both `inm` and Studio; parity tests prove identical selection, hashes, readiness, diagnostic codes, and operation ids.
-- [ ] A Coding Agent can discover commands and project artifact schemas without reading CLI source, and every machine-readable success/error follows one versioned envelope.
-- [ ] A Coding Agent can request a compact overview or one detailed section without receiving the complete analysis payload.
+- [x] A Coding Agent can discover commands and project artifact schemas without reading CLI source, and every machine-readable success/error follows one versioned envelope.
+- [x] A Coding Agent can request a compact overview or one detailed section without receiving the complete analysis payload.
 - [ ] The Studio project root presents objective, readiness, priority issues, recent evidence, and available tasks before requiring the 3D factory view.
 - [ ] Catalog, Analysis, Factory, Runs, Experiments, Candidates, and individual diagnostics/objects have stable project-qualified routes or route-backed dialogs.
 - [ ] Every Studio operation states whether it is read-only or mutating, shows the effective selection, exposes an equivalent copyable `inm` command, and renders the shared result.
@@ -107,13 +107,13 @@ Both surfaces must answer the same questions from shared data:
 
 ### Slice 2 — AI-native CLI contract
 
-- [ ] Define one versioned JSON success envelope carrying command, project/selection context, input hashes, data, diagnostics, artifacts, and next actions.
-- [ ] Define one versioned error envelope with a stable code, message, structured issues, retryability, and relevant current hashes.
-- [ ] Add machine-readable command discovery, including arguments, defaults, read/write classification, exit behavior, and output sections.
-- [ ] Add machine-readable schema discovery for project manifests, Worlds, Blueprints, Scenarios, Objectives, Device/Resource assets, Processes, Benchmarks, and Candidates.
-- [ ] Add summary/detail selection to dense inspection, analysis, planning, simulation, Benchmark, and Candidate results without maintaining separate evaluators.
-- [ ] Keep stdout valid machine data in JSON mode and send progress/logging to stderr.
-- [ ] Add CLI contract snapshots and tests that invoke the public binary rather than only command functions.
+- [x] Define one versioned JSON success envelope carrying command, project/selection context, input hashes, data, diagnostics, artifacts, and next actions.
+- [x] Define one versioned error envelope with a stable code, message, structured issues, retryability, and relevant current hashes.
+- [x] Add machine-readable command discovery, including arguments, defaults, read/write classification, exit behavior, and output sections.
+- [x] Add machine-readable schema discovery for project manifests, Worlds, Blueprints, Scenarios, Objectives, Device/Resource assets, Processes, Benchmarks, and Candidates.
+- [x] Add summary/detail selection to dense inspection, analysis, planning, simulation, Benchmark, and Candidate results without maintaining separate evaluators.
+- [x] Keep stdout valid machine data in JSON mode and send progress/logging to stderr.
+- [x] Add CLI contract snapshots and tests that invoke the public binary rather than only command functions.
 
 ### Slice 3 — human project overview and navigation
 
@@ -168,6 +168,9 @@ Both surfaces must answer the same questions from shared data:
 - Slice 1: `bun test packages/inm-core/src/workbench.test.ts packages/inm-cli/src/commands.test.ts packages/inm-studio/src/server.test.ts` — 11 passed, 0 failed, including exact CLI/Core and Studio/Core parity.
 - Slice 1: `bun run typecheck` — passed for Core, CLI, Studio, and both example TypeScript asset catalogs.
 - Slice 1 full gate: `bun run test` — 159 passed, 0 failed, 1144 assertions; all Ironworks fixture scenarios passed.
+- Slice 2 package gate: `bun test packages/inm-core packages/inm-cli packages/inm-studio` — 165 passed, 0 failed, 1347 assertions; public-binary tests covered versioned success/error envelopes, machine help, all 14 artifact schemas, output sections, Candidate apply/stale replay, and exact CLI/Core snapshot parity.
+- Slice 2: `bun run typecheck` and `bun run docs:check` passed; six direct CLI smoke invocations produced one parseable envelope with empty stderr.
+- Slice 2 full gate: `bun run test` — documentation and type checks passed, 165 package tests passed with 1347 assertions, and all eight Ironworks public CLI fixtures passed.
 - Per-slice contract checks: `bun test packages/inm-core packages/inm-cli packages/inm-studio`.
 - Public CLI checks must invoke `bun run inm ... --json` against both examples and parse stdout as exactly one valid JSON value.
 - Full completion gate: `bun run test`.
@@ -178,7 +181,8 @@ Both surfaces must answer the same questions from shared data:
 
 - 2026-07-22 — Audited current CLI commands, Studio navigation/analysis/catalog/replay, shared experiment/candidate workbench, memory-fab program, and existing design boundaries.
 - 2026-07-22 — Plan created and registered as the active product-interface program. Slice 1 is the next implementation target.
-- 2026-07-22 — Slice 1 implemented: one Core project workbench snapshot now powers `inm inspect --json` and the project-qualified Studio Overview API with full-structure parity tests. Slice 2 is next.
+- 2026-07-22 — Slice 1 implemented: one Core project workbench snapshot now powers `inm inspect` and the project-qualified Studio Overview API with full-structure parity tests. Slice 2 is next.
+- 2026-07-22 — Slice 2 implemented: all JSON commands now use one versioned success/error contract, public machine help advertises effects/defaults/sections/exit codes, all authored project artifact schemas are discoverable, and dense results are summary-first with explicit sections. Slice 3 is next.
 
 ## Completion
 

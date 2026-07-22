@@ -47,7 +47,7 @@ export interface AppliedCandidateChangeSet extends CandidateChangeSetPreview {
 }
 
 export class CandidateChangeSetError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(public readonly code: string, message: string, public readonly hashes: Record<string, string> = {}) {
     super(message);
     this.name = "CandidateChangeSetError";
   }
@@ -100,6 +100,7 @@ async function prepareCandidateChangeSet(projectDir: string, candidateId: string
   if (candidate.baseCandidateHash !== currentCandidateHash) throw new CandidateChangeSetError(
     "candidate.stale-base",
     `Candidate change set '${candidate.id}' targets ${candidate.baseCandidateHash}, but Blueprint '${benchmark.candidateBlueprint}' is ${currentCandidateHash}`,
+    { expectedBaseHash: candidate.baseCandidateHash, currentCandidateHash },
   );
   let patched: Blueprint;
   try { patched = applyResearchPatch(loaded.blueprint, candidate.patch); }
@@ -144,14 +145,17 @@ export async function applyCandidateChangeSet(
   if (reviewed.proposalHash !== prepared.proposalHash) throw new CandidateChangeSetError(
     "candidate.review-proposal-mismatch",
     `Reviewed proposal hash ${reviewed.proposalHash} does not match current proposal hash ${prepared.proposalHash}`,
+    { reviewedProposalHash: reviewed.proposalHash, currentProposalHash: prepared.proposalHash },
   );
   if (reviewed.currentCandidateHash !== prepared.currentCandidateHash) throw new CandidateChangeSetError(
     "candidate.review-base-mismatch",
     `Reviewed base hash ${reviewed.currentCandidateHash} does not match current candidate hash ${prepared.currentCandidateHash}`,
+    { reviewedBaseHash: reviewed.currentCandidateHash, currentCandidateHash: prepared.currentCandidateHash },
   );
   if (reviewed.proposedCandidateHash !== prepared.proposedCandidateHash) throw new CandidateChangeSetError(
     "candidate.review-proposal-mismatch",
     `Reviewed proposed hash ${reviewed.proposedCandidateHash} does not match evaluated proposed hash ${prepared.proposedCandidateHash}`,
+    { reviewedProposedHash: reviewed.proposedCandidateHash, evaluatedProposedHash: prepared.proposedCandidateHash },
   );
   if (prepared.result.verdict !== "KEEP") throw new CandidateChangeSetError(
     "candidate.not-accepted",
@@ -161,6 +165,7 @@ export async function applyCandidateChangeSet(
   if (latestBlueprintHash !== prepared.currentCandidateHash) throw new CandidateChangeSetError(
     "candidate.write-conflict",
     `Candidate Blueprint changed after evaluation: expected ${prepared.currentCandidateHash}, found ${latestBlueprintHash}`,
+    { expectedCandidateHash: prepared.currentCandidateHash, currentCandidateHash: latestBlueprintHash },
   );
   const latestProposal = await loadCandidateChangeSet(projectDir, candidateId);
   if (hashValue(latestProposal) !== hashValue(prepared.candidate)) throw new CandidateChangeSetError(

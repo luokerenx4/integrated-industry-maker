@@ -1,8 +1,8 @@
 # Shared operator workbench
 
-Status: V1 shared project orientation implemented; AI-native output contracts and the Studio task-oriented project root remain active work.
+Status: V1 shared project orientation and AI-native CLI projection implemented; the Studio task-oriented project root remains active work.
 
-Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
+Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
 
 ## Scope
 
@@ -65,7 +65,7 @@ The three effects are `read-only`, `creates-artifact`, and `mutates-blueprint`. 
 
 ## CLI and Studio projections
 
-`inm inspect --json` emits the Core snapshot exactly. Human `inm inspect` renders a compact orientation view containing effective selection/hashes, Objective, readiness, topology/catalog/evidence counts, highest-priority diagnostics, and operation effects. Dense analysis remains in `inm analyze` and `inm plan`.
+`inm inspect --json` emits a compact summary inside the versioned CLI envelope. `inm inspect --section all --json` places the exact Core snapshot in `data.result`; the envelope separately carries the same effective context, diagnostics, and exact next-action argv arrays. Human `inm inspect` renders a compact orientation view containing effective selection/hashes, Objective, readiness, topology/catalog/evidence counts, highest-priority diagnostics, and operation effects. Dense analysis remains in `inm analyze` and `inm plan`. See [[docs/design/agent-cli-contract]].
 
 Studio exposes the same snapshot at:
 
@@ -90,11 +90,11 @@ Explicit query selection never falls back when invalid. The endpoint is project-
 bun test packages/inm-core/src/workbench.test.ts
 bun test packages/inm-cli/src/commands.test.ts
 bun test packages/inm-studio/src/server.test.ts
-bun run inm inspect examples/ironworks --json
-bun run inm inspect examples/memory-fab --json
+bun run inm inspect examples/ironworks --section all --json
+bun run inm inspect examples/memory-fab --section all --json
 ```
 
-Tests must prove exact CLI/Core and Studio/Core snapshot parity, deterministic diagnostic/action identity, memory-fab experiment/candidate discovery, empty-run read purity, and invalid explicit-selection rejection. A successful HTTP response or a visually similar summary is not parity evidence.
+Tests must prove exact CLI `data.result`/Core and Studio/Core snapshot parity, deterministic diagnostic/action identity, memory-fab experiment/candidate discovery, empty-run read purity, and invalid explicit-selection rejection. A successful HTTP response or a visually similar summary is not parity evidence.
 
 ## Change checklist
 
@@ -106,7 +106,5 @@ Tests must prove exact CLI/Core and Studio/Core snapshot parity, deterministic d
 
 ## Known next gaps
 
-- Versioned success/error envelopes and machine-readable command/schema discovery.
-- Summary/detail selection for token-efficient Agent reads.
 - Per-Candidate cheap stale/lock status without executing a Benchmark.
 - Studio Overview, diagnostic navigation, stable route-backed Catalog/Analysis, and shared operation result views.

@@ -5,6 +5,18 @@ import { join, resolve } from "node:path";
 import { listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
+const repository = resolve(import.meta.dir, "../../..");
+
+async function runCli(args: string[]) {
+  const child = Bun.spawn([process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), ...args], {
+    cwd: repository, stdout: "pipe", stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
+  ]);
+  return { stdout, stderr, exitCode };
+}
+
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-workspace-")); const workspace = join(parent, "engine");
   await workspaceInitCommand(workspace, { name: "Test Engine", json: false });
@@ -62,7 +74,6 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
 });
 
 test("candidate CLI previews, explicitly applies, and rejects replay as machine-readable JSON", async () => {
-  const repository = resolve(import.meta.dir, "../../..");
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
@@ -79,49 +90,120 @@ test("candidate CLI previews, explicitly applies, and rejects replay as machine-
   };
   const { stdout, stderr, exitCode } = await runCandidate();
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
-  const result = JSON.parse(stdout) as { command: string; action: string; candidate: { id: string }; result: { verdict: string; scoreDelta: number } };
-  expect(result).toEqual(expect.objectContaining({
-    command: "candidate", action: "preview", candidate: expect.objectContaining({ id: "stable-furnace-sleep" }),
-    result: expect.objectContaining({ verdict: "KEEP", scoreDelta: expect.any(Number) }),
-  }));
+  const result = JSON.parse(stdout);
+  expect(result).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "candidate" }));
+  expect(result.data).toEqual({
+    section: "summary",
+    result: expect.objectContaining({ action: "preview", candidate: "stable-furnace-sleep", verdict: "KEEP", scoreDelta: expect.any(Number) }),
+  });
+  expect(result.nextActions).toEqual([expect.objectContaining({ id: "candidate.apply", effect: "mutates-project" })]);
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
 
   const applied = await runCandidate(true);
   expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({ command: "candidate", action: "apply", applied: true }));
+  expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
+    schemaVersion: 1, ok: true, command: "candidate",
+    data: { section: "summary", result: expect.objectContaining({ action: "apply", applied: true }) },
+  }));
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
 
   const replay = await runCandidate(true);
   expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });
-  expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({ error: "candidate", code: "candidate.stale-base" }));
+  expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({
+    schemaVersion: 1, ok: false, command: "candidate",
+    error: expect.objectContaining({ code: "candidate.stale-base", retryable: false, hashes: expect.objectContaining({ expectedBaseHash: expect.any(String), currentCandidateHash: expect.any(String) }) }),
+  }));
 }, 30_000);
 
 test("public inspect JSON is the shared Core workbench snapshot", async () => {
-  const repository = resolve(import.meta.dir, "../../..");
   const projectDir = join(repository, "examples/ironworks");
-  const child = Bun.spawn([
-    process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "inspect", projectDir, "--json",
-  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exitCode, expected] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
+  const [{ stdout, stderr, exitCode }, expected] = await Promise.all([
+    runCli(["inspect", projectDir, "--section", "all", "--json"]),
     openProjectWorkbenchSnapshot(projectDir),
   ]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(stdout)).toEqual(expected);
+  const envelope = JSON.parse(stdout);
+  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "inspect" }));
+  expect(envelope.context).toEqual(expect.objectContaining({ scope: "project", selection: expected.selection && {
+    world: expected.selection.world.id, blueprint: expected.selection.blueprint.id,
+    scenario: expected.selection.scenario.id, objective: expected.selection.objective.id,
+  }, hashes: expected.hashes }));
+  expect(envelope.data).toEqual({ section: "all", result: expected });
 });
 
 test("public inspect rejects an invalid explicit selection", async () => {
-  const repository = resolve(import.meta.dir, "../../..");
   const projectDir = join(repository, "examples/ironworks");
-  const child = Bun.spawn([
-    process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "inspect", projectDir,
-    "--blueprint", "missing-blueprint", "--json",
-  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
-  ]);
+  const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);
   expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
-  expect(JSON.parse(stderr)).toEqual(expect.objectContaining({ error: "runtime", message: expect.stringContaining("missing-blueprint.blueprint.json") }));
+  expect(JSON.parse(stderr)).toEqual(expect.objectContaining({
+    schemaVersion: 1, ok: false, command: "inspect",
+    error: expect.objectContaining({ code: "runtime.failed", message: expect.stringContaining("missing-blueprint.blueprint.json"), retryable: false, issues: [] }),
+  }));
+});
+
+test("public machine help discovers commands, effects, arguments, defaults, and output sections", async () => {
+  const { stdout, stderr, exitCode } = await runCli(["help", "--json"]);
+  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const envelope = JSON.parse(stdout);
+  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "help", context: { scope: "global" } }));
+  const commands = envelope.data.commands as Array<{ id: string; effect: string; exitCodes: { success: number; failure: number[]; usage: number }; arguments: Array<{ name: string; default?: unknown }>; outputSections: string[] }>;
+  expect(commands.map((command) => command.id)).toContain("candidate");
+  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "diagnostics", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
+  expect(commands.find((command) => command.id === "simulate")!.effect).toBe("creates-artifact");
+  expect(commands.find((command) => command.id === "compare")!.arguments.find((argument) => argument.name === "seed")!.default).toBe(42);
+  expect(commands.find((command) => command.id === "inspect")!.exitCodes).toEqual({ success: 0, failure: [1], usage: 2 });
+});
+
+test("public schema discovery lists and emits every project artifact JSON Schema", async () => {
+  const listed = await runCli(["schema", "--json"]);
+  expect({ exitCode: listed.exitCode, stderr: listed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const kinds = JSON.parse(listed.stdout).data.kinds as string[];
+  for (const kind of ["manifest", "world", "blueprint", "scenario", "objective", "resource-asset", "device-asset", "process", "benchmark", "candidate"]) expect(kinds).toContain(kind);
+  for (const kind of kinds) {
+    const emitted = await runCli(["schema", kind, "--json"]);
+    expect({ kind, exitCode: emitted.exitCode, stderr: emitted.stderr }).toEqual({ kind, exitCode: 0, stderr: "" });
+    const envelope = JSON.parse(emitted.stdout);
+    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "schema" }));
+    expect(envelope.data.kind).toBe(kind);
+    expect(envelope.data.schema).toEqual(expect.objectContaining({ $schema: "http://json-schema.org/draft-07/schema#" }));
+    expect(Object.keys(envelope.data.schema).length).toBeGreaterThan(2);
+  }
+});
+
+test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
+  const projectDir = join(repository, "examples/ironworks");
+  const [summaryResult, catalogResult, allResult] = await Promise.all([
+    runCli(["inspect", projectDir, "--json"]),
+    runCli(["inspect", projectDir, "--section", "catalog", "--json"]),
+    runCli(["inspect", projectDir, "--section", "all", "--json"]),
+  ]);
+  for (const result of [summaryResult, catalogResult, allResult]) expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const summary = JSON.parse(summaryResult.stdout); const catalog = JSON.parse(catalogResult.stdout); const all = JSON.parse(allResult.stdout);
+  expect(summary.data.section).toBe("summary");
+  expect(summary.data.result.catalog).toBeUndefined();
+  expect(catalog.data).toEqual(expect.objectContaining({ section: "catalog", result: expect.objectContaining({ resources: expect.any(Array), devices: expect.any(Array) }) }));
+  expect(catalog.data.result.runs).toBeUndefined();
+  expect(all.data.section).toBe("all");
+  expect(all.data.result).toEqual(expect.objectContaining({ catalog: expect.any(Object), runs: expect.any(Array), operations: expect.any(Array) }));
+  expect(summaryResult.stdout.length).toBeLessThan(allResult.stdout.length);
+});
+
+test("public CLI emits stable JSON errors for invalid section, section mode, schema kind, and usage", async () => {
+  const projectDir = join(repository, "examples/ironworks");
+  const cases = [
+    { args: ["inspect", projectDir, "--section", "nope", "--json"], exitCode: 1, command: "inspect", code: "cli.invalid-section" },
+    { args: ["schema", "nope", "--json"], exitCode: 1, command: "schema", code: "schema.unknown-kind" },
+    { args: ["validate", "--json"], exitCode: 2, command: "validate", code: "cli.usage" },
+    { args: ["unknown", "--json"], exitCode: 2, command: "unknown", code: "cli.usage" },
+    { args: ["inspect", projectDir, "--unknown", "--json"], exitCode: 2, command: "inspect", code: "cli.usage" },
+  ];
+  for (const item of cases) {
+    const result = await runCli(item.args);
+    expect({ stdout: result.stdout, exitCode: result.exitCode }).toEqual({ stdout: "", exitCode: item.exitCode });
+    const envelope = JSON.parse(result.stderr);
+    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: false, command: item.command, error: expect.objectContaining({ code: item.code, retryable: false, issues: expect.any(Array), hashes: expect.any(Object) }) }));
+  }
+  const humanOnly = await runCli(["inspect", projectDir, "--section", "catalog"]);
+  expect({ stdout: humanOnly.stdout, exitCode: humanOnly.exitCode }).toEqual({ stdout: "", exitCode: 1 });
+  expect(humanOnly.stderr).toContain("[cli.section-requires-json]");
 });

@@ -25,6 +25,8 @@ Projects are immediate, real directories; symbolic-link projects are rejected. E
 
 Projects are intentionally isolated and self-contained. There is no global catalog, shared asset directory, inheritance, fallback, or cross-project reference. Reuse means copying the complete asset directory into the target project; the copies then evolve and hash independently.
 
+Coding Agents and editors can discover the current strict authored-file contracts with `inm schema --json` and emit one JSON Schema Draft 7 projection with `inm schema <kind> --json`. Core compilation remains authoritative for cross-file references and industrial invariants that JSON Schema cannot express. See [[docs/design/agent-cli-contract]].
+
 ## Project layout
 
 ```text

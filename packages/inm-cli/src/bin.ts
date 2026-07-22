@@ -3,8 +3,8 @@ import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, formatCliError, inspectCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
-  researchCommand, runsCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 
 const HELP = `inm — Integrated Industry Maker
@@ -23,6 +23,7 @@ WORKSPACE COMMANDS
   project default <ws> <id>   Select the workspace default project
 
 PROJECT COMMANDS
+  schema [kind]               List or emit project artifact JSON Schemas
   validate <path>             Parse, resolve, and compile a blueprint
   inspect <path>              Show assets, topology, objective, hashes, and runs
   analyze <path>              Compile nominal process rates and material balance
@@ -50,10 +51,12 @@ COMMON OPTIONS
   --benchmark <id>            Locked Blueprint benchmark id (default autoresearch)
   --candidate <id>            Project-local candidates/<id>.candidate.json
   --json                      Machine-readable JSON output
+  --section <name>            Select one machine-readable result section
 `;
 
 const args = process.argv.slice(2); const subcommand = args.shift();
 const wantsJson = args.includes("--json");
+let commandId = subcommand ?? "help";
 function oneArg(positionals: string[], usage: string): string {
   if (positionals.length !== 1 || !positionals[0]) throw new Error(`Usage: ${usage}`);
   return positionals[0];
@@ -66,21 +69,38 @@ const projectOption = { project: { type: "string" as const } };
 const common = {
   ...projectOption, world: { type: "string" as const }, blueprint: { type: "string" as const }, scenario: { type: "string" as const }, objective: { type: "string" as const }, json: { type: "boolean" as const, default: false },
 };
+const section = { section: { type: "string" as const } };
 const selectionOf = (values: { world?: string; blueprint?: string; scenario?: string; objective?: string }): ProjectSelection => ({ world: values.world, blueprint: values.blueprint, scenario: values.scenario, objective: values.objective });
 async function selectedProject(positionals: string[], usage: string, project?: string): Promise<string> {
   return resolveProjectDirectory(oneArg(positionals, usage), project);
 }
 
 async function main(): Promise<void> {
-  if (!subcommand || subcommand === "--help" || subcommand === "-h") { process.stdout.write(HELP); return; }
+  if (!subcommand || subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
+    if (!subcommand) { process.stdout.write(HELP); return; }
+    const { values, positionals } = parseArgs({ args, options: { json: common.json }, allowPositionals: true });
+    if (positionals.length) throw new Error("Usage: inm help [--json]");
+    commandId = "help";
+    if (values.json) helpCommand(values); else process.stdout.write(HELP);
+    return;
+  }
+  if (subcommand === "schema") {
+    const { values, positionals } = parseArgs({ args, options: { json: common.json }, allowPositionals: true });
+    if (positionals.length > 1) throw new Error("Usage: inm schema [kind] [--json]");
+    commandId = "schema";
+    schemaCommand(positionals[0], values);
+    return;
+  }
   if (subcommand === "workspace") {
     const action = args.shift();
+    commandId = `workspace.${action ?? "unknown"}`;
     if (action !== "init") throw new Error(`Usage: inm workspace init <workspace-dir> [--name NAME] [--json]`);
     const { values, positionals } = parseArgs({ args, options: { name: { type: "string" }, json: common.json }, allowPositionals: true });
     return workspaceInitCommand(oneArg(positionals, "inm workspace init <workspace-dir>"), { name: values.name, json: values.json });
   }
   if (subcommand === "project") {
     const action = args.shift();
+    commandId = `project.${action ?? "unknown"}`;
     if (action === "create") {
       const { values, positionals } = parseArgs({ args, options: { name: { type: "string" }, json: common.json }, allowPositionals: true });
       const [workspaceDir, id] = twoArgs(positionals, "inm project create <workspace-dir> <project-id>");
@@ -98,7 +118,7 @@ async function main(): Promise<void> {
     throw new Error("Usage: inm project <create|list|default> ...");
   }
   if (subcommand === "validate" || subcommand === "inspect" || subcommand === "analyze" || subcommand === "plan") {
-    const { values, positionals } = parseArgs({ args, options: common, allowPositionals: true });
+    const { values, positionals } = parseArgs({ args, options: { ...common, ...section }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, `inm ${subcommand} <project-or-workspace-dir> [--project ID]`, values.project);
     if (subcommand === "validate") return validateCommand(projectDir, selectionOf(values), values);
     if (subcommand === "inspect") return inspectCommand(projectDir, selectionOf(values), values);
@@ -106,40 +126,40 @@ async function main(): Promise<void> {
     return analyzeCommand(projectDir, selectionOf(values), values);
   }
   if (subcommand === "synthesize") {
-    const { values, positionals } = parseArgs({ args, options: { ...common, output: { type: "string", default: "synthesized" } }, allowPositionals: true });
+    const { values, positionals } = parseArgs({ args, options: { ...common, ...section, output: { type: "string", default: "synthesized" } }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]", values.project);
-    return synthesizeCommand(projectDir, selectionOf(values), { output: values.output!, json: values.json });
+    return synthesizeCommand(projectDir, selectionOf(values), { output: values.output!, json: values.json, section: values.section });
   }
   if (subcommand === "compare") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, world: common.world, scenario: common.scenario, objective: common.objective, json: common.json,
+      ...projectOption, world: common.world, scenario: common.scenario, objective: common.objective, json: common.json, ...section,
       "from-blueprint": { type: "string" }, "to-blueprint": { type: "string" }, seed: { type: "string", default: "42" },
     }, allowPositionals: true });
     if (!values["from-blueprint"] || !values["to-blueprint"]) throw new Error("Usage: inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID [--seed N]");
     const projectDir = await selectedProject(positionals, "inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID", values.project);
     return compareCommand(projectDir, { world: values.world, scenario: values.scenario, objective: values.objective }, {
-      fromBlueprint: values["from-blueprint"], toBlueprint: values["to-blueprint"], seed: Number(values.seed), json: values.json,
+      fromBlueprint: values["from-blueprint"], toBlueprint: values["to-blueprint"], seed: Number(values.seed), json: values.json, section: values.section,
     });
   }
   if (subcommand === "benchmark") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, benchmark: { type: "string", default: "autoresearch" }, lock: { type: "boolean", default: false }, json: common.json,
+      ...projectOption, benchmark: { type: "string", default: "autoresearch" }, lock: { type: "boolean", default: false }, json: common.json, ...section,
     }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm benchmark <project-or-workspace-dir> [--project ID] [--benchmark ID] [--lock]", values.project);
-    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock });
+    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock, section: values.section });
   }
   if (subcommand === "candidate") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, candidate: { type: "string" }, apply: { type: "boolean", default: false }, json: common.json,
+      ...projectOption, candidate: { type: "string" }, apply: { type: "boolean", default: false }, json: common.json, ...section,
     }, allowPositionals: true });
     if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--apply] [--json]");
     const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--apply]", values.project);
-    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply });
+    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, section: values.section });
   }
   if (subcommand === "simulate") {
-    const { values, positionals } = parseArgs({ args, options: { ...common, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });
+    const { values, positionals } = parseArgs({ args, options: { ...common, ...section, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" } }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm simulate <project-or-workspace-dir> [--project ID]", values.project);
-    return simulateCommand(projectDir, selectionOf(values), { seed: Number(values.seed), untilTick: values["until-tick"] ? Number(values["until-tick"]) : undefined, maxEvents: values["max-events"] ? Number(values["max-events"]) : undefined, json: values.json });
+    return simulateCommand(projectDir, selectionOf(values), { seed: Number(values.seed), untilTick: values["until-tick"] ? Number(values["until-tick"]) : undefined, maxEvents: values["max-events"] ? Number(values["max-events"]) : undefined, json: values.json, section: values.section });
   }
   if (subcommand === "test" || subcommand === "runs") {
     const { values, positionals } = parseArgs({ args, options: { ...projectOption, json: common.json }, allowPositionals: true });
@@ -147,9 +167,9 @@ async function main(): Promise<void> {
     return subcommand === "test" ? testCommand(projectDir, values) : runsCommand(projectDir, values);
   }
   if (subcommand === "research") {
-    const { values, positionals } = parseArgs({ args, options: { ...common, iterations: { type: "string", default: "5" }, seed: { type: "string", default: "42" }, "agent-command": { type: "string" } }, allowPositionals: true });
+    const { values, positionals } = parseArgs({ args, options: { ...common, ...section, iterations: { type: "string", default: "5" }, seed: { type: "string", default: "42" }, "agent-command": { type: "string" } }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm research <project-or-workspace-dir> [--project ID]", values.project);
-    return researchCommand(projectDir, selectionOf(values), { iterations: Number(values.iterations), seed: Number(values.seed), json: values.json, agentCommand: values["agent-command"] });
+    return researchCommand(projectDir, selectionOf(values), { iterations: Number(values.iterations), seed: Number(values.seed), json: values.json, section: values.section, agentCommand: values["agent-command"] });
   }
   if (subcommand === "studio") {
     const { values, positionals } = parseArgs({ args, options: { ...projectOption, port: { type: "string", default: "4175" }, "no-open": { type: "boolean", default: false } }, allowPositionals: true });
@@ -163,4 +183,4 @@ async function main(): Promise<void> {
   throw new Error(`Unknown command '${subcommand}'\n\n${HELP}`);
 }
 
-main().catch((error) => { process.stderr.write(formatCliError(error, wantsJson)); process.exitCode = error instanceof Error && error.message.startsWith("Usage:") ? 2 : 1; });
+main().catch((error) => { process.stderr.write(formatCliError(error, wantsJson, commandId)); process.exitCode = isCliUsageError(error) ? 2 : 1; });

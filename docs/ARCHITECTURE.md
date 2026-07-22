@@ -37,7 +37,7 @@
 The first product keeps only three packages:
 
 - `@inm/core` owns schemas, loading, compilation, runtime state, deterministic simulation, evaluation, run artifacts, research, renderer-independent scene projection, and the shared human/AI operator-workbench projection.
-- `@inm/cli` is the sole human and agent-facing command surface: `inm`.
+- `@inm/cli` is the sole human and agent-facing command surface: `inm`. Its Agent projection uses versioned envelopes, machine-readable capabilities and artifact schemas, and summary-first result sections as defined in [[docs/design/agent-cli-contract]].
 - `@inm/studio` serves a local, read-only React Three Fiber replay UI.
 
 These are concrete boundaries rather than a collection of placeholder packages. A future solver, distributed runner, or device library can split out only when it has an independent lifecycle.
