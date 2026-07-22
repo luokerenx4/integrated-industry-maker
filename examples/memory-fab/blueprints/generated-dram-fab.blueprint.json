@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "revision": "memory-fab-generated-target-v1",
+  "devices": [],
+  "connections": [],
+  "logisticsNetworks": [],
+  "policies": {
+    "dispatch": "shortage-first",
+    "powerAllocation": "priority-load-shedding"
+  }
+}

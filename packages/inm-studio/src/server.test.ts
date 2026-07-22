@@ -182,7 +182,10 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const listResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs`);
     expect(listResponse.status).toBe(200);
     expect(await listResponse.json()).toEqual({
-      programs: [expect.objectContaining({ id: "integrated-dram-fab", locked: true, budget: { maxCandidates: 6 } })],
+      programs: [
+        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, budget: { maxCandidates: 6 } }),
+        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, budget: { maxCandidates: 6 } }),
+      ],
       runs: [],
     });
     const programResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab`);
@@ -190,6 +193,15 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(await programResponse.json()).toEqual(expect.objectContaining({
       brief: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab" }), benchmark: expect.objectContaining({ cases: 5 }) }),
       runs: [],
+    }));
+    const generatedProgramResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab`);
+    expect(generatedProgramResponse.status).toBe(200);
+    expect(await generatedProgramResponse.json()).toEqual(expect.objectContaining({
+      brief: expect.objectContaining({
+        program: expect.objectContaining({ seed: { kind: "synthesis", inputBlueprint: "greenfield" } }),
+        seed: expect.objectContaining({ synthesis: expect.objectContaining({ method: "project-strategy", entry: "strategies/reentrant-dram-fab.ts" }) }),
+        promotionBase: expect.objectContaining({ blueprint: "generated-dram-fab" }),
+      }),
     }));
     const deepLink = await fetch(`http://localhost:${port}/memory-fab/designs/integrated-dram-fab`);
     expect({ status: deepLink.status, contentType: deepLink.headers.get("content-type") }).toEqual({ status: 200, contentType: expect.stringContaining("text/html") });
@@ -220,7 +232,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
     const resultRecord = records.find((record) => record.type === "result");
     expect(resultRecord).toBeDefined();
-    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number }; budget: { maximum: number; evaluated: number } }; artifact: { id: string; created: boolean } };
+    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number } }; artifact: { id: string; created: boolean } };
     expect(run).toEqual(expect.objectContaining({
       manifest: expect.objectContaining({ budget: { maximum: 1, evaluated: 1 } }),
       artifact: expect.objectContaining({ id: run.manifest.resultHash, created: true }),
@@ -231,8 +243,9 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const promotion = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/runs/${run.manifest.resultHash}/promote`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: "studio-leading-design" }),
     });
-    expect(promotion.status).toBe(run.manifest.best.iteration > 0 ? 200 : 400);
-    if (run.manifest.best.iteration === 0) expect(await promotion.json()).toEqual(expect.objectContaining({ code: "design.no-leading-candidate" }));
+    const promotable = run.manifest.best.verdict === "KEEP" && run.manifest.best.promotionPatchOperations > 0;
+    expect(promotion.status).toBe(promotable ? 200 : 400);
+    if (!promotable) expect(await promotion.json()).toEqual(expect.objectContaining({ code: expect.stringMatching(/design\.(no-leading-candidate|no-accepted-design)/) }));
     expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
   } finally {
     child.kill();

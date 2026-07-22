@@ -94,7 +94,7 @@ The JSON result includes the proposal and its canonical hash, current and propos
 
 ### `inm design <project-or-workspace-dir> [--project ID] [--program ID] [--run | --run-id HASH [--promote ID]] [--max-candidates N] [--progress MODE] [--json]`
 
-Lists project-local Design Programs when `--program` is omitted. Selecting a program returns its locked Benchmark, existing seed Blueprint, driver case, exact hashes, allowed decision families, bounded budget, target-rate capacity state, flow diagnostics, declarative/opaque Device counts, and topology without creating simulation or review evidence.
+Lists project-local Design Programs when `--program` is omitted. Selecting a program distinguishes an authored seed from a project-synthesized input, reports synthesis provenance and normalized seed hash, separately names the Benchmark candidate Blueprint/hash it would eventually update, and returns the locked Benchmark, driver case, exact hashes, allowed decision families, bounded budget, target-rate capacity state, flow diagnostics, declarative/opaque Device counts, and topology without creating simulation or review evidence.
 
 `--run` explicitly executes bounded design search. The driver case supplies proposal evidence, but every in-memory candidate is accepted only through the complete locked multi-case Benchmark and must improve on the current best. `--max-candidates` may lower the manifest budget but cannot raise it. Execution never edits the seed or candidate Blueprint and writes or reuses only:
 
@@ -190,7 +190,7 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 
 Launches the local Studio workbench. `/` is a project launcher; choosing a project navigates to the task-oriented `/<project-id>` Overview, where selection/hashes, Objective/contracts, readiness, prioritized diagnostics, recent immutable evidence, proposals, and available operations appear before spatial debugging. There is no project switcher inside the workbench—return to the launcher to open another self-contained project.
 
-Stable project-qualified routes cover Overview, Factory, Runs, Design, Experiments, Catalog, and Analysis. Catalog, Analysis, Design, and Experiments are route-backed workbenches; selected catalog assets, diagnostics, Factory devices/connections, Design Programs/runs, Benchmarks, and Candidates remain addressable across reload, history, and copied links. Design shows the same bounded Program brief, immutable score ranking, proposal effects, seed-leader refusal, and guarded Candidate handoff as `inm design`.
+Stable project-qualified routes cover Overview, Factory, Runs, Design, Experiments, Catalog, and Analysis. Catalog, Analysis, Design, and Experiments are route-backed workbenches; selected catalog assets, diagnostics, Factory devices/connections, Design Programs/runs, Benchmarks, and Candidates remain addressable across reload, history, and copied links. Design shows the same generated-from/will-update contract, bounded Program brief, immutable score ranking, proposal effects, promotability gate, and guarded Candidate handoff as `inm design`.
 
 The read-only Catalog is modeled after an editor asset browser. It separates Device and Resource packages from Process and Product Route definitions, supports category-scoped text filtering, and exposes geometry, production ports, buffers, modes, runtime, transformations, inspection/rework disposition, transport limits, generation/storage/distribution envelopes, content hashes, and instance counts. Every request is project-qualified and root-confined.
 

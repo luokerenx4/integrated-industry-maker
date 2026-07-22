@@ -861,7 +861,7 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
   "name": "Integrated DRAM Fab Design",
   "description": "Improve one robustly evaluated re-entrant memory factory.",
   "benchmark": "dispatch-research",
-  "seedBlueprint": "experiment",
+  "seed": { "kind": "blueprint", "blueprint": "experiment" },
   "driverCase": "mixed-quality",
   "proposal": {
     "kind": "heuristic",
@@ -871,9 +871,9 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
 }
 ```
 
-The filename is `<id>.design.json`. The Benchmark must be locked, `driverCase` must name one of its cases, and the V1 seed must equal its candidate Blueprint. Decision families are unique stable ids for Blueprint-owned proposal strategies, not permissions to edit evaluator inputs. The maximum budget is a positive integer no greater than 100. See [[docs/design/design-programs]].
+The filename is `<id>.design.json`. The Benchmark must be locked and `driverCase` must name one of its cases. `seed` is either an authored Blueprint (`{ "kind": "blueprint", "blueprint": "<id>" }`) or an in-memory project synthesis (`{ "kind": "synthesis", "inputBlueprint": "<id>" }`). The Benchmark candidate Blueprint remains the separate promotion target. Decision families are unique stable ids for Blueprint-owned proposal strategies, not permissions to edit evaluator inputs. The maximum budget is a positive integer no greater than 100. See [[docs/design/design-programs]].
 
-A completed design execution is stored under `design-runs/<program-id>/<result-hash>/`. Its `manifest.json` owns all exact input identities, proposals, multi-case evaluations, decisions, ranking, and deterministic result hash; `best.blueprint.json` is the exact leading in-memory Blueprint. These are generated immutable evidence rather than authored inputs. Reopening verifies both hashes. Promotion is allowed only when the best iteration advanced beyond the seed and produces an ordinary Candidate rather than editing the Blueprint.
+A completed design execution is stored under `design-runs/<program-id>/<result-hash>/`. Its `manifest.json` owns the seed source/synthesis identity, normalized evaluated seed, separate promotion base, proposals, multi-case evaluations, decisions, ranking, and deterministic result hash; `best.blueprint.json` is the exact leading in-memory Blueprint. These are generated immutable evidence rather than authored inputs. Reopening verifies both hashes. Promotion requires an accepted best that differs from the unchanged promotion base and produces an ordinary Candidate rather than editing the Blueprint.
 
 ## Coding Agent benchmark
 

@@ -838,6 +838,9 @@ export async function designCommand(projectDir: string, programId: string | unde
   if (options.run && options.runId) throw new CliCommandError("design.mode-conflict", "--run and --run-id select different Design modes.");
   if (options.promote && !options.runId) throw new CliCommandError("design.run-id-required", "--promote requires --run-id <hash>.");
   const brief = await buildDesignProgramBrief(projectDir, programId);
+  const seedLabel = brief.program.seed.kind === "synthesis"
+    ? `synthesize ${brief.program.seed.inputBlueprint}`
+    : `Blueprint ${brief.program.seed.blueprint}`;
   const context = {
     scope: "project" as const,
     project: { ...brief.project },
@@ -876,7 +879,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       return;
     }
     const data = sectionResult("design", options, {
-      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
+      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
       static: () => brief.staticEvidence,
       iterations: () => result.manifest.iterations,
       best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
@@ -887,9 +890,9 @@ export async function designCommand(projectDir: string, programId: string | unde
     if (options.json) writeSuccess("design", data, {
       context,
       artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
-      nextActions: result.manifest.best.iteration > 0 ? [nextAction(
+      nextActions: result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? [nextAction(
         `design.promote:${options.runId}`,
-        "Create an immutable Candidate Change Set reproducing this leading design from the current seed.",
+        "Create an immutable Candidate Change Set reproducing this accepted design from the current promotion base.",
         ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--promote", candidateId, "--json"],
         "creates-artifact",
       )] : [],
@@ -900,7 +903,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
       `Artifact: ${result.artifact.path}`,
-      ...(result.manifest.best.iteration > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
+      ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
       "",
     ].join("\n"), false);
     return;
@@ -908,7 +911,7 @@ export async function designCommand(projectDir: string, programId: string | unde
   if (!options.run) {
     const runs = await listDesignRuns(projectDir, programId);
     const data = sectionResult("design", options, {
-      summary: () => ({ program: brief.program, benchmark: brief.benchmark, driver: brief.driver, staticEvidence: brief.staticEvidence }),
+      summary: () => ({ program: brief.program, benchmark: brief.benchmark, seed: brief.seed, promotionBase: brief.promotionBase, driver: brief.driver, staticEvidence: brief.staticEvidence }),
       static: () => brief.staticEvidence,
       iterations: () => [],
       best: () => null,
@@ -927,7 +930,8 @@ export async function designCommand(projectDir: string, programId: string | unde
     else write([
       `${brief.program.name} · Design Program`,
       `${brief.program.id} · ${brief.benchmark.id} (${brief.benchmark.cases} locked cases)`,
-      `Seed: ${brief.program.seedBlueprint} · driver ${brief.driver.case.id} · ${brief.driver.hashes.blueprintHash.slice(0, 12)}`,
+      `Seed: ${seedLabel} · ${brief.seed.synthesis?.method ?? "authored"} · ${brief.seed.blueprintHash.slice(0, 12)}`,
+      `Will update: ${brief.promotionBase.blueprint}@${brief.promotionBase.hash.slice(0, 12)} · driver ${brief.driver.case.id}`,
       `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
       `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
@@ -946,6 +950,8 @@ export async function designCommand(projectDir: string, programId: string | unde
       action: "run",
       program: result.manifest.program,
       benchmark: result.manifest.benchmark,
+      seed: result.manifest.seed,
+      promotionBase: result.manifest.promotionBase,
       budget: result.manifest.budget,
       best: result.manifest.best,
       stopReason: result.manifest.stopReason,

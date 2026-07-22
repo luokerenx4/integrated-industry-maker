@@ -7,9 +7,10 @@ import { createBlueprintPatch } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
 import { compileFactoryProject } from "./compiler";
 import {
-  buildDesignProgramBrief,
   designProgramHash,
+  designSeedSchema,
   loadDesignProgram,
+  prepareDesignProgram,
   type DesignDecisionFamily,
   type DesignProgramBrief,
 } from "./design-program";
@@ -51,13 +52,15 @@ export interface DesignRunManifest {
   project: string;
   program: { id: string; hash: string };
   benchmark: { id: string; contractHash: string };
-  seed: { blueprint: string; hash: string; evaluation: BlueprintBenchmarkResult };
+  seed: DesignProgramBrief["seed"] & { evaluation: BlueprintBenchmarkResult };
+  promotionBase: DesignProgramBrief["promotionBase"];
   driver: DesignProgramBrief["driver"];
   budget: { maximum: number; evaluated: number };
   iterations: DesignRunIteration[];
   best: {
     iteration: number;
     blueprintHash: string;
+    promotionPatchOperations: number;
     candidateScore: number;
     scoreDelta: number;
     verdict: BlueprintBenchmarkResult["verdict"];
@@ -115,6 +118,8 @@ export interface DesignRunSummary {
   path: string;
   program: string;
   benchmark: string;
+  seed: DesignRunManifest["seed"]["source"];
+  promotionBase: DesignRunManifest["promotionBase"];
   budget: DesignRunManifest["budget"];
   best: DesignRunManifest["best"];
   stopReason: DesignRunManifest["stopReason"];
@@ -171,6 +176,16 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
   if (manifest.version !== 1 || manifest.status !== "completed" || manifest.program?.id !== programId || manifest.resultHash !== resultHash) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest identity or completion state is invalid`);
   }
+  if (!designSeedSchema.safeParse(manifest.seed?.source).success
+    || !/^[0-9a-f]{64}$/.test(manifest.seed?.sourceBlueprintHash ?? "")
+    || !/^[0-9a-f]{64}$/.test(manifest.seed?.blueprintHash ?? "")
+    || typeof manifest.seed?.evaluation !== "object"
+    || typeof manifest.promotionBase?.blueprint !== "string"
+    || !/^[0-9a-f]{64}$/.test(manifest.promotionBase?.hash ?? "")
+    || !Number.isInteger(manifest.best?.promotionPatchOperations)
+    || manifest.best.promotionPatchOperations < 0) {
+    throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest seed, promotion base, or best-design evidence is invalid`);
+  }
   const { resultHash: recorded, ...withoutHash } = manifest;
   if (hashValue(manifestHashInput(withoutHash)) !== recorded) throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' result hash does not match its manifest`);
   return manifest;
@@ -204,6 +219,8 @@ export async function listDesignRuns(projectDir: string, programId?: string): Pr
         path: run.artifact.path,
         program: id,
         benchmark: run.manifest.benchmark.id,
+        seed: structuredClone(run.manifest.seed.source),
+        promotionBase: { ...run.manifest.promotionBase },
         budget: { ...run.manifest.budget },
         best: { ...run.manifest.best },
         stopReason: run.manifest.stopReason,
@@ -226,29 +243,39 @@ export async function promoteDesignRun(
     throw new DesignRunError("design.run-stale", `Design run '${resultHash}' no longer matches its Design Program or locked Benchmark`);
   }
   if (run.manifest.engineVersion !== ENGINE_VERSION) throw new DesignRunError("design.run-stale", `Design run '${resultHash}' used ${run.manifest.engineVersion}, not ${ENGINE_VERSION}`);
-  if (run.manifest.best.iteration === 0) throw new DesignRunError("design.no-leading-candidate", `Design run '${resultHash}' did not keep a proposal beyond its seed`);
+  if (run.manifest.best.verdict !== "KEEP") throw new DesignRunError(
+    "design.no-accepted-design",
+    `Design run '${resultHash}' has no design accepted by its locked Benchmark`,
+  );
+  if (run.manifest.best.promotionPatchOperations === 0) throw new DesignRunError(
+    "design.no-leading-candidate",
+    `Design run '${resultHash}' best Blueprint equals its promotion base`,
+  );
   const driverCase = benchmark.cases.find((item) => item.id === program.driverCase)!;
   const loaded = await loadFactoryProject(projectDir, {
     world: driverCase.world,
-    blueprint: program.seedBlueprint,
+    blueprint: benchmark.candidateBlueprint,
     scenario: driverCase.scenario,
     objective: driverCase.objective,
   });
   const currentHash = hashValue(loaded.blueprint);
-  if (currentHash !== run.manifest.seed.hash) throw new DesignRunError(
-    "design.seed-stale",
-    `Design run '${resultHash}' targets seed ${run.manifest.seed.hash}, but Blueprint '${program.seedBlueprint}' is ${currentHash}`,
-    { expectedSeedHash: run.manifest.seed.hash, currentSeedHash: currentHash },
+  if (benchmark.candidateBlueprint !== run.manifest.promotionBase.blueprint || currentHash !== run.manifest.promotionBase.hash) throw new DesignRunError(
+    "design.promotion-base-stale",
+    `Design run '${resultHash}' targets ${run.manifest.promotionBase.blueprint}@${run.manifest.promotionBase.hash}, but Benchmark candidate '${benchmark.candidateBlueprint}' is ${currentHash}`,
+    { expectedPromotionBaseHash: run.manifest.promotionBase.hash, currentPromotionBaseHash: currentHash },
   );
   const promotableBlueprint = structuredClone(run.bestBlueprint);
   promotableBlueprint.revision = loaded.blueprint.revision;
   const patch = createBlueprintPatch(loaded.blueprint, promotableBlueprint);
-  if (!patch.length) throw new DesignRunError("design.no-leading-candidate", `Design run '${resultHash}' best Blueprint equals its seed`);
+  if (patch.length !== run.manifest.best.promotionPatchOperations) throw new DesignRunError(
+    "design.promotion-mismatch",
+    `Design run '${resultHash}' promotion patch identity no longer matches its immutable result`,
+  );
   const replayed = applyResearchPatch(loaded.blueprint, patch);
   replayed.revision = currentHash;
   if (hashValue(replayed) !== run.manifest.best.blueprintHash) throw new DesignRunError(
     "design.promotion-mismatch",
-    `Design run '${resultHash}' best Blueprint cannot be reproduced as one Candidate patch from the current seed`,
+    `Design run '${resultHash}' best Blueprint cannot be reproduced as one Candidate patch from the current promotion base`,
   );
   const kept = run.manifest.iterations.filter((item) => item.decision === "KEEP");
   const candidate: CandidateChangeSet = {
@@ -271,14 +298,15 @@ export async function runDesignProgram(
   programId: string,
   options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler } = {},
 ): Promise<DesignRunResult> {
-  const program = await loadDesignProgram(projectDir, programId);
-  const brief = await buildDesignProgramBrief(projectDir, programId);
+  const prepared = await prepareDesignProgram(projectDir, programId);
+  const program = prepared.manifest;
+  const brief = prepared.brief;
   const maximum = options.maxCandidates ?? program.budget.maxCandidates;
   if (!Number.isInteger(maximum) || maximum < 1) throw new Error("Design candidate budget must be a positive integer");
   if (maximum > program.budget.maxCandidates) throw new Error(
     `Design candidate budget ${maximum} exceeds Program '${program.id}' maximum ${program.budget.maxCandidates}`,
   );
-  const benchmark = await loadBlueprintBenchmark(projectDir, program.benchmark);
+  const benchmark = prepared.benchmark;
   let sequence = 0;
   let completedSimulations = 0;
   const plannedSimulations = benchmark.cases.length * (maximum + 2);
@@ -310,14 +338,9 @@ export async function runDesignProgram(
     evaluationId: "baseline",
     onProgress: benchmarkProgress("baseline", 0),
   });
-  const driverCase = benchmark.cases.find((item) => item.id === program.driverCase)!;
-  let loaded = await loadFactoryProject(projectDir, {
-    world: driverCase.world,
-    blueprint: program.seedBlueprint,
-    scenario: driverCase.scenario,
-    objective: driverCase.objective,
-  });
-  let bestBlueprint = structuredClone(loaded.blueprint);
+  const driverCase = prepared.driverCase;
+  let loaded = prepared.loaded;
+  let bestBlueprint = structuredClone(prepared.seedBlueprint);
   const seedEvaluation = await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
     candidateBlueprint: bestBlueprint,
     evaluationId: "seed",
@@ -325,6 +348,7 @@ export async function runDesignProgram(
   });
   let bestEvaluation = seedEvaluation;
   const seedHash = hashValue(bestBlueprint);
+  if (seedHash !== brief.seed.blueprintHash) throw new Error(`Design Program '${program.id}' resolved inconsistent seed identities`);
   const iterations: DesignRunIteration[] = [];
   const agent = program.proposal.kind === "project-strategy"
     ? new ProjectStrategyResearchAgent(projectDir, program.proposal.entry)
@@ -372,7 +396,7 @@ export async function runDesignProgram(
       const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);
       // Every accumulated best remains promotable as one exact Candidate patch from
       // the declared seed; revision lineage belongs to Candidate apply, not search order.
-      candidateBlueprint.revision = seedHash;
+      candidateBlueprint.revision = brief.promotionBase.hash;
       compileFactoryProject(withBlueprint(loaded, candidateBlueprint));
       const evaluation = await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
         candidateBlueprint,
@@ -435,13 +459,19 @@ export async function runDesignProgram(
     project: brief.project.id,
     program: { id: program.id, hash: brief.program.programHash },
     benchmark: { id: benchmark.id, contractHash: benchmark.lock!.contractHash },
-    seed: { blueprint: program.seedBlueprint, hash: seedHash, evaluation: seedEvaluation },
+    seed: { ...structuredClone(brief.seed), evaluation: seedEvaluation },
+    promotionBase: { ...brief.promotionBase },
     driver: brief.driver,
     budget: { maximum, evaluated: iterations.length },
     iterations,
     best: {
       iteration: bestIteration,
       blueprintHash: hashValue(bestBlueprint),
+      promotionPatchOperations: (() => {
+        const promotable = structuredClone(bestBlueprint);
+        promotable.revision = prepared.promotionBaseBlueprint.revision;
+        return createBlueprintPatch(prepared.promotionBaseBlueprint, promotable).length;
+      })(),
       candidateScore: bestEvaluation.candidateScore,
       scoreDelta: bestEvaluation.scoreDelta,
       verdict: bestEvaluation.verdict,

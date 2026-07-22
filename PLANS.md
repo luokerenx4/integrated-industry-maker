@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/generative-design-seed]] | Join project-local memory-fab synthesis, locked robust optimization, immutable evidence, and guarded Candidate handoff in one Design Program. | 2026-07-23 |
 
 ## Proposed plans
 

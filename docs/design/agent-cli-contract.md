@@ -75,6 +75,8 @@ Current sectioned commands are `inspect`, `analyze`, `plan`, `compare`, `benchma
 
 Diagnostics required to understand a summary remain in the envelope's `diagnostics` field even when the selected result section is compact. `artifacts` names produced/reused paths and immutability. For `inspect`, `nextActions` contains exactly the Core-owned `ProjectWorkbenchSnapshot.nextAction`, including its exact argv, effect, confirmation requirement, Studio route, and typed target; `--section next-action --json` returns the same object in `data.result`. Other commands may return operation-specific follow-ups. An Agent never has to parse prose or shell-escape a synthesized command string.
 
+The `design` summary keeps seed provenance machine-visible. `program.seed` declares authored Blueprint versus synthesis input; `seed` reports source, synthesis, and normalized evaluated hashes; `promotionBase` separately identifies the Benchmark candidate file and optimistic-concurrency hash. Reopened and newly executed results return the same identities, and a promotion next action appears only for an accepted result with a non-empty recorded promotion patch.
+
 ## Source of truth
 
 - Envelope types and builders: `packages/inm-cli/src/contract.ts`

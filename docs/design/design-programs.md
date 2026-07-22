@@ -1,18 +1,20 @@
 # Project-local Design Programs
 
-Status: strict Design Program, read-only design brief, bounded heuristic or project-local TypeScript proposal search over a locked Benchmark, immutable content-addressed design-run evidence, hash-addressed reopening, and exact Candidate promotion implemented.
+Status: strict authored or synthesized seed, read-only design brief, bounded heuristic or project-local TypeScript proposal search over a locked Benchmark, immutable content-addressed design-run evidence, hash-addressed reopening, and exact Candidate promotion implemented.
 
 Related: [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/project-boundaries]], [[docs/PROJECT_FORMAT]], [[docs/CLI]], [[plans/memory-fab-design-loop]].
 
 ## Product boundary
 
-A Design Program coordinates industrial design without becoming another evaluator. It declares which existing candidate Blueprint is the seed, which locked multi-case Benchmark owns acceptance, which Benchmark case supplies proposal evidence, which built-in decision families an Agent may consider, and the maximum number of candidates it may evaluate.
+A Design Program coordinates industrial design without becoming another evaluator. It declares whether its working seed comes from an authored Blueprint or project-local synthesis, which locked multi-case Benchmark owns acceptance and the mutable promotion target, which Benchmark case supplies proposal evidence, which decision families an Agent may consider, and the maximum number of candidates it may evaluate.
 
 The V1 flow is:
 
 ```text
 design-programs/<id>.design.json
   → strict load + cross-contract validation
+  → authored Blueprint or deterministic project-local synthesis
+  → normalize working seed onto the Benchmark candidate revision lineage
   → read-only driver-case compile / analysis / capacity brief
   → bounded heuristic RFC 6902 proposals
   → in-memory candidate Blueprint
@@ -29,24 +31,28 @@ The program does not own World, asset, Process, Product Route, Scenario, Objecti
 
 - matching kebab-case `id`, name, and description;
 - one locked Benchmark id;
-- one existing seed Blueprint, which in V1 must be the Benchmark candidate Blueprint;
+- one strict seed union: `{ "kind": "blueprint", "blueprint": "<id>" }` or `{ "kind": "synthesis", "inputBlueprint": "<id>" }`;
 - one driver case belonging to that Benchmark;
 - either the Core `heuristic` provider or one project-relative TypeScript `project-strategy` entry, plus a unique allowlist of decision families;
 - a positive `budget.maxCandidates`, capped at 100.
 
 Decision families are stable industrial mutation scopes implemented by the shared research strategies: power, storage, generation, local logistics, station fleet/charge/high-speed control, buffering, local/station dispatch, recipe selection, generic or plan-derived capacity, qualified toolset expansion, and work-center specialization. Runtime `--max-candidates` may lower the authored budget but never raise it.
 
-A `project-strategy` provider receives only a deeply frozen, data-only copy of the current Blueprint, driver metrics, production analysis, target-rate capacity plan, iteration number, and proposal history. Its synchronous `propose()` returns one named strategy, hypothesis, optional expected effect, and restricted Blueprint patch, or `null` when exhausted. Core invokes it twice for the same input and rejects nondeterminism. The strategy prefix must belong to the Program's declared decision families, and the ordinary patch validator, compiler, complete locked Benchmark, and KEEP gates remain authoritative. The Design Program hash covers both its JSON manifest and provider source, so edited strategy code makes prior runs stale rather than silently changing their meaning.
+A synthesis seed loads the declared input Blueprint and invokes the same deterministic project-local synthesis boundary as `inm synthesize`, without writing an intermediate file. The generated industrial fields become the in-memory working seed, while its `revision` is set to the current hash of the Benchmark candidate Blueprint. This keeps provenance, evaluated content, and optimistic-concurrency target separate and makes the final best design reproducible as one ordinary restricted Candidate patch.
+
+A `project-strategy` provider receives only a deeply frozen, data-only copy of the current Blueprint, driver metrics, production analysis, target-rate capacity plan, iteration number, and proposal history. Its synchronous `propose()` returns one named strategy, hypothesis, optional expected effect, and restricted Blueprint patch, or `null` when exhausted. Core invokes it twice for the same input and rejects nondeterminism. The strategy prefix must belong to the Program's declared decision families, and the ordinary patch validator, compiler, complete locked Benchmark, and KEEP gates remain authoritative. The Design Program hash covers its JSON manifest plus proposal-provider source and, for a synthesis seed, project synthesis strategy source. Editing either strategy makes prior runs stale rather than silently changing their meaning.
 
 The memory-fab Program uses `strategies/integrated-dram-proposals.ts`. Focused exhaustive research tools remain beside it under `strategies/research/`; they can discover candidate policies, but only the declared provider participates in the shared bounded Design run and immutable evidence contract.
 
-The public JSON Schema is discoverable as `inm schema design-program --json`. Unknown fields are rejected. Loading a brief additionally rejects an unlocked Benchmark, a driver case outside the Benchmark, a seed different from the Benchmark candidate, or ordinary project compilation failure.
+The public JSON Schema is discoverable as `inm schema design-program --json`. Unknown fields and the removed `seedBlueprint` form are rejected. Loading a brief additionally rejects an unlocked Benchmark, a driver case outside the Benchmark, missing seed inputs, synthesis failure or nondeterminism, and ordinary project compilation failure.
 
 ## Design brief
 
-`buildDesignProgramBrief()` is read-only. It compiles the seed under the exact driver World, Scenario, Objective, and seed declared by the locked case, then returns:
+`buildDesignProgramBrief()` is read-only. It resolves and compiles the working seed under the exact driver World, Scenario, and Objective declared by the locked case, then returns:
 
 - program and Benchmark hashes/contracts;
+- declared seed source, source Blueprint hash, normalized working-seed hash, and synthesis method/entry/content hash/summary when present;
+- separate Benchmark candidate Blueprint and current promotion-base hash;
 - exact driver selection and all project input hashes;
 - target-rate capacity state and gaps by kind;
 - warning/info counts;
@@ -65,7 +71,7 @@ Before seed evaluation, Core prepares the locked Benchmark baseline once per cas
 
 The same call emits a versioned deterministic `DesignRunProgress` union through an optional callback: run start; baseline/seed/candidate case start and completion; proposal start and identity; candidate decision; and immutable result completion. Events contain sequence and actual completed/planned simulation work but no timestamps. They are operational evidence and are excluded from the Design Run manifest/hash. The contract is provider-independent: heuristic and project-local TypeScript proposal sources cross the same phases.
 
-The current best never overwrites the seed. Program execution writes only immutable design evidence.
+The current best never overwrites the seed source or promotion target. Program execution writes only immutable design evidence.
 
 ## Immutable design-run artifact
 
@@ -77,7 +83,7 @@ design-runs/<program-id>/<result-hash>/
   best.blueprint.json
 ```
 
-The manifest contains engine, project, program and Benchmark identities/hashes; seed evaluation; exact driver brief; effective budget; every proposal strategy/family/hypothesis/patch/hash; validation error or full multi-case evaluation; KEEP/REJECT decision; best iteration/Blueprint hash/score/verdict; and stop reason. It deliberately has no creation timestamp or absolute artifact path in its hashed content.
+The manifest contains engine, project, program and Benchmark identities/hashes; declared seed source and source hash; synthesis provenance; normalized seed hash and evaluation; promotion-base Blueprint/hash; exact driver brief; effective budget; every proposal strategy/family/hypothesis/patch/hash; validation error or full multi-case evaluation; KEEP/REJECT decision; best iteration/Blueprint hash/score/verdict/promotion-patch size; and stop reason. It deliberately has no creation timestamp or absolute artifact path in its hashed content.
 
 An identical program, locked inputs, seed, decision allowlist, candidate budget, and deterministic engine reproduce the same result hash. Re-execution verifies and reuses the existing artifact; conflicting content under the same result id is an error. `manifest.json` is written last so an interrupted directory is not mistaken for a completed result.
 
@@ -85,7 +91,7 @@ An identical program, locked inputs, seed, decision allowlist, candidate budget,
 
 `inm design <project>` lists project-local programs. `--program <id>` returns the read-only brief, completed run summaries, and an exact argv next action. `--run` is the explicit artifact-creating mode; `--max-candidates` can only narrow the manifest budget. Human runs show Core progress on stderr; `--progress ndjson` exposes the same records to an Agent while preserving one final JSON stdout envelope. `--run-id <result-hash>` verifies and reopens one immutable result. JSON sections are `summary`, `static`, `iterations`, `best`, `runs`, and `all`, and a successful execution or reopen reports one immutable `design-run` artifact.
 
-`--run-id <hash> --promote <candidate-id>` is the only Design-to-Candidate transition. Core first verifies the run's content hash, best-Blueprint hash, engine, current Program and Benchmark contract, and unchanged seed hash. A seed-only run cannot be promoted. A leading result is collapsed into one restricted patch from the current seed, replayed to the exact recorded Blueprint hash, and written as an ordinary immutable `candidates/<id>.candidate.json` with a `design-run` source record. Promotion does not evaluate or apply the Candidate; the existing Candidate preview/review/apply lifecycle retains those authorities.
+`--run-id <hash> --promote <candidate-id>` is the only Design-to-Candidate transition. Core first verifies the run's content hash, best-Blueprint hash, engine, current Program and Benchmark contract, and unchanged promotion-base Blueprint/hash. The best must be accepted and differ from that base. It is collapsed into one restricted patch from the current Benchmark candidate, checked against the recorded patch size, replayed to the exact immutable best hash, and written as an ordinary `candidates/<id>.candidate.json` with a `design-run` source record. A generated seed may therefore be promoted without a later winning proposal when synthesis itself is accepted and changes the target; an unchanged authored seed still has no patch. Promotion does not evaluate or apply the Candidate; the existing Candidate preview/review/apply lifecycle retains those authorities.
 
 CLI uses the same Core program/brief/run objects and does not rebuild proposal or evaluation semantics.
 
@@ -104,9 +110,8 @@ Studio exposes a route-backed `/<project>/designs/<program>[/runs/<result-hash>]
 
 ## Verification
 
-Tests must prove strict schema closure, filename identity, lock/seed/driver cross-contract validation, read purity, explicit decision-family confinement, budget enforcement, locked multi-case evaluation, one baseline simulation per case, deterministic ordered progress, unchanged deterministic result hash, artifact reuse, content/hash verification on reopen, exact promotion replay, and byte-identical seed Blueprint contents. Public CLI tests must execute the real binary and prove list/brief/run/reopen effects, NDJSON progress, and artifact projection. Studio tests must consume the streamed response and structured failure record.
+Tests must prove strict schema closure, filename identity, lock/seed/driver cross-contract validation, synthesis determinism and provenance, read purity, explicit decision-family confinement, budget enforcement, locked multi-case evaluation, one baseline simulation per case, deterministic ordered progress, unchanged deterministic result hash, artifact reuse, content/hash verification on reopen, exact promotion replay, stale promotion-base rejection, and byte-identical source/target/tuned Blueprint contents before Candidate apply. Public CLI tests must execute the real binary and prove list/brief/run/reopen effects, NDJSON progress, and artifact projection. Studio tests must consume the streamed response and structured failure record.
 
 ## Known next gaps
 
-- Allow a Design Program to invoke the implemented project-local tracked-route synthesis strategy as its declared seed instead of requiring its seed to equal the Benchmark candidate Blueprint.
 - Replace generic driver diagnostics with compatible-run fab loss attribution before making Design Programs the default project recommendation.

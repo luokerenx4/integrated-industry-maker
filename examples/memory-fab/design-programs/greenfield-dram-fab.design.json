@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "id": "integrated-dram-fab",
-  "name": "Integrated DRAM Fab Design",
-  "description": "Improve the complete re-entrant DRAM factory across ordinary production, quality excursions, equipment interruption, and fab-utility interruption without weakening any locked industrial input.",
-  "benchmark": "dispatch-research",
+  "id": "greenfield-dram-fab",
+  "name": "Greenfield DRAM Fab Design",
+  "description": "Build a complete re-entrant DRAM factory from an empty site, then improve it across ordinary production, quality excursions, equipment interruption, and fab-utility interruption.",
+  "benchmark": "greenfield-dram-design",
   "seed": {
-    "kind": "blueprint",
-    "blueprint": "experiment"
+    "kind": "synthesis",
+    "inputBlueprint": "greenfield"
   },
   "driverCase": "mixed-quality",
   "proposal": {

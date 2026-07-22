@@ -225,7 +225,13 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: listed.exitCode, stderr: listed.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(listed.stdout)).toEqual(expect.objectContaining({
     command: "design",
-    data: { action: "list", programs: [expect.objectContaining({ id: "integrated-dram-fab", locked: true })] },
+    data: {
+      action: "list",
+      programs: [
+        expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" } }),
+        expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" } }),
+      ],
+    },
     artifacts: [],
   }));
 
@@ -238,6 +244,15 @@ test("public Design Program workflow discovers, inspects, and executes without m
   }));
   expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
   expect(await pathExists(join(projectDir, "design-runs"))).toBeFalse();
+
+  const generated = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--json"]);
+  expect({ exitCode: generated.exitCode, stderr: generated.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(generated.stdout).data.result).toEqual(expect.objectContaining({
+    program: expect.objectContaining({ seed: { kind: "synthesis", inputBlueprint: "greenfield" } }),
+    seed: expect.objectContaining({ synthesis: expect.objectContaining({ method: "project-strategy", entry: "strategies/reentrant-dram-fab.ts" }) }),
+    promotionBase: expect.objectContaining({ blueprint: "generated-dram-fab" }),
+    driver: expect.objectContaining({ selection: expect.objectContaining({ blueprint: "generated-dram-fab" }) }),
+  }));
 
   const executed = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run", "--max-candidates", "1", "--progress", "ndjson", "--json"]);
   expect(executed.exitCode).toBe(0);
@@ -272,7 +287,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
     result: [expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" })],
   });
 
-  if (run.data.result.best.iteration === 0) {
+  if (run.data.result.best.promotionPatchOperations === 0) {
     const refused = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--promote", "no-leading-design", "--json"]);
     expect(refused.exitCode).toBe(1);
     expect(JSON.parse(refused.stderr).error).toEqual(expect.objectContaining({ code: "design.no-leading-candidate" }));

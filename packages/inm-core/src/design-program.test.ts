@@ -3,25 +3,35 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, expect, test } from "bun:test";
 import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram } from "./design-program";
-import { listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunManifest, type DesignRunProgress } from "./design-run";
+import { listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
 import { applyResearchPatch } from "./research";
-import { loadCandidateChangeSet } from "./candidate-change-set";
-import { atomicWriteJson, hashValue } from "./utils";
+import { applyCandidateChangeSet, loadCandidateChangeSet, previewCandidateChangeSet } from "./candidate-change-set";
+import { hashValue } from "./utils";
 
 const projectDir = resolve("examples/memory-fab");
 const temporaryDirectories: string[] = [];
 afterAll(async () => { await Promise.all(temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true }))); });
 
-test("memory-fab exposes one strict project-local Design Program and a read-only brief", async () => {
+test("memory-fab exposes authored and synthesis-seeded Design Programs with read-only briefs", async () => {
   const programs = await listDesignPrograms(projectDir);
-  expect(programs).toEqual([expect.objectContaining({
-    id: "integrated-dram-fab",
-    benchmark: "dispatch-research",
-    seedBlueprint: "experiment",
-    driverCase: "mixed-quality",
-    locked: true,
-    budget: { maxCandidates: 6 },
-  })]);
+  expect(programs).toEqual([
+    expect.objectContaining({
+      id: "greenfield-dram-fab",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "synthesis", inputBlueprint: "greenfield" },
+      driverCase: "mixed-quality",
+      locked: true,
+      budget: { maxCandidates: 6 },
+    }),
+    expect.objectContaining({
+      id: "integrated-dram-fab",
+      benchmark: "dispatch-research",
+      seed: { kind: "blueprint", blueprint: "experiment" },
+      driverCase: "mixed-quality",
+      locked: true,
+      budget: { maxCandidates: 6 },
+    }),
+  ]);
   const before = await readFile(join(projectDir, "design-programs", "integrated-dram-fab.design.json"), "utf8");
   const brief = await buildDesignProgramBrief(projectDir, "integrated-dram-fab");
   const after = await readFile(join(projectDir, "design-programs", "integrated-dram-fab.design.json"), "utf8");
@@ -36,9 +46,29 @@ test("memory-fab exposes one strict project-local Design Program and a read-only
   });
   expect(brief.program.programHash).toHaveLength(64);
   expect(brief.driver.hashes.blueprintHash).toHaveLength(64);
+
+  const greenfield = await buildDesignProgramBrief(projectDir, "greenfield-dram-fab");
+  expect(greenfield).toMatchObject({
+    program: { id: "greenfield-dram-fab", seed: { kind: "synthesis", inputBlueprint: "greenfield" } },
+    benchmark: { id: "greenfield-dram-design", cases: 5 },
+    seed: {
+      source: { kind: "synthesis", inputBlueprint: "greenfield" },
+      sourceBlueprintHash: expect.any(String),
+      blueprintHash: expect.any(String),
+      synthesis: {
+        method: "project-strategy",
+        entry: "strategies/reentrant-dram-fab.ts",
+        contentHash: expect.any(String),
+        summary: { trackedRoute: "dram-front-end" },
+      },
+    },
+    promotionBase: { blueprint: "generated-dram-fab", hash: expect.any(String) },
+    driver: { selection: { blueprint: "generated-dram-fab" } },
+    staticEvidence: { capacity: { state: "ready", gapCount: 0 }, devices: { total: 56 }, topology: { connections: 16, trackedRoutes: 1 } },
+  });
 });
 
-test("Design Program validation rejects unknown fields and cross-contract drift", async () => {
+test("Design Program validation rejects unknown fields and the removed legacy seed contract", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-program-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
@@ -48,30 +78,48 @@ test("Design Program validation rejects unknown fields and cross-contract drift"
   await writeFile(path, `${JSON.stringify({ ...program, surprise: true }, null, 2)}\n`);
   await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("Unrecognized key");
   delete program.surprise;
-  program.seedBlueprint = "baseline";
+  program.seedBlueprint = "experiment";
+  delete program.seed;
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
-  await expect(buildDesignProgramBrief(copy, "integrated-dram-fab")).rejects.toThrow("must equal Benchmark candidate Blueprint");
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("seed");
 });
 
-test("a bounded Design Program run is deterministic, immutable, and leaves the seed Blueprint untouched", async () => {
+test("a synthesis-seeded Design Program is deterministic, immutable, and applies only through an exact Candidate", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-run-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
-  const blueprintPath = join(copy, "blueprints", "experiment.blueprint.json");
-  const before = await readFile(blueprintPath, "utf8");
+  const sourcePath = join(copy, "blueprints", "greenfield.blueprint.json");
+  const targetPath = join(copy, "blueprints", "generated-dram-fab.blueprint.json");
+  const tunedPath = join(copy, "blueprints", "experiment.blueprint.json");
+  const sourceBefore = await readFile(sourcePath, "utf8");
+  const targetBefore = await readFile(targetPath, "utf8");
+  const tunedBefore = await readFile(tunedPath, "utf8");
   const progress: DesignRunProgress[] = [];
-  const first = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1, onProgress: (event) => progress.push(event) });
-  expect(await readFile(blueprintPath, "utf8")).toBe(before);
+  const first = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 1, onProgress: (event) => progress.push(event) });
+  expect(await readFile(sourcePath, "utf8")).toBe(sourceBefore);
+  expect(await readFile(targetPath, "utf8")).toBe(targetBefore);
+  expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
   expect(first.artifact).toMatchObject({ created: true });
-  expect(first.artifact.path.startsWith(join(copy, "design-runs", "integrated-dram-fab"))).toBeTrue();
+  expect(first.artifact.path.startsWith(join(copy, "design-runs", "greenfield-dram-fab"))).toBeTrue();
   expect(first.manifest).toMatchObject({
     status: "completed",
     project: "memory-fab",
-    program: { id: "integrated-dram-fab" },
-    benchmark: { id: "dispatch-research" },
+    program: { id: "greenfield-dram-fab" },
+    benchmark: { id: "greenfield-dram-design" },
+    seed: {
+      source: { kind: "synthesis", inputBlueprint: "greenfield" },
+      sourceBlueprintHash: expect.any(String),
+      blueprintHash: expect.any(String),
+      synthesis: { method: "project-strategy", contentHash: expect.any(String) },
+      evaluation: { verdict: "UNCHANGED" },
+    },
+    promotionBase: { blueprint: "generated-dram-fab", hash: hashValue(JSON.parse(targetBefore)) },
     budget: { maximum: 1, evaluated: 1 },
+    best: { iteration: 1, verdict: "KEEP" },
   });
+  const promotionPatchOperations = first.manifest.best.promotionPatchOperations;
+  expect(promotionPatchOperations).toBeGreaterThan(0);
   expect(first.manifest.iterations[0]).toMatchObject({
     iteration: 1,
     decisionFamily: expect.any(String),
@@ -91,73 +139,54 @@ test("a bounded Design Program run is deterministic, immutable, and leaves the s
     work: { completedSimulations: 15, plannedSimulations: 15 },
   }));
   const repeatedProgress: DesignRunProgress[] = [];
-  const second = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1, onProgress: (event) => repeatedProgress.push(event) });
+  const second = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 1, onProgress: (event) => repeatedProgress.push(event) });
   expect(second.manifest.resultHash).toBe(first.manifest.resultHash);
   expect(repeatedProgress).toEqual(progress);
   expect(second.artifact).toEqual({ ...first.artifact, created: false });
-  expect(await loadDesignRun(copy, "integrated-dram-fab", first.manifest.resultHash)).toEqual({
+  expect(await loadDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash)).toEqual({
     manifest: first.manifest,
     bestBlueprint: first.bestBlueprint,
     artifact: { ...first.artifact, created: false },
   });
-  expect(await listDesignRuns(copy, "integrated-dram-fab")).toEqual([
-    expect.objectContaining({ id: first.manifest.resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" }),
+  expect(await listDesignRuns(copy, "greenfield-dram-fab")).toEqual([
+    expect.objectContaining({
+      id: first.manifest.resultHash,
+      program: "greenfield-dram-fab",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "synthesis", inputBlueprint: "greenfield" },
+      promotionBase: first.manifest.promotionBase,
+    }),
   ]);
-  if (first.manifest.best.iteration === 0) {
-    await expect(promoteDesignRun(copy, "integrated-dram-fab", first.manifest.resultHash, "no-leading-design"))
-      .rejects.toMatchObject({ code: "design.no-leading-candidate" });
-  }
-  expect(await readFile(blueprintPath, "utf8")).toBe(before);
-}, 120_000);
-
-test("a leading Design Run is promoted as one exact hash-pinned Candidate without applying it", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inm-design-promote-"));
-  temporaryDirectories.push(root);
-  const copy = join(root, "memory-fab");
-  await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
-  const seedPath = join(copy, "blueprints", "experiment.blueprint.json");
-  const seedBefore = await readFile(seedPath, "utf8");
-  const original = await runDesignProgram(copy, "integrated-dram-fab", { maxCandidates: 1 });
-  const bestBlueprint = structuredClone(original.bestBlueprint);
-  bestBlueprint.revision = original.manifest.seed.hash;
-  bestBlueprint.devices[0]!.config = { ...bestBlueprint.devices[0]!.config, promotionFixture: true };
-  const blueprintHash = hashValue(bestBlueprint);
-  const keptIteration = {
-    ...original.manifest.iterations[0]!,
-    decision: "KEEP" as const,
-    hypothesis: "Exercise exact Design Run promotion with a harmless project-valid Device configuration change.",
-    candidateBlueprintHash: blueprintHash,
-    candidateScore: original.manifest.best.candidateScore + 1,
-    scoreDeltaFromBest: 1,
-  };
-  const { resultHash: _originalResultHash, ...originalWithoutHash } = original.manifest;
-  const withoutHash: Omit<DesignRunManifest, "resultHash"> = {
-    ...originalWithoutHash,
-    iterations: [keptIteration],
-    best: {
-      ...original.manifest.best,
-      iteration: 1,
-      blueprintHash,
-      candidateScore: original.manifest.best.candidateScore + 1,
-      scoreDelta: original.manifest.best.scoreDelta + 1,
-    },
-  };
-  const resultHash = hashValue(withoutHash);
-  const manifest: DesignRunManifest = { ...withoutHash, resultHash };
-  const artifactPath = join(copy, "design-runs", "integrated-dram-fab", resultHash);
-  await atomicWriteJson(join(artifactPath, "best.blueprint.json"), bestBlueprint);
-  await atomicWriteJson(join(artifactPath, "manifest.json"), manifest);
-
-  const promoted = await promoteDesignRun(copy, "integrated-dram-fab", resultHash, "promoted-leading-design");
-  const candidate = await loadCandidateChangeSet(copy, "promoted-leading-design");
+  const synthesisStrategyPath = join(copy, "strategies", "reentrant-dram-fab.ts");
+  const synthesisStrategyBefore = await readFile(synthesisStrategyPath, "utf8");
+  await writeFile(synthesisStrategyPath, `${synthesisStrategyBefore}\n// changed after the immutable run\n`);
+  await expect(promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "stale-strategy-design"))
+    .rejects.toMatchObject({ code: "design.run-stale" });
+  await writeFile(synthesisStrategyPath, synthesisStrategyBefore);
+  const promoted = await promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "generated-leading-design");
+  const candidate = await loadCandidateChangeSet(copy, "generated-leading-design");
   expect(promoted.candidate).toEqual(candidate);
   expect(candidate).toMatchObject({
-    benchmark: "dispatch-research",
-    baseCandidateHash: original.manifest.seed.hash,
-    source: { kind: "design-run", program: "integrated-dram-fab", resultHash, blueprintHash },
+    benchmark: "greenfield-dram-design",
+    baseCandidateHash: first.manifest.promotionBase.hash,
+    source: { kind: "design-run", program: "greenfield-dram-fab", resultHash: first.manifest.resultHash, blueprintHash: first.manifest.best.blueprintHash },
   });
-  const replayed = applyResearchPatch(original.bestBlueprint, candidate.patch);
-  replayed.revision = original.manifest.seed.hash;
-  expect(hashValue(replayed)).toBe(blueprintHash);
-  expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
-}, 90_000);
+  expect(candidate.patch).toHaveLength(promotionPatchOperations);
+  const replayed = applyResearchPatch(JSON.parse(targetBefore), candidate.patch);
+  replayed.revision = first.manifest.promotionBase.hash;
+  expect(hashValue(replayed)).toBe(first.manifest.best.blueprintHash);
+
+  const preview = await previewCandidateChangeSet(copy, candidate.id);
+  expect(preview).toMatchObject({ proposedCandidateHash: first.manifest.best.blueprintHash, result: { verdict: "KEEP" } });
+  await applyCandidateChangeSet(copy, candidate.id, {
+    proposalHash: preview.proposalHash,
+    currentCandidateHash: preview.currentCandidateHash,
+    proposedCandidateHash: preview.proposedCandidateHash,
+  });
+  expect(await readFile(targetPath, "utf8")).not.toBe(targetBefore);
+  expect(hashValue(JSON.parse(await readFile(targetPath, "utf8")))).toBe(first.manifest.best.blueprintHash);
+  expect(await readFile(sourcePath, "utf8")).toBe(sourceBefore);
+  expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
+  await expect(promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "stale-generated-design"))
+    .rejects.toMatchObject({ code: "design.promotion-base-stale" });
+}, 180_000);

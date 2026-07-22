@@ -1,11 +1,14 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { z } from "zod";
-import { loadBlueprintBenchmark } from "./benchmark";
+import { loadBlueprintBenchmark, type BlueprintBenchmarkManifest } from "./benchmark";
 import { planProductionCapacity } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
-import { loadFactoryProject } from "./loader";
+import { loadFactoryProject, type LoadedFactoryProject } from "./loader";
 import { analyzeProduction } from "./production-analysis";
+import { synthesizeProjectBlueprint, type ProjectBlueprintSynthesis } from "./project-synthesis";
+import { manifestSchema } from "./schema";
+import type { Blueprint } from "./types";
 import { hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -37,13 +40,18 @@ const decisionFamiliesSchema = z.array(designDecisionFamilySchema).min(1).superR
   }
 });
 
+export const designSeedSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("blueprint"), blueprint: id }).strict(),
+  z.object({ kind: z.literal("synthesis"), inputBlueprint: id }).strict(),
+]);
+
 export const designProgramSchema = z.object({
   version: z.literal(1),
   id,
   name: z.string().min(1),
   description: z.string().min(1),
   benchmark: id,
-  seedBlueprint: id,
+  seed: designSeedSchema,
   driverCase: id,
   proposal: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("heuristic"), decisionFamilies: decisionFamiliesSchema }).strict(),
@@ -55,14 +63,34 @@ export const designProgramSchema = z.object({
 }).strict();
 
 export type DesignDecisionFamily = z.infer<typeof designDecisionFamilySchema>;
+export type DesignSeed = z.infer<typeof designSeedSchema>;
 export type DesignProgramManifest = z.infer<typeof designProgramSchema>;
 
-export async function designProgramHash(projectDir: string, program: DesignProgramManifest): Promise<string> {
-  if (program.proposal.kind === "heuristic") return hashValue(program);
+function projectEntryPath(projectDir: string, entry: string, label: string): string {
   const root = resolve(projectDir);
-  const entryPath = resolve(root, program.proposal.entry);
-  if (entryPath !== root && !entryPath.startsWith(`${root}${sep}`)) throw new Error(`Design proposal strategy escapes the project directory: ${program.proposal.entry}`);
-  return hashValue({ manifest: program, providerSource: await readFile(entryPath, "utf8") });
+  const entryPath = resolve(root, entry);
+  if (entryPath !== root && !entryPath.startsWith(`${root}${sep}`)) throw new Error(`${label} escapes the project directory: ${entry}`);
+  return entryPath;
+}
+
+export async function designProgramHash(projectDir: string, program: DesignProgramManifest): Promise<string> {
+  const sources: Record<string, { entry: string; source: string }> = {};
+  if (program.proposal.kind === "project-strategy") {
+    sources.proposal = {
+      entry: program.proposal.entry,
+      source: await readFile(projectEntryPath(projectDir, program.proposal.entry, "Design proposal strategy"), "utf8"),
+    };
+  }
+  if (program.seed.kind === "synthesis") {
+    const manifest = manifestSchema.parse(await readJson(join(resolve(projectDir), "inm.json")));
+    if (manifest.synthesis?.strategy) {
+      sources.synthesis = {
+        entry: manifest.synthesis.strategy,
+        source: await readFile(projectEntryPath(projectDir, manifest.synthesis.strategy, "Project synthesis strategy"), "utf8"),
+      };
+    }
+  }
+  return hashValue({ manifest: program, sources });
 }
 
 function proposalSummary(proposal: DesignProgramManifest["proposal"]): DesignProgramManifest["proposal"] {
@@ -76,7 +104,7 @@ export interface DesignProgramSummary {
   name: string;
   description: string;
   benchmark: string;
-  seedBlueprint: string;
+  seed: DesignSeed;
   driverCase: string;
   proposal: DesignProgramManifest["proposal"];
   budget: DesignProgramManifest["budget"];
@@ -99,6 +127,15 @@ export interface DesignProgramBrief {
       requireCandidateCapacityReady: boolean;
     };
   };
+  seed: {
+    source: DesignSeed;
+    sourceBlueprintHash: string;
+    blueprintHash: string;
+    synthesis?:
+      | { method: "fungible-flow" }
+      | { method: "project-strategy"; entry: string; contentHash: string; summary: { title: string; trackedRoute?: string; notes: string[] } };
+  };
+  promotionBase: { blueprint: string; hash: string };
   driver: {
     case: { id: string; name: string; weight: number; seed: number };
     selection: { world: string; blueprint: string; scenario: string; objective: string };
@@ -120,6 +157,16 @@ export interface DesignProgramBrief {
     devices: { total: number; declarative: number; opaque: number };
     topology: { regions: number; connections: number; trackedRoutes: number; powerGrids: number };
   };
+}
+
+export interface PreparedDesignProgram {
+  manifest: DesignProgramManifest;
+  benchmark: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> };
+  driverCase: BlueprintBenchmarkManifest["cases"][number];
+  loaded: LoadedFactoryProject;
+  seedBlueprint: Blueprint;
+  promotionBaseBlueprint: Blueprint;
+  brief: DesignProgramBrief;
 }
 
 function designProgramPath(projectDir: string, programId: string): string {
@@ -156,7 +203,7 @@ export async function listDesignPrograms(projectDir: string): Promise<DesignProg
       name: program.name,
       description: program.description,
       benchmark: program.benchmark,
-      seedBlueprint: program.seedBlueprint,
+      seed: structuredClone(program.seed),
       driverCase: program.driverCase,
       proposal: proposalSummary(program.proposal),
       budget: { ...program.budget },
@@ -166,21 +213,41 @@ export async function listDesignPrograms(projectDir: string): Promise<DesignProg
   }));
 }
 
-export async function buildDesignProgramBrief(projectDir: string, programId: string): Promise<DesignProgramBrief> {
+function synthesisEvidence(synthesis: ProjectBlueprintSynthesis): DesignProgramBrief["seed"]["synthesis"] {
+  return synthesis.method === "fungible-flow"
+    ? { method: synthesis.method }
+    : {
+      method: synthesis.method,
+      entry: synthesis.strategy.entry,
+      contentHash: synthesis.strategy.contentHash,
+      summary: structuredClone(synthesis.strategy.summary),
+    };
+}
+
+export async function prepareDesignProgram(projectDir: string, programId: string): Promise<PreparedDesignProgram> {
   const program = await loadDesignProgram(projectDir, programId);
   const benchmark = await loadBlueprintBenchmark(projectDir, program.benchmark);
   if (!benchmark.lock) throw new Error(`Design Program '${program.id}' requires locked Benchmark '${benchmark.id}'`);
-  if (program.seedBlueprint !== benchmark.candidateBlueprint) throw new Error(
-    `Design Program '${program.id}' seed Blueprint '${program.seedBlueprint}' must equal Benchmark candidate Blueprint '${benchmark.candidateBlueprint}'`,
-  );
+  const lockedBenchmark: PreparedDesignProgram["benchmark"] = { ...benchmark, lock: benchmark.lock };
   const driverCase = benchmark.cases.find((item) => item.id === program.driverCase);
   if (!driverCase) throw new Error(`Design Program '${program.id}' driver case '${program.driverCase}' does not exist in Benchmark '${benchmark.id}'`);
-  const loaded = await loadFactoryProject(projectDir, {
+  const selection = {
     world: driverCase.world,
-    blueprint: program.seedBlueprint,
+    blueprint: benchmark.candidateBlueprint,
     scenario: driverCase.scenario,
     objective: driverCase.objective,
-  });
+  };
+  const promotionLoaded = await loadFactoryProject(projectDir, selection);
+  const promotionBaseHash = hashValue(promotionLoaded.blueprint);
+  const sourceBlueprintId = program.seed.kind === "blueprint" ? program.seed.blueprint : program.seed.inputBlueprint;
+  const sourceLoaded = await loadFactoryProject(projectDir, { ...selection, blueprint: sourceBlueprintId });
+  const sourceBlueprintHash = hashValue(sourceLoaded.blueprint);
+  const synthesis = program.seed.kind === "synthesis" ? await synthesizeProjectBlueprint(sourceLoaded) : undefined;
+  const seedBlueprint = structuredClone(synthesis?.blueprint ?? sourceLoaded.blueprint);
+  // Search artifacts belong to the optimistic-concurrency lineage of the file
+  // Candidate apply will update, not to an intermediate authored or generated seed.
+  seedBlueprint.revision = promotionBaseHash;
+  const loaded: LoadedFactoryProject = { ...promotionLoaded, blueprint: seedBlueprint };
   const project = compileFactoryProject(loaded);
   const analysis = analyzeProduction(project);
   const capacity = planProductionCapacity(project);
@@ -192,14 +259,14 @@ export async function buildDesignProgramBrief(projectDir: string, programId: str
     name: program.name,
     description: program.description,
     benchmark: program.benchmark,
-    seedBlueprint: program.seedBlueprint,
+    seed: structuredClone(program.seed),
     driverCase: program.driverCase,
     proposal: proposalSummary(program.proposal),
     budget: { ...program.budget },
     programHash: await designProgramHash(projectDir, program),
     locked: true,
   };
-  return {
+  const brief: DesignProgramBrief = {
     version: 1,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     program: summary,
@@ -210,11 +277,18 @@ export async function buildDesignProgramBrief(projectDir: string, programId: str
       cases: benchmark.cases.length,
       acceptance: { ...benchmark.acceptance },
     },
+    seed: {
+      source: structuredClone(program.seed),
+      sourceBlueprintHash,
+      blueprintHash: hashValue(seedBlueprint),
+      ...(synthesis ? { synthesis: synthesisEvidence(synthesis) } : {}),
+    },
+    promotionBase: { blueprint: benchmark.candidateBlueprint, hash: promotionBaseHash },
     driver: {
       case: { id: driverCase.id, name: driverCase.name, weight: driverCase.weight, seed: driverCase.seed },
       selection: {
         world: driverCase.world,
-        blueprint: program.seedBlueprint,
+        blueprint: benchmark.candidateBlueprint,
         scenario: driverCase.scenario,
         objective: driverCase.objective,
       },
@@ -232,4 +306,17 @@ export async function buildDesignProgramBrief(projectDir: string, programId: str
       },
     },
   };
+  return {
+    manifest: program,
+    benchmark: lockedBenchmark,
+    driverCase,
+    loaded,
+    seedBlueprint,
+    promotionBaseBlueprint: structuredClone(promotionLoaded.blueprint),
+    brief,
+  };
+}
+
+export async function buildDesignProgramBrief(projectDir: string, programId: string): Promise<DesignProgramBrief> {
+  return (await prepareDesignProgram(projectDir, programId)).brief;
 }
