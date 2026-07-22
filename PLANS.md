@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/operator-interaction-refinement]] | Turn the project Overview into a decisive operator brief with one contextual next action, progressive disclosure, and predictable route-backed interaction. | 2026-07-22 |
 
 ## Proposed plans
 

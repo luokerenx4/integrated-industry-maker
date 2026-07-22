@@ -6,8 +6,9 @@ import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, us
 import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
-import { analysisPath, catalogPath, experimentPath, factoryObjectPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
+import { analysisPath, catalogPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
+import { recommendOperatorAction, type OperatorRecommendationTarget } from "./operator-guidance";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 
@@ -1345,13 +1346,16 @@ function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (proj
     <header className="launcher-header"><div className="brand"><div className="mark">INM</div><div><h1>Integrated Industry Maker</h1><p>PROJECT WORKSPACE</p></div></div><span className="engine-status"><i /> ENGINE READY</span></header>
     <section className="launcher-content">
       <div className="launcher-intro"><span className="eyebrow">{index.workspace ? "ENGINE WORKSPACE" : "STANDALONE PROJECT"}</span><h2>{index.name}</h2><p>Choose a self-contained industrial project. Its route, assets, runs, and simulation state remain isolated from every other project.</p></div>
-      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <button className="project-card" key={project.id} data-testid={`project-${project.id}`} onClick={() => onOpen(project.id)}>
+      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <a className="project-card" href={projectPath(project.id)} key={project.id} data-testid={`project-${project.id}`} onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault(); onOpen(project.id);
+      }}>
         <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
         <div className="project-stats"><span><b>{project.deviceInstances}</b> devices</span><span><b>{project.resourceNodes}</b> deposits</span><span><b>{project.connections}</b> local links</span><span><b>{project.logisticsNetworks}</b> station nets</span><span><b>{project.deviceAssets + project.resourceAssets + project.processes}</b> catalog</span><span><b>{project.runs}</b> runs</span></div>
         <div className="project-card-footer"><span>{project.regions} INDUSTRIAL {project.regions === 1 ? "ZONE" : "ZONES"}</span><strong>OPEN PROJECT →</strong></div>
-      </button>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
+      </a>)}</div> : <div className="empty-projects"><span>NO PROJECTS</span><p>Create one with <code>inm project create</code>, then refresh this page.</p></div>}
     </section>
     <footer className="launcher-footer"><span>INM PRE-ALPHA</span><span>PROJECTS ARE SELF-CONTAINED</span></footer>
   </div>;
@@ -1379,14 +1383,26 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
     { view: "analysis", label: "ANALYSIS", count: overview.diagnostics.length },
     { view: "catalog", label: "CATALOG", count: overview.counts.resourceAssets + overview.counts.deviceAssets + overview.counts.processes + overview.counts.routes },
   ];
+  const destination = (target: StudioView) => target === "overview" ? projectPath(data.projectId)
+    : target === "catalog" ? catalogPath(data.projectId)
+      : target === "analysis" ? analysisPath(data.projectId)
+        : target === "experiments" ? experimentPath(data.projectId)
+          : target === "factory" ? factoryObjectPath(data.projectId)
+            : viewPath(data.projectId, "runs");
   return <header className="project-header">
     <div className="header-project">
-      <button className="back-button" onClick={onBack} aria-label="Back to projects">←</button>
+      <a className="back-button" href="/" onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault(); onBack();
+      }} aria-label="Back to projects">←</a>
       <div className="mark">INM</div>
       <div><div className="breadcrumb"><span>{indexName}</span><b>/</b><code>{data.projectId}</code></div><h1>{data.name}</h1></div>
     </div>
     <nav className="project-nav" aria-label="Project workbench">
-      {tabs.map((tab) => <button key={tab.view} data-testid={`view-${tab.view}`} className={view === tab.view ? "active" : ""} onClick={() => onNavigate(tab.view)}>{tab.label}{tab.count !== undefined && <b>{tab.count}</b>}</button>)}
+      {tabs.map((tab) => <a href={destination(tab.view)} key={tab.view} data-testid={`view-${tab.view}`} aria-current={view === tab.view ? "page" : undefined} className={view === tab.view ? "active" : ""} onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault(); onNavigate(tab.view);
+      }}>{tab.label}{tab.count !== undefined && <b>{tab.count}</b>}</a>)}
     </nav>
     <div className="header-tools compact-tools">
       <span className="project-local"><i /> PROJECT LOCAL</span>
@@ -1394,6 +1410,20 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
       <button onClick={onRefresh}>{loading ? "SYNCING" : "REFRESH"}</button>
     </div>
   </header>;
+}
+
+function CopyButton({ text, label = "COPY CLI", testId }: { text: string; label?: string; testId?: string }) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus("copied");
+    } catch {
+      setStatus("failed");
+    }
+    window.setTimeout(() => setStatus("idle"), 1_600);
+  };
+  return <button className={status === "copied" ? "copy-confirmed" : status === "failed" ? "copy-failed" : ""} data-testid={testId} onClick={() => { void copy(); }} aria-live="polite">{status === "copied" ? "COPIED ✓" : status === "failed" ? "COPY FAILED" : label}</button>;
 }
 
 function operationCli(snapshot: ProjectWorkbenchSnapshot, operation: WorkbenchOperationDescriptor): string {
@@ -1412,14 +1442,13 @@ function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperat
   const plan = result.operation === "plan" ? data as { ready?: boolean; gaps?: unknown[]; targetRatePerMinute?: number; targetResource?: string } : null;
   const simulation = result.operation === "simulate" ? data as { cached?: boolean; run?: { id?: string; path?: string }; resultHash?: string; metrics?: { finalScore?: number; throughputPerMinute?: number; bottleneckEntity?: string | null; deliveryPortfolio?: { fulfillment?: number } } } : null;
   const validation = result.operation === "validate" ? data as { valid?: boolean; devices?: number; connections?: number; regions?: number; resourceNodes?: number } : null;
-  const copy = () => { void navigator.clipboard.writeText(cli); };
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
     <section className="operation-result" role="dialog" aria-modal="true" aria-label={`Operation result: ${result.operation}`} data-testid={`operation-result-${result.operation}`}>
       <header><div><span className="eyebrow">SHARED CORE OPERATION</span><h2>{result.operation}</h2><p>{result.effect} · {result.status} in {result.durationMs.toFixed(1)} ms</p></div><button className="icon-button" onClick={onClose} aria-label="Close operation result">×</button></header>
       <div className="operation-context">
         <div><small>SELECTION</small><strong>{result.context.selection.blueprint}</strong><code>{result.context.selection.world} / {result.context.selection.scenario} / {result.context.selection.objective}</code></div>
         <div><small>INPUT HASH</small><strong>{result.context.hashes.engineVersion}</strong><code>{result.context.hashes.blueprintHash.slice(0, 16)}</code></div>
-        <div><small>WRITE SET</small><strong>{result.writeSet.length ? `${result.writeSet.length} DECLARED` : "READ ONLY"}</strong><code>{result.writeSet.join(" · ") || "no project files"}</code></div>
+        <div><small>ACTUAL WRITE SET</small><strong>{result.writeSet.length ? `${result.writeSet.length} WRITTEN` : "READ ONLY"}</strong><code>{result.writeSet.join(" · ") || "no project files"}</code></div>
       </div>
       <div className="operation-result-body">
         <section className="operation-outcome"><span className="eyebrow">OUTCOME</span>
@@ -1430,35 +1459,56 @@ function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperat
         </section>
         <section className="operation-evidence"><span className="eyebrow">EVIDENCE</span><div><b>{result.diagnostics.length}</b><small>DIAGNOSTICS</small></div><div><b>{result.artifacts.length}</b><small>ARTIFACTS</small></div>{result.artifacts.map((artifact) => <code key={artifact.path}>{artifact.kind}:{artifact.id} · {artifact.path}</code>)}</section>
         <section className="operation-verify"><span className="eyebrow">VERIFY NEXT</span>{result.verification.map((item) => <div key={item.id}><strong>{item.id}</strong><p>{item.description}</p></div>)}</section>
-        <section className="operation-cli"><span className="eyebrow">EXACT CLI REPRODUCTION</span><code>{cli}</code><button onClick={copy}>COPY COMMAND</button></section>
+        <section className="operation-cli"><span className="eyebrow">EXACT CLI REPRODUCTION</span><code>{cli}</code><CopyButton text={cli} label="COPY COMMAND" testId={`copy-result-${result.operation}`} /></section>
       </div>
     </section>
   </div>;
 }
 
-function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onCandidate, onOperation }: {
+function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus, onExperiment, onCandidate, onRun, onOperation }: {
   snapshot: ProjectWorkbenchSnapshot;
   onNavigate: (view: StudioView) => void;
   onDiagnostic: (diagnostic: WorkbenchDiagnostic) => void;
+  onDiagnosticFocus: (diagnosticId: string) => void;
   onExperiment: (id: string) => void;
   onCandidate: (benchmarkId: string, candidateId: string) => void;
+  onRun: (runId: string) => void;
   onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
   const latestRun = snapshot.runs.at(-1);
-  const priority = snapshot.diagnostics.slice(0, 6);
+  const priority = snapshot.diagnostics.slice(0, 4);
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
+  const recommendation = recommendOperatorAction(snapshot);
+  const followRecommendation = (target: OperatorRecommendationTarget) => {
+    if (target.kind === "diagnostic") {
+      onDiagnosticFocus(target.diagnosticId);
+      return;
+    }
+    if (target.kind === "candidate") { onCandidate(target.benchmarkId, target.candidateId); return; }
+    if (target.kind === "run") { onRun(target.runId); return; }
+    const operation = snapshot.operations.find((item) => item.id === target.operationId);
+    if (operation) onOperation(operation, operationCli(snapshot, operation));
+  };
   return <section className="overview-page" aria-label="Project overview">
     <div className="overview-hero">
-      <div><span className="eyebrow">INDUSTRIAL PROGRAM</span><h2>{snapshot.selection.objective.name}</h2><p>Deliver <strong>{snapshot.objective.targetRatePerMinute} {snapshot.objective.targetResource}/min</strong> into <strong>{snapshot.objective.targetRegion}</strong> under {snapshot.selection.scenario.name}.</p></div>
+      <div className="overview-hero-copy"><span className="eyebrow">INDUSTRIAL PROGRAM</span><h2>{snapshot.selection.objective.name}</h2><p>Deliver <strong>{snapshot.objective.targetRatePerMinute} {snapshot.objective.targetResource}/min</strong> into <strong>{snapshot.objective.targetRegion}</strong> under {snapshot.selection.scenario.name}.</p><div className="hero-footprint"><span>{snapshot.counts.regions} ZONES</span><span>{snapshot.counts.deviceInstances} DEVICES</span><span>{snapshot.counts.connections} LINKS</span><span>{snapshot.counts.powerGrids} GRIDS</span></div></div>
       <div className={`readiness-orbit ${snapshot.readiness.ready ? "ready" : "blocked"}`}><span>{snapshot.readiness.ready ? "READY" : snapshot.readiness.gapCount}</span><small>{snapshot.readiness.ready ? "TARGET PROVISIONED" : "CAPACITY GAPS"}</small></div>
     </div>
-    <div className="selection-strip" aria-label="Effective project selection">
-      {(["world", "blueprint", "scenario", "objective"] as const).map((key) => <div key={key}><small>{key.toUpperCase()}</small><strong>{snapshot.selection[key].name}</strong><code>{snapshot.selection[key].id}</code></div>)}
-      <div><small>INPUT IDENTITY</small><strong>{snapshot.hashes.engineVersion}</strong><code>{snapshot.hashes.blueprintHash.slice(0, 12)} · {snapshot.hashes.objectiveHash.slice(0, 12)}</code></div>
-    </div>
+    <section className={`operator-recommendation ${recommendation.tone}`} data-testid="operator-recommendation" data-recommendation-id={recommendation.id}>
+      <div className="recommendation-index"><span>01</span><small>NEXT BEST ACTION</small></div>
+      <div className="recommendation-copy"><span className="eyebrow">OPERATOR BRIEF</span><h3>{recommendation.title}</h3><p>{recommendation.reason}</p></div>
+      <button data-testid="recommendation-action" onClick={() => followRecommendation(recommendation.target)}>{recommendation.actionLabel}<b>→</b></button>
+    </section>
+    <details className="selection-disclosure">
+      <summary data-testid="effective-selection"><span><small>EFFECTIVE SELECTION</small><strong>{snapshot.selection.blueprint.id}</strong></span><code>{snapshot.selection.world.id} / {snapshot.selection.scenario.id} / {snapshot.selection.objective.id}</code><b>CONTEXT + HASHES</b></summary>
+      <div className="selection-strip" aria-label="Effective project selection">
+        {(["world", "blueprint", "scenario", "objective"] as const).map((key) => <div key={key}><small>{key.toUpperCase()}</small><strong>{snapshot.selection[key].name}</strong><code>{snapshot.selection[key].id}</code></div>)}
+        <div><small>INPUT IDENTITY</small><strong>{snapshot.hashes.engineVersion}</strong><code>{snapshot.hashes.blueprintHash.slice(0, 12)} · {snapshot.hashes.objectiveHash.slice(0, 12)}</code></div>
+      </div>
+    </details>
     <div className="overview-grid">
       <section className="overview-panel priority-panel">
-        <header><div><span className="eyebrow">NEXT ATTENTION</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>OPEN ANALYSIS →</button></header>
+        <header><div><span className="eyebrow">ACTIVE WORK QUEUE</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>ALL {snapshot.diagnostics.length} →</button></header>
         <div className="overview-diagnostics">{priority.length ? priority.map((diagnostic) => <button key={diagnostic.id} className={diagnostic.severity} data-diagnostic-id={diagnostic.id} data-testid={`diagnostic-${diagnostic.id}`} onClick={() => onDiagnostic(diagnostic)}>
           <span>{diagnostic.severity === "blocking" ? "!" : diagnostic.severity === "warning" ? "△" : "·"}</span><div><code>{diagnostic.code}</code><strong>{diagnostic.message}</strong><small>{diagnostic.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</small></div><b>→</b>
         </button>) : <div className="overview-empty positive"><b>✓</b><span>No static readiness or analysis issue is open.</span></div>}</div>
@@ -1470,24 +1520,24 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onExperiment, onC
       </section>
       <section className="overview-panel evidence-panel">
         <header><div><span className="eyebrow">RECENT EVIDENCE</span><h3>Runs and experiments</h3></div><button onClick={() => onNavigate("runs")}>ALL RUNS →</button></header>
-        {latestRun ? <button className="latest-run" onClick={() => onNavigate("factory")}><span><small>LATEST IMMUTABLE RUN</small><strong>{latestRun.id}</strong><code>{latestRun.selection.blueprint} · {latestRun.decision} · {latestRun.resultHash.slice(0, 12)}</code></span><b>{latestRun.score.toFixed(2)}</b></button> : <div className="overview-empty"><span>No completed run exists. Simulate from the CLI or operation workbench.</span></div>}
-        <div className="experiment-shortlist">{snapshot.experiments.slice(0, 3).map((experiment) => <button key={experiment.id} onClick={() => onExperiment(experiment.id)}><span><strong>{experiment.name}</strong><code>{experiment.id} · {experiment.cases.length} cases</code></span><b>{experiment.locked ? "LOCKED" : "UNLOCKED"}</b></button>)}</div>
+        {latestRun ? <button className="latest-run" onClick={() => onRun(latestRun.id)}><span><small>LATEST IMMUTABLE RUN</small><strong>{latestRun.id}</strong><code>{latestRun.selection.blueprint} · {latestRun.decision} · {latestRun.resultHash.slice(0, 12)}</code></span><b>{latestRun.score.toFixed(2)}</b></button> : <div className="overview-empty"><span>No completed run exists. Use the recommended simulation action to create evidence.</span></div>}
+        <div className="experiment-shortlist">{snapshot.experiments.slice(0, 2).map((experiment) => <button key={experiment.id} onClick={() => onExperiment(experiment.id)}><span><strong>{experiment.name}</strong><code>{experiment.id} · {experiment.cases.length} cases</code></span><b>{experiment.locked ? "LOCKED" : "UNLOCKED"}</b></button>)}</div>
       </section>
       <section className="overview-panel candidates-panel">
         <header><div><span className="eyebrow">REVIEW QUEUE</span><h3>Candidate proposals</h3></div><button onClick={() => onNavigate("experiments")}>EXPERIMENTS →</button></header>
-        {snapshot.candidates.length ? snapshot.candidates.slice(0, 4).map((candidate) => <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · base {candidate.baseCandidateHash.slice(0, 12)}</code></span><b>REVIEW →</b></button>) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
+        {snapshot.candidates.length ? snapshot.candidates.slice(0, 3).map((candidate) => <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · base {candidate.baseCandidateHash.slice(0, 12)}</code></span><b>REVIEW →</b></button>) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
       </section>
-      <section className="overview-panel operations-panel">
-        <header><div><span className="eyebrow">SHARED OPERATIONS</span><h3>Available tasks</h3></div></header>
+      <details className="overview-panel operations-panel">
+        <summary><div><span className="eyebrow">ADVANCED CONTROL</span><h3>Shared Core operations</h3><p>Inspect effects, guards, and exact CLI reproduction.</p></div><span><b>{availableOperations.length}</b> AVAILABLE <i>+</i></span></summary>
         <div className="operation-grid">{availableOperations.map((operation) => {
           const cli = operationCli(snapshot, operation);
           const runnable = ["validate", "analyze", "plan", "simulate"].includes(operation.id);
           const review = operation.id.startsWith("candidate") || operation.id === "benchmark.evaluate";
           const current = operation.id === "inspect";
           const action = runnable ? () => onOperation(operation, cli) : review ? () => onNavigate("experiments") : () => { void navigator.clipboard.writeText(cli); };
-          return <article key={operation.id} data-operation-id={operation.id} data-testid={`operation-${operation.id}`}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current} onClick={action}>{runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><button onClick={() => { void navigator.clipboard.writeText(cli); }}>COPY CLI</button></div></article>;
+          return <article key={operation.id} data-operation-id={operation.id} data-testid={`operation-${operation.id}`}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current} onClick={action}>{runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><CopyButton text={cli} testId={`copy-operation-${operation.id}`} /></div></article>;
         })}</div>
-      </section>
+      </details>
     </div>
   </section>;
 }
@@ -1585,49 +1635,72 @@ function App() {
           : view === "analysis" ? analysisPath(routeProject)
             : view === "factory" ? factoryObjectPath(routeProject)
               : viewPath(routeProject, "runs");
-    window.history.pushState({}, "", path);
+    if (path === window.location.pathname) return;
+    const overlay = view === "catalog" || view === "analysis" || view === "experiments";
+    const currentOverlay = routeView === "catalog" || routeView === "analysis" || routeView === "experiments";
+    const state = overlay ? currentOverlay ? window.history.state : { inmOverlayFrom: window.location.pathname } : {};
+    if (currentOverlay) window.history.replaceState(overlay ? state : {}, "", path);
+    else window.history.pushState(state, "", path);
     setRouteView(view); setRouteExperiment(view === "experiments" ? "" : null); setRouteCandidate(null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
+  }, [routeProject, routeView]);
+
+  const closeRouteSurface = useCallback(() => {
+    if (!routeProject) return;
+    const path = overlayReturnPath(routeProject, window.history.state) ?? projectPath(routeProject);
+    const nextRoute = studioRoute(path);
+    window.history.replaceState({}, "", path);
+    setRouteView(nextRoute.view); setRouteExperiment(nextRoute.experimentId); setRouteCandidate(nextRoute.candidateId);
+    setRouteAssetKind(nextRoute.assetKind); setRouteAssetId(nextRoute.assetId); setRouteDiagnostic(nextRoute.diagnosticId); setSelection(nextRoute.selection);
   }, [routeProject]);
 
   const navigateExperiment = useCallback((experimentId: string | null) => {
     if (!routeProject) return;
-    window.history.pushState({}, "", experimentId === null ? projectPath(routeProject) : experimentPath(routeProject, experimentId || undefined));
+    if (experimentId === null) { closeRouteSurface(); return; }
+    const state = routeView === "experiments" ? window.history.state : { inmOverlayFrom: window.location.pathname };
+    window.history.pushState(state, "", experimentPath(routeProject, experimentId || undefined));
     setRouteView(experimentId === null ? "overview" : "experiments");
     setRouteExperiment(experimentId);
     setRouteCandidate(null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null);
     setSelection(null);
-  }, [routeProject]);
+  }, [closeRouteSurface, routeProject, routeView]);
 
   const navigateCandidate = useCallback((candidateId: string | null) => {
     if (!routeProject || !routeExperiment) return;
-    window.history.pushState({}, "", experimentPath(routeProject, routeExperiment, candidateId || undefined));
+    window.history.pushState(window.history.state, "", experimentPath(routeProject, routeExperiment, candidateId || undefined));
     setRouteCandidate(candidateId);
   }, [routeExperiment, routeProject]);
 
   const navigateCandidateDirect = useCallback((experimentId: string, candidateId: string) => {
     if (!routeProject) return;
-    window.history.pushState({}, "", experimentPath(routeProject, experimentId, candidateId));
+    window.history.pushState({ inmOverlayFrom: window.location.pathname }, "", experimentPath(routeProject, experimentId, candidateId));
     setRouteView("experiments"); setRouteExperiment(experimentId); setRouteCandidate(candidateId);
   }, [routeProject]);
 
   const navigateCatalog = useCallback((kind: AssetKind, assetId: string | null) => {
     if (!routeProject) return;
-    window.history.replaceState({}, "", catalogPath(routeProject, kind, assetId));
+    window.history.replaceState(window.history.state, "", catalogPath(routeProject, kind, assetId));
     setRouteView("catalog"); setRouteAssetKind(kind); setRouteAssetId(assetId);
   }, [routeProject]);
 
   const navigateAnalysisDiagnostic = useCallback((diagnosticId: string | null) => {
     if (!routeProject) return;
-    window.history.pushState({}, "", analysisPath(routeProject, diagnosticId));
+    const state = routeView === "analysis" ? window.history.state : { inmOverlayFrom: window.location.pathname };
+    window.history.pushState(state, "", analysisPath(routeProject, diagnosticId));
     setRouteView("analysis"); setRouteDiagnostic(diagnosticId);
-  }, [routeProject]);
+  }, [routeProject, routeView]);
 
   const navigateFactoryObject = useCallback((next: StudioSelection | null) => {
     if (!routeProject) return;
     window.history.pushState({}, "", factoryObjectPath(routeProject, next));
     setRouteView("factory"); setSelection(next);
+  }, [routeProject]);
+
+  const clearFactorySelection = useCallback(() => {
+    if (!routeProject) return;
+    window.history.replaceState({}, "", factoryObjectPath(routeProject));
+    setSelection(null);
   }, [routeProject]);
 
   useEffect(() => { void loadIndex(); }, [loadIndex]);
@@ -1668,12 +1741,14 @@ function App() {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (routeExperiment !== null) navigateExperiment(null);
-      else setSelection(null);
+      if (operationStatus && (operationResult || operationError)) {
+        setOperationStatus(null); setOperationResult(null); setOperationError(null);
+      } else if (routeView === "catalog" || routeView === "analysis" || routeView === "experiments") closeRouteSurface();
+      else if (routeView === "factory" && selection) clearFactorySelection();
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [navigateExperiment, routeExperiment]);
+  }, [clearFactorySelection, closeRouteSurface, operationError, operationResult, operationStatus, routeView, selection]);
 
   const maxTick = data?.events.at(-1)?.tick ?? 0;
   useEffect(() => {
@@ -1736,19 +1811,23 @@ function App() {
       setOperationError(nextError instanceof Error ? nextError.message : String(nextError));
     }
   };
-  const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic}
-    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
+  const openRun = (runId: string) => {
+    void loadProject(data.projectId, runId);
+    navigateView("factory");
+  };
+  const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic} onDiagnosticFocus={navigateAnalysisDiagnostic}
+    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} onRun={openRun} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
 
   if (routeView !== "factory") {
     const focusedDiagnostic = routeDiagnostic ? overview.diagnostics.find((diagnostic) => diagnostic.id === routeDiagnostic) : undefined;
     return <main className={`project-shell ${loading ? "syncing" : ""}`}>
       {header}
-      <div className="workbench-content">{routeView === "runs" ? <RunsOverview snapshot={overview} onOpenFactory={(runId) => { void loadProject(data.projectId, runId); navigateView("factory"); }} /> : overviewContent}</div>
-      {routeView === "catalog" && <AssetBrowser data={data} initialKind={routeAssetKind ?? "devices"} initialId={routeAssetId} onNavigate={navigateCatalog} onClose={() => navigateView("overview")} />}
-      {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={() => navigateView("overview")} />}
+      <div className="workbench-content">{routeView === "runs" ? <RunsOverview snapshot={overview} onOpenFactory={openRun} /> : overviewContent}</div>
+      {routeView === "catalog" && <AssetBrowser data={data} initialKind={routeAssetKind ?? "devices"} initialId={routeAssetId} onNavigate={navigateCatalog} onClose={closeRouteSurface} />}
+      {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={closeRouteSurface} />}
       {routeView === "experiments" && <ExperimentWorkbench
         projectId={data.projectId} experiments={data.experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
-        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onClose={() => navigateView("overview")}
+        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onClose={closeRouteSurface}
       />}
       {operationStatus && !operationResult && <div className="modal-backdrop"><section className={`operation-progress ${operationError ? "failed" : ""}`} role="dialog" aria-modal="true" aria-label={`Operation progress: ${operationStatus.id}`}><span className="eyebrow">SHARED CORE OPERATION</span><h2>{operationError ? "OPERATION FAILED" : "OPERATION RUNNING"}</h2><strong>{operationStatus.id}</strong>{operationError ? <><p>{operationError}</p><button onClick={() => { setOperationStatus(null); setOperationError(null); }}>CLOSE</button></> : <><div className="loading-bar"><i /></div><code>{operationStatus.cli}</code></>}</section></div>}
       {operationStatus && operationResult && <OperationResultDialog result={operationResult} cli={operationStatus.cli} onClose={() => { setOperationStatus(null); setOperationResult(null); setOperationError(null); }} />}
@@ -1764,7 +1843,8 @@ function App() {
     ? Math.min(...Object.values(data.metrics.powerGrids).map((grid) => grid.minimumSatisfactionPpm)) / 10_000 : null;
   const chooseSceneObject = (next: StudioSelection) => setSelection((current) => {
     const selected = selectStudioObject(current, next);
-    window.history.pushState({}, "", factoryObjectPath(data.projectId, selected));
+    if (selected) window.history.pushState({}, "", factoryObjectPath(data.projectId, selected));
+    else window.history.replaceState({}, "", factoryObjectPath(data.projectId));
     return selected;
   });
 
@@ -1772,11 +1852,11 @@ function App() {
     {header}
     <section className="workspace">
       <div className="viewport">
-        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={() => setSelection(null)}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
+        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={clearFactorySelection}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} INDUSTRIAL ZONES</b></div>
         <div className="scene-stats"><span><b>{data.regions.length}</b> INDUSTRIAL ZONES</span><span><b>{data.devices.filter((device) => !device.transportEndpoint).length}</b> MACHINES</span><span><b>{data.devices.filter((device) => device.transportEndpoint).length}</b> SORTERS</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
-        {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={() => navigateFactoryObject(null)} onSelection={chooseSceneObject} />}
+        {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={clearFactorySelection} onSelection={chooseSceneObject} />}
         <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
       </div>
       <aside>

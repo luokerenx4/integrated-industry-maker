@@ -2,7 +2,7 @@
 
 Status: V1 shared project orientation, AI-native CLI projection, Studio task-oriented project root, shared operation loop, and browser-Agent proof implemented.
 
-Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]].
+Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
 ## Scope
 
@@ -75,6 +75,12 @@ GET /api/projects/<project-id>/overview?world=<id>&blueprint=<id>&scenario=<id>&
 ```
 
 Explicit query selection never falls back when invalid. The endpoint is project-qualified, accepts only GET, and creates no run or cache state. The task-oriented project root consumes this contract for selection, readiness, diagnostics, evidence, and operation descriptors. Factory uses its richer replay endpoint because its selected immutable run and event timeline are intentionally run-scoped.
+
+### Studio operator recommendation
+
+Studio derives one visible next action from the snapshot so the operator does not have to assign equal weight to every panel. This is a presentation rule, not a new industrial conclusion. It selects, in order, the first blocking diagnostic, the first pending Candidate review, missing or incompatible immutable evidence for the exact effective selection, the first warning, the latest matching run, or shared analysis. Each target already exists in the snapshot and opens its exact diagnostic, Candidate, run, or named operation; Studio does not change severity, evaluate a Candidate during orientation, or claim that a non-matching run proves the selected Blueprint.
+
+All remaining operation descriptors stay available under explicit progressive disclosure with their effect, scope, guards, and exact CLI reproduction. Recommendation identity is domain-derived and exposed semantically for browser-capable operators.
 
 ## Source of truth
 

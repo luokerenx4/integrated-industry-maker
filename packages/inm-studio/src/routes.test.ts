@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { analysisPath, catalogPath, experimentPath, factoryObjectPath, projectPath, studioRoute, viewPath } from "./routes";
+import { analysisPath, catalogPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath } from "./routes";
 
 test("Studio builds and parses every stable project-qualified route", () => {
   const cases = [
@@ -36,4 +36,12 @@ test("reload, back, and forward reconstruct route state without browser-only aut
   expect(reloaded.at(-1)).toEqual(expect.objectContaining({ experimentId: "equipment-energy-research", candidateId: "stable-furnace-sleep" }));
   expect(studioRoute(history[3]!)).toEqual(expect.objectContaining({ view: "factory", selection: { kind: "device", id: "burn-in-1" } }));
   expect(studioRoute(history[4]!)).toEqual(expect.objectContaining({ view: "runs" }));
+});
+
+test("route-backed surfaces return only to a path owned by the same project", () => {
+  expect(overlayReturnPath("memory-fab", { inmOverlayFrom: "/memory-fab" })).toBe("/memory-fab");
+  expect(overlayReturnPath("memory-fab", { inmOverlayFrom: "/memory-fab/factory/devices/furnace-1" })).toBe("/memory-fab/factory/devices/furnace-1");
+  expect(overlayReturnPath("memory-fab", { inmOverlayFrom: "/memory-fab-other" })).toBeNull();
+  expect(overlayReturnPath("memory-fab", { inmOverlayFrom: "/ironworks" })).toBeNull();
+  expect(overlayReturnPath("memory-fab", null)).toBeNull();
 });

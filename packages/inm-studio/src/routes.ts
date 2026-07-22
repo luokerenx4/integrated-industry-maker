@@ -21,6 +21,14 @@ export const catalogPath = (projectId: string, kind?: AssetKind | null, assetId?
 export const analysisPath = (projectId: string, diagnosticId?: string | null) => `${viewPath(projectId, "analysis")}${diagnosticId ? `/diagnostics/${encodeURIComponent(diagnosticId)}` : ""}`;
 export const experimentPath = (projectId: string, experimentId?: string, candidateId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}${candidateId ? `/candidates/${encodeURIComponent(candidateId)}` : ""}`;
 
+export function overlayReturnPath(projectId: string, state: unknown): string | null {
+  if (!state || typeof state !== "object" || !("inmOverlayFrom" in state)) return null;
+  const value = (state as { inmOverlayFrom?: unknown }).inmOverlayFrom;
+  if (typeof value !== "string") return null;
+  const root = projectPath(projectId);
+  return value === root || value.startsWith(`${root}/`) ? value : null;
+}
+
 export function studioRoute(pathname = window.location.pathname): StudioRoute {
   const segments = pathname.split("/").filter(Boolean);
   try {
