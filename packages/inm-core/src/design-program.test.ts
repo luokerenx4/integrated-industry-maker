@@ -101,7 +101,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   const prepared = await prepareDesignProgram(copy, "greenfield-dram-fab");
   const driverProject = compileFactoryProject({ ...prepared.loaded, blueprint: prepared.seedBlueprint });
   const driverMetrics = runUntil(driverProject, undefined, { seed: prepared.benchmark.cases.find((item) => item.id === prepared.manifest.driverCase)!.seed }).metrics;
-  const first = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 1, onProgress: (event) => progress.push(event) });
+  const first = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 2, onProgress: (event) => progress.push(event) });
   expect(await readFile(sourcePath, "utf8")).toBe(sourceBefore);
   expect(await readFile(targetPath, "utf8")).toBe(targetBefore);
   expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
@@ -120,8 +120,8 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
       evaluation: { verdict: "UNCHANGED" },
     },
     promotionBase: { blueprint: "generated-dram-fab", hash: hashValue(JSON.parse(targetBefore)) },
-    budget: { maximum: 1, evaluated: 1 },
-    best: { iteration: 1, verdict: "KEEP" },
+    budget: { maximum: 2, evaluated: 2 },
+    best: { iteration: 2, verdict: "KEEP" },
   });
   const promotionPatchOperations = first.manifest.best.promotionPatchOperations;
   expect(promotionPatchOperations).toBeGreaterThan(0);
@@ -137,12 +137,19 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     decision: expect.stringMatching(/KEEP|REJECT/),
   });
   expect(Object.hasOwn(first.manifest.iterations[0]!.driverEvidence.fabLoss!, "run")).toBeFalse();
+  expect(first.manifest.iterations[1]).toMatchObject({
+    iteration: 2,
+    strategy: "maintenance:lithography-jobs-6",
+    decisionFamily: "maintenance",
+    addressedLoss: "yield-quality",
+    decision: "KEEP",
+  });
   expect(first.manifest.resultHash).toHaveLength(64);
   expect(first.manifest.best.blueprintHash).toHaveLength(64);
   expect(progress.map((event) => event.sequence)).toEqual(Array.from({ length: progress.length }, (_, index) => index + 1));
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "seed")).toHaveLength(5);
-  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(10);
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "proposal-started", iteration: 1,
     driverEvidence: expect.objectContaining({ metricsHash: hashValue(driverMetrics), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "q-time" }) }) }),
@@ -154,10 +161,10 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",
     resultHash: first.manifest.resultHash,
-    work: { completedSimulations: 15, plannedSimulations: 15 },
+    work: { completedSimulations: 20, plannedSimulations: 20 },
   }));
   const repeatedProgress: DesignRunProgress[] = [];
-  const second = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 1, onProgress: (event) => repeatedProgress.push(event) });
+  const second = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 2, onProgress: (event) => repeatedProgress.push(event) });
   expect(second.manifest.resultHash).toBe(first.manifest.resultHash);
   expect(repeatedProgress).toEqual(progress);
   expect(second.artifact).toEqual({ ...first.artifact, created: false });

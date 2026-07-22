@@ -71,18 +71,18 @@ export interface FabLossBucket {
 }
 
 export interface ProjectProposalContext {
-  apiVersion: 2;
+  apiVersion: 3;
   iteration: number;
   blueprint: Blueprint;
   metrics: Record<string, unknown>;
   fabLoss: FabLossProfile | null;
   production: Record<string, unknown>;
   capacityPlan: Record<string, unknown>;
-  history: Array<{ iteration: number; strategy: string; hypothesis: string; decision: "KEEP" | "REVERT"; score: number; scoreDelta: number }>;
+  history: Array<{ iteration: number; strategy: string; hypothesis: string; addressedLoss?: FabLossBucketId; decision: "KEEP" | "REVERT"; score: number; scoreDelta: number }>;
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 2;
+  apiVersion: 3;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;

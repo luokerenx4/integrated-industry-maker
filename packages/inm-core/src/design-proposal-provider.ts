@@ -10,7 +10,7 @@ import type { Blueprint, FactoryMetrics } from "./types";
 import { stableStringify } from "./utils";
 
 export interface ProjectProposalContext {
-  apiVersion: 2;
+  apiVersion: 3;
   iteration: number;
   blueprint: Blueprint;
   metrics: FactoryMetrics;
@@ -21,7 +21,7 @@ export interface ProjectProposalContext {
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 2;
+  apiVersion: 3;
   propose(context: Readonly<ProjectProposalContext>): ResearchProposal | null;
 }
 
@@ -81,8 +81,8 @@ export class ProjectStrategyResearchAgent implements BlueprintResearchAgent {
       throw new Error(`Cannot load project proposal provider '${this.entry}': ${error instanceof Error ? error.message : String(error)}`);
     }
     const provider = module.default;
-    if (!isRecord(provider) || provider.apiVersion !== 2 || typeof provider.propose !== "function") {
-      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 2 and synchronous propose(context)`);
+    if (!isRecord(provider) || provider.apiVersion !== 3 || typeof provider.propose !== "function") {
+      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 3 and synchronous propose(context)`);
     }
     return provider as unknown as ProjectProposalProvider;
   }
@@ -90,7 +90,7 @@ export class ProjectStrategyResearchAgent implements BlueprintResearchAgent {
   async propose(input: ResearchInput): Promise<ResearchProposal> {
     const provider = await this.provider;
     const context = (): Readonly<ProjectProposalContext> => freezeDeep({
-      apiVersion: 2,
+      apiVersion: 3,
       iteration: input.iteration,
       blueprint: structuredClone(input.blueprint),
       metrics: structuredClone(input.metrics),

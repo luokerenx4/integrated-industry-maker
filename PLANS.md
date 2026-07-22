@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/loss-intervention-portfolio]] | Diversify memory-fab Design across measured loss targets and turn existing maintenance and setup controls into benchmarked Candidates. | 2026-07-23 |
 
 ## Proposed plans
 

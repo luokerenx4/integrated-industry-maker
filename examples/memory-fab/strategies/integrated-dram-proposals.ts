@@ -12,6 +12,25 @@ function deviceIndex(blueprint: { devices: Array<Record<string, unknown>> }, id:
   return blueprint.devices.findIndex((device) => device.id === id);
 }
 
+function devicePolicyPatch(
+  blueprint: { devices: Array<Record<string, unknown>> },
+  id: string,
+  policyKey: "preventiveMaintenance" | "setupCampaign",
+  value: Record<string, number>,
+): JsonPatchOperation[] | null {
+  const index = deviceIndex(blueprint, id);
+  if (index < 0) return null;
+  const policy = blueprint.devices[index]!.policy;
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) return null;
+  const current = (policy as Record<string, unknown>)[policyKey];
+  if (JSON.stringify(current) === JSON.stringify(value)) return null;
+  return [{
+    op: Object.hasOwn(policy, policyKey) ? "replace" : "add",
+    path: `/devices/${index}/policy/${policyKey}`,
+    value,
+  }];
+}
+
 const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
   strategy: `dispatch:conwip-${maximumWip}-${reopenAtWip}-edd`,
   hypothesis: `A ${maximumWip}-card CONWIP loop reopening at ${reopenAtWip} lots may reduce downstream queue and Q-time exposure without withholding the fixed twelve-lot workload.`,
@@ -28,6 +47,27 @@ const candidates: Candidate[] = [
   release(9, 6),
   release(8, 5),
   release(10, 7),
+  {
+    strategy: "maintenance:lithography-jobs-6",
+    hypothesis: "Pulling lithography maintenance forward after six completed jobs may prevent the qualified bay from entering its defect-producing drift interval during the fixed twelve-lot campaign.",
+    expectedEffect: "Reduce latent critical-dimension defects and qualification disruption while retaining the shared re-entrant toolset.",
+    addresses: ["yield-quality", "maintenance-qualification"],
+    patch: (blueprint) => devicePolicyPatch(blueprint, "lithography-1", "preventiveMaintenance", { minimumJobs: 6 }),
+  },
+  {
+    strategy: "maintenance:inspection-jobs-4",
+    hypothesis: "Pulling inspection maintenance forward after four jobs may keep disposition capacity qualified through rework recirculation and the final release wave.",
+    expectedEffect: "Reduce quality-disposition interruption without changing inspection or rework physics.",
+    addresses: ["yield-quality", "maintenance-qualification"],
+    patch: (blueprint) => devicePolicyPatch(blueprint, "inspection-1", "preventiveMaintenance", { minimumJobs: 4 }),
+  },
+  {
+    strategy: "setup-campaign:lithography-3-12000",
+    hypothesis: "Holding lithography changeover until three compatible ready lots accumulate, with a twelve-thousand-tick escape, may avoid repeated long returns from layer two to layer one without starving the re-entrant route.",
+    expectedEffect: "Reduce changeover work and energy while bounding campaign-induced lot hold time.",
+    addresses: ["setup-campaign"],
+    patch: (blueprint) => devicePolicyPatch(blueprint, "lithography-1", "setupCampaign", { minimumReadyLots: 3, maximumHoldTicks: 12_000 }),
+  },
   {
     strategy: "dispatch:inspection-earliest-due-date",
     hypothesis: "Earliest-due-date inspection may prioritize lots with the least remaining contract slack after the re-entrant front end.",
@@ -63,17 +103,25 @@ const candidates: Candidate[] = [
 ];
 
 export default {
-  apiVersion: 2,
+  apiVersion: 3,
   propose(context) {
     const used = new Set(context.history.map((item) => item.strategy));
-    const lossChain = context.fabLoss?.chain;
-    const ranked = lossChain
-      ? candidates.map((candidate, index) => ({
-        candidate,
-        index,
-        addressedLoss: lossChain.find((loss) => candidate.addresses.includes(loss)),
-      })).filter((item) => item.addressedLoss).sort((left, right) =>
-        lossChain.indexOf(left.addressedLoss!) - lossChain.indexOf(right.addressedLoss!) || left.index - right.index)
+    const lossChain = context.fabLoss?.chain ?? [];
+    const attempts = new Map<FabLossBucketId, number>();
+    for (const item of context.history) {
+      if (item.addressedLoss) attempts.set(item.addressedLoss, (attempts.get(item.addressedLoss) ?? 0) + 1);
+    }
+    const ranked = lossChain.length
+      ? candidates.map((candidate, index) => {
+        const targets = lossChain.filter((loss) => candidate.addresses.includes(loss)).sort((left, right) =>
+          (attempts.get(left) ?? 0) - (attempts.get(right) ?? 0)
+          || lossChain.indexOf(left) - lossChain.indexOf(right));
+        const addressedLoss = targets[0];
+        return { candidate, index, addressedLoss, attempts: addressedLoss ? attempts.get(addressedLoss) ?? 0 : 0 };
+      }).filter((item) => item.addressedLoss).sort((left, right) =>
+        left.attempts - right.attempts
+        || lossChain.indexOf(left.addressedLoss!) - lossChain.indexOf(right.addressedLoss!)
+        || left.index - right.index)
       : candidates.map((candidate, index) => ({ candidate, index, addressedLoss: undefined }));
     for (const { candidate, addressedLoss } of ranked) {
       if (used.has(candidate.strategy)) continue;

@@ -30,6 +30,7 @@ export interface ResearchHistoryEntry {
   iteration: number;
   strategy: string;
   hypothesis: string;
+  addressedLoss?: FabLossBucketId;
   decision: "KEEP" | "REVERT";
   score: number;
   scoreDelta: number;
@@ -1167,6 +1168,7 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
       iteration: entry.iteration,
       strategy: entry.proposal.strategy ?? hashValue(entry.proposal.patch),
       hypothesis: entry.proposal.hypothesis,
+      ...(entry.proposal.addressedLoss ? { addressedLoss: entry.proposal.addressedLoss } : {}),
       decision: entry.decision,
       score: entry.score,
       scoreDelta: entry.score - entry.previousScore,

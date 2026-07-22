@@ -865,7 +865,7 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
   "driverCase": "mixed-quality",
   "proposal": {
     "kind": "heuristic",
-    "decisionFamilies": ["toolset-capacity", "specialize", "dispatch", "buffer"]
+    "decisionFamilies": ["toolset-capacity", "specialize", "maintenance", "setup-campaign", "dispatch", "buffer"]
   },
   "budget": { "maxCandidates": 6 }
 }

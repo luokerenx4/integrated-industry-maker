@@ -16,6 +16,8 @@
       "toolset-capacity",
       "capacity-plan",
       "specialize",
+      "maintenance",
+      "setup-campaign",
       "recipe",
       "dispatch",
       "buffer",

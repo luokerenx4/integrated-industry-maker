@@ -399,6 +399,7 @@ export async function runDesignProgram(
       iteration: item.iteration,
       strategy: item.strategy,
       hypothesis: item.hypothesis,
+      ...(item.addressedLoss ? { addressedLoss: item.addressedLoss } : {}),
       decision: item.decision === "KEEP" ? "KEEP" : "REVERT",
       score: item.candidateScore ?? item.previousBestScore,
       scoreDelta: item.scoreDeltaFromBest ?? 0,
