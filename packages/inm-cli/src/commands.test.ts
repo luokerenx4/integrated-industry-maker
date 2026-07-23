@@ -275,7 +275,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   }) }));
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
-    frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, leaderAfter: expect.any(String), selectionOrderAfter: expect.any(Array) }),
+    frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, leaderAfter: expect.any(String), searchOrderAfter: expect.any(Array), exhaustedAfter: expect.any(Array) }),
     decisionEvidence: expect.objectContaining({
       basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
       aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
@@ -328,7 +328,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: frontier.exitCode, stderr: frontier.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(frontier.stdout).data).toEqual({
     section: "frontier",
-    result: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), selectionOrder: expect.any(Array), nodes: expect.any(Array) }),
+    result: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), scheduler: { searchOrder: expect.any(Array), exhausted: expect.any(Array) }, nodes: expect.any(Array), exhaustions: expect.any(Array) }),
   });
 
   const runs = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--section", "runs", "--json"]);
@@ -338,8 +338,13 @@ test("public Design Program workflow discovers, inspects, and executes without m
     result: [expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" })],
   });
 
-  const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "4", "--json"]);
+  const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "5", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);
+  const guardedProgress = guardedExecuted.stderr.trim().split("\n").map((line) => JSON.parse(line));
+  expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    phase: "node-exhausted",
+    exhaustion: expect.objectContaining({ node: { nodeId: "candidate-3", role: "alternative", depth: 3 }, beforeIteration: 5, nextNodeId: "candidate-4" }),
+  }) }));
   const guardedRunHash = JSON.parse(guardedExecuted.stdout).data.result.resultHash as string;
   const guardedJson = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "iterations", "--json"]);
   const guardedIteration = JSON.parse(guardedJson.stdout).data.result[2];
@@ -360,7 +365,8 @@ test("public Design Program workflow discovers, inspects, and executes without m
       reason: "pareto-frontier",
       leaderAfter: "candidate-2",
       alternativesAfter: ["candidate-3"],
-      selectionOrderAfter: ["candidate-3", "candidate-2"],
+      searchOrderAfter: ["candidate-3", "candidate-2"],
+      exhaustedAfter: [],
     },
   });
   const repairIteration = JSON.parse(guardedJson.stdout).data.result[3];
@@ -393,6 +399,19 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(guardedHuman.stdout).toContain("candidate-2 → candidate-3 · branch-retained");
   expect(guardedHuman.stdout).toContain("before blocked by facility-interruption -3.915879 · allowed regression 0.000000");
   expect(guardedHuman.stdout).toContain("repairs facility-interruption");
+  expect(guardedHuman.stdout).toContain("1 searchable · 1 exhausted · next candidate-4");
+  expect(guardedHuman.stdout).toContain("X01 EXHAUST alternative candidate-3 before iteration 5 · next candidate-4");
+  const guardedFrontier = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "frontier", "--json"]);
+  expect(JSON.parse(guardedFrontier.stdout).data.result).toMatchObject({
+    leader: "candidate-4",
+    alternatives: ["candidate-3"],
+    scheduler: { searchOrder: ["candidate-4"], exhausted: ["candidate-3"] },
+    nodes: [
+      expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
+      expect.objectContaining({ nodeId: "candidate-3", role: "alternative", searchStatus: "exhausted" }),
+    ],
+    exhaustions: [expect.objectContaining({ sequence: 1, nextNodeId: "candidate-4" })],
+  });
 
   if (run.data.result.best.promotionPatchOperations === 0) {
     const refused = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--promote", "no-leading-design", "--json"]);

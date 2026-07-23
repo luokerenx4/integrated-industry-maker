@@ -78,7 +78,8 @@ export interface DesignFrontierEvidence {
   pruned: DesignFrontierPruneEvidence[];
   leaderAfter: DesignSearchNodeId;
   alternativesAfter: DesignSearchNodeId[];
-  selectionOrderAfter: DesignSearchNodeId[];
+  searchOrderAfter: DesignSearchNodeId[];
+  exhaustedAfter: DesignSearchNodeId[];
 }
 
 export interface DesignFrontierNodeSummary {
@@ -87,9 +88,21 @@ export interface DesignFrontierNodeSummary {
   iteration: number;
   depth: number;
   role: "leader" | "alternative";
+  searchStatus: "searchable" | "exhausted";
   blueprintHash: string;
   candidateScore: number;
   cases: Array<{ id: string; score: number }>;
+}
+
+export interface DesignSearchExhaustionEvidence {
+  sequence: number;
+  beforeIteration: number;
+  node: { nodeId: DesignSearchNodeId; role: "leader" | "alternative"; depth: number };
+  reason: "proposal-exhausted";
+  searchOrderBefore: DesignSearchNodeId[];
+  searchOrderAfter: DesignSearchNodeId[];
+  exhaustedAfter: DesignSearchNodeId[];
+  nextNodeId: DesignSearchNodeId | null;
 }
 
 export interface DesignRunIteration {
@@ -124,10 +137,11 @@ export interface DesignRunManifest {
   driver: DesignProgramBrief["driver"];
   budget: { maximum: number; evaluated: number };
   iterations: DesignRunIteration[];
+  exhaustions: DesignSearchExhaustionEvidence[];
   frontier: {
     leader: DesignSearchNodeId;
     alternatives: DesignSearchNodeId[];
-    selectionOrder: DesignSearchNodeId[];
+    scheduler: { searchOrder: DesignSearchNodeId[]; exhausted: DesignSearchNodeId[] };
     nodes: DesignFrontierNodeSummary[];
   };
   best: {
@@ -138,7 +152,7 @@ export interface DesignRunManifest {
     scoreDelta: number;
     verdict: BlueprintBenchmarkResult["verdict"];
   };
-  stopReason: "budget-exhausted" | "strategy-exhausted";
+  stopReason: "budget-exhausted" | "frontier-exhausted";
   resultHash: string;
 }
 
@@ -170,6 +184,7 @@ export type DesignRunProgress =
   }
   | DesignRunProgressBase & { phase: "proposal-started"; iteration: number; branch: ResearchBranchContext; promotionBoundary: ResearchPromotionBoundary; driverEvidence: DesignDriverEvidence }
   | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; branch: ResearchBranchContext; promotionBoundary: ResearchPromotionBoundary; strategy: string; decisionFamily: DesignDecisionFamily; addressedLoss?: FabLossBucketId; addressedCase?: string; driverEvidence: DesignDriverEvidence; proposalHash: string }
+  | DesignRunProgressBase & { phase: "node-exhausted"; exhaustion: DesignSearchExhaustionEvidence }
   | DesignRunProgressBase & {
     phase: "candidate-completed";
     iteration: number;
@@ -343,7 +358,8 @@ interface DesignSearchNode {
 
 interface DesignFrontierState {
   leader: DesignSearchNodeId;
-  selectionOrder: DesignSearchNodeId[];
+  searchOrder: DesignSearchNodeId[];
+  exhausted: DesignSearchNodeId[];
   nodes: Map<DesignSearchNodeId, DesignSearchNode>;
 }
 
@@ -368,26 +384,57 @@ function worstCaseDelta(node: DesignSearchNode, leader: DesignSearchNode): numbe
   }, Number.POSITIVE_INFINITY);
 }
 
-function nodeSummary(node: DesignSearchNode, leader: DesignSearchNodeId): DesignFrontierNodeSummary {
+function nodeSummary(node: DesignSearchNode, state: DesignFrontierState): DesignFrontierNodeSummary {
   return {
     nodeId: node.nodeId,
     ...(node.parentNodeId ? { parentNodeId: node.parentNodeId } : {}),
     iteration: node.iteration,
     depth: node.depth,
-    role: node.nodeId === leader ? "leader" : "alternative",
+    role: node.nodeId === state.leader ? "leader" : "alternative",
+    searchStatus: state.exhausted.includes(node.nodeId) ? "exhausted" : "searchable",
     blueprintHash: node.blueprintHash,
     candidateScore: node.evaluation.candidateScore,
     cases: node.evaluation.cases.map((item) => ({ id: item.id, score: item.candidateScore })),
   };
 }
 
+function frontierAlternatives(state: DesignFrontierState): DesignSearchNodeId[] {
+  return [...state.nodes.keys()].filter((nodeId) => nodeId !== state.leader);
+}
+
 function frontierManifest(state: DesignFrontierState): DesignRunManifest["frontier"] {
-  const alternatives = state.selectionOrder.filter((nodeId) => nodeId !== state.leader);
+  const alternatives = frontierAlternatives(state);
+  const nodeOrder = [state.leader, ...alternatives];
   return {
     leader: state.leader,
     alternatives,
-    selectionOrder: [...state.selectionOrder],
-    nodes: state.selectionOrder.map((nodeId) => nodeSummary(state.nodes.get(nodeId)!, state.leader)),
+    scheduler: { searchOrder: [...state.searchOrder], exhausted: [...state.exhausted] },
+    nodes: nodeOrder.map((nodeId) => nodeSummary(state.nodes.get(nodeId)!, state)),
+  };
+}
+
+function exhaustSelectedFrontierNode(
+  state: DesignFrontierState,
+  sequence: number,
+  beforeIteration: number,
+): { state: DesignFrontierState; evidence: DesignSearchExhaustionEvidence } {
+  const nodeId = state.searchOrder[0];
+  if (!nodeId) throw new Error("Cannot exhaust a Design frontier with no searchable node");
+  const node = state.nodes.get(nodeId)!;
+  const searchOrder = state.searchOrder.slice(1);
+  const exhausted = [...state.exhausted, nodeId];
+  return {
+    state: { ...state, searchOrder, exhausted },
+    evidence: {
+      sequence,
+      beforeIteration,
+      node: { nodeId, role: nodeId === state.leader ? "leader" : "alternative", depth: node.depth },
+      reason: "proposal-exhausted",
+      searchOrderBefore: [...state.searchOrder],
+      searchOrderAfter: searchOrder,
+      exhaustedAfter: exhausted,
+      nextNodeId: searchOrder[0] ?? null,
+    },
   };
 }
 
@@ -395,9 +442,9 @@ function rejectedFrontierAttempt(
   state: DesignFrontierState,
   reason: DesignFrontierEvidence["reason"],
 ): { state: DesignFrontierState; evidence: DesignFrontierEvidence } {
-  const parent = state.nodes.get(state.selectionOrder[0]!)!;
-  const selectionOrder = [...state.selectionOrder.slice(1), parent.nodeId];
-  const next = { ...state, selectionOrder };
+  const parent = state.nodes.get(state.searchOrder[0]!)!;
+  const searchOrder = [...state.searchOrder.slice(1), parent.nodeId];
+  const next = { ...state, searchOrder };
   return {
     state: next,
     evidence: {
@@ -407,8 +454,9 @@ function rejectedFrontierAttempt(
       dominatedBy: [],
       pruned: [],
       leaderAfter: state.leader,
-      alternativesAfter: selectionOrder.filter((nodeId) => nodeId !== state.leader),
-      selectionOrderAfter: selectionOrder,
+      alternativesAfter: frontierAlternatives(next),
+      searchOrderAfter: searchOrder,
+      exhaustedAfter: [...state.exhausted],
     },
   };
 }
@@ -419,7 +467,7 @@ function advanceDesignFrontier(
   leaderEvidence: DesignDecisionEvidence,
   policy: DesignFrontierPolicy,
 ): { state: DesignFrontierState; decision: DesignRunIteration["decision"]; evidence: DesignFrontierEvidence } {
-  const parent = state.nodes.get(state.selectionOrder[0]!)!;
+  const parent = state.nodes.get(state.searchOrder[0]!)!;
   const parentScoreDelta = candidate.evaluation.candidateScore - parent.evaluation.candidateScore;
   const dominatedBy = [...state.nodes.values()]
     .filter((node) => paretoDominates(node.evaluation, candidate.evaluation))
@@ -448,13 +496,14 @@ function advanceDesignFrontier(
   const nodes = new Map(state.nodes);
   nodes.set(candidate.nodeId, candidate);
   let leader = state.leader;
-  let selectionOrder = branchEligible
-    ? [candidate.nodeId, ...state.selectionOrder.slice(1), parent.nodeId]
-    : [...state.selectionOrder.slice(1), parent.nodeId, candidate.nodeId];
+  let searchOrder = branchEligible
+    ? [candidate.nodeId, ...state.searchOrder.slice(1), parent.nodeId]
+    : [...state.searchOrder.slice(1), parent.nodeId, candidate.nodeId];
+  let exhausted = [...state.exhausted];
   if (promoted) leader = candidate.nodeId;
   const pruned: DesignFrontierPruneEvidence[] = [];
 
-  for (const nodeId of [...selectionOrder]) {
+  for (const nodeId of [...nodes.keys()]) {
     if (nodeId === leader) continue;
     const node = nodes.get(nodeId)!;
     const dominator = [...nodes.values()]
@@ -462,7 +511,8 @@ function advanceDesignFrontier(
       .sort((left, right) => left.nodeId.localeCompare(right.nodeId))[0];
     if (!dominator) continue;
     nodes.delete(nodeId);
-    selectionOrder = selectionOrder.filter((item) => item !== nodeId);
+    searchOrder = searchOrder.filter((item) => item !== nodeId);
+    exhausted = exhausted.filter((item) => item !== nodeId);
     pruned.push({ nodeId, reason: "dominated", byNodeId: dominator.nodeId });
   }
 
@@ -473,17 +523,18 @@ function advanceDesignFrontier(
     || left.nodeId.localeCompare(right.nodeId));
   for (const node of alternatives.slice(policy.maximumAlternativeBranches)) {
     nodes.delete(node.nodeId);
-    selectionOrder = selectionOrder.filter((item) => item !== node.nodeId);
+    searchOrder = searchOrder.filter((item) => item !== node.nodeId);
+    exhausted = exhausted.filter((item) => item !== node.nodeId);
     pruned.push({ nodeId: node.nodeId, reason: "capacity" });
   }
 
   const candidateRetained = nodes.has(candidate.nodeId);
   if (promoted) {
-    selectionOrder = [...selectionOrder.filter((nodeId) => nodeId !== leader), leader];
+    searchOrder = [...searchOrder.filter((nodeId) => nodeId !== leader), leader];
   } else if (!candidateRetained) {
-    selectionOrder = [...selectionOrder.filter((nodeId) => nodeId !== parent.nodeId), parent.nodeId];
+    searchOrder = [...searchOrder.filter((nodeId) => nodeId !== parent.nodeId), parent.nodeId];
   }
-  const next: DesignFrontierState = { leader, selectionOrder, nodes };
+  const next: DesignFrontierState = { leader, searchOrder, exhausted, nodes };
   const decision: DesignRunIteration["decision"] = promoted ? "KEEP" : candidateRetained ? "BRANCH" : "REJECT";
   return {
     state: next,
@@ -497,8 +548,9 @@ function advanceDesignFrontier(
       dominatedBy,
       pruned,
       leaderAfter: leader,
-      alternativesAfter: selectionOrder.filter((nodeId) => nodeId !== leader),
-      selectionOrderAfter: selectionOrder,
+      alternativesAfter: frontierAlternatives(next),
+      searchOrderAfter: searchOrder,
+      exhaustedAfter: exhausted,
     },
   };
 }
@@ -506,7 +558,8 @@ function advanceDesignFrontier(
 function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
   let state: DesignFrontierState = {
     leader: "seed",
-    selectionOrder: ["seed"],
+    searchOrder: ["seed"],
+    exhausted: [],
     nodes: new Map([["seed", {
       nodeId: "seed",
       iteration: 0,
@@ -517,8 +570,19 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
     }]]),
   };
   try {
-    for (const iteration of manifest.iterations) {
-      const parent = state.nodes.get(state.selectionOrder[0]!)!;
+    let exhaustionIndex = 0;
+    for (const [iterationIndex, iteration] of manifest.iterations.entries()) {
+      if (iteration.iteration !== iterationIndex + 1) return false;
+      while (manifest.exhaustions[exhaustionIndex]?.beforeIteration === iteration.iteration) {
+        const expected = exhaustSelectedFrontierNode(state, exhaustionIndex + 1, iteration.iteration);
+        if (stableStringify(manifest.exhaustions[exhaustionIndex]) !== stableStringify(expected.evidence)) return false;
+        state = expected.state;
+        exhaustionIndex++;
+      }
+      if (manifest.exhaustions[exhaustionIndex] && manifest.exhaustions[exhaustionIndex]!.beforeIteration < iteration.iteration) return false;
+      const parentId = state.searchOrder[0];
+      if (!parentId) return false;
+      const parent = state.nodes.get(parentId)!;
       const leader = state.nodes.get(state.leader)!;
       const expectedPromotionBoundary = promotionBoundary(leader, parent, manifest.program.currentBestGuardrail);
       if (stableStringify(iteration.promotionBoundary) !== stableStringify(expectedPromotionBoundary)) return false;
@@ -544,9 +608,20 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
       if (iteration.decision !== advanced.decision || stableStringify(iteration.frontierEvidence) !== stableStringify(advanced.evidence)) return false;
       state = advanced.state;
     }
+    while (exhaustionIndex < manifest.exhaustions.length) {
+      const expected = exhaustSelectedFrontierNode(state, exhaustionIndex + 1, manifest.iterations.length + 1);
+      if (stableStringify(manifest.exhaustions[exhaustionIndex]) !== stableStringify(expected.evidence)) return false;
+      state = expected.state;
+      exhaustionIndex++;
+    }
   } catch { return false; }
   const leader = state.nodes.get(state.leader)!;
   return stableStringify(manifest.frontier) === stableStringify(frontierManifest(state))
+    && manifest.budget.evaluated === manifest.iterations.length
+    && manifest.budget.evaluated <= manifest.budget.maximum
+    && (manifest.stopReason === "budget-exhausted"
+      ? manifest.budget.evaluated === manifest.budget.maximum && state.searchOrder.length > 0
+      : manifest.budget.evaluated < manifest.budget.maximum && state.searchOrder.length === 0)
     && manifest.best.iteration === leader.iteration
     && manifest.best.blueprintHash === leader.blueprintHash
     && manifest.best.candidateScore === leader.evaluation.candidateScore
@@ -594,9 +669,13 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
     || !/^[0-9a-f]{64}$/.test(manifest.promotionBase?.hash ?? "")
     || !Number.isInteger(manifest.best?.promotionPatchOperations)
     || manifest.best.promotionPatchOperations < 0
-    || !Array.isArray(manifest.iterations)
+    || !Number.isInteger(manifest.budget?.maximum) || manifest.budget.maximum < 1
+    || !Number.isInteger(manifest.budget?.evaluated) || manifest.budget.evaluated < 0
+    || !Array.isArray(manifest.iterations) || !Array.isArray(manifest.exhaustions)
     || !manifest.frontier || !Array.isArray(manifest.frontier.nodes)
-    || !Array.isArray(manifest.frontier.alternatives) || !Array.isArray(manifest.frontier.selectionOrder)
+    || !Array.isArray(manifest.frontier.alternatives)
+    || !Array.isArray(manifest.frontier.scheduler?.searchOrder) || !Array.isArray(manifest.frontier.scheduler?.exhausted)
+    || (manifest.stopReason !== "budget-exhausted" && manifest.stopReason !== "frontier-exhausted")
     || manifest.iterations.some((iteration) => !validDesignRunIteration(iteration))
     || !validDesignDecisionSequence(manifest)) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest seed, promotion base, or best-design evidence is invalid`);
@@ -724,7 +803,7 @@ export async function runDesignProgram(
   const benchmark = prepared.benchmark;
   let sequence = 0;
   let completedSimulations = 0;
-  const plannedSimulations = benchmark.cases.length * (maximum + 2);
+  let plannedSimulations = benchmark.cases.length * (maximum + 2);
   const progressBase = (): DesignRunProgressBase => ({
     version: 1,
     sequence: ++sequence,
@@ -764,6 +843,7 @@ export async function runDesignProgram(
   const seedHash = hashValue(seedBlueprint);
   if (seedHash !== brief.seed.blueprintHash) throw new Error(`Design Program '${program.id}' resolved inconsistent seed identities`);
   const iterations: DesignRunIteration[] = [];
+  const exhaustions: DesignSearchExhaustionEvidence[] = [];
   const projectAgent = program.proposal.kind === "project-strategy"
     ? new ProjectStrategyResearchAgent(projectDir, program.proposal.entry) : null;
   const heuristicAgent = program.proposal.kind === "heuristic"
@@ -771,7 +851,8 @@ export async function runDesignProgram(
   let stopReason: DesignRunManifest["stopReason"] = "budget-exhausted";
   let frontierState: DesignFrontierState = {
     leader: "seed",
-    selectionOrder: ["seed"],
+    searchOrder: ["seed"],
+    exhausted: [],
     nodes: new Map([["seed", {
       nodeId: "seed",
       iteration: 0,
@@ -783,8 +864,14 @@ export async function runDesignProgram(
     }]]),
   };
 
-  for (let iteration = 1; iteration <= maximum; iteration++) {
-    const parent = frontierState.nodes.get(frontierState.selectionOrder[0]!)!;
+  while (iterations.length < maximum) {
+    const iteration = iterations.length + 1;
+    const selectedNodeId = frontierState.searchOrder[0];
+    if (!selectedNodeId) {
+      stopReason = "frontier-exhausted";
+      break;
+    }
+    const parent = frontierState.nodes.get(selectedNodeId)!;
     const leader = frontierState.nodes.get(frontierState.leader)!;
     const driverProject = compileFactoryProject(withBlueprint(loaded, parent.blueprint!));
     const driverResult = runUntil(driverProject, undefined, { seed: driverCase.seed });
@@ -820,8 +907,12 @@ export async function runDesignProgram(
     } catch (error) {
       if (error instanceof ProjectProposalExhaustedError
         || (error instanceof Error && error.message.startsWith("Heuristic agent found no valid blueprint strategy"))) {
-        stopReason = "strategy-exhausted";
-        break;
+        const exhausted = exhaustSelectedFrontierNode(frontierState, exhaustions.length + 1, iteration);
+        frontierState = exhausted.state;
+        exhaustions.push(exhausted.evidence);
+        emit({ phase: "node-exhausted", exhaustion: exhausted.evidence });
+        if (!frontierState.searchOrder.length) stopReason = "frontier-exhausted";
+        continue;
       }
       throw error;
     }
@@ -942,6 +1033,7 @@ export async function runDesignProgram(
     driver: brief.driver,
     budget: { maximum, evaluated: iterations.length },
     iterations,
+    exhaustions,
     frontier: frontierManifest(frontierState),
     best: {
       iteration: bestNode.iteration,
@@ -959,6 +1051,7 @@ export async function runDesignProgram(
   };
   const manifest: DesignRunManifest = { ...withoutHash, resultHash: hashValue(manifestHashInput(withoutHash)) };
   const artifact = await writeDesignRunArtifact(brief.project.rootDir, manifest, bestBlueprint);
+  plannedSimulations = completedSimulations;
   emit({ phase: "run-completed", resultHash: manifest.resultHash, stopReason: manifest.stopReason, best: manifest.best });
   return { manifest, bestBlueprint, artifact };
 }

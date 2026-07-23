@@ -238,7 +238,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "proposal-completed", addressedLoss: "queue-starvation" }) }));
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "candidate-completed",
-      frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1", leaderAfter: expect.any(String), selectionOrderAfter: expect.any(Array) }),
+      frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1", leaderAfter: expect.any(String), searchOrderAfter: expect.any(Array), exhaustedAfter: expect.any(Array) }),
       decisionEvidence: expect.objectContaining({
         basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
         aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
@@ -250,11 +250,12 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
     const resultRecord = records.find((record) => record.type === "result");
     expect(resultRecord).toBeDefined();
-    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; iterations: Array<{ addressedLoss?: string; promotionBoundary: { promotable: boolean }; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };
+    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; exhaustions: unknown[]; iterations: Array<{ addressedLoss?: string; promotionBoundary: { promotable: boolean }; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };
     expect(run).toEqual(expect.objectContaining({
       manifest: expect.objectContaining({
         budget: { maximum: 1, evaluated: 1 },
-        frontier: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), selectionOrder: expect.any(Array), nodes: expect.any(Array) }),
+        frontier: expect.objectContaining({ leader: expect.any(String), alternatives: expect.any(Array), scheduler: { searchOrder: expect.any(Array), exhausted: [] }, nodes: expect.any(Array) }),
+        exhaustions: [],
         iterations: [expect.objectContaining({
           addressedLoss: "queue-starvation",
           promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null }),

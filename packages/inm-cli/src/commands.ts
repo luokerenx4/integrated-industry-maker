@@ -5,7 +5,7 @@ import {
   CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type DesignRunIteration, type DesignRunProgress, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
+  type DesignRunIteration, type DesignRunProgress, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -54,10 +54,15 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
   else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.branch.role} ${progress.branch.nodeId} · ${designPromotionBoundaryDetail(progress.promotionBoundary)} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
   else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
+  else if (progress.phase === "node-exhausted") line = `EXHAUST ${work}  ${progress.exhaustion.node.role} ${progress.exhaustion.node.nodeId} · proposal portfolio exhausted · next ${progress.exhaustion.nextNodeId ?? "none"}`;
   else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision} · ${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${progress.addressedCase ? ` · repaired ${progress.addressedCase}` : ""}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · leader Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
   else return;
   process.stderr.write(`${line}\n`);
+}
+
+function designExhaustionLine(exhaustion: DesignSearchExhaustionEvidence): string {
+  return `  X${String(exhaustion.sequence).padStart(2, "0")} EXHAUST ${exhaustion.node.role} ${exhaustion.node.nodeId} before iteration ${exhaustion.beforeIteration} · next ${exhaustion.nextNodeId ?? "none"}`;
 }
 
 function designIterationLine(iteration: DesignRunIteration): string {
@@ -911,7 +916,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
       static: () => brief.staticEvidence,
       iterations: () => result.manifest.iterations,
-      frontier: () => result.manifest.frontier,
+      frontier: () => ({ ...result.manifest.frontier, exhaustions: result.manifest.exhaustions }),
       best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
       runs: () => [result.manifest],
       all: () => result.manifest,
@@ -932,7 +937,8 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Result: ${result.manifest.resultHash}`,
       `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
-      `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · next ${result.manifest.frontier.selectionOrder[0]}`,
+      `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
+      ...result.manifest.exhaustions.map(designExhaustionLine),
       ...result.manifest.iterations.map(designIterationLine),
       `Artifact: ${result.artifact.path}`,
       ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
@@ -994,7 +1000,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     }),
     static: () => brief.staticEvidence,
     iterations: () => result.manifest.iterations,
-    frontier: () => result.manifest.frontier,
+    frontier: () => ({ ...result.manifest.frontier, exhaustions: result.manifest.exhaustions }),
     best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
     all: () => result.manifest,
   });
@@ -1012,7 +1018,8 @@ export async function designCommand(projectDir: string, programId: string | unde
     `Result: ${result.manifest.resultHash}`,
     `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
     `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
-    `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · next ${result.manifest.frontier.selectionOrder[0]}`,
+    `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
+    ...result.manifest.exhaustions.map(designExhaustionLine),
     ...result.manifest.iterations.map(designIterationLine),
     `Artifact: ${result.artifact.path}`, "",
   ].join("\n"), false);

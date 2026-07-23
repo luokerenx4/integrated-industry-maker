@@ -12,13 +12,13 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
-
-## Proposed plans
-
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/frontier-node-exhaustion-scheduling]] | Retire only a proposal-exhausted Pareto node from active scheduling while preserving its evidence and continuing other branches. | 2026-07-23 |
+
+## Proposed plans
+
+There are no proposed plans.
 
 ## Paused plans
 

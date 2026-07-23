@@ -763,12 +763,18 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .design-frontier article { min-width: 0; display: grid; gap: 5px; padding: 11px; border: 1px solid #2b4942; border-radius: 4px; background: #0b1b19; }
 .design-frontier article.leader { border-color: #3b947a; background: #0d2922; box-shadow: inset 3px 0 #65dcb8; }
 .design-frontier article.alternative { border-color: #665633; background: #211d12; box-shadow: inset 3px 0 #c5a653; }
+.design-frontier article.exhausted { opacity: .68; border-style: dashed; }
 .design-frontier article small { color: #66867d; font: 6px var(--mono); letter-spacing: .08em; }
 .design-frontier article.alternative small { color: #aa9460; }
 .design-frontier article strong { color: #c5e1d9; font: 10px var(--mono); }
 .design-frontier article code, .design-frontier article span { overflow: hidden; color: #58766e; font: 7px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .design-frontier article b { color: #7ce4c1; font: 12px var(--mono); }
 .design-frontier article.alternative b { color: #d2b76d; }
+.design-exhaustions { padding: 10px 13px; border-bottom: 1px solid #1b3a33; background: #0b1515; }
+.design-exhaustions > div:not(.design-section-title) { display: grid; grid-template-columns: 34px minmax(90px, .7fr) minmax(170px, 1.4fr) minmax(100px, .6fr); gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid #162b28; font: 7px var(--mono); }
+.design-exhaustions > div:not(.design-section-title) b { color: #b98672; }
+.design-exhaustions > div:not(.design-section-title) strong { color: #b9cec8; }
+.design-exhaustions > div:not(.design-section-title) span, .design-exhaustions > div:not(.design-section-title) code { color: #607c75; }
 .design-iteration-head, .design-iterations > div { display: grid; grid-template-columns: 35px 65px minmax(0, 1fr) 100px; align-items: center; gap: 9px; padding: 10px 13px; border-top: 1px solid #142c28; }
 .design-iteration-head { color: #4e6d66; font: 6px var(--mono); letter-spacing: .08em; }
 .design-iterations b, .design-iterations em { color: #68877f; font: normal 8px var(--mono); }

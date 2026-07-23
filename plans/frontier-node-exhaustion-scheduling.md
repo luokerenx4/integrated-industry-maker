@@ -1,6 +1,6 @@
 # Frontier node exhaustion scheduling
 
-- Status: `proposed`
+- Status: `active`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]] and [[docs/design/agent-cli-contract]].
 
@@ -32,31 +32,43 @@ Frontier membership, promotion authority, and search eligibility are therefore t
 
 ## Acceptance
 
-- [ ] A selected node can become search-exhausted while remaining leader or alternative evidence.
-- [ ] Another active node continues without consuming budget for the exhausted proposal attempt.
-- [ ] Immutable replay rejects altered exhaustion order, node status, next selection, or stop reason.
-- [ ] CLI and Studio distinguish retained, promotable, searchable, and exhausted state.
-- [ ] The greenfield run continues from repaired `candidate-4` after `candidate-3` exhausts its facility repair portfolio.
-- [ ] Core, CLI, Studio, documentation, and full regression pass.
+- [x] A selected node can become search-exhausted while remaining leader or alternative evidence.
+- [x] Another active node continues without consuming budget for the exhausted proposal attempt.
+- [x] Immutable replay rejects altered exhaustion order, node status, next selection, or stop reason.
+- [x] CLI and Studio distinguish retained, promotable, searchable, and exhausted state.
+- [x] The greenfield run continues from repaired `candidate-4` after `candidate-3` exhausts its facility repair portfolio.
+- [x] Core, CLI, Studio, documentation, and full regression pass.
 
 ## Work
 
-- [ ] Define frontier membership versus scheduler-state invariants.
-- [ ] Implement node-local exhaustion and immutable replay.
-- [ ] Project progress and final status through CLI and Studio.
-- [ ] Exercise the real memory-fab continuation and run full regression.
+- [x] Define frontier membership versus scheduler-state invariants.
+- [x] Implement node-local exhaustion and immutable replay.
+- [x] Project progress and final status through CLI and Studio.
+- [x] Exercise the real memory-fab continuation and run full regression.
 
 ## Findings and decisions
 
 - 2026-07-23 — The first successful branch repair proves that non-dominated and still-searchable are not synonyms: the unrepaired parent remains an honest cost/resilience tradeoff after its only eligible repair is used.
+- 2026-07-23 — Exhaustion is a scheduler event, not a rejected Candidate. It records the exact node and next queue state, performs no Benchmark simulation, and leaves the global evaluation counter unchanged.
+- 2026-07-23 — Final Frontier evidence now owns one retained-node graph plus a separate scheduler projection. A node summary explicitly says `searchable` or `exhausted`; pruning may still remove an exhausted node when a later Candidate dominates it.
+- 2026-07-23 — The real seven-candidate greenfield search exhausts `candidate-3` before iteration 5, continues the repaired `candidate-4`, retains then exhausts `candidate-6` before iteration 7, and still evaluates the complete 7/7 budget.
 
 ## Verification
 
-- Pending.
+- `bun test packages/inm-core/src/design-program.test.ts` passes four tests and 74 assertions, including zero-budget global exhaustion, real 7/7 continuation, deterministic repetition, and altered exhaustion order/node status/next node/stop reason rejection.
+- `bun test packages/inm-cli/src/commands.test.ts packages/inm-studio/src/server.test.ts` passes 16 tests and 301 assertions over Agent progress, human output, final scheduler state, and Studio API parity.
+- Real result `ebb1a45fe61db1f5e20924d40d6b48df0933a672be1a834c7f4707352f904f78` evaluates 7/7 candidates, records two zero-budget alternative exhaustions, retains exhausted `candidate-6`, leaves leader `candidate-4` searchable, and reopens through the public CLI.
+- Manual in-app Studio verification shows matching searchable/exhausted Frontier cards, the two-entry exhaustion ledger, the correct next node, and no console errors.
+- `bun run test` passes 189 tests and 1,644 assertions across documentation, types, Core, CLI, Studio, and the Ironworks public project fixtures.
+- `bun run inm test examples/memory-fab` passes the bounded batch-formation and re-entrant DRAM scenarios.
+- `bun run docs:check`, `bun run typecheck`, and `git diff --check` pass.
 
 ## Progress log
 
 - 2026-07-23 — Proposed from the 4/7 `strategy-exhausted` terminal state of the first successful greenfield branch repair.
+- 2026-07-23 — Activated after the promotion-boundary repair contract and its real greenfield evidence were committed to `main`.
+- 2026-07-23 — Implemented node-local scheduler retirement, replay validation, CLI/Studio projection, and real 7/7 memory-fab continuation; full regression and completion audit remain.
+- 2026-07-23 — Passed the full repository and public memory-fab regressions, reopened the real immutable run through CLI, and visually verified matching Studio evidence.
 
 ## Completion
 
