@@ -673,7 +673,7 @@ export function analyzeFabLossProfile(
     id: "q-time",
     label: "Route Q-time",
     score: ratio(qTimeLots, scheduled) + ratio(qTimeViolations, scheduled),
-    summary: `${qTimeLots} lots crossed a Route Q-time limit in ${qTimeViolations} step visits across ${qTimeDetails.length} measured contributors.`,
+    summary: `${qTimeLots} ${qTimeLots === 1 ? "lot" : "lots"} crossed a Route Q-time limit in ${qTimeViolations} ${qTimeViolations === 1 ? "step visit" : "step visits"} across ${qTimeDetails.length} measured ${qTimeDetails.length === 1 ? "contributor" : "contributors"}.`,
     subjects: qTimeRoute ? [{ kind: "route", id: qTimeRoute }] : [],
     evidence: { violatedLots: qTimeLots, violations: qTimeViolations, contributors: qTimeDetails.length },
     contributors: qTimeDetails,

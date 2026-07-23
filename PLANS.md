@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/resilient-design-evidence-index]] | Keep Design Programs inspectable and runnable beside invalid local evidence while excluding that evidence from every authoritative operation. | 2026-07-24 |
 | [[plans/event-backed-yield-causality]] | Trace verified rework, persistence, scrap, and escape outcomes back to exact defect-origin mechanisms for humans, Agents, and Design. | 2026-07-23 |
 | [[plans/opportunity-window-input-starvation]] | Replace boundary-heavy Device input-wait ranking with event-backed inter-job opportunity gaps and shared human/Agent contributors. | 2026-07-23 |
 | [[plans/project-local-factory-environment]] | Give the memory-fab a project-owned cleanroom floor, open-roof architectural frame, and generated distant industrial backdrop without changing industrial geometry or execution. | 2026-07-23 |

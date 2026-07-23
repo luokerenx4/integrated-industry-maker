@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { hashValue, listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
@@ -256,6 +256,11 @@ test("public schema discovery lists and emits every project artifact JSON Schema
 test("public Design Program workflow discovers, inspects, and executes without mutating its seed Blueprint", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-design-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") });
+  const invalidRunId = "a".repeat(64);
+  const invalidRunPath = join(projectDir, "design-runs", "integrated-dram-fab", invalidRunId);
+  await mkdir(invalidRunPath, { recursive: true });
+  await writeFile(join(invalidRunPath, "manifest.json"), "{}\n");
+  await writeFile(join(invalidRunPath, "best.blueprint.json"), "{}\n");
   const commissioningTargetPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
   const commissioningTarget = JSON.parse(await readFile(join(projectDir, "blueprints/greenfield.blueprint.json"), "utf8"));
   commissioningTarget.revision = "memory-fab-generated-target-v1";
@@ -283,13 +288,19 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const inspection = JSON.parse(inspected.stdout);
   expect(inspection.data).toEqual(expect.objectContaining({
     section: "summary",
-    result: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
+    result: expect.objectContaining({
+      program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
+      benchmark: expect.objectContaining({ cases: 5 }),
+      evidence: { validRuns: 0, invalidRuns: 1 },
+    }),
   }));
   expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
-  expect(await pathExists(join(projectDir, "design-runs"))).toBeFalse();
+  expect(await pathExists(join(projectDir, "design-runs"))).toBeTrue();
   const humanInspection = await runCli(["design", projectDir, "--program", "integrated-dram-fab"]);
   expect(humanInspection.stdout).toContain("Current-best guardrail: uniform · max 0.000000 regression/case");
   expect(humanInspection.stdout).toContain("Frontier: 1 leader + up to 1 alternative branch");
+  expect(humanInspection.stdout).toContain("Evidence: 0 valid immutable runs · 1 invalid run excluded");
+  expect(humanInspection.stdout).toContain(`excluded ${invalidRunId.slice(0, 12)} · design.invalid-run`);
 
   const generated = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--json"]);
   expect({ exitCode: generated.exitCode, stderr: generated.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -413,12 +424,21 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(runs.stdout).data).toEqual({
     section: "runs",
-    result: expect.arrayContaining([
-      expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research", continuation: null }),
-      expect.objectContaining({ id: continuedHash, continuation: expect.objectContaining({ sourceResultHash: resultHash }), budget: { maximum: 2, evaluated: 2 } }),
-    ]),
+    result: {
+      runs: expect.arrayContaining([
+        expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research", continuation: null }),
+        expect.objectContaining({ id: continuedHash, continuation: expect.objectContaining({ sourceResultHash: resultHash }), budget: { maximum: 2, evaluated: 2 } }),
+      ]),
+      invalidRuns: [{
+        id: invalidRunId,
+        path: invalidRunPath,
+        program: "integrated-dram-fab",
+        code: "design.invalid-run",
+        message: `Design run '${invalidRunId}' manifest identity or completion state is invalid`,
+      }],
+    },
   });
-  expect(JSON.parse(runs.stdout).data.result).toHaveLength(2);
+  expect(JSON.parse(runs.stdout).data.result.runs).toHaveLength(2);
 
   const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "7", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);

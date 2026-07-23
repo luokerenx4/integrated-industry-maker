@@ -85,7 +85,7 @@ Core derives one visible and machine-readable next action from existing workbenc
 
 Every target already exists in the snapshot and carries exact CLI argv plus a Studio route. CLI returns the object unchanged and Studio renders it unchanged; neither surface chooses priority locally. Orientation never executes a Benchmark, creates a review receipt, mutates a Blueprint, or claims that a non-matching run proves the selected selection.
 
-All remaining operation descriptors stay available under explicit progressive disclosure with their effect, scope, guards, and exact CLI reproduction. Recommendation identity is domain-derived and exposed semantically for browser-capable operators.
+All remaining operation descriptors stay available under explicit progressive disclosure with their effect, scope, guards, and exact CLI reproduction. Recommendation identity is domain-derived and exposed semantically for browser-capable operators. The route-backed Design workbench applies the same evidence-authority rule: Core indexes strict valid runs separately from invalid local siblings, CLI and Studio expose both lists, and invalid evidence cannot remove the bounded new-run operation or enter ranking, continuation, or promotion.
 
 ## Source of truth
 

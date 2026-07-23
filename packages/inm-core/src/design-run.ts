@@ -222,6 +222,19 @@ export interface DesignRunSummary {
   stopReason: DesignRunManifest["stopReason"];
 }
 
+export interface InvalidDesignRunSummary {
+  id: string;
+  path: string;
+  program: string;
+  code: string;
+  message: string;
+}
+
+export interface DesignRunEvidenceIndex {
+  runs: DesignRunSummary[];
+  invalidRuns: InvalidDesignRunSummary[];
+}
+
 export class DesignRunError extends Error {
   constructor(public readonly code: string, message: string, public readonly hashes: Record<string, string> = {}) {
     super(message);
@@ -856,12 +869,13 @@ export async function loadDesignRun(projectDir: string, programId: string, resul
   return { manifest, bestBlueprint: parsedBlueprint.data, artifact: { id: resultHash, path, created: false } };
 }
 
-export async function listDesignRuns(projectDir: string, programId?: string): Promise<DesignRunSummary[]> {
+export async function indexDesignRuns(projectDir: string, programId?: string): Promise<DesignRunEvidenceIndex> {
   const root = join(projectDir, "design-runs");
-  if (!await pathExists(root)) return [];
+  if (!await pathExists(root)) return { runs: [], invalidRuns: [] };
   const programIds = programId ? [programId] : (await readdir(root, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory() && /^[a-z0-9][a-z0-9-]*$/.test(entry.name)).map((entry) => entry.name).sort();
-  const summaries: DesignRunSummary[] = [];
+  const runs: DesignRunSummary[] = [];
+  const invalidRuns: InvalidDesignRunSummary[] = [];
   for (const id of programIds) {
     const programRoot = join(root, id);
     if (!await pathExists(programRoot)) continue;
@@ -869,22 +883,37 @@ export async function listDesignRuns(projectDir: string, programId?: string): Pr
       .filter((entry) => entry.isDirectory() && /^[0-9a-f]{64}$/.test(entry.name)).map((entry) => entry.name).sort();
     for (const resultId of resultIds) {
       if (!await pathExists(join(programRoot, resultId, "manifest.json"))) continue;
-      const run = await loadDesignRun(projectDir, id, resultId);
-      summaries.push({
-        id: resultId,
-        path: run.artifact.path,
-        program: id,
-        benchmark: run.manifest.benchmark.id,
-        seed: structuredClone(run.manifest.seed.source),
-        promotionBase: { ...run.manifest.promotionBase },
-        continuation: structuredClone(run.manifest.continuation),
-        budget: { ...run.manifest.budget },
-        best: { ...run.manifest.best },
-        stopReason: run.manifest.stopReason,
-      });
+      const path = join(programRoot, resultId);
+      try {
+        const run = await loadDesignRun(projectDir, id, resultId);
+        runs.push({
+          id: resultId,
+          path: run.artifact.path,
+          program: id,
+          benchmark: run.manifest.benchmark.id,
+          seed: structuredClone(run.manifest.seed.source),
+          promotionBase: { ...run.manifest.promotionBase },
+          continuation: structuredClone(run.manifest.continuation),
+          budget: { ...run.manifest.budget },
+          best: { ...run.manifest.best },
+          stopReason: run.manifest.stopReason,
+        });
+      } catch (error) {
+        invalidRuns.push({
+          id: resultId,
+          path,
+          program: id,
+          code: error instanceof DesignRunError ? error.code : "design.run-unreadable",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
-  return summaries;
+  return { runs, invalidRuns };
+}
+
+export async function listDesignRuns(projectDir: string, programId?: string): Promise<DesignRunSummary[]> {
+  return (await indexDesignRuns(projectDir, programId)).runs;
 }
 
 export async function promoteDesignRun(

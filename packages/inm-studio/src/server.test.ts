@@ -213,6 +213,11 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     recursive: true,
     filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
   });
+  const invalidRunId = "a".repeat(64);
+  const invalidRunPath = join(projectDir, "design-runs", "greenfield-dram-fab", invalidRunId);
+  await mkdir(invalidRunPath, { recursive: true });
+  await writeFile(join(invalidRunPath, "manifest.json"), "{}\n");
+  await writeFile(join(invalidRunPath, "best.blueprint.json"), "{}\n");
   const seedPath = join(projectDir, "blueprints/experiment.blueprint.json");
   const generatedPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
   const commissioningTarget = JSON.parse(await readFile(join(projectDir, "blueprints/greenfield.blueprint.json"), "utf8"));
@@ -245,12 +250,20 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 7 } }),
       ],
       runs: [],
+      invalidRuns: [{
+        id: invalidRunId,
+        path: invalidRunPath,
+        program: "greenfield-dram-fab",
+        code: "design.invalid-run",
+        message: `Design run '${invalidRunId}' manifest identity or completion state is invalid`,
+      }],
     });
     const programResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab`);
     expect(programResponse.status).toBe(200);
     expect(await programResponse.json()).toEqual(expect.objectContaining({
       brief: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
       runs: [],
+      invalidRuns: [],
     }));
     const generatedProgramResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab`);
     expect(generatedProgramResponse.status).toBe(200);
@@ -260,6 +273,8 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         seed: expect.objectContaining({ synthesis: expect.objectContaining({ method: "project-strategy", entry: "strategies/reentrant-dram-fab.ts" }) }),
         promotionBase: expect.objectContaining({ blueprint: "generated-dram-fab" }),
       }),
+      runs: [],
+      invalidRuns: [expect.objectContaining({ id: invalidRunId, code: "design.invalid-run" })],
     }));
     const campaignRunResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/run`, {
       method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 7 }),

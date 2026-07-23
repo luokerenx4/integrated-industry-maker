@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
@@ -1043,15 +1043,16 @@ export async function designCommand(projectDir: string, programId: string | unde
     return;
   }
   if (!options.run) {
-    const runs = await listDesignRuns(projectDir, programId);
+    const { runs, invalidRuns } = await indexDesignRuns(projectDir, programId);
+    const evidence = { validRuns: runs.length, invalidRuns: invalidRuns.length };
     const data = sectionResult("design", options, {
-      summary: () => ({ program: brief.program, benchmark: brief.benchmark, seed: brief.seed, promotionBase: brief.promotionBase, driver: brief.driver, staticEvidence: brief.staticEvidence }),
+      summary: () => ({ program: brief.program, benchmark: brief.benchmark, seed: brief.seed, promotionBase: brief.promotionBase, driver: brief.driver, staticEvidence: brief.staticEvidence, evidence }),
       static: () => brief.staticEvidence,
       iterations: () => [],
-      frontier: () => ({ policy: brief.program.frontier, runs: runs.map((run) => ({ id: run.id, continuation: run.continuation, budget: run.budget, best: run.best, stopReason: run.stopReason })) }),
+      frontier: () => ({ policy: brief.program.frontier, evidence, runs: runs.map((run) => ({ id: run.id, continuation: run.continuation, budget: run.budget, best: run.best, stopReason: run.stopReason })) }),
       best: () => null,
-      runs: () => runs,
-      all: () => ({ ...brief, runs }),
+      runs: () => ({ runs, invalidRuns }),
+      all: () => ({ ...brief, evidence, runs, invalidRuns }),
     });
     if (options.json) writeSuccess("design", data, {
       context,
@@ -1072,6 +1073,9 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Frontier: 1 leader + up to ${brief.program.frontier.maximumAlternativeBranches} alternative branch${brief.program.frontier.maximumAlternativeBranches === 1 ? "" : "es"}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
       `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
+      `Evidence: ${runs.length} valid immutable run${runs.length === 1 ? "" : "s"} · ${invalidRuns.length} invalid run${invalidRuns.length === 1 ? "" : "s"} excluded`,
+      ...invalidRuns.slice(0, 5).map((run) => `  excluded ${run.id.slice(0, 12)} · ${run.code} · ${run.message}`),
+      ...(invalidRuns.length > 5 ? [`  … ${invalidRuns.length - 5} more in --section runs --json`] : []),
       "",
       `Run: inm design <path> --program ${programId} --run`, "",
     ].join("\n"), false);

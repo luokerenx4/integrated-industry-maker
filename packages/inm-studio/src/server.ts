@@ -14,11 +14,11 @@ import {
   continueDesignRun,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
+  indexDesignRuns,
   inspectCandidateDecision,
   listBlueprintBenchmarks,
   listCandidateChangeSets,
   listDesignPrograms,
-  listDesignRuns,
   loadCandidateChangeSet,
   loadDesignRun,
   listRuns,
@@ -555,7 +555,7 @@ const server = Bun.serve({
       if (designsMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(designsMatch[1]!));
-        return Response.json({ programs: await listDesignPrograms(projectDir), runs: await listDesignRuns(projectDir) });
+        return Response.json({ programs: await listDesignPrograms(projectDir), ...await indexDesignRuns(projectDir) });
       }
 
       const designProgramMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)$/);
@@ -563,7 +563,7 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(designProgramMatch[1]!));
         const programId = decoded(designProgramMatch[2]!);
-        return Response.json({ brief: await buildDesignProgramBrief(projectDir, programId), runs: await listDesignRuns(projectDir, programId) });
+        return Response.json({ brief: await buildDesignProgramBrief(projectDir, programId), ...await indexDesignRuns(projectDir, programId) });
       }
 
       const designExecuteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/run$/);

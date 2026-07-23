@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, expect, test } from "bun:test";
 import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram, prepareDesignProgram } from "./design-program";
-import { continueDesignRun, listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
+import { continueDesignRun, indexDesignRuns, listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
 import { applyResearchPatch } from "./research";
 import { loadCandidateChangeSet } from "./candidate-change-set";
 import { applyCandidateOperation, previewCandidateOperation } from "./operation";
@@ -161,6 +161,39 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   await writeFile(path, `${JSON.stringify(valid, null, 2)}\n`);
   await expect(prepareDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("must match Benchmark 'dispatch-research' cases exactly");
 });
+
+test("invalid sibling evidence is indexed without blocking strict Design operations", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-design-index-"));
+  temporaryDirectories.push(root);
+  const copy = join(root, "memory-fab");
+  await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
+  const invalidId = "a".repeat(64);
+  const invalidPath = join(copy, "design-runs", "commissioned-dram-fab", invalidId);
+  await mkdir(invalidPath, { recursive: true });
+  await writeFile(join(invalidPath, "manifest.json"), "{}\n");
+  await writeFile(join(invalidPath, "best.blueprint.json"), "{}\n");
+
+  expect(await indexDesignRuns(copy, "commissioned-dram-fab")).toEqual({
+    runs: [],
+    invalidRuns: [{
+      id: invalidId,
+      path: invalidPath,
+      program: "commissioned-dram-fab",
+      code: "design.invalid-run",
+      message: `Design run '${invalidId}' manifest identity or completion state is invalid`,
+    }],
+  });
+  await expect(loadDesignRun(copy, "commissioned-dram-fab", invalidId))
+    .rejects.toMatchObject({ code: "design.invalid-run" });
+
+  const result = await runDesignProgram(copy, "commissioned-dram-fab", { maxCandidates: 1 });
+  expect((await loadDesignRun(copy, "commissioned-dram-fab", result.manifest.resultHash)).manifest.resultHash)
+    .toBe(result.manifest.resultHash);
+  const index = await indexDesignRuns(copy, "commissioned-dram-fab");
+  expect(index.runs.map((run) => run.id)).toEqual([result.manifest.resultHash]);
+  expect(index.invalidRuns.map((run) => run.id)).toEqual([invalidId]);
+  expect(await listDesignRuns(copy, "commissioned-dram-fab")).toEqual(index.runs);
+}, 60_000);
 
 test("commissioned Design pins its live promotion base and applies only a reviewed product-mix policy", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-commissioned-design-"));
