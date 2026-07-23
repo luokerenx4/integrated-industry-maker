@@ -1,6 +1,6 @@
 # Interruption-aware campaign repair
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/setup-campaign-control]], [[docs/design/equipment-changeover]], and [[docs/design/fab-loss-attribution]].
 
@@ -37,14 +37,14 @@ The branch then honestly becomes search-exhausted because the current project po
 - [x] The repair consumes one ordinary Candidate budget and the unchanged Benchmark decides its result.
 - [x] CLI and Studio expose the before-blocker, repair target, after-decision, and resulting scheduler state consistently.
 - [x] A real greenfield run records the campaign repair outcome without changing any evaluator-owned input.
-- [ ] Provider, Core, CLI, Studio, documentation, and full regression pass.
+- [x] Provider, Core, CLI, Studio, documentation, and full regression pass.
 
 ## Work
 
 - [x] Audit the campaign research grid and the retained alternative's five-case metrics.
 - [x] Add the bounded project-local campaign repair portfolio and provider selection rule.
 - [x] Update deterministic run expectations plus CLI/Studio evidence tests.
-- [ ] Generate real memory-fab evidence, run full regression, and audit completion.
+- [x] Generate real memory-fab evidence, run full regression, and audit completion.
 
 ## Findings and decisions
 
@@ -55,7 +55,10 @@ The branch then honestly becomes search-exhausted because the current project po
 
 ## Verification
 
-- Pending.
+- `bun examples/memory-fab/strategies/research/campaign-repair.ts --program greenfield-dram-fab --run-id 1628f3a52f31ff6d670f3e844315fa73d5232d8000a7b09c09974aa47f832263 --min-lots 3 --max-lots 3 --holds 0 --json` — reports `PROMOTE`, aggregate `+0.243899`, case deltas `0, 0, 0, 0, +1.707292`, and no guardrail violation.
+- `bun run inm validate examples/memory-fab`, `bun run inm analyze examples/memory-fab`, and `bun run inm test examples/memory-fab` — public project loop passes; both memory-fab fixtures pass.
+- `bun run test` — documentation links, all TypeScript projects, Core, CLI, Studio, and Ironworks fixtures pass: 190 tests and 1666 assertions.
+- Studio's public run API independently executed all seven candidates and reopened the resulting hash. Manual inspection at `/memory-fab/designs/greenfield-dram-fab/runs/59dca3faf587091dacb20f28bfb4b5020fd5b6d4ce4af718f335bb0b92383562` confirmed both repair targets, the exact pre-repair blocker, candidate 7 as searchable leader, candidate 6 as searchable alternative, and no browser console errors.
 
 ## Progress log
 
@@ -68,4 +71,4 @@ The branch then honestly becomes search-exhausted because the current project po
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Commit `b5e87fc` ships the project-local no-wait campaign repair, its typed research command, exact provider selection, Core/CLI/Studio evidence, current design documentation, and deterministic regression coverage. The locked five-case Benchmark and zero-regression policy remain unchanged. Candidate 6 intentionally remains searchable frontier evidence after candidate 7 is promoted; any further branch expansion belongs in a separately indexed plan.
