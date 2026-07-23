@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, and V3 persistent decision loop implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, and V4 immutable Design continuation implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -74,6 +74,18 @@ proposed
 
 The proposal does not own worlds, assets, scenarios, objectives, locks, evaluator weights, or Git. It may edit only Blueprint-owned `/devices`, `/connections`, `/logisticsNetworks`, and `/policies`; revision lineage is written by Core. Studio never accepts an arbitrary server path.
 
+## V4 — immutable Design continuation
+
+Long-running industrial design must survive a bounded search invocation without turning into mutable browser state. When a completed Design Run stops at its Candidate budget while retaining searchable frontier nodes, both operators receive the same explicit continuation capability:
+
+- an Agent reopens the hash through `inm design --run-id <hash> --json`, discovers the exact `design.continue:<hash>` argv, and invokes `--continue --max-candidates N`;
+- a human selects the same result in Studio, sees direct source provenance and the next searchable node, chooses the additional budget, and presses `CONTINUE`;
+- a browser-capable Agent may use that same labeled button and inspect the same streamed evidence.
+
+Both surfaces call `continueDesignRun()`. Core verifies the source artifact and current Program/Benchmark/seed/promotion identities, reconstructs retained Blueprints and lineage-local proposal histories from exact patches, and creates a new content-addressed V2 result containing the full verified prefix plus new evidence. It never edits the source, never stores a mutable checkpoint, and never reruns source seed or Candidate cases. Studio's `POST /api/projects/<project>/designs/<program>/runs/<hash>/continue` and the CLI NDJSON channel expose the same progress union, cumulative/additional budget, exhaustion order, decisions, and result hash.
+
+The human view deliberately distinguishes “new run” from “continue exact frontier.” Ranking rows identify direct lineage, selected results show reused/additional counts, and the continuation control exists only for a verified `budget-exhausted` result with a non-empty search queue. A rejected new Candidate is still a successful continuation result: the product preserves the learned counterexample instead of presenting search as guaranteed improvement.
+
 ### Active implementation plan
 
 - [x] Shared read-only Benchmark catalog and evaluator.
@@ -82,6 +94,7 @@ The proposal does not own worlds, assets, scenarios, objectives, locks, evaluato
 - [x] Studio candidate selection, stable review deep link, exact patch inspection, and KEEP-only confirmation.
 - [x] Immutable review receipt, reload-safe decision phase, and post-write verification.
 - [x] Core, CLI, API, and browser tests against `examples/memory-fab`.
+- [x] Exact immutable Design continuation through Core, CLI discovery/NDJSON, Studio API/control, and real memory-fab evidence.
 
 ### V2 acceptance
 
@@ -99,4 +112,4 @@ bun run inm candidate examples/memory-fab --candidate stable-furnace-sleep --jso
 bun run inm studio examples/memory-fab --port 4176 --no-open
 ```
 
-Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, immutable receipt reuse, and absence of run/incidental Blueprint writes. Browser QA must use the domain-derived accessible ids to open a direct Candidate URL on a temporary project, review it, verify the visible verdict and case/diff content, deliberately arm and confirm an accepted write, observe the verified hash state across reload, navigate between experiments, and inspect console errors.
+Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, immutable receipt reuse, Design continuation prefix/source immutability and new-only simulation work, and absence of incidental Blueprint writes. Browser QA must use domain-derived accessible ids to inspect both Candidate review and an eligible Design Run, verify direct continuation lineage and budget language, execute the continue control, observe the new route-backed immutable result, navigate between experiments, and inspect console errors.

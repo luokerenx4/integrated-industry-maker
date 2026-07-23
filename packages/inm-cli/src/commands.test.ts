@@ -316,6 +316,41 @@ test("public Design Program workflow discovers, inspects, and executes without m
     artifacts: [expect.objectContaining({ kind: "design-run", id: resultHash, immutable: true })],
   }));
 
+  const sourceSummary = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--json"]);
+  expect(JSON.parse(sourceSummary.stdout).nextActions).toContainEqual(expect.objectContaining({
+    id: `design.continue:${resultHash}`,
+    argv: expect.arrayContaining(["--run-id", resultHash, "--continue"]),
+    effect: "creates-artifact",
+  }));
+
+  const continued = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--continue", "--max-candidates", "1", "--progress", "ndjson", "--json"]);
+  expect(continued.exitCode).toBe(0);
+  const continuationProgress = continued.stderr.trim().split("\n").map((line) => JSON.parse(line));
+  expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
+    version: 2,
+    phase: "run-started",
+    continuation: { sourceResultHash: resultHash, reusedIterations: 1 },
+    budget: { maximum: 2, previousEvaluated: 1, additional: 1 },
+  }) }));
+  expect(continuationProgress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
+  expect(continuationProgress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(0);
+  expect(continuationProgress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
+  const continuedEnvelope = JSON.parse(continued.stdout);
+  expect(continuedEnvelope.data).toEqual(expect.objectContaining({
+    section: "summary",
+    result: expect.objectContaining({
+      action: "continue",
+      continuation: { sourceResultHash: resultHash, reusedIterations: 1, reusedExhaustions: 0, additionalCandidateBudget: 1 },
+      budget: { maximum: 2, evaluated: 2 },
+      resultHash: expect.any(String),
+    }),
+  }));
+  const continuedHash = continuedEnvelope.data.result.resultHash as string;
+  expect(continuedHash).not.toBe(resultHash);
+  const continuedHuman = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", continuedHash]);
+  expect(continuedHuman.stdout).toContain(`Continued from: ${resultHash}`);
+  expect(continuedHuman.stdout).toContain("reused 1 iterations · +1 candidate budget");
+
   const humanRun = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash]);
   expect({ exitCode: humanRun.exitCode, stderr: humanRun.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(humanRun.stdout).toContain("addresses queue-starvation");
@@ -335,8 +370,12 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(runs.stdout).data).toEqual({
     section: "runs",
-    result: [expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" })],
+    result: expect.arrayContaining([
+      expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research", continuation: null }),
+      expect.objectContaining({ id: continuedHash, continuation: expect.objectContaining({ sourceResultHash: resultHash }), budget: { maximum: 2, evaluated: 2 } }),
+    ]),
   });
+  expect(JSON.parse(runs.stdout).data.result).toHaveLength(2);
 
   const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "7", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);
@@ -529,6 +568,8 @@ test("public CLI emits stable JSON errors for invalid section, section mode, sch
     { args: ["unknown", "--json"], exitCode: 2, command: "unknown", code: "cli.usage" },
     { args: ["inspect", projectDir, "--unknown", "--json"], exitCode: 2, command: "inspect", code: "cli.usage" },
     { args: ["design", projectDir, "--program", "missing", "--progress", "binary", "--json"], exitCode: 1, command: "design", code: "design.invalid-progress" },
+    { args: ["design", projectDir, "--program", "integrated-dram-fab", "--continue", "--json"], exitCode: 1, command: "design", code: "design.run-id-required" },
+    { args: ["design", projectDir, "--program", "integrated-dram-fab", "--run", "--run-id", "deadbeef", "--continue", "--json"], exitCode: 1, command: "design", code: "design.mode-conflict" },
   ];
   for (const item of cases) {
     const result = await runCli(item.args);

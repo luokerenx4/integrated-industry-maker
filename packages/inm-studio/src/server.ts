@@ -11,6 +11,7 @@ import {
   blueprintSchema,
   buildDesignProgramBrief,
   compileFactoryProject,
+  continueDesignRun,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
   inspectCandidateDecision,
@@ -457,15 +458,21 @@ function errorResponse(error: unknown): Response {
   return Response.json(details.body, { status: details.status });
 }
 
-function designRunStream(projectDir: string, programId: string, maxCandidates?: number): Response {
+function designRunStream(projectDir: string, programId: string, maxCandidates?: number, sourceResultHash?: string): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (record: unknown) => controller.enqueue(encoder.encode(`${stableStringify(record)}\n`));
-      void runDesignProgram(projectDir, programId, {
+      const operation = sourceResultHash
+        ? continueDesignRun(projectDir, programId, sourceResultHash, {
+          ...(maxCandidates === undefined ? {} : { maxCandidates }),
+          onProgress: (progress: DesignRunProgress) => send({ version: 1, type: "progress", progress }),
+        })
+        : runDesignProgram(projectDir, programId, {
         ...(maxCandidates === undefined ? {} : { maxCandidates }),
         onProgress: (progress: DesignRunProgress) => send({ version: 1, type: "progress", progress }),
-      }).then((result) => {
+        });
+      void operation.then((result) => {
         send({ version: 1, type: "result", result });
         controller.close();
       }).catch((error) => {
@@ -570,6 +577,21 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(designRunMatch[1]!));
         return Response.json(await loadDesignRun(projectDir, decoded(designRunMatch[2]!), decoded(designRunMatch[3]!)));
+      }
+
+      const designContinueMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/runs\/([^/]+)\/continue$/);
+      if (designContinueMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(designContinueMatch[1]!));
+        const body = await request.json().catch(() => ({})) as { maxCandidates?: unknown };
+        if (body.maxCandidates !== undefined && (!Number.isInteger(body.maxCandidates) || (body.maxCandidates as number) < 1)) throw new Error("maxCandidates must be a positive integer");
+        const programId = decoded(designContinueMatch[2]!);
+        const sourceResultHash = decoded(designContinueMatch[3]!);
+        const maxCandidates = body.maxCandidates === undefined ? undefined : body.maxCandidates as number;
+        if (request.headers.get("accept")?.includes("application/x-ndjson")) return designRunStream(projectDir, programId, maxCandidates, sourceResultHash);
+        return Response.json(await continueDesignRun(projectDir, programId, sourceResultHash, {
+          ...(maxCandidates === undefined ? {} : { maxCandidates }),
+        }));
       }
 
       const designPromoteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/runs\/([^/]+)\/promote$/);

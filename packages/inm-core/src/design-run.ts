@@ -126,7 +126,7 @@ export interface DesignRunIteration {
 }
 
 export interface DesignRunManifest {
-  version: 1;
+  version: 2;
   status: "completed";
   engineVersion: string;
   project: string;
@@ -135,6 +135,12 @@ export interface DesignRunManifest {
   seed: DesignProgramBrief["seed"] & { evaluation: BlueprintBenchmarkResult };
   promotionBase: DesignProgramBrief["promotionBase"];
   driver: DesignProgramBrief["driver"];
+  continuation: null | {
+    sourceResultHash: string;
+    reusedIterations: number;
+    reusedExhaustions: number;
+    additionalCandidateBudget: number;
+  };
   budget: { maximum: number; evaluated: number };
   iterations: DesignRunIteration[];
   exhaustions: DesignSearchExhaustionEvidence[];
@@ -163,11 +169,12 @@ export interface DesignRunResult {
 }
 
 interface DesignRunProgressBase {
-  version: 1;
+  version: 2;
   sequence: number;
   program: string;
   benchmark: string;
-  budget: { maximum: number };
+  continuation: null | { sourceResultHash: string; reusedIterations: number };
+  budget: { maximum: number; previousEvaluated: number; additional: number };
   work: { completedSimulations: number; plannedSimulations: number };
 }
 
@@ -209,6 +216,7 @@ export interface DesignRunSummary {
   benchmark: string;
   seed: DesignRunManifest["seed"]["source"];
   promotionBase: DesignRunManifest["promotionBase"];
+  continuation: DesignRunManifest["continuation"];
   budget: DesignRunManifest["budget"];
   best: DesignRunManifest["best"];
   stopReason: DesignRunManifest["stopReason"];
@@ -616,7 +624,19 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
     }
   } catch { return false; }
   const leader = state.nodes.get(state.leader)!;
-  return stableStringify(manifest.frontier) === stableStringify(frontierManifest(state))
+  const continuationValid = manifest.continuation === null
+    ? true
+    : typeof manifest.continuation === "object"
+      && /^[0-9a-f]{64}$/.test(manifest.continuation.sourceResultHash)
+      && Number.isInteger(manifest.continuation.reusedIterations) && manifest.continuation.reusedIterations > 0
+      && Number.isInteger(manifest.continuation.reusedExhaustions) && manifest.continuation.reusedExhaustions >= 0
+      && Number.isInteger(manifest.continuation.additionalCandidateBudget) && manifest.continuation.additionalCandidateBudget > 0
+      && manifest.continuation.reusedIterations < manifest.budget.maximum
+      && manifest.continuation.reusedIterations + manifest.continuation.additionalCandidateBudget === manifest.budget.maximum
+      && manifest.continuation.reusedIterations <= manifest.iterations.length
+      && manifest.continuation.reusedExhaustions <= manifest.exhaustions.length;
+  return continuationValid
+    && stableStringify(manifest.frontier) === stableStringify(frontierManifest(state))
     && manifest.budget.evaluated === manifest.iterations.length
     && manifest.budget.evaluated <= manifest.budget.maximum
     && (manifest.stopReason === "budget-exhausted"
@@ -627,6 +647,114 @@ function validDesignDecisionSequence(manifest: DesignRunManifest): boolean {
     && manifest.best.candidateScore === leader.evaluation.candidateScore
     && manifest.best.scoreDelta === leader.evaluation.scoreDelta
     && manifest.best.verdict === leader.evaluation.verdict;
+}
+
+function rebuildDesignFrontierState(
+  manifest: DesignRunManifest,
+  seedBlueprint: Blueprint,
+  loaded: LoadedFactoryProject,
+): DesignFrontierState {
+  const seedHash = hashValue(seedBlueprint);
+  if (seedHash !== manifest.seed.blueprintHash) throw new DesignRunError(
+    "design.continuation-diverged",
+    `Design run '${manifest.resultHash}' seed Blueprint no longer matches its recorded hash`,
+    { expectedSeedHash: manifest.seed.blueprintHash, currentSeedHash: seedHash },
+  );
+  let state: DesignFrontierState = {
+    leader: "seed",
+    searchOrder: ["seed"],
+    exhausted: [],
+    nodes: new Map([["seed", {
+      nodeId: "seed",
+      iteration: 0,
+      depth: 0,
+      blueprintHash: seedHash,
+      evaluation: manifest.seed.evaluation,
+      blueprint: structuredClone(seedBlueprint),
+      history: [],
+    }]]),
+  };
+  let exhaustionIndex = 0;
+  for (const iteration of manifest.iterations) {
+    while (manifest.exhaustions[exhaustionIndex]?.beforeIteration === iteration.iteration) {
+      const exhausted = exhaustSelectedFrontierNode(state, exhaustionIndex + 1, iteration.iteration);
+      if (stableStringify(exhausted.evidence) !== stableStringify(manifest.exhaustions[exhaustionIndex])) throw new DesignRunError(
+        "design.continuation-diverged",
+        `Design run '${manifest.resultHash}' exhaustion ${exhaustionIndex + 1} cannot be reconstructed`,
+      );
+      state = exhausted.state;
+      exhaustionIndex++;
+    }
+    const parent = state.nodes.get(state.searchOrder[0]!);
+    if (!parent?.blueprint) throw new DesignRunError(
+      "design.continuation-diverged",
+      `Design run '${manifest.resultHash}' iteration ${iteration.iteration} has no reconstructable parent Blueprint`,
+    );
+    if (iteration.error !== undefined) {
+      parent.history.push({
+        iteration: iteration.iteration,
+        strategy: iteration.strategy,
+        hypothesis: iteration.hypothesis,
+        ...(iteration.addressedLoss ? { addressedLoss: iteration.addressedLoss } : {}),
+        ...(iteration.addressedCase ? { addressedCase: iteration.addressedCase } : {}),
+        decision: "REVERT",
+        score: parent.evaluation.candidateScore,
+        scoreDelta: 0,
+      });
+      state = rejectedFrontierAttempt(state, "invalid-candidate").state;
+      continue;
+    }
+    const candidateBlueprint = applyResearchPatch(parent.blueprint, iteration.patch);
+    candidateBlueprint.revision = manifest.promotionBase.hash;
+    compileFactoryProject(withBlueprint(loaded, candidateBlueprint));
+    const candidateHash = hashValue(candidateBlueprint);
+    if (candidateHash !== iteration.candidateBlueprintHash) throw new DesignRunError(
+      "design.continuation-diverged",
+      `Design run '${manifest.resultHash}' iteration ${iteration.iteration} Blueprint cannot be reconstructed`,
+      { expectedCandidateHash: iteration.candidateBlueprintHash!, reconstructedCandidateHash: candidateHash },
+    );
+    const candidate: DesignSearchNode = {
+      nodeId: `candidate-${iteration.iteration}`,
+      parentNodeId: parent.nodeId,
+      iteration: iteration.iteration,
+      depth: parent.depth + 1,
+      blueprintHash: candidateHash,
+      evaluation: iteration.evaluation!,
+      blueprint: candidateBlueprint,
+      history: [],
+    };
+    const advanced = advanceDesignFrontier(state, candidate, iteration.decisionEvidence!, manifest.program.frontier);
+    if (advanced.decision !== iteration.decision || stableStringify(advanced.evidence) !== stableStringify(iteration.frontierEvidence)) throw new DesignRunError(
+      "design.continuation-diverged",
+      `Design run '${manifest.resultHash}' iteration ${iteration.iteration} frontier cannot be reconstructed`,
+    );
+    parent.history.push({
+      iteration: iteration.iteration,
+      strategy: iteration.strategy,
+      hypothesis: iteration.hypothesis,
+      ...(iteration.addressedLoss ? { addressedLoss: iteration.addressedLoss } : {}),
+      ...(iteration.addressedCase ? { addressedCase: iteration.addressedCase } : {}),
+      decision: advanced.decision === "KEEP" ? "KEEP" : advanced.decision === "BRANCH" ? "BRANCH" : "REVERT",
+      score: iteration.evaluation!.candidateScore,
+      scoreDelta: iteration.evaluation!.candidateScore - parent.evaluation.candidateScore,
+    });
+    candidate.history = structuredClone(parent.history);
+    state = advanced.state;
+  }
+  while (exhaustionIndex < manifest.exhaustions.length) {
+    const exhausted = exhaustSelectedFrontierNode(state, exhaustionIndex + 1, manifest.iterations.length + 1);
+    if (stableStringify(exhausted.evidence) !== stableStringify(manifest.exhaustions[exhaustionIndex])) throw new DesignRunError(
+      "design.continuation-diverged",
+      `Design run '${manifest.resultHash}' exhaustion ${exhaustionIndex + 1} cannot be reconstructed`,
+    );
+    state = exhausted.state;
+    exhaustionIndex++;
+  }
+  if (stableStringify(frontierManifest(state)) !== stableStringify(manifest.frontier)) throw new DesignRunError(
+    "design.continuation-diverged",
+    `Design run '${manifest.resultHash}' final frontier cannot be reconstructed`,
+  );
+  return state;
 }
 
 async function writeDesignRunArtifact(projectDir: string, manifest: DesignRunManifest, bestBlueprint: Blueprint): Promise<DesignRunResult["artifact"]> {
@@ -656,7 +784,7 @@ function designRunPath(projectDir: string, programId: string, resultHash: string
 function parseDesignRunManifest(value: unknown, programId: string, resultHash: string): DesignRunManifest {
   if (!value || typeof value !== "object") throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest must be an object`);
   const manifest = value as DesignRunManifest;
-  if (manifest.version !== 1 || manifest.status !== "completed" || manifest.program?.id !== programId || manifest.resultHash !== resultHash) {
+  if (manifest.version !== 2 || manifest.status !== "completed" || manifest.program?.id !== programId || manifest.resultHash !== resultHash) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest identity or completion state is invalid`);
   }
   if (!designCurrentBestGuardrailSchema.safeParse(manifest.program?.currentBestGuardrail).success
@@ -675,10 +803,14 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
     || !manifest.frontier || !Array.isArray(manifest.frontier.nodes)
     || !Array.isArray(manifest.frontier.alternatives)
     || !Array.isArray(manifest.frontier.scheduler?.searchOrder) || !Array.isArray(manifest.frontier.scheduler?.exhausted)
-    || (manifest.stopReason !== "budget-exhausted" && manifest.stopReason !== "frontier-exhausted")
-    || manifest.iterations.some((iteration) => !validDesignRunIteration(iteration))
-    || !validDesignDecisionSequence(manifest)) {
-    throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest seed, promotion base, or best-design evidence is invalid`);
+    || (manifest.stopReason !== "budget-exhausted" && manifest.stopReason !== "frontier-exhausted")) {
+    throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest structure is invalid`);
+  }
+  if (manifest.iterations.some((iteration) => !validDesignRunIteration(iteration))) {
+    throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' contains invalid Candidate evidence`);
+  }
+  if (!validDesignDecisionSequence(manifest)) {
+    throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' decision or frontier sequence is invalid`);
   }
   const { resultHash: recorded, ...withoutHash } = manifest;
   if (hashValue(manifestHashInput(withoutHash)) !== recorded) throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' result hash does not match its manifest`);
@@ -691,6 +823,35 @@ export async function loadDesignRun(projectDir: string, programId: string, resul
   const parsedBlueprint = blueprintSchema.safeParse(await readJson(join(path, "best.blueprint.json")));
   if (!parsedBlueprint.success) throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' best Blueprint is invalid`);
   if (hashValue(parsedBlueprint.data) !== manifest.best.blueprintHash) throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' best Blueprint hash does not match its manifest`);
+  if (manifest.continuation) {
+    let source: DesignRunResult;
+    try {
+      source = await loadDesignRun(projectDir, programId, manifest.continuation.sourceResultHash);
+    } catch (error) {
+      throw new DesignRunError(
+        "design.invalid-run",
+        `Design run '${resultHash}' continuation source '${manifest.continuation.sourceResultHash}' is unavailable or invalid`,
+      );
+    }
+    const lineageMatches = source.manifest.stopReason === "budget-exhausted"
+      && source.manifest.frontier.scheduler.searchOrder.length > 0
+      && source.manifest.budget.maximum === manifest.continuation.reusedIterations
+      && source.manifest.budget.evaluated === manifest.continuation.reusedIterations
+      && source.manifest.iterations.length === manifest.continuation.reusedIterations
+      && source.manifest.exhaustions.length === manifest.continuation.reusedExhaustions
+      && manifest.budget.maximum === source.manifest.budget.maximum + manifest.continuation.additionalCandidateBudget
+      && stableStringify(manifest.iterations.slice(0, manifest.continuation.reusedIterations)) === stableStringify(source.manifest.iterations)
+      && stableStringify(manifest.exhaustions.slice(0, manifest.continuation.reusedExhaustions)) === stableStringify(source.manifest.exhaustions)
+      && stableStringify(manifest.program) === stableStringify(source.manifest.program)
+      && stableStringify(manifest.benchmark) === stableStringify(source.manifest.benchmark)
+      && stableStringify(manifest.seed) === stableStringify(source.manifest.seed)
+      && stableStringify(manifest.promotionBase) === stableStringify(source.manifest.promotionBase)
+      && stableStringify(manifest.driver) === stableStringify(source.manifest.driver);
+    if (!lineageMatches) throw new DesignRunError(
+      "design.invalid-run",
+      `Design run '${resultHash}' does not contain an exact continuation prefix from '${source.manifest.resultHash}'`,
+    );
+  }
   return { manifest, bestBlueprint: parsedBlueprint.data, artifact: { id: resultHash, path, created: false } };
 }
 
@@ -715,6 +876,7 @@ export async function listDesignRuns(projectDir: string, programId?: string): Pr
         benchmark: run.manifest.benchmark.id,
         seed: structuredClone(run.manifest.seed.source),
         promotionBase: { ...run.manifest.promotionBase },
+        continuation: structuredClone(run.manifest.continuation),
         budget: { ...run.manifest.budget },
         best: { ...run.manifest.best },
         stopReason: run.manifest.stopReason,
@@ -790,26 +952,47 @@ export async function promoteDesignRun(
 export async function runDesignProgram(
   projectDir: string,
   programId: string,
-  options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler } = {},
+  options: { maxCandidates?: number; continueFrom?: string; onProgress?: DesignRunProgressHandler } = {},
 ): Promise<DesignRunResult> {
   const prepared = await prepareDesignProgram(projectDir, programId);
   const program = prepared.manifest;
   const brief = prepared.brief;
-  const maximum = options.maxCandidates ?? program.budget.maxCandidates;
-  if (!Number.isInteger(maximum) || maximum < 1) throw new Error("Design candidate budget must be a positive integer");
-  if (maximum > program.budget.maxCandidates) throw new Error(
-    `Design candidate budget ${maximum} exceeds Program '${program.id}' maximum ${program.budget.maxCandidates}`,
+  const additionalMaximum = options.maxCandidates ?? program.budget.maxCandidates;
+  if (!Number.isInteger(additionalMaximum) || additionalMaximum < 1) throw new Error("Design candidate budget must be a positive integer");
+  if (additionalMaximum > program.budget.maxCandidates) throw new Error(
+    `Design candidate budget ${additionalMaximum} exceeds Program '${program.id}' per-run maximum ${program.budget.maxCandidates}`,
   );
   const benchmark = prepared.benchmark;
+  const source = options.continueFrom ? await loadDesignRun(projectDir, programId, options.continueFrom) : null;
+  if (source) {
+    if (source.manifest.stopReason !== "budget-exhausted" || !source.manifest.frontier.scheduler.searchOrder.length) throw new DesignRunError(
+      "design.continuation-unavailable",
+      `Design run '${source.manifest.resultHash}' has no budget-exhausted searchable frontier to continue`,
+    );
+    if (source.manifest.engineVersion !== ENGINE_VERSION
+      || source.manifest.project !== brief.project.id
+      || source.manifest.program.hash !== brief.program.programHash
+      || source.manifest.benchmark.contractHash !== benchmark.lock!.contractHash
+      || source.manifest.seed.blueprintHash !== brief.seed.blueprintHash
+      || source.manifest.promotionBase.blueprint !== brief.promotionBase.blueprint
+      || source.manifest.promotionBase.hash !== brief.promotionBase.hash
+      || stableStringify(source.manifest.driver) !== stableStringify(brief.driver)) throw new DesignRunError(
+        "design.continuation-stale",
+        `Design run '${source.manifest.resultHash}' no longer matches the current engine, Program, Benchmark, seed, driver, or promotion base`,
+      );
+  }
+  const previousEvaluated = source?.manifest.budget.evaluated ?? 0;
+  const maximum = (source?.manifest.budget.maximum ?? 0) + additionalMaximum;
   let sequence = 0;
   let completedSimulations = 0;
-  let plannedSimulations = benchmark.cases.length * (maximum + 2);
+  let plannedSimulations = benchmark.cases.length * (additionalMaximum + (source ? 1 : 2));
   const progressBase = (): DesignRunProgressBase => ({
-    version: 1,
+    version: 2,
     sequence: ++sequence,
     program: program.id,
     benchmark: benchmark.id,
-    budget: { maximum },
+    continuation: source ? { sourceResultHash: source.manifest.resultHash, reusedIterations: source.manifest.iterations.length } : null,
+    budget: { maximum, previousEvaluated, additional: additionalMaximum },
     work: { completedSimulations, plannedSimulations },
   });
   const emit = (progress: DesignRunProgressPayload) => {
@@ -835,34 +1018,47 @@ export async function runDesignProgram(
   const driverCase = prepared.driverCase;
   const loaded = prepared.loaded;
   const seedBlueprint = structuredClone(prepared.seedBlueprint);
-  const seedEvaluation = await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
-    candidateBlueprint: seedBlueprint,
-    evaluationId: "seed",
-    onProgress: benchmarkProgress("seed", 0),
-  });
+  const seedEvaluation = source?.manifest.seed.evaluation ?? await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
+      candidateBlueprint: seedBlueprint,
+      evaluationId: "seed",
+      onProgress: benchmarkProgress("seed", 0),
+    });
   const seedHash = hashValue(seedBlueprint);
   if (seedHash !== brief.seed.blueprintHash) throw new Error(`Design Program '${program.id}' resolved inconsistent seed identities`);
-  const iterations: DesignRunIteration[] = [];
-  const exhaustions: DesignSearchExhaustionEvidence[] = [];
+  const iterations: DesignRunIteration[] = source ? structuredClone(source.manifest.iterations) : [];
+  const exhaustions: DesignSearchExhaustionEvidence[] = source ? structuredClone(source.manifest.exhaustions) : [];
   const projectAgent = program.proposal.kind === "project-strategy"
     ? new ProjectStrategyResearchAgent(projectDir, program.proposal.entry) : null;
   const heuristicAgent = program.proposal.kind === "heuristic"
     ? new HeuristicResearchAgent(program.proposal.decisionFamilies) : null;
   let stopReason: DesignRunManifest["stopReason"] = "budget-exhausted";
-  let frontierState: DesignFrontierState = {
-    leader: "seed",
-    searchOrder: ["seed"],
-    exhausted: [],
-    nodes: new Map([["seed", {
-      nodeId: "seed",
-      iteration: 0,
-      depth: 0,
-      blueprintHash: seedHash,
-      evaluation: seedEvaluation,
-      blueprint: seedBlueprint,
-      history: [],
-    }]]),
-  };
+  let frontierState: DesignFrontierState;
+  if (source) {
+    try {
+      frontierState = rebuildDesignFrontierState(source.manifest, seedBlueprint, loaded);
+    } catch (error) {
+      if (error instanceof DesignRunError) throw error;
+      throw new DesignRunError(
+        "design.continuation-diverged",
+        `Design run '${source.manifest.resultHash}' cannot be reconstructed against the current project: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  } else {
+    frontierState = {
+      leader: "seed",
+      searchOrder: ["seed"],
+      exhausted: [],
+      nodes: new Map([["seed", {
+        nodeId: "seed",
+        iteration: 0,
+        depth: 0,
+        blueprintHash: seedHash,
+        evaluation: seedEvaluation,
+        blueprint: seedBlueprint,
+        history: [],
+      }]]),
+    };
+  }
 
   while (iterations.length < maximum) {
     const iteration = iterations.length + 1;
@@ -1022,7 +1218,7 @@ export async function runDesignProgram(
   const bestEvaluation = bestNode.evaluation;
 
   const withoutHash: Omit<DesignRunManifest, "resultHash"> = {
-    version: 1,
+    version: 2,
     status: "completed",
     engineVersion: ENGINE_VERSION,
     project: brief.project.id,
@@ -1031,6 +1227,12 @@ export async function runDesignProgram(
     seed: { ...structuredClone(brief.seed), evaluation: seedEvaluation },
     promotionBase: { ...brief.promotionBase },
     driver: brief.driver,
+    continuation: source ? {
+      sourceResultHash: source.manifest.resultHash,
+      reusedIterations: source.manifest.iterations.length,
+      reusedExhaustions: source.manifest.exhaustions.length,
+      additionalCandidateBudget: additionalMaximum,
+    } : null,
     budget: { maximum, evaluated: iterations.length },
     iterations,
     exhaustions,
@@ -1054,4 +1256,13 @@ export async function runDesignProgram(
   plannedSimulations = completedSimulations;
   emit({ phase: "run-completed", resultHash: manifest.resultHash, stopReason: manifest.stopReason, best: manifest.best });
   return { manifest, bestBlueprint, artifact };
+}
+
+export async function continueDesignRun(
+  projectDir: string,
+  programId: string,
+  sourceResultHash: string,
+  options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler } = {},
+): Promise<DesignRunResult> {
+  return runDesignProgram(projectDir, programId, { ...options, continueFrom: sourceResultHash });
 }

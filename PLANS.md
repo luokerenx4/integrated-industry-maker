@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/immutable-design-run-continuation]] | Continue a budget-exhausted Design frontier into a new immutable run without re-evaluating or mutating its accepted evidence prefix. | 2026-07-23 |
 
 ## Proposed plans
 

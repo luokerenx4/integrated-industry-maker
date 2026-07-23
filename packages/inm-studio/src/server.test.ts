@@ -244,6 +244,35 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-6", role: "alternative", depth: 5 }, leaderAfter: "candidate-7" }),
       })]),
     }) }));
+    const continuationResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}/continue`, {
+      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 1 }),
+    });
+    expect(continuationResponse.status).toBe(200);
+    const continuationRecords = (await continuationResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
+    const continuationProgress = continuationRecords.filter((record) => record.type === "progress");
+    expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
+      version: 2,
+      phase: "run-started",
+      continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7 },
+      budget: { maximum: 8, previousEvaluated: 7, additional: 1 },
+    }) }));
+    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
+    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "seed")).toHaveLength(0);
+    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
+    expect(continuationProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+      phase: "node-exhausted",
+      exhaustion: expect.objectContaining({ node: expect.objectContaining({ nodeId: "candidate-6" }), beforeIteration: 8, nextNodeId: "candidate-7" }),
+    }) }));
+    const continuationResult = continuationRecords.find((record) => record.type === "result").result;
+    expect(continuationResult.manifest).toMatchObject({
+      continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 1, additionalCandidateBudget: 1 },
+      budget: { maximum: 8, evaluated: 8 },
+      iterations: [...campaignResult.manifest.iterations, expect.objectContaining({ iteration: 8, frontierEvidence: expect.objectContaining({ parent: expect.objectContaining({ nodeId: "candidate-7" }) }) })],
+    });
+    const continuedRunId = continuationResult.manifest.resultHash as string;
+    expect(continuedRunId).not.toBe(campaignRepairRunId);
+    const unchangedSourceResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}`);
+    expect((await unchangedSourceResponse.json()).manifest).toEqual(campaignResult.manifest);
     const deepLink = await fetch(`http://localhost:${port}/memory-fab/designs/integrated-dram-fab`);
     expect({ status: deepLink.status, contentType: deepLink.headers.get("content-type") }).toEqual({ status: 200, contentType: expect.stringContaining("text/html") });
 

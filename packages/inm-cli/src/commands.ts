@@ -2,10 +2,10 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, listDesignPrograms, listDesignRuns, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type DesignRunIteration, type DesignRunProgress, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
+  type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -49,7 +49,7 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   }
   const work = `${progress.work.completedSimulations}/${progress.work.plannedSimulations}`;
   let line: string;
-  if (progress.phase === "run-started") line = `DESIGN  ${work}  preparing ${progress.caseCount} locked cases`;
+  if (progress.phase === "run-started") line = `DESIGN  ${work}  ${progress.continuation ? `continuing ${progress.continuation.sourceResultHash.slice(0, 12)} after ${progress.continuation.reusedIterations} iterations` : "preparing"} · ${progress.caseCount} locked cases`;
   else if (progress.phase === "case-started") line = `CASE    ${work}  ${progress.evaluation.kind} ${progress.case.index}/${progress.case.total} ${progress.case.id}`;
   else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
   else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.branch.role} ${progress.branch.nodeId} · ${designPromotionBoundaryDetail(progress.promotionBoundary)} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
@@ -848,16 +848,17 @@ export async function researchCommand(projectDir: string, selection: ProjectSele
   ].join("\n"), false);
 }
 
-export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; promote?: string; maxCandidates?: number; progress?: string; json: boolean; section?: string }): Promise<void> {
+export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; continue: boolean; promote?: string; maxCandidates?: number; progress?: string; json: boolean; section?: string }): Promise<void> {
   requireJsonSection("design", options);
   if (options.progress !== undefined && !["off", "human", "ndjson"].includes(options.progress)) throw new CliCommandError(
     "design.invalid-progress",
     `Unknown Design progress mode '${options.progress}'. Expected one of: off, human, ndjson.`,
   );
-  if (options.progress !== undefined && !options.run) throw new CliCommandError("design.run-required", "--progress requires --run.");
+  const executing = options.run || options.continue;
+  if (options.progress !== undefined && !executing) throw new CliCommandError("design.run-required", "--progress requires --run or --continue.");
   if (!programId) {
-    if (options.run || options.runId || options.promote) throw new CliCommandError("design.program-required", "--run, --run-id, and --promote require --program <id>.");
-    if (options.maxCandidates !== undefined) throw new CliCommandError("design.program-required", "--max-candidates requires --program <id> --run.");
+    if (options.run || options.runId || options.continue || options.promote) throw new CliCommandError("design.program-required", "--run, --run-id, --continue, and --promote require --program <id>.");
+    if (options.maxCandidates !== undefined) throw new CliCommandError("design.program-required", "--max-candidates requires --program <id> with --run or --continue.");
     rejectSection("design", options);
     const programs = await listDesignPrograms(projectDir);
     if (options.json) writeSuccess("design", { action: "list", programs }, { context: await projectDirectoryContext(projectDir) });
@@ -868,8 +869,11 @@ export async function designCommand(projectDir: string, programId: string | unde
     ].join("\n"), false);
     return;
   }
-  if (options.maxCandidates !== undefined && !options.run) throw new CliCommandError("design.run-required", "--max-candidates requires --run.");
+  if (options.maxCandidates !== undefined && !executing) throw new CliCommandError("design.run-required", "--max-candidates requires --run or --continue.");
   if (options.run && options.runId) throw new CliCommandError("design.mode-conflict", "--run and --run-id select different Design modes.");
+  if (options.continue && !options.runId) throw new CliCommandError("design.run-id-required", "--continue requires --run-id <hash>.");
+  if (options.continue && options.run) throw new CliCommandError("design.mode-conflict", "--continue extends --run-id and cannot be combined with --run.");
+  if (options.continue && options.promote) throw new CliCommandError("design.mode-conflict", "--continue and --promote select different Design operations.");
   if (options.promote && !options.runId) throw new CliCommandError("design.run-id-required", "--promote requires --run-id <hash>.");
   const brief = await buildDesignProgramBrief(projectDir, programId);
   const seedLabel = brief.program.seed.kind === "synthesis"
@@ -881,7 +885,57 @@ export async function designCommand(projectDir: string, programId: string | unde
     selection: { ...brief.driver.selection },
     hashes: { ...brief.driver.hashes },
   };
+  const emitExecutedRun = (result: DesignRunResult, action: "run" | "continue"): void => {
+    const data = sectionResult("design", options, {
+      summary: () => ({
+        action,
+        program: result.manifest.program,
+        benchmark: result.manifest.benchmark,
+        seed: result.manifest.seed,
+        promotionBase: result.manifest.promotionBase,
+        continuation: result.manifest.continuation,
+        budget: result.manifest.budget,
+        best: result.manifest.best,
+        stopReason: result.manifest.stopReason,
+        resultHash: result.manifest.resultHash,
+      }),
+      static: () => brief.staticEvidence,
+      iterations: () => result.manifest.iterations,
+      frontier: () => ({ ...result.manifest.frontier, exhaustions: result.manifest.exhaustions }),
+      best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
+      all: () => result.manifest,
+    });
+    if (options.json) writeSuccess("design", data, {
+      context,
+      artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
+      nextActions: [nextAction(
+        `design.open:${result.manifest.resultHash}`,
+        "Reopen this immutable Design Run by its content hash.",
+        ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", result.manifest.resultHash, "--json"],
+      )],
+    });
+    else write([
+      `${brief.program.name} · Design Run`,
+      `Result: ${result.manifest.resultHash}`,
+      ...(result.manifest.continuation ? [`Continued from: ${result.manifest.continuation.sourceResultHash} · reused ${result.manifest.continuation.reusedIterations} iterations · +${result.manifest.continuation.additionalCandidateBudget} candidate budget`] : []),
+      `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
+      `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
+      `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
+      ...result.manifest.exhaustions.map(designExhaustionLine),
+      ...result.manifest.iterations.map(designIterationLine),
+      `Artifact: ${result.artifact.path}`, "",
+    ].join("\n"), false);
+  };
   if (options.runId) {
+    if (options.continue) {
+      const progressMode = (options.progress ?? (options.json ? "off" : "human")) as DesignProgressMode;
+      const result = await continueDesignRun(projectDir, programId, options.runId, {
+        ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
+        onProgress: (progress) => writeDesignProgress(progress, progressMode),
+      });
+      emitExecutedRun(result, "continue");
+      return;
+    }
     const result = await loadDesignRun(projectDir, programId, options.runId);
     if (options.promote) {
       rejectSection("design", options);
@@ -913,7 +967,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       return;
     }
     const data = sectionResult("design", options, {
-      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
+      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, continuation: result.manifest.continuation, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
       static: () => brief.staticEvidence,
       iterations: () => result.manifest.iterations,
       frontier: () => ({ ...result.manifest.frontier, exhaustions: result.manifest.exhaustions }),
@@ -922,25 +976,35 @@ export async function designCommand(projectDir: string, programId: string | unde
       all: () => result.manifest,
     });
     const candidateId = `${programId}-${options.runId.slice(0, 8)}`;
+    const nextActions: CliNextAction[] = [];
+    if (result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length) nextActions.push(nextAction(
+      `design.continue:${options.runId}`,
+      `Continue this exact frontier with up to ${brief.program.budget.maxCandidates} additional Candidate evaluations.`,
+      ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--continue", "--max-candidates", String(brief.program.budget.maxCandidates), "--json"],
+      "creates-artifact",
+    ));
+    if (result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0) nextActions.push(nextAction(
+      `design.promote:${options.runId}`,
+      "Create an immutable Candidate Change Set reproducing this accepted design from the current promotion base.",
+      ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--promote", candidateId, "--json"],
+      "creates-artifact",
+    ));
     if (options.json) writeSuccess("design", data, {
       context,
       artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
-      nextActions: result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? [nextAction(
-        `design.promote:${options.runId}`,
-        "Create an immutable Candidate Change Set reproducing this accepted design from the current promotion base.",
-        ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--promote", candidateId, "--json"],
-        "creates-artifact",
-      )] : [],
+      nextActions,
     });
     else write([
       `${brief.program.name} · Design Run`,
       `Result: ${result.manifest.resultHash}`,
+      ...(result.manifest.continuation ? [`Continued from: ${result.manifest.continuation.sourceResultHash} · reused ${result.manifest.continuation.reusedIterations} iterations · +${result.manifest.continuation.additionalCandidateBudget} candidate budget`] : []),
       `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
       `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
       ...result.manifest.exhaustions.map(designExhaustionLine),
       ...result.manifest.iterations.map(designIterationLine),
       `Artifact: ${result.artifact.path}`,
+      ...(result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length ? ["", `Continue: inm design <path> --program ${programId} --run-id ${options.runId} --continue --max-candidates ${brief.program.budget.maxCandidates}`] : []),
       ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
       "",
     ].join("\n"), false);
@@ -952,7 +1016,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       summary: () => ({ program: brief.program, benchmark: brief.benchmark, seed: brief.seed, promotionBase: brief.promotionBase, driver: brief.driver, staticEvidence: brief.staticEvidence }),
       static: () => brief.staticEvidence,
       iterations: () => [],
-      frontier: () => ({ policy: brief.program.frontier, runs: runs.map((run) => ({ id: run.id, best: run.best })) }),
+      frontier: () => ({ policy: brief.program.frontier, runs: runs.map((run) => ({ id: run.id, continuation: run.continuation, budget: run.budget, best: run.best, stopReason: run.stopReason })) }),
       best: () => null,
       runs: () => runs,
       all: () => ({ ...brief, runs }),
@@ -986,43 +1050,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
     onProgress: (progress) => writeDesignProgress(progress, progressMode),
   });
-  const data = sectionResult("design", options, {
-    summary: () => ({
-      action: "run",
-      program: result.manifest.program,
-      benchmark: result.manifest.benchmark,
-      seed: result.manifest.seed,
-      promotionBase: result.manifest.promotionBase,
-      budget: result.manifest.budget,
-      best: result.manifest.best,
-      stopReason: result.manifest.stopReason,
-      resultHash: result.manifest.resultHash,
-    }),
-    static: () => brief.staticEvidence,
-    iterations: () => result.manifest.iterations,
-    frontier: () => ({ ...result.manifest.frontier, exhaustions: result.manifest.exhaustions }),
-    best: () => ({ ...result.manifest.best, blueprint: result.bestBlueprint }),
-    all: () => result.manifest,
-  });
-  if (options.json) writeSuccess("design", data, {
-    context,
-    artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
-    nextActions: [nextAction(
-      `design.open:${result.manifest.resultHash}`,
-      "Reopen this immutable Design Run by its content hash.",
-      ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", result.manifest.resultHash, "--json"],
-    )],
-  });
-  else write([
-    `${brief.program.name} · Design Run`,
-    `Result: ${result.manifest.resultHash}`,
-    `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
-    `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
-    `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
-    ...result.manifest.exhaustions.map(designExhaustionLine),
-    ...result.manifest.iterations.map(designIterationLine),
-    `Artifact: ${result.artifact.path}`, "",
-  ].join("\n"), false);
+  emitExecutedRun(result, "run");
 }
 
 export function formatCliError(error: unknown, json: boolean, command = "unknown"): string {

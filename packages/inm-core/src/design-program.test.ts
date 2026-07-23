@@ -1,9 +1,9 @@
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, expect, test } from "bun:test";
 import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram, prepareDesignProgram } from "./design-program";
-import { listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
+import { continueDesignRun, listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
 import { applyResearchPatch } from "./research";
 import { applyCandidateChangeSet, loadCandidateChangeSet, previewCandidateChangeSet } from "./candidate-change-set";
 import { hashValue } from "./utils";
@@ -169,7 +169,39 @@ test("Design stops only after every retained frontier node is search-exhausted",
     ...result,
     artifact: { ...result.artifact, created: false },
   });
+  await expect(continueDesignRun(copy, "integrated-dram-fab", result.manifest.resultHash, { maxCandidates: 1 }))
+    .rejects.toMatchObject({ code: "design.continuation-unavailable" });
 }, 30_000);
+
+test("Design continuation rejects a replay-divergent source before writing new evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-design-divergent-"));
+  temporaryDirectories.push(root);
+  const copy = join(root, "memory-fab");
+  await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
+  const source = await runDesignProgram(copy, "greenfield-dram-fab", { maxCandidates: 1 });
+  const divergentSource = {
+    ...source.manifest,
+    iterations: [
+      {
+        ...source.manifest.iterations[0]!,
+        patch: source.manifest.iterations[0]!.patch.map((operation, index) => index === 0
+          ? { ...operation, path: "/devices/999999" }
+          : operation),
+      },
+    ],
+  };
+  const { resultHash: _divergentHash, ...divergentHashInput } = divergentSource;
+  divergentSource.resultHash = hashValue(divergentHashInput);
+  const divergentSourcePath = join(copy, "design-runs", "greenfield-dram-fab", divergentSource.resultHash);
+  await mkdir(divergentSourcePath, { recursive: true });
+  await writeFile(join(divergentSourcePath, "best.blueprint.json"), `${JSON.stringify(source.bestBlueprint, null, 2)}\n`);
+  await writeFile(join(divergentSourcePath, "manifest.json"), `${JSON.stringify(divergentSource, null, 2)}\n`);
+  expect((await loadDesignRun(copy, "greenfield-dram-fab", divergentSource.resultHash)).manifest.resultHash).toBe(divergentSource.resultHash);
+  const artifactsBeforeDivergence = await readdir(join(copy, "design-runs", "greenfield-dram-fab"));
+  await expect(continueDesignRun(copy, "greenfield-dram-fab", divergentSource.resultHash, { maxCandidates: 1 }))
+    .rejects.toMatchObject({ code: "design.continuation-diverged" });
+  expect(await readdir(join(copy, "design-runs", "greenfield-dram-fab"))).toEqual(artifactsBeforeDivergence);
+}, 60_000);
 
 test("a synthesis-seeded Design Program is deterministic, immutable, and applies only through an exact Candidate", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-run-"));
@@ -193,6 +225,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(first.artifact).toMatchObject({ created: true });
   expect(first.artifact.path.startsWith(join(copy, "design-runs", "greenfield-dram-fab"))).toBeTrue();
   expect(first.manifest).toMatchObject({
+    version: 2,
     status: "completed",
     project: "memory-fab",
     program: { id: "greenfield-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } },
@@ -205,6 +238,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
       evaluation: { verdict: "UNCHANGED" },
     },
     promotionBase: { blueprint: "generated-dram-fab", hash: hashValue(JSON.parse(targetBefore)) },
+    continuation: null,
     budget: { maximum: 7, evaluated: 7 },
     frontier: {
       leader: "candidate-7",
@@ -427,6 +461,79 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     bestBlueprint: first.bestBlueprint,
     artifact: { ...first.artifact, created: false },
   });
+  const continuationProgress: DesignRunProgress[] = [];
+  const continued = await continueDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, {
+    maxCandidates: 1,
+    onProgress: (event) => continuationProgress.push(event),
+  });
+  expect(continued.manifest).toMatchObject({
+    version: 2,
+    continuation: {
+      sourceResultHash: first.manifest.resultHash,
+      reusedIterations: 7,
+      reusedExhaustions: 1,
+      additionalCandidateBudget: 1,
+    },
+    budget: { maximum: 8, evaluated: 8 },
+    stopReason: "budget-exhausted",
+  });
+  expect(continued.manifest.iterations.slice(0, 7)).toEqual(first.manifest.iterations);
+  expect(continued.manifest.exhaustions.slice(0, 1)).toEqual(first.manifest.exhaustions);
+  expect(continued.manifest.iterations[7]).toMatchObject({
+    iteration: 8,
+    frontierEvidence: { parent: { nodeId: expect.any(String) } },
+  });
+  expect(continued.manifest.exhaustions.slice(1)).toContainEqual(expect.objectContaining({
+    beforeIteration: 8,
+    node: expect.objectContaining({ nodeId: "candidate-6" }),
+  }));
+  expect(continued.manifest.resultHash).not.toBe(first.manifest.resultHash);
+  expect(continuationProgress[0]).toEqual(expect.objectContaining({
+    version: 2,
+    phase: "run-started",
+    continuation: { sourceResultHash: first.manifest.resultHash, reusedIterations: 7 },
+    budget: { maximum: 8, previousEvaluated: 7, additional: 1 },
+  }));
+  expect(continuationProgress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "baseline")).toHaveLength(5);
+  expect(continuationProgress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "seed")).toHaveLength(0);
+  expect(continuationProgress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(continuationProgress.at(-1)).toEqual(expect.objectContaining({
+    phase: "run-completed",
+    resultHash: continued.manifest.resultHash,
+    work: { completedSimulations: 10, plannedSimulations: 10 },
+  }));
+  const repeatedContinuationProgress: DesignRunProgress[] = [];
+  const repeatedContinuation = await continueDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, {
+    maxCandidates: 1,
+    onProgress: (event) => repeatedContinuationProgress.push(event),
+  });
+  expect(repeatedContinuation.manifest.resultHash).toBe(continued.manifest.resultHash);
+  expect(repeatedContinuationProgress).toEqual(continuationProgress);
+  expect(repeatedContinuation.artifact).toEqual({ ...continued.artifact, created: false });
+  expect(await loadDesignRun(copy, "greenfield-dram-fab", continued.manifest.resultHash)).toEqual({
+    manifest: continued.manifest,
+    bestBlueprint: continued.bestBlueprint,
+    artifact: { ...continued.artifact, created: false },
+  });
+  expect((await loadDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash)).manifest).toEqual(first.manifest);
+
+  const prefixDiverged = {
+    ...continued.manifest,
+    iterations: [
+      { ...continued.manifest.iterations[0]!, hypothesis: `${continued.manifest.iterations[0]!.hypothesis} diverged` },
+      ...continued.manifest.iterations.slice(1),
+    ],
+  };
+  const { resultHash: _prefixHash, ...prefixHashInput } = prefixDiverged;
+  prefixDiverged.resultHash = hashValue(prefixHashInput);
+  const prefixDivergedPath = join(copy, "design-runs", "greenfield-dram-fab", prefixDiverged.resultHash);
+  await mkdir(prefixDivergedPath, { recursive: true });
+  await writeFile(join(prefixDivergedPath, "best.blueprint.json"), `${JSON.stringify(continued.bestBlueprint, null, 2)}\n`);
+  await writeFile(join(prefixDivergedPath, "manifest.json"), `${JSON.stringify(prefixDiverged, null, 2)}\n`);
+  await expect(loadDesignRun(copy, "greenfield-dram-fab", prefixDiverged.resultHash))
+    .rejects.toMatchObject({ code: "design.invalid-run" });
+  await rm(prefixDivergedPath, { recursive: true });
+
   const rejectTampered = async (mutate: (manifest: typeof first.manifest) => void, rejectListing = false) => {
     const tampered = JSON.parse(JSON.stringify(first.manifest)) as typeof first.manifest;
     mutate(tampered);
@@ -449,20 +556,29 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   await rejectTampered((manifest) => { manifest.exhaustions[0]!.nextNodeId = "candidate-3"; });
   await rejectTampered((manifest) => { manifest.frontier.nodes[1]!.searchStatus = "exhausted"; });
   await rejectTampered((manifest) => { manifest.stopReason = "frontier-exhausted"; });
-  expect(await listDesignRuns(copy, "greenfield-dram-fab")).toEqual([
+  expect(await listDesignRuns(copy, "greenfield-dram-fab")).toEqual(expect.arrayContaining([
     expect.objectContaining({
       id: first.manifest.resultHash,
       program: "greenfield-dram-fab",
       benchmark: "greenfield-dram-design",
       seed: { kind: "synthesis", inputBlueprint: "greenfield" },
       promotionBase: first.manifest.promotionBase,
+      continuation: null,
     }),
-  ]);
+    expect.objectContaining({
+      id: continued.manifest.resultHash,
+      continuation: expect.objectContaining({ sourceResultHash: first.manifest.resultHash, additionalCandidateBudget: 1 }),
+      budget: { maximum: 8, evaluated: 8 },
+    }),
+  ]));
+  expect(await listDesignRuns(copy, "greenfield-dram-fab")).toHaveLength(2);
   const synthesisStrategyPath = join(copy, "strategies", "reentrant-dram-fab.ts");
   const synthesisStrategyBefore = await readFile(synthesisStrategyPath, "utf8");
   await writeFile(synthesisStrategyPath, `${synthesisStrategyBefore}\n// changed after the immutable run\n`);
   await expect(promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "stale-strategy-design"))
     .rejects.toMatchObject({ code: "design.run-stale" });
+  await expect(continueDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, { maxCandidates: 1 }))
+    .rejects.toMatchObject({ code: "design.continuation-stale" });
   await writeFile(synthesisStrategyPath, synthesisStrategyBefore);
   const promoted = await promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "generated-leading-design");
   const candidate = await loadCandidateChangeSet(copy, "generated-leading-design");
@@ -490,4 +606,4 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
   await expect(promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "stale-generated-design"))
     .rejects.toMatchObject({ code: "design.promotion-base-stale" });
-}, 180_000);
+}, 240_000);

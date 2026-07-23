@@ -71,7 +71,9 @@ function guardrailDetail(program: DesignProgramSummary): { title: string; detail
 }
 
 function progressLabel(progress: DesignRunProgress): { title: string; detail: string } {
-  if (progress.phase === "run-started") return { title: "PREPARING LOCKED BASELINE", detail: `${progress.caseCount} operating cases · ${progress.work.plannedSimulations} planned simulations` };
+  if (progress.phase === "run-started") return progress.continuation
+    ? { title: "REBUILDING VERIFIED FRONTIER", detail: `${shortHash(progress.continuation.sourceResultHash)} · ${progress.continuation.reusedIterations} reused iterations · ${progress.budget.additional} new candidates` }
+    : { title: "PREPARING LOCKED BASELINE", detail: `${progress.caseCount} operating cases · ${progress.work.plannedSimulations} planned simulations` };
   if (progress.phase === "case-started" || progress.phase === "case-completed") return {
     title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
     detail: `${progress.case.id} · ${progress.phase === "case-started" ? "simulating" : `complete${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
@@ -118,6 +120,8 @@ export function DesignWorkbench({
   const [error, setError] = useState<string | null>(null);
   const selectedRunPromotable = selectedRun?.manifest.best.verdict === "KEEP"
     && selectedRun.manifest.best.promotionPatchOperations > 0;
+  const selectedRunContinuable = selectedRun?.manifest.stopReason === "budget-exhausted"
+    && selectedRun.manifest.frontier.scheduler.searchOrder.length > 0;
 
   useEffect(() => {
     if (!selectedProgramId && programs[0]) onSelectProgram(programs[0].id);
@@ -128,7 +132,9 @@ export function DesignWorkbench({
       `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(programId)}`,
     ));
     setBrief(value.brief);
-    setRuns(value.runs.sort((left, right) => right.best.candidateScore - left.best.candidateScore || left.id.localeCompare(right.id)));
+    setRuns(value.runs.sort((left, right) => right.best.candidateScore - left.best.candidateScore
+      || right.budget.evaluated - left.budget.evaluated
+      || left.id.localeCompare(right.id)));
     setBudget(Math.min(1, value.brief.program.budget.maxCandidates));
   };
 
@@ -159,6 +165,20 @@ export function DesignWorkbench({
     try {
       const result = await responseDesignStream(await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/run`,
+        { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
+      ), setRunProgress);
+      await loadProgram(selectedProgram.id);
+      onSelectRun(result.manifest.resultHash);
+    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
+    finally { setRunning(false); }
+  };
+
+  const continueRun = async () => {
+    if (!selectedProgram || !selectedRun || !selectedRunContinuable || running) return;
+    setRunning(true); setRunProgress(null); setError(null); setPromoted(null);
+    try {
+      const result = await responseDesignStream(await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/runs/${encodeURIComponent(selectedRun.manifest.resultHash)}/continue`,
         { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
       ), setRunProgress);
       await loadProgram(selectedProgram.id);
@@ -201,7 +221,7 @@ export function DesignWorkbench({
           <section className="design-contract">
             <div><span className="eyebrow">DESIGN CONTRACT</span><h3>{selectedProgram.name}</h3><p>{selectedProgram.description}</p><code>{selectedProgram.id} · {shortHash(selectedProgram.programHash)}</code></div>
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>WILL UPDATE</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
-            <div className="design-run-control"><label>PROPOSAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedSimulations}/${runProgress.work.plannedSimulations}` : running ? "STARTING…" : `RUN ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
+            <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedSimulations}/${runProgress.work.plannedSimulations}` : running ? "STARTING…" : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
           {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code></div><div><b>{runProgress.work.completedSimulations}/{runProgress.work.plannedSimulations}</b><small>SIMULATIONS</small><progress value={runProgress.work.completedSimulations} max={runProgress.work.plannedSimulations}/></div></section>}
           <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
@@ -216,11 +236,12 @@ export function DesignWorkbench({
           <section className="design-ranking">
             <div className="design-section-title"><span>IMMUTABLE RESULT RANKING</span><b>{runs.length} RUNS</b></div>
             {runs.length ? runs.map((runSummary, index) => <button key={runSummary.id} className={runSummary.id === selectedRunId ? "selected" : ""} data-testid={`design-run-${runSummary.id}`} onClick={() => onSelectRun(runSummary.id)}>
-              <em>#{index + 1}</em><span><strong>{shortHash(runSummary.id)}</strong><code>{runSummary.budget.evaluated}/{runSummary.budget.maximum} evaluated · {runSummary.stopReason}</code></span><b>{runSummary.best.candidateScore.toFixed(6)}<small>{signed(runSummary.best.scoreDelta)} VS BASELINE</small></b><i className={runSummary.best.iteration > 0 ? "leading" : "seed"}>{runSummary.best.iteration > 0 ? `ITERATION ${runSummary.best.iteration}` : runSummary.seed.kind === "synthesis" ? "GENERATED SEED" : "SEED LEADS"}</i>
+              <em>#{index + 1}</em><span><strong>{shortHash(runSummary.id)}</strong><code>{runSummary.budget.evaluated}/{runSummary.budget.maximum} evaluated · {runSummary.stopReason}{runSummary.continuation ? ` · from ${shortHash(runSummary.continuation.sourceResultHash)}` : ""}</code></span><b>{runSummary.best.candidateScore.toFixed(6)}<small>{signed(runSummary.best.scoreDelta)} VS BASELINE</small></b><i className={runSummary.best.iteration > 0 ? "leading" : "seed"}>{runSummary.continuation ? `CONTINUED · +${runSummary.continuation.additionalCandidateBudget}` : runSummary.best.iteration > 0 ? `ITERATION ${runSummary.best.iteration}` : runSummary.seed.kind === "synthesis" ? "GENERATED SEED" : "SEED LEADS"}</i>
             </button>) : <div className="design-empty compact">NO DESIGN EVIDENCE YET · RUN A BOUNDED SEARCH</div>}
           </section>
           {selectedRun && <section className="design-result" data-testid="design-result">
-            <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code></div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
+            <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code>{selectedRun.manifest.continuation && <code>CONTINUED FROM {shortHash(selectedRun.manifest.continuation.sourceResultHash)} · REUSED {selectedRun.manifest.continuation.reusedIterations} · +{selectedRun.manifest.continuation.additionalCandidateBudget}</code>}</div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
+            {selectedRunContinuable && <div className="design-continuation"><div><small>SEARCHABLE FRONTIER RETAINED</small><strong>Continue this exact immutable evidence chain</strong><span>Reuses {selectedRun.manifest.iterations.length} verified iterations, starts from {selectedRun.manifest.frontier.scheduler.searchOrder[0]}, and evaluates only up to {budget} new candidate{budget === 1 ? "" : "s"}. The selected source run remains unchanged.</span></div><button data-testid="continue-design" disabled={running} onClick={() => void continueRun()}>{running ? "CONTINUING…" : `CONTINUE · +${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>}
             <div className="design-frontier" data-testid="design-frontier"><div className="design-section-title"><span>FINAL PARETO FRONTIER</span><b>{selectedRun.manifest.frontier.scheduler.searchOrder[0] ? `NEXT ${selectedRun.manifest.frontier.scheduler.searchOrder[0]}` : "SEARCH EXHAUSTED"}</b></div><div>{selectedRun.manifest.frontier.nodes.map((node) => <article key={node.nodeId} className={`${node.role} ${node.searchStatus}`}><small>{node.role === "leader" ? "PROMOTABLE LEADER" : "EXPLORATORY · NOT PROMOTABLE"} · {node.searchStatus.toUpperCase()}</small><strong>{node.nodeId}</strong><code>{node.parentNodeId ? `FROM ${node.parentNodeId}` : "ROOT"} · DEPTH {node.depth}</code><b>{node.candidateScore.toFixed(6)}</b><span>{shortHash(node.blueprintHash)}</span></article>)}</div></div>
             {selectedRun.manifest.exhaustions.length > 0 && <div className="design-exhaustions" data-testid="design-exhaustions"><div className="design-section-title"><span>SEARCH EXHAUSTION</span><b>{selectedRun.manifest.exhaustions.length} RETIRED</b></div>{selectedRun.manifest.exhaustions.map((exhaustion) => <div key={exhaustion.sequence}><b>X{String(exhaustion.sequence).padStart(2, "0")}</b><strong>{exhaustion.node.nodeId}</strong><span>{exhaustion.node.role.toUpperCase()} · BEFORE ITERATION {exhaustion.beforeIteration}</span><code>NEXT {exhaustion.nextNodeId ?? "NONE"}</code></div>)}</div>}
             <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS / CASE → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong data-testid={iteration.addressedCase ? "design-repair-target" : undefined}>{iteration.addressedCase ? `REPAIRS ${iteration.addressedCase}` : iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO EXPLICIT TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>BEFORE {promotionBoundaryDetail(iteration.promotionBoundary)}</small><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <small>{decisionDetail(iteration.decisionEvidence)}</small>}<small>{iteration.hypothesis}</small></span><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
