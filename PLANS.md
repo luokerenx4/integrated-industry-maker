@@ -18,7 +18,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/commissioned-planned-maintenance-convergence]] | Separate opportunistic maintenance from planned production stops, then remove the commissioned memory fab's lithography drift without regressing its accepted factory or locked cases. | 2026-07-23 |
 
 ## Paused plans
 
