@@ -1,6 +1,6 @@
 # Commission the generated memory fab
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-optimization]], [[docs/design/operator-workbench]], and [[docs/CLI]].
 
@@ -46,7 +46,7 @@ This separation is correct, but the north-star build loop is not complete until 
 - [x] Promote, review, and apply the accepted Design through public commands.
 - [x] Repair and verify project-local provenance plus human/Agent projections.
 - [x] Exercise the commissioned factory and update durable design documentation.
-- [ ] Run the completion audit, archive the plan, commit, and push.
+- [x] Run the completion audit, archive the plan, commit, and push.
 
 ## Findings and decisions
 
@@ -80,4 +80,4 @@ This separation is correct, but the north-star build loop is not complete until 
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Commit `37bd73b` commissioned the accepted greenfield Design leader as the self-contained default memory factory through the exact Candidate review/apply boundary. It preserves checked-in Design provenance and immutable five-case review evidence, compiles greenfield proposals only after their complete patch is present, reconstructs the verified state through CLI and Studio, and replaces stale post-apply Design actions with an explicit commissioned state. The public factory validates, plans READY, simulates, and retains its locked Benchmark improvement. No commissioning follow-up remains inside this plan; future measured factory optimization must be scoped as a separately indexed plan.
