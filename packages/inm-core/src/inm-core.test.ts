@@ -1345,6 +1345,23 @@ describe("blueprint compiler", () => {
       "automotive-order": expect.objectContaining({ demand: 6, delivered: 6, fulfillment: 1 }),
     }));
 
+    const deadlineSource = await loadFactoryProject(memoryFab, {
+      blueprint: "generated-dram-fab", scenario: "lithography-interruption",
+    });
+    const deadlineBurnIn = deadlineSource.blueprint.devices.find((device) => device.id === "burn-in-1")!;
+    deadlineBurnIn.policy = { ...deadlineBurnIn.policy, recipeDispatch: "contract-value" };
+    const deadlinePortfolio = runUntil(compileFactoryProject(deadlineSource), undefined, { seed: 42 });
+    expect(deadlinePortfolio.events.find((event) =>
+      event.type === "device.start" && event.device === "burn-in-1")).toEqual(expect.objectContaining({
+      operation: "screen-commercial-dram", tick: 196_400,
+    }));
+    expect(deadlinePortfolio.metrics.deliveryPortfolio).toEqual(expect.objectContaining({
+      delivered: 24, netValue: -112,
+    }));
+    expect(deadlinePortfolio.metrics.produced).toEqual(expect.objectContaining({
+      "commercial-dram-device": 24,
+    }));
+
     const partial = runUntil(baselineProject, undefined, { seed: 42, untilTick: 30_000 });
     expect(partial.metrics.releaseFlow).toEqual(expect.objectContaining({ scheduled: 12, released: 6, pending: 6, meanReleaseDelayTicks: 0 }));
     expect(Object.values(partial.state.lots).filter((lot) => lot.status === "scheduled")).toHaveLength(6);
@@ -3758,10 +3775,10 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.cases[0]!.candidateMetrics.deliveryNetValuePerMinute).toBeGreaterThan(result.cases[0]!.baselineMetrics.deliveryNetValuePerMinute);
   }, 15_000);
 
-  test("keeps a one-policy furnace sleep threshold against locked two-wave energy work", async () => {
+  test("discards a furnace sleep threshold when its energy saving regresses the locked delivery outcome", async () => {
     const result = await evaluateBlueprintBenchmark(memoryFab, "equipment-energy-research");
-    expect(result.verdict).toBe("KEEP");
-    expect(result.accepted).toBeTrue();
+    expect(result.verdict).toBe("DISCARD");
+    expect(result.accepted).toBeFalse();
     expect(result.patch).toHaveLength(1);
     expect(result.patch[0]).toEqual(expect.objectContaining({
       op: "add", value: { sleepAfterTicks: 30_000 },
@@ -3781,7 +3798,15 @@ describe("coding-agent Blueprint benchmarks", () => {
       totalEquipmentSleepingTicks: 196_000,
       totalEquipmentWakeTicks: 4_000,
     }));
-    expect(result.scoreDelta).toBeGreaterThan(0.5);
+    expect(benchmarkCase.candidateMetrics.deliveryNetValuePerMinute)
+      .toBeLessThan(benchmarkCase.baselineMetrics.deliveryNetValuePerMinute);
+    expect(benchmarkCase.candidateMetrics.averageWip)
+      .toBeGreaterThan(benchmarkCase.baselineMetrics.averageWip);
+    expect(result.scoreDelta).toBeCloseTo(-1.518292, 5);
+    expect(result.reasons).toEqual([
+      "aggregate score delta -1.518292 is below required 0.001000",
+      "case 'equipment-energy-window' regressed by 1.518292, above allowed 0.000000",
+    ]);
   }, 15_000);
 
   test("lets a coding agent protect an explicit sorter line with authored power priority", async () => {

@@ -2,7 +2,7 @@
 
 **INM** is an AI-native industrial production designer, deterministic simulator, and automated blueprint optimizer.
 
-It represents a production system as a folder of immutable world definitions, finite resource deposits, scheduled purchased-material arrivals, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple industrial zones, each with its own factory floor, deposits, distance-aware sorter arms, explicitly routed multi-level transport cells, and power topology. One physical work center may qualify several operations, retain setup state, spend powered changeovers, reserve finite reusable tooling from a nearby provider, and dispatch identity-preserving, due-dated WIP across a re-entrant route. Named lots arrive on a fixed Scenario schedule, remain outside factory WIP until physical and optional Blueprint CONWIP admission succeed, and expose planned/actual cadence, causal delay, WIP-card state, and replenishment waves. Tracked units can form fixed equipment batches while preserving every lot identity and measuring formation wait. Lots may also carry latent defects through inspection, selective rework, terminal scrap, or downstream quality escape. A Process can explicitly terminate a tracked work order while creating fungible downstream products, so one wafer lot can become several packaged devices without corrupting lot identity or product throughput. Objectives may freeze several value-weighted customer contracts, treat demand as a service floor, price shortfall, retain value for above-demand output, and let an editable Blueprint schedule shared equipment against marginal portfolio value. The complete system can be validated, statically balanced across extraction, materials, shared-capacity equipment and belt paths, shortage-aware junction policies, station-owned inter-zone carrier fleets, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
+It represents a production system as a folder of immutable world definitions, finite resource deposits, scheduled purchased-material arrivals, inspectable asset packages, declarative industrial processes, JSON blueprints, and device-local TypeScript programs. A world can span multiple industrial zones, each with its own factory floor, deposits, distance-aware sorter arms, explicitly routed multi-level transport cells, and power topology. One physical work center may qualify several operations, retain setup state, spend powered changeovers, reserve finite reusable tooling from a nearby provider, and dispatch identity-preserving, due-dated WIP across a re-entrant route. Named lots arrive on a fixed Scenario schedule, remain outside factory WIP until physical and optional Blueprint CONWIP admission succeed, and expose planned/actual cadence, causal delay, WIP-card state, and replenishment waves. Tracked units can form fixed equipment batches while preserving every lot identity and measuring formation wait. Lots may also carry latent defects through inspection, selective rework, terminal scrap, or downstream quality escape. A Process can explicitly terminate a tracked work order while creating fungible downstream products, so one wafer lot can become several packaged devices without corrupting lot identity or product throughput. Objectives may freeze several value-weighted customer contracts, treat demand as a service floor, price shortfall, retain value for above-demand output, and let an editable Blueprint schedule shared equipment against the portfolio value realizable inside the remaining contract window. The complete system can be validated, statically balanced across extraction, materials, shared-capacity equipment and belt paths, shortage-aware junction policies, station-owned inter-zone carrier fleets, and regional power grids, compiled, simulated, benchmarked, modified with restricted JSON Patch experiments, and replayed in a read-only 3D debugger.
 
 Material preparation is physical factory state. Treatment Devices consume project-local agents to raise exact cargo lots to a declared level; belts and station carriers preserve that level, higher production modes require it at their inputs, and synthesis builds the treatment equipment, agent production, logistics, and power together. There is no hidden “productivity bonus” consumption inside a machine.
 
@@ -32,6 +32,10 @@ bun run inm benchmark examples/ironworks --benchmark autoresearch
 bun run inm analyze examples/memory-fab
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 
+# Diagnose and optimize the exact commissioned memory factory
+bun run inm inspect examples/memory-fab --section losses --json
+bun run inm design examples/memory-fab --program commissioned-dram-fab
+
 # Or synthesize a complete factory from a blank blueprint and the Objective
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output synthesized
 
@@ -57,7 +61,7 @@ inm workspace init <workspace-dir>
 inm project create <workspace-dir> <project-id>
 inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
-inm validate|inspect|analyze|plan|compare|benchmark|candidate|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
+inm validate|inspect|analyze|plan|compare|benchmark|candidate|design|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
 inm studio <project-or-workspace-dir> [--project ID]
 ```
@@ -96,6 +100,8 @@ my-factory/
   scenarios/*.scenario.json
   objectives/*.objective.json
   benchmarks/*.benchmark.json
+  design-programs/*.design.json # optional bounded project-local optimization programs
+  design-runs/                  # optional immutable local search evidence
   candidates/*.candidate.json  # optional hash-pinned Blueprint proposals
   AUTORESEARCH.md           # optional project-local Coding Agent program
   tests/*.fixture.json
@@ -116,6 +122,7 @@ There is deliberately no shared-asset lookup or inheritance layer. To reuse an a
 - An **objective** may define one primary synthesis target plus an immutable multi-product delivery portfolio. Each contract owns a demand floor, unit value, shortfall penalty, and an optional fulfillment gate; above-demand output remains visible and valuable.
 - A **benchmark** locks a baseline and several weighted World/Scenario/Objective/seed cases while leaving exactly one candidate Blueprint editable. Its aggregate score and per-case gates provide the keep/discard authority for a Coding Agent.
 - A **candidate change set** is a project-local, hash-pinned Blueprint patch. CLI and Studio preview it through its locked benchmark; only a reviewed KEEP can atomically update the candidate Blueprint, after which the proposal is stale by design.
+- A **design program** pins one authored or synthesized seed, its exact promotion target, one locked Benchmark, a project-local TypeScript proposal provider, current-best case guardrails, and a bounded Candidate budget. Humans and Agents inspect and execute the same immutable Design Runs, then cross the same Candidate review/apply boundary.
 
 See [project format](docs/PROJECT_FORMAT.md), the complete [Ironworks example](examples/ironworks), and the re-entrant [DRAM memory-fab example](examples/memory-fab).
 

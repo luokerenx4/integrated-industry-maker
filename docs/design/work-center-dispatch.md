@@ -1,6 +1,6 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, route-slack-, fixed-batch-, setup-campaign-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.70.0`.
+Status: multi-operation qualification plus operation-, lot-, route-slack-, contract-window-, fixed-batch-, setup-campaign-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.75.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
@@ -25,7 +25,7 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 - `shortest-cycle`: shortest compiled duration among ready operations, with authored order as the tie-break;
 - `highest-priority`: largest recipe `priority` among ready operations, with authored order as the tie-break.
 - `minimize-changeover`: an operation matching the Device's current setup group wins, then authored order resolves ties;
-- `contract-value`: greatest marginal evaluator-owned delivery value per equipment tick;
+- `contract-value`: greatest evaluator-owned delivery contribution achievable over the remaining Scenario contract window; equal window value prefers earlier first delivery, then one-job marginal value per process tick;
 - `oldest-lot`: operation containing the earliest-released tracked lot;
 - `earliest-due-date`: operation containing the tracked lot with the earliest finite due tick;
 - `least-slack`: operation whose most urgent tracked lot has the smallest `dueTick - currentTick - nominalRemainingRouteTicks`;
@@ -40,6 +40,8 @@ Selection occurs only while the Device is idle. A ready operation has every exac
 The engine selects one compiled plan before calling the project-local TypeScript program. `context.process` still contains one operation, keeping Device programs simple. The returned `start` action must exactly match that selected plan. Stable authored indices resolve every equal rank, so no decision depends on object iteration, wall clock, or browser state.
 
 For `least-slack`, the current operation contributes its exact compiled duration. Downstream work is the shortest complete path through the Route using immutable base Process durations; scrap exits are not completion paths. It is deliberately a nominal dispatch estimate, not a forecast of future setup, transport, batching, rework, failure, or queue delay. Every qualified operation on that Device must consume a tracked Route lot, which the compiler enforces. Undated lots rank after finite-slack lots.
+
+For `contract-value`, the runtime projects the number of complete cycles each operation can fit before the Scenario contract window ends after the exact currently required directed setup transition. It values those projected outputs against committed demand, then uses first-completion time, one-job value rate, authored priority, and authored order as deterministic tie-breaks. This is a local equipment-capacity horizon: it assumes continuing feed for the projection, while ordinary readiness still requires the next exact material batch, tooling, utility capacity, output room, and power before physical work starts. See [[docs/design/delivery-contracts]].
 
 The event stream records the selected Process id and tracked lot ids in `device.start` and `device.finish`. A least-slack start additionally records the decisive lot, nominal remaining Route ticks, and computed slack, so a replay can explain the choice without recomputing live state. Existing utilization, waiting, blocking, power, WIP, and transport metrics measure shared-equipment contention because one Device can own only one active job; lot clocks additionally measure the scheduling consequences.
 

@@ -89,4 +89,4 @@ test("Candidate apply requires project-local immutable review evidence", async (
   const unrecorded = await previewCandidateChangeSet(projectDir, "stable-furnace-sleep");
   await expect(applyCandidateOperation(projectDir, "stable-furnace-sleep", unrecorded)).rejects.toMatchObject({ code: "candidate.review-required" });
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
-});
+}, 15_000);

@@ -346,7 +346,8 @@ function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "se
     target: { kind: "diagnostic", diagnosticId: blocking.id },
   };
 
-  const candidate = context.candidates.find((item) => item.decision.state !== "verified");
+  const candidate = context.candidates.find((item) => item.decision.state === "reviewed-keep")
+    ?? context.candidates.find((item) => item.decision.state === "proposed");
   if (candidate) {
     const route = `${projectRoute}/experiments/${encodeURIComponent(candidate.benchmark)}/candidates/${encodeURIComponent(candidate.id)}`;
     const target = { kind: "candidate" as const, benchmarkId: candidate.benchmark, candidateId: candidate.id, phase: candidate.decision.state };
@@ -371,30 +372,6 @@ function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "se
       effect: "mutates-project",
       requiresConfirmation: true,
       argv: ["inm", "candidate", context.project.rootDir, "--candidate", candidate.id, "--apply", "--json"],
-      studioRoute: route,
-      target,
-    };
-    if (candidate.decision.state === "stale") return {
-      id: `candidate.stale:${candidate.id}`,
-      tone: "attention",
-      title: `Rebase stale ${candidate.name}`,
-      reason: `The Candidate base ${candidate.baseCandidateHash.slice(0, 12)} no longer matches Blueprint ${candidate.decision.currentCandidateHash.slice(0, 12)}.`,
-      actionLabel: "INSPECT STALE PROPOSAL",
-      effect: "read-only",
-      requiresConfirmation: false,
-      argv: ["inm", "inspect", context.project.rootDir, "--section", "candidates", "--json"],
-      studioRoute: route,
-      target,
-    };
-    return {
-      id: `candidate.revise:${candidate.id}`,
-      tone: "attention",
-      title: `Revise or retire ${candidate.name}`,
-      reason: `The recorded review verdict is ${candidate.decision.verdict}; this proposal cannot be applied under the locked acceptance gates.`,
-      actionLabel: "INSPECT REVIEW",
-      effect: "read-only",
-      requiresConfirmation: false,
-      argv: ["inm", "inspect", context.project.rootDir, "--section", "candidates", "--json"],
       studioRoute: route,
       target,
     };
@@ -514,13 +491,14 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const currentRun = matchingRun(selection, runSummaries);
   const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
   const lossAttribution = currentArtifact && Object.keys(project.routes).length
-    ? analyzeFabLosses(await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics, project.scenario.durationTicks, { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash })
+    ? analyzeFabLosses(await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics, project.scenario.durationTicks, { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash }, project)
     : null;
   const diagnostics = projectDiagnostics(project, analysis, capacity, lossAttribution);
   const operations = operationDescriptors(experiments, candidateSummaries);
   const flowWarnings = diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
   const flowInfo = diagnostics.filter((diagnostic) => diagnostic.severity === "info").length;
-  const pendingReviews = candidateSummaries.filter((candidate) => candidate.decision.state !== "verified" && candidate.decision.state !== "stale").length;
+  const pendingReviews = candidateSummaries.filter((candidate) =>
+    candidate.decision.state === "proposed" || candidate.decision.state === "reviewed-keep").length;
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {

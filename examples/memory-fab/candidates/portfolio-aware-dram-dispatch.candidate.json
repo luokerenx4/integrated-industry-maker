@@ -1,0 +1,22 @@
+{
+  "baseCandidateHash": "2511191a2ddb542dce3d551ef539e278825a53362576d093cb1ff9381a8c9356",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 65decebc8e3b: aggregate score -218.917998 (+61.252813 versus locked baseline) across 5 cases.",
+  "hypothesis": "Objective-aware burn-in dispatch may fill performance and automotive demand before spending scarce test time on additional commercial-grade output.",
+  "id": "portfolio-aware-dram-dispatch",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/10/policy/recipeDispatch",
+      "value": "contract-value"
+    }
+  ],
+  "source": {
+    "blueprintHash": "cd691f041d1b2d76330a689f5d764b4ce964e6811789f6e47c3b15c5e142f68c",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "65decebc8e3bae0a45b283cc1ddab697d0f9ae83839cbdcb2629434692e8195a"
+  },
+  "version": 1
+}

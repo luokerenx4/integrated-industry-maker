@@ -89,6 +89,27 @@ function furnaceBatchFormationPatch(blueprint: { devices: Array<Record<string, u
   ];
 }
 
+function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
+  const requiredCommissionedDevices = ["fab-utility-plant-2", "lithography-1", "burn-in-1"];
+  if (requiredCommissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
+  const lithography = blueprint.devices[deviceIndex(blueprint, "lithography-1")]!;
+  const lithographyPolicy = lithography.policy;
+  if (!lithographyPolicy || typeof lithographyPolicy !== "object" || Array.isArray(lithographyPolicy)) return null;
+  const campaign = (lithographyPolicy as Record<string, unknown>).setupCampaign;
+  if (!campaign || typeof campaign !== "object" || Array.isArray(campaign)
+    || (campaign as Record<string, unknown>).minimumReadyLots !== 3
+    || (campaign as Record<string, unknown>).maximumHoldTicks !== 0) return null;
+  const index = deviceIndex(blueprint, "burn-in-1");
+  const policy = blueprint.devices[index]!.policy;
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)
+    || (policy as Record<string, unknown>).recipeDispatch === "contract-value") return null;
+  return [{
+    op: Object.hasOwn(policy, "recipeDispatch") ? "replace" : "add",
+    path: `/devices/${index}/policy/recipeDispatch`,
+    value: "contract-value",
+  }];
+}
+
 const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
   strategy: `dispatch:conwip-${maximumWip}-${reopenAtWip}-edd`,
   hypothesis: `A ${maximumWip}-card CONWIP loop reopening at ${reopenAtWip} lots may reduce downstream queue and Q-time exposure without withholding the fixed twelve-lot workload.`,
@@ -117,6 +138,13 @@ const candidates: Candidate[] = [
     addresses: [],
     addressesCases: ["lithography-interruption"],
     patch: lithographyCampaignInterruptionEscapePatch,
+  },
+  {
+    strategy: "dispatch:burn-in-contract-value",
+    hypothesis: "Objective-aware burn-in dispatch may fill performance and automotive demand before spending scarce test time on additional commercial-grade output.",
+    expectedEffect: "Replace low-value commercial overflow with the existing fixed high-value product mix while leaving demand, binning physics, equipment, and locked scenarios unchanged.",
+    addresses: ["delivery-portfolio"],
+    patch: burnInContractValuePatch,
   },
   release(9, 6),
   release(8, 5),

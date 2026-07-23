@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "id": "commissioned-dram-fab",
+  "name": "Commissioned DRAM Fab Optimization",
+  "description": "Improve the exact live generated DRAM factory against its value-weighted delivery portfolio without rebuilding the greenfield seed or weakening any locked operating case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 1
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/integrated-dram-proposals.ts",
+    "decisionFamilies": [
+      "toolset-capacity",
+      "capacity-plan",
+      "specialize",
+      "maintenance",
+      "batch-formation",
+      "setup-campaign",
+      "facility",
+      "recipe",
+      "dispatch",
+      "buffer",
+      "power",
+      "generation",
+      "storage"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 7
+  }
+}

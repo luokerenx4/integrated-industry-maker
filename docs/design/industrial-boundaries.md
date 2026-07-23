@@ -1,6 +1,6 @@
 # Purchased-material and tracked-lot boundaries
 
-Status: scheduled untracked material deliveries, explicit tracked-lot Process termination with lot-derived fungible output, multi-product delivery contracts, and contract-aware recipe dispatch are implemented in `inm-sim/0.68.0`.
+Status: scheduled untracked material deliveries, explicit tracked-lot Process termination with lot-derived fungible output, multi-product delivery contracts, and finite-window contract-aware recipe dispatch are implemented in `inm-sim/0.75.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/lot-tracking]], [[docs/design/lot-derived-output]], [[docs/design/product-routes]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[examples/memory-fab]], [[docs/PROJECT_FORMAT]].
 
@@ -34,7 +34,7 @@ An Objective may target an untracked finished Resource while declaring `trackedF
 
 `deliveryContracts` adds a frozen product portfolio. Every contract owns one fungible Resource, delivery region, demand rate, unit value, shortfall penalty, and optional hard minimum fulfillment. Demand is a service floor: every delivered unit earns product value, units below demand additionally avoid their shortage penalty, and above-demand output remains valuable while being reported separately. The target-rate planner solves all demand floors together, so coproducts from one test program satisfy sibling demands exactly once. See [[docs/design/delivery-contracts]].
 
-A Blueprint work center may select `recipeDispatch: "contract-value"`. The runtime ranks ready recipes by marginal contract value per equipment-time, accounting for product already delivered, buffered, in transit, or committed by active work. Below demand, marginal value includes avoided shortage penalty; above demand it retains product value, so scarce-product equipment does not stop at quota. Because the contracts and value function remain outside the Blueprint, a Coding Agent can optimize the policy without editing its own exam.
+A Blueprint work center may select `recipeDispatch: "contract-value"`. The runtime ranks ready recipes by the contract value their complete cycles can realize over the remaining Scenario window after the current setup transition, accounting for product already delivered, buffered, in transit, or committed by active work. Equal window value prefers earlier first delivery and then greater one-job value per equipment-time. Below demand, marginal value includes avoided shortage penalty; above demand it retains product value, so scarce-product equipment does not stop at quota. Immediate material and equipment readiness remain physical runtime gates even though the local horizon projection assumes continuing feed. Because the contracts, deadline, and value function remain outside the Blueprint, a Coding Agent can optimize the policy without editing its own exam.
 
 ## Memory-fab reference contract
 

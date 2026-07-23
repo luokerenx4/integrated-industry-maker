@@ -1,6 +1,7 @@
-import type { FactoryMetrics } from "./types";
+import type { CompiledFactoryProject, FactoryMetrics } from "./types";
 
 export type FabLossBucketId =
+  | "delivery-portfolio"
   | "release-admission"
   | "queue-starvation"
   | "batch-formation"
@@ -29,7 +30,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 1;
+  version: 2;
   family: string;
   outcome: {
     scheduled: number;
@@ -40,6 +41,9 @@ export interface FabLossProfile {
     pendingRelease: number;
     goodYield: number;
     contractFulfillment: number;
+    deliveryShortfall: number;
+    deliveryOverflow: number;
+    portfolioNetValue: number;
   };
   primary: FabLossBucket | null;
   chain: FabLossBucketId[];
@@ -55,16 +59,42 @@ const sum = (values: Record<string, number>) => Object.values(values).reduce((to
 const ratio = (numerator: number, denominator: number) => denominator > 0 ? numerator / denominator : 0;
 const topKey = (values: Record<string, number>): string | null => Object.entries(values)
   .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? null;
+const productionCapabilities = new Set(["extract", "process", "treat"]);
 
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
+  project: Pick<CompiledFactoryProject, "devices">,
 ): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
   const scheduled = Math.max(1, metrics.lotFlow.scheduled);
   const cycleTicks = Math.max(1, metrics.lotFlow.meanCycleTimeTicks);
   const buckets: FabLossBucket[] = [];
   const add = (bucket: FabLossBucket) => { if (bucket.score > 1e-9) buckets.push(bucket); };
+
+  const deliveryContracts = Object.values(metrics.deliveryPortfolio.contracts);
+  const deliveryShortfall = deliveryContracts.reduce((total, contract) => total + contract.shortfall, 0);
+  const deliveryOverflow = deliveryContracts.reduce((total, contract) => total + contract.overflow, 0);
+  const underfilledContracts = deliveryContracts.filter((contract) => contract.fulfillment < 1 - 1e-12).length;
+  const meanContractShortfallShare = deliveryContracts.length
+    ? deliveryContracts.reduce((total, contract) => total + Math.max(0, 1 - Math.min(1, contract.fulfillment)), 0) / deliveryContracts.length
+    : 0;
+  add({
+    id: "delivery-portfolio", label: "Delivery portfolio shortfall", score: meanContractShortfallShare,
+    summary: `${underfilledContracts}/${deliveryContracts.length} delivery contracts are below demand with ${deliveryShortfall} units short, ${deliveryOverflow} above-demand units, and ${metrics.deliveryPortfolio.netValue.toFixed(3)} net value.`,
+    subjects: [{ kind: "project", id: metrics.lotFlow.family }],
+    evidence: {
+      contracts: deliveryContracts.length,
+      underfilledContracts,
+      demanded: metrics.deliveryPortfolio.demanded,
+      delivered: metrics.deliveryPortfolio.delivered,
+      shortfall: deliveryShortfall,
+      overflow: deliveryOverflow,
+      grossValue: metrics.deliveryPortfolio.grossValue,
+      shortfallPenalty: metrics.deliveryPortfolio.shortfallPenalty,
+      netValue: metrics.deliveryPortfolio.netValue,
+    },
+  });
 
   const releaseBlockedTicks = metrics.releaseFlow.capacityBlockedTicks + metrics.releaseFlow.controlBlockedTicks;
   add({
@@ -74,13 +104,17 @@ export function analyzeFabLossProfile(
     evidence: { pendingLots: metrics.releaseFlow.pending, capacityBlockedLots: metrics.releaseFlow.capacityBlockedLots, controlBlockedLots: metrics.releaseFlow.controlBlockedLots, blockedTicks: releaseBlockedTicks },
   });
 
-  const waitingInputTicks = sum(metrics.waitingInputTime);
-  const waitingDevice = topKey(metrics.waitingInputTime);
+  const productiveWaitingInput = Object.fromEntries(Object.entries(metrics.waitingInputTime).filter(([id]) =>
+    project.devices[id]?.assetDef.capabilities.some((capability) => productionCapabilities.has(capability))));
+  const waitingInputTicks = sum(productiveWaitingInput);
+  const waitingDevice = topKey(productiveWaitingInput);
+  const queueShare = ratio(metrics.lotFlow.meanQueueTimeTicks, cycleTicks);
+  const inputWaitShare = ratio(waitingInputTicks, durationTicks * Math.max(1, Object.keys(productiveWaitingInput).length));
   add({
-    id: "queue-starvation", label: "Queue and input starvation", score: ratio(metrics.lotFlow.meanQueueTimeTicks, cycleTicks) + ratio(waitingInputTicks, durationTicks * Math.max(1, Object.keys(metrics.waitingInputTime).length)),
-    summary: `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued; equipment accumulated ${(waitingInputTicks / 1000).toFixed(1)} device-s waiting for input.`,
+    id: "queue-starvation", label: "Queue and input starvation", score: (queueShare + inputWaitShare) / 2,
+    summary: `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued; ${Object.keys(productiveWaitingInput).length} productive devices accumulated ${(waitingInputTicks / 1000).toFixed(1)} device-s waiting for input.`,
     subjects: waitingDevice ? [{ kind: "device", id: waitingDevice }] : [{ kind: "project", id: metrics.lotFlow.family }],
-    evidence: { meanQueueTicks: metrics.lotFlow.meanQueueTimeTicks, waitingInputTicks },
+    evidence: { meanQueueTicks: metrics.lotFlow.meanQueueTimeTicks, productiveDevices: Object.keys(productiveWaitingInput).length, waitingInputTicks },
   });
 
   add({
@@ -154,12 +188,13 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 1,
+    version: 2,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,
       scrapped: metrics.lotFlow.scrapped, inProgress: metrics.lotFlow.inProgress, pendingRelease: metrics.lotFlow.pendingRelease,
       goodYield: metrics.qualityFlow.goodYield, contractFulfillment: metrics.deliveryPortfolio.fulfillment,
+      deliveryShortfall, deliveryOverflow, portfolioNetValue: metrics.deliveryPortfolio.netValue,
     },
     primary: buckets[0] ?? null,
     chain: buckets.slice(0, 5).map((bucket) => bucket.id),
@@ -172,7 +207,8 @@ export function analyzeFabLosses(
   metrics: FactoryMetrics,
   durationTicks: number,
   run: { id: string; resultHash: string },
+  project: Pick<CompiledFactoryProject, "devices">,
 ): FabLossAttribution | null {
-  const profile = analyzeFabLossProfile(metrics, durationTicks);
+  const profile = analyzeFabLossProfile(metrics, durationTicks, project);
   return profile ? { ...profile, run } : null;
 }

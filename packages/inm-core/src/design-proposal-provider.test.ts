@@ -31,7 +31,7 @@ async function memoryFabInput() {
     project,
     blueprint: project.blueprint,
     metrics,
-    fabLoss: analyzeFabLossProfile(metrics, project.scenario.durationTicks),
+    fabLoss: analyzeFabLossProfile(metrics, project.scenario.durationTicks, project),
     production: analyzeProduction(project),
     capacityPlan: planProductionCapacity(project),
     history: [],
@@ -44,12 +44,64 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   const first = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose(input);
   const second = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose(input);
   expect(first).toEqual(second);
-  expect(first.strategy).toBe("dispatch:conwip-9-6-edd");
+  expect(first.strategy).toBe("maintenance:lithography-jobs-6");
   expect(first.addressedLoss).toBe(input.fabLoss!.chain[0]);
-  expect(first.patch).toEqual([{ op: "add", path: "/policies/lotRelease", value: {
-    kind: "conwip", maximumWip: 9, reopenAtWip: 6, maximumReleaseDelayTicks: 18_000, dispatch: "earliest-due-date",
-  } }]);
+  expect(first.patch).toEqual([{
+    op: "add",
+    path: `/devices/${input.blueprint.devices.findIndex((device) => device.id === "lithography-1")}/policy/preventiveMaintenance`,
+    value: { minimumJobs: 6 },
+  }]);
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
+});
+
+test("memory-fab project provider targets the commissioned factory's measured delivery mismatch", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
+  });
+  const blueprint = structuredClone(loaded.blueprint);
+  const burnIn = blueprint.devices.find((device) => device.id === "burn-in-1")!;
+  burnIn.policy = { ...burnIn.policy, recipeDispatch: "authored-order" };
+  const project = compileFactoryProject({ ...loaded, blueprint });
+  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
+  expect(fabLoss).toMatchObject({
+    version: 2,
+    primary: {
+      id: "delivery-portfolio",
+      evidence: { underfilledContracts: 2, shortfall: 18, overflow: 16, netValue: -48 },
+    },
+    outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
+  });
+  const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint,
+    metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  });
+  expect(proposal).toMatchObject({
+    strategy: "dispatch:burn-in-contract-value",
+    addressedLoss: "delivery-portfolio",
+    patch: [{
+      op: "replace",
+      path: `/devices/${blueprint.devices.indexOf(burnIn)}/policy/recipeDispatch`,
+      value: "contract-value",
+    }],
+  });
 });
 
 test("memory-fab project provider diversifies measured loss targets from immutable history", async () => {

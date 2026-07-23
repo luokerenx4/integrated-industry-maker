@@ -16,7 +16,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/commissioned-fab-convergence-loop]] | Reduce the exact commissioned memory fab's remaining queue, yield, batch, Q-time, and commercial-delivery losses without regressing its fulfilled high-value portfolio or locked cases. | 2026-07-23 |
 
 ## Paused plans
 
@@ -26,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/portfolio-aware-commissioned-optimization]] | Let the shared loss model diagnose value-weighted delivery mismatch and use a commissioned-factory Design Program to improve the live memory fab through the guarded Candidate boundary. | 2026-07-23 |
 | [[plans/commission-generated-memory-fab]] | Commission the accepted greenfield Design leader into a self-contained runnable memory-fab Blueprint through the shared Candidate boundary. | 2026-07-23 |
 | [[plans/immutable-design-run-continuation]] | Continue a budget-exhausted Design frontier into a new immutable run without re-evaluating or mutating its accepted evidence prefix. | 2026-07-23 |
 | [[plans/interruption-aware-campaign-repair]] | Refine a profitable lithography setup campaign against its exact interruption-case blocker without weakening the locked five-case contract. | 2026-07-23 |

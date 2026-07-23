@@ -1508,15 +1508,33 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         .reduce((outputSum, amount) => outputSum + amount.count, 0), 0);
     return delivered + buffered + inTransit + activeOutputs;
   };
-  const contractContribution = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): number =>
+  const contractContribution = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+    executions = 1,
+  ): number =>
     (project.objective.deliveryContracts ?? []).reduce((sum, contract) => {
       if (contract.region !== device.region) return sum;
-      const output = plan.outputs.find((amount) => amount.resource === contract.resource)?.count ?? 0;
+      const output = (plan.outputs.find((amount) => amount.resource === contract.resource)?.count ?? 0) * executions;
       if (output <= 0) return sum;
       const demand = contract.demandPerMinute * project.scenario.durationTicks / 60_000;
       const remaining = Math.max(0, demand - contractCommitted(contract.resource, contract.region));
       return sum + output * contract.valuePerItem + Math.min(output, remaining) * contract.shortfallPenaltyPerItem;
     }, 0);
+  const contractWindowContribution = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+  ): { value: number; firstDeliveryTicks: number } => {
+    const setup = state.devices[device.id]!.setup;
+    const changeoverTicks = setup && plan.setupGroup && setup.group !== plan.setupGroup
+      ? device.assetDef.production?.changeover?.transitions.find((transition) =>
+        transition.from === setup.group && transition.to === plan.setupGroup)?.durationTicks ?? 0
+      : 0;
+    const firstDeliveryTicks = changeoverTicks + plan.durationTicks;
+    const remainingTicks = Math.max(0, project.scenario.durationTicks - state.tick);
+    const timeExecutions = Math.max(0, Math.floor((remainingTicks - changeoverTicks) / plan.durationTicks));
+    return { value: contractContribution(device, plan, timeExecutions), firstDeliveryTicks };
+  };
   const isContractDispatchDevice = (device: CompiledDevice): boolean => device.policy?.recipeDispatch === "contract-value"
     && device.processPlans.some((plan) => plan.outputs.some((output) => (project.objective.deliveryContracts ?? [])
       .some((contract) => contract.resource === output.resource && contract.region === device.region)));
@@ -1544,9 +1562,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ranked.sort((left, right) => Number(right.plan.setupGroup === currentGroup) - Number(left.plan.setupGroup === currentGroup) || left.index - right.index);
     }
     else if (policy === "contract-value") ranked.sort((left, right) => {
-      const leftValue = contractContribution(device, left.plan) / left.plan.durationTicks;
-      const rightValue = contractContribution(device, right.plan) / right.plan.durationTicks;
-      return rightValue - leftValue || right.plan.priority - left.plan.priority || left.index - right.index;
+      const leftWindow = contractWindowContribution(device, left.plan);
+      const rightWindow = contractWindowContribution(device, right.plan);
+      const leftRate = contractContribution(device, left.plan) / left.plan.durationTicks;
+      const rightRate = contractContribution(device, right.plan) / right.plan.durationTicks;
+      return rightWindow.value - leftWindow.value
+        || leftWindow.firstDeliveryTicks - rightWindow.firstDeliveryTicks
+        || rightRate - leftRate
+        || right.plan.priority - left.plan.priority
+        || left.index - right.index;
     });
     else if (policy === "oldest-lot" || policy === "earliest-due-date" || policy === "least-slack" || policy === "highest-lot-priority") {
       const candidateLot = (plan: CompiledDevice["processPlans"][number]) => {

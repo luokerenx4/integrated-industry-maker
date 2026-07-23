@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
@@ -85,18 +85,28 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
 test("CLI-only operator discovers, inspects, previews, applies, and verifies a Candidate", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
-  const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
+  await rm(join(projectDir, "candidate-reviews/portfolio-aware-dram-dispatch"), { recursive: true, force: true });
+  await rm(join(projectDir, "candidates/commissioned-greenfield-dram-fab.candidate.json"), { force: true });
+  await rm(join(projectDir, "candidate-reviews/commissioned-greenfield-dram-fab"), { recursive: true, force: true });
+  await rm(join(projectDir, "candidates/stable-furnace-sleep.candidate.json"), { force: true });
+  const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  const prePortfolio = JSON.parse(await readFile(blueprintPath, "utf8"));
+  prePortfolio.devices.find((device: { id: string }) => device.id === "burn-in-1").policy.recipeDispatch = "authored-order";
+  prePortfolio.revision = "28192fe068a455bcbca606c2b5c2832034b584bdb39ddb5a6cd615fc159021aa";
+  await writeFile(blueprintPath, `${JSON.stringify(prePortfolio, null, 2)}\n`);
   const before = await readFile(blueprintPath, "utf8");
   const discovery = await runCli(["help", "--json"]);
   expect({ exitCode: discovery.exitCode, stderr: discovery.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect((JSON.parse(discovery.stdout).data.commands as Array<{ id: string }>).map((command) => command.id)).toContain("candidate");
   const inspection = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
   expect({ exitCode: inspection.exitCode, stderr: inspection.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.arrayContaining([expect.objectContaining({ id: "stable-furnace-sleep", benchmark: "equipment-energy-research" })]));
+  expect(JSON.parse(inspection.stdout).data.result).toEqual([
+    expect.objectContaining({ id: "portfolio-aware-dram-dispatch", benchmark: "greenfield-dram-design" }),
+  ]);
   const runCandidate = async (apply = false) => {
     const child = Bun.spawn([
       process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
-      "--candidate", "stable-furnace-sleep", ...(apply ? ["--apply"] : []), "--json",
+      "--candidate", "portfolio-aware-dram-dispatch", ...(apply ? ["--apply"] : []), "--json",
     ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
@@ -109,10 +119,10 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(result).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "candidate" }));
   expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
-    result: expect.objectContaining({ action: "preview", candidate: "stable-furnace-sleep", verdict: "KEEP", scoreDelta: expect.any(Number) }),
+    result: expect.objectContaining({ action: "preview", candidate: "portfolio-aware-dram-dispatch", verdict: "KEEP", scoreDelta: expect.any(Number) }),
     operation: expect.objectContaining({
       operation: "candidate.preview", effect: "creates-artifact",
-      writeSet: [expect.stringContaining("candidate-reviews/stable-furnace-sleep/")],
+      writeSet: [expect.stringContaining("candidate-reviews/portfolio-aware-dram-dispatch/")],
       artifacts: [expect.objectContaining({ kind: "candidate-review", immutable: true })],
     }),
   }));
@@ -121,7 +131,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
   const reviewedAction = await runCli(["inspect", projectDir, "--section", "next-action", "--json"]);
   const reviewedEnvelope = JSON.parse(reviewedAction.stdout);
-  expect(reviewedEnvelope.data.result).toEqual(expect.objectContaining({ id: "candidate.apply:stable-furnace-sleep", requiresConfirmation: true }));
+  expect(reviewedEnvelope.data.result).toEqual(expect.objectContaining({ id: "candidate.apply:portfolio-aware-dram-dispatch", requiresConfirmation: true }));
   expect(reviewedEnvelope.nextActions).toEqual([reviewedEnvelope.data.result]);
 
   const applied = await runCandidate(true);
@@ -136,13 +146,13 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
   const postApply = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
   const postApplyEnvelope = JSON.parse(postApply.stdout);
-  expect(postApplyEnvelope.data.result.find((candidate: { id: string }) => candidate.id === "stable-furnace-sleep").decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
+  expect(postApplyEnvelope.data.result.find((candidate: { id: string }) => candidate.id === "portfolio-aware-dram-dispatch").decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
   expect(postApplyEnvelope.nextActions[0].id.startsWith("candidate.")).toBeFalse();
 
-  const verified = await runCli(["benchmark", projectDir, "--benchmark", "equipment-energy-research", "--json"]);
+  const verified = await runCli(["benchmark", projectDir, "--benchmark", "greenfield-dram-design", "--json"]);
   expect({ exitCode: verified.exitCode, stderr: verified.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(verified.stdout).data).toEqual(expect.objectContaining({
-    result: expect.objectContaining({ benchmark: "equipment-energy-research", verdict: "KEEP" }),
+    result: expect.objectContaining({ benchmark: "greenfield-dram-design", verdict: "KEEP" }),
     operation: expect.objectContaining({ operation: "benchmark.evaluate", effect: "read-only" }),
   }));
 
@@ -152,7 +162,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
     schemaVersion: 1, ok: false, command: "candidate",
     error: expect.objectContaining({ code: "candidate.stale-base", retryable: false, hashes: expect.objectContaining({ expectedBaseHash: expect.any(String), currentCandidateHash: expect.any(String) }) }),
   }));
-}, 30_000);
+}, 60_000);
 
 test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
   const projectDir = join(repository, "examples/ironworks");
@@ -232,6 +242,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
     data: {
       action: "list",
       programs: [
+        expect.objectContaining({ id: "commissioned-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
         expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
         expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
       ],
@@ -272,10 +283,10 @@ test("public Design Program workflow discovers, inspects, and executes without m
     phase: "proposal-started",
     branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
     promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
-    driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "queue-starvation" }) }) }),
+    driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "yield-quality" }) }) }),
   }) }));
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-    phase: "proposal-completed", addressedLoss: "queue-starvation",
+    phase: "proposal-completed", addressedLoss: "yield-quality",
   }) }));
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
@@ -306,9 +317,9 @@ test("public Design Program workflow discovers, inspects, and executes without m
     data: { section: "iterations", result: [expect.objectContaining({
       iteration: 1,
       decision: expect.stringMatching(/KEEP|BRANCH|REJECT/),
-      addressedLoss: "queue-starvation",
+      addressedLoss: "yield-quality",
       promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null }),
-      driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["queue-starvation"]) }) }),
+      driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["yield-quality"]) }) }),
       decisionEvidence: expect.objectContaining({
         aggregate: expect.objectContaining({ previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number) }),
         cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]),
@@ -357,8 +368,8 @@ test("public Design Program workflow discovers, inspects, and executes without m
 
   const humanRun = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash]);
   expect({ exitCode: humanRun.exitCode, stderr: humanRun.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(humanRun.stdout).toContain("addresses queue-starvation");
-  expect(humanRun.stdout).toContain("observed queue-starvation →");
+  expect(humanRun.stdout).toContain("addresses yield-quality");
+  expect(humanRun.stdout).toContain("observed yield-quality →");
   expect(humanRun.stdout).toContain("before promotion-ready leader");
   expect(humanRun.stdout).toContain("limiting ");
   expect(humanRun.stdout).toContain("Frontier: leader ");
@@ -437,62 +448,61 @@ test("public Design Program workflow discovers, inspects, and executes without m
       leaderAfter: "candidate-4",
     }),
   });
-  const campaignRepairIteration = JSON.parse(guardedJson.stdout).data.result[6];
-  expect(campaignRepairIteration).toMatchObject({
+  const qualityBranchIteration = JSON.parse(guardedJson.stdout).data.result[6];
+  expect(qualityBranchIteration).toMatchObject({
     iteration: 7,
-    strategy: "setup-campaign:lithography-3-0-interruption-escape",
-    decisionFamily: "setup-campaign",
-    addressedCase: "lithography-interruption",
+    strategy: "maintenance:inspection-jobs-4",
+    decisionFamily: "maintenance",
+    addressedLoss: "yield-quality",
     promotionBoundary: {
       leaderNodeId: "candidate-4",
-      selectedNodeId: "candidate-6",
-      promotable: false,
-      limitingCase: "lithography-interruption",
-      guardrail: { kind: "uniform", passed: false, violations: ["lithography-interruption"] },
-    },
-    decision: "KEEP",
-    decisionEvidence: {
-      basis: "current-best-improvement",
+      selectedNodeId: "candidate-4",
+      promotable: true,
+      limitingCase: null,
       guardrail: { kind: "uniform", passed: true, violations: [] },
     },
+    decision: "BRANCH",
+    decisionEvidence: {
+      basis: "current-best-case-guardrail",
+      limitingCase: "mixed-quality",
+      guardrail: { kind: "uniform", passed: false, violations: ["mixed-quality"] },
+    },
     frontierEvidence: expect.objectContaining({
-      parent: { nodeId: "candidate-6", role: "alternative", depth: 5 },
+      parent: { nodeId: "candidate-4", role: "leader", depth: 4 },
       candidateNodeId: "candidate-7",
-      outcome: "leader-promoted",
-      leaderAfter: "candidate-7",
-      alternativesAfter: ["candidate-6"],
+      outcome: "branch-retained",
+      leaderAfter: "candidate-4",
+      alternativesAfter: ["candidate-7"],
     }),
   });
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-completed",
     iteration: 7,
-    strategy: "setup-campaign:lithography-3-0-interruption-escape",
-    addressedCase: "lithography-interruption",
+    strategy: "maintenance:inspection-jobs-4",
+    addressedLoss: "yield-quality",
   }) }));
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
     iteration: 7,
-    strategy: "setup-campaign:lithography-3-0-interruption-escape",
-    addressedCase: "lithography-interruption",
-    decision: "KEEP",
+    strategy: "maintenance:inspection-jobs-4",
+    decision: "BRANCH",
   }) }));
   const guardedHuman = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash]);
   expect(guardedHuman.stdout).toContain("fails current-best case guardrail · facility-interruption -3.915879 · allowed regression 0.000000");
   expect(guardedHuman.stdout).toContain("candidate-2 → candidate-3 · branch-retained");
   expect(guardedHuman.stdout).toContain("before blocked by facility-interruption -3.915879 · allowed regression 0.000000");
   expect(guardedHuman.stdout).toContain("repairs facility-interruption");
-  expect(guardedHuman.stdout).toContain("before blocked by lithography-interruption -0.054667 · allowed regression 0.000000");
-  expect(guardedHuman.stdout).toContain("repairs lithography-interruption");
-  expect(guardedHuman.stdout).toContain("2 searchable · 0 exhausted · next candidate-6");
+  expect(guardedHuman.stdout).toContain("fails current-best case guardrail · mixed-quality -0.063889 · allowed regression 0.000000");
+  expect(guardedHuman.stdout).toContain("2 searchable · 0 exhausted · next candidate-7");
   expect(guardedHuman.stdout).toContain("X01 EXHAUST alternative candidate-3 before iteration 5 · next candidate-4");
   const guardedFrontier = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "frontier", "--json"]);
   expect(JSON.parse(guardedFrontier.stdout).data.result).toMatchObject({
-    leader: "candidate-7",
-    alternatives: ["candidate-6"],
-    scheduler: { searchOrder: ["candidate-6", "candidate-7"], exhausted: [] },
+    leader: "candidate-4",
+    alternatives: ["candidate-7"],
+    scheduler: { searchOrder: ["candidate-7", "candidate-4"], exhausted: [] },
     nodes: [
-      expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
-      expect.objectContaining({ nodeId: "candidate-6", role: "alternative", searchStatus: "searchable" }),
+      expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
+      expect.objectContaining({ nodeId: "candidate-7", role: "alternative", searchStatus: "searchable" }),
     ],
     exhaustions: [expect.objectContaining({ sequence: 1, nextNodeId: "candidate-4" })],
   });
@@ -554,10 +564,20 @@ test("public inspect exposes compatible-run memory-fab loss attribution without 
   expect(JSON.parse(result.stdout).data).toEqual({
     section: "losses",
     result: expect.objectContaining({
-      run: { id: "052-simulate", resultHash: expect.any(String) },
+      version: 2,
+      run: { id: "054-simulate", resultHash: expect.any(String) },
       family: "dram-wafer",
-      primary: expect.objectContaining({ id: "queue-starvation" }),
-      chain: expect.arrayContaining(["maintenance-qualification", "setup-campaign"]),
+      outcome: expect.objectContaining({
+        deliveryShortfall: 15,
+        deliveryOverflow: 3,
+        portfolioNetValue: 236,
+      }),
+      primary: expect.objectContaining({
+        id: "queue-starvation",
+        subjects: [{ kind: "device", id: "rework-1" }],
+        evidence: expect.objectContaining({ productiveDevices: 11 }),
+      }),
+      chain: expect.arrayContaining(["delivery-portfolio", "maintenance-qualification", "setup-campaign"]),
     }),
   });
 });

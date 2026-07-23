@@ -101,6 +101,8 @@ The Candidate file retains the Design Program, result hash, and best-Blueprint h
 
 After apply, a Design Run whose best hash equals the current promotion target is `commissioned`, not still promotable. Studio suppresses both continuation and repeat-promotion controls, displays the matching Candidate handoff, and keeps the run as immutable evidence. If the target moved to some other hash, Studio labels the base as moved and likewise offers no dishonest operation. Core remains authoritative and rejects either stale action even if another client constructs the request manually.
 
+The same chain now covers iterative optimization of an already commissioned factory. `commissioned-dram-fab` pins one live `generated-dram-fab` hash as both authored seed and promotion base. Its first accepted run promoted Candidate `portfolio-aware-dram-dispatch`; the one-operation receipt proved the unchanged five-case Benchmark before apply wrote the exact reviewed hash. Afterward the Program's next brief naturally points at the new live hash, while the applied Candidate remains verified provenance and the older greenfield commissioning Candidate becomes historical rather than a valid mutation target.
+
 ### Active implementation plan
 
 - [x] Shared read-only Benchmark catalog and evaluator.
@@ -111,6 +113,7 @@ After apply, a Design Run whose best hash equals the current promotion target is
 - [x] Core, CLI, API, and browser tests against `examples/memory-fab`.
 - [x] Exact immutable Design continuation through Core, CLI discovery/NDJSON, Studio API/control, and real memory-fab evidence.
 - [x] Greenfield Candidate commissioning, checked-in receipt/provenance, proposed-context compilation, and honest post-apply Studio state.
+- [x] Exact-factory commissioned optimization, value-aware burn-in Candidate, five-case review receipt, and verified apply.
 
 ### V2 acceptance
 

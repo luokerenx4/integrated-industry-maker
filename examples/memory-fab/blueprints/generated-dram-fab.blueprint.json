@@ -1157,7 +1157,7 @@
       "id": "burn-in-1",
       "policy": {
         "powerPriority": 5,
-        "recipeDispatch": "authored-order"
+        "recipeDispatch": "contract-value"
       },
       "position": {
         "x": 8,
@@ -1845,6 +1845,6 @@
     },
     "powerAllocation": "priority-load-shedding"
   },
-  "revision": "28192fe068a455bcbca606c2b5c2832034b584bdb39ddb5a6cd615fc159021aa",
+  "revision": "2511191a2ddb542dce3d551ef539e278825a53362576d093cb1ff9381a8c9356",
   "version": 1
 }

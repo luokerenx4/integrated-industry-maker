@@ -38,6 +38,7 @@ export interface JsonPatchOperation {
 }
 
 export type FabLossBucketId =
+  | "delivery-portfolio"
   | "release-admission"
   | "queue-starvation"
   | "batch-formation"
@@ -52,7 +53,7 @@ export type FabLossBucketId =
   | "yield-quality";
 
 export interface FabLossProfile {
-  version: 1;
+  version: 2;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;

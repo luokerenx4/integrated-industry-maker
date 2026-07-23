@@ -1212,7 +1212,7 @@ export async function researchFactory(projectDir: string, options: ResearchOptio
     }));
     const proposal = await agent.propose({
       iteration, project, blueprint: bestBlueprint, metrics: bestResult.metrics,
-      fabLoss: analyzeFabLossProfile(bestResult.metrics, project.scenario.durationTicks),
+      fabLoss: analyzeFabLossProfile(bestResult.metrics, project.scenario.durationTicks, project),
       production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history,
     });
     const candidateBlueprint = applyResearchPatch(bestBlueprint, proposal.patch);

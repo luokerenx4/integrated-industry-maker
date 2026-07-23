@@ -248,7 +248,7 @@ function validDriverEvidence(value: unknown): value is DesignDriverEvidence {
   const evidence = value as DesignDriverEvidence;
   if (!/^[0-9a-f]{64}$/.test(evidence.metricsHash ?? "")) return false;
   if (evidence.fabLoss === null) return true;
-  return evidence.fabLoss?.version === 1
+  return evidence.fabLoss?.version === 2
     && typeof evidence.fabLoss.family === "string"
     && !Object.hasOwn(evidence.fabLoss, "run")
     && Array.isArray(evidence.fabLoss.chain)
@@ -1073,7 +1073,7 @@ export async function runDesignProgram(
     const driverResult = runUntil(driverProject, undefined, { seed: driverCase.seed });
     const driverEvidence: DesignDriverEvidence = {
       metricsHash: hashValue(driverResult.metrics),
-      fabLoss: analyzeFabLossProfile(driverResult.metrics, driverProject.scenario.durationTicks),
+      fabLoss: analyzeFabLossProfile(driverResult.metrics, driverProject.scenario.durationTicks, driverProject),
     };
     const history = structuredClone(parent.history);
     const branch: ResearchBranchContext = {

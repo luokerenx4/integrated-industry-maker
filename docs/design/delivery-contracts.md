@@ -1,6 +1,6 @@
 # Delivery contracts
 
-Status: evaluator-owned multi-product demand floors, joint capacity planning, and Blueprint marginal-value dispatch implemented in `inm-sim/0.67.0`.
+Status: evaluator-owned multi-product demand floors, joint capacity planning, and finite-contract-window Blueprint value dispatch implemented in `inm-sim/0.75.0`.
 
 Related: [[docs/design/industrial-boundaries]], [[docs/design/fab-capacity-planning]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
@@ -23,14 +23,17 @@ All delivered units therefore remain valuable. Delivery below demand loses produ
 
 `inm plan` treats all contract demand floors as one material-balance problem. Alternative recipes and fixed coproduct ratios are solved jointly, so one reliability-screen cycle can satisfy commercial, performance, and automotive demand without being counted three times. The plan proves nominal floor capacity; it does not cap runtime output.
 
-A qualified work center may set `policy.recipeDispatch` to `contract-value`. For each ready Process the simulator estimates marginal contract value per equipment tick:
+A qualified work center may set `policy.recipeDispatch` to `contract-value`. For each ready Process the simulator first projects how many complete executions fit in the remaining Scenario contract window after the current directed setup transition, then values that complete window:
 
 ```text
-all output × unit value
+complete executions before contract-window end
+  × all output × unit value
   + output still below committed demand × avoided shortfall penalty
 ```
 
 Committed demand includes delivery, local buffers, inbound transport, and active-job output. This prevents a scheduler from repeatedly choosing a shortage product whose already-started work will fill the gap. Once all floors are covered, dispatch continues with the most valuable feasible product mix rather than stopping.
+
+This is a finite-horizon equipment-capacity projection, not a forecast of the whole factory. It assumes the work center can remain fed for the projected cycles; current material, tooling, utility, output-capacity, and power readiness still gate the immediate physical job. Equal total window value prefers the recipe with the earlier first completion, then greater one-job marginal value per process tick, authored recipe priority, and authored order. The first-completion comparison includes the exact currently required setup transition. This prevents a long high-value batch from stranding more ready product when several short batches can deliver the same contract value before the deadline, while still selecting the richer mix when the window is long enough to realize it.
 
 The policy lives in the Blueprint; contracts and evaluation live in the locked harness. A Coding Agent can therefore change production control without changing its exam.
 
@@ -55,4 +58,4 @@ bun run inm simulate examples/memory-fab --blueprint experiment
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 ```
 
-Tests must cover coproduct balance, above-demand valuation, shortage penalties, hard fulfillment gates, in-flight commitment accounting, and benchmark lock drift.
+Tests must cover coproduct balance, above-demand valuation, shortage penalties, hard fulfillment gates, in-flight commitment accounting, finite-window recipe ranking with setup time, and benchmark lock drift.
