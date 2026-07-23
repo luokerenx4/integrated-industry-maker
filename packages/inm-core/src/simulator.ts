@@ -4,7 +4,7 @@ import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
   ActiveDeviceJob, BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
-  ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick,
+  MaintenanceCause, MaintenanceTrigger, ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
@@ -119,7 +119,8 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
         usageTriggered: 0,
         calendarTriggered: 0,
         completed: 0,
-        mandatory: 0,
+        assetLimit: 0,
+        plannedBoundary: 0,
         opportunistic: 0,
         cancelled: 0,
         maintenanceTicks: 0,
@@ -1785,34 +1786,35 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(state.tick + transition.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
     return true;
   };
-  type MaintenanceDecision = { cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar" };
-  const maintenanceDecision = (device: CompiledDevice, opportunistic: boolean): MaintenanceDecision | null => {
+  type MaintenanceDecision = { cause: MaintenanceCause; trigger: MaintenanceTrigger };
+  const maintenanceDecision = (device: CompiledDevice, allowOpportunistic: boolean): MaintenanceDecision | null => {
     const contract = device.assetDef.production?.maintenance;
     const runtime = state.devices[device.id]!.maintenance;
     if (!contract || !runtime) return null;
     const policy = device.policy?.preventiveMaintenance;
     const qualificationAgeTicks = state.tick - runtime.qualifiedAtTick;
-    const mandatoryTrigger = runtime.jobsSinceMaintenance >= contract.maximumJobs
+    const assetLimitTrigger = runtime.jobsSinceMaintenance >= contract.maximumJobs
       ? "usage" as const
       : qualificationAgeTicks >= contract.maximumQualificationTicks ? "calendar" as const : null;
-    if (mandatoryTrigger) {
-      if (!opportunistic) return { cause: "mandatory", trigger: mandatoryTrigger };
-      const enabled = mandatoryTrigger === "usage" ? policy?.minimumJobs !== undefined : policy?.minimumQualificationTicks !== undefined;
-      return enabled ? { cause: "opportunistic", trigger: mandatoryTrigger } : null;
-    }
-    if (!opportunistic || !policy) return null;
-    if (policy.minimumJobs !== undefined && runtime.jobsSinceMaintenance >= policy.minimumJobs) {
+    if (assetLimitTrigger) return { cause: "asset-limit", trigger: assetLimitTrigger };
+    const plannedTrigger = policy?.planned?.afterJobs !== undefined && runtime.jobsSinceMaintenance >= policy.planned.afterJobs
+      ? "usage" as const
+      : policy?.planned?.afterQualificationTicks !== undefined && qualificationAgeTicks >= policy.planned.afterQualificationTicks
+        ? "calendar" as const : null;
+    if (plannedTrigger) return { cause: "planned-boundary", trigger: plannedTrigger };
+    if (!allowOpportunistic || !policy?.opportunistic) return null;
+    if (policy.opportunistic.afterJobs !== undefined && runtime.jobsSinceMaintenance >= policy.opportunistic.afterJobs) {
       return { cause: "opportunistic", trigger: "usage" };
     }
-    if (policy.minimumQualificationTicks !== undefined && qualificationAgeTicks >= policy.minimumQualificationTicks) {
+    if (policy.opportunistic.afterQualificationTicks !== undefined && qualificationAgeTicks >= policy.opportunistic.afterQualificationTicks) {
       return { cause: "opportunistic", trigger: "calendar" };
     }
     return null;
   };
   const tryStartMaintenancePhase = (
     device: CompiledDevice,
-    cause: "mandatory" | "opportunistic",
-    trigger: "usage" | "calendar",
+    cause: MaintenanceCause,
+    trigger: MaintenanceTrigger,
     phase: "service" | "qualification",
     jobsSinceMaintenance: number,
     qualificationAgeTicks: Tick,
@@ -1914,6 +1916,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       kind: "sleep-boundary", device: device.id, idleSinceTick,
     });
   };
+  const scheduleMaintenanceCalendarBoundaries = (device: CompiledDevice, qualifiedAtTick: Tick): void => {
+    const policy = device.policy?.preventiveMaintenance;
+    const boundaries = [
+      policy?.opportunistic?.afterQualificationTicks,
+      policy?.planned?.afterQualificationTicks,
+    ].filter((ticks): ticks is number => ticks !== undefined);
+    for (const ticks of [...new Set(boundaries)].sort((left, right) => left - right)) {
+      schedule(Math.max(state.tick, qualifiedAtTick + ticks), 3, {
+        kind: "maintenance-boundary", device: device.id, qualifiedAtTick,
+      });
+    }
+  };
   const markDeviceIdle = (device: CompiledDevice): void => {
     mutateFactoryState(state, { kind: "energy.idle", device: device.id, tick: state.tick });
     setStatus(device.id, "idle");
@@ -1972,17 +1986,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         plan.utilities.length > 0 && processPlanMaterialReady(device, plan) && !utilityAllocationsFor(plan));
     const previousUtilityWait = runtime.productionUtilities?.wait;
     const productionReady = Boolean(selectedProcessPlan && processPlanReady(device, selectedProcessPlan));
+    const blockingMaintenance = maintenanceDecision(device, false);
+    const plannedStopDue = blockingMaintenance?.cause === "planned-boundary";
     if (runtime.energyManagement?.mode === "sleeping") {
-      if (productionReady) return tryStartWake(device);
+      if (productionReady || plannedStopDue) return tryStartWake(device);
       const previousStatus = runtime.status;
       setStatus(device.id, "sleeping");
       return previousStatus !== runtime.status;
     }
-    const mandatoryMaintenance = maintenanceDecision(device, false);
-    if (mandatoryMaintenance && productionReady) return tryStartMaintenance(device, mandatoryMaintenance);
+    if (blockingMaintenance && (productionReady || plannedStopDue)) return tryStartMaintenance(device, blockingMaintenance);
     const opportunisticMaintenance = maintenanceDecision(device,
       campaignSelection.held || !productionReady);
-    if (opportunisticMaintenance) {
+    if (opportunisticMaintenance?.cause === "opportunistic") {
       if (previousToolingWait) mutateFactoryState(state, {
         kind: "tooling.wait", device: device.id, process: previousToolingWait.process, waiting: false,
       });
@@ -2410,12 +2425,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (batchHold) schedule(Math.max(state.tick, batchHold.deadlineTick), 3, {
       kind: "batch-timeout", device, preferredProcess: batchHold.preferredProcess, deadlineTick: batchHold.deadlineTick,
     });
-    const minimumQualificationTicks = project.devices[device]!.policy?.preventiveMaintenance?.minimumQualificationTicks;
-    if (runtime.maintenance && minimumQualificationTicks !== undefined) {
-      schedule(Math.max(state.tick, runtime.maintenance.qualifiedAtTick + minimumQualificationTicks), 3, {
-        kind: "maintenance-boundary", device, qualifiedAtTick: runtime.maintenance.qualifiedAtTick,
-      });
-    }
+    if (runtime.maintenance) scheduleMaintenanceCalendarBoundaries(project.devices[device]!, runtime.maintenance.qualifiedAtTick);
     scheduleSleepBoundary(project.devices[device]!);
   }
   for (const deviceId of Object.values(project.devices).filter((device) => device.generationPlan?.kind === "renewable" && renewableProfileFor(project, device.id)).map((device) => device.id).sort()) {
@@ -2503,10 +2513,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
             serviceDurationTicks: project.devices[event.device]!.assetDef.production!.maintenance!.durationTicks,
             qualificationDurationTicks: job.durationTicks,
           });
-          const minimumQualificationTicks = project.devices[event.device]!.policy?.preventiveMaintenance?.minimumQualificationTicks;
-          if (minimumQualificationTicks !== undefined) schedule(state.tick + minimumQualificationTicks, 3, {
-            kind: "maintenance-boundary", device: event.device, qualifiedAtTick: state.tick,
-          });
+          scheduleMaintenanceCalendarBoundaries(project.devices[event.device]!, state.tick);
         }
       } else if (job.changeover) {
         mutateFactoryState(state, { kind: "setup.finish", device: event.device, group: job.changeover.to, durationTicks: job.durationTicks });

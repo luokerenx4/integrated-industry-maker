@@ -1,5 +1,5 @@
 {
-  "baseCandidateHash": "b12392ad10a2104810da9971a86295b1aef1d3ba499a9e1521c1f060338bbdf5",
+  "baseCandidateHash": "f21ba0a1fc22c22e5f11aca877abfa482717427822cd950851aa3684ddc36864",
   "benchmark": "equipment-energy-research",
   "expectedEffect": "Avoid an unproductive short sleep while retaining most of the energy saving across the long standby window.",
   "hypothesis": "A slightly more conservative furnace sleep threshold should retain the accepted energy gain without adding a wake cycle.",

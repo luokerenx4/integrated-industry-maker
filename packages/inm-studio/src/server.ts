@@ -151,10 +151,17 @@ async function loadStudioData(projectId: string, runName?: string) {
   const projectDir = await projectDirectory(projectId);
   const [experiments, designPrograms] = await Promise.all([listBlueprintBenchmarks(projectDir), listDesignPrograms(projectDir)]);
   const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
-  const selected = runs.find((run) => run.name === runName)
-    ?? runs.findLast((run) => run.manifest.decision === "KEEP")
-    ?? runs.at(-1);
-  const loaded = await loadFactoryProject(projectDir, selected?.manifest.selection);
+  const defaultLoaded = await loadFactoryProject(projectDir);
+  const defaultProject = compileFactoryProject(defaultLoaded);
+  const selected = runName
+    ? runs.find((run) => run.name === runName)
+    : runs.filter((run) => run.manifest.decision !== "REVERT"
+      && run.manifest.selection.world === defaultProject.selection.world
+      && run.manifest.selection.blueprint === defaultProject.selection.blueprint
+      && run.manifest.selection.scenario === defaultProject.selection.scenario
+      && run.manifest.selection.objective === defaultProject.selection.objective
+      && stableStringify(run.manifest.hashes) === stableStringify(defaultProject.hashes)).at(-1);
+  const loaded = selected ? await loadFactoryProject(projectDir, selected.manifest.selection) : defaultLoaded;
   const runBlueprint = selected
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
     : loaded.blueprint;

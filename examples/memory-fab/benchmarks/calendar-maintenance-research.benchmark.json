@@ -21,9 +21,9 @@
   "lock": {
     "cases": {
       "calendar-maintenance-window": {
-        "blueprintHash": "328d58d40986173895002516eef1e1eaee5b7c4145904f16df1cf25d7466dd03",
+        "blueprintHash": "f684c6b465f956460f806b07c23a1f623fcde34fc3b2ad88a6791c8f49e7c0db",
         "deviceCatalogHash": "6005e479896465f5c61db6fbbbe78968c9a05856aed89d45f09636cc72d551bd",
-        "engineVersion": "inm-sim/0.75.0",
+        "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",

@@ -945,7 +945,9 @@
         "lotDispatch": "fifo",
         "powerPriority": 10,
         "preventiveMaintenance": {
-          "minimumJobs": 6
+          "planned": {
+            "afterJobs": 6
+          }
         },
         "recipeDispatch": "authored-order"
       },
@@ -976,7 +978,9 @@
         "lotDispatch": "fifo",
         "powerPriority": 9,
         "preventiveMaintenance": {
-          "minimumJobs": 5
+          "opportunistic": {
+            "afterJobs": 5
+          }
         },
         "recipeDispatch": "authored-order"
       },
@@ -1849,7 +1853,9 @@
         "lotDispatch": "fifo",
         "powerPriority": 10,
         "preventiveMaintenance": {
-          "minimumJobs": 6
+          "opportunistic": {
+            "afterJobs": 6
+          }
         },
         "recipeDispatch": "authored-order"
       },
@@ -1920,7 +1926,9 @@
         "lotDispatch": "fifo",
         "powerPriority": 9,
         "preventiveMaintenance": {
-          "minimumJobs": 5
+          "opportunistic": {
+            "afterJobs": 5
+          }
         },
         "recipeDispatch": "authored-order"
       },
@@ -1957,6 +1965,6 @@
     },
     "powerAllocation": "priority-load-shedding"
   },
-  "revision": "9af27defc6f17385e8d242c272de40878a84d4405a10ebe165076fc9560121b5",
+  "revision": "ac66ddd0db3cca7d0b2c79c06187cbe38d2ab9f09e6f2d93395ecd4458898105",
   "version": 1
 }

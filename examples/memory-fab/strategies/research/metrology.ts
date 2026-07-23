@@ -38,7 +38,8 @@ interface SearchRow {
   qualityEscapes: number[];
   qTimeViolations: number[];
   maximumInspectionQueueTicks: number[];
-  mandatoryMaintenance: number[];
+  assetLimitMaintenance: number[];
+  plannedBoundaryMaintenance: number[];
   opportunisticMaintenance: number[];
   totalBuildCost: number;
   occupiedArea: number;
@@ -70,7 +71,7 @@ function configureInspectionPolicy(
 ): Blueprint {
   const blueprint = structuredClone(source);
   for (const device of blueprint.devices.filter((item) => /^lithography-\d+$/.test(item.id))) {
-    device.policy = { ...device.policy, preventiveMaintenance: { minimumJobs: 7 } };
+    device.policy = { ...device.policy, preventiveMaintenance: { opportunistic: { afterJobs: 7 } } };
   }
   for (const device of blueprint.devices.filter((item) => /^etch-\d+$/.test(item.id))) {
     device.policy = { ...device.policy };
@@ -78,9 +79,9 @@ function configureInspectionPolicy(
   }
   for (const device of blueprint.devices.filter((item) => item.id === "inspection-1" || item.id === "inspection-2")) {
     device.policy = { ...device.policy, lotDispatch: dispatch };
-    const minimumJobs = device.asset === "rapid-metrology-cell" ? maintenance.rapid : maintenance.deep;
-    if (minimumJobs === null) delete device.policy.preventiveMaintenance;
-    else device.policy.preventiveMaintenance = { minimumJobs };
+    const opportunisticAfterJobs = device.asset === "rapid-metrology-cell" ? maintenance.rapid : maintenance.deep;
+    if (opportunisticAfterJobs === null) delete device.policy.preventiveMaintenance;
+    else device.policy.preventiveMaintenance = { opportunistic: { afterJobs: opportunisticAfterJobs } };
   }
   return blueprint;
 }
@@ -165,7 +166,8 @@ for (const topology of topologies) {
         qualityEscapes: metrics.map((item) => item.qualityFlow.escapedDefects),
         qTimeViolations: metrics.map((item) => item.routeFlow["dram-front-end"]!.queueTimeViolations),
         maximumInspectionQueueTicks: metrics.map((item) => item.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks),
-        mandatoryMaintenance: metrics.map((item) => item.equipmentMaintenance.totalMandatory),
+        assetLimitMaintenance: metrics.map((item) => item.equipmentMaintenance.totalAssetLimit),
+        plannedBoundaryMaintenance: metrics.map((item) => item.equipmentMaintenance.totalPlannedBoundary),
         opportunisticMaintenance: metrics.map((item) => item.equipmentMaintenance.totalOpportunistic),
         totalBuildCost: metrics[0]!.totalBuildCost,
         occupiedArea: metrics[0]!.occupiedArea,
@@ -183,14 +185,14 @@ rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || left.inspectionMaintenance.localeCompare(right.inspectionMaintenance));
 
 console.log(`# incumbent aggregate=${incumbentAggregate.toFixed(6)} · 7 equipment architectures × 4 equipment-specific maintenance policies × 2 lot-dispatch policies`);
-console.log("verdict\tfeasible\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\ttopology\tdispatch\tinspection-maint\tcost\tarea\tcase-scores\tcompleted\tscrapped\tescaped-defects\tqtime-violations\tinspection-max-queue-s\tmandatory\topportunistic");
+console.log("verdict\tfeasible\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\ttopology\tdispatch\tinspection-maint\tcost\tarea\tcase-scores\tcompleted\tscrapped\tescaped-defects\tqtime-violations\tinspection-max-queue-s\tasset-limit\tplanned-boundary\topportunistic");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : "REJECT", `${row.feasibleCases}/${definition.cases.length}`, row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
   row.topology, row.dispatch, row.inspectionMaintenance, row.totalBuildCost, row.occupiedArea,
   row.scores.map((value) => value.toFixed(3)).join(","), row.completedLots.join(","), row.scrappedLots.join(","),
   row.qualityEscapes.join(","),
   row.qTimeViolations.join(","), row.maximumInspectionQueueTicks.map((ticks) => (ticks / 1000).toFixed(1)).join(","),
-  row.mandatoryMaintenance.join(","), row.opportunisticMaintenance.join(","),
+  row.assetLimitMaintenance.join(","), row.plannedBoundaryMaintenance.join(","), row.opportunisticMaintenance.join(","),
 ].join("\t"));
 
 const best = rows[0];

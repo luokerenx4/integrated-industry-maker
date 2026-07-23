@@ -21,9 +21,9 @@
   "lock": {
     "cases": {
       "equipment-energy-window": {
-        "blueprintHash": "33d4f404c25ce362b85347edc59ae984565eb4e0471baa65d8f516c9d659cf5f",
+        "blueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
         "deviceCatalogHash": "6005e479896465f5c61db6fbbbe78968c9a05856aed89d45f09636cc72d551bd",
-        "engineVersion": "inm-sim/0.75.0",
+        "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "d7e78cbc549f465c0d95281ede812ff4b30c1b244ad6a6e742913dc1c07a0461",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",

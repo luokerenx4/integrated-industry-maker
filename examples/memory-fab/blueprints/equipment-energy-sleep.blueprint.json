@@ -163,7 +163,9 @@
         "lotDispatch": "fifo",
         "powerPriority": 7,
         "preventiveMaintenance": {
-          "minimumJobs": 4
+          "opportunistic": {
+            "afterJobs": 4
+          }
         }
       }
     },

@@ -2,10 +2,56 @@ import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { evaluateBlueprintBenchmark, hashValue, openProjectWorkbenchSnapshot, stableStringify, type Blueprint } from "@inm/core";
+import { evaluateBlueprintBenchmark, hashValue, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
+
+test("Studio defaults to current compatible evidence instead of the newest unrelated run", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-compatible-run-"));
+  const projectDir = join(root, "ironworks");
+  await cp(ironworks, projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  const current = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  const unrelated = await simulateProjectOperation(projectDir, {
+    world: "main", blueprint: "main", scenario: "machine-failure", objective: "default",
+  }, { seed: 42 });
+  const port = 47_000 + process.pid % 1_000;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+
+    const defaultResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/data`);
+    expect(defaultResponse.status).toBe(200);
+    expect(await defaultResponse.json()).toEqual(expect.objectContaining({
+      selectedRun: current.data.run.id,
+      selection: { world: "main", blueprint: "main", scenario: "baseline", objective: "default" },
+    }));
+
+    const explicitResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/data?run=${unrelated.data.run.id}`);
+    expect(explicitResponse.status).toBe(200);
+    expect(await explicitResponse.json()).toEqual(expect.objectContaining({
+      selectedRun: unrelated.data.run.id,
+      selection: { world: "main", blueprint: "main", scenario: "machine-failure", objective: "default" },
+    }));
+  } finally {
+    child.kill();
+    await child.exited;
+  }
+}, 30_000);
 
 test("opening a project without runs does not write a Studio baseline", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-readonly-"));
@@ -215,24 +261,22 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(campaignRunResponse.status).toBe(200);
     const campaignRecords = (await campaignRunResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
     const campaignProgress = campaignRecords.filter((record) => record.type === "progress");
-    expect(campaignProgress.filter((record) => record.progress.phase === "node-exhausted")).toEqual([
-      expect.objectContaining({ progress: expect.objectContaining({ exhaustion: expect.objectContaining({ sequence: 1, node: expect.objectContaining({ nodeId: "candidate-4" }), nextNodeId: "candidate-5" }) }) }),
-    ]);
+    expect(campaignProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
     expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-      phase: "proposal-completed", iteration: 7, strategy: "batch-formation:furnace-flex-30000", addressedLoss: "batch-formation",
+      phase: "proposal-completed", iteration: 7, strategy: "dispatch:inspection-earliest-due-date", addressedLoss: "queue-congestion",
     }) }));
     expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-      phase: "candidate-completed", iteration: 7, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT",
+      phase: "candidate-completed", iteration: 7, strategy: "dispatch:inspection-earliest-due-date", decision: "KEEP",
     }) }));
     const campaignResult = campaignRecords.find((record) => record.type === "result").result;
     const campaignRepairRunId = campaignResult.manifest.resultHash as string;
     expect(campaignResult.manifest).toMatchObject({
       budget: { maximum: 7, evaluated: 7 },
-      best: { iteration: 5, candidateScore: -242.44311996825397, verdict: "KEEP" },
+      best: { iteration: 7, candidateScore: -246.2328839484127, verdict: "KEEP" },
       frontier: {
-        leader: "candidate-5",
-        alternatives: ["candidate-4"],
-        scheduler: { searchOrder: ["candidate-5"], exhausted: ["candidate-4"] },
+        leader: "candidate-7",
+        alternatives: [],
+        scheduler: { searchOrder: ["candidate-7"], exhausted: [] },
         nodes: expect.any(Array),
       },
     });
@@ -242,12 +286,12 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       resultHash: campaignRepairRunId,
       iterations: expect.arrayContaining([expect.objectContaining({
         iteration: 7,
-        strategy: "batch-formation:furnace-flex-30000",
-        addressedLoss: "batch-formation",
+        strategy: "dispatch:inspection-earliest-due-date",
+        addressedLoss: "queue-congestion",
         promotionBoundary: expect.objectContaining({ limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
-        decision: "REJECT",
-        decisionEvidence: expect.objectContaining({ basis: "no-current-best-improvement", limitingCase: "lithography-interruption", guardrail: expect.objectContaining({ passed: false, violations: ["lithography-interruption", "facility-interruption"] }) }),
-        frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-5", role: "leader", depth: 4 }, leaderAfter: "candidate-5" }),
+        decision: "KEEP",
+        decisionEvidence: expect.objectContaining({ basis: "current-best-improvement", guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
+        frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-4", role: "leader", depth: 2 }, leaderAfter: "candidate-7" }),
       })]),
     }) }));
     const continuationResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}/continue`, {
@@ -264,20 +308,25 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     }) }));
     expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
     expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "seed")).toHaveLength(0);
-    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
-    expect(continuationProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
+    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(0);
+    expect(continuationProgress.filter((record) => record.progress.phase === "node-exhausted")).toEqual([
+      expect.objectContaining({ progress: expect.objectContaining({
+        exhaustion: expect.objectContaining({ sequence: 1, node: expect.objectContaining({ nodeId: "candidate-7" }), beforeIteration: 8, nextNodeId: null }),
+      }) }),
+    ]);
     const continuationResult = continuationRecords.find((record) => record.type === "result").result;
     expect(continuationResult.manifest).toMatchObject({
-      continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 1, additionalCandidateBudget: 1 },
-      budget: { maximum: 8, evaluated: 8 },
-      best: { iteration: 8, verdict: "KEEP" },
-      iterations: [...campaignResult.manifest.iterations, expect.objectContaining({
-        iteration: 8,
-        strategy: "dispatch:inspection-earliest-due-date",
-        addressedLoss: "queue-congestion",
-        decision: "KEEP",
-        frontierEvidence: expect.objectContaining({ parent: expect.objectContaining({ nodeId: "candidate-5" }), leaderAfter: "candidate-8" }),
-      })],
+      continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 0, additionalCandidateBudget: 1 },
+      budget: { maximum: 8, evaluated: 7 },
+      best: { iteration: 7, verdict: "KEEP" },
+      iterations: campaignResult.manifest.iterations,
+      frontier: {
+        leader: "candidate-7",
+        alternatives: [],
+        scheduler: { searchOrder: [], exhausted: ["candidate-7"] },
+      },
+      exhaustions: [expect.objectContaining({ sequence: 1, beforeIteration: 8, nextNodeId: null })],
+      stopReason: "frontier-exhausted",
     });
     const continuedRunId = continuationResult.manifest.resultHash as string;
     expect(continuedRunId).not.toBe(campaignRepairRunId);
@@ -336,7 +385,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(await commissionedValidation.json()).toEqual(expect.objectContaining({
       operation: "validate",
       context: expect.objectContaining({ hashes: expect.objectContaining({ blueprintHash: commissioningPreview.proposedCandidateHash }) }),
-      data: expect.objectContaining({ valid: true, devices: 57, connections: 16 }),
+      data: expect.objectContaining({ valid: true, devices: 56, connections: 16 }),
     }));
     const deepLink = await fetch(`http://localhost:${port}/memory-fab/designs/integrated-dram-fab`);
     expect({ status: deepLink.status, contentType: deepLink.headers.get("content-type") }).toEqual({ status: 200, contentType: expect.stringContaining("text/html") });

@@ -51,8 +51,10 @@ export interface DeviceProductionRate {
   qualificationServiceCrews?: number;
   qualificationServiceInputs?: ProcessAmount[];
   qualificationProviders?: Array<{ device: string; distance: number }>;
-  preventiveMaintenanceMinimumJobs?: number;
-  preventiveMaintenanceMinimumQualificationTicks?: number;
+  maintenanceOpportunisticAfterJobs?: number;
+  maintenanceOpportunisticAfterQualificationTicks?: number;
+  maintenancePlannedAfterJobs?: number;
+  maintenancePlannedAfterQualificationTicks?: number;
 }
 
 export interface RecipeOptionAnalysis {
@@ -481,12 +483,14 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
           qualificationServiceInputs: device.assetDef.production.maintenance.qualification.service.inputs.map((input) => ({ ...input })),
           qualificationProviders: device.qualificationProviders.map((provider) => ({ ...provider })),
         } : {}),
-        ...(device.policy?.preventiveMaintenance ? {
-          ...(device.policy.preventiveMaintenance.minimumJobs !== undefined
-            ? { preventiveMaintenanceMinimumJobs: device.policy.preventiveMaintenance.minimumJobs } : {}),
-          ...(device.policy.preventiveMaintenance.minimumQualificationTicks !== undefined
-            ? { preventiveMaintenanceMinimumQualificationTicks: device.policy.preventiveMaintenance.minimumQualificationTicks } : {}),
-        } : {}),
+        ...(device.policy?.preventiveMaintenance?.opportunistic?.afterJobs !== undefined
+          ? { maintenanceOpportunisticAfterJobs: device.policy.preventiveMaintenance.opportunistic.afterJobs } : {}),
+        ...(device.policy?.preventiveMaintenance?.opportunistic?.afterQualificationTicks !== undefined
+          ? { maintenanceOpportunisticAfterQualificationTicks: device.policy.preventiveMaintenance.opportunistic.afterQualificationTicks } : {}),
+        ...(device.policy?.preventiveMaintenance?.planned?.afterJobs !== undefined
+          ? { maintenancePlannedAfterJobs: device.policy.preventiveMaintenance.planned.afterJobs } : {}),
+        ...(device.policy?.preventiveMaintenance?.planned?.afterQualificationTicks !== undefined
+          ? { maintenancePlannedAfterQualificationTicks: device.policy.preventiveMaintenance.planned.afterQualificationTicks } : {}),
       });
     }
   }

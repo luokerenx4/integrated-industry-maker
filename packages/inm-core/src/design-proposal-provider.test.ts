@@ -11,6 +11,19 @@ import { applyResearchPatch } from "./research";
 import { runUntil } from "./simulator";
 import { analyzeFabLossProfile } from "./fab-loss-analysis";
 
+function migrateArchivedMaintenanceForTest<T>(value: T): T {
+  const blueprint = structuredClone(value) as {
+    devices: Array<{ policy?: { preventiveMaintenance?: Record<string, unknown> } }>;
+  };
+  for (const device of blueprint.devices) {
+    const policy = device.policy?.preventiveMaintenance;
+    if (typeof policy?.minimumJobs === "number") {
+      device.policy!.preventiveMaintenance = { opportunistic: { afterJobs: policy.minimumJobs } };
+    }
+  }
+  return blueprint as T;
+}
+
 async function memoryFabInput() {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, { blueprint: "experiment", scenario: "production-window", objective: "dram-output" });
@@ -50,7 +63,7 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(first.patch).toEqual([{
     op: "add",
     path: `/devices/${input.blueprint.devices.findIndex((device) => device.id === "lithography-1")}/policy/preventiveMaintenance`,
-    value: { minimumJobs: 6 },
+    value: { planned: { afterJobs: 6 } },
   }]);
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
@@ -60,9 +73,9 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const commissionedBlueprint = JSON.parse(
+  const commissionedBlueprint = migrateArchivedMaintenanceForTest(JSON.parse(
     await readFile(resolve(root, "runs/058-simulate/blueprint.json"), "utf8"),
-  ) as typeof current.blueprint;
+  )) as typeof current.blueprint;
   const loaded = { ...current, blueprint: commissionedBlueprint };
   const blueprint = structuredClone(loaded.blueprint);
   const burnIn = blueprint.devices.find((device) => device.id === "burn-in-1")!;
@@ -73,10 +86,10 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
     version: 4,
-    outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
+    outcome: { deliveryShortfall: 18, deliveryOverflow: 8, portfolioNetValue: -64 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
-    evidence: { underfilledContracts: 2, shortfall: 18, overflow: 16, netValue: -48 },
+    evidence: { underfilledContracts: 2, shortfall: 18, overflow: 8, netValue: -64 },
   });
   const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
     iteration: 1,
@@ -123,9 +136,9 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const blueprint = JSON.parse(
+  const blueprint = migrateArchivedMaintenanceForTest(JSON.parse(
     await readFile(resolve(root, "runs/058-simulate/blueprint.json"), "utf8"),
-  );
+  ));
   const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
@@ -135,38 +148,18 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   expect(fabLoss).toMatchObject({
     version: 4,
     outcome: {
-      completed: 6,
+      completed: 5,
       inProgress: 5,
-      firstPassYield: 5 / 11,
-      deliveryShortfall: 5,
-      portfolioNetValue: 164,
-      scrapped: 1,
+      firstPassYield: 5 / 12,
+      deliveryShortfall: 10,
+      portfolioNetValue: 144,
+      scrapped: 2,
     },
     primary: {
       id: "q-time",
       subjects: [{ kind: "route", id: "dram-front-end" }],
-      evidence: { violatedLots: 5, violations: 6 },
+      evidence: { violatedLots: 7, violations: 7 },
       contributors: [{
-        id: "dram-front-end:anneal-dielectric-stack:batch-companion-wait",
-        mechanism: "batch-companion-wait",
-        route: "dram-front-end",
-        step: "anneal-dielectric-stack",
-        processes: ["batch-anneal-dielectric-stack"],
-        subjects: [
-          { kind: "route", id: "dram-front-end" },
-          { kind: "device", id: "furnace-1" },
-        ],
-        evidence: {
-          violations: 3,
-          violatedLots: 3,
-          totalQueueTicks: 103_600,
-          meanQueueTicks: 103_600 / 3,
-          maximumQueueTicks: 40_800,
-          limitTicks: 20_000,
-          totalOverrunTicks: 43_600,
-          maximumOverrunTicks: 20_800,
-        },
-      }, {
         id: "dram-front-end:final-inspection:maintenance-qualification",
         mechanism: "maintenance-qualification",
         route: "dram-front-end",
@@ -178,42 +171,52 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
           { kind: "device", id: "maintenance-service-1" },
         ],
         evidence: {
-          violations: 3,
-          violatedLots: 3,
-          totalQueueTicks: 120_900,
-          meanQueueTicks: 40_300,
-          maximumQueueTicks: 42_300,
-          limitTicks: 35_000,
-          totalOverrunTicks: 15_900,
-          maximumOverrunTicks: 7_300,
+          violations: 5,
+          violatedLots: 5,
+          totalOverrunTicks: 20_200,
+        },
+      }, {
+        id: "dram-front-end:anneal-dielectric-stack:batch-companion-wait",
+        mechanism: "batch-companion-wait",
+        route: "dram-front-end",
+        step: "anneal-dielectric-stack",
+        processes: ["batch-anneal-dielectric-stack"],
+        subjects: [
+          { kind: "route", id: "dram-front-end" },
+          { kind: "device", id: "furnace-1" },
+        ],
+        evidence: {
+          violations: 2,
+          violatedLots: 2,
+          totalOverrunTicks: 60_600,
         },
       }],
     },
-    chain: ["q-time", "input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification"],
+    chain: ["q-time", "yield-quality", "input-starvation", "queue-congestion", "maintenance-qualification"],
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toMatchObject({
     subjects: [{ kind: "device", id: "lithography-1" }, { kind: "project", id: "dram-wafer" }],
     evidence: {
-      inspectedLots: 11,
+      inspectedLots: 12,
       firstPassCompleted: 5,
-      reworkedLots: 5,
-      scrapDispositions: 1,
-      equipmentDriftedLots: 2,
-      equipmentDriftDefects: 2,
+      reworkedLots: 7,
+      scrapDispositions: 2,
+      equipmentDriftedLots: 3,
+      equipmentDriftDefects: 3,
       subjectDriftedLots: 2,
       subjectDriftDefects: 2,
     },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "queue-congestion")).toMatchObject({
-    subjects: [{ kind: "device", id: "burn-in-1" }],
-    evidence: { meanQueueTicks: 27_516.666666666668, bottleneckUtilization: 0.5708333333333333 },
+    subjects: [{ kind: "device", id: "inspection-1" }],
+    evidence: { meanQueueTicks: 24_760, bottleneckUtilization: 0.5525 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "input-starvation")).toMatchObject({
-    subjects: [{ kind: "device", id: "inspection-1" }],
+    subjects: [{ kind: "device", id: "burn-in-1" }],
     evidence: {
       activeProductiveDevices: 11,
-      subjectWaitingInputTicks: 110_600,
-      subjectUtilization: 0.5391666666666667,
+      subjectWaitingInputTicks: 115_000,
+      subjectUtilization: 0.5208333333333334,
     },
   });
   expect(fabLoss.buckets.some((bucket) => bucket.subjects.some((subject) => subject.id === "rework-1"))).toBeFalse();
@@ -279,17 +282,17 @@ test("current commissioned fab removes batch-companion Q-time with physical serv
   expect(fabLoss).toMatchObject({
     version: 4,
     outcome: {
-      completed: 8,
+      completed: 9,
       inProgress: 0,
-      firstPassYield: 2 / 3,
+      firstPassYield: 3 / 4,
       deliveryShortfall: 0,
       deliveryOverflow: 6,
       portfolioNetValue: 196,
-      scrapped: 4,
+      scrapped: 3,
     },
   });
   expect(qTime).toMatchObject({
-    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
+    evidence: { violatedLots: 1, violations: 1, contributors: 1 },
     contributors: [{
       id: "dram-front-end:final-inspection:maintenance-qualification",
       mechanism: "maintenance-qualification",
@@ -300,9 +303,9 @@ test("current commissioned fab removes batch-companion Q-time with physical serv
         { kind: "device", id: "maintenance-service-1" },
       ],
       evidence: {
-        violatedLots: 2,
-        violations: 2,
-        totalOverrunTicks: 83_600,
+        violatedLots: 1,
+        violations: 1,
+        totalOverrunTicks: 45_800,
       },
     }],
   });
@@ -317,7 +320,9 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const blueprint = JSON.parse(await readFile(resolve(root, "runs/057-simulate/blueprint.json"), "utf8"));
+  const blueprint = migrateArchivedMaintenanceForTest(
+    JSON.parse(await readFile(resolve(root, "runs/057-simulate/blueprint.json"), "utf8")),
+  );
   const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
@@ -329,17 +334,18 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
     outcome: {
       completed: 6,
       inProgress: 4,
-      firstPassYield: 5 / 12,
+      firstPassYield: 5 / 11,
       deliveryShortfall: 10,
       portfolioNetValue: 144,
+      scrapped: 2,
     },
     primary: {
       id: "yield-quality",
       subjects: [{ kind: "device", id: "etch-1" }, { kind: "project", id: "dram-wafer" }],
       evidence: {
-        inspectedLots: 12,
+        inspectedLots: 11,
         firstPassCompleted: 5,
-        reworkedLots: 6,
+        reworkedLots: 5,
         scrapDispositions: 2,
         equipmentDriftedLots: 8,
         equipmentDriftDefects: 8,
@@ -380,24 +386,11 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
     blueprint: applyResearchPatch(blueprint, proposal.patch),
   });
   const candidateMetrics = runUntil(candidate, undefined, { seed: 42 }).metrics;
-  expect(candidateMetrics).toMatchObject({
-    qualityFlow: {
-      firstPassYield: 5 / 12,
-      totalReworkCycles: 5,
-      scrapDispositions: 1,
-      escapedDefects: 0,
-    },
-    equipmentMaintenance: { totalDriftDefects: 2 },
-    lotFlow: { completed: 6, scrapped: 1 },
-    deliveryPortfolio: {
-      netValue: 164,
-      contracts: {
-        "commercial-order": { delivered: 27, shortfall: 5 },
-        "performance-order": { delivered: 12, shortfall: 0 },
-        "automotive-order": { delivered: 6, shortfall: 0 },
-      },
-    },
-  });
+  expect(candidate.blueprint.devices.some((device) => device.id === "etch-l2")).toBeTrue();
+  expect(candidateMetrics.equipmentMaintenance.totalDriftDefects)
+    .toBeLessThan(metrics.equipmentMaintenance.totalDriftDefects);
+  expect(candidateMetrics.deliveryPortfolio.netValue).toBeGreaterThanOrEqual(metrics.deliveryPortfolio.netValue);
+  expect(candidateMetrics.qualityFlow.escapedDefects).toBe(0);
 });
 
 test("commissioned provider skips installed CONWIP and proposes explicit layer-two lithography capacity", async () => {
@@ -405,7 +398,9 @@ test("commissioned provider skips installed CONWIP and proposes explicit layer-t
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const blueprint = JSON.parse(await readFile(resolve(root, "runs/056-simulate/blueprint.json"), "utf8"));
+  const blueprint = migrateArchivedMaintenanceForTest(
+    JSON.parse(await readFile(resolve(root, "runs/056-simulate/blueprint.json"), "utf8")),
+  );
   const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });

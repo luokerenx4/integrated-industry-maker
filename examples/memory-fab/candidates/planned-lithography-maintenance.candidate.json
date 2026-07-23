@@ -1,0 +1,28 @@
+{
+  "baseCandidateHash": "ac66ddd0db3cca7d0b2c79c06187cbe38d2ab9f09e6f2d93395ecd4458898105",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 83f7355c1122: aggregate score -162.644163 (+117.526648 versus locked baseline) across 5 cases.",
+  "hypothesis": "Pulling lithography maintenance forward after six completed jobs may prevent the qualified bay from entering its defect-producing drift interval during the fixed twelve-lot campaign.",
+  "id": "planned-lithography-maintenance",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "remove",
+      "path": "/devices/2/policy/preventiveMaintenance/opportunistic"
+    },
+    {
+      "op": "add",
+      "path": "/devices/2/policy/preventiveMaintenance/planned",
+      "value": {
+        "afterJobs": 6
+      }
+    }
+  ],
+  "source": {
+    "blueprintHash": "f4d8d4900067931ca81454498badbc3050041e2eb7a87f2decf3e1e67a600612",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "83f7355c1122bfb704c14d59cb693ed46251b8cd19b36dbedba77afd38c124e8"
+  },
+  "version": 1
+}

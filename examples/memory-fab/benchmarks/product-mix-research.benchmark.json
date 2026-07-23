@@ -32,7 +32,7 @@
       "mixed-quality": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
         "deviceCatalogHash": "6005e479896465f5c61db6fbbbe78968c9a05856aed89d45f09636cc72d551bd",
-        "engineVersion": "inm-sim/0.75.0",
+        "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
@@ -43,7 +43,7 @@
       "steady-production": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
         "deviceCatalogHash": "6005e479896465f5c61db6fbbbe78968c9a05856aed89d45f09636cc72d551bd",
-        "engineVersion": "inm-sim/0.75.0",
+        "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",

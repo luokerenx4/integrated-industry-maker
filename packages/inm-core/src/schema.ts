@@ -247,10 +247,20 @@ export const blueprintSchema = z.object({
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),
       batchFormation: z.object({ preferredProcess: id, maximumWaitTicks: nonNegativeInt }).strict().optional(),
       preventiveMaintenance: z.object({
-        minimumJobs: positiveInt.optional(),
-        minimumQualificationTicks: positiveInt.optional(),
-      }).strict().refine((policy) => policy.minimumJobs !== undefined || policy.minimumQualificationTicks !== undefined, {
-        message: "must declare minimumJobs or minimumQualificationTicks",
+        opportunistic: z.object({
+          afterJobs: positiveInt.optional(),
+          afterQualificationTicks: positiveInt.optional(),
+        }).strict().refine((boundary) => boundary.afterJobs !== undefined || boundary.afterQualificationTicks !== undefined, {
+          message: "must declare afterJobs or afterQualificationTicks",
+        }).optional(),
+        planned: z.object({
+          afterJobs: positiveInt.optional(),
+          afterQualificationTicks: positiveInt.optional(),
+        }).strict().refine((boundary) => boundary.afterJobs !== undefined || boundary.afterQualificationTicks !== undefined, {
+          message: "must declare afterJobs or afterQualificationTicks",
+        }).optional(),
+      }).strict().refine((policy) => policy.opportunistic !== undefined || policy.planned !== undefined, {
+        message: "must declare opportunistic or planned maintenance timing",
       }).optional(),
       idleEnergy: z.object({ sleepAfterTicks: nonNegativeInt }).strict().optional(),
       powerPriority: nonNegativeInt.optional(),

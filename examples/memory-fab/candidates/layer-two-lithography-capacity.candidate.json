@@ -167,7 +167,9 @@
           "lotDispatch": "fifo",
           "powerPriority": 10,
           "preventiveMaintenance": {
-            "minimumJobs": 6
+            "opportunistic": {
+              "afterJobs": 6
+            }
           },
           "recipeDispatch": "authored-order"
         },

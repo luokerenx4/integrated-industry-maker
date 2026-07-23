@@ -124,7 +124,9 @@
       "op": "add",
       "path": "/devices/3/policy/preventiveMaintenance",
       "value": {
-        "minimumJobs": 5
+        "opportunistic": {
+          "afterJobs": 5
+        }
       }
     },
     {
@@ -166,7 +168,9 @@
           "lotDispatch": "fifo",
           "powerPriority": 9,
           "preventiveMaintenance": {
-            "minimumJobs": 5
+            "opportunistic": {
+              "afterJobs": 5
+            }
           },
           "recipeDispatch": "authored-order"
         },

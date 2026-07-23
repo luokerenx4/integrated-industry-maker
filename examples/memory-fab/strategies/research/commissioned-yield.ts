@@ -67,12 +67,12 @@ async function simulate(blueprint: Blueprint): Promise<FactoryMetrics[]> {
   }));
 }
 
-function withEtchMaintenance(blueprint: Blueprint, minimumJobs: number): Blueprint {
+function withEtchMaintenance(blueprint: Blueprint, opportunisticAfterJobs: number): Blueprint {
   const candidate = structuredClone(blueprint);
   for (const device of candidate.devices.filter((item) => item.id === "etch-1" || item.id === "etch-l2")) {
     device.policy = {
       ...device.policy,
-      preventiveMaintenance: { minimumJobs },
+      preventiveMaintenance: { opportunistic: { afterJobs: opportunisticAfterJobs } },
     };
   }
   return candidate;
@@ -98,9 +98,9 @@ const incumbentScores = incumbentMetrics.map((metrics) => metrics.finalScore);
 const incumbentAggregate = weightedMean(incumbentScores);
 const variants: Variant[] = [];
 
-for (const minimumJobs of [4, 5, 6, 7]) variants.push({
-  strategy: `maintenance:etch-jobs-${minimumJobs}`,
-  blueprint: withEtchMaintenance(incumbent.blueprint, minimumJobs),
+for (const opportunisticAfterJobs of [4, 5, 6, 7]) variants.push({
+  strategy: `maintenance:etch-jobs-${opportunisticAfterJobs}`,
+  blueprint: withEtchMaintenance(incumbent.blueprint, opportunisticAfterJobs),
 });
 variants.push({
   strategy: "inspection:deep-final-pattern",
@@ -118,13 +118,13 @@ for (const [index, layout] of specialized.entries()) {
     strategy: `specialize:etch-layer-two-layout-${index + 1}+deep-inspection`,
     blueprint: withDeepInspection(layout.blueprint),
   });
-  for (const minimumJobs of [5, 6]) variants.push({
-    strategy: `specialize:etch-layer-two-layout-${index + 1}+maintenance-${minimumJobs}`,
-    blueprint: withEtchMaintenance(layout.blueprint, minimumJobs),
+  for (const opportunisticAfterJobs of [5, 6]) variants.push({
+    strategy: `specialize:etch-layer-two-layout-${index + 1}+maintenance-${opportunisticAfterJobs}`,
+    blueprint: withEtchMaintenance(layout.blueprint, opportunisticAfterJobs),
   });
-  for (const minimumJobs of [5, 6]) variants.push({
-    strategy: `specialize:etch-layer-two-layout-${index + 1}+maintenance-${minimumJobs}+deep-inspection`,
-    blueprint: withDeepInspection(withEtchMaintenance(layout.blueprint, minimumJobs)),
+  for (const opportunisticAfterJobs of [5, 6]) variants.push({
+    strategy: `specialize:etch-layer-two-layout-${index + 1}+maintenance-${opportunisticAfterJobs}+deep-inspection`,
+    blueprint: withDeepInspection(withEtchMaintenance(layout.blueprint, opportunisticAfterJobs)),
   });
 }
 

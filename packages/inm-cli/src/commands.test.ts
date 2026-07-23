@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { hashValue, listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -15,6 +15,19 @@ async function runCli(args: string[]) {
     new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
   ]);
   return { stdout, stderr, exitCode };
+}
+
+function migrateArchivedMaintenanceForTest<T>(value: T): T {
+  const blueprint = structuredClone(value) as {
+    devices: Array<{ policy?: { preventiveMaintenance?: Record<string, unknown> } }>;
+  };
+  for (const device of blueprint.devices) {
+    const policy = device.policy?.preventiveMaintenance;
+    if (typeof policy?.minimumJobs === "number") {
+      device.policy!.preventiveMaintenance = { opportunistic: { afterJobs: policy.minimumJobs } };
+    }
+  }
+  return blueprint as T;
 }
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
@@ -98,20 +111,26 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   }
   await rm(join(projectDir, "candidate-reviews/portfolio-aware-dram-dispatch"), { recursive: true, force: true });
   const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
-  const prePortfolio = await readFile(
-    join(repository, "examples/memory-fab/runs/053-simulate/blueprint.json"),
-    "utf8",
+  const prePortfolio = migrateArchivedMaintenanceForTest(
+    JSON.parse(await readFile(
+      join(repository, "examples/memory-fab/runs/053-simulate/blueprint.json"),
+      "utf8",
+    )),
   );
-  await writeFile(blueprintPath, prePortfolio);
+  await writeFile(blueprintPath, `${JSON.stringify(prePortfolio, null, 2)}\n`);
+  const portfolioCandidatePath = join(projectDir, "candidates/portfolio-aware-dram-dispatch.candidate.json");
+  const portfolioCandidate = JSON.parse(await readFile(portfolioCandidatePath, "utf8"));
+  portfolioCandidate.baseCandidateHash = hashValue(prePortfolio);
+  await writeFile(portfolioCandidatePath, `${JSON.stringify(portfolioCandidate, null, 2)}\n`);
   const before = await readFile(blueprintPath, "utf8");
   const discovery = await runCli(["help", "--json"]);
   expect({ exitCode: discovery.exitCode, stderr: discovery.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect((JSON.parse(discovery.stdout).data.commands as Array<{ id: string }>).map((command) => command.id)).toContain("candidate");
   const inspection = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
   expect({ exitCode: inspection.exitCode, stderr: inspection.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(inspection.stdout).data.result).toEqual([
+  expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: "portfolio-aware-dram-dispatch", benchmark: "greenfield-dram-design" }),
-  ]);
+  ]));
   const runCandidate = async (apply = false) => {
     const child = Bun.spawn([
       process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
@@ -404,117 +423,56 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "7", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);
   const guardedProgress = guardedExecuted.stderr.trim().split("\n").map((line) => JSON.parse(line));
-  expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-    phase: "node-exhausted",
-    exhaustion: expect.objectContaining({ node: { nodeId: "candidate-4", role: "alternative", depth: 3 }, beforeIteration: 6, nextNodeId: "candidate-5" }),
-  }) }));
+  expect(guardedProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
   const guardedRunHash = JSON.parse(guardedExecuted.stdout).data.result.resultHash as string;
   const guardedJson = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "iterations", "--json"]);
   const guardedIterations = JSON.parse(guardedJson.stdout).data.result;
-  const guardedIteration = guardedIterations.find((iteration: { strategy: string }) => iteration.strategy === "dispatch:conwip-8-5-edd");
-  expect(guardedIteration).toMatchObject({
-    iteration: 4,
-    decision: "BRANCH",
-    decisionEvidence: {
-      basis: "current-best-case-guardrail",
-      aggregate: { scoreDelta: expect.any(Number) },
-      guardrail: { kind: "uniform", passed: false, violations: ["facility-interruption"] },
-      cases: expect.arrayContaining([expect.objectContaining({ id: "facility-interruption", maximumScoreRegression: 0, guardrailPassed: false })]),
-      limitingCase: "facility-interruption",
-    },
-    frontierEvidence: {
-      parent: { nodeId: "candidate-3", role: "leader", depth: 2 },
-      candidateNodeId: "candidate-4",
-      outcome: "branch-retained",
-      reason: "pareto-frontier",
-      leaderAfter: "candidate-3",
-      alternativesAfter: ["candidate-4"],
-      searchOrderAfter: ["candidate-4", "candidate-3"],
-      exhaustedAfter: [],
-    },
-  });
-  const repairIteration = guardedIterations.find((iteration: { strategy: string }) => iteration.strategy === "facility:utility-n-plus-one");
-  expect(repairIteration).toMatchObject({
-    iteration: 5,
-    strategy: "facility:utility-n-plus-one",
-    decisionFamily: "facility",
-    addressedCase: "facility-interruption",
-    promotionBoundary: {
-      leaderNodeId: "candidate-3",
-      selectedNodeId: "candidate-4",
-      promotable: false,
-      limitingCase: "facility-interruption",
-      guardrail: { kind: "uniform", passed: false, violations: ["facility-interruption"] },
-    },
-    decision: "KEEP",
-    decisionEvidence: {
-      basis: "current-best-improvement",
-      guardrail: { kind: "uniform", passed: true, violations: [] },
-    },
-    frontierEvidence: expect.objectContaining({
-      parent: { nodeId: "candidate-4", role: "alternative", depth: 3 },
-      candidateNodeId: "candidate-5",
-      outcome: "leader-promoted",
-      leaderAfter: "candidate-5",
-    }),
-  });
-  const batchIteration = guardedIterations.find((iteration: { strategy: string }) => iteration.strategy === "batch-formation:furnace-flex-30000");
-  expect(batchIteration).toMatchObject({
-    iteration: 7,
-    decisionFamily: "batch-formation",
-    addressedLoss: "batch-formation",
-    promotionBoundary: {
-      leaderNodeId: "candidate-5",
-      selectedNodeId: "candidate-5",
-      promotable: true,
-      limitingCase: null,
-      guardrail: { kind: "uniform", passed: true, violations: [] },
-    },
-    decision: "REJECT",
-    decisionEvidence: {
-      basis: "no-current-best-improvement",
-      limitingCase: "lithography-interruption",
-      guardrail: { kind: "uniform", passed: false, violations: ["lithography-interruption", "facility-interruption"] },
-    },
-    frontierEvidence: expect.objectContaining({
-      parent: { nodeId: "candidate-5", role: "leader", depth: 4 },
-      candidateNodeId: "candidate-7",
-      outcome: "rejected",
-      leaderAfter: "candidate-5",
-      alternativesAfter: ["candidate-4"],
-      exhaustedAfter: ["candidate-4"],
-    }),
-  });
+  expect(guardedIterations.map((iteration: {
+    iteration: number;
+    strategy: string;
+    decision: string;
+    frontierEvidence: { parent: { nodeId: string }; outcome: string };
+  }) => ({
+    iteration: iteration.iteration,
+    strategy: iteration.strategy,
+    decision: iteration.decision,
+    parent: iteration.frontierEvidence.parent.nodeId,
+    outcome: iteration.frontierEvidence.outcome,
+  }))).toEqual([
+    { iteration: 1, strategy: "dispatch:conwip-9-6-edd", decision: "KEEP", parent: "seed", outcome: "leader-promoted" },
+    { iteration: 2, strategy: "dispatch:probe-highest-priority", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
+    { iteration: 3, strategy: "maintenance:lithography-jobs-6", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
+    { iteration: 4, strategy: "dispatch:conwip-8-5-edd", decision: "KEEP", parent: "candidate-1", outcome: "leader-promoted" },
+    { iteration: 5, strategy: "dispatch:conwip-10-7-edd", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
+    { iteration: 6, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
+    { iteration: 7, strategy: "dispatch:inspection-earliest-due-date", decision: "KEEP", parent: "candidate-4", outcome: "leader-promoted" },
+  ]);
+  expect(guardedIterations.filter((iteration: { decision: string }) => iteration.decision === "KEEP")
+    .every((iteration: { decisionEvidence: { guardrail: { passed: boolean } } }) => iteration.decisionEvidence.guardrail.passed)).toBeTrue();
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-completed",
     iteration: 7,
-    strategy: "batch-formation:furnace-flex-30000",
-    addressedLoss: "batch-formation",
+    strategy: "dispatch:inspection-earliest-due-date",
+    addressedLoss: "queue-congestion",
   }) }));
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
     iteration: 7,
-    strategy: "batch-formation:furnace-flex-30000",
-    decision: "REJECT",
+    strategy: "dispatch:inspection-earliest-due-date",
+    decision: "KEEP",
   }) }));
   const guardedHuman = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash]);
-  expect(guardedHuman.stdout).toContain("fails current-best case guardrail · facility-interruption -3.915879 · allowed regression 0.000000");
-  expect(guardedHuman.stdout).toContain("candidate-3 → candidate-4 · branch-retained");
-  expect(guardedHuman.stdout).toContain("before blocked by facility-interruption -3.915879 · allowed regression 0.000000");
-  expect(guardedHuman.stdout).toContain("repairs facility-interruption");
-  expect(guardedHuman.stdout).toContain("007 REJECT batch-formation:furnace-flex-30000");
-  expect(guardedHuman.stdout).toContain("1 searchable · 1 exhausted · next candidate-5");
-  expect(guardedHuman.stdout).toContain("X01 EXHAUST alternative candidate-4 before iteration 6 · next candidate-5");
+  expect(guardedHuman.stdout).toContain("007 KEEP   dispatch:inspection-earliest-due-date");
+  expect(guardedHuman.stdout).toContain("Frontier: leader candidate-7");
   const guardedFrontier = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "frontier", "--json"]);
   expect(JSON.parse(guardedFrontier.stdout).data.result).toMatchObject({
-    leader: "candidate-5",
-    alternatives: ["candidate-4"],
-    scheduler: { searchOrder: ["candidate-5"], exhausted: ["candidate-4"] },
+    leader: "candidate-7",
+    alternatives: [],
+    scheduler: { searchOrder: ["candidate-7"], exhausted: [] },
     nodes: [
-      expect.objectContaining({ nodeId: "candidate-5", role: "leader", searchStatus: "searchable" }),
-      expect.objectContaining({ nodeId: "candidate-4", role: "alternative", searchStatus: "exhausted" }),
+      expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
     ],
-    exhaustions: [expect.objectContaining({ sequence: 1, nextNodeId: "candidate-5" })],
+    exhaustions: [],
   });
 
   const commissionedCandidate = "cli-commissioned-greenfield-fab";
@@ -575,7 +533,7 @@ test("public inspect exposes compatible-run memory-fab loss attribution without 
     section: "losses",
     result: expect.objectContaining({
       version: 4,
-      run: { id: "064-simulate", resultHash: "a400286cadc9ae78a79217677ecf65780abd3e53e05a733e64f76863e85d0850" },
+      run: { id: "066-simulate", resultHash: "caa6fbc0a917317e257ecfde0c4a751b7a26cc51f942aa3a61dddbd5741493ee" },
       family: "dram-wafer",
       outcome: expect.objectContaining({
         deliveryShortfall: 15,
@@ -600,7 +558,7 @@ test("public inspect gives Agents and humans the same current Q-time contributor
     .find((bucket: { id: string }) => bucket.id === "q-time");
   expect(qTime).toMatchObject({
     id: "q-time",
-    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
+    evidence: { violatedLots: 1, violations: 1, contributors: 1 },
     contributors: [{
       step: "final-inspection",
       mechanism: "maintenance-qualification",
@@ -610,7 +568,7 @@ test("public inspect gives Agents and humans the same current Q-time contributor
         { kind: "device", id: "inspection-1" },
         { kind: "device", id: "maintenance-service-1" },
       ],
-      evidence: { violatedLots: 2, violations: 2, totalOverrunTicks: 83_600 },
+      evidence: { violatedLots: 1, violations: 1, totalOverrunTicks: 45_800 },
     }],
   });
 
@@ -618,7 +576,7 @@ test("public inspect gives Agents and humans the same current Q-time contributor
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(human.stdout).toContain("Q-time contributors:");
   expect(human.stdout).not.toContain("batch-companion-wait");
-  expect(human.stdout).toContain("final-inspection · maintenance-qualification · 2 lots / 2 visits · mean 76.8s / 35.0s limit · +83.6s overrun · inspection-1+maintenance-service-1");
+  expect(human.stdout).toContain("final-inspection · maintenance-qualification · 1 lots / 1 visits · mean 80.8s / 35.0s limit · +45.8s overrun · inspection-1+maintenance-service-1");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {

@@ -59,7 +59,9 @@
         "lotDispatch": "earliest-due-date",
         "powerPriority": 10,
         "preventiveMaintenance": {
-          "minimumQualificationTicks": 130000
+          "opportunistic": {
+            "afterQualificationTicks": 130000
+          }
         }
       }
     },
@@ -163,7 +165,9 @@
         "lotDispatch": "fifo",
         "powerPriority": 7,
         "preventiveMaintenance": {
-          "minimumJobs": 4
+          "opportunistic": {
+            "afterJobs": 4
+          }
         }
       }
     },

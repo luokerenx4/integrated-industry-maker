@@ -1,4 +1,4 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, ProcessAmount, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceTrigger, ProcessAmount, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
@@ -51,8 +51,8 @@ export type FactoryStateMutation =
   | { kind: "energy.idle"; device: string; tick: Tick }
   | { kind: "setup.finish"; device: string; group: string; durationTicks: Tick }
   | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
-  | { kind: "maintenance.service-finish"; device: string; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick }
-  | { kind: "maintenance.qualification-finish"; device: string; cause: "mandatory" | "opportunistic"; trigger: "usage" | "calendar"; qualifiedAtTick: Tick; durationTicks: Tick }
+  | { kind: "maintenance.service-finish"; device: string; cause: MaintenanceCause; trigger: MaintenanceTrigger; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick }
+  | { kind: "maintenance.qualification-finish"; device: string; cause: MaintenanceCause; trigger: MaintenanceTrigger; qualifiedAtTick: Tick; durationTicks: Tick }
   | { kind: "maintenance.cancel"; device: string; phase: "service" | "qualification" }
   | { kind: "maintenance.wait"; device: string; phase: "service" | "qualification"; reason: "consumable" | "crew" | null }
   | { kind: "maintenance.service-start"; device: string; phase: "service" | "qualification"; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
@@ -467,7 +467,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       maintenance.jobsSinceMaintenance = 0;
       maintenance.qualifiedAtTick = mutation.qualifiedAtTick;
       maintenance.completed++;
-      maintenance[mutation.cause]++;
+      maintenance[mutation.cause === "asset-limit" ? "assetLimit" : mutation.cause === "planned-boundary" ? "plannedBoundary" : "opportunistic"]++;
       maintenance[mutation.trigger === "usage" ? "usageTriggered" : "calendarTriggered"]++;
       maintenance.maintenanceTicks += mutation.durationTicks;
       maintenance.qualificationCompleted++;

@@ -245,7 +245,7 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
       previousDriftThreshold = drift.afterJobs;
       if (drift.afterJobs >= asset.production!.maintenance!.maximumJobs) issues.push({
         path: `${path}/afterJobs`, code: "production.drift-threshold",
-        message: `Equipment drift after ${drift.afterJobs} jobs is unreachable before mandatory maintenance at ${asset.production!.maintenance!.maximumJobs}`,
+        message: `Equipment drift after ${drift.afterJobs} jobs is unreachable before the physical asset limit at ${asset.production!.maintenance!.maximumJobs}`,
       });
       if (new Set(drift.defects).size !== drift.defects.length) issues.push({
         path: `${path}/defects`, code: "production.drift-duplicate-defect",
@@ -1416,15 +1416,27 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         message: `Preventive maintenance policy on '${instance.id}' requires a maintenance-capable production Device`,
       });
       else {
-        const minimumJobs = instance.policy.preventiveMaintenance.minimumJobs;
-        if (minimumJobs !== undefined && minimumJobs > asset.production.maintenance.maximumJobs) issues.push({
-          path: `${maintenancePath}/minimumJobs`, code: "production.maintenance-threshold",
-          message: `Preventive maintenance threshold ${minimumJobs} exceeds the physical maximum of ${asset.production.maintenance.maximumJobs} jobs`,
+        const policy = instance.policy.preventiveMaintenance;
+        for (const [kind, boundary] of [["opportunistic", policy.opportunistic], ["planned", policy.planned]] as const) {
+          if (boundary?.afterJobs !== undefined && boundary.afterJobs >= asset.production.maintenance.maximumJobs) issues.push({
+            path: `${maintenancePath}/${kind}/afterJobs`, code: "production.maintenance-threshold",
+            message: `${kind === "planned" ? "Planned" : "Opportunistic"} maintenance boundary ${boundary.afterJobs} must precede the physical asset limit of ${asset.production.maintenance.maximumJobs} jobs`,
+          });
+          if (boundary?.afterQualificationTicks !== undefined
+            && boundary.afterQualificationTicks >= asset.production.maintenance.maximumQualificationTicks) issues.push({
+            path: `${maintenancePath}/${kind}/afterQualificationTicks`, code: "production.maintenance-calendar-threshold",
+            message: `${kind === "planned" ? "Planned" : "Opportunistic"} qualification-age boundary ${boundary.afterQualificationTicks} must precede the physical asset limit of ${asset.production.maintenance.maximumQualificationTicks} ticks`,
+          });
+        }
+        if (policy.opportunistic?.afterJobs !== undefined && policy.planned?.afterJobs !== undefined
+          && policy.opportunistic.afterJobs >= policy.planned.afterJobs) issues.push({
+          path: `${maintenancePath}/opportunistic/afterJobs`, code: "production.maintenance-order",
+          message: `Opportunistic usage boundary ${policy.opportunistic.afterJobs} must precede planned boundary ${policy.planned.afterJobs}`,
         });
-        const minimumQualificationTicks = instance.policy.preventiveMaintenance.minimumQualificationTicks;
-        if (minimumQualificationTicks !== undefined && minimumQualificationTicks > asset.production.maintenance.maximumQualificationTicks) issues.push({
-          path: `${maintenancePath}/minimumQualificationTicks`, code: "production.maintenance-calendar-threshold",
-          message: `Preventive qualification-age threshold ${minimumQualificationTicks} exceeds the physical maximum of ${asset.production.maintenance.maximumQualificationTicks} ticks`,
+        if (policy.opportunistic?.afterQualificationTicks !== undefined && policy.planned?.afterQualificationTicks !== undefined
+          && policy.opportunistic.afterQualificationTicks >= policy.planned.afterQualificationTicks) issues.push({
+          path: `${maintenancePath}/opportunistic/afterQualificationTicks`, code: "production.maintenance-calendar-order",
+          message: `Opportunistic qualification-age boundary ${policy.opportunistic.afterQualificationTicks} must precede planned boundary ${policy.planned.afterQualificationTicks}`,
         });
       }
     }

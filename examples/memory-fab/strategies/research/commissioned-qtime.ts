@@ -113,13 +113,13 @@ function withServiceCapacity(blueprint: Blueprint, service: Variant["service"]):
   return candidate;
 }
 
-function withInspectionMaintenance(blueprint: Blueprint, minimumJobs: number | null): Blueprint {
+function withInspectionMaintenance(blueprint: Blueprint, opportunisticAfterJobs: number | null): Blueprint {
   const candidate = structuredClone(blueprint);
   const inspection = candidate.devices.find((device) => device.id === "inspection-1");
   if (!inspection) throw new Error("commissioned Q-time research requires inspection-1");
   inspection.policy = { ...inspection.policy };
-  if (minimumJobs === null) delete inspection.policy.preventiveMaintenance;
-  else inspection.policy.preventiveMaintenance = { minimumJobs };
+  if (opportunisticAfterJobs === null) delete inspection.policy.preventiveMaintenance;
+  else inspection.policy.preventiveMaintenance = { opportunistic: { afterJobs: opportunisticAfterJobs } };
   return candidate;
 }
 
@@ -132,13 +132,13 @@ function withInspectionPowerPriority(blueprint: Blueprint, priority: number | nu
   return candidate;
 }
 
-function withLithographyMaintenance(blueprint: Blueprint, minimumJobs: number | null): Blueprint {
+function withLithographyMaintenance(blueprint: Blueprint, opportunisticAfterJobs: number | null): Blueprint {
   const candidate = structuredClone(blueprint);
-  if (minimumJobs === null) return candidate;
+  if (opportunisticAfterJobs === null) return candidate;
   for (const id of ["lithography-1", "lithography-l2"]) {
     const device = candidate.devices.find((item) => item.id === id);
     if (!device) throw new Error(`commissioned Q-time research requires ${id}`);
-    device.policy = { ...device.policy, preventiveMaintenance: { minimumJobs } };
+    device.policy = { ...device.policy, preventiveMaintenance: { opportunistic: { afterJobs: opportunisticAfterJobs } } };
   }
   return candidate;
 }
@@ -188,7 +188,7 @@ for (const furnace of furnacePolicies) {
     for (const inspectionMaintenanceJobs of maintenanceThresholds) {
       const furnaceLabel = furnace.kind === "flex" ? `flex-${furnace.maximumWaitTicks}` : furnace.kind;
       const maintenanceLabel = inspectionMaintenanceJobs === null
-        ? "inspection-mandatory"
+        ? "inspection-asset-limit-only"
         : `inspection-jobs-${inspectionMaintenanceJobs}`;
       variants.push({
         strategy: `qtime:${furnaceLabel}+${service}+${maintenanceLabel}`,
@@ -207,7 +207,7 @@ for (const furnace of furnacePolicies) {
 }
 for (const inspectionMaintenanceJobs of [null, 4]) {
   variants.push({
-    strategy: `qtime:batch-only+single-crew+${inspectionMaintenanceJobs === null ? "inspection-mandatory" : "inspection-jobs-4"}+inspection-priority-11`,
+    strategy: `qtime:batch-only+single-crew+${inspectionMaintenanceJobs === null ? "inspection-asset-limit-only" : "inspection-jobs-4"}+inspection-priority-11`,
     furnace: { kind: "batch-only" },
     service: "single-crew",
     inspectionMaintenanceJobs,
@@ -229,7 +229,7 @@ for (const configuration of [
 ]) {
   const furnaceLabel = configuration.furnace.kind;
   variants.push({
-    strategy: `qtime:${furnaceLabel}+${configuration.service}+inspection-mandatory+lithography-jobs-5`,
+    strategy: `qtime:${furnaceLabel}+${configuration.service}+inspection-asset-limit-only+lithography-jobs-5`,
     furnace: configuration.furnace,
     service: configuration.service,
     inspectionMaintenanceJobs: null,

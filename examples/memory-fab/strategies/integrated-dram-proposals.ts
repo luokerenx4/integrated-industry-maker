@@ -78,7 +78,7 @@ function devicePolicyPatch(
   blueprint: { devices: Array<Record<string, unknown>> },
   id: string,
   policyKey: "preventiveMaintenance" | "setupCampaign",
-  value: Record<string, number>,
+  value: Record<string, unknown>,
 ): JsonPatchOperation[] | null {
   const index = deviceIndex(blueprint, id);
   if (index < 0) return null;
@@ -241,8 +241,9 @@ function lithographyLayerTwoSpecializationPatch(blueprint: ProposalBlueprint): J
     || !Array.isArray(recipes) || recipes.length !== 2) return null;
   const campaign = lithographyPolicy.setupCampaign;
   const maintenance = lithographyPolicy.preventiveMaintenance;
+  const opportunisticMaintenance = isRecord(maintenance) ? maintenance.opportunistic : null;
   if (!isRecord(campaign) || campaign.minimumReadyLots !== 3 || campaign.maximumHoldTicks !== 0
-    || !isRecord(maintenance) || maintenance.minimumJobs !== 6) return null;
+    || !isRecord(opportunisticMaintenance) || opportunisticMaintenance.afterJobs !== 6) return null;
   const layerOneRecipe = recipes.find((recipe) => isRecord(recipe) && recipe.process === "pattern-cell-layer-1");
   const layerTwoRecipe = recipes.find((recipe) => isRecord(recipe) && recipe.process === "pattern-cell-layer-2");
   if (!isRecord(layerOneRecipe) || !isRecord(layerTwoRecipe)) return null;
@@ -385,7 +386,7 @@ function etchLayerTwoQualityCellPatch(blueprint: ProposalBlueprint): JsonPatchOp
   if (!isRecord(layerOneRecipe) || !isRecord(layerTwoRecipe)) return null;
   const maintainedPolicy = {
     ...structuredClone(etch.policy),
-    preventiveMaintenance: { minimumJobs: 5 },
+    preventiveMaintenance: { opportunistic: { afterJobs: 5 } },
   };
 
   return [
@@ -546,7 +547,7 @@ const candidates: Candidate[] = [
     expectedEffect: "Reduce latent critical-dimension defects and qualification disruption while retaining the shared re-entrant toolset.",
     addresses: ["yield-quality", "maintenance-qualification"],
     subjects: ["lithography-1"],
-    patch: (blueprint) => devicePolicyPatch(blueprint, "lithography-1", "preventiveMaintenance", { minimumJobs: 6 }),
+    patch: (blueprint) => devicePolicyPatch(blueprint, "lithography-1", "preventiveMaintenance", { planned: { afterJobs: 6 } }),
   },
   {
     strategy: "maintenance:inspection-jobs-4",
@@ -554,7 +555,7 @@ const candidates: Candidate[] = [
     expectedEffect: "Reduce quality-disposition interruption without changing inspection or rework physics.",
     addresses: ["yield-quality", "maintenance-qualification"],
     subjects: ["inspection-1"],
-    patch: (blueprint) => devicePolicyPatch(blueprint, "inspection-1", "preventiveMaintenance", { minimumJobs: 4 }),
+    patch: (blueprint) => devicePolicyPatch(blueprint, "inspection-1", "preventiveMaintenance", { opportunistic: { afterJobs: 4 } }),
   },
   {
     strategy: "batch-formation:furnace-flex-30000",

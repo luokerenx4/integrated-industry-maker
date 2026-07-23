@@ -25,7 +25,7 @@ interface BenchmarkDefinition {
 }
 
 interface SearchRow {
-  minimumQualificationTicks: number | null;
+  opportunisticAfterQualificationTicks: number | null;
   blueprint: Blueprint;
   metrics: FactoryMetrics;
   scoreDelta: number;
@@ -57,13 +57,13 @@ async function evaluate(blueprintName: string, blueprint?: Blueprint): Promise<{
   };
 }
 
-function withCalendarWindow(source: Blueprint, minimumQualificationTicks: number | null): Blueprint {
+function withCalendarWindow(source: Blueprint, opportunisticAfterQualificationTicks: number | null): Blueprint {
   const blueprint = structuredClone(source);
   const lithography = blueprint.devices.find((device) => device.id === "lithography-1");
   if (!lithography) throw new Error("Calendar maintenance research requires lithography-1");
   lithography.policy = { ...lithography.policy };
-  if (minimumQualificationTicks === null) delete lithography.policy.preventiveMaintenance;
-  else lithography.policy.preventiveMaintenance = { minimumQualificationTicks };
+  if (opportunisticAfterQualificationTicks === null) delete lithography.policy.preventiveMaintenance;
+  else lithography.policy.preventiveMaintenance = { opportunistic: { afterQualificationTicks: opportunisticAfterQualificationTicks } };
   if (!Object.keys(lithography.policy).length) delete lithography.policy;
   return blueprint;
 }
@@ -72,12 +72,12 @@ const baseline = await evaluate(definition.baselineBlueprint);
 const baselineSource = await loadFactoryProject(projectDir, { blueprint: definition.baselineBlueprint });
 const rows: SearchRow[] = [];
 
-for (const minimumQualificationTicks of [null, 120_000, 130_000, 140_000, 145_000] as const) {
-  const blueprint = withCalendarWindow(baselineSource.blueprint, minimumQualificationTicks);
+for (const opportunisticAfterQualificationTicks of [null, 120_000, 130_000, 140_000, 145_000] as const) {
+  const blueprint = withCalendarWindow(baselineSource.blueprint, opportunisticAfterQualificationTicks);
   const result = await evaluate(definition.candidateBlueprint, blueprint);
   const scoreDelta = result.metrics.finalScore - baseline.metrics.finalScore;
   rows.push({
-    minimumQualificationTicks,
+    opportunisticAfterQualificationTicks,
     blueprint,
     metrics: result.metrics,
     scoreDelta,
@@ -90,20 +90,21 @@ for (const minimumQualificationTicks of [null, 120_000, 130_000, 140_000, 145_00
 
 rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || right.metrics.finalScore - left.metrics.finalScore
-  || (left.minimumQualificationTicks ?? Number.MAX_SAFE_INTEGER) - (right.minimumQualificationTicks ?? Number.MAX_SAFE_INTEGER));
+  || (left.opportunisticAfterQualificationTicks ?? Number.MAX_SAFE_INTEGER) - (right.opportunisticAfterQualificationTicks ?? Number.MAX_SAFE_INTEGER));
 
 console.log(`baseline_score\t${baseline.metrics.finalScore.toFixed(6)}`);
-console.log("verdict\tminimum-qualification-ticks\tscore\tdelta\tcapacity\tcompleted\ton-time\tmean-cycle-ticks\tmandatory\topportunistic\tusage-triggered\tcalendar-triggered\tmaintenance-ticks\tcrew-wait-ticks");
+console.log("verdict\tminimum-qualification-ticks\tscore\tdelta\tcapacity\tcompleted\ton-time\tmean-cycle-ticks\tasset-limit\tplanned-boundary\topportunistic\tusage-triggered\tcalendar-triggered\tmaintenance-ticks\tcrew-wait-ticks");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : row.scoreDelta === 0 ? "BASELINE" : "DISCARD",
-  row.minimumQualificationTicks ?? "off",
+  row.opportunisticAfterQualificationTicks ?? "off",
   row.metrics.finalScore.toFixed(6),
   row.scoreDelta.toFixed(6),
   row.capacityReady ? "READY" : "GAPS",
   row.metrics.lotFlow.completed,
   row.metrics.lotFlow.onTimeCompleted,
   row.metrics.lotFlow.meanCycleTimeTicks.toFixed(3),
-  row.metrics.equipmentMaintenance.totalMandatory,
+  row.metrics.equipmentMaintenance.totalAssetLimit,
+  row.metrics.equipmentMaintenance.totalPlannedBoundary,
   row.metrics.equipmentMaintenance.totalOpportunistic,
   row.metrics.equipmentMaintenance.totalUsageTriggered,
   row.metrics.equipmentMaintenance.totalCalendarTriggered,
@@ -113,10 +114,10 @@ for (const row of rows) console.log([
 
 const best = rows[0];
 if (writeBest) {
-  if (!best?.accepted || best.minimumQualificationTicks === null) {
+  if (!best?.accepted || best.opportunisticAfterQualificationTicks === null) {
     throw new Error("No gate-passing calendar window improved the baseline; candidate Blueprint was not changed");
   }
   const path = join(projectDir, "blueprints", `${definition.candidateBlueprint}.blueprint.json`);
   await writeFile(path, `${stableStringify({ ...best.blueprint, revision: "memory-fab-calendar-maintenance-research-v1" }, 2)}\n`);
-  console.log(`# wrote ${path}: minimumQualificationTicks=${best.minimumQualificationTicks}`);
+  console.log(`# wrote ${path}: opportunisticAfterQualificationTicks=${best.opportunisticAfterQualificationTicks}`);
 }

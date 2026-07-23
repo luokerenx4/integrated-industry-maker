@@ -32,7 +32,8 @@ interface SearchRow {
   scores: number[];
   completedLots: number[];
   onTimeLots: number[];
-  mandatory: number[];
+  assetLimit: number[];
+  plannedBoundary: number[];
   opportunistic: number[];
   cancelled: number[];
   maintenanceTicks: number[];
@@ -83,7 +84,7 @@ function withThresholds(
     if (threshold === undefined) continue;
     device.policy = { ...device.policy };
     if (threshold === null) delete device.policy.preventiveMaintenance;
-    else device.policy.preventiveMaintenance = { minimumJobs: threshold };
+    else device.policy.preventiveMaintenance = { opportunistic: { afterJobs: threshold } };
     if (!Object.keys(device.policy).length) delete device.policy;
   }
   return blueprint;
@@ -114,7 +115,8 @@ for (const lithography of [null, 6, 7] as const) {
         scores,
         completedLots: metrics.map((item) => item.lotFlow.completed),
         onTimeLots: metrics.map((item) => item.lotFlow.onTimeCompleted),
-        mandatory: metrics.map((item) => item.equipmentMaintenance.totalMandatory),
+        assetLimit: metrics.map((item) => item.equipmentMaintenance.totalAssetLimit),
+        plannedBoundary: metrics.map((item) => item.equipmentMaintenance.totalPlannedBoundary),
         opportunistic: metrics.map((item) => item.equipmentMaintenance.totalOpportunistic),
         cancelled: metrics.map((item) => item.equipmentMaintenance.totalCancelled),
         maintenanceTicks: metrics.map((item) => item.equipmentMaintenance.totalMaintenanceTicks),
@@ -144,13 +146,13 @@ rows.sort((left, right) => Number(right.accepted) - Number(left.accepted)
   || (left.inspection ?? 99) - (right.inspection ?? 99));
 
 console.log(`# incumbent aggregate=${incumbentAggregate.toFixed(6)} · 27 maintenance policies · case gate=${definition.acceptance.maximumCaseScoreRegression.toFixed(3)}`);
-console.log("verdict\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tlithography\tetch\tinspection\tcase-scores\tcompleted\ton-time\tmandatory\topportunistic\tcancelled\tmaintenance-ticks\tqualification-completed\tqualification-cancelled\tqualification-ticks\tinput-wait\tcrew-wait\tservice-crew-work\tqualification-crew-work\tservice-consumables\tqualification-consumables\tdrifted-jobs\tdrifted-lots\tdrift-defects");
+console.log("verdict\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tlithography\tetch\tinspection\tcase-scores\tcompleted\ton-time\tasset-limit\tplanned-boundary\topportunistic\tcancelled\tmaintenance-ticks\tqualification-completed\tqualification-cancelled\tqualification-ticks\tinput-wait\tcrew-wait\tservice-crew-work\tqualification-crew-work\tservice-consumables\tqualification-consumables\tdrifted-jobs\tdrifted-lots\tdrift-defects");
 for (const row of rows) console.log([
   row.accepted ? "KEEP" : row.aggregateDelta === 0 ? "INCUMBENT" : "REJECT",
   row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
   row.lithography ?? "off", row.etch ?? "off", row.inspection ?? "off",
   row.scores.map((value) => value.toFixed(3)).join(","), row.completedLots.join(","), row.onTimeLots.join(","),
-  row.mandatory.join(","), row.opportunistic.join(","), row.cancelled.join(","), row.maintenanceTicks.join(","),
+  row.assetLimit.join(","), row.plannedBoundary.join(","), row.opportunistic.join(","), row.cancelled.join(","), row.maintenanceTicks.join(","),
   row.qualificationCompleted.join(","), row.qualificationCancelled.join(","), row.qualificationTicks.join(","),
   row.inputWaitTicks.join(","), row.crewWaitTicks.join(","), row.serviceCrewTicks.join(","), row.qualificationCrewTicks.join(","),
   row.serviceConsumables.join(","), row.qualificationConsumables.join(","),

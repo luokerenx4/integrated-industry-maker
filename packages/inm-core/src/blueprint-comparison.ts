@@ -82,7 +82,8 @@ export interface BlueprintMetricSnapshot {
   totalUtilityInputWaitTicks: number;
   totalUtilityInputBlocks: number;
   totalMaintenanceCompleted: number;
-  totalMandatoryMaintenance: number;
+  totalAssetLimitMaintenance: number;
+  totalPlannedBoundaryMaintenance: number;
   totalOpportunisticMaintenance: number;
   totalUsageTriggeredMaintenance: number;
   totalCalendarTriggeredMaintenance: number;
@@ -189,7 +190,8 @@ export interface BlueprintMetricDelta {
   totalUtilityInputWaitTicks: number;
   totalUtilityInputBlocks: number;
   totalMaintenanceCompleted: number;
-  totalMandatoryMaintenance: number;
+  totalAssetLimitMaintenance: number;
+  totalPlannedBoundaryMaintenance: number;
   totalOpportunisticMaintenance: number;
   totalUsageTriggeredMaintenance: number;
   totalCalendarTriggeredMaintenance: number;
@@ -426,7 +428,8 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalUtilityInputWaitTicks: metrics.productionUtilities.totalInputWaitTicks,
     totalUtilityInputBlocks: metrics.productionUtilities.totalInputBlocks,
     totalMaintenanceCompleted: metrics.equipmentMaintenance.totalCompleted,
-    totalMandatoryMaintenance: metrics.equipmentMaintenance.totalMandatory,
+    totalAssetLimitMaintenance: metrics.equipmentMaintenance.totalAssetLimit,
+    totalPlannedBoundaryMaintenance: metrics.equipmentMaintenance.totalPlannedBoundary,
     totalOpportunisticMaintenance: metrics.equipmentMaintenance.totalOpportunistic,
     totalUsageTriggeredMaintenance: metrics.equipmentMaintenance.totalUsageTriggered,
     totalCalendarTriggeredMaintenance: metrics.equipmentMaintenance.totalCalendarTriggered,
@@ -535,7 +538,8 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalUtilityInputWaitTicks: after.totalUtilityInputWaitTicks - before.totalUtilityInputWaitTicks,
     totalUtilityInputBlocks: after.totalUtilityInputBlocks - before.totalUtilityInputBlocks,
     totalMaintenanceCompleted: after.totalMaintenanceCompleted - before.totalMaintenanceCompleted,
-    totalMandatoryMaintenance: after.totalMandatoryMaintenance - before.totalMandatoryMaintenance,
+    totalAssetLimitMaintenance: after.totalAssetLimitMaintenance - before.totalAssetLimitMaintenance,
+    totalPlannedBoundaryMaintenance: after.totalPlannedBoundaryMaintenance - before.totalPlannedBoundaryMaintenance,
     totalOpportunisticMaintenance: after.totalOpportunisticMaintenance - before.totalOpportunisticMaintenance,
     totalUsageTriggeredMaintenance: after.totalUsageTriggeredMaintenance - before.totalUsageTriggeredMaintenance,
     totalCalendarTriggeredMaintenance: after.totalCalendarTriggeredMaintenance - before.totalCalendarTriggeredMaintenance,

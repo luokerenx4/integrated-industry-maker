@@ -485,7 +485,8 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   }, {});
   const equipmentMaintenance: FactoryMetrics["equipmentMaintenance"] = {
     totalCompleted: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.completed, 0),
-    totalMandatory: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.mandatory, 0),
+    totalAssetLimit: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.assetLimit, 0),
+    totalPlannedBoundary: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.plannedBoundary, 0),
     totalOpportunistic: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.opportunistic, 0),
     totalUsageTriggered: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.usageTriggered, 0),
     totalCalendarTriggered: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.calendarTriggered, 0),
