@@ -1712,6 +1712,13 @@ function App() {
     setRouteDesignRun(runId);
   }, [routeDesignProgram, routeProject]);
 
+  const navigateDesignSource = useCallback((programId: string, runId: string) => {
+    if (!routeProject) return;
+    window.history.pushState(window.history.state, "", designPath(routeProject, programId, runId));
+    setRouteView("designs"); setRouteDesignProgram(programId); setRouteDesignRun(runId);
+    setRouteExperiment(null); setRouteCandidate(null);
+  }, [routeProject]);
+
   const navigateCatalog = useCallback((kind: AssetKind, assetId: string | null) => {
     if (!routeProject) return;
     window.history.replaceState(window.history.state, "", catalogPath(routeProject, kind, assetId));
@@ -1865,7 +1872,7 @@ function App() {
       {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={closeRouteSurface} />}
       {routeView === "experiments" && <ExperimentWorkbench
         projectId={data.projectId} experiments={data.experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
-        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onClose={closeRouteSurface}
+        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource} onClose={closeRouteSurface}
       />}
       {routeView === "designs" && <DesignWorkbench
         projectId={data.projectId} programs={data.designPrograms} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}

@@ -1198,7 +1198,7 @@ describe("blueprint compiler", () => {
   });
 
   test("identity-preserving wafer lots close re-entrant setup, inspection, rework, and scrap loops", async () => {
-    const source = await loadFactoryProject(memoryFab);
+    const source = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     const baselineProject = compileFactoryProject(source);
     const productionGraph = analyzeProduction(baselineProject).productionGraph;
     expect(productionGraph.rawInputsPerTarget).toEqual({ "blank-dram-wafer-lot": 0.125, "dram-package-substrate": 1 });
@@ -1304,29 +1304,29 @@ describe("blueprint compiler", () => {
     expect(furnaceStarts).toHaveLength(4);
     expect(furnaceStarts.every((event) => event.type === "device.start" && event.lotIds?.length === 3)).toBeTrue();
 
-    const unownedRouteProcess = await loadFactoryProject(memoryFab);
+    const unownedRouteProcess = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     unownedRouteProcess.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.operations = ["rapid-anneal-dielectric-stack"];
     expect(issueCodes(() => compileFactoryProject(unownedRouteProcess))).toContain("route.process-unassigned");
-    const intermediateRelease = await loadFactoryProject(memoryFab);
+    const intermediateRelease = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     intermediateRelease.scenario.lotReleases![0]!.resource = "dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(intermediateRelease))).toContain("route.release-entry");
-    const malformedTermination = await loadFactoryProject(memoryFab);
+    const malformedTermination = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     malformedTermination.processes["probe-sort-dram-standard"]!.outputs.push({ resource: "qualified-dram-wafer-lot", count: 1 });
     expect(issueCodes(() => compileFactoryProject(malformedTermination))).toContain("lot.termination-shape");
-    const hiddenDeadEnd = await loadFactoryProject(memoryFab);
+    const hiddenDeadEnd = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     hiddenDeadEnd.routes["dram-front-end"]!.steps.find((step) => step.id === "probe-dram")!.operations.push("inspect-final-pattern-standard");
     expect(issueCodes(() => compileFactoryProject(hiddenDeadEnd))).toContain("route.dead-end");
-    const trackedMaterialDelivery = await loadFactoryProject(memoryFab);
+    const trackedMaterialDelivery = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     trackedMaterialDelivery.scenario.materialDeliveries![0]!.resource = "blank-dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(trackedMaterialDelivery))).toContain("material.untracked-required");
-    const queueBoundarySource = await loadFactoryProject(memoryFab);
+    const queueBoundarySource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     queueBoundarySource.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.maximumTicks = 33_400;
     const queueBoundary = runUntil(compileFactoryProject(queueBoundarySource), undefined, { seed: 42 });
     expect(queueBoundary.events.filter((event) => event.type === "lot.queue-time-violation" && event.step === "anneal-dielectric-stack")).toHaveLength(0);
-    const duplicateQueueDefect = await loadFactoryProject(memoryFab);
+    const duplicateQueueDefect = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     duplicateQueueDefect.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.violationDefects.push("critical-dimension");
     expect(issueCodes(() => compileFactoryProject(duplicateQueueDefect))).toContain("route.queue-time-duplicate-defect");
-    const duplicateContractResource = await loadFactoryProject(memoryFab);
+    const duplicateContractResource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     duplicateContractResource.objective.deliveryContracts!.push({
       id: "duplicate-commercial", name: "Duplicate commercial order", resource: "commercial-dram-device", region: "cleanroom",
       demandPerMinute: 1, valuePerItem: 1, shortfallPenaltyPerItem: 1,
@@ -1349,7 +1349,7 @@ describe("blueprint compiler", () => {
     expect(partial.metrics.releaseFlow).toEqual(expect.objectContaining({ scheduled: 12, released: 6, pending: 6, meanReleaseDelayTicks: 0 }));
     expect(Object.values(partial.state.lots).filter((lot) => lot.status === "scheduled")).toHaveLength(6);
 
-    const blockedReleaseSource = await loadFactoryProject(memoryFab);
+    const blockedReleaseSource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     blockedReleaseSource.deviceAssets.buffer!.buffers.find((buffer) => buffer.id === "storage")!.capacity = 1;
     blockedReleaseSource.scenario.materialDeliveries = [];
     for (const lot of blockedReleaseSource.scenario.lotReleases!) lot.releaseTick = 0;

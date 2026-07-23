@@ -952,6 +952,7 @@ export async function designCommand(projectDir: string, programId: string | unde
           `candidate.preview:${promoted.candidate.id}`,
           "Re-evaluate the exact promoted Candidate against its locked Benchmark before applying it.",
           ["inm", "candidate", brief.project.rootDir, "--candidate", promoted.candidate.id, "--json"],
+          "creates-artifact",
         )],
       });
       else write([

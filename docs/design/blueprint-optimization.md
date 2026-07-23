@@ -59,6 +59,8 @@ Core executes the strategy twice and rejects nondeterministic output, schema-val
 
 The `greenfield-dram-fab` [[docs/design/design-programs|Design Program]] composes that synthesis boundary with bounded robust search. It records the empty input hash and strategy source hash, normalizes the generated Blueprint onto the independent `generated-dram-fab` promotion target, evaluates every candidate through `greenfield-dram-design`, and requires strict zero-regression current-best Pareto preservation across all five locked cases before a candidate advances. It writes only immutable run evidence. The tuned `experiment` Blueprint is a different optimization line and is never used as the greenfield write target.
 
+The first accepted greenfield line has crossed that boundary. Design continuation `d02580bc840c4eca68ba3c83acb77993a35805df4009f021fb73fb316102d500` promoted the exact best hash `2511191a2ddb542dce3d551ef539e278825a53362576d093cb1ff9381a8c9356` as project-local Candidate `commissioned-greenfield-dram-fab`. Candidate review applied its 74 operations to the empty commissioning site only after the unchanged five-case Benchmark returned `KEEP`; the checked-in receipt pins proposal, base, proposed, result, and per-case evidence. `generated-dram-fab` now contains that reviewed hash and is the project default. Synthesis remains available for independent authoring experiments under a new output id; it must not overwrite or impersonate the commissioned target.
+
 ## Research boundary
 
 Research proposals are RFC 6902 patches limited to Blueprint `devices`, `connections`, `logisticsNetworks`, and `policies`. Worlds, deposits, assets, Processes, Scenarios, Objectives, simulator, and evaluator are benchmark inputs and cannot be patched.
@@ -81,8 +83,11 @@ Each candidate is applied to a copy, schema-validated, compiled, simulated, scor
 
 ```bash
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output scratch
-bun run inm synthesize examples/memory-fab --blueprint greenfield --scenario production-window --output generated-dram-fab
-bun run inm design examples/memory-fab --program greenfield-dram-fab --run --max-candidates 1 --progress ndjson --json
+bun run inm synthesize examples/memory-fab --blueprint greenfield --scenario production-window --output scratch-dram-fab
+bun run inm validate examples/memory-fab
+bun run inm plan examples/memory-fab
+bun run inm simulate examples/memory-fab
+bun run inm benchmark examples/memory-fab --benchmark greenfield-dram-design
 bun run inm validate examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm plan examples/ironworks --blueprint scratch --scenario cold-start
 bun run inm simulate examples/ironworks --blueprint scratch --scenario cold-start

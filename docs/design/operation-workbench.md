@@ -31,6 +31,8 @@ The descriptor in [[docs/design/operator-workbench]] advertises availability and
 - Candidate review evaluates the exact proposal and creates or reuses one deterministic immutable `candidate-reviews/<candidate>/<proposal-hash>.review.json` artifact containing the locked verdict, hashes, and result evidence.
 - Candidate application requires that project-local receipt, re-evaluates the proposal, checks the reviewed proposal/base/proposed hashes and KEEP verdict, atomically writes only the declared candidate Blueprint, and verifies the resulting file against the recorded proposed hash.
 
+Candidate operations deliberately do not compile the pre-patch base as their operation context. A generative Candidate may pin a schema-valid empty commissioning site whose Scenario references only become satisfiable after the exact patch. Preview first verifies the raw base hash, then applies, schema-validates, compiles, and evaluates the proposed Blueprint; its context hash is that proposed industrial state. Apply repeats the evaluation and reports the post-write compiled state. Invalid proposed factories still fail before a receipt or Blueprint write, so this ordering does not create a permissive path.
+
 Refresh and a new process reconstruct evidence from project files. Read-only results can be deterministically invoked again; simulation results reopen from the immutable run; Candidate decisions reopen from the receipt plus current Blueprint hash. An exact reviewed KEEP Blueprint is `verified`; a moved Blueprint that matches neither reviewed base nor proposal is `stale`.
 
 ## Projections
@@ -48,7 +50,7 @@ Studio exposes project-qualified POST operations at `/api/projects/<project-id>/
 
 ## Verification
 
-Tests must prove a common serializable result shape, read-only empty write sets, simulation artifact creation/cache reuse, deterministic Candidate review receipts, receipt-required apply, post-write hash verification, CLI metadata projection, and Studio endpoint parity. Candidate mutation scope and stale replay remain covered on temporary project copies. Browser QA must run mutating review/apply controls only on temporary project copies.
+Tests must prove a common serializable result shape, read-only empty write sets, simulation artifact creation/cache reuse, deterministic Candidate review receipts, commissioning from a schema-valid non-compiling base, proposed-state operation context, receipt-required apply, post-write hash verification, CLI metadata projection, and Studio endpoint parity. Candidate mutation scope and stale replay remain covered on temporary project copies. Browser QA must run mutating review/apply controls only on temporary project copies.
 
 ## Known next gaps
 

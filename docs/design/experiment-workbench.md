@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, and V4 immutable Design continuation implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, and V5 commissioned Design provenance implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -54,7 +54,7 @@ It deliberately does not edit Blueprint JSON or turn KEEP into a Git mutation. A
 The next milestone closes the authoring loop without hiding industrial or filesystem state:
 
 1. An Agent authors a project-local `candidates/<id>.candidate.json` change set. It names one locked Benchmark, records a hypothesis, pins the current candidate Blueprint hash, and contains an exact RFC 6902 patch.
-2. Core loads and validates that artifact, applies it in memory, compiles it against every locked case, and evaluates the proposed Blueprint through the same Benchmark gates. Explicit review records one deterministic immutable receipt; project orientation itself remains read-only.
+2. Core loads and validates that artifact, applies it in memory, then compiles the complete proposed Blueprint against every locked case and evaluates it through the same Benchmark gates. The pinned base may be a schema-valid but uncommissioned site whose future Scenario references do not compile until the patch is present. Explicit review records one deterministic immutable receipt; project orientation itself remains read-only.
 3. CLI exposes the structured preview and an explicit apply operation. Studio projects the same candidate, patch, semantic diff, cases, and verdict for a human reviewer.
 4. Apply is allowed only for `KEEP`. It repeats evaluation, requires the reviewed proposal, base Blueprint, and proposed Blueprint hashes to match, then atomically replaces only the Benchmark's candidate Blueprint file.
 5. The proposal and review receipt remain as project history. If the current Blueprint equals the reviewed proposed hash it is `verified`; a later unrelated edit makes the proposal `stale`. The consumed base cannot be applied twice or silently target a later Blueprint.
@@ -86,6 +86,21 @@ Both surfaces call `continueDesignRun()`. Core verifies the source artifact and 
 
 The human view deliberately distinguishes “new run” from “continue exact frontier.” Ranking rows identify direct lineage, selected results show reused/additional counts, and the continuation control exists only for a verified `budget-exhausted` result with a non-empty search queue. A rejected new Candidate is still a successful continuation result: the product preserves the learned counterexample instead of presenting search as guaranteed improvement.
 
+## V5 — commissioned Design provenance
+
+Promotion, review, and apply form one authority chain rather than three unrelated screens:
+
+```text
+immutable Design Run best
+  → Candidate source + exact base patch
+  → immutable KEEP receipt
+  → hash-identical commissioned Blueprint
+```
+
+The Candidate file retains the Design Program, result hash, and best-Blueprint hash. Its receipt retains proposal/base/proposed hashes and complete locked evaluation; neither depends on browser storage or the ignored Design Run cache. Studio shows that source identity beside the Candidate and offers a Design deep link only when the exact run artifact is locally available. The CLI exposes the same source and verified decision through project inspection.
+
+After apply, a Design Run whose best hash equals the current promotion target is `commissioned`, not still promotable. Studio suppresses both continuation and repeat-promotion controls, displays the matching Candidate handoff, and keeps the run as immutable evidence. If the target moved to some other hash, Studio labels the base as moved and likewise offers no dishonest operation. Core remains authoritative and rejects either stale action even if another client constructs the request manually.
+
 ### Active implementation plan
 
 - [x] Shared read-only Benchmark catalog and evaluator.
@@ -95,6 +110,7 @@ The human view deliberately distinguishes “new run” from “continue exact f
 - [x] Immutable review receipt, reload-safe decision phase, and post-write verification.
 - [x] Core, CLI, API, and browser tests against `examples/memory-fab`.
 - [x] Exact immutable Design continuation through Core, CLI discovery/NDJSON, Studio API/control, and real memory-fab evidence.
+- [x] Greenfield Candidate commissioning, checked-in receipt/provenance, proposed-context compilation, and honest post-apply Studio state.
 
 ### V2 acceptance
 
@@ -108,8 +124,8 @@ The human view deliberately distinguishes “new run” from “continue exact f
 ```bash
 bun test packages/inm-studio/src/server.test.ts
 bun run inm benchmark examples/memory-fab --benchmark equipment-energy-research --json
-bun run inm candidate examples/memory-fab --candidate stable-furnace-sleep --json
+bun run inm inspect examples/memory-fab --section candidates --json
 bun run inm studio examples/memory-fab --port 4176 --no-open
 ```
 
-Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, immutable receipt reuse, Design continuation prefix/source immutability and new-only simulation work, and absence of incidental Blueprint writes. Browser QA must use domain-derived accessible ids to inspect both Candidate review and an eligible Design Run, verify direct continuation lineage and budget language, execute the continue control, observe the new route-backed immutable result, navigate between experiments, and inspect console errors.
+Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, proposed-context compilation, immutable receipt reuse, Design continuation prefix/source immutability and new-only simulation work, and absence of incidental Blueprint writes. Browser QA must use domain-derived accessible ids to inspect the verified commissioned Candidate and source identity, follow the locally available Design evidence, observe `COMMISSIONING COMPLETE` without stale continuation/promotion controls, navigate between experiments, and inspect console errors.

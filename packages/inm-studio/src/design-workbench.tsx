@@ -117,11 +117,20 @@ export function DesignWorkbench({
   const [promoting, setPromoting] = useState(false);
   const [candidateId, setCandidateId] = useState("");
   const [promoted, setPromoted] = useState<CandidateChangeSet | null>(null);
+  const [commissionedCandidate, setCommissionedCandidate] = useState<CandidateChangeSet | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const selectedRunPromotable = selectedRun?.manifest.best.verdict === "KEEP"
+  const selectedRunAccepted = selectedRun?.manifest.best.verdict === "KEEP"
     && selectedRun.manifest.best.promotionPatchOperations > 0;
+  const selectedRunBaseCurrent = Boolean(brief && selectedRun
+    && brief.promotionBase.blueprint === selectedRun.manifest.promotionBase.blueprint
+    && brief.promotionBase.hash === selectedRun.manifest.promotionBase.hash);
+  const selectedRunAlreadyCommissioned = Boolean(brief && selectedRun && selectedRunAccepted
+    && brief.promotionBase.blueprint === selectedRun.manifest.promotionBase.blueprint
+    && brief.promotionBase.hash === selectedRun.manifest.best.blueprintHash);
+  const selectedRunPromotable = selectedRunAccepted && selectedRunBaseCurrent;
   const selectedRunContinuable = selectedRun?.manifest.stopReason === "budget-exhausted"
-    && selectedRun.manifest.frontier.scheduler.searchOrder.length > 0;
+    && selectedRun.manifest.frontier.scheduler.searchOrder.length > 0
+    && selectedRunBaseCurrent;
 
   useEffect(() => {
     if (!selectedProgramId && programs[0]) onSelectProgram(programs[0].id);
@@ -139,7 +148,7 @@ export function DesignWorkbench({
   };
 
   useEffect(() => {
-    setBrief(null); setRuns([]); setSelectedRun(null); setPromoted(null); setRunProgress(null); setError(null);
+    setBrief(null); setRuns([]); setSelectedRun(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setError(null);
     if (!selectedProgramId) return;
     let active = true;
     void loadProgram(selectedProgramId).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
@@ -147,17 +156,31 @@ export function DesignWorkbench({
   }, [projectId, selectedProgramId]);
 
   useEffect(() => {
-    setSelectedRun(null); setPromoted(null); setError(null);
+    setSelectedRun(null); setPromoted(null); setCommissionedCandidate(null); setError(null);
     if (!selectedProgramId || !selectedRunId) return;
     let active = true;
-    void fetch(`/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgramId)}/runs/${encodeURIComponent(selectedRunId)}`)
-      .then((response) => responseJson<DesignRunResult>(response)).then((value) => {
+    void (async () => {
+      try {
+        const value = await responseJson<DesignRunResult>(await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgramId)}/runs/${encodeURIComponent(selectedRunId)}`,
+        ));
         if (!active) return;
         setSelectedRun(value);
         setCandidateId(`${selectedProgramId}-${selectedRunId.slice(0, 8)}`);
-      }).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
+        if (!selectedProgram) return;
+        const candidates = await responseJson<{ candidates: CandidateChangeSet[] }>(await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedProgram.benchmark)}/candidates`,
+        ));
+        if (!active) return;
+        setCommissionedCandidate(candidates.candidates.find((candidate) => candidate.source?.program === selectedProgramId
+          && candidate.source.resultHash === selectedRunId
+          && candidate.source.blueprintHash === value.manifest.best.blueprintHash) ?? null);
+      } catch (nextError) {
+        if (active) setError(nextError instanceof Error ? nextError.message : String(nextError));
+      }
+    })();
     return () => { active = false; };
-  }, [projectId, selectedProgramId, selectedRunId]);
+  }, [projectId, selectedProgram, selectedProgramId, selectedRunId]);
 
   const run = async () => {
     if (!selectedProgram || running) return;
@@ -220,7 +243,7 @@ export function DesignWorkbench({
         {selectedProgram && brief && <>
           <section className="design-contract">
             <div><span className="eyebrow">DESIGN CONTRACT</span><h3>{selectedProgram.name}</h3><p>{selectedProgram.description}</p><code>{selectedProgram.id} · {shortHash(selectedProgram.programHash)}</code></div>
-            <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>WILL UPDATE</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
+            <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>CURRENT PROMOTION TARGET</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
             <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedSimulations}/${runProgress.work.plannedSimulations}` : running ? "STARTING…" : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
           {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code></div><div><b>{runProgress.work.completedSimulations}/{runProgress.work.plannedSimulations}</b><small>SIMULATIONS</small><progress value={runProgress.work.completedSimulations} max={runProgress.work.plannedSimulations}/></div></section>}
@@ -245,8 +268,16 @@ export function DesignWorkbench({
             <div className="design-frontier" data-testid="design-frontier"><div className="design-section-title"><span>FINAL PARETO FRONTIER</span><b>{selectedRun.manifest.frontier.scheduler.searchOrder[0] ? `NEXT ${selectedRun.manifest.frontier.scheduler.searchOrder[0]}` : "SEARCH EXHAUSTED"}</b></div><div>{selectedRun.manifest.frontier.nodes.map((node) => <article key={node.nodeId} className={`${node.role} ${node.searchStatus}`}><small>{node.role === "leader" ? "PROMOTABLE LEADER" : "EXPLORATORY · NOT PROMOTABLE"} · {node.searchStatus.toUpperCase()}</small><strong>{node.nodeId}</strong><code>{node.parentNodeId ? `FROM ${node.parentNodeId}` : "ROOT"} · DEPTH {node.depth}</code><b>{node.candidateScore.toFixed(6)}</b><span>{shortHash(node.blueprintHash)}</span></article>)}</div></div>
             {selectedRun.manifest.exhaustions.length > 0 && <div className="design-exhaustions" data-testid="design-exhaustions"><div className="design-section-title"><span>SEARCH EXHAUSTION</span><b>{selectedRun.manifest.exhaustions.length} RETIRED</b></div>{selectedRun.manifest.exhaustions.map((exhaustion) => <div key={exhaustion.sequence}><b>X{String(exhaustion.sequence).padStart(2, "0")}</b><strong>{exhaustion.node.nodeId}</strong><span>{exhaustion.node.role.toUpperCase()} · BEFORE ITERATION {exhaustion.beforeIteration}</span><code>NEXT {exhaustion.nextNodeId ?? "NONE"}</code></div>)}</div>}
             <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS / CASE → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><span><strong data-testid={iteration.addressedCase ? "design-repair-target" : undefined}>{iteration.addressedCase ? `REPAIRS ${iteration.addressedCase}` : iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO EXPLICIT TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>BEFORE {promotionBoundaryDetail(iteration.promotionBoundary)}</small><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <small>{decisionDetail(iteration.decisionEvidence)}</small>}<small>{iteration.hypothesis}</small></span><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
-            {selectedRunPromotable ? <div className="design-promotion"><div><small>CANDIDATE HANDOFF</small><strong>Freeze this accepted design for ordinary review</strong><span>Promotion creates a hash-pinned Candidate against {selectedRun.manifest.promotionBase.blueprint}. It does not apply the Blueprint.</span></div>{promoted ? <button className="promoted" onClick={() => onCandidate(promoted.benchmark, promoted.id)}>OPEN {promoted.id} →</button> : <><input aria-label="Candidate id" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} pattern="[a-z0-9][a-z0-9-]*"/><button data-testid="promote-design" disabled={promoting || !candidateId} onClick={() => void promote()}>{promoting ? "VERIFYING…" : "CREATE CANDIDATE"}</button></>}</div>
-              : <div className="design-no-leader"><strong>NO PROMOTABLE ACCEPTED DESIGN</strong><span>The best result either failed a locked gate or equals its promotion base. There is nothing honest to promote.</span></div>}
+            {selectedRunAlreadyCommissioned ? <div className="design-commissioned" data-testid="design-commissioned">
+              <div><small>COMMISSIONING COMPLETE</small><strong>THIS DESIGN IS THE CURRENT FACTORY</strong><span>{selectedRun.manifest.promotionBase.blueprint} matches immutable leader {shortHash(selectedRun.manifest.best.blueprintHash)}. Re-promotion and continuation are intentionally unavailable after the target moved.</span></div>
+              {commissionedCandidate
+                ? <button onClick={() => onCandidate(commissionedCandidate.benchmark, commissionedCandidate.id)}>OPEN VERIFIED CANDIDATE →</button>
+                : <code>NO MATCHING PROJECT-LOCAL CANDIDATE RECORD</code>}
+            </div>
+              : selectedRunPromotable ? <div className="design-promotion"><div><small>CANDIDATE HANDOFF</small><strong>Freeze this accepted design for ordinary review</strong><span>Promotion creates a hash-pinned Candidate against {selectedRun.manifest.promotionBase.blueprint}. It does not apply the Blueprint.</span></div>{promoted ? <button className="promoted" onClick={() => onCandidate(promoted.benchmark, promoted.id)}>OPEN {promoted.id} →</button> : <><input aria-label="Candidate id" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} pattern="[a-z0-9][a-z0-9-]*"/><button data-testid="promote-design" disabled={promoting || !candidateId} onClick={() => void promote()}>{promoting ? "VERIFYING…" : "CREATE CANDIDATE"}</button></>}</div>
+                : selectedRunAccepted && !selectedRunBaseCurrent
+                  ? <div className="design-no-leader moved" data-testid="design-promotion-base-moved"><strong>PROMOTION BASE MOVED</strong><span>This immutable run targets {shortHash(selectedRun.manifest.promotionBase.hash)}, while the current target is {brief ? shortHash(brief.promotionBase.hash) : "unavailable"}. It remains evidence, but cannot honestly be continued or promoted.</span></div>
+                  : <div className="design-no-leader"><strong>NO PROMOTABLE ACCEPTED DESIGN</strong><span>The best result either failed a locked gate or equals its promotion base. There is nothing honest to promote.</span></div>}
           </section>}
         </>}
       </div>

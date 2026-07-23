@@ -4,8 +4,7 @@ import { inspectCandidateDecision, recordCandidateReview } from "./candidate-rev
 import {
   applyCandidateChangeSet,
   CandidateChangeSetError,
-  loadCandidateChangeSet,
-  previewCandidateChangeSet,
+  prepareCandidateChangeSet,
   type AppliedCandidateChangeSet,
   type CandidateChangeSetPreview,
 } from "./candidate-change-set";
@@ -198,16 +197,11 @@ export async function evaluateBenchmarkOperation(projectDir: string, benchmarkId
   }));
 }
 
-async function candidateProject(projectDir: string, candidateId: string): Promise<CompiledFactoryProject> {
-  const candidate = await loadCandidateChangeSet(projectDir, candidateId);
-  return benchmarkProject(projectDir, candidate.benchmark, true);
-}
-
 export async function previewCandidateOperation(projectDir: string, candidateId: string): Promise<ProjectOperationResult<CandidateChangeSetPreview>> {
   const startedAt = performance.now();
-  const project = await candidateProject(projectDir, candidateId);
+  const prepared = await prepareCandidateChangeSet(projectDir, candidateId);
+  const { proposedBlueprint: _, blueprintPath: __, operationProject: project, ...data } = prepared;
   return timed("candidate.preview", "creates-artifact", project, startedAt, async () => {
-    const data = await previewCandidateChangeSet(projectDir, candidateId);
     const review = await recordCandidateReview(projectDir, data);
     return {
       diagnostics: [],
@@ -223,34 +217,32 @@ export async function previewCandidateOperation(projectDir: string, candidateId:
 
 export async function applyCandidateOperation(projectDir: string, candidateId: string, reviewed: CandidateApplyReview): Promise<ProjectOperationResult<AppliedCandidateChangeSet>> {
   const startedAt = performance.now();
-  const project = await candidateProject(projectDir, candidateId);
-  return timed("candidate.apply", "mutates-blueprint", project, startedAt, async () => {
-    const decision = await inspectCandidateDecision(projectDir, candidateId);
-    if (decision.state !== "reviewed-keep" || !decision.preview) throw new CandidateChangeSetError(
-      "candidate.review-required",
-      `Candidate '${candidateId}' requires one recorded KEEP review for its current proposal and base Blueprint before apply`,
-    );
-    if (decision.proposalHash !== reviewed.proposalHash
-      || decision.currentCandidateHash !== reviewed.currentCandidateHash
-      || decision.proposedCandidateHash !== reviewed.proposedCandidateHash) throw new CandidateChangeSetError(
-      "candidate.review-receipt-mismatch",
-      `Candidate '${candidateId}' apply hashes do not match its recorded KEEP review`,
-    );
-    const applied = await applyCandidateChangeSet(projectDir, candidateId, reviewed);
-    const verified = await inspectCandidateDecision(projectDir, candidateId);
-    if (verified.state !== "verified" || verified.currentCandidateHash !== applied.proposedCandidateHash) throw new CandidateChangeSetError(
-      "candidate.post-write-verification-failed",
-      `Candidate '${candidateId}' was written but does not match the reviewed proposed Blueprint hash`,
-    );
-    return {
-      diagnostics: [],
-      artifacts: [{ kind: "blueprint", id: project.selection.blueprint, path: applied.blueprintPath, immutable: false }],
-      writeSet: [applied.blueprintPath],
-      data: applied,
-      verification: [
-        { id: "candidate.verified", description: "The written Blueprint hash matches the immutable KEEP review and the consumed base can no longer be applied." },
-        { id: "inspect", description: "Refresh the shared project workbench to continue from the next authoritative task." },
-      ],
-    };
-  });
+  const decision = await inspectCandidateDecision(projectDir, candidateId);
+  if (decision.state !== "reviewed-keep" || !decision.preview) throw new CandidateChangeSetError(
+    "candidate.review-required",
+    `Candidate '${candidateId}' requires one recorded KEEP review for its current proposal and base Blueprint before apply`,
+  );
+  if (decision.proposalHash !== reviewed.proposalHash
+    || decision.currentCandidateHash !== reviewed.currentCandidateHash
+    || decision.proposedCandidateHash !== reviewed.proposedCandidateHash) throw new CandidateChangeSetError(
+    "candidate.review-receipt-mismatch",
+    `Candidate '${candidateId}' apply hashes do not match its recorded KEEP review`,
+  );
+  const applied = await applyCandidateChangeSet(projectDir, candidateId, reviewed);
+  const verified = await inspectCandidateDecision(projectDir, candidateId);
+  if (verified.state !== "verified" || verified.currentCandidateHash !== applied.proposedCandidateHash) throw new CandidateChangeSetError(
+    "candidate.post-write-verification-failed",
+    `Candidate '${candidateId}' was written but does not match the reviewed proposed Blueprint hash`,
+  );
+  const project = await benchmarkProject(projectDir, applied.candidate.benchmark, true);
+  return timed("candidate.apply", "mutates-blueprint", project, startedAt, async () => ({
+    diagnostics: [],
+    artifacts: [{ kind: "blueprint", id: project.selection.blueprint, path: applied.blueprintPath, immutable: false }],
+    writeSet: [applied.blueprintPath],
+    data: applied,
+    verification: [
+      { id: "candidate.verified", description: "The written Blueprint hash matches the immutable KEEP review and the consumed base can no longer be applied." },
+      { id: "inspect", description: "Refresh the shared project workbench to continue from the next authoritative task." },
+    ],
+  }));
 }

@@ -19,7 +19,7 @@ const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const shortHash = (value: string) => value.slice(0, 12);
 
 export function ExperimentWorkbench({
-  projectId, experiments, selectedId, selectedCandidateId, onSelect, onSelectCandidate, onClose,
+  projectId, experiments, selectedId, selectedCandidateId, onSelect, onSelectCandidate, onDesignSource, onClose,
 }: {
   projectId: string;
   experiments: BlueprintBenchmarkSummary[];
@@ -27,6 +27,7 @@ export function ExperimentWorkbench({
   selectedCandidateId: string | null;
   onSelect: (id: string) => void;
   onSelectCandidate: (id: string | null) => void;
+  onDesignSource: (programId: string, runId: string) => void;
   onClose: () => void;
 }) {
   const selected = useMemo(() => experiments.find((item) => item.id === selectedId) ?? null, [experiments, selectedId]);
@@ -39,6 +40,7 @@ export function ExperimentWorkbench({
   const [applying, setApplying] = useState(false);
   const [applyArmed, setApplyArmed] = useState(false);
   const [applied, setApplied] = useState<CandidateApplyResponse | null>(null);
+  const [sourceAvailable, setSourceAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const result = candidatePreview?.result ?? benchmarkResult;
 
@@ -68,6 +70,16 @@ export function ExperimentWorkbench({
       }).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
     return () => { active = false; };
   }, [projectId, selectedCandidateId, selectedId]);
+  useEffect(() => {
+    setSourceAvailable(null);
+    if (!activeCandidate?.source) return;
+    let active = true;
+    const source = activeCandidate.source;
+    void fetch(`/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(source.program)}/runs/${encodeURIComponent(source.resultHash)}`)
+      .then((response) => { if (active) setSourceAvailable(response.ok); })
+      .catch(() => { if (active) setSourceAvailable(false); });
+    return () => { active = false; };
+  }, [activeCandidate, projectId]);
 
   const run = async () => {
     if (!selected || running) return;
@@ -146,6 +158,16 @@ export function ExperimentWorkbench({
               <code>BASE {shortHash(activeCandidate.baseCandidateHash)}</code>
               <b>{decisionState ? decisionState.toUpperCase() : "LOADING STATE"} · {activeCandidate.patch.length} PATCH OPS</b>
             </div>}
+            {activeCandidate?.source && <button
+              className="candidate-source"
+              data-testid="candidate-design-source"
+              disabled={!sourceAvailable}
+              onClick={() => onDesignSource(activeCandidate.source!.program, activeCandidate.source!.resultHash)}
+            >
+              <span><small>IMMUTABLE DESIGN SOURCE</small><strong>{activeCandidate.source.program}</strong></span>
+              <code>RUN {shortHash(activeCandidate.source.resultHash)} · BLUEPRINT {shortHash(activeCandidate.source.blueprintHash)}</code>
+              <b>{sourceAvailable === null ? "CHECKING LOCAL EVIDENCE…" : sourceAvailable ? "OPEN DESIGN EVIDENCE →" : "IDENTITY RETAINED · RUN CACHE NOT LOCAL"}</b>
+            </button>}
           </section>
           <section className="experiment-gates" aria-label="Acceptance gates">
             <span><small>AGGREGATE DELTA</small><b>≥ {signed(selected.acceptance.minimumAggregateScoreDelta, 6)}</b></span>

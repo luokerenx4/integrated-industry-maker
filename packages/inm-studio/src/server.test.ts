@@ -162,7 +162,12 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
   });
   const seedPath = join(projectDir, "blueprints/experiment.blueprint.json");
+  const generatedPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  const commissioningTarget = JSON.parse(await readFile(join(projectDir, "blueprints/greenfield.blueprint.json"), "utf8"));
+  commissioningTarget.revision = "memory-fab-generated-target-v1";
+  await writeFile(generatedPath, `${JSON.stringify(commissioningTarget, null, 2)}\n`);
   const seedBefore = await readFile(seedPath, "utf8");
+  const generatedBefore = await readFile(generatedPath, "utf8");
   const port = 49_000 + process.pid % 1_000;
   const child = Bun.spawn([
     process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
@@ -273,6 +278,61 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(continuedRunId).not.toBe(campaignRepairRunId);
     const unchangedSourceResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}`);
     expect((await unchangedSourceResponse.json()).manifest).toEqual(campaignResult.manifest);
+
+    const commissionedCandidate = "studio-commissioned-greenfield-fab";
+    const commissioningResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${continuedRunId}/promote`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: commissionedCandidate }),
+    });
+    expect(commissioningResponse.status).toBe(200);
+    expect(await commissioningResponse.json()).toEqual(expect.objectContaining({
+      candidate: expect.objectContaining({
+        id: commissionedCandidate,
+        benchmark: "greenfield-dram-design",
+        source: { kind: "design-run", program: "greenfield-dram-fab", resultHash: continuedRunId, blueprintHash: continuationResult.manifest.best.blueprintHash },
+      }),
+    }));
+    expect(await readFile(generatedPath, "utf8")).toBe(generatedBefore);
+
+    const commissioningPreviewResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${commissionedCandidate}/preview`, { method: "POST" });
+    expect(commissioningPreviewResponse.status).toBe(200);
+    const commissioningPreview = await commissioningPreviewResponse.json() as {
+      proposalHash: string;
+      currentCandidateHash: string;
+      proposedCandidateHash: string;
+      result: { verdict: string };
+      operation: { operation: string; effect: string; context: { hashes: { blueprintHash: string } } };
+    };
+    expect(commissioningPreview).toEqual(expect.objectContaining({
+      result: expect.objectContaining({ verdict: "KEEP" }),
+      operation: expect.objectContaining({ operation: "candidate.preview", effect: "creates-artifact" }),
+    }));
+    expect(commissioningPreview.operation.context.hashes.blueprintHash).toBe(commissioningPreview.proposedCandidateHash);
+    expect(await readFile(generatedPath, "utf8")).toBe(generatedBefore);
+
+    const commissioningApplyResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${commissionedCandidate}/apply`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(commissioningPreview),
+    });
+    expect(commissioningApplyResponse.status).toBe(200);
+    expect(await commissioningApplyResponse.json()).toEqual(expect.objectContaining({
+      applied: true,
+      proposedCandidateHash: commissioningPreview.proposedCandidateHash,
+      operation: expect.objectContaining({ operation: "candidate.apply", effect: "mutates-blueprint" }),
+    }));
+    expect(hashValue(JSON.parse(await readFile(generatedPath, "utf8")))).toBe(commissioningPreview.proposedCandidateHash);
+    const commissionedReview = await fetch(`http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${commissionedCandidate}/review`);
+    expect(await commissionedReview.json()).toEqual(expect.objectContaining({ state: "verified" }));
+
+    const commissionedValidation = await fetch(`http://localhost:${port}/api/projects/memory-fab/operations/validate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ selection: { world: "cleanroom", blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output" } }),
+    });
+    expect(commissionedValidation.status).toBe(200);
+    expect(await commissionedValidation.json()).toEqual(expect.objectContaining({
+      operation: "validate",
+      context: expect.objectContaining({ hashes: expect.objectContaining({ blueprintHash: commissioningPreview.proposedCandidateHash }) }),
+      data: expect.objectContaining({ valid: true, devices: 57, connections: 16 }),
+    }));
     const deepLink = await fetch(`http://localhost:${port}/memory-fab/designs/integrated-dram-fab`);
     expect({ status: deepLink.status, contentType: deepLink.headers.get("content-type") }).toEqual({ status: 200, contentType: expect.stringContaining("text/html") });
 
@@ -353,4 +413,4 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     child.kill();
     await child.exited;
   }
-}, 120_000);
+}, 240_000);

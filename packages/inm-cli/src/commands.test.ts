@@ -136,7 +136,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
   const postApply = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
   const postApplyEnvelope = JSON.parse(postApply.stdout);
-  expect(postApplyEnvelope.data.result[0].decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
+  expect(postApplyEnvelope.data.result.find((candidate: { id: string }) => candidate.id === "stable-furnace-sleep").decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
   expect(postApplyEnvelope.nextActions[0].id.startsWith("candidate.")).toBeFalse();
 
   const verified = await runCli(["benchmark", projectDir, "--benchmark", "equipment-energy-research", "--json"]);
@@ -218,6 +218,10 @@ test("public schema discovery lists and emits every project artifact JSON Schema
 test("public Design Program workflow discovers, inspects, and executes without mutating its seed Blueprint", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-design-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") });
+  const commissioningTargetPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  const commissioningTarget = JSON.parse(await readFile(join(projectDir, "blueprints/greenfield.blueprint.json"), "utf8"));
+  commissioningTarget.revision = "memory-fab-generated-target-v1";
+  await writeFile(commissioningTargetPath, `${JSON.stringify(commissioningTarget, null, 2)}\n`);
   const seedPath = join(projectDir, "blueprints", "experiment.blueprint.json");
   const seedBefore = await readFile(seedPath, "utf8");
 
@@ -493,13 +497,52 @@ test("public Design Program workflow discovers, inspects, and executes without m
     exhaustions: [expect.objectContaining({ sequence: 1, nextNodeId: "candidate-4" })],
   });
 
+  const commissionedCandidate = "cli-commissioned-greenfield-fab";
+  const promoted = await runCli([
+    "design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash,
+    "--promote", commissionedCandidate, "--json",
+  ]);
+  expect({ exitCode: promoted.exitCode, stderr: promoted.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const promotedEnvelope = JSON.parse(promoted.stdout);
+  expect(promotedEnvelope.artifacts).toEqual([expect.objectContaining({ kind: "candidate", id: commissionedCandidate, immutable: true })]);
+  expect(promotedEnvelope.nextActions).toEqual([expect.objectContaining({
+    id: `candidate.preview:${commissionedCandidate}`,
+    effect: "creates-artifact",
+  })]);
+
+  const reviewed = await runCli(["candidate", projectDir, "--candidate", commissionedCandidate, "--json"]);
+  expect({ exitCode: reviewed.exitCode, stderr: reviewed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const reviewedEnvelope = JSON.parse(reviewed.stdout);
+  expect(reviewedEnvelope.data).toEqual(expect.objectContaining({
+    result: expect.objectContaining({
+      action: "preview",
+      candidate: commissionedCandidate,
+      verdict: "KEEP",
+      proposedCandidateHash: expect.any(String),
+    }),
+    operation: expect.objectContaining({
+      operation: "candidate.preview",
+      effect: "creates-artifact",
+      context: expect.objectContaining({ selection: expect.objectContaining({ blueprint: "generated-dram-fab" }) }),
+    }),
+  }));
+  const proposedHash = reviewedEnvelope.data.result.proposedCandidateHash as string;
+  expect(reviewedEnvelope.data.operation.context.hashes.blueprintHash).toBe(proposedHash);
+
+  const applied = await runCli(["candidate", projectDir, "--candidate", commissionedCandidate, "--apply", "--json"]);
+  expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(applied.stdout).data).toEqual(expect.objectContaining({
+    result: expect.objectContaining({ action: "apply", applied: true, proposedCandidateHash: proposedHash }),
+    operation: expect.objectContaining({ operation: "candidate.apply", effect: "mutates-blueprint" }),
+  }));
+
   if (run.data.result.best.promotionPatchOperations === 0) {
     const refused = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run-id", resultHash, "--promote", "no-leading-design", "--json"]);
     expect(refused.exitCode).toBe(1);
     expect(JSON.parse(refused.stderr).error).toEqual(expect.objectContaining({ code: "design.no-leading-candidate" }));
     expect(await pathExists(join(projectDir, "candidates", "no-leading-design.candidate.json"))).toBeFalse();
   }
-}, 120_000);
+}, 180_000);
 
 test("public inspect exposes compatible-run memory-fab loss attribution without prose parsing", async () => {
   const projectDir = join(repository, "examples/memory-fab");

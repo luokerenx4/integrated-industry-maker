@@ -5,7 +5,8 @@ import { afterAll, expect, test } from "bun:test";
 import { buildDesignProgramBrief, listDesignPrograms, loadDesignProgram, prepareDesignProgram } from "./design-program";
 import { continueDesignRun, listDesignRuns, loadDesignRun, promoteDesignRun, runDesignProgram, type DesignRunProgress } from "./design-run";
 import { applyResearchPatch } from "./research";
-import { applyCandidateChangeSet, loadCandidateChangeSet, previewCandidateChangeSet } from "./candidate-change-set";
+import { loadCandidateChangeSet } from "./candidate-change-set";
+import { applyCandidateOperation, previewCandidateOperation } from "./operation";
 import { hashValue } from "./utils";
 import { compileFactoryProject } from "./compiler";
 import { runUntil } from "./simulator";
@@ -211,6 +212,9 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   const sourcePath = join(copy, "blueprints", "greenfield.blueprint.json");
   const targetPath = join(copy, "blueprints", "generated-dram-fab.blueprint.json");
   const tunedPath = join(copy, "blueprints", "experiment.blueprint.json");
+  const commissioningTarget = JSON.parse(await readFile(sourcePath, "utf8"));
+  commissioningTarget.revision = "memory-fab-generated-target-v1";
+  await writeFile(targetPath, `${JSON.stringify(commissioningTarget, null, 2)}\n`);
   const sourceBefore = await readFile(sourcePath, "utf8");
   const targetBefore = await readFile(targetPath, "utf8");
   const tunedBefore = await readFile(tunedPath, "utf8");
@@ -593,12 +597,24 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   replayed.revision = first.manifest.promotionBase.hash;
   expect(hashValue(replayed)).toBe(first.manifest.best.blueprintHash);
 
-  const preview = await previewCandidateChangeSet(copy, candidate.id);
+  const previewOperation = await previewCandidateOperation(copy, candidate.id);
+  const preview = previewOperation.data;
   expect(preview).toMatchObject({ proposedCandidateHash: first.manifest.best.blueprintHash, result: { verdict: "KEEP" } });
-  await applyCandidateChangeSet(copy, candidate.id, {
+  expect(previewOperation).toMatchObject({
+    effect: "creates-artifact",
+    context: { selection: { blueprint: "generated-dram-fab" }, hashes: { blueprintHash: first.manifest.best.blueprintHash } },
+    artifacts: [expect.objectContaining({ kind: "candidate-review", immutable: true })],
+    writeSet: [expect.stringContaining("candidate-reviews/generated-leading-design/")],
+  });
+  const appliedOperation = await applyCandidateOperation(copy, candidate.id, {
     proposalHash: preview.proposalHash,
     currentCandidateHash: preview.currentCandidateHash,
     proposedCandidateHash: preview.proposedCandidateHash,
+  });
+  expect(appliedOperation).toMatchObject({
+    effect: "mutates-blueprint",
+    context: { selection: { blueprint: "generated-dram-fab" }, hashes: { blueprintHash: first.manifest.best.blueprintHash } },
+    data: { applied: true, proposedCandidateHash: first.manifest.best.blueprintHash },
   });
   expect(await readFile(targetPath, "utf8")).not.toBe(targetBefore);
   expect(hashValue(JSON.parse(await readFile(targetPath, "utf8")))).toBe(first.manifest.best.blueprintHash);

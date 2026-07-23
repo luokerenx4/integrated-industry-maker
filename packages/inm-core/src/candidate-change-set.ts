@@ -2,10 +2,11 @@ import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkResult } from "./benchmark";
+import { compileFactoryProject } from "./compiler";
 import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
 import { loadFactoryProject } from "./loader";
-import type { Blueprint } from "./types";
+import type { Blueprint, CompiledFactoryProject } from "./types";
 import { atomicWriteJson, hashValue, pathExists, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -101,7 +102,11 @@ export async function listCandidateChangeSets(projectDir: string, benchmarkId?: 
   return candidates.filter((candidate) => !benchmarkId || candidate.benchmark === benchmarkId);
 }
 
-async function prepareCandidateChangeSet(projectDir: string, candidateId: string): Promise<CandidateChangeSetPreview & { proposedBlueprint: Blueprint; blueprintPath: string }> {
+export async function prepareCandidateChangeSet(projectDir: string, candidateId: string): Promise<CandidateChangeSetPreview & {
+  proposedBlueprint: Blueprint;
+  blueprintPath: string;
+  operationProject: CompiledFactoryProject;
+}> {
   const candidate = await loadCandidateChangeSet(projectDir, candidateId);
   const benchmark = await loadBlueprintBenchmark(projectDir, candidate.benchmark);
   const firstCase = benchmark.cases[0]!;
@@ -130,8 +135,14 @@ async function prepareCandidateChangeSet(projectDir: string, candidateId: string
   );
   const proposedBlueprint = parsedBlueprint.data;
   const proposedCandidateHash = hashValue(proposedBlueprint);
+  let operationProject: CompiledFactoryProject;
   let result: BlueprintBenchmarkResult;
-  try { result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, { candidateBlueprint: proposedBlueprint }); }
+  try {
+    // A generative Candidate may start from a schema-valid commissioning site
+    // whose Scenario references only become valid after this exact patch.
+    operationProject = compileFactoryProject({ ...loaded, blueprint: proposedBlueprint });
+    result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, { candidateBlueprint: proposedBlueprint });
+  }
   catch (error) {
     throw new CandidateChangeSetError("candidate.evaluation-failed", `Candidate change set '${candidate.id}' could not be evaluated: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -141,13 +152,14 @@ async function prepareCandidateChangeSet(projectDir: string, candidateId: string
     currentCandidateHash,
     proposedCandidateHash,
     proposedBlueprint,
+    operationProject,
     result,
     blueprintPath: join(loaded.rootDir, "blueprints", `${benchmark.candidateBlueprint}.blueprint.json`),
   };
 }
 
 export async function previewCandidateChangeSet(projectDir: string, candidateId: string): Promise<CandidateChangeSetPreview> {
-  const { proposedBlueprint: _, blueprintPath: __, ...preview } = await prepareCandidateChangeSet(projectDir, candidateId);
+  const { proposedBlueprint: _, blueprintPath: __, operationProject: ___, ...preview } = await prepareCandidateChangeSet(projectDir, candidateId);
   return preview;
 }
 
@@ -188,6 +200,6 @@ export async function applyCandidateChangeSet(
     `Candidate change set '${candidateId}' changed after evaluation; review it again`,
   );
   await atomicWriteJson(prepared.blueprintPath, prepared.proposedBlueprint);
-  const { proposedBlueprint: _, ...result } = prepared;
+  const { proposedBlueprint: _, operationProject: __, ...result } = prepared;
   return { ...result, applied: true };
 }

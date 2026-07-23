@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/commission-generated-memory-fab]] | Commission the accepted greenfield Design leader into a self-contained runnable memory-fab Blueprint through the shared Candidate boundary. | 2026-07-23 |
 
 ## Proposed plans
 
