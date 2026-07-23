@@ -3,7 +3,8 @@ import type { CompiledFactoryProject, FactoryMetrics } from "./types";
 export type FabLossBucketId =
   | "delivery-portfolio"
   | "release-admission"
-  | "queue-starvation"
+  | "queue-congestion"
+  | "input-starvation"
   | "batch-formation"
   | "setup-campaign"
   | "maintenance-qualification"
@@ -30,7 +31,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 2;
+  version: 3;
   family: string;
   outcome: {
     scheduled: number;
@@ -39,7 +40,7 @@ export interface FabLossProfile {
     scrapped: number;
     inProgress: number;
     pendingRelease: number;
-    goodYield: number;
+    firstPassYield: number;
     contractFulfillment: number;
     deliveryShortfall: number;
     deliveryOverflow: number;
@@ -60,6 +61,8 @@ const ratio = (numerator: number, denominator: number) => denominator > 0 ? nume
 const topKey = (values: Record<string, number>): string | null => Object.entries(values)
   .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? null;
 const productionCapabilities = new Set(["extract", "process", "treat"]);
+const isProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">, id: string) =>
+  project.devices[id]?.assetDef.capabilities.some((capability) => productionCapabilities.has(capability)) ?? false;
 
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
@@ -105,16 +108,49 @@ export function analyzeFabLossProfile(
   });
 
   const productiveWaitingInput = Object.fromEntries(Object.entries(metrics.waitingInputTime).filter(([id]) =>
-    project.devices[id]?.assetDef.capabilities.some((capability) => productionCapabilities.has(capability))));
+    isProductiveDevice(project, id)));
   const waitingInputTicks = sum(productiveWaitingInput);
-  const waitingDevice = topKey(productiveWaitingInput);
   const queueShare = ratio(metrics.lotFlow.meanQueueTimeTicks, cycleTicks);
-  const inputWaitShare = ratio(waitingInputTicks, durationTicks * Math.max(1, Object.keys(productiveWaitingInput).length));
+  const bottleneckDevice = metrics.bottleneckEntity && isProductiveDevice(project, metrics.bottleneckEntity)
+    ? metrics.bottleneckEntity
+    : null;
+  const queueRoute = topKey(Object.fromEntries(Object.entries(metrics.routeFlow).map(([id, route]) =>
+    [id, Object.values(route.steps).reduce((total, step) => total + step.meanQueueTicks * step.visits, 0)])));
   add({
-    id: "queue-starvation", label: "Queue and input starvation", score: (queueShare + inputWaitShare) / 2,
-    summary: `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued; ${Object.keys(productiveWaitingInput).length} productive devices accumulated ${(waitingInputTicks / 1000).toFixed(1)} device-s waiting for input.`,
+    id: "queue-congestion", label: "Tracked-lot queue congestion", score: queueShare,
+    summary: `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued in a ${(cycleTicks / 1000).toFixed(1)} s cycle; ${bottleneckDevice ?? queueRoute ?? metrics.lotFlow.family} is the measured bottleneck context.`,
+    subjects: bottleneckDevice
+      ? [{ kind: "device", id: bottleneckDevice }]
+      : queueRoute ? [{ kind: "route", id: queueRoute }] : [{ kind: "project", id: metrics.lotFlow.family }],
+    evidence: {
+      meanQueueTicks: metrics.lotFlow.meanQueueTimeTicks,
+      meanCycleTicks: cycleTicks,
+      meanProcessTicks: metrics.lotFlow.meanProcessTimeTicks,
+      meanTransportTicks: metrics.lotFlow.meanTransportTimeTicks,
+      bottleneckUtilization: bottleneckDevice ? metrics.machineUtilization[bottleneckDevice] ?? 0 : 0,
+    },
+  });
+
+  const activeProductiveDevices = Object.keys(productiveWaitingInput)
+    .filter((id) => (metrics.machineUtilization[id] ?? 0) > 1e-12);
+  const utilizationWeight = activeProductiveDevices.reduce((total, id) => total + (metrics.machineUtilization[id] ?? 0), 0);
+  const weightedWaitingInput = Object.fromEntries(activeProductiveDevices.map((id) =>
+    [id, productiveWaitingInput[id]! * (metrics.machineUtilization[id] ?? 0)]));
+  const weightedWaitingInputTicks = sum(weightedWaitingInput);
+  const waitingDevice = topKey(weightedWaitingInput);
+  add({
+    id: "input-starvation", label: "Productive-equipment input starvation",
+    score: ratio(weightedWaitingInputTicks, durationTicks * utilizationWeight),
+    summary: `${activeProductiveDevices.length} active productive devices accumulated ${(waitingInputTicks / 1000).toFixed(1)} raw device-s without input; utilization weighting identifies ${waitingDevice ?? metrics.lotFlow.family} without promoting normally sparse exception equipment.`,
     subjects: waitingDevice ? [{ kind: "device", id: waitingDevice }] : [{ kind: "project", id: metrics.lotFlow.family }],
-    evidence: { meanQueueTicks: metrics.lotFlow.meanQueueTimeTicks, productiveDevices: Object.keys(productiveWaitingInput).length, waitingInputTicks },
+    evidence: {
+      activeProductiveDevices: activeProductiveDevices.length,
+      waitingInputTicks,
+      weightedWaitingInputTicks,
+      utilizationWeight,
+      subjectWaitingInputTicks: waitingDevice ? productiveWaitingInput[waitingDevice] ?? 0 : 0,
+      subjectUtilization: waitingDevice ? metrics.machineUtilization[waitingDevice] ?? 0 : 0,
+    },
   });
 
   add({
@@ -179,21 +215,32 @@ export function analyzeFabLossProfile(
   const qTimeRoute = topKey(Object.fromEntries(Object.entries(metrics.routeFlow).map(([id, route]) => [id, route.queueTimeViolations])));
   add({ id: "q-time", label: "Route Q-time", score: ratio(qTimeLots, scheduled) + ratio(qTimeViolations, scheduled), summary: `${qTimeLots} lots crossed a Route Q-time limit in ${qTimeViolations} step visits.`, subjects: qTimeRoute ? [{ kind: "route", id: qTimeRoute }] : [], evidence: { violatedLots: qTimeLots, violations: qTimeViolations } });
 
+  const inspectedLots = metrics.qualityFlow.inspectedLots;
+  const firstPassYield = inspectedLots ? ratio(metrics.qualityFlow.firstPassCompleted, inspectedLots) : 1;
+  const affectedLots = metrics.qualityFlow.reworkedLots + metrics.qualityFlow.scrapDispositions + metrics.qualityFlow.escapedDefects;
   add({
-    id: "yield-quality", label: "Yield and quality loss", score: (1 - metrics.qualityFlow.goodYield) + ratio(metrics.lotFlow.scrapped, scheduled) + ratio(metrics.lotOutputFlow.lostUnits, metrics.lotOutputFlow.nominalUnits),
-    summary: `${(metrics.qualityFlow.goodYield * 100).toFixed(1)}% good yield, ${metrics.lotFlow.scrapped} scrapped lots, ${metrics.qualityFlow.totalReworkCycles} rework cycles, ${metrics.qualityFlow.escapedDefects} escaped defects, and ${metrics.lotOutputFlow.lostUnits} lost lot-derived output units.`,
+    id: "yield-quality", label: "Verified yield and quality loss", score: ratio(affectedLots, inspectedLots) + ratio(metrics.lotOutputFlow.lostUnits, metrics.lotOutputFlow.nominalUnits),
+    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.`,
     subjects: [{ kind: "project", id: metrics.lotFlow.family }],
-    evidence: { goodYield: metrics.qualityFlow.goodYield, scrappedLots: metrics.lotFlow.scrapped, reworkCycles: metrics.qualityFlow.totalReworkCycles, escapedDefects: metrics.qualityFlow.escapedDefects, lostOutputUnits: metrics.lotOutputFlow.lostUnits },
+    evidence: {
+      inspectedLots,
+      firstPassCompleted: metrics.qualityFlow.firstPassCompleted,
+      firstPassYield,
+      reworkedLots: metrics.qualityFlow.reworkedLots,
+      scrapDispositions: metrics.qualityFlow.scrapDispositions,
+      escapedDefects: metrics.qualityFlow.escapedDefects,
+      lostOutputUnits: metrics.lotOutputFlow.lostUnits,
+    },
   });
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 2,
+    version: 3,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,
       scrapped: metrics.lotFlow.scrapped, inProgress: metrics.lotFlow.inProgress, pendingRelease: metrics.lotFlow.pendingRelease,
-      goodYield: metrics.qualityFlow.goodYield, contractFulfillment: metrics.deliveryPortfolio.fulfillment,
+      firstPassYield, contractFulfillment: metrics.deliveryPortfolio.fulfillment,
       deliveryShortfall, deliveryOverflow, portfolioNetValue: metrics.deliveryPortfolio.netValue,
     },
     primary: buckets[0] ?? null,

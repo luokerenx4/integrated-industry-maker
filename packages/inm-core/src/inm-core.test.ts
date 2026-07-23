@@ -1348,6 +1348,9 @@ describe("blueprint compiler", () => {
     const deadlineSource = await loadFactoryProject(memoryFab, {
       blueprint: "generated-dram-fab", scenario: "lithography-interruption",
     });
+    deadlineSource.blueprint = JSON.parse(
+      await readFile(join(memoryFab, "runs/055-simulate/blueprint.json"), "utf8"),
+    ) as Blueprint;
     const deadlineBurnIn = deadlineSource.blueprint.devices.find((device) => device.id === "burn-in-1")!;
     deadlineBurnIn.policy = { ...deadlineBurnIn.policy, recipeDispatch: "contract-value" };
     const deadlinePortfolio = runUntil(compileFactoryProject(deadlineSource), undefined, { seed: 42 });

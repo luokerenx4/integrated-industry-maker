@@ -4,7 +4,11 @@ export interface Blueprint {
   devices: Array<Record<string, unknown>>;
   connections: Array<Record<string, unknown>>;
   logisticsNetworks: Array<Record<string, unknown>>;
-  policies: { dispatch?: "fifo" | "round-robin" | "shortage-first"; powerAllocation: "proportional" | "priority-load-shedding" };
+  policies: {
+    [key: string]: unknown;
+    dispatch?: "fifo" | "round-robin" | "shortage-first";
+    powerAllocation: "proportional" | "priority-load-shedding";
+  };
 }
 
 export interface ProjectSynthesisContext {
@@ -40,7 +44,8 @@ export interface JsonPatchOperation {
 export type FabLossBucketId =
   | "delivery-portfolio"
   | "release-admission"
-  | "queue-starvation"
+  | "queue-congestion"
+  | "input-starvation"
   | "batch-formation"
   | "setup-campaign"
   | "maintenance-qualification"
@@ -53,7 +58,7 @@ export type FabLossBucketId =
   | "yield-quality";
 
 export interface FabLossProfile {
-  version: 2;
+  version: 3;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;

@@ -216,23 +216,23 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const campaignRecords = (await campaignRunResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
     const campaignProgress = campaignRecords.filter((record) => record.type === "progress");
     expect(campaignProgress.filter((record) => record.progress.phase === "node-exhausted")).toEqual([
-      expect.objectContaining({ progress: expect.objectContaining({ exhaustion: expect.objectContaining({ sequence: 1, node: expect.objectContaining({ nodeId: "candidate-3" }), nextNodeId: "candidate-4" }) }) }),
+      expect.objectContaining({ progress: expect.objectContaining({ exhaustion: expect.objectContaining({ sequence: 1, node: expect.objectContaining({ nodeId: "candidate-4" }), nextNodeId: "candidate-5" }) }) }),
     ]);
     expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-      phase: "proposal-completed", iteration: 7, strategy: "maintenance:inspection-jobs-4", addressedLoss: "yield-quality",
+      phase: "proposal-completed", iteration: 7, strategy: "batch-formation:furnace-flex-30000", addressedLoss: "batch-formation",
     }) }));
     expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-      phase: "candidate-completed", iteration: 7, strategy: "maintenance:inspection-jobs-4", decision: "BRANCH",
+      phase: "candidate-completed", iteration: 7, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT",
     }) }));
     const campaignResult = campaignRecords.find((record) => record.type === "result").result;
     const campaignRepairRunId = campaignResult.manifest.resultHash as string;
     expect(campaignResult.manifest).toMatchObject({
       budget: { maximum: 7, evaluated: 7 },
-      best: { iteration: 4, candidateScore: -242.44311996825397, verdict: "KEEP" },
+      best: { iteration: 5, candidateScore: -242.44311996825397, verdict: "KEEP" },
       frontier: {
-        leader: "candidate-4",
-        alternatives: ["candidate-7"],
-        scheduler: { searchOrder: ["candidate-7", "candidate-4"], exhausted: [] },
+        leader: "candidate-5",
+        alternatives: ["candidate-4"],
+        scheduler: { searchOrder: ["candidate-5"], exhausted: ["candidate-4"] },
         nodes: expect.any(Array),
       },
     });
@@ -242,12 +242,12 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       resultHash: campaignRepairRunId,
       iterations: expect.arrayContaining([expect.objectContaining({
         iteration: 7,
-        strategy: "maintenance:inspection-jobs-4",
-        addressedLoss: "yield-quality",
+        strategy: "batch-formation:furnace-flex-30000",
+        addressedLoss: "batch-formation",
         promotionBoundary: expect.objectContaining({ limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
-        decision: "BRANCH",
-        decisionEvidence: expect.objectContaining({ basis: "current-best-case-guardrail", limitingCase: "mixed-quality", guardrail: expect.objectContaining({ passed: false, violations: ["mixed-quality"] }) }),
-        frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-4", role: "leader", depth: 4 }, leaderAfter: "candidate-4" }),
+        decision: "REJECT",
+        decisionEvidence: expect.objectContaining({ basis: "no-current-best-improvement", limitingCase: "lithography-interruption", guardrail: expect.objectContaining({ passed: false, violations: ["lithography-interruption", "facility-interruption"] }) }),
+        frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-5", role: "leader", depth: 4 }, leaderAfter: "candidate-5" }),
       })]),
     }) }));
     const continuationResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}/continue`, {
@@ -265,15 +265,19 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
     expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "seed")).toHaveLength(0);
     expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
-    expect(continuationProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-      phase: "node-exhausted",
-      exhaustion: expect.objectContaining({ node: expect.objectContaining({ nodeId: "candidate-7" }), beforeIteration: 8, nextNodeId: "candidate-4" }),
-    }) }));
+    expect(continuationProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
     const continuationResult = continuationRecords.find((record) => record.type === "result").result;
     expect(continuationResult.manifest).toMatchObject({
       continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 1, additionalCandidateBudget: 1 },
       budget: { maximum: 8, evaluated: 8 },
-      iterations: [...campaignResult.manifest.iterations, expect.objectContaining({ iteration: 8, strategy: "dispatch:inspection-earliest-due-date", frontierEvidence: expect.objectContaining({ parent: expect.objectContaining({ nodeId: "candidate-4" }) }) })],
+      best: { iteration: 8, verdict: "KEEP" },
+      iterations: [...campaignResult.manifest.iterations, expect.objectContaining({
+        iteration: 8,
+        strategy: "dispatch:inspection-earliest-due-date",
+        addressedLoss: "queue-congestion",
+        decision: "KEEP",
+        frontierEvidence: expect.objectContaining({ parent: expect.objectContaining({ nodeId: "candidate-5" }), leaderAfter: "candidate-8" }),
+      })],
     });
     const continuedRunId = continuationResult.manifest.resultHash as string;
     expect(continuedRunId).not.toBe(campaignRepairRunId);

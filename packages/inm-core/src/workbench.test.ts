@@ -52,9 +52,9 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
-    flow: { state: "at-risk", warningCount: 13, infoCount: 12 },
-    evidence: { state: "current", runId: "055-simulate" },
-    review: { state: "pending", pendingCount: 1, staleCount: 1, verifiedCount: 1 },
+    flow: { state: "at-risk", warningCount: 11, infoCount: 13 },
+    evidence: { state: "current", runId: "057-simulate" },
+    review: { state: "stale", pendingCount: 0, staleCount: 3, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
@@ -62,23 +62,39 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.candidates).toEqual([
     expect.objectContaining({
       id: "commissioned-greenfield-dram-fab", benchmark: "greenfield-dram-design", patchOperations: 74,
-      decision: expect.objectContaining({ state: "stale", verdict: "KEEP", currentCandidateHash: "cd691f041d1b2d76330a689f5d764b4ce964e6811789f6e47c3b15c5e142f68c" }),
+      decision: expect.objectContaining({ state: "stale", verdict: "KEEP", currentCandidateHash: "969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205" }),
+    }),
+    expect.objectContaining({
+      id: "inspection-edd-resilience", benchmark: "greenfield-dram-design", patchOperations: 1,
+      decision: expect.objectContaining({
+        state: "stale", verdict: "KEEP",
+        proposalHash: "6f55c2a1c8229efcbb90e6d373664b78193ea7e2ead9e7863d5f69e9c3739c6d",
+        currentCandidateHash: "969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205",
+      }),
+    }),
+    expect.objectContaining({
+      id: "layer-two-lithography-capacity", benchmark: "greenfield-dram-design", patchOperations: 30,
+      decision: expect.objectContaining({
+        state: "verified", verdict: "KEEP",
+        proposalHash: "86aefb102832a22e1fe551aea7e2e88e79558a69c34b4873152cd8a652a8211b",
+        currentCandidateHash: "969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205",
+      }),
     }),
     expect.objectContaining({
       id: "portfolio-aware-dram-dispatch", benchmark: "greenfield-dram-design", patchOperations: 1,
-      decision: expect.objectContaining({ state: "verified", verdict: "KEEP", currentCandidateHash: "cd691f041d1b2d76330a689f5d764b4ce964e6811789f6e47c3b15c5e142f68c" }),
+      decision: expect.objectContaining({ state: "stale", verdict: "KEEP", currentCandidateHash: "969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205" }),
     }),
     expect.objectContaining({
       id: "stable-furnace-sleep", benchmark: "equipment-energy-research", patchOperations: 1,
-      decision: expect.objectContaining({ state: "proposed", proposalHash: expect.any(String) }),
+      decision: expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD", proposalHash: "432ab0f0b3bef886503fa02df5afa6b80729f7c42b19af6449473cc2c5a0d013" }),
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: "candidate.review:stable-furnace-sleep",
-    effect: "creates-artifact",
+    id: expect.stringMatching(/^diagnostic:fab-loss\.yield-quality:/),
+    effect: "read-only",
     requiresConfirmation: false,
-    argv: ["inm", "candidate", snapshot.project.rootDir, "--candidate", "stable-furnace-sleep", "--json"],
-    studioRoute: "/memory-fab/experiments/equipment-energy-research/candidates/stable-furnace-sleep",
+    argv: ["inm", "analyze", snapshot.project.rootDir, "--world", "cleanroom", "--blueprint", "generated-dram-fab", "--scenario", "production-window", "--objective", "dram-output", "--section", "diagnostics", "--json"],
+    studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/fab-loss.yield-quality"),
   }));
   expect(snapshot.operations.find((operation) => operation.id === "candidate.preview")?.availability.state).toBe("conditional");
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.guards).toContain("keep-verdict");
@@ -91,24 +107,28 @@ test("a hash-compatible tracked-lot run outranks nominal warnings with measured 
   });
   expect(snapshot.status.evidence).toEqual({ state: "current", runId: "054-simulate" });
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
-    version: 2,
+    version: 3,
     run: { id: "054-simulate", resultHash: expect.any(String) },
     family: "dram-wafer",
     outcome: expect.objectContaining({
-      scheduled: 12, released: 12, completed: 12, goodYield: 1,
+      scheduled: 12, released: 12, completed: 12, firstPassYield: 1,
       deliveryShortfall: 15, deliveryOverflow: 3, portfolioNetValue: 236,
     }),
-    primary: expect.objectContaining({ id: "queue-starvation", score: expect.any(Number) }),
-    chain: expect.arrayContaining(["queue-starvation", "delivery-portfolio", "maintenance-qualification", "setup-campaign"]),
+    primary: expect.objectContaining({ id: "input-starvation", score: expect.any(Number) }),
+    chain: ["input-starvation", "queue-congestion", "delivery-portfolio", "transport-blocking", "maintenance-qualification"],
   }));
-  expect(snapshot.lossAttribution!.primary!.subjects).toEqual([{ kind: "device", id: "rework-1" }]);
-  expect(snapshot.lossAttribution!.primary!.evidence).toEqual(expect.objectContaining({ productiveDevices: 11 }));
+  expect(snapshot.lossAttribution!.primary!.subjects).toEqual([{ kind: "device", id: "burn-in-1" }]);
+  expect(snapshot.lossAttribution!.primary!.evidence).toEqual(expect.objectContaining({
+    activeProductiveDevices: 10,
+    subjectWaitingInputTicks: 158_000,
+    subjectUtilization: 0.5611111111111111,
+  }));
   expect(snapshot.lossAttribution!.buckets.every((bucket, index, buckets) => index === 0 || buckets[index - 1]!.score >= bucket.score)).toBeTrue();
   expect(snapshot.diagnostics[0]).toEqual(expect.objectContaining({
-    code: "fab-loss.queue-starvation", priority: 90,
+    code: "fab-loss.input-starvation", priority: 90,
     evidence: expect.objectContaining({ source: "compatible-run", runId: "054-simulate" }),
   }));
-  expect(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code === "fab-loss.queue-starvation"))
+  expect(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code === "fab-loss.input-starvation"))
     .toBeLessThan(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code.startsWith("analysis.")));
 });
 
@@ -124,7 +144,7 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
   const reviewed = await openProjectWorkbenchSnapshot(projectDir);
   expect(reviewed.candidates.find((candidate) => candidate.id === "stable-furnace-sleep")?.decision)
     .toEqual(expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD" }));
-  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 1, verifiedCount: 1 });
+  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 3, verifiedCount: 1 });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
     id: expect.stringContaining("fab-loss."),
     target: expect.objectContaining({ kind: "diagnostic" }),

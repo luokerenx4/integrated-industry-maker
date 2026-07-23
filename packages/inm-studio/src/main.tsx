@@ -1525,7 +1525,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
         <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => <div key={bucket.id} className={index === 0 ? "primary" : ""}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong><small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>)}</div>
-        <footer><span>GOOD YIELD {(snapshot.lossAttribution.outcome.goodYield * 100).toFixed(1)}%</span><span>CONTRACTS {(snapshot.lossAttribution.outcome.contractFulfillment * 100).toFixed(1)}%</span><small>Ranking signals overlap; they are not additive lost output.</small></footer>
+        <footer><span>FIRST-PASS YIELD {(snapshot.lossAttribution.outcome.firstPassYield * 100).toFixed(1)}%</span><span>CONTRACTS {(snapshot.lossAttribution.outcome.contractFulfillment * 100).toFixed(1)}%</span><small>Ranking signals overlap; they are not additive lost output.</small></footer>
       </section>}
       <section className="overview-panel contracts-panel">
         <header><div><span className="eyebrow">INDUSTRIAL OUTCOME</span><h3>Delivery contracts</h3></div></header>

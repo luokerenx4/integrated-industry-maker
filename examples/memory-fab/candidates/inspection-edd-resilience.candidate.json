@@ -1,0 +1,22 @@
+{
+  "baseCandidateHash": "cd691f041d1b2d76330a689f5d764b4ce964e6811789f6e47c3b15c5e142f68c",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run f5be094038ac: aggregate score -218.698016 (+61.472795 versus locked baseline) across 5 cases.",
+  "hypothesis": "Earliest-due-date inspection may prioritize lots with the least remaining contract slack after the re-entrant front end.",
+  "id": "inspection-edd-resilience",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/6/policy/lotDispatch",
+      "value": "earliest-due-date"
+    }
+  ],
+  "source": {
+    "blueprintHash": "2f1798e4bc8105f4549407d21e977a761f56133cb168eb3337d64a2078476473",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "f5be094038acd5fa5dd172602c1922a4e402e8ef049c8c7b6fd547e48fc0aaa0"
+  },
+  "version": 1
+}

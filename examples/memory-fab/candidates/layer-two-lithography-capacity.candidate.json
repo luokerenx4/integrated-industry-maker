@@ -1,0 +1,255 @@
+{
+  "baseCandidateHash": "2f1798e4bc8105f4549407d21e977a761f56133cb168eb3337d64a2078476473",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 653cb86b65e7: aggregate score -203.591408 (+76.579404 versus locked baseline) across 5 cases.",
+  "hypothesis": "The independently qualified layer-two lithography bay needs a third spatially independent utility plant so one failed provider cannot collapse the enlarged vacuum and hazardous-exhaust envelope.",
+  "id": "layer-two-lithography-capacity",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "remove",
+      "path": "/connections/1/resources/1"
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/7/x",
+      "value": 18
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/7/y",
+      "value": 7
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/8/x",
+      "value": 18
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/8/y",
+      "value": 8
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/9/x",
+      "value": 18
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/9/y",
+      "value": 9
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/10/x",
+      "value": 18
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/path/10/y",
+      "value": 10
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/20"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/19"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/18"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/17"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/16"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/15"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/14"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/13"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/12"
+    },
+    {
+      "op": "remove",
+      "path": "/connections/4/path/11"
+    },
+    {
+      "op": "replace",
+      "path": "/connections/4/to/device",
+      "value": "lithography-l2"
+    },
+    {
+      "op": "add",
+      "path": "/connections/-",
+      "value": {
+        "from": {
+          "device": "lithography-l2",
+          "port": "pattern-output"
+        },
+        "id": "lithography-to-etch-lithography-l2",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "lithography-to-etch-lithography-l2-loader"
+          },
+          "unloader": {
+            "device": "lithography-to-etch-lithography-l2-unloader"
+          }
+        },
+        "path": [
+          {
+            "x": 16,
+            "y": 12
+          },
+          {
+            "x": 16,
+            "y": 13
+          }
+        ],
+        "resources": [
+          "patterned-cell-l2-lot"
+        ],
+        "to": {
+          "device": "etch-1",
+          "port": "pattern-input"
+        }
+      }
+    },
+    {
+      "op": "remove",
+      "path": "/devices/2/policy/setupCampaign"
+    },
+    {
+      "op": "remove",
+      "path": "/devices/2/recipes/1"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/33/position/x",
+      "value": 18
+    },
+    {
+      "op": "replace",
+      "path": "/devices/33/position/y",
+      "value": 10
+    },
+    {
+      "op": "replace",
+      "path": "/devices/33/rotation",
+      "value": 180
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "lithography-bay",
+        "id": "lithography-l2",
+        "policy": {
+          "lotDispatch": "fifo",
+          "powerPriority": 10,
+          "preventiveMaintenance": {
+            "minimumJobs": 6
+          },
+          "recipeDispatch": "authored-order"
+        },
+        "position": {
+          "x": 15,
+          "y": 9
+        },
+        "recipes": [
+          {
+            "inputs": {
+              "annealed-dielectric-stack-lot": "reentrant-input"
+            },
+            "mode": "qualified",
+            "outputs": {
+              "patterned-cell-l2-lot": "pattern-output"
+            },
+            "priority": 10,
+            "process": "pattern-cell-layer-2"
+          }
+        ],
+        "region": "cleanroom",
+        "rotation": 90
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "lithography-to-etch-lithography-l2-loader",
+        "position": {
+          "x": 16,
+          "y": 12
+        },
+        "region": "cleanroom",
+        "rotation": 90,
+        "transportEndpoint": {
+          "connection": "lithography-to-etch-lithography-l2",
+          "distance": 1,
+          "stage": "loader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "lithography-to-etch-lithography-l2-unloader",
+        "position": {
+          "x": 16,
+          "y": 13
+        },
+        "region": "cleanroom",
+        "rotation": 0,
+        "transportEndpoint": {
+          "connection": "lithography-to-etch-lithography-l2",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "fab-utility-plant",
+        "id": "fab-utility-plant-3",
+        "position": {
+          "x": 30,
+          "y": 22
+        },
+        "region": "cleanroom",
+        "rotation": 0
+      }
+    }
+  ],
+  "source": {
+    "blueprintHash": "969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "653cb86b65e78a070c75a5247d98913c4ae827ca2cf0ad9de94a88b6643befe1"
+  },
+  "version": 1
+}

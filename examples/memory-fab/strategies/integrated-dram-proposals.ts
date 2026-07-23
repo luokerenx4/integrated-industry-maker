@@ -1,12 +1,36 @@
 import type { FabLossBucketId, JsonPatchOperation, ProjectProposalProvider } from "./runtime-api";
 
+interface ProposalBlueprint {
+  devices: Array<Record<string, unknown>>;
+  connections: Array<Record<string, unknown>>;
+  policies: Record<string, unknown>;
+}
+
 interface Candidate {
   strategy: string;
   hypothesis: string;
   expectedEffect: string;
   addresses: FabLossBucketId[];
   addressesCases?: string[];
-  patch(blueprint: { devices: Array<Record<string, unknown>>; policies: Record<string, unknown> }): JsonPatchOperation[] | null;
+  patch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function equalJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => equalJson(value, right[index]));
+  }
+  if (!isRecord(left) || !isRecord(right)) return false;
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key, index) => key === rightKeys[index] && equalJson(left[key], right[key]));
 }
 
 function facilityRedundancyPatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
@@ -24,8 +48,29 @@ function facilityRedundancyPatch(blueprint: { devices: Array<Record<string, unkn
   }];
 }
 
+function facilitySecondRedundancyPatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
+  if (deviceIndex(blueprint, "lithography-l2") < 0
+    || deviceIndex(blueprint, "fab-utility-plant-2") < 0
+    || deviceIndex(blueprint, "fab-utility-plant-3") >= 0) return null;
+  return [{
+    op: "add",
+    path: "/devices/-",
+    value: {
+      id: "fab-utility-plant-3",
+      asset: "fab-utility-plant",
+      region: "cleanroom",
+      position: { x: 30, y: 22 },
+      rotation: 0,
+    },
+  }];
+}
+
 function deviceIndex(blueprint: { devices: Array<Record<string, unknown>> }, id: string): number {
   return blueprint.devices.findIndex((device) => device.id === id);
+}
+
+function connectionIndex(blueprint: { connections: Array<Record<string, unknown>> }, id: string): number {
+  return blueprint.connections.findIndex((connection) => connection.id === id);
 }
 
 function devicePolicyPatch(
@@ -39,10 +84,26 @@ function devicePolicyPatch(
   const policy = blueprint.devices[index]!.policy;
   if (!policy || typeof policy !== "object" || Array.isArray(policy)) return null;
   const current = (policy as Record<string, unknown>)[policyKey];
-  if (JSON.stringify(current) === JSON.stringify(value)) return null;
+  if (equalJson(current, value)) return null;
   return [{
     op: Object.hasOwn(policy, policyKey) ? "replace" : "add",
     path: `/devices/${index}/policy/${policyKey}`,
+    value,
+  }];
+}
+
+function deviceLotDispatchPatch(
+  blueprint: { devices: Array<Record<string, unknown>> },
+  id: string,
+  value: "earliest-due-date" | "highest-priority",
+): JsonPatchOperation[] | null {
+  const index = deviceIndex(blueprint, id);
+  if (index < 0) return null;
+  const policy = blueprint.devices[index]!.policy;
+  if (!isRecord(policy) || policy.lotDispatch === value) return null;
+  return [{
+    op: Object.hasOwn(policy, "lotDispatch") ? "replace" : "add",
+    path: `/devices/${index}/policy/lotDispatch`,
     value,
   }];
 }
@@ -96,9 +157,10 @@ function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unk
   const lithographyPolicy = lithography.policy;
   if (!lithographyPolicy || typeof lithographyPolicy !== "object" || Array.isArray(lithographyPolicy)) return null;
   const campaign = (lithographyPolicy as Record<string, unknown>).setupCampaign;
-  if (!campaign || typeof campaign !== "object" || Array.isArray(campaign)
-    || (campaign as Record<string, unknown>).minimumReadyLots !== 3
-    || (campaign as Record<string, unknown>).maximumHoldTicks !== 0) return null;
+  const commissionedSharedTool = campaign && typeof campaign === "object" && !Array.isArray(campaign)
+    && (campaign as Record<string, unknown>).minimumReadyLots === 3
+    && (campaign as Record<string, unknown>).maximumHoldTicks === 0;
+  if (!commissionedSharedTool && deviceIndex(blueprint, "lithography-l2") < 0) return null;
   const index = deviceIndex(blueprint, "burn-in-1");
   const policy = blueprint.devices[index]!.policy;
   if (!policy || typeof policy !== "object" || Array.isArray(policy)
@@ -110,16 +172,164 @@ function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unk
   }];
 }
 
+function lithographyLayerTwoSpecializationPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const requiredDevices = [
+    "fab-utility-plant-2",
+    "lithography-1",
+    "furnace-1",
+    "inspection-1",
+    "burn-in-1",
+    "batch-furnace-to-lithography-unloader",
+  ];
+  if (requiredDevices.some((id) => deviceIndex(blueprint, id) < 0)
+    || deviceIndex(blueprint, "lithography-l2") >= 0
+    || deviceIndex(blueprint, "lithography-to-etch-lithography-l2-loader") >= 0
+    || deviceIndex(blueprint, "lithography-to-etch-lithography-l2-unloader") >= 0) return null;
+  const lithographyIndex = deviceIndex(blueprint, "lithography-1");
+  const inspection = blueprint.devices[deviceIndex(blueprint, "inspection-1")]!;
+  const burnIn = blueprint.devices[deviceIndex(blueprint, "burn-in-1")]!;
+  const lithography = blueprint.devices[lithographyIndex]!;
+  const lithographyPolicy = lithography.policy;
+  const inspectionPolicy = inspection.policy;
+  const burnInPolicy = burnIn.policy;
+  const recipes = lithography.recipes;
+  if (!isRecord(lithographyPolicy) || !isRecord(inspectionPolicy) || !isRecord(burnInPolicy)
+    || inspectionPolicy.lotDispatch !== "earliest-due-date"
+    || burnInPolicy.recipeDispatch !== "contract-value"
+    || !Array.isArray(recipes) || recipes.length !== 2) return null;
+  const campaign = lithographyPolicy.setupCampaign;
+  const maintenance = lithographyPolicy.preventiveMaintenance;
+  if (!isRecord(campaign) || campaign.minimumReadyLots !== 3 || campaign.maximumHoldTicks !== 0
+    || !isRecord(maintenance) || maintenance.minimumJobs !== 6) return null;
+  const layerOneRecipe = recipes.find((recipe) => isRecord(recipe) && recipe.process === "pattern-cell-layer-1");
+  const layerTwoRecipe = recipes.find((recipe) => isRecord(recipe) && recipe.process === "pattern-cell-layer-2");
+  if (!isRecord(layerOneRecipe) || !isRecord(layerTwoRecipe)) return null;
+
+  const lithographyToEtchIndex = connectionIndex(blueprint, "lithography-to-etch");
+  const furnaceToLithographyIndex = connectionIndex(blueprint, "batch-furnace-to-lithography");
+  const furnaceUnloaderIndex = deviceIndex(blueprint, "batch-furnace-to-lithography-unloader");
+  if (lithographyToEtchIndex < 0 || furnaceToLithographyIndex < 0 || furnaceUnloaderIndex < 0
+    || connectionIndex(blueprint, "lithography-to-etch-lithography-l2") >= 0) return null;
+  const lithographyToEtch = blueprint.connections[lithographyToEtchIndex]!;
+  const furnaceToLithography = blueprint.connections[furnaceToLithographyIndex]!;
+  const furnaceUnloader = blueprint.devices[furnaceUnloaderIndex]!;
+  const { setupCampaign: _setupCampaign, ...specializedPolicy } = lithographyPolicy;
+  const layerTwoDevice = {
+    ...structuredClone(lithography),
+    id: "lithography-l2",
+    position: { x: 15, y: 9 },
+    rotation: 90,
+    recipes: [structuredClone(layerTwoRecipe)],
+    policy: structuredClone(specializedPolicy),
+  };
+  const layerTwoConnectionId = "lithography-to-etch-lithography-l2";
+
+  return [
+    {
+      op: "replace",
+      path: `/devices/${lithographyIndex}`,
+      value: { ...structuredClone(lithography), recipes: [structuredClone(layerOneRecipe)], policy: structuredClone(specializedPolicy) },
+    },
+    {
+      op: "replace",
+      path: `/devices/${furnaceUnloaderIndex}`,
+      value: { ...structuredClone(furnaceUnloader), position: { x: 18, y: 10 }, rotation: 180 },
+    },
+    { op: "add", path: "/devices/-", value: layerTwoDevice },
+    {
+      op: "add",
+      path: "/devices/-",
+      value: {
+        id: `${layerTwoConnectionId}-loader`,
+        asset: "sorter",
+        region: "cleanroom",
+        position: { x: 16, y: 12 },
+        rotation: 90,
+        transportEndpoint: { connection: layerTwoConnectionId, stage: "loader", distance: 1 },
+      },
+    },
+    {
+      op: "add",
+      path: "/devices/-",
+      value: {
+        id: `${layerTwoConnectionId}-unloader`,
+        asset: "sorter",
+        region: "cleanroom",
+        position: { x: 16, y: 13 },
+        rotation: 0,
+        transportEndpoint: { connection: layerTwoConnectionId, stage: "unloader", distance: 1 },
+      },
+    },
+    {
+      op: "replace",
+      path: `/connections/${lithographyToEtchIndex}`,
+      value: {
+        ...structuredClone(lithographyToEtch),
+        resources: ["patterned-cell-l1-lot"],
+        path: [
+          { x: 11, y: 13 },
+          { x: 12, y: 13 },
+          { x: 13, y: 13 },
+          { x: 14, y: 13 },
+          { x: 15, y: 13 },
+          { x: 16, y: 13 },
+        ],
+      },
+    },
+    {
+      op: "replace",
+      path: `/connections/${furnaceToLithographyIndex}`,
+      value: {
+        ...structuredClone(furnaceToLithography),
+        to: { device: "lithography-l2", port: "reentrant-input" },
+        path: [
+          { x: 24, y: 6 },
+          { x: 23, y: 6 },
+          { x: 22, y: 6 },
+          { x: 21, y: 6 },
+          { x: 20, y: 6 },
+          { x: 19, y: 6 },
+          { x: 18, y: 6 },
+          { x: 18, y: 7 },
+          { x: 18, y: 8 },
+          { x: 18, y: 9 },
+          { x: 18, y: 10 },
+        ],
+      },
+    },
+    {
+      op: "add",
+      path: "/connections/-",
+      value: {
+        id: layerTwoConnectionId,
+        from: { device: "lithography-l2", port: "pattern-output" },
+        to: { device: "etch-1", port: "pattern-input" },
+        resources: ["patterned-cell-l2-lot"],
+        path: [{ x: 16, y: 12 }, { x: 16, y: 13 }],
+        logistics: {
+          loader: { device: `${layerTwoConnectionId}-loader` },
+          line: { deviceAsset: "conveyor" },
+          unloader: { device: `${layerTwoConnectionId}-unloader` },
+        },
+      },
+    },
+  ];
+}
+
 const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
   strategy: `dispatch:conwip-${maximumWip}-${reopenAtWip}-edd`,
   hypothesis: `A ${maximumWip}-card CONWIP loop reopening at ${reopenAtWip} lots may reduce downstream queue and Q-time exposure without withholding the fixed twelve-lot workload.`,
   expectedEffect: "Lower peak active WIP and queue time while preserving locked-case admission service and completed product.",
-  addresses: ["release-admission", "queue-starvation", "q-time"],
-  patch: (blueprint) => [{
-    op: Object.hasOwn(blueprint.policies, "lotRelease") ? "replace" : "add",
-    path: "/policies/lotRelease",
-    value: { kind: "conwip", maximumWip, reopenAtWip, maximumReleaseDelayTicks: 18_000, dispatch: "earliest-due-date" },
-  }],
+  addresses: ["release-admission", "queue-congestion", "input-starvation", "q-time"],
+  patch: (blueprint) => {
+    const value = { kind: "conwip", maximumWip, reopenAtWip, maximumReleaseDelayTicks: 18_000, dispatch: "earliest-due-date" };
+    if (equalJson(blueprint.policies.lotRelease, value)) return null;
+    return [{
+      op: Object.hasOwn(blueprint.policies, "lotRelease") ? "replace" : "add",
+      path: "/policies/lotRelease",
+      value,
+    }];
+  },
 });
 
 const candidates: Candidate[] = [
@@ -130,6 +340,14 @@ const candidates: Candidate[] = [
     addresses: [],
     addressesCases: ["facility-interruption"],
     patch: facilityRedundancyPatch,
+  },
+  {
+    strategy: "facility:utility-n-plus-two",
+    hypothesis: "The independently qualified layer-two lithography bay needs a third spatially independent utility plant so one failed provider cannot collapse the enlarged vacuum and hazardous-exhaust envelope.",
+    expectedEffect: "Repair the specialized branch's facility-interruption blocker with explicit powered N+2 utility capacity while retaining its ordinary queue and delivery gain.",
+    addresses: [],
+    addressesCases: ["facility-interruption"],
+    patch: facilitySecondRedundancyPatch,
   },
   {
     strategy: "setup-campaign:lithography-3-0-interruption-escape",
@@ -145,6 +363,13 @@ const candidates: Candidate[] = [
     expectedEffect: "Replace low-value commercial overflow with the existing fixed high-value product mix while leaving demand, binning physics, equipment, and locked scenarios unchanged.",
     addresses: ["delivery-portfolio"],
     patch: burnInContractValuePatch,
+  },
+  {
+    strategy: "specialize:lithography-layer-two",
+    hypothesis: "Moving the re-entrant second lithography pass onto an independently qualified physical bay may remove shared-tool queue and setup coupling after the commissioned dispatch and resilience controls are in place.",
+    expectedEffect: "Reduce the commercial delivery shortfall through explicit layer-two lithography capacity, separately owned setup/maintenance state, and fully routed physical material lanes.",
+    addresses: ["queue-congestion", "q-time", "delivery-portfolio"],
+    patch: lithographyLayerTwoSpecializationPatch,
   },
   release(9, 6),
   release(8, 5),
@@ -181,11 +406,8 @@ const candidates: Candidate[] = [
     strategy: "dispatch:inspection-earliest-due-date",
     hypothesis: "Earliest-due-date inspection may prioritize lots with the least remaining contract slack after the re-entrant front end.",
     expectedEffect: "Reduce final-inspection tardiness without changing equipment or quality physics.",
-    addresses: ["q-time", "queue-starvation"],
-    patch: (blueprint) => {
-      const index = deviceIndex(blueprint, "inspection-1");
-      return index < 0 ? null : [{ op: "replace", path: `/devices/${index}/policy/lotDispatch`, value: "earliest-due-date" }];
-    },
+    addresses: ["q-time", "queue-congestion"],
+    patch: (blueprint) => deviceLotDispatchPatch(blueprint, "inspection-1", "earliest-due-date"),
   },
   {
     strategy: "power:furnace-idle-sleep-30000",
@@ -203,11 +425,8 @@ const candidates: Candidate[] = [
     strategy: "dispatch:probe-highest-priority",
     hypothesis: "Highest-priority probe dispatch may protect the evaluator-owned priority and due-date portfolio after inline quality disposition.",
     expectedEffect: "Improve weighted delivery service without changing Probe yield or downstream capacity.",
-    addresses: ["q-time", "queue-starvation"],
-    patch: (blueprint) => {
-      const index = deviceIndex(blueprint, "probe-1");
-      return index < 0 ? null : [{ op: "replace", path: `/devices/${index}/policy/lotDispatch`, value: "highest-priority" }];
-    },
+    addresses: ["delivery-portfolio", "q-time"],
+    patch: (blueprint) => deviceLotDispatchPatch(blueprint, "probe-1", "highest-priority"),
   },
 ];
 
