@@ -1,0 +1,173 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "continuous-deep-metrology-cell",
+  "name": "Continuous Deep Metrology Cell",
+  "description": "High-duty-cycle electrical and optical metrology qualified for continuous deep final-pattern disposition across a complete production campaign.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "inspection",
+    "continuous-duty"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "wafer-input",
+        "direction": "input",
+        "side": "north",
+        "offset": 1,
+        "buffer": "wafer-input",
+        "kind": "resource"
+      },
+      {
+        "id": "pass-output",
+        "direction": "output",
+        "side": "west",
+        "offset": 1,
+        "buffer": "pass-output",
+        "kind": "resource"
+      },
+      {
+        "id": "reject-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "reject-output",
+        "kind": "resource"
+      },
+      {
+        "id": "scrap-output",
+        "direction": "output",
+        "side": "south",
+        "offset": 1,
+        "buffer": "scrap-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "wafer-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "pass-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "reject-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "scrap-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "processes": [
+      "inspect-final-pattern-deep"
+    ],
+    "categories": [
+      "inspection"
+    ],
+    "speed": {
+      "numerator": 9,
+      "denominator": 4
+    },
+    "inputPorts": [
+      "wafer-input"
+    ],
+    "outputPorts": [
+      "pass-output",
+      "reject-output",
+      "scrap-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Continuous deep inspection",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ],
+    "maintenance": {
+      "maximumJobs": 20,
+      "maximumQualificationTicks": 360000,
+      "durationTicks": 8000,
+      "powerMilliWatts": 200000,
+      "service": {
+        "skill": "metrology",
+        "crews": 1,
+        "inputs": [
+          {
+            "resource": "metrology-calibration-kit",
+            "count": 1
+          }
+        ]
+      },
+      "qualification": {
+        "durationTicks": 4000,
+        "powerMilliWatts": 220000,
+        "service": {
+          "skill": "metrology-qualification",
+          "crews": 1,
+          "inputs": [
+            {
+              "resource": "metrology-reference-wafer",
+              "count": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 100000,
+    "activeMilliWatts": 750000
+  },
+  "economics": {
+    "buildCost": 22750
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

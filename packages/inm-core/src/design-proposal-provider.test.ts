@@ -295,7 +295,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   });
 });
 
-test("current commissioned fab removes batch-companion Q-time with physical service capacity", async () => {
+test("current commissioned fab removes final-inspection Q-time with continuous metrology", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
@@ -313,35 +313,18 @@ test("current commissioned fab removes batch-companion Q-time with physical serv
   expect(fabLoss).toMatchObject({
     version: 4,
     outcome: {
-      completed: 8,
+      completed: 10,
       inProgress: 0,
-      firstPassYield: 2 / 3,
+      firstPassYield: 3 / 4,
       deliveryShortfall: 0,
-      deliveryOverflow: 6,
-      portfolioNetValue: 196,
-      scrapped: 4,
+      deliveryOverflow: 13,
+      portfolioNetValue: 210,
+      scrapped: 2,
     },
   });
-  expect(qTime).toMatchObject({
-    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
-    contributors: [{
-      id: "dram-front-end:final-inspection:maintenance-qualification",
-      mechanism: "maintenance-qualification",
-      step: "final-inspection",
-      subjects: [
-        { kind: "route", id: "dram-front-end" },
-        { kind: "device", id: "inspection-1" },
-        { kind: "device", id: "maintenance-service-1" },
-      ],
-      evidence: {
-        violatedLots: 2,
-        violations: 2,
-        totalOverrunTicks: 96_200,
-      },
-    }],
-  });
-  expect(qTime?.contributors.some((contributor) =>
-    contributor.mechanism === "batch-companion-wait")).toBeFalse();
+  expect(qTime).toBeUndefined();
+  expect(project.blueprint.devices.find((device) => device.id === "inspection-1")?.asset)
+    .toBe("continuous-deep-metrology-cell");
   expect(project.blueprint.devices.find((device) => device.id === "maintenance-service-1")?.asset)
     .toBe("dual-crew-maintenance-service-bay");
 });

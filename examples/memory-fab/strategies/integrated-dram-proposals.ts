@@ -192,6 +192,45 @@ function commissionedQTimeCapacityPatch(
   ];
 }
 
+function continuousDeepMetrologyPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const inspectionIndex = deviceIndex(blueprint, "inspection-1");
+  if (inspectionIndex < 0) return null;
+  const inspection = blueprint.devices[inspectionIndex]!;
+  const recipe = inspection.recipe;
+  const policy = inspection.policy;
+  const incumbentRelease = {
+    kind: "conwip",
+    maximumWip: 9,
+    reopenAtWip: 6,
+    maximumReleaseDelayTicks: 18_000,
+    dispatch: "earliest-due-date",
+  };
+  if (inspection.asset !== "wafer-inspection-bay"
+    || !isRecord(recipe)
+    || recipe.process !== "inspect-final-pattern-deep"
+    || !isRecord(policy)
+    || Object.hasOwn(policy, "preventiveMaintenance")
+    || !equalJson(blueprint.policies.lotRelease, incumbentRelease)) return null;
+  return [
+    {
+      op: "replace",
+      path: `/devices/${inspectionIndex}/asset`,
+      value: "continuous-deep-metrology-cell",
+    },
+    {
+      op: "replace",
+      path: "/policies/lotRelease",
+      value: {
+        kind: "conwip",
+        maximumWip: 7,
+        reopenAtWip: 4,
+        maximumReleaseDelayTicks: 30_000,
+        dispatch: "earliest-due-date",
+      },
+    },
+  ];
+}
+
 function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
   const requiredCommissionedDevices = ["fab-utility-plant-2", "lithography-1", "burn-in-1"];
   if (requiredCommissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
@@ -537,6 +576,14 @@ const candidates: Candidate[] = [
     addresses: ["q-time", "batch-formation", "maintenance-qualification"],
     subjects: ["furnace-1", "inspection-1", "maintenance-service-1"],
     patch: commissionedQTimeCapacityPatch,
+  },
+  {
+    strategy: "toolset-capacity:continuous-deep-metrology+conwip-7-4",
+    hypothesis: "A continuous-duty deep-metrology cell can finish the complete inspection and rework-return campaign without mid-wave qualification, while a tighter seven-card release window converts its higher capacity into terminal lots instead of excess WIP.",
+    expectedEffect: "Remove final-inspection Q-time contamination, reduce rework and scrap, and improve completed first-pass lots through one explicit high-power equipment replacement coupled to bounded release control.",
+    addresses: ["yield-quality", "q-time", "maintenance-qualification", "release-admission", "queue-congestion"],
+    subjects: ["inspection-1"],
+    patch: continuousDeepMetrologyPatch,
   },
   release(9, 6),
   release(8, 5),

@@ -87,6 +87,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   for (const candidateId of [
     "commissioned-greenfield-dram-fab",
+    "continuous-deep-metrology",
     "dedicated-etch-quality-cell",
     "furnace-flex-dual-service",
     "inspection-edd-resilience",
@@ -539,37 +540,14 @@ test("public Design Program workflow discovers, inspects, and executes without m
   }
 }, 180_000);
 
-test("public inspect exposes compatible-run memory-fab loss attribution without prose parsing", async () => {
+test("public inspect withholds loss authority from a stale Device-catalog run", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const result = await runCli([
     "inspect", projectDir, "--world", "cleanroom", "--blueprint", "equipment-energy-sleep",
     "--scenario", "equipment-energy-window", "--objective", "dram-energy", "--section", "losses", "--json",
   ]);
   expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(result.stdout).data).toEqual({
-    section: "losses",
-    result: expect.objectContaining({
-      version: 4,
-      run: { id: "066-simulate", resultHash: "caa6fbc0a917317e257ecfde0c4a751b7a26cc51f942aa3a61dddbd5741493ee" },
-      family: "dram-wafer",
-      outcome: expect.objectContaining({
-        deliveryShortfall: 15,
-        deliveryOverflow: 3,
-        portfolioNetValue: 236,
-      }),
-      primary: expect.objectContaining({
-        id: "input-starvation",
-        subjects: [{ kind: "device", id: "packaging-1" }],
-        evidence: expect.objectContaining({
-          activeProductiveDevices: 10,
-          opportunityWindowTicks: 2_605_500,
-          starvationTicks: 1_455_500,
-          subjectStarvationTicks: 161_000,
-        }),
-      }),
-      chain: ["input-starvation", "queue-congestion", "delivery-portfolio", "transport-blocking", "maintenance-qualification"],
-    }),
-  });
+  expect(JSON.parse(result.stdout).data).toEqual({ section: "losses", result: null });
 });
 
 test("public inspect gives Agents and humans the same current loss contributors", async () => {
@@ -589,7 +567,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
       { kind: "project", id: "dram-wafer" },
     ],
     evidence: {
-      originContributors: 2,
+      originContributors: 1,
       subjectIntroducedLots: 3,
       subjectPersistentLots: 2,
       subjectScrappedLots: 2,
@@ -602,53 +580,29 @@ test("public inspect gives Agents and humans the same current loss contributors"
     lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
     evidence: { introducedLots: 3, repairedLots: 1, persistentLots: 2, scrappedLots: 2 },
   });
-  expect(yieldQuality.contributors[1]).toMatchObject({
-    label: "final-inspection",
-    mechanism: "route-q-time-defect",
-    defects: ["particle-contamination"],
-    lots: ["dram-lot-03", "dram-lot-06"],
-    evidence: { introducedLots: 2, scrappedLots: 2 },
-  });
   expect(inputStarvation).toMatchObject({
-    subjects: [{ kind: "device", id: "probe-1" }],
+    subjects: [{ kind: "device", id: "inspection-1" }],
     evidence: {
-      rawWaitingInputTicks: 1_612_000,
-      boundaryWaitingInputTicks: 1_220_000,
-      exceptionWaitingInputTicks: 208_000,
-      starvationTicks: 184_000,
+      rawWaitingInputTicks: 1_677_216,
+      boundaryWaitingInputTicks: 1_211_096,
+      exceptionWaitingInputTicks: 216_000,
+      starvationTicks: 250_120,
     },
   });
   expect(inputStarvation.contributors[0]).toMatchObject({
-    label: "probe-1",
+    label: "inspection-1",
     mechanism: "inter-job-input-gap",
-    evidence: { starvationTicks: 53_500, opportunityWindowTicks: 117_500 },
+    evidence: { starvationTicks: 65_078, opportunityWindowTicks: 118_418 },
   });
-  expect(qTime).toMatchObject({
-    id: "q-time",
-    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
-    contributors: [{
-      step: "final-inspection",
-      mechanism: "maintenance-qualification",
-      processes: ["inspect-final-pattern-deep"],
-      subjects: [
-        { kind: "route", id: "dram-front-end" },
-        { kind: "device", id: "inspection-1" },
-        { kind: "device", id: "maintenance-service-1" },
-      ],
-      evidence: { violatedLots: 2, violations: 2, totalOverrunTicks: 96_200 },
-    }],
-  });
+  expect(qTime).toBeUndefined();
 
   const human = await runCli(["inspect", projectDir]);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(human.stdout).toContain("Quality-origin contributors:");
   expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 3 lots / 3 defect instances · 3 rework / 1 repaired / 2 persistent · 2 scrap / 0 escape");
-  expect(human.stdout).toContain("final-inspection · route-q-time-defect · 2 lots / 2 defect instances · 1 rework / 0 repaired / 1 persistent · 2 scrap / 0 escape");
   expect(human.stdout).toContain("Input-starvation contributors:");
-  expect(human.stdout).toContain("probe-1 · inter-job-input-gap · 53.5s input gap / 117.5s opportunity · 8 jobs");
-  expect(human.stdout).toContain("Q-time contributors:");
-  expect(human.stdout).not.toContain("batch-companion-wait");
-  expect(human.stdout).toContain("final-inspection · maintenance-qualification · 2 lots / 2 visits · mean 83.1s / 35.0s limit · +96.2s overrun · inspection-1+maintenance-service-1");
+  expect(human.stdout).toContain("inspection-1 · inter-job-input-gap · 65.1s input gap / 118.4s opportunity · 15 jobs");
+  expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {

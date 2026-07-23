@@ -1,174 +1,265 @@
-import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import {
   compileFactoryProject,
+  evaluatePreparedBlueprintBenchmark,
   loadFactoryProject,
-  runUntil,
-  specializeSharedWorkCenterCandidates,
+  parallelizeWorkCenter,
+  prepareBlueprintBenchmark,
+  stableStringify,
 } from "../../../../packages/inm-core/src/index";
-import type { Blueprint, FactoryMetrics } from "../../../../packages/inm-core/src/types";
-
-interface BenchmarkCase {
-  id: string;
-  world: string;
-  scenario: string;
-  objective: string;
-  seed: number;
-  weight: number;
-}
-
-interface BenchmarkDefinition {
-  cases: BenchmarkCase[];
-}
+import type {
+  Blueprint,
+  BlueprintBenchmarkResult,
+  BlueprintMetricSnapshot,
+} from "../../../../packages/inm-core/src/index";
 
 interface Variant {
   strategy: string;
+  hypothesis: string;
   blueprint: Blueprint;
+  diagnosticOnly?: boolean;
 }
 
 interface ResultRow {
   strategy: string;
-  aggregateDelta: number;
-  minimumCaseDelta: number;
-  guardrailPassed: boolean;
-  caseDeltas: number[];
-  metrics: FactoryMetrics[];
+  hypothesis: string;
+  verdict: "INCUMBENT" | "KEEP" | "REJECT";
+  benchmarkAccepted: boolean;
+  hardOutcomesPassed: boolean;
+  capacityReady: boolean;
+  aggregateDeltaFromIncumbent: number;
+  minimumCaseDeltaFromIncumbent: number;
+  caseDeltasFromIncumbent: Array<{ id: string; delta: number }>;
+  reasons: string[];
+  mixedQuality: ReturnType<typeof summarizeMetrics>;
+  cases: Array<{ id: string; metrics: ReturnType<typeof summarizeMetrics> }>;
+  outcomeGuardrails: BlueprintBenchmarkResult["outcomeGuardrails"];
+  blueprint: Blueprint;
 }
 
 const projectDir = resolve(import.meta.dir, "../..");
-const definition = JSON.parse(
-  await readFile(join(projectDir, "benchmarks/greenfield-dram-design.benchmark.json"), "utf8"),
-) as BenchmarkDefinition;
-const incumbentBlueprint = "generated-dram-fab";
+const benchmarkId = "greenfield-dram-design";
+const incumbentBlueprintId = "generated-dram-fab";
 
-function positiveIntegerArgument(name: string, fallback: number): number {
-  const index = Bun.argv.indexOf(name);
-  if (index < 0) return fallback;
-  const value = Number(Bun.argv[index + 1]);
-  if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be a positive integer`);
-  return value;
+function configureInspectionMaintenance(
+  source: Blueprint,
+  kind: "opportunistic" | "planned",
+  afterJobs: number,
+): Blueprint {
+  const blueprint = structuredClone(source);
+  const inspection = blueprint.devices.find((item) => item.id === "inspection-1");
+  if (!inspection) throw new Error("commissioned yield research requires inspection-1");
+  inspection.policy = {
+    ...inspection.policy,
+    preventiveMaintenance: { [kind]: { afterJobs } },
+  };
+  return blueprint;
 }
 
-const layoutLimit = positiveIntegerArgument("--layout-candidates", 8);
-const deepOnly = Bun.argv.includes("--deep-only");
-const totalWeight = definition.cases.reduce((sum, item) => sum + item.weight, 0);
-const weightedMean = (values: number[]) =>
-  values.reduce((sum, value, index) => sum + value * definition.cases[index]!.weight, 0) / totalWeight;
-
-async function simulate(blueprint: Blueprint): Promise<FactoryMetrics[]> {
-  return Promise.all(definition.cases.map(async (item) => {
-    const loaded = await loadFactoryProject(projectDir, {
-      blueprint: incumbentBlueprint,
-      world: item.world,
-      scenario: item.scenario,
-      objective: item.objective,
-    });
-    return runUntil(compileFactoryProject({ ...loaded, blueprint }), undefined, { seed: item.seed }).metrics;
-  }));
-}
-
-function withEtchMaintenance(blueprint: Blueprint, opportunisticAfterJobs: number): Blueprint {
-  const candidate = structuredClone(blueprint);
-  for (const device of candidate.devices.filter((item) => item.id === "etch-1" || item.id === "etch-l2")) {
-    device.policy = {
-      ...device.policy,
-      preventiveMaintenance: { opportunistic: { afterJobs: opportunisticAfterJobs } },
-    };
+function selectContinuousMetrology(source: Blueprint): Blueprint {
+  const blueprint = structuredClone(source);
+  const inspection = blueprint.devices.find((item) => item.id === "inspection-1");
+  if (!inspection?.recipe || inspection.recipe.process !== "inspect-final-pattern-deep") {
+    throw new Error("continuous deep metrology requires inspection-1 with the deep final-pattern recipe");
   }
-  return candidate;
+  inspection.asset = "continuous-deep-metrology-cell";
+  inspection.policy = { ...inspection.policy };
+  delete inspection.policy.preventiveMaintenance;
+  return blueprint;
 }
 
-function withDeepInspection(blueprint: Blueprint): Blueprint {
-  const candidate = structuredClone(blueprint);
-  const inspection = candidate.devices.find((device) => device.id === "inspection-1");
-  if (!inspection?.recipe) throw new Error("inspection-1 has no configured recipe");
-  inspection.recipe.process = "inspect-final-pattern-deep";
-  return candidate;
+function configureRelease(
+  source: Blueprint,
+  maximumWip: number,
+  reopenAtWip: number,
+  maximumReleaseDelayTicks: number,
+): Blueprint {
+  const blueprint = structuredClone(source);
+  blueprint.policies.lotRelease = {
+    kind: "conwip",
+    maximumWip,
+    reopenAtWip,
+    dispatch: "earliest-due-date",
+    maximumReleaseDelayTicks,
+  };
+  return blueprint;
 }
 
-const incumbentSource = await loadFactoryProject(projectDir, {
-  blueprint: incumbentBlueprint,
-  world: definition.cases[0]!.world,
-  scenario: definition.cases[0]!.scenario,
-  objective: definition.cases[0]!.objective,
-});
-const incumbent = compileFactoryProject(incumbentSource);
-const incumbentMetrics = await simulate(incumbent.blueprint);
-const incumbentScores = incumbentMetrics.map((metrics) => metrics.finalScore);
-const incumbentAggregate = weightedMean(incumbentScores);
-const variants: Variant[] = [];
-
-for (const opportunisticAfterJobs of [4, 5, 6, 7]) variants.push({
-  strategy: `maintenance:etch-jobs-${opportunisticAfterJobs}`,
-  blueprint: withEtchMaintenance(incumbent.blueprint, opportunisticAfterJobs),
-});
-variants.push({
-  strategy: "inspection:deep-final-pattern",
-  blueprint: withDeepInspection(incumbent.blueprint),
-});
-
-const specialized = specializeSharedWorkCenterCandidates(incumbent, incumbent.blueprint, {
-  device: "etch-1",
-  process: "etch-cell-layer-2",
-  cloneId: "etch-l2",
-}, layoutLimit);
-for (const [index, layout] of specialized.entries()) {
-  variants.push({ strategy: `specialize:etch-layer-two-layout-${index + 1}`, blueprint: layout.blueprint });
-  variants.push({
-    strategy: `specialize:etch-layer-two-layout-${index + 1}+deep-inspection`,
-    blueprint: withDeepInspection(layout.blueprint),
-  });
-  for (const opportunisticAfterJobs of [5, 6]) variants.push({
-    strategy: `specialize:etch-layer-two-layout-${index + 1}+maintenance-${opportunisticAfterJobs}`,
-    blueprint: withEtchMaintenance(layout.blueprint, opportunisticAfterJobs),
-  });
-  for (const opportunisticAfterJobs of [5, 6]) variants.push({
-    strategy: `specialize:etch-layer-two-layout-${index + 1}+maintenance-${opportunisticAfterJobs}+deep-inspection`,
-    blueprint: withDeepInspection(withEtchMaintenance(layout.blueprint, opportunisticAfterJobs)),
-  });
+function summarizeMetrics(metrics: BlueprintMetricSnapshot) {
+  return {
+    score: metrics.score,
+    contractFulfillment: metrics.contractFulfillment,
+    completedLots: metrics.completedLots,
+    firstPassYield: metrics.firstPassYield,
+    scrappedLots: metrics.scrappedLots,
+    reworkCycles: metrics.reworkCycles,
+    qualityEscapes: metrics.qualityEscapes,
+    pendingReleaseLots: metrics.pendingReleaseLots,
+    queueTimeViolations: metrics.queueTimeViolations,
+    queueTimeViolatedLots: metrics.queueTimeViolatedLots,
+    maximumQueueTimeOverrunTicks: metrics.maximumQueueTimeOverrunTicks,
+    maintenanceCompleted: metrics.totalMaintenanceCompleted,
+    assetLimitMaintenance: metrics.totalAssetLimitMaintenance,
+    qualificationCompleted: metrics.totalQualificationCompleted,
+    energyConsumedMilliJoules: metrics.energyConsumedMilliJoules,
+    totalBuildCost: metrics.totalBuildCost,
+    occupiedArea: metrics.occupiedArea,
+    infeasibleReason: metrics.infeasibleReason,
+  };
 }
+
+const source = await loadFactoryProject(projectDir, { blueprint: incumbentBlueprintId });
+const incumbentProject = compileFactoryProject(source);
+const prepared = await prepareBlueprintBenchmark(projectDir, benchmarkId);
+const incumbent = await evaluatePreparedBlueprintBenchmark(prepared, {
+  candidateBlueprint: incumbentProject.blueprint,
+  evaluationId: "commissioned-yield-incumbent",
+});
+
+const dualDeep = parallelizeWorkCenter(incumbentProject, incumbentProject.blueprint, {
+  device: "inspection-1",
+  cloneId: "inspection-2",
+});
+if (!dualDeep) throw new Error("could not construct the explicit dual-deep diagnostic topology");
+
+const variants: Variant[] = [
+  {
+    strategy: "incumbent",
+    hypothesis: "Record the exact commissioned Blueprint as the current-best comparison boundary.",
+    blueprint: incumbentProject.blueprint,
+  },
+  {
+    strategy: "maintenance:inspection-opportunistic-4",
+    hypothesis: "Use an otherwise-idle window after four inspections to service the existing five-job bay.",
+    blueprint: configureInspectionMaintenance(incumbentProject.blueprint, "opportunistic", 4),
+  },
+  {
+    strategy: "maintenance:inspection-planned-4",
+    hypothesis: "Block the fifth inspection until the existing bay completes physical service and qualification.",
+    blueprint: configureInspectionMaintenance(incumbentProject.blueprint, "planned", 4),
+  },
+  {
+    strategy: "capacity:dual-deep-inspection",
+    hypothesis: "Route the final-inspection workload across two independently maintained deep-inspection bays.",
+    blueprint: dualDeep.blueprint,
+    diagnosticOnly: true,
+  },
+  {
+    strategy: "asset:continuous-deep-metrology",
+    hypothesis: "Replace the five-job bay with a higher-power, small-premium deep-metrology cell qualified across the full campaign and bounded rework return.",
+    blueprint: selectContinuousMetrology(incumbentProject.blueprint),
+  },
+  {
+    strategy: "toolset-capacity:continuous-deep-metrology+conwip-7-4",
+    hypothesis: "Pair continuous deep disposition with a seven-card, four-card-reopen release window and a thirty-second starvation escape so higher inspection capacity produces terminal lots instead of excess WIP.",
+    blueprint: configureRelease(
+      selectContinuousMetrology(incumbentProject.blueprint),
+      7,
+      4,
+      30_000,
+    ),
+  },
+];
 
 const rows: ResultRow[] = [];
-const selectedVariants = deepOnly
-  ? variants.filter((variant) => variant.strategy.includes("deep-inspection") || variant.strategy === "inspection:deep-final-pattern")
-  : variants;
-for (const variant of selectedVariants) {
-  const metrics = await simulate(variant.blueprint);
-  const scores = metrics.map((item) => item.finalScore);
-  const caseDeltas = scores.map((score, index) => score - incumbentScores[index]!);
+for (const variant of variants) {
+  const evaluation = variant.strategy === "incumbent"
+    ? incumbent
+    : await evaluatePreparedBlueprintBenchmark(prepared, {
+      candidateBlueprint: variant.blueprint,
+      evaluationId: `commissioned-yield-${variant.strategy}`,
+    });
+  const caseDeltasFromIncumbent = evaluation.cases.map((item) => {
+    const current = incumbent.cases.find((candidate) => candidate.id === item.id);
+    if (!current) throw new Error(`incumbent Benchmark evidence is missing case '${item.id}'`);
+    return { id: item.id, delta: item.candidateScore - current.candidateScore };
+  });
+  const aggregateDeltaFromIncumbent = evaluation.candidateScore - incumbent.candidateScore;
+  const minimumCaseDeltaFromIncumbent = Math.min(...caseDeltasFromIncumbent.map((item) => item.delta));
+  const hardOutcomesPassed = evaluation.outcomeGuardrails?.every((item) => item.passed) ?? true;
+  const capacityReady = evaluation.cases.every((item) => item.candidateCapacityReady);
+  const currentBestPassed = aggregateDeltaFromIncumbent > 1e-9
+    && minimumCaseDeltaFromIncumbent >= -1e-9;
+  const reasons = [
+    ...evaluation.reasons,
+    ...(variant.diagnosticOnly ? ["diagnostic topology is not eligible for commissioning"] : []),
+    ...(variant.strategy !== "incumbent" && aggregateDeltaFromIncumbent <= 1e-9
+      ? [`aggregate delta ${aggregateDeltaFromIncumbent.toFixed(6)} does not improve the incumbent`] : []),
+    ...(minimumCaseDeltaFromIncumbent < -1e-9
+      ? [`current-best case regression ${minimumCaseDeltaFromIncumbent.toFixed(6)} is below zero`] : []),
+  ];
+  const mixed = evaluation.cases.find((item) => item.id === "mixed-quality");
+  if (!mixed) throw new Error("greenfield-dram-design must contain mixed-quality");
   rows.push({
     strategy: variant.strategy,
-    aggregateDelta: weightedMean(scores) - incumbentAggregate,
-    minimumCaseDelta: Math.min(...caseDeltas),
-    guardrailPassed: caseDeltas.every((delta) => delta >= -1e-9),
-    caseDeltas,
-    metrics,
+    hypothesis: variant.hypothesis,
+    verdict: variant.strategy === "incumbent"
+      ? "INCUMBENT"
+      : !variant.diagnosticOnly && evaluation.accepted && hardOutcomesPassed && capacityReady && currentBestPassed
+        ? "KEEP"
+        : "REJECT",
+    benchmarkAccepted: evaluation.accepted,
+    hardOutcomesPassed,
+    capacityReady,
+    aggregateDeltaFromIncumbent,
+    minimumCaseDeltaFromIncumbent,
+    caseDeltasFromIncumbent,
+    reasons,
+    mixedQuality: summarizeMetrics(mixed.candidateMetrics),
+    cases: evaluation.cases.map((item) => ({ id: item.id, metrics: summarizeMetrics(item.candidateMetrics) })),
+    outcomeGuardrails: evaluation.outcomeGuardrails,
+    blueprint: variant.blueprint,
   });
 }
 
 rows.sort((left, right) =>
-  Number(right.guardrailPassed) - Number(left.guardrailPassed)
-  || right.aggregateDelta - left.aggregateDelta
-  || right.minimumCaseDelta - left.minimumCaseDelta
+  Number(right.verdict === "KEEP") - Number(left.verdict === "KEEP")
+  || Number(right.verdict === "INCUMBENT") - Number(left.verdict === "INCUMBENT")
+  || right.aggregateDeltaFromIncumbent - left.aggregateDeltaFromIncumbent
+  || right.minimumCaseDeltaFromIncumbent - left.minimumCaseDeltaFromIncumbent
   || left.strategy.localeCompare(right.strategy));
 
-console.log(`# commissioned yield search · incumbent aggregate=${incumbentAggregate.toFixed(6)} · ${selectedVariants.length} physical/policy variants · zero-regression current-best gate`);
-console.log("verdict\tstrategy\taggregate-delta\tminimum-case-delta\tcase-deltas\tmixed-fpy\tmixed-rework\tmixed-scrap\tmixed-drift\tmixed-completed\tmixed-net-value\tcost\tarea");
-for (const row of rows) {
-  const mixed = row.metrics[definition.cases.findIndex((item) => item.id === "mixed-quality")]!;
-  console.log([
-    row.guardrailPassed && row.aggregateDelta > 1e-9 ? "KEEP" : "REJECT",
+const report = {
+  benchmark: benchmarkId,
+  incumbent: {
+    blueprint: incumbentBlueprintId,
+    blueprintHash: incumbent.candidateBlueprintHash,
+    aggregateScore: incumbent.candidateScore,
+    cases: incumbent.cases.map((item) => ({ id: item.id, score: item.candidateScore })),
+  },
+  boundary: {
+    requireBenchmarkAcceptance: true,
+    requireAllOutcomeGuardrails: true,
+    requireCapacityReady: true,
+    minimumAggregateDeltaFromIncumbent: 0,
+    maximumCaseRegressionFromIncumbent: 0,
+  },
+  rows,
+};
+
+if (Bun.argv.includes("--json")) {
+  process.stdout.write(`${stableStringify(report, 2)}\n`);
+} else {
+  console.log(`# commissioned yield search · current=${incumbent.candidateScore.toFixed(6)} · ${rows.length} causal variants · locked Benchmark + 30 absolute thresholds + zero current-best regression`);
+  console.log("verdict\tstrategy\taggregate-delta\tminimum-case-delta\tcase-deltas\thard-outcomes\tcapacity\tmixed-completed\tmixed-fpy\tmixed-scrap\tmixed-rework\tmixed-qtime\tmixed-qtime-lots\tmixed-maintenance\tmixed-energy-mj\tcost\tarea\treasons");
+  for (const row of rows) console.log([
+    row.verdict,
     row.strategy,
-    row.aggregateDelta.toFixed(6),
-    row.minimumCaseDelta.toFixed(6),
-    row.caseDeltas.map((value) => value.toFixed(3)).join(","),
-    mixed.qualityFlow.firstPassYield.toFixed(3),
-    mixed.qualityFlow.totalReworkCycles,
-    mixed.qualityFlow.scrapDispositions,
-    mixed.equipmentMaintenance.totalDriftDefects,
-    mixed.lotFlow.completed,
-    mixed.deliveryPortfolio.netValue.toFixed(3),
-    mixed.totalBuildCost,
-    mixed.occupiedArea,
+    row.aggregateDeltaFromIncumbent.toFixed(6),
+    row.minimumCaseDeltaFromIncumbent.toFixed(6),
+    row.caseDeltasFromIncumbent.map((item) => `${item.id}:${item.delta.toFixed(3)}`).join(","),
+    row.hardOutcomesPassed ? "PASS" : "FAIL",
+    row.capacityReady ? "READY" : "GAP",
+    row.mixedQuality.completedLots,
+    row.mixedQuality.firstPassYield.toFixed(3),
+    row.mixedQuality.scrappedLots,
+    row.mixedQuality.reworkCycles,
+    row.mixedQuality.queueTimeViolations,
+    row.mixedQuality.queueTimeViolatedLots,
+    `${row.mixedQuality.assetLimitMaintenance}/${row.mixedQuality.maintenanceCompleted}`,
+    (row.mixedQuality.energyConsumedMilliJoules / 1_000_000).toFixed(3),
+    row.mixedQuality.totalBuildCost,
+    row.mixedQuality.occupiedArea,
+    row.reasons.join(" | ") || "none",
   ].join("\t"));
 }

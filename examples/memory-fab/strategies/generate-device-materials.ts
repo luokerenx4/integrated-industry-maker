@@ -46,6 +46,7 @@ const families: Record<MaterialFamilyId, MaterialFamily> = {
   enclosure: {
     devices: [
       "ald-deposition-bay",
+      "continuous-deep-metrology-cell",
       "dram-packaging-cell",
       "dram-wafer-probe-cell",
       "lithography-bay",

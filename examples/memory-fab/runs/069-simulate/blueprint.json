@@ -1068,7 +1068,7 @@
       "rotation": 0
     },
     {
-      "asset": "wafer-inspection-bay",
+      "asset": "continuous-deep-metrology-cell",
       "id": "inspection-1",
       "policy": {
         "lotDispatch": "earliest-due-date",
@@ -1959,12 +1959,12 @@
     "lotRelease": {
       "dispatch": "earliest-due-date",
       "kind": "conwip",
-      "maximumReleaseDelayTicks": 18000,
-      "maximumWip": 9,
-      "reopenAtWip": 6
+      "maximumReleaseDelayTicks": 30000,
+      "maximumWip": 7,
+      "reopenAtWip": 4
     },
     "powerAllocation": "priority-load-shedding"
   },
-  "revision": "f4d8d4900067931ca81454498badbc3050041e2eb7a87f2decf3e1e67a600612",
+  "revision": "0bc0ef35709a69a92426608cdcdc6350cb109dc88f3caaad48f7e4f3f46a25e3",
   "version": 1
 }

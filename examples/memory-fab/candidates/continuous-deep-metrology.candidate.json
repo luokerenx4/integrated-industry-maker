@@ -1,0 +1,37 @@
+{
+  "baseCandidateHash": "0bc0ef35709a69a92426608cdcdc6350cb109dc88f3caaad48f7e4f3f46a25e3",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 6ff818e82198: aggregate score -154.220334 (+125.950477 versus locked baseline) across 5 cases.",
+  "hypothesis": "A continuous-duty deep-metrology cell can finish the complete inspection and rework-return campaign without mid-wave qualification, while a tighter seven-card release window converts its higher capacity into terminal lots instead of excess WIP.",
+  "id": "continuous-deep-metrology",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/6/asset",
+      "value": "continuous-deep-metrology-cell"
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumReleaseDelayTicks",
+      "value": 30000
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumWip",
+      "value": 7
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/reopenAtWip",
+      "value": 4
+    }
+  ],
+  "source": {
+    "blueprintHash": "b62ff5ab7587e1519011b0397513efc865ed8e0d3ba2739c9cb3619312e30438",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "6ff818e82198f11bd8588d977544533a33a95684dd148dd352ed86bfea8038b5"
+  },
+  "version": 1
+}
