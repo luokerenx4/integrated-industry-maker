@@ -16,7 +16,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/interruption-aware-campaign-repair]] | Refine a profitable lithography setup campaign against its exact interruption-case blocker without weakening the locked five-case contract. | 2026-07-23 |
 
 ## Paused plans
 
