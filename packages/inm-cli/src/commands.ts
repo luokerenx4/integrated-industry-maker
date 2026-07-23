@@ -230,6 +230,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   const snapshot = await openProjectWorkbenchSnapshot(projectDir, selection);
   const qTimeContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "q-time")?.contributors ?? [];
+  const inputStarvationContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
       summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
@@ -263,11 +265,17 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
+      ...(inputStarvationContributors.length ? [
+        "Input-starvation contributors:",
+        ...inputStarvationContributors.slice(0, 5).map((contributor) =>
+          `  ${contributor.label} · ${contributor.mechanism} · ${(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s input gap / ${(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s opportunity · ${contributor.evidence.jobs} jobs · ${(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s separately unavailable · ${contributor.processes.join("+")}`),
+        ...(inputStarvationContributors.length > 5 ? [`  … ${inputStarvationContributors.length - 5} more in --section losses --json`] : []),
+      ] : []),
       ...(qTimeContributors.length ? [
         "Q-time contributors:",
         ...qTimeContributors.map((contributor) => {
           const devices = contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join("+");
-          return `  ${contributor.step} · ${contributor.mechanism} · ${contributor.evidence.violatedLots} lots / ${contributor.evidence.violations} visits · mean ${(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.limitTicks! / 1000).toFixed(1)}s limit · +${(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s overrun · ${devices}`;
+          return `  ${contributor.step ?? contributor.label} · ${contributor.mechanism} · ${contributor.evidence.violatedLots} lots / ${contributor.evidence.violations} visits · mean ${(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.limitTicks! / 1000).toFixed(1)}s limit · +${(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s overrun · ${devices}`;
         }),
       ] : []),
     ] : []),

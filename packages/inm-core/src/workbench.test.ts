@@ -106,19 +106,43 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^diagnostic:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^diagnostic:fab-loss\.yield-quality:/),
     effect: "read-only",
     requiresConfirmation: false,
     argv: ["inm", "analyze", snapshot.project.rootDir, "--world", "cleanroom", "--blueprint", "generated-dram-fab", "--scenario", "production-window", "--objective", "dram-output", "--section", "diagnostics", "--json"],
-    studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/fab-loss.input-starvation"),
+    studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/fab-loss.yield-quality"),
   }));
   expect(snapshot.lossAttribution?.primary).toMatchObject({
-    id: "input-starvation",
-    subjects: [{ kind: "device", id: "packaging-1" }],
+    id: "yield-quality",
+    subjects: [{ kind: "project", id: "dram-wafer" }],
+    evidence: {
+      inspectedLots: 12,
+      firstPassCompleted: 9,
+      reworkedLots: 3,
+      scrapDispositions: 3,
+    },
+  });
+  const inputStarvation = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation");
+  expect(inputStarvation).toMatchObject({
+    subjects: [{ kind: "device", id: "probe-1" }],
     evidence: {
       activeProductiveDevices: 11,
-      subjectWaitingInputTicks: 132_000,
+      flowProductiveDevices: 10,
+      contributingDevices: 8,
+      rawWaitingInputTicks: 1_617_000,
+      flowRawWaitingInputTicks: 1_401_000,
+      exceptionWaitingInputTicks: 216_000,
+      boundaryWaitingInputTicks: 1_220_000,
+      opportunityWindowTicks: 1_133_000,
+      unavailableGapTicks: 94_000,
+      starvationTicks: 181_000,
+      subjectStarvationTicks: 50_000,
     },
+  });
+  expect(inputStarvation?.contributors[0]).toMatchObject({
+    id: "device:probe-1:inter-job-input-gap",
+    mechanism: "inter-job-input-gap",
+    evidence: { jobs: 9, starvationTicks: 50_000, opportunityWindowTicks: 122_000 },
   });
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")).toMatchObject({
     evidence: { violatedLots: 1, violations: 1, contributors: 1 },
@@ -154,11 +178,18 @@ test("a hash-compatible tracked-lot run outranks nominal warnings with measured 
     primary: expect.objectContaining({ id: "input-starvation", score: expect.any(Number) }),
     chain: ["input-starvation", "queue-congestion", "delivery-portfolio", "transport-blocking", "maintenance-qualification"],
   }));
-  expect(snapshot.lossAttribution!.primary!.subjects).toEqual([{ kind: "device", id: "burn-in-1" }]);
+  expect(snapshot.lossAttribution!.primary!.subjects).toEqual([{ kind: "device", id: "packaging-1" }]);
   expect(snapshot.lossAttribution!.primary!.evidence).toEqual(expect.objectContaining({
     activeProductiveDevices: 10,
-    subjectWaitingInputTicks: 158_000,
-    subjectUtilization: 0.5611111111111111,
+    flowProductiveDevices: 10,
+    contributingDevices: 10,
+    rawWaitingInputTicks: 2_373_100,
+    boundaryWaitingInputTicks: 917_600,
+    opportunityWindowTicks: 2_605_500,
+    unavailableGapTicks: 221_500,
+    starvationTicks: 1_455_500,
+    subjectStarvationTicks: 161_000,
+    subjectUtilization: 0.3663888888888889,
   }));
   expect(snapshot.lossAttribution!.buckets.every((bucket, index, buckets) => index === 0 || buckets[index - 1]!.score >= bucket.score)).toBeTrue();
   expect(snapshot.diagnostics[0]).toEqual(expect.objectContaining({

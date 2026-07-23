@@ -212,11 +212,20 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
     evidence: { meanQueueTicks: 24_760, bottleneckUtilization: 0.5525 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "input-starvation")).toMatchObject({
-    subjects: [{ kind: "device", id: "burn-in-1" }],
+    subjects: [{ kind: "device", id: "etch-1" }],
     evidence: {
       activeProductiveDevices: 11,
-      subjectWaitingInputTicks: 115_000,
-      subjectUtilization: 0.5208333333333334,
+      flowProductiveDevices: 10,
+      contributingDevices: 8,
+      rawWaitingInputTicks: 1_738_400,
+      flowRawWaitingInputTicks: 1_554_400,
+      exceptionWaitingInputTicks: 184_000,
+      boundaryWaitingInputTicks: 1_186_000,
+      opportunityWindowTicks: 1_231_500,
+      unavailableGapTicks: 137_100,
+      starvationTicks: 368_400,
+      subjectStarvationTicks: 49_900,
+      subjectUtilization: 0.3416666666666667,
     },
   });
   expect(fabLoss.buckets.some((bucket) => bucket.subjects.some((subject) => subject.id === "rework-1"))).toBeFalse();
@@ -353,7 +362,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
         subjectDriftDefects: 6,
       },
     },
-    chain: ["yield-quality", "input-starvation", "q-time", "queue-congestion", "batch-formation"],
+    chain: ["yield-quality", "q-time", "queue-congestion", "input-starvation", "batch-formation"],
   });
 
   const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({

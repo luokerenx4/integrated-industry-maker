@@ -542,20 +542,41 @@ test("public inspect exposes compatible-run memory-fab loss attribution without 
       }),
       primary: expect.objectContaining({
         id: "input-starvation",
-        subjects: [{ kind: "device", id: "burn-in-1" }],
-        evidence: expect.objectContaining({ activeProductiveDevices: 10, subjectWaitingInputTicks: 158_000 }),
+        subjects: [{ kind: "device", id: "packaging-1" }],
+        evidence: expect.objectContaining({
+          activeProductiveDevices: 10,
+          opportunityWindowTicks: 2_605_500,
+          starvationTicks: 1_455_500,
+          subjectStarvationTicks: 161_000,
+        }),
       }),
       chain: ["input-starvation", "queue-congestion", "delivery-portfolio", "transport-blocking", "maintenance-qualification"],
     }),
   });
 });
 
-test("public inspect gives Agents and humans the same current Q-time contributors", async () => {
+test("public inspect gives Agents and humans the same current loss contributors", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const machine = await runCli(["inspect", projectDir, "--section", "losses", "--json"]);
   expect({ exitCode: machine.exitCode, stderr: machine.stderr }).toEqual({ exitCode: 0, stderr: "" });
   const qTime = JSON.parse(machine.stdout).data.result.buckets
     .find((bucket: { id: string }) => bucket.id === "q-time");
+  const inputStarvation = JSON.parse(machine.stdout).data.result.buckets
+    .find((bucket: { id: string }) => bucket.id === "input-starvation");
+  expect(inputStarvation).toMatchObject({
+    subjects: [{ kind: "device", id: "probe-1" }],
+    evidence: {
+      rawWaitingInputTicks: 1_617_000,
+      boundaryWaitingInputTicks: 1_220_000,
+      exceptionWaitingInputTicks: 216_000,
+      starvationTicks: 181_000,
+    },
+  });
+  expect(inputStarvation.contributors[0]).toMatchObject({
+    label: "probe-1",
+    mechanism: "inter-job-input-gap",
+    evidence: { starvationTicks: 50_000, opportunityWindowTicks: 122_000 },
+  });
   expect(qTime).toMatchObject({
     id: "q-time",
     evidence: { violatedLots: 1, violations: 1, contributors: 1 },
@@ -574,6 +595,8 @@ test("public inspect gives Agents and humans the same current Q-time contributor
 
   const human = await runCli(["inspect", projectDir]);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(human.stdout).toContain("Input-starvation contributors:");
+  expect(human.stdout).toContain("probe-1 · inter-job-input-gap · 50.0s input gap / 122.0s opportunity · 9 jobs");
   expect(human.stdout).toContain("Q-time contributors:");
   expect(human.stdout).not.toContain("batch-companion-wait");
   expect(human.stdout).toContain("final-inspection · maintenance-qualification · 1 lots / 1 visits · mean 80.8s / 35.0s limit · +45.8s overrun · inspection-1+maintenance-service-1");

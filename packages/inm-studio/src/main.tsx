@@ -1950,10 +1950,12 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
   const recommendation = snapshot.nextAction;
   const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
+  const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   const qTimeMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
     "batch-companion-wait": "BATCH COMPANION WAIT",
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
+    "inter-job-input-gap": "INTER-JOB INPUT GAP",
   })[mechanism];
   const followRecommendation = (target: WorkbenchNextActionTarget) => {
     if (target.kind === "diagnostic") {
@@ -1997,10 +1999,20 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
         <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => <div key={bucket.id} className={index === 0 ? "primary" : ""}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong><small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>)}</div>
+        {inputStarvationContributors.length > 0 && <div className="q-time-contributors starvation-contributors" data-testid="input-starvation-contributors">
+          <header><span className="eyebrow">INPUT-GAP CONTRIBUTORS</span><small>Event-backed gaps inside repeated production opportunity · top {Math.min(5, inputStarvationContributors.length)} of {inputStarvationContributors.length}</small></header>
+          <div>{inputStarvationContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`input-starvation-contributor-${contributor.label}`}>
+            <span><small>INTER-JOB INPUT GAP</small><strong>{contributor.label}</strong><code>{contributor.processes.join(" + ")}</code></span>
+            <span><b>{(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s</b><small>INPUT GAP</small></span>
+            <span><b>{(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s</b><small>OPPORTUNITY</small></span>
+            <span><b>{(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s</b><small>OTHER UNAVAILABILITY</small></span>
+            <code>{contributor.evidence.jobs} jobs · {(contributor.evidence.utilization! * 100).toFixed(1)}% utilization · {(contributor.evidence.boundaryWaitingInputTicks! / 1000).toFixed(1)}s boundary wait excluded</code>
+          </article>)}</div>
+        </div>}
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">
           <header><span className="eyebrow">Q-TIME CONTRIBUTORS</span><small>Exact event-backed step, equipment, lot, and wait evidence</small></header>
-          <div>{qTimeContributors.map((contributor) => <article key={contributor.id} data-testid={`q-time-contributor-${contributor.step}`}>
-            <span><small>{qTimeMechanismLabel(contributor.mechanism)}</small><strong>{contributor.step}</strong><code>{contributor.route} · {contributor.processes.join(" + ")}</code></span>
+          <div>{qTimeContributors.map((contributor) => <article key={contributor.id} data-testid={`q-time-contributor-${contributor.step ?? contributor.label}`}>
+            <span><small>{qTimeMechanismLabel(contributor.mechanism)}</small><strong>{contributor.step ?? contributor.label}</strong><code>{[contributor.route, contributor.processes.join(" + ")].filter(Boolean).join(" · ")}</code></span>
             <span><b>{contributor.evidence.violatedLots}</b><small>LOTS / {contributor.evidence.violations} VISITS</small></span>
             <span><b>{(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s</b><small>MEAN / {(contributor.evidence.limitTicks! / 1000).toFixed(1)}s LIMIT</small></span>
             <span><b>+{(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s</b><small>TOTAL OVERRUN</small></span>

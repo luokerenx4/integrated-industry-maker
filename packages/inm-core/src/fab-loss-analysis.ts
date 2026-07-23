@@ -24,14 +24,15 @@ export interface FabLossSubject {
 export type FabLossContributorMechanism =
   | "batch-companion-wait"
   | "maintenance-qualification"
-  | "equipment-availability";
+  | "equipment-availability"
+  | "inter-job-input-gap";
 
 export interface FabLossContributor {
   id: string;
   label: string;
   mechanism: FabLossContributorMechanism;
-  route: string;
-  step: string;
+  route: string | null;
+  step: string | null;
   processes: string[];
   subjects: FabLossSubject[];
   evidence: Record<string, number>;
@@ -80,6 +81,179 @@ const topKey = (values: Record<string, number>): string | null => Object.entries
 const productionCapabilities = new Set(["extract", "process", "treat"]);
 const isProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">, id: string) =>
   project.devices[id]?.assetDef.capabilities.some((capability) => productionCapabilities.has(capability)) ?? false;
+const isFlowProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">, id: string) => {
+  const device = project.devices[id];
+  if (!device || !isProductiveDevice(project, id)) return false;
+  return device.processPlans.length === 0
+    || device.processPlans.some((plan) => plan.definition.quality?.kind !== "rework");
+};
+
+interface TickInterval {
+  start: number;
+  end: number;
+}
+
+const unavailableEventPairs: Array<{ opens: Set<string>; closes: Set<string> }> = [
+  {
+    opens: new Set(["device.maintenance-blocked", "device.maintenance-start"]),
+    closes: new Set(["device.maintenance-finish", "device.maintenance-cancelled", "device.qualification-cancelled"]),
+  },
+  { opens: new Set(["device.changeover-start"]), closes: new Set(["device.changeover-finish", "device.changeover-cancelled"]) },
+  { opens: new Set(["device.breakdown"]), closes: new Set(["device.recover"]) },
+  { opens: new Set(["buffer.blocked"]), closes: new Set(["buffer.unblocked"]) },
+  { opens: new Set(["device.batch-held"]), closes: new Set(["device.batch-released"]) },
+  { opens: new Set(["device.campaign-held"]), closes: new Set(["device.campaign-released"]) },
+  { opens: new Set(["device.tooling-blocked"]), closes: new Set(["device.tooling-acquired"]) },
+  { opens: new Set(["device.utility-blocked"]), closes: new Set(["device.utility-acquired"]) },
+  { opens: new Set(["device.sleep"]), closes: new Set(["device.wake-finish", "device.wake-cancelled"]) },
+  { opens: new Set(["power.shortage"]), closes: new Set(["power.restored", "power.standby-restored"]) },
+];
+
+function mergeIntervals(intervals: TickInterval[]): TickInterval[] {
+  const ordered = intervals.filter((interval) => interval.end > interval.start)
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+  const merged: TickInterval[] = [];
+  for (const interval of ordered) {
+    const previous = merged.at(-1);
+    if (!previous || interval.start > previous.end) merged.push({ ...interval });
+    else previous.end = Math.max(previous.end, interval.end);
+  }
+  return merged;
+}
+
+function unavailableIntervals(
+  events: readonly FactoryEvent[],
+  device: string,
+  durationTicks: number,
+): TickInterval[] {
+  const deviceEvents = events.filter((event) => "device" in event && event.device === device);
+  const intervals: TickInterval[] = [];
+  for (const pair of unavailableEventPairs) {
+    let openedAt: number | null = null;
+    for (const event of deviceEvents) {
+      if (pair.opens.has(event.type)) openedAt ??= event.tick;
+      if (pair.closes.has(event.type) && openedAt !== null) {
+        intervals.push({ start: openedAt, end: event.tick });
+        openedAt = null;
+      }
+    }
+    if (openedAt !== null) intervals.push({ start: openedAt, end: durationTicks });
+  }
+  return mergeIntervals(intervals);
+}
+
+function intervalOverlap(intervals: readonly TickInterval[], start: number, end: number): number {
+  return intervals.reduce((total, interval) =>
+    total + Math.max(0, Math.min(end, interval.end) - Math.max(start, interval.start)), 0);
+}
+
+export function analyzeInputStarvation(
+  metrics: Pick<FactoryMetrics, "waitingInputTime" | "machineUtilization">
+    & { lotFlow: Pick<FactoryMetrics["lotFlow"], "family"> },
+  durationTicks: number,
+  project: Pick<CompiledFactoryProject, "devices">,
+  events: readonly FactoryEvent[],
+): Omit<FabLossBucket, "id" | "label"> {
+  const activeProductiveDevices = Object.keys(metrics.waitingInputTime)
+    .filter((id) => isProductiveDevice(project, id) && (metrics.machineUtilization[id] ?? 0) > 1e-12)
+    .sort();
+  const rawWaitingInputTicks = activeProductiveDevices
+    .reduce((total, id) => total + (metrics.waitingInputTime[id] ?? 0), 0);
+  const flowProductiveDevices = activeProductiveDevices.filter((id) => isFlowProductiveDevice(project, id));
+  const flowRawWaitingInputTicks = flowProductiveDevices
+    .reduce((total, id) => total + (metrics.waitingInputTime[id] ?? 0), 0);
+  const exceptionWaitingInputTicks = rawWaitingInputTicks - flowRawWaitingInputTicks;
+  const contributors: FabLossContributor[] = [];
+  let opportunityWindowTicks = 0;
+  let interJobGapTicks = 0;
+  let unavailableGapTicks = 0;
+  let starvationTicks = 0;
+
+  for (const device of flowProductiveDevices) {
+    const starts = events.filter((event): event is Extract<FactoryEvent, { type: "device.start" }> =>
+      event.type === "device.start" && event.device === device);
+    const finishes = events.filter((event): event is Extract<FactoryEvent, { type: "device.finish" }> =>
+      event.type === "device.finish" && event.device === device);
+    const pairedGaps = Math.min(finishes.length, Math.max(0, starts.length - 1));
+    if (pairedGaps === 0) continue;
+    const lastFinish = finishes[Math.min(finishes.length - 1, starts.length - 1)]!;
+    const opportunityTicks = Math.max(0, lastFinish.tick - starts[0]!.tick);
+    if (opportunityTicks === 0) continue;
+    const unavailable = unavailableIntervals(events, device, durationTicks);
+    const processes = new Set<string>();
+    let deviceGapTicks = 0;
+    let deviceUnavailableTicks = 0;
+    let deviceStarvationTicks = 0;
+    for (let index = 0; index < pairedGaps; index++) {
+      const gapStart = finishes[index]!.tick;
+      const nextStart = starts[index + 1]!;
+      const gapEnd = nextStart.tick;
+      const gapTicks = Math.max(0, gapEnd - gapStart);
+      const excludedTicks = Math.min(gapTicks, intervalOverlap(unavailable, gapStart, gapEnd));
+      const observedStarvationTicks = Math.max(0, gapTicks - excludedTicks);
+      deviceGapTicks += gapTicks;
+      deviceUnavailableTicks += excludedTicks;
+      deviceStarvationTicks += observedStarvationTicks;
+      if (observedStarvationTicks > 0) processes.add(nextStart.operation);
+    }
+    opportunityWindowTicks += opportunityTicks;
+    interJobGapTicks += deviceGapTicks;
+    unavailableGapTicks += deviceUnavailableTicks;
+    starvationTicks += deviceStarvationTicks;
+    if (deviceStarvationTicks === 0) continue;
+    const utilization = metrics.machineUtilization[device] ?? 0;
+    const deviceRawWaitingInputTicks = metrics.waitingInputTime[device] ?? 0;
+    contributors.push({
+      id: `device:${device}:inter-job-input-gap`,
+      label: device,
+      mechanism: "inter-job-input-gap",
+      route: null,
+      step: null,
+      processes: [...processes].sort(),
+      subjects: [{ kind: "device", id: device }],
+      evidence: {
+        jobs: starts.length,
+        completedJobs: finishes.length,
+        opportunityWindowTicks: opportunityTicks,
+        interJobGapTicks: deviceGapTicks,
+        unavailableGapTicks: deviceUnavailableTicks,
+        starvationTicks: deviceStarvationTicks,
+        rawWaitingInputTicks: deviceRawWaitingInputTicks,
+        boundaryWaitingInputTicks: Math.max(0, deviceRawWaitingInputTicks - deviceStarvationTicks),
+        utilization,
+        weightedStarvationTicks: deviceStarvationTicks * utilization,
+      },
+    });
+  }
+  contributors.sort((left, right) =>
+    right.evidence.weightedStarvationTicks! - left.evidence.weightedStarvationTicks!
+    || right.evidence.starvationTicks! - left.evidence.starvationTicks!
+    || left.id.localeCompare(right.id));
+  const subject = contributors[0] ?? null;
+  const boundaryWaitingInputTicks = Math.max(0, flowRawWaitingInputTicks - starvationTicks);
+  return {
+    score: ratio(starvationTicks, opportunityWindowTicks),
+    summary: `${contributors.length}/${flowProductiveDevices.length} active flow Devices accumulated ${(starvationTicks / 1000).toFixed(1)} event-backed inter-job input-gap device-s inside ${(opportunityWindowTicks / 1000).toFixed(1)} device-s of observed production opportunity; ${(boundaryWaitingInputTicks / 1000).toFixed(1)} of ${(flowRawWaitingInputTicks / 1000).toFixed(1)} flow input-wait device-s lay outside those ranked gaps${exceptionWaitingInputTicks > 0 ? `, with ${(exceptionWaitingInputTicks / 1000).toFixed(1)} additional exception-only device-s excluded from ranking` : ""}.`,
+    subjects: subject ? subject.subjects : [{ kind: "project", id: metrics.lotFlow.family! }],
+    evidence: {
+      activeProductiveDevices: activeProductiveDevices.length,
+      flowProductiveDevices: flowProductiveDevices.length,
+      contributingDevices: contributors.length,
+      rawWaitingInputTicks,
+      flowRawWaitingInputTicks,
+      exceptionWaitingInputTicks,
+      boundaryWaitingInputTicks,
+      opportunityWindowTicks,
+      interJobGapTicks,
+      unavailableGapTicks,
+      starvationTicks,
+      subjectStarvationTicks: subject?.evidence.starvationTicks ?? 0,
+      subjectOpportunityWindowTicks: subject?.evidence.opportunityWindowTicks ?? 0,
+      subjectUtilization: subject?.evidence.utilization ?? 0,
+    },
+    contributors,
+  };
+}
 
 type QueueTimeViolationEvent = Extract<FactoryEvent, { type: "lot.queue-time-violation" }>;
 
@@ -241,9 +415,6 @@ export function analyzeFabLossProfile(
     evidence: { pendingLots: metrics.releaseFlow.pending, capacityBlockedLots: metrics.releaseFlow.capacityBlockedLots, controlBlockedLots: metrics.releaseFlow.controlBlockedLots, blockedTicks: releaseBlockedTicks },
   });
 
-  const productiveWaitingInput = Object.fromEntries(Object.entries(metrics.waitingInputTime).filter(([id]) =>
-    isProductiveDevice(project, id)));
-  const waitingInputTicks = sum(productiveWaitingInput);
   const queueShare = ratio(metrics.lotFlow.meanQueueTimeTicks, cycleTicks);
   const bottleneckDevice = metrics.bottleneckEntity && isProductiveDevice(project, metrics.bottleneckEntity)
     ? metrics.bottleneckEntity
@@ -265,26 +436,9 @@ export function analyzeFabLossProfile(
     },
   });
 
-  const activeProductiveDevices = Object.keys(productiveWaitingInput)
-    .filter((id) => (metrics.machineUtilization[id] ?? 0) > 1e-12);
-  const utilizationWeight = activeProductiveDevices.reduce((total, id) => total + (metrics.machineUtilization[id] ?? 0), 0);
-  const weightedWaitingInput = Object.fromEntries(activeProductiveDevices.map((id) =>
-    [id, productiveWaitingInput[id]! * (metrics.machineUtilization[id] ?? 0)]));
-  const weightedWaitingInputTicks = sum(weightedWaitingInput);
-  const waitingDevice = topKey(weightedWaitingInput);
   add({
     id: "input-starvation", label: "Productive-equipment input starvation",
-    score: ratio(weightedWaitingInputTicks, durationTicks * utilizationWeight),
-    summary: `${activeProductiveDevices.length} active productive devices accumulated ${(waitingInputTicks / 1000).toFixed(1)} raw device-s without input; utilization weighting identifies ${waitingDevice ?? metrics.lotFlow.family} without promoting normally sparse exception equipment.`,
-    subjects: waitingDevice ? [{ kind: "device", id: waitingDevice }] : [{ kind: "project", id: metrics.lotFlow.family }],
-    evidence: {
-      activeProductiveDevices: activeProductiveDevices.length,
-      waitingInputTicks,
-      weightedWaitingInputTicks,
-      utilizationWeight,
-      subjectWaitingInputTicks: waitingDevice ? productiveWaitingInput[waitingDevice] ?? 0 : 0,
-      subjectUtilization: waitingDevice ? metrics.machineUtilization[waitingDevice] ?? 0 : 0,
-    },
+    ...analyzeInputStarvation(metrics, durationTicks, project, events),
   });
 
   add({
