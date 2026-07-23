@@ -54,7 +54,7 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
 
-test("memory-fab project provider targets the commissioned factory's measured delivery mismatch", async () => {
+test("memory-fab project provider reaches the measured delivery mismatch after higher-ranked losses are attempted", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
@@ -67,11 +67,10 @@ test("memory-fab project provider targets the commissioned factory's measured de
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
   expect(fabLoss).toMatchObject({
     version: 3,
-    primary: {
-      id: "delivery-portfolio",
-      evidence: { underfilledContracts: 2, shortfall: 18, overflow: 16, netValue: -48 },
-    },
     outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
+  });
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
+    evidence: { underfilledContracts: 2, shortfall: 18, overflow: 16, netValue: -48 },
   });
   const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
     iteration: 1,
@@ -91,7 +90,16 @@ test("memory-fab project provider targets the commissioned factory's measured de
     fabLoss,
     production: analyzeProduction(project),
     capacityPlan: planProductionCapacity(project),
-    history: [],
+    history: (["q-time", "input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification"] as const)
+      .map((addressedLoss, index) => ({
+        iteration: index + 1,
+        strategy: `evaluated:${addressedLoss}`,
+        hypothesis: `The higher-ranked ${addressedLoss} route was already evaluated.`,
+        addressedLoss,
+        decision: "REVERT" as const,
+        score: 0,
+        scoreDelta: -1,
+      })),
   });
   expect(proposal).toMatchObject({
     strategy: "dispatch:burn-in-contract-value",
@@ -104,11 +112,67 @@ test("memory-fab project provider targets the commissioned factory's measured de
   });
 });
 
-test("commissioned fab loss separates bottleneck queues, active input starvation, and verified yield", async () => {
+test("current commissioned fab loss exposes the next physical constraint after yield convergence", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
+  const project = compileFactoryProject(loaded);
+  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
+
+  expect(fabLoss).toMatchObject({
+    version: 3,
+    outcome: {
+      completed: 6,
+      inProgress: 5,
+      firstPassYield: 5 / 11,
+      deliveryShortfall: 5,
+      portfolioNetValue: 164,
+      scrapped: 1,
+    },
+    primary: {
+      id: "q-time",
+      subjects: [{ kind: "route", id: "dram-front-end" }],
+      evidence: { violatedLots: 5, violations: 6 },
+    },
+    chain: ["q-time", "input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification"],
+  });
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toMatchObject({
+    subjects: [{ kind: "device", id: "lithography-1" }, { kind: "project", id: "dram-wafer" }],
+    evidence: {
+      inspectedLots: 11,
+      firstPassCompleted: 5,
+      reworkedLots: 5,
+      scrapDispositions: 1,
+      equipmentDriftedLots: 2,
+      equipmentDriftDefects: 2,
+      subjectDriftedLots: 2,
+      subjectDriftDefects: 2,
+    },
+  });
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "queue-congestion")).toMatchObject({
+    subjects: [{ kind: "device", id: "burn-in-1" }],
+    evidence: { meanQueueTicks: 27_516.666666666668, bottleneckUtilization: 0.5708333333333333 },
+  });
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "input-starvation")).toMatchObject({
+    subjects: [{ kind: "device", id: "inspection-1" }],
+    evidence: {
+      activeProductiveDevices: 11,
+      subjectWaitingInputTicks: 110_600,
+      subjectUtilization: 0.5391666666666667,
+    },
+  });
+  expect(fabLoss.buckets.some((bucket) => bucket.subjects.some((subject) => subject.id === "rework-1"))).toBeFalse();
+});
+
+test("historical commissioned yield evidence reproduces the dedicated etch quality-cell intervention", async () => {
+  const root = resolve("examples/memory-fab");
+  const current = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
+  });
+  const blueprint = JSON.parse(await readFile(resolve(root, "runs/057-simulate/blueprint.json"), "utf8"));
+  const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
   const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
@@ -124,29 +188,69 @@ test("commissioned fab loss separates bottleneck queues, active input starvation
     },
     primary: {
       id: "yield-quality",
-      subjects: [{ kind: "project", id: "dram-wafer" }],
+      subjects: [{ kind: "device", id: "etch-1" }, { kind: "project", id: "dram-wafer" }],
       evidence: {
         inspectedLots: 12,
         firstPassCompleted: 5,
         reworkedLots: 6,
         scrapDispositions: 2,
+        equipmentDriftedLots: 8,
+        equipmentDriftDefects: 8,
+        subjectDriftedLots: 6,
+        subjectDriftDefects: 6,
       },
     },
     chain: ["yield-quality", "input-starvation", "q-time", "queue-congestion", "batch-formation"],
   });
-  expect(fabLoss.buckets.find((bucket) => bucket.id === "queue-congestion")).toMatchObject({
-    subjects: [{ kind: "device", id: "etch-1" }],
-    evidence: { meanQueueTicks: 39_233.333333333336, bottleneckUtilization: 0.7833333333333333 },
+
+  const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
   });
-  expect(fabLoss.buckets.find((bucket) => bucket.id === "input-starvation")).toMatchObject({
-    subjects: [{ kind: "device", id: "burn-in-1" }],
-    evidence: {
-      activeProductiveDevices: 10,
-      subjectWaitingInputTicks: 110_800,
-      subjectUtilization: 0.5383333333333333,
+  expect(proposal).toMatchObject({
+    strategy: "specialize:etch-layer-two-quality-cell",
+    addressedLoss: "yield-quality",
+  });
+  expect(proposal.patch).toHaveLength(7);
+  const candidate = compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(blueprint, proposal.patch),
+  });
+  const candidateMetrics = runUntil(candidate, undefined, { seed: 42 }).metrics;
+  expect(candidateMetrics).toMatchObject({
+    qualityFlow: {
+      firstPassYield: 5 / 12,
+      totalReworkCycles: 5,
+      scrapDispositions: 1,
+      escapedDefects: 0,
+    },
+    equipmentMaintenance: { totalDriftDefects: 2 },
+    lotFlow: { completed: 6, scrapped: 1 },
+    deliveryPortfolio: {
+      netValue: 164,
+      contracts: {
+        "commercial-order": { delivered: 27, shortfall: 5 },
+        "performance-order": { delivered: 12, shortfall: 0 },
+        "automotive-order": { delivered: 6, shortfall: 0 },
+      },
     },
   });
-  expect(fabLoss.buckets.some((bucket) => bucket.subjects.some((subject) => subject.id === "rework-1"))).toBeFalse();
 });
 
 test("commissioned provider skips installed CONWIP and proposes explicit layer-two lithography capacity", async () => {

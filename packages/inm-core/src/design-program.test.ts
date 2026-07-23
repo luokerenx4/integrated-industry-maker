@@ -149,13 +149,13 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   await expect(prepareDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("must match Benchmark 'dispatch-research' cases exactly");
 });
 
-test("commissioned Design optimizes the exact live fab and applies only its reviewed product-mix policy", async () => {
+test("commissioned Design pins its live promotion base and applies only a reviewed product-mix policy", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-commissioned-design-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   const targetPath = join(copy, "blueprints", "generated-dram-fab.blueprint.json");
-  const authored = JSON.parse(await readFile(targetPath, "utf8"));
+  const authored = JSON.parse(await readFile(join(projectDir, "runs/053-simulate/blueprint.json"), "utf8"));
   const burnIn = authored.devices.find((device: { id: string }) => device.id === "burn-in-1");
   burnIn.policy.recipeDispatch = "authored-order";
   authored.revision = "commissioned-pre-portfolio-test";
@@ -193,7 +193,7 @@ test("commissioned Design optimizes the exact live fab and applies only its revi
     best: { iteration: 1, verdict: "KEEP", promotionPatchOperations: 1 },
   });
   const evidence = result.manifest.iterations[0]!.decisionEvidence!;
-  expect(evidence.aggregate.scoreDelta).toBeGreaterThan(30);
+  expect(evidence.aggregate.scoreDelta).toBeCloseTo(23.281223, 6);
   expect(evidence.cases.every((item) =>
     item.maximumScoreRegression === 0 && item.guardrailPassed && item.scoreDelta >= 0)).toBeTrue();
 

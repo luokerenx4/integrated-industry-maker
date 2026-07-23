@@ -87,6 +87,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   for (const candidateId of [
     "commissioned-greenfield-dram-fab",
+    "dedicated-etch-quality-cell",
     "inspection-edd-resilience",
     "layer-two-lithography-capacity",
     "stable-furnace-sleep",

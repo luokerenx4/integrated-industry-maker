@@ -261,7 +261,7 @@
     },
     {
       "from": {
-        "device": "etch-1",
+        "device": "etch-l2",
         "port": "final-output"
       },
       "id": "etch-to-inspection",
@@ -278,20 +278,16 @@
       },
       "path": [
         {
-          "x": 18,
-          "y": 15
-        },
-        {
-          "x": 18,
-          "y": 16
-        },
-        {
-          "x": 18,
-          "y": 17
-        },
-        {
-          "x": 18,
+          "x": 16,
           "y": 18
+        },
+        {
+          "x": 17,
+          "y": 18
+        },
+        {
+          "x": 17,
+          "y": 19
         },
         {
           "x": 18,
@@ -867,19 +863,46 @@
       },
       "path": [
         {
+          "level": 0,
           "x": 16,
           "y": 12
         },
         {
-          "x": 16,
+          "level": 1,
+          "x": 15,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 12
+        },
+        {
+          "level": 1,
+          "x": 14,
           "y": 13
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 14
+        },
+        {
+          "level": 1,
+          "x": 14,
+          "y": 15
+        },
+        {
+          "level": 0,
+          "x": 14,
+          "y": 16
         }
       ],
       "resources": [
         "patterned-cell-l2-lot"
       ],
       "to": {
-        "device": "etch-1",
+        "device": "etch-l2",
         "port": "pattern-input"
       }
     }
@@ -952,6 +975,9 @@
       "policy": {
         "lotDispatch": "fifo",
         "powerPriority": 9,
+        "preventiveMaintenance": {
+          "minimumJobs": 5
+        },
         "recipeDispatch": "authored-order"
       },
       "position": {
@@ -969,17 +995,6 @@
           },
           "priority": 1,
           "process": "etch-cell-layer-1"
-        },
-        {
-          "inputs": {
-            "patterned-cell-l2-lot": "pattern-input"
-          },
-          "mode": "qualified",
-          "outputs": {
-            "dram-wafer-lot": "final-output"
-          },
-          "priority": 10,
-          "process": "etch-cell-layer-2"
         }
       ],
       "region": "cleanroom",
@@ -1053,7 +1068,7 @@
           "rework-required-dram-wafer-lot": "reject-output",
           "scrap-dram-wafer-lot": "scrap-output"
         },
-        "process": "inspect-final-pattern-standard"
+        "process": "inspect-final-pattern-deep"
       },
       "region": "cleanroom",
       "rotation": 0
@@ -1475,8 +1490,8 @@
       "asset": "sorter",
       "id": "etch-to-inspection-loader",
       "position": {
-        "x": 18,
-        "y": 15
+        "x": 16,
+        "y": 18
       },
       "region": "cleanroom",
       "rotation": 90,
@@ -1861,8 +1876,8 @@
       "asset": "sorter",
       "id": "lithography-to-etch-lithography-l2-unloader",
       "position": {
-        "x": 16,
-        "y": 13
+        "x": 14,
+        "y": 16
       },
       "region": "cleanroom",
       "rotation": 0,
@@ -1881,6 +1896,37 @@
       },
       "region": "cleanroom",
       "rotation": 0
+    },
+    {
+      "asset": "plasma-etch-bay",
+      "id": "etch-l2",
+      "policy": {
+        "lotDispatch": "fifo",
+        "powerPriority": 9,
+        "preventiveMaintenance": {
+          "minimumJobs": 5
+        },
+        "recipeDispatch": "authored-order"
+      },
+      "position": {
+        "x": 15,
+        "y": 15
+      },
+      "recipes": [
+        {
+          "inputs": {
+            "patterned-cell-l2-lot": "pattern-input"
+          },
+          "mode": "qualified",
+          "outputs": {
+            "dram-wafer-lot": "final-output"
+          },
+          "priority": 10,
+          "process": "etch-cell-layer-2"
+        }
+      ],
+      "region": "cleanroom",
+      "rotation": 0
     }
   ],
   "logisticsNetworks": [],
@@ -1895,6 +1941,6 @@
     },
     "powerAllocation": "priority-load-shedding"
   },
-  "revision": "2f1798e4bc8105f4549407d21e977a761f56133cb168eb3337d64a2078476473",
+  "revision": "969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205",
   "version": 1
 }

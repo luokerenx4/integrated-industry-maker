@@ -12,6 +12,7 @@ interface Candidate {
   expectedEffect: string;
   addresses: FabLossBucketId[];
   addressesCases?: string[];
+  subjects?: string[];
   patch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null;
 }
 
@@ -316,6 +317,114 @@ function lithographyLayerTwoSpecializationPatch(blueprint: ProposalBlueprint): J
   ];
 }
 
+function etchLayerTwoQualityCellPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const etchIndex = deviceIndex(blueprint, "etch-1");
+  const inspectionIndex = deviceIndex(blueprint, "inspection-1");
+  const inspectionLoaderIndex = deviceIndex(blueprint, "etch-to-inspection-loader");
+  const layerTwoUnloaderIndex = deviceIndex(blueprint, "lithography-to-etch-lithography-l2-unloader");
+  const etchToInspectionIndex = connectionIndex(blueprint, "etch-to-inspection");
+  const layerTwoInputIndex = connectionIndex(blueprint, "lithography-to-etch-lithography-l2");
+  if (deviceIndex(blueprint, "lithography-l2") < 0
+    || deviceIndex(blueprint, "etch-l2") >= 0
+    || [etchIndex, inspectionIndex, inspectionLoaderIndex, layerTwoUnloaderIndex, etchToInspectionIndex, layerTwoInputIndex]
+      .some((index) => index < 0)) return null;
+
+  const etch = blueprint.devices[etchIndex]!;
+  const inspection = blueprint.devices[inspectionIndex]!;
+  const inspectionLoader = blueprint.devices[inspectionLoaderIndex]!;
+  const layerTwoUnloader = blueprint.devices[layerTwoUnloaderIndex]!;
+  const etchToInspection = blueprint.connections[etchToInspectionIndex]!;
+  const layerTwoInput = blueprint.connections[layerTwoInputIndex]!;
+  if (etch.asset !== "plasma-etch-bay" || !Array.isArray(etch.recipes) || etch.recipes.length !== 2
+    || !isRecord(etch.policy)
+    || !isRecord(inspection.recipe)
+    || inspection.recipe.process !== "inspect-final-pattern-standard") return null;
+  const layerOneRecipe = etch.recipes.find((recipe) => isRecord(recipe) && recipe.process === "etch-cell-layer-1");
+  const layerTwoRecipe = etch.recipes.find((recipe) => isRecord(recipe) && recipe.process === "etch-cell-layer-2");
+  if (!isRecord(layerOneRecipe) || !isRecord(layerTwoRecipe)) return null;
+  const maintainedPolicy = {
+    ...structuredClone(etch.policy),
+    preventiveMaintenance: { minimumJobs: 5 },
+  };
+
+  return [
+    {
+      op: "replace",
+      path: `/devices/${etchIndex}`,
+      value: {
+        ...structuredClone(etch),
+        recipes: [structuredClone(layerOneRecipe)],
+        policy: maintainedPolicy,
+      },
+    },
+    {
+      op: "replace",
+      path: `/devices/${inspectionIndex}/recipe/process`,
+      value: "inspect-final-pattern-deep",
+    },
+    {
+      op: "replace",
+      path: `/devices/${inspectionLoaderIndex}`,
+      value: {
+        ...structuredClone(inspectionLoader),
+        position: { x: 16, y: 18 },
+        rotation: 90,
+      },
+    },
+    {
+      op: "replace",
+      path: `/devices/${layerTwoUnloaderIndex}`,
+      value: {
+        ...structuredClone(layerTwoUnloader),
+        position: { x: 14, y: 16 },
+        rotation: 0,
+      },
+    },
+    {
+      op: "add",
+      path: "/devices/-",
+      value: {
+        ...structuredClone(etch),
+        id: "etch-l2",
+        position: { x: 15, y: 15 },
+        recipes: [structuredClone(layerTwoRecipe)],
+        policy: structuredClone(maintainedPolicy),
+      },
+    },
+    {
+      op: "replace",
+      path: `/connections/${etchToInspectionIndex}`,
+      value: {
+        ...structuredClone(etchToInspection),
+        from: { device: "etch-l2", port: "final-output" },
+        path: [
+          { x: 16, y: 18 },
+          { x: 17, y: 18 },
+          { x: 17, y: 19 },
+          { x: 18, y: 19 },
+        ],
+      },
+    },
+    {
+      op: "replace",
+      path: `/connections/${layerTwoInputIndex}`,
+      value: {
+        ...structuredClone(layerTwoInput),
+        to: { device: "etch-l2", port: "pattern-input" },
+        path: [
+          { x: 16, y: 12, level: 0 },
+          { x: 15, y: 12, level: 1 },
+          { x: 14, y: 12, level: 1 },
+          { x: 14, y: 13, level: 1 },
+          { x: 14, y: 14, level: 1 },
+          { x: 14, y: 15, level: 1 },
+          { x: 14, y: 16, level: 0 },
+        ],
+      },
+    },
+  ];
+}
+
 const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
   strategy: `dispatch:conwip-${maximumWip}-${reopenAtWip}-edd`,
   hypothesis: `A ${maximumWip}-card CONWIP loop reopening at ${reopenAtWip} lots may reduce downstream queue and Q-time exposure without withholding the fixed twelve-lot workload.`,
@@ -371,6 +480,14 @@ const candidates: Candidate[] = [
     addresses: ["queue-congestion", "q-time", "delivery-portfolio"],
     patch: lithographyLayerTwoSpecializationPatch,
   },
+  {
+    strategy: "specialize:etch-layer-two-quality-cell",
+    hypothesis: "Separating layer-two etch, servicing both etch bays before their measured particle-drift threshold, and closing the known latent-electrical inspection gap may turn the exposed quality bottleneck into good completed product instead of rework, scrap, or escapes.",
+    expectedEffect: "Reduce equipment-drift defects, rework, scrap, and commercial shortfall through an explicitly routed etch bay, physical five-job maintenance on both bays, and deep final-pattern inspection under the unchanged five-case benchmark.",
+    addresses: ["yield-quality", "queue-congestion", "delivery-portfolio", "maintenance-qualification"],
+    subjects: ["etch-1"],
+    patch: etchLayerTwoQualityCellPatch,
+  },
   release(9, 6),
   release(8, 5),
   release(10, 7),
@@ -379,6 +496,7 @@ const candidates: Candidate[] = [
     hypothesis: "Pulling lithography maintenance forward after six completed jobs may prevent the qualified bay from entering its defect-producing drift interval during the fixed twelve-lot campaign.",
     expectedEffect: "Reduce latent critical-dimension defects and qualification disruption while retaining the shared re-entrant toolset.",
     addresses: ["yield-quality", "maintenance-qualification"],
+    subjects: ["lithography-1"],
     patch: (blueprint) => devicePolicyPatch(blueprint, "lithography-1", "preventiveMaintenance", { minimumJobs: 6 }),
   },
   {
@@ -386,6 +504,7 @@ const candidates: Candidate[] = [
     hypothesis: "Pulling inspection maintenance forward after four jobs may keep disposition capacity qualified through rework recirculation and the final release wave.",
     expectedEffect: "Reduce quality-disposition interruption without changing inspection or rework physics.",
     addresses: ["yield-quality", "maintenance-qualification"],
+    subjects: ["inspection-1"],
     patch: (blueprint) => devicePolicyPatch(blueprint, "inspection-1", "preventiveMaintenance", { minimumJobs: 4 }),
   },
   {
@@ -462,12 +581,17 @@ export default {
           (attempts.get(left) ?? 0) - (attempts.get(right) ?? 0)
           || lossChain.indexOf(left) - lossChain.indexOf(right));
         const addressedLoss = targets[0];
-        return { candidate, index, addressedLoss, attempts: addressedLoss ? attempts.get(addressedLoss) ?? 0 : 0 };
+        const observedSubjects = addressedLoss
+          ? context.fabLoss?.buckets.find((bucket) => bucket.id === addressedLoss)?.subjects.map((subject) => subject.id) ?? []
+          : [];
+        const subjectMatch = candidate.subjects?.some((subject) => observedSubjects.includes(subject)) ?? false;
+        return { candidate, index, addressedLoss, subjectMatch, attempts: addressedLoss ? attempts.get(addressedLoss) ?? 0 : 0 };
       }).filter((item) => item.addressedLoss).sort((left, right) =>
         left.attempts - right.attempts
         || lossChain.indexOf(left.addressedLoss!) - lossChain.indexOf(right.addressedLoss!)
+        || Number(right.subjectMatch) - Number(left.subjectMatch)
         || left.index - right.index)
-      : candidates.map((candidate, index) => ({ candidate, index, addressedLoss: undefined }));
+      : candidates.map((candidate, index) => ({ candidate, index, addressedLoss: undefined, subjectMatch: false }));
     for (const { candidate, addressedLoss } of ranked) {
       if (used.has(candidate.strategy)) continue;
       const patch = candidate.patch(context.blueprint);

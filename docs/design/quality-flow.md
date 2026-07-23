@@ -78,6 +78,10 @@ The fixed memory-fab Scenario introduces three synthetic excursions after final 
 
 The baseline's standard inspection therefore delivers eleven of twelve lots, reworks two, scraps one, and records one quality escape. Changing one Blueprint recipe id to deep inspection detects the latent electrical defect. It produces fewer and later lots and scraps one more lot, but eliminates the escape; the locked Objective decides whether that quality improvement outweighs the throughput and service loss.
 
+The commissioned factory demonstrates why inspection cannot be optimized in isolation. Historical run `057-simulate` recorded 12 inspected lots, 5 first-pass completions, 6 reworked lots, 2 scraps, and 8 equipment-drift defect instances. Immutable events attribute 6 of those instances to `etch-1` after its sixth job. Moving only its preventive-maintenance threshold earlier reduced drift but also delayed enough production to fail the locked cases. The accepted intervention instead gives layer-two etch its own routed bay, services both etch bays before five jobs, and selects deep final-pattern inspection. The additional bay removes shared etch loading; physical service resets asset-owned drift; deep inspection prevents the extra completed lots from becoming latent-electrical escapes.
+
+Current run `058-simulate` records 11 inspected lots, 5 first-pass completions, 5 reworked lots, 1 scrap, no escape, and only 2 equipment-drift defects, both on lithography rather than etch. Commercial delivery improves from 22 to 27 units while the high-value contracts remain fully served. These are separate facts: the simulator records physical defect provenance and dispositions, while the locked five-case Benchmark proves that their combined delivery, timing, quality, power, and facility consequences are acceptable.
+
 These values are synthetic test parameters. Their purpose is to make inspection coverage, rework capability, yield, and escape risk executable optimization dimensions.
 
 ## Verification

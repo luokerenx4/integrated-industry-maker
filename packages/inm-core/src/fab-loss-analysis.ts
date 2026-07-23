@@ -218,10 +218,23 @@ export function analyzeFabLossProfile(
   const inspectedLots = metrics.qualityFlow.inspectedLots;
   const firstPassYield = inspectedLots ? ratio(metrics.qualityFlow.firstPassCompleted, inspectedLots) : 1;
   const affectedLots = metrics.qualityFlow.reworkedLots + metrics.qualityFlow.scrapDispositions + metrics.qualityFlow.escapedDefects;
+  const driftDefects = Object.fromEntries(Object.entries(metrics.equipmentMaintenance.devices)
+    .filter(([, maintenance]) => maintenance.driftDefects > 0)
+    .map(([id, maintenance]) => [id, maintenance.driftDefects]));
+  const driftDevice = topKey(driftDefects);
+  const driftedLots = Object.values(metrics.equipmentMaintenance.devices)
+    .reduce((total, maintenance) => total + maintenance.driftedLots, 0);
+  const driftDefectCount = sum(driftDefects);
+  const driftContext = driftDevice
+    ? ` Equipment drift introduced ${driftDefectCount} defect instances across ${driftedLots} lot jobs; ${driftDevice} contributed ${driftDefects[driftDevice]}.`
+    : "";
   add({
     id: "yield-quality", label: "Verified yield and quality loss", score: ratio(affectedLots, inspectedLots) + ratio(metrics.lotOutputFlow.lostUnits, metrics.lotOutputFlow.nominalUnits),
-    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.`,
-    subjects: [{ kind: "project", id: metrics.lotFlow.family }],
+    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.${driftContext}`,
+    subjects: [
+      ...(driftDevice ? [{ kind: "device" as const, id: driftDevice }] : []),
+      { kind: "project", id: metrics.lotFlow.family },
+    ],
     evidence: {
       inspectedLots,
       firstPassCompleted: metrics.qualityFlow.firstPassCompleted,
@@ -230,6 +243,10 @@ export function analyzeFabLossProfile(
       scrapDispositions: metrics.qualityFlow.scrapDispositions,
       escapedDefects: metrics.qualityFlow.escapedDefects,
       lostOutputUnits: metrics.lotOutputFlow.lostUnits,
+      equipmentDriftedLots: driftedLots,
+      equipmentDriftDefects: driftDefectCount,
+      subjectDriftedLots: driftDevice ? metrics.equipmentMaintenance.devices[driftDevice]!.driftedLots : 0,
+      subjectDriftDefects: driftDevice ? driftDefects[driftDevice]! : 0,
     },
   });
 

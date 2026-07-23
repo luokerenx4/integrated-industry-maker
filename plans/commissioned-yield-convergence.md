@@ -1,6 +1,6 @@
 # Converge commissioned memory-fab yield
 
-- Status: `proposed`
+- Status: `active`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/fab-loss-attribution]], [[docs/design/quality-flow]], [[docs/design/design-programs]], [[docs/design/delivery-contracts]], and [[docs/design/experiment-workbench]].
 
@@ -41,7 +41,7 @@ This work must distinguish quality physics from scheduling correlation. Dispatch
 
 ## Work
 
-- [ ] Audit run `057-simulate` defect provenance and identify the first independently actionable quality cause.
+- [x] Audit run `057-simulate` defect provenance and identify the first independently actionable quality cause.
 - [ ] Correct or extend Core quality evidence if the current run cannot expose that cause without inference.
 - [ ] Select or add a bounded project-local TypeScript intervention and evaluate it through `commissioned-dram-fab`.
 - [ ] Review and apply only a non-regressing winner; regenerate the immutable current run and compare quality, delivery, flow, energy, and value.
@@ -52,6 +52,8 @@ This work must distinguish quality physics from scheduling correlation. Dispatch
 
 - 2026-07-23 — This plan starts from verified inspected-lot evidence: `5/12` first-pass, 6 reworked, and 2 scrapped. Completion-derived throughput ratios are not accepted as yield.
 - 2026-07-23 — Etch is the current throughput bottleneck, but bottleneck rank alone does not prove etch causes the recorded defects. The first task is provenance, not a preselected equipment upgrade.
+- 2026-07-23 — Immutable events show `etch-1` introducing particle contamination into lots 07, 08, 09, 10, 11, and 12 after its sixth and seventh jobs. The run records 8 equipment-drift defect instances total, 6 from etch; both scrapped lots passed through that etch drift interval. The first intervention is therefore six-job etch maintenance, not an inspection scheduling proxy.
+- 2026-07-23 — The exact five-case Design evaluation rejected six-job etch maintenance. It reduced mixed-quality drift defects `8 → 5` and rework cycles `6 → 5`, but completed only 5 lots instead of 6 and regressed ordinary, quality, and facility cases. Single-tool maintenance timing cannot trade away commissioned delivery.
 
 ## Verification
 
@@ -60,6 +62,9 @@ Pending.
 ## Progress log
 
 - 2026-07-23 — Proposed by the completion audit of [[plans/commissioned-fab-convergence-loop]].
+- 2026-07-23 — Activated against exact current Blueprint `969e01284b0d2d74b4f8a032ae2364c40f2023707d77335a258ec3358124e205`; first action is to prove defect provenance from immutable run evidence before selecting an intervention.
+- 2026-07-23 — Fab Loss Profile now names the highest-contributing drift Device and exact aggregate drift counts; project proposal ranking prefers an intervention whose physical subject matches that evidence.
+- 2026-07-23 — Immutable Design Run `5b3e7ca92a209c8bc5d0ff86894eb7db3d90f368bb3b8ddfcc845a1968667072` records the rejected first intervention. A project-local TypeScript sweep now compares earlier maintenance thresholds and explicit layer-two etch specialization against the same zero-regression current-best boundary.
 
 ## Completion
 
