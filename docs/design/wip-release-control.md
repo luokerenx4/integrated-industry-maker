@@ -1,6 +1,6 @@
 # Closed-loop WIP release control
 
-Status: Blueprint-authored factory CONWIP, high/low-watermark and maximum-delay service replenishment, eligible-lot arbitration, causal blocking metrics, and memory-fab joint policy research implemented through engine version `inm-sim/0.54.0`.
+Status: Blueprint-authored factory CONWIP, high/low-watermark and maximum-delay service replenishment, eligible-lot arbitration, causal blocking metrics, and commissioned memory-fab control implemented through engine version `inm-sim/0.76.0`.
 
 Related: [[docs/design/lot-release-scheduling]], [[docs/design/lot-tracking]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
@@ -61,7 +61,11 @@ On-time delivery still divides by all Scenario-scheduled target lots. Withholdin
 
 The first 225-policy sweep established a useful robust negative result. Several strict caps raised aggregate score by lowering average WIP and completed-lot cycle time, but their later release waves increased tardiness and often sequence-dependent lithography/etch changeovers. The strongest aggregate setting violated the locked per-case regression gate, while settings inside that gate did not improve the incumbent aggregate.
 
-A follow-up joint sweep crossed the best active CONWIP range with lithography and etch recipe/lot dispatch. It showed the loss was not a tie-break artifact: the best active policy reduced WIP and cycle time in disrupted cases, but in steady production it increased setup changes from two to six and lost one on-time lot. Service-guard thresholds recovered admission responsiveness but still missed the locked per-case gate. No active controller satisfied both keep conditions, so the checked-in candidate remains open-loop. The controller is still engine code and a first-class search dimension; a future equipment/layout or campaign-control change can make a previously rejected threshold robustly optimal.
+A follow-up joint sweep crossed the best active CONWIP range with lithography and etch recipe/lot dispatch. It showed the loss was not a tie-break artifact: the best active policy reduced WIP and cycle time in disrupted cases, but in steady production it increased setup changes from two to six and lost one on-time lot. Service-guard thresholds recovered admission responsiveness but still missed the locked per-case gate. That was a valid result for the earlier factory, not a timeless ban on closed-loop control.
+
+After equipment specialization, utility resilience, quality, Q-time, and planned-maintenance commissioning changed the physical queueing regime, the authored-seed Design Program re-evaluated release control. Continuation `c60062ee6a88707a3ae7610d06f6231fddc04781d2c4aaa3c7110e5e0d294f63` promotes `dispatch:conwip-9-6-edd`: nine cards, reopen at six lots, an 18-second maximum release delay, and earliest-due-date admission. It improves current-best case scores by `+0.863614`, `+0.417884`, `+1.937604`, `+1.635813`, and `+1.418305`. Candidate `commissioned-release-control` and receipt `9ccae6b3df3178e9c2794ca06cb5270f6662a42d89b7d1bee02d5bc1bfe8e2e1` commission only the two threshold replacements. The later `10/7 EDD` branch is retained as negative evidence because `quality-excursion` regresses `-0.230799` under the current-best zero-score-regression policy.
+
+Compatible mixed-quality run `068-simulate` makes the live trade visible. Relative to the preceding `8/5 EDD` factory, controller-blocked time falls `85.6 → 48.85` lot-seconds, mean release delay falls `7.13 → 4.07` seconds, mean queue falls `16.53 → 15.57` seconds, and the case score improves `+0.417884`. The changed release ordering also moves first-pass completion `9/12 → 8/12`. The guardrail is therefore accurately described as zero case-score regression; a project that requires a non-negotiable yield floor must express that separate outcome constraint rather than infer it from aggregate score.
 
 ## Current boundary
 

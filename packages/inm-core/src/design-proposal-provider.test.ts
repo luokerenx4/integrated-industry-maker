@@ -313,17 +313,17 @@ test("current commissioned fab removes batch-companion Q-time with physical serv
   expect(fabLoss).toMatchObject({
     version: 4,
     outcome: {
-      completed: 9,
+      completed: 8,
       inProgress: 0,
-      firstPassYield: 3 / 4,
+      firstPassYield: 2 / 3,
       deliveryShortfall: 0,
       deliveryOverflow: 6,
       portfolioNetValue: 196,
-      scrapped: 3,
+      scrapped: 4,
     },
   });
   expect(qTime).toMatchObject({
-    evidence: { violatedLots: 1, violations: 1, contributors: 1 },
+    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
     contributors: [{
       id: "dram-front-end:final-inspection:maintenance-qualification",
       mechanism: "maintenance-qualification",
@@ -334,9 +334,9 @@ test("current commissioned fab removes batch-companion Q-time with physical serv
         { kind: "device", id: "maintenance-service-1" },
       ],
       evidence: {
-        violatedLots: 1,
-        violations: 1,
-        totalOverrunTicks: 45_800,
+        violatedLots: 2,
+        violations: 2,
+        totalOverrunTicks: 96_200,
       },
     }],
   });

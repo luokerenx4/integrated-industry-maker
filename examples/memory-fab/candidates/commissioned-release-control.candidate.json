@@ -1,0 +1,27 @@
+{
+  "baseCandidateHash": "f4d8d4900067931ca81454498badbc3050041e2eb7a87f2decf3e1e67a600612",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run c60062ee6a88: aggregate score -161.411491 (+118.759321 versus locked baseline) across 5 cases.",
+  "hypothesis": "A 9-card CONWIP loop reopening at 6 lots may reduce downstream queue and Q-time exposure without withholding the fixed twelve-lot workload.",
+  "id": "commissioned-release-control",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumWip",
+      "value": 9
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/reopenAtWip",
+      "value": 6
+    }
+  ],
+  "source": {
+    "blueprintHash": "0bc0ef35709a69a92426608cdcdc6350cb109dc88f3caaad48f7e4f3f46a25e3",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "c60062ee6a88707a3ae7610d06f6231fddc04781d2c4aaa3c7110e5e0d294f63"
+  },
+  "version": 1
+}

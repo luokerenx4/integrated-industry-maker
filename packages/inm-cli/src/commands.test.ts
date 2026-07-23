@@ -609,26 +609,26 @@ test("public inspect gives Agents and humans the same current loss contributors"
     label: "final-inspection",
     mechanism: "route-q-time-defect",
     defects: ["particle-contamination"],
-    lots: ["dram-lot-03"],
-    evidence: { introducedLots: 1, scrappedLots: 1 },
+    lots: ["dram-lot-03", "dram-lot-06"],
+    evidence: { introducedLots: 2, scrappedLots: 2 },
   });
   expect(inputStarvation).toMatchObject({
     subjects: [{ kind: "device", id: "probe-1" }],
     evidence: {
-      rawWaitingInputTicks: 1_617_000,
+      rawWaitingInputTicks: 1_612_000,
       boundaryWaitingInputTicks: 1_220_000,
-      exceptionWaitingInputTicks: 216_000,
-      starvationTicks: 181_000,
+      exceptionWaitingInputTicks: 208_000,
+      starvationTicks: 184_000,
     },
   });
   expect(inputStarvation.contributors[0]).toMatchObject({
     label: "probe-1",
     mechanism: "inter-job-input-gap",
-    evidence: { starvationTicks: 50_000, opportunityWindowTicks: 122_000 },
+    evidence: { starvationTicks: 53_500, opportunityWindowTicks: 117_500 },
   });
   expect(qTime).toMatchObject({
     id: "q-time",
-    evidence: { violatedLots: 1, violations: 1, contributors: 1 },
+    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
     contributors: [{
       step: "final-inspection",
       mechanism: "maintenance-qualification",
@@ -638,7 +638,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
         { kind: "device", id: "inspection-1" },
         { kind: "device", id: "maintenance-service-1" },
       ],
-      evidence: { violatedLots: 1, violations: 1, totalOverrunTicks: 45_800 },
+      evidence: { violatedLots: 2, violations: 2, totalOverrunTicks: 96_200 },
     }],
   });
 
@@ -646,12 +646,12 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(human.stdout).toContain("Quality-origin contributors:");
   expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 3 lots / 3 defect instances · 3 rework / 1 repaired / 2 persistent · 2 scrap / 0 escape");
-  expect(human.stdout).toContain("final-inspection · route-q-time-defect · 1 lot / 1 defect instance · 0 rework / 0 repaired / 0 persistent · 1 scrap / 0 escape");
+  expect(human.stdout).toContain("final-inspection · route-q-time-defect · 2 lots / 2 defect instances · 1 rework / 0 repaired / 1 persistent · 2 scrap / 0 escape");
   expect(human.stdout).toContain("Input-starvation contributors:");
-  expect(human.stdout).toContain("probe-1 · inter-job-input-gap · 50.0s input gap / 122.0s opportunity · 9 jobs");
+  expect(human.stdout).toContain("probe-1 · inter-job-input-gap · 53.5s input gap / 117.5s opportunity · 8 jobs");
   expect(human.stdout).toContain("Q-time contributors:");
   expect(human.stdout).not.toContain("batch-companion-wait");
-  expect(human.stdout).toContain("final-inspection · maintenance-qualification · 1 lot / 1 visit · mean 80.8s / 35.0s limit · +45.8s overrun · inspection-1+maintenance-service-1");
+  expect(human.stdout).toContain("final-inspection · maintenance-qualification · 2 lots / 2 visits · mean 83.1s / 35.0s limit · +96.2s overrun · inspection-1+maintenance-service-1");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
