@@ -73,7 +73,7 @@ semantic_changes: 0
 verdict: UNCHANGED
 ```
 
-JSON output contains every case score, capacity state and gap, aggregate score, acceptance reasons, exact ordered industrial-outcome evidence, exact Blueprint patch, and semantic changes. The compact summary reports guardrail pass/fail counts plus the same per-case values so an Agent does not need `--section all` merely to understand a rejection.
+JSON `cases` and `all` output contains every case score, evaluator-owned baseline/candidate Objective breakdown, exact component delta, capacity state and gap, aggregate score, acceptance reasons, exact ordered industrial-outcome evidence, exact Blueprint patch, and semantic changes. Every component sum reconciles with its case score and the delta sum reconciles with `scoreDelta`; an Agent can therefore distinguish a WIP or capital penalty from lost delivery value without reimplementing Objective weights. The compact summary reports guardrail pass/fail counts plus the same per-case hard-outcome values so an Agent does not need `--section all` merely to understand a gate rejection.
 
 Studio's [[docs/design/experiment-workbench]] is a human- and browser-agent-readable projection of this exact result, not a second evaluator. CLI remains the preferred structured interface for bulk Agent work; direct experiment URLs support human review, spatial context, and browser-capable Agent verification.
 

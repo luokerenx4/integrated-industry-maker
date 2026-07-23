@@ -109,6 +109,9 @@ export interface ProjectProposalContext {
       leaderScore: number;
       selectedScore: number;
       scoreDelta: number;
+      leaderScoreBreakdown: ScoreBreakdown;
+      selectedScoreBreakdown: ScoreBreakdown;
+      scoreBreakdownDelta: ScoreBreakdown;
       maximumScoreRegression: number | null;
       guardrailPassed: boolean;
     }>;
@@ -122,6 +125,25 @@ export interface ProjectProposalContext {
   capacityPlan: Record<string, unknown>;
   history: Array<{ iteration: number; strategy: string; hypothesis: string; addressedLoss?: FabLossBucketId; addressedCase?: string; decision: "KEEP" | "BRANCH" | "REVERT"; score: number; scoreDelta: number }>;
 }
+
+type ScoreBreakdown = Record<
+  | "throughput"
+  | "deliveryValue"
+  | "onTimeDelivery"
+  | "energy"
+  | "electricityCost"
+  | "buildCost"
+  | "occupiedArea"
+  | "wip"
+  | "blocked"
+  | "cycleTime"
+  | "tardiness"
+  | "changeovers"
+  | "qualityEscapes"
+  | "rework"
+  | "constraintPenalty",
+  number
+>;
 
 export interface ProjectProposalProvider {
   apiVersion: 5;

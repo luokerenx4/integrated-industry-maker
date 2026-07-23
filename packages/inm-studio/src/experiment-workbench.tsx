@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type {
   AppliedCandidateChangeSet, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState,
 } from "@inm/core";
+import { ScoreBreakdownDetails } from "./score-breakdown";
 
 interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark" }
 interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
@@ -212,11 +213,19 @@ export function ExperimentWorkbench({
             <section className="experiment-cases">
               <div className="experiment-section-title"><span>CASE EVALUATION</span><b>{result.totalSimulationTicks.toLocaleString()} SIMULATED TICKS</b></div>
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>THROUGHPUT</span><span>CONTRACTS</span></div>
-              {result.cases.map((item) => <div className="experiment-case-result" key={item.id} data-testid={`experiment-case-${item.id}`}>
-                <strong>{item.name}<code>{item.id} · seed {item.seed} · ×{item.weight}</code></strong><span>{item.baselineScore.toFixed(3)} → {item.candidateScore.toFixed(3)}</span>
-                <b className={item.scoreDelta >= 0 ? "positive" : "negative"}>{signed(item.scoreDelta)}</b><span>{item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}</span>
-                <span>{item.baselineMetrics.throughputPerMinute.toFixed(2)} → {item.candidateMetrics.throughputPerMinute.toFixed(2)}</span><span>{percent(item.baselineMetrics.contractFulfillment)} → {percent(item.candidateMetrics.contractFulfillment)}</span>
-              </div>)}
+              {result.cases.map((item) => <article className="experiment-case-evidence" key={item.id}>
+                <div className="experiment-case-result" data-testid={`experiment-case-${item.id}`}>
+                  <strong>{item.name}<code>{item.id} · seed {item.seed} · ×{item.weight}</code></strong><span>{item.baselineScore.toFixed(3)} → {item.candidateScore.toFixed(3)}</span>
+                  <b className={item.scoreDelta >= 0 ? "positive" : "negative"}>{signed(item.scoreDelta)}</b><span>{item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}</span>
+                  <span>{item.baselineMetrics.throughputPerMinute.toFixed(2)} → {item.candidateMetrics.throughputPerMinute.toFixed(2)}</span><span>{percent(item.baselineMetrics.contractFulfillment)} → {percent(item.candidateMetrics.contractFulfillment)}</span>
+                </div>
+                <ScoreBreakdownDetails
+                  baseline={item.baselineMetrics.scoreBreakdown}
+                  candidate={item.candidateMetrics.scoreBreakdown}
+                  delta={item.scoreBreakdownDelta}
+                  testId={`experiment-score-breakdown-${item.id}`}
+                />
+              </article>)}
             </section>
             {activeCandidate && <section className="candidate-patch">
               <div className="experiment-section-title"><span>AUTHORED RFC 6902 PATCH</span><b>{activeCandidate.patch.length} OPERATIONS</b></div>

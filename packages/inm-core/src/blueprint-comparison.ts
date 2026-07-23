@@ -1,7 +1,13 @@
 import type { JsonPatchOperation } from "./artifacts";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { runUntil } from "./simulator";
-import type { Blueprint, CompiledFactoryProject, FactoryMetrics } from "./types";
+import {
+  SCORE_BREAKDOWN_COMPONENTS,
+  type Blueprint,
+  type CompiledFactoryProject,
+  type FactoryMetrics,
+  type ScoreBreakdown,
+} from "./types";
 import { stableStringify } from "./utils";
 
 export type BlueprintChangeKind = "device" | "connection" | "logistics-network" | "policy" | "metadata";
@@ -18,6 +24,7 @@ export interface BlueprintSemanticChange {
 
 export interface BlueprintMetricSnapshot {
   score: number;
+  scoreBreakdown: ScoreBreakdown;
   throughputPerMinute: number;
   contractFulfillment: number;
   deliveryNetValuePerMinute: number;
@@ -126,6 +133,7 @@ export interface BlueprintMetricSnapshot {
 
 export interface BlueprintMetricDelta {
   score: number;
+  scoreBreakdown: ScoreBreakdown;
   throughputPerMinute: number;
   contractFulfillment: number;
   deliveryNetValuePerMinute: number;
@@ -361,8 +369,11 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
   const storage = Object.values(metrics.energyStorage);
   const power = Object.values(metrics.powerGrids);
   const routes = Object.values(metrics.routeFlow);
+  const scoreBreakdown = orderedScoreBreakdown(metrics.scoreBreakdown);
+  assertScoreBreakdownTotal("Factory metric snapshot", scoreBreakdown, metrics.finalScore);
   return {
     score: metrics.finalScore,
+    scoreBreakdown,
     throughputPerMinute: metrics.throughputPerMinute,
     contractFulfillment: metrics.deliveryPortfolio.fulfillment,
     deliveryNetValuePerMinute: metrics.deliveryPortfolio.netValuePerMinute,
@@ -472,8 +483,12 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
 }
 
 function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnapshot): BlueprintMetricDelta {
+  const scoreBreakdown = subtractScoreBreakdown(before.scoreBreakdown, after.scoreBreakdown);
+  const score = after.score - before.score;
+  assertScoreBreakdownTotal("Blueprint metric delta", scoreBreakdown, score);
   return {
-    score: after.score - before.score,
+    score,
+    scoreBreakdown,
     throughputPerMinute: after.throughputPerMinute - before.throughputPerMinute,
     contractFulfillment: after.contractFulfillment - before.contractFulfillment,
     deliveryNetValuePerMinute: after.deliveryNetValuePerMinute - before.deliveryNetValuePerMinute,
@@ -577,6 +592,31 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     beltCellUtilization: after.beltCellUtilization - before.beltCellUtilization,
     transportCongestion: after.transportCongestion - before.transportCongestion,
   };
+}
+
+function orderedScoreBreakdown(value: ScoreBreakdown): ScoreBreakdown {
+  return Object.fromEntries(SCORE_BREAKDOWN_COMPONENTS.map((component) =>
+    [component, normalizeScoreComponent(value[component])])) as ScoreBreakdown;
+}
+
+export function sumScoreBreakdown(value: ScoreBreakdown): number {
+  return SCORE_BREAKDOWN_COMPONENTS.reduce((sum, component) => sum + value[component], 0);
+}
+
+export function subtractScoreBreakdown(before: ScoreBreakdown, after: ScoreBreakdown): ScoreBreakdown {
+  return Object.fromEntries(SCORE_BREAKDOWN_COMPONENTS.map((component) =>
+    [component, normalizeScoreComponent(after[component] - before[component])])) as ScoreBreakdown;
+}
+
+function normalizeScoreComponent(value: number): number {
+  return Object.is(value, -0) ? 0 : value;
+}
+
+function assertScoreBreakdownTotal(label: string, breakdown: ScoreBreakdown, score: number): void {
+  const total = sumScoreBreakdown(breakdown);
+  if (Math.abs(total - score) > 1e-9) throw new Error(
+    `${label} score breakdown ${total.toFixed(12)} does not reconcile with score ${score.toFixed(12)}`,
+  );
 }
 
 function assertComparable(before: CompiledFactoryProject, after: CompiledFactoryProject): void {

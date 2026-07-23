@@ -2,10 +2,10 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type BlueprintBenchmarkResult, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
+  type BlueprintBenchmarkResult, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -19,6 +19,30 @@ const writeSuccess = (command: string, data: unknown, options: CliSuccessOptions
 
 type DesignProgressMode = "off" | "human" | "ndjson";
 
+const scoreComponentLabel = (component: string) => component.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+
+function leadingScoreDrivers(delta: ScoreBreakdown, maximum = 3): string {
+  const entries = SCORE_BREAKDOWN_COMPONENTS
+    .filter((component) => Math.abs(delta[component]) > 1e-9)
+    .sort((left, right) => Math.abs(delta[right]) - Math.abs(delta[left]) || SCORE_BREAKDOWN_COMPONENTS.indexOf(left) - SCORE_BREAKDOWN_COMPONENTS.indexOf(right))
+    .slice(0, maximum);
+  return entries.length
+    ? entries.map((component) => `${scoreComponentLabel(component)} ${signed(delta[component], 6)}`).join(" · ")
+    : "all components unchanged";
+}
+
+function scoreBreakdownLines(
+  baseline: ScoreBreakdown,
+  candidate: ScoreBreakdown,
+  delta: ScoreBreakdown,
+): string[] {
+  return [
+    "    objective score components:",
+    ...SCORE_BREAKDOWN_COMPONENTS.map((component) =>
+      `      ${component.padEnd(18)} ${baseline[component].toFixed(6).padStart(12)} → ${candidate[component].toFixed(6).padStart(12)}  Δ ${signed(delta[component], 6)}`),
+  ];
+}
+
 function designDecisionDetail(evidence: NonNullable<DesignRunIteration["decisionEvidence"]>): string {
   const limiting = evidence.cases.find((item) => item.id === evidence.limitingCase)!;
   const violation = evidence.guardrail.violations.length
@@ -30,14 +54,14 @@ function designDecisionDetail(evidence: NonNullable<DesignRunIteration["decision
       ? "fails locked gate"
       : evidence.basis === "current-best-case-guardrail" ? "fails current-best case guardrail" : "does not improve current best";
   const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
-  if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta, 6)} · allowed regression ${violation.maximumScoreRegression!.toFixed(6)}`;
-  return `${basis}${gate} · limiting ${limiting.id} ${signed(limiting.scoreDelta, 6)}`;
+  if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta, 6)} · allowed regression ${violation.maximumScoreRegression!.toFixed(6)} · drivers ${leadingScoreDrivers(violation.scoreBreakdownDelta)}`;
+  return `${basis}${gate} · limiting ${limiting.id} ${signed(limiting.scoreDelta, 6)} · drivers ${leadingScoreDrivers(limiting.scoreBreakdownDelta)}`;
 }
 
 function designPromotionBoundaryDetail(boundary: DesignRunIteration["promotionBoundary"]): string {
   if (boundary.promotable) return "promotion-ready leader";
   const blocker = boundary.cases.find((item) => item.id === boundary.guardrail.violations[0]);
-  if (blocker) return `blocked by ${blocker.id} ${signed(blocker.scoreDelta, 6)} · allowed regression ${blocker.maximumScoreRegression!.toFixed(6)}`;
+  if (blocker) return `blocked by ${blocker.id} ${signed(blocker.scoreDelta, 6)} · allowed regression ${blocker.maximumScoreRegression!.toFixed(6)} · drivers ${leadingScoreDrivers(blocker.scoreBreakdownDelta)}`;
   return `alternative vs leader ${signed(boundary.aggregate.scoreDelta, 6)}`;
 }
 
@@ -801,6 +825,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     `Fixed work: ${result.cases.length} cases · ${result.totalSimulationTicks} simulated ticks (baseline + candidate)`, "",
     ...result.cases.flatMap((item) => [
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
+      ...scoreBreakdownLines(item.baselineMetrics.scoreBreakdown, item.candidateMetrics.scoreBreakdown, item.scoreBreakdownDelta),
       `    contracts ${(item.baselineMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.baselineMetrics.deliveryNetValuePerMinute.toFixed(3)} net/min / ${item.baselineMetrics.deliveryOverflow.toFixed(3)} overflow → ${(item.candidateMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.candidateMetrics.deliveryNetValuePerMinute.toFixed(3)} / ${item.candidateMetrics.deliveryOverflow.toFixed(3)}`,
       ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
         `    lots ${item.baselineMetrics.completedLots}/${item.baselineMetrics.onTimeLots} complete/on-time → ${item.candidateMetrics.completedLots}/${item.candidateMetrics.onTimeLots} · mean cycle ${(item.baselineMetrics.meanCycleTimeTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanCycleTimeTicks / 1000).toFixed(3)} s · tardiness ${(item.baselineMetrics.meanTardinessTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanTardinessTicks / 1000).toFixed(3)} s`,

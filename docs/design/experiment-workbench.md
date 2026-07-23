@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, and V5 commissioned Design provenance implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, and V6 Objective score causality implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -16,7 +16,7 @@ Capability parity does not require interaction parity. A model should not scrape
 
 ## One authoritative protocol
 
-`evaluateBlueprintBenchmark()` remains the only evaluator. The named `benchmark.evaluate`, `candidate.preview`, and `candidate.apply` Core operations wrap that evaluator with the shared effect/context/hash/artifact/write-set result contract. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, capacity readiness, ordered hard-outcome evidence, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
+`evaluateBlueprintBenchmark()` remains the only evaluator. The named `benchmark.evaluate`, `candidate.preview`, and `candidate.apply` Core operations wrap that evaluator with the shared effect/context/hash/artifact/write-set result contract. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, evaluator-owned Objective breakdowns and component deltas, capacity readiness, ordered hard-outcome evidence, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
 
 `listBlueprintBenchmarks()` discovers project-local `benchmarks/*.benchmark.json` files in stable id order and projects their immutable case and acceptance contracts. Studio does not invent sessions or copy Benchmark state into browser storage.
 
@@ -44,7 +44,7 @@ The first vertical slice supports:
 1. enumerate and select fixed project experiments;
 2. inspect baseline/candidate, cases, seeds, weights, score gates, and project-authored hard industrial outcomes;
 3. explicitly execute the locked evaluator;
-4. inspect aggregate verdict, gate failures, per-case capacity/throughput/contracts, exact baseline/candidate/threshold outcome evidence, and semantic Blueprint changes;
+4. inspect aggregate verdict, gate failures, per-case capacity/throughput/contracts, progressively disclosed baseline/candidate Objective components and exact deltas, exact baseline/candidate/threshold outcome evidence, and semantic Blueprint changes;
 5. reproduce the exact operation with `inm benchmark <project> --benchmark <id> --json`.
 
 It deliberately does not edit Blueprint JSON or turn KEEP into a Git mutation. A later authoring phase may expose exact Blueprint patches, but any UI edit must remain an ordinary project-local file change that the CLI can validate and evaluate.
@@ -103,6 +103,12 @@ After apply, a Design Run whose best hash equals the current promotion target is
 
 The same chain now covers iterative optimization of an already commissioned factory. `commissioned-dram-fab` pins one live `generated-dram-fab` hash as both authored seed and promotion base. Its first accepted run promoted Candidate `portfolio-aware-dram-dispatch`; the one-operation receipt proved the unchanged five-case Benchmark before apply wrote the exact reviewed hash. Afterward the Program's next brief naturally points at the new live hash, while the applied Candidate remains verified provenance and the older greenfield commissioning Candidate becomes historical rather than a valid mutation target.
 
+## V6 — Objective score causality
+
+The evaluator remains the only owner of Objective formulas. Core preserves its ordered fifteen-component `scoreBreakdown` in every Benchmark snapshot and computes the exact `candidate - baseline` delta. Design copies the same evidence into every current-best case and proposal-time promotion boundary. CLI exposes the complete machine-readable objects and a compact leading-driver line; Studio uses a native `<details>` table so humans and browser-capable Agents can expand the same baseline, candidate, and delta values without crowding the primary decision surface.
+
+Component sums are runtime-checked against the reported scores and deltas. Pre-alpha cached Design Runs that lack this evidence are intentionally excluded rather than upgraded, while new Design execution remains available. In the current memory-fab advanced-recovery branch this view explains the `lithography-interruption` regression as WIP `-0.531800`, energy `-0.006040`, build cost `-0.005000`, cycle time `+0.072546`, and tardiness `+0.041035`, totaling `-0.429259`.
+
 ### Active implementation plan
 
 - [x] Shared read-only Benchmark catalog and evaluator.
@@ -114,6 +120,7 @@ The same chain now covers iterative optimization of an already commissioned fact
 - [x] Exact immutable Design continuation through Core, CLI discovery/NDJSON, Studio API/control, and real memory-fab evidence.
 - [x] Greenfield Candidate commissioning, checked-in receipt/provenance, proposed-context compilation, and honest post-apply Studio state.
 - [x] Exact-factory commissioned optimization, value-aware burn-in Candidate, five-case review receipt, and verified apply.
+- [x] Shared Objective-component causality across Core, CLI, Studio, and project-local Design providers.
 
 ### V2 acceptance
 

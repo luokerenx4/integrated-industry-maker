@@ -1358,23 +1358,25 @@ export type FactoryEvent =
   | { type: "device.recover"; tick: Tick; device: DeviceInstanceId }
   | { type: "simulation.completed"; tick: Tick; reason: "until-tick" | "max-events" | "infeasible" };
 
-export interface ScoreBreakdown {
-  throughput: number;
-  deliveryValue: number;
-  onTimeDelivery: number;
-  energy: number;
-  electricityCost: number;
-  buildCost: number;
-  occupiedArea: number;
-  wip: number;
-  blocked: number;
-  cycleTime: number;
-  tardiness: number;
-  changeovers: number;
-  qualityEscapes: number;
-  rework: number;
-  constraintPenalty: number;
-}
+export const SCORE_BREAKDOWN_COMPONENTS = [
+  "throughput",
+  "deliveryValue",
+  "onTimeDelivery",
+  "energy",
+  "electricityCost",
+  "buildCost",
+  "occupiedArea",
+  "wip",
+  "blocked",
+  "cycleTime",
+  "tardiness",
+  "changeovers",
+  "qualityEscapes",
+  "rework",
+  "constraintPenalty",
+] as const;
+export type ScoreBreakdownComponent = typeof SCORE_BREAKDOWN_COMPONENTS[number];
+export type ScoreBreakdown = Record<ScoreBreakdownComponent, number>;
 export interface FactoryMetrics {
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;

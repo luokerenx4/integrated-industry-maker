@@ -9,6 +9,7 @@ import {
   lockBlueprintBenchmark,
 } from "./benchmark";
 import { loadFactoryProject } from "./loader";
+import { subtractScoreBreakdown, sumScoreBreakdown } from "./blueprint-comparison";
 import { atomicWriteJson, readJson } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -155,6 +156,43 @@ test("memory-fab on-time service rejects score-positive inspection maintenance",
     "outcome guardrail 'preserve-on-time-service' failed in case 'mixed-quality': onTimeLots 8.000000 must be >= 10.000000",
     "outcome guardrail 'preserve-on-time-service' failed in case 'quality-excursion': onTimeLots 7.000000 must be >= 8.000000",
   ]);
+}, 30_000);
+
+test("memory-fab advanced recovery exposes exact Objective score causality", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const loaded = await loadFactoryProject(projectDir, { blueprint: "generated-dram-fab" });
+  const candidateBlueprint = structuredClone(loaded.blueprint);
+  const recovery = candidateBlueprint.devices.find((device) => device.id === "rework-1")!;
+  recovery.asset = "advanced-pattern-recovery-cell";
+  recovery.recipe!.process = "recover-final-pattern-advanced";
+  candidateBlueprint.policies.lotRelease = {
+    kind: "conwip",
+    maximumWip: 6,
+    reopenAtWip: 3,
+    maximumReleaseDelayTicks: 18_000,
+    dispatch: "earliest-due-date",
+  };
+
+  const [incumbent, branch] = await Promise.all([
+    evaluateBlueprintBenchmark(projectDir, "greenfield-dram-design"),
+    evaluateBlueprintBenchmark(projectDir, "greenfield-dram-design", { candidateBlueprint }),
+  ]);
+  const incumbentInterruption = incumbent.cases.find((item) => item.id === "lithography-interruption")!;
+  const branchInterruption = branch.cases.find((item) => item.id === "lithography-interruption")!;
+  const scoreDelta = branchInterruption.candidateScore - incumbentInterruption.candidateScore;
+  const breakdownDelta = subtractScoreBreakdown(
+    incumbentInterruption.candidateMetrics.scoreBreakdown,
+    branchInterruption.candidateMetrics.scoreBreakdown,
+  );
+  expect(scoreDelta).toBeCloseTo(-0.42925878787880833, 12);
+  expect(breakdownDelta.wip).toBeCloseTo(-0.5318, 12);
+  expect(breakdownDelta.energy).toBeCloseTo(-0.00604, 12);
+  expect(breakdownDelta.buildCost).toBeCloseTo(-0.005, 12);
+  expect(breakdownDelta.cycleTime).toBeCloseTo(0.0725460606060607, 12);
+  expect(breakdownDelta.tardiness).toBeCloseTo(0.04103515151515154, 12);
+  expect(sumScoreBreakdown(incumbentInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(incumbentInterruption.candidateScore, 12);
+  expect(sumScoreBreakdown(branchInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(branchInterruption.candidateScore, 12);
+  expect(sumScoreBreakdown(breakdownDelta)).toBeCloseTo(scoreDelta, 12);
 }, 30_000);
 
 test("benchmark loading rejects unknown cases and duplicate metric-case ownership", async () => {

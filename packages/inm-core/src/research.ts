@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import type { Blueprint, CompiledFactoryProject, FactoryMetrics } from "./types";
+import type { Blueprint, CompiledFactoryProject, FactoryMetrics, ScoreBreakdown } from "./types";
 import type { JsonPatchOperation, RunSummary } from "./artifacts";
 import { writeRunArtifact } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
@@ -39,6 +39,9 @@ export interface ResearchPromotionCase {
   leaderScore: number;
   selectedScore: number;
   scoreDelta: number;
+  leaderScoreBreakdown: ScoreBreakdown;
+  selectedScoreBreakdown: ScoreBreakdown;
+  scoreBreakdownDelta: ScoreBreakdown;
   maximumScoreRegression: number | null;
   guardrailPassed: boolean;
 }

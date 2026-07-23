@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/objective-score-causality]] | Expose exact Objective component causality across Benchmark, Design, CLI, Studio, and project-local proposal providers. | 2026-07-24 |
 | [[plans/explicit-on-time-service-guardrail]] | Make commissioned memory-fab due-date service an explicit Benchmark-owned hard outcome so WIP reduction cannot hide late lots. | 2026-07-24 |
 | [[plans/commissioned-advanced-pattern-recovery]] | Add and evaluate an explicit costed pattern-recovery option, then retain it as a Pareto branch because its lithography-interruption regression blocks commissioning. | 2026-07-24 |
 | [[plans/commissioned-continuous-metrology]] | Commission a project-local continuous deep-metrology option that removes final-inspection Q-time contamination under the locked industrial outcome gates. | 2026-07-24 |

@@ -1,9 +1,9 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { Blueprint } from "./types";
+import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint, type ScoreBreakdown } from "./types";
 import type { BlueprintBenchmarkProgress, BlueprintBenchmarkResult } from "./benchmark";
 import { evaluatePreparedBlueprintBenchmark, loadBlueprintBenchmark, prepareBlueprintBenchmark } from "./benchmark";
-import { createBlueprintPatch } from "./blueprint-comparison";
+import { createBlueprintPatch, subtractScoreBreakdown } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
 import { compileFactoryProject } from "./compiler";
 import {
@@ -47,6 +47,9 @@ export interface DesignCurrentBestCaseEvidence {
   previousBestScore: number;
   candidateScore: number;
   scoreDelta: number;
+  previousBestScoreBreakdown: ScoreBreakdown;
+  candidateScoreBreakdown: ScoreBreakdown;
+  scoreBreakdownDelta: ScoreBreakdown;
   maximumScoreRegression: number | null;
   guardrailPassed: boolean;
 }
@@ -270,11 +273,37 @@ function validDriverEvidence(value: unknown): value is DesignDriverEvidence {
     && evidence.fabLoss.chain.every((id) => evidence.fabLoss!.buckets.some((bucket) => bucket.id === id));
 }
 
+function validScoreBreakdown(value: unknown): value is ScoreBreakdown {
+  return Boolean(value) && typeof value === "object"
+    && SCORE_BREAKDOWN_COMPONENTS.every((component) =>
+      Number.isFinite((value as Record<string, unknown>)[component]));
+}
+
+function validDecisionEvidence(value: unknown): value is DesignDecisionEvidence {
+  if (!value || typeof value !== "object") return false;
+  const evidence = value as DesignDecisionEvidence;
+  return Array.isArray(evidence.cases) && evidence.cases.length > 0
+    && evidence.cases.every((item) =>
+      validScoreBreakdown(item.previousBestScoreBreakdown)
+      && validScoreBreakdown(item.candidateScoreBreakdown)
+      && validScoreBreakdown(item.scoreBreakdownDelta));
+}
+
+function validPromotionBoundary(value: unknown): value is ResearchPromotionBoundary {
+  if (!value || typeof value !== "object") return false;
+  const boundary = value as ResearchPromotionBoundary;
+  return Array.isArray(boundary.cases) && boundary.cases.length > 0
+    && boundary.cases.every((item) =>
+      validScoreBreakdown(item.leaderScoreBreakdown)
+      && validScoreBreakdown(item.selectedScoreBreakdown)
+      && validScoreBreakdown(item.scoreBreakdownDelta));
+}
+
 function validDesignRunIteration(value: unknown): value is DesignRunIteration {
   if (!value || typeof value !== "object") return false;
   const iteration = value as DesignRunIteration;
   return validDriverEvidence(iteration.driverEvidence)
-    && typeof iteration.promotionBoundary === "object"
+    && validPromotionBoundary(iteration.promotionBoundary)
     && typeof iteration.frontierEvidence === "object"
     && /^[0-9a-f]{64}$/.test(iteration.proposalHash ?? "")
     && (iteration.addressedLoss === undefined
@@ -284,7 +313,7 @@ function validDesignRunIteration(value: unknown): value is DesignRunIteration {
     && (iteration.error === undefined
       ? /^[0-9a-f]{64}$/.test(iteration.candidateBlueprintHash ?? "")
         && typeof iteration.evaluation === "object"
-        && typeof iteration.decisionEvidence === "object"
+        && validDecisionEvidence(iteration.decisionEvidence)
       : typeof iteration.error === "string" && iteration.error.length > 0
         && iteration.decision === "REJECT"
         && iteration.candidateBlueprintHash === undefined
@@ -311,6 +340,12 @@ function currentBestDecisionEvidence(
       previousBestScore: previousCase.candidateScore,
       candidateScore: candidateCase.candidateScore,
       scoreDelta,
+      previousBestScoreBreakdown: structuredClone(previousCase.candidateMetrics.scoreBreakdown),
+      candidateScoreBreakdown: structuredClone(candidateCase.candidateMetrics.scoreBreakdown),
+      scoreBreakdownDelta: subtractScoreBreakdown(
+        previousCase.candidateMetrics.scoreBreakdown,
+        candidateCase.candidateMetrics.scoreBreakdown,
+      ),
       maximumScoreRegression,
       guardrailPassed: maximumScoreRegression === null || scoreDelta >= -maximumScoreRegression - 1e-9,
     };
@@ -359,6 +394,9 @@ function promotionBoundary(
       leaderScore: item.previousBestScore,
       selectedScore: item.candidateScore,
       scoreDelta: item.scoreDelta,
+      leaderScoreBreakdown: structuredClone(item.previousBestScoreBreakdown),
+      selectedScoreBreakdown: structuredClone(item.candidateScoreBreakdown),
+      scoreBreakdownDelta: structuredClone(item.scoreBreakdownDelta),
       maximumScoreRegression: item.maximumScoreRegression,
       guardrailPassed: item.guardrailPassed,
     })),

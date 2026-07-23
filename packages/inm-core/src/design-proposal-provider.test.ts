@@ -10,6 +10,19 @@ import { analyzeProduction } from "./production-analysis";
 import { applyResearchPatch } from "./research";
 import { runUntil } from "./simulator";
 import { analyzeFabLossProfile } from "./fab-loss-analysis";
+import { SCORE_BREAKDOWN_COMPONENTS, type ScoreBreakdown } from "./types";
+
+function zeroScoreBreakdown(): ScoreBreakdown {
+  return Object.fromEntries(SCORE_BREAKDOWN_COMPONENTS.map((component) => [component, 0])) as ScoreBreakdown;
+}
+
+function scoreBreakdownEvidence() {
+  return {
+    leaderScoreBreakdown: zeroScoreBreakdown(),
+    selectedScoreBreakdown: zeroScoreBreakdown(),
+    scoreBreakdownDelta: zeroScoreBreakdown(),
+  };
+}
 
 function migrateArchivedMaintenanceForTest<T>(value: T): T {
   const blueprint = structuredClone(value) as {
@@ -557,6 +570,7 @@ test("commissioned provider skips installed CONWIP and proposes explicit layer-t
         leaderScore: -220.665,
         selectedScore: -276.248,
         scoreDelta: -55.583,
+        ...scoreBreakdownEvidence(),
         maximumScoreRegression: 0,
         guardrailPassed: false,
       }],
@@ -730,6 +744,7 @@ test("memory-fab project provider targets an exact promotion blocker before ordi
         leaderScore: -263.023866,
         selectedScore: -266.930745,
         scoreDelta: -3.906879,
+        ...scoreBreakdownEvidence(),
         maximumScoreRegression: 0,
         guardrailPassed: false,
       }],
@@ -773,6 +788,7 @@ test("memory-fab project provider gives a retained setup campaign an exact inter
         leaderScore: -246.599285,
         selectedScore: -246.653952,
         scoreDelta: -0.054667,
+        ...scoreBreakdownEvidence(),
         maximumScoreRegression: 0,
         guardrailPassed: false,
       }],

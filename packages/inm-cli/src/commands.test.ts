@@ -197,16 +197,22 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
     join(repository, "examples/memory-fab"),
     "--benchmark",
     "greenfield-dram-design",
+    "--section",
+    "all",
     "--json",
   ]);
   expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  const summary = JSON.parse(result.stdout).data.result;
-  expect(summary).toEqual(expect.objectContaining({
+  const evaluation = JSON.parse(result.stdout).data.result;
+  expect(evaluation).toEqual(expect.objectContaining({
     verdict: "KEEP",
     accepted: true,
-    outcomeGuardrails: expect.objectContaining({ total: 7, passed: 7, failed: 0 }),
+    outcomeGuardrails: expect.arrayContaining([
+      expect.objectContaining({ id: "preserve-on-time-service", passed: true }),
+    ]),
   }));
-  expect(summary.outcomeGuardrails.evidence.find((guardrail: { id: string }) =>
+  expect(evaluation.outcomeGuardrails).toHaveLength(7);
+  expect(evaluation.outcomeGuardrails.every((guardrail: { passed: boolean }) => guardrail.passed)).toBe(true);
+  expect(evaluation.outcomeGuardrails.find((guardrail: { id: string }) =>
     guardrail.id === "preserve-on-time-service")).toEqual({
     id: "preserve-on-time-service",
     metric: "onTimeLots",
@@ -221,6 +227,14 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
       expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
     ],
   });
+  const interruption = evaluation.cases.find((item: { id: string }) => item.id === "lithography-interruption");
+  expect(interruption).toEqual(expect.objectContaining({
+    scoreBreakdownDelta: expect.objectContaining({ wip: expect.any(Number), cycleTime: expect.any(Number), tardiness: expect.any(Number) }),
+    baselineMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number), wip: expect.any(Number) }) }),
+    candidateMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number), wip: expect.any(Number) }) }),
+  }));
+  expect((Object.values(interruption.candidateMetrics.scoreBreakdown) as number[]).reduce((sum, value) =>
+    sum + value, 0)).toBeCloseTo(interruption.candidateScore, 12);
 }, 30_000);
 
 test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
@@ -357,7 +371,18 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-started",
     branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
-    promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
+    promotionBoundary: expect.objectContaining({
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      limitingCase: null,
+      guardrail: expect.objectContaining({ passed: true, violations: [] }),
+      cases: expect.arrayContaining([expect.objectContaining({
+        leaderScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+        selectedScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+        scoreBreakdownDelta: expect.objectContaining({ wip: expect.any(Number) }),
+      })]),
+    }),
     driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "yield-quality" }) }) }),
   }) }));
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
@@ -369,7 +394,17 @@ test("public Design Program workflow discovers, inspects, and executes without m
     decisionEvidence: expect.objectContaining({
       basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
       aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
-      cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", previousBestScore: expect.any(Number), candidateScore: expect.any(Number), scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]),
+      cases: expect.arrayContaining([expect.objectContaining({
+        id: "mixed-quality",
+        previousBestScore: expect.any(Number),
+        candidateScore: expect.any(Number),
+        scoreDelta: expect.any(Number),
+        previousBestScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+        candidateScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+        scoreBreakdownDelta: expect.objectContaining({ wip: expect.any(Number) }),
+        maximumScoreRegression: 0,
+        guardrailPassed: expect.any(Boolean),
+      })]),
       guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
       limitingCase: expect.any(String),
     }),

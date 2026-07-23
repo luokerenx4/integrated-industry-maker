@@ -164,12 +164,30 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const expected = await evaluateBlueprintBenchmark(projectDir, "power-priority");
     const runResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`, { method: "POST" });
     expect(runResponse.status).toBe(200);
-    const result = await runResponse.json() as { command: string; benchmark: string; verdict: string; scoreDelta: number; patch: unknown[]; operation: { operation: string } };
+    const result = await runResponse.json() as {
+      command: string;
+      benchmark: string;
+      verdict: string;
+      scoreDelta: number;
+      patch: unknown[];
+      operation: { operation: string };
+      cases: Array<{
+        scoreDelta: number;
+        scoreBreakdownDelta: Record<string, number>;
+        baselineMetrics: { scoreBreakdown: Record<string, number> };
+        candidateMetrics: { scoreBreakdown: Record<string, number> };
+      }>;
+    };
     expect(result).toEqual(expect.objectContaining({
       command: "benchmark", benchmark: expected.benchmark, verdict: expected.verdict,
       scoreDelta: expected.scoreDelta, patch: expected.patch,
     }));
     expect(result.operation.operation).toBe("benchmark.evaluate");
+    expect(result.cases[0]).toEqual(expect.objectContaining({
+      scoreBreakdownDelta: expect.objectContaining({ deliveryValue: expect.any(Number), wip: expect.any(Number) }),
+      baselineMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number) }) }),
+      candidateMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number) }) }),
+    }));
 
     const beforePreview = await readFile(candidateBlueprintPath, "utf8");
     const previewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
@@ -442,7 +460,18 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "proposal-started",
       branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
-      promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
+      promotionBoundary: expect.objectContaining({
+        leaderNodeId: "seed",
+        selectedNodeId: "seed",
+        promotable: true,
+        limitingCase: null,
+        guardrail: expect.objectContaining({ passed: true, violations: [] }),
+        cases: expect.arrayContaining([expect.objectContaining({
+          leaderScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+          selectedScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+          scoreBreakdownDelta: expect.objectContaining({ wip: expect.any(Number) }),
+        })]),
+      }),
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "yield-quality" }) }) }),
     }) }));
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "proposal-completed", addressedLoss: "yield-quality" }) }));
@@ -452,7 +481,15 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       decisionEvidence: expect.objectContaining({
         basis: expect.stringMatching(/current-best-improvement|benchmark-gate|no-current-best-improvement|current-best-case-guardrail/),
         aggregate: expect.objectContaining({ scoreDelta: expect.any(Number) }),
-        cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]),
+        cases: expect.arrayContaining([expect.objectContaining({
+          id: "mixed-quality",
+          scoreDelta: expect.any(Number),
+          previousBestScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+          candidateScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+          scoreBreakdownDelta: expect.objectContaining({ wip: expect.any(Number) }),
+          maximumScoreRegression: 0,
+          guardrailPassed: expect.any(Boolean),
+        })]),
         guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
         limitingCase: expect.any(String),
       }),
@@ -470,7 +507,15 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
           addressedLoss: "yield-quality",
           promotionBoundary: expect.objectContaining({ leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null }),
           driverEvidence: expect.objectContaining({ fabLoss: expect.objectContaining({ chain: expect.arrayContaining(["yield-quality"]) }) }),
-          decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String), guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean) }), cases: expect.arrayContaining([expect.objectContaining({ id: "mixed-quality", scoreDelta: expect.any(Number), maximumScoreRegression: 0, guardrailPassed: expect.any(Boolean) })]) }),
+          decisionEvidence: expect.objectContaining({ limitingCase: expect.any(String), guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean) }), cases: expect.arrayContaining([expect.objectContaining({
+            id: "mixed-quality",
+            scoreDelta: expect.any(Number),
+            previousBestScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+            candidateScoreBreakdown: expect.objectContaining({ wip: expect.any(Number) }),
+            scoreBreakdownDelta: expect.objectContaining({ wip: expect.any(Number) }),
+            maximumScoreRegression: 0,
+            guardrailPassed: expect.any(Boolean),
+          })]) }),
           frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1" }),
         })],
       }),

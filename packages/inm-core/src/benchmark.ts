@@ -127,6 +127,7 @@ export interface BlueprintBenchmarkCaseResult {
   baselineScore: number;
   candidateScore: number;
   scoreDelta: number;
+  scoreBreakdownDelta: BlueprintMetricSnapshot["scoreBreakdown"];
   baselineMetrics: BlueprintMetricSnapshot;
   candidateMetrics: BlueprintMetricSnapshot;
   baselineCapacityReady: boolean;
@@ -391,6 +392,7 @@ export async function evaluatePreparedBlueprintBenchmark(
     cases.push({
       id: item.id, name: item.name, weight: item.weight, seed: item.seed, durationTicks: preparedCase.baseline.scenario.durationTicks,
       baselineScore: comparison.from.metrics.score, candidateScore: comparison.to.metrics.score, scoreDelta: comparison.delta.score,
+      scoreBreakdownDelta: comparison.delta.scoreBreakdown,
       baselineMetrics: comparison.from.metrics, candidateMetrics: comparison.to.metrics,
       baselineCapacityReady: comparison.from.capacityPlan.ready, candidateCapacityReady: comparison.to.capacityPlan.ready,
       candidateCapacityGaps: comparison.to.capacityPlan.gaps.map((gap) => `[${gap.kind}] ${gap.message}`),
