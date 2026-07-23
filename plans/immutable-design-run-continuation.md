@@ -1,6 +1,6 @@
 # Immutable Design Run continuation
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]], [[docs/design/agent-cli-contract]], [[docs/design/experiment-workbench]], and [[docs/CLI]].
 
@@ -48,7 +48,7 @@ The manifest already contains the seed evaluation, every parent-relative patch a
 - [x] Implement and verify V2 manifest lineage plus Core frontier reconstruction/continuation.
 - [x] Project continuation through CLI, Studio server, and the human workbench.
 - [x] Generate real memory-fab evidence and update current design documentation.
-- [ ] Run the full completion audit, archive the plan, commit, and push.
+- [x] Run the full completion audit, archive the plan, commit, and push.
 
 ## Findings and decisions
 
@@ -82,4 +82,4 @@ The manifest already contains the seed evaluation, every parent-relative patch a
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Shipped in commit `354ad89` (`feat: continue immutable design runs`). Design Run V2 now preserves an exact, recursively validated continuation lineage; Core reconstructs the retained frontier and lineage-local proposal history while evaluating only additional Candidates; CLI and Studio expose matching explicit operations, progress, provenance, and next actions. The real memory-fab frontier advanced deterministically to candidate 8 without mutating its source evidence, and the complete repository regression passed. No required work from this plan was deferred.
