@@ -47,6 +47,24 @@ function devicePolicyPatch(
   }];
 }
 
+function lithographyCampaignInterruptionEscapePatch(
+  blueprint: { devices: Array<Record<string, unknown>> },
+): JsonPatchOperation[] | null {
+  const index = deviceIndex(blueprint, "lithography-1");
+  if (index < 0) return null;
+  const policy = blueprint.devices[index]!.policy;
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) return null;
+  const campaign = (policy as Record<string, unknown>).setupCampaign;
+  if (!campaign || typeof campaign !== "object" || Array.isArray(campaign)) return null;
+  const value = campaign as Record<string, unknown>;
+  if (value.minimumReadyLots !== 3 || value.maximumHoldTicks !== 12_000) return null;
+  return [{
+    op: "replace",
+    path: `/devices/${index}/policy/setupCampaign`,
+    value: { minimumReadyLots: 3, maximumHoldTicks: 0 },
+  }];
+}
+
 function furnaceBatchFormationPatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
   const index = deviceIndex(blueprint, "furnace-1");
   if (index < 0) return null;
@@ -91,6 +109,14 @@ const candidates: Candidate[] = [
     addresses: [],
     addressesCases: ["facility-interruption"],
     patch: facilityRedundancyPatch,
+  },
+  {
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    hypothesis: "Keeping three-lot setup-aware selection but removing voluntary campaign hold may avoid trapping ready lithography work behind an interrupted bay while retaining any benefit the locked cases can prove.",
+    expectedEffect: "Eliminate the lithography-interruption promotion blocker; the unchanged Benchmark decides whether surrendering ordinary campaign waiting remains worthwhile.",
+    addresses: [],
+    addressesCases: ["lithography-interruption"],
+    patch: lithographyCampaignInterruptionEscapePatch,
   },
   release(9, 6),
   release(8, 5),

@@ -12,13 +12,13 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
-
-## Proposed plans
-
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/interruption-aware-campaign-repair]] | Refine a profitable lithography setup campaign against its exact interruption-case blocker without weakening the locked five-case contract. | 2026-07-23 |
+
+## Proposed plans
+
+There are no proposed plans.
 
 ## Paused plans
 

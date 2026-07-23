@@ -164,6 +164,57 @@ test("memory-fab project provider targets an exact promotion blocker before ordi
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(blueprint, repair.patch) })).not.toThrow();
 });
 
+test("memory-fab project provider gives a retained setup campaign an exact interruption escape", async () => {
+  const { root, loaded, input } = await memoryFabInput();
+  const blueprint = structuredClone(input.blueprint);
+  const lithography = blueprint.devices.find((device) => device.id === "lithography-1")!;
+  lithography.recipes = [...lithography.recipes!, {
+    process: "pattern-cell-layer-2",
+    mode: "qualified",
+    priority: 10,
+    inputs: { "annealed-dielectric-stack-lot": "reentrant-input" },
+    outputs: { "patterned-cell-l2-lot": "pattern-output" },
+  }];
+  lithography.policy = {
+    ...lithography.policy,
+    setupCampaign: { minimumReadyLots: 3, maximumHoldTicks: 12_000 },
+  };
+  const blocked = {
+    ...input,
+    branch: { nodeId: "candidate-6", parentNodeId: "candidate-4", role: "alternative" as const, depth: 5, leaderNodeId: "candidate-4" },
+    promotionBoundary: {
+      leaderNodeId: "candidate-4",
+      selectedNodeId: "candidate-6",
+      promotable: false,
+      aggregate: { leaderScore: -242.898902, selectedScore: -242.443118, scoreDelta: 0.455784 },
+      cases: [{
+        id: "lithography-interruption",
+        name: "Timed lithography interruption",
+        leaderScore: -246.599285,
+        selectedScore: -246.653952,
+        scoreDelta: -0.054667,
+        maximumScoreRegression: 0,
+        guardrailPassed: false,
+      }],
+      limitingCase: "lithography-interruption",
+      guardrail: { kind: "uniform" as const, passed: false, violations: ["lithography-interruption"] },
+    },
+    blueprint,
+  };
+  const repair = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose(blocked);
+  expect(repair).toMatchObject({
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    addressedCase: "lithography-interruption",
+    patch: [{
+      op: "replace",
+      path: `/devices/${blueprint.devices.indexOf(lithography)}/policy/setupCampaign`,
+      value: { minimumReadyLots: 3, maximumHoldTicks: 0 },
+    }],
+  });
+  expect(repair.addressedLoss).toBeUndefined();
+  expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(blueprint, repair.patch) })).not.toThrow();
+});
+
 test("project proposal providers cannot ignore or fabricate Core-owned loss evidence", async () => {
   const { root, input } = await memoryFabInput();
   const transport = input.fabLoss!.buckets.find((bucket) => bucket.id === "transport-blocking")!;

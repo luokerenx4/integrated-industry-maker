@@ -338,7 +338,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
     result: [expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research" })],
   });
 
-  const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "5", "--progress", "ndjson", "--json"]);
+  const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "7", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);
   const guardedProgress = guardedExecuted.stderr.trim().split("\n").map((line) => JSON.parse(line));
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
@@ -394,21 +394,62 @@ test("public Design Program workflow discovers, inspects, and executes without m
       leaderAfter: "candidate-4",
     }),
   });
+  const campaignRepairIteration = JSON.parse(guardedJson.stdout).data.result[6];
+  expect(campaignRepairIteration).toMatchObject({
+    iteration: 7,
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    decisionFamily: "setup-campaign",
+    addressedCase: "lithography-interruption",
+    promotionBoundary: {
+      leaderNodeId: "candidate-4",
+      selectedNodeId: "candidate-6",
+      promotable: false,
+      limitingCase: "lithography-interruption",
+      guardrail: { kind: "uniform", passed: false, violations: ["lithography-interruption"] },
+    },
+    decision: "KEEP",
+    decisionEvidence: {
+      basis: "current-best-improvement",
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    frontierEvidence: expect.objectContaining({
+      parent: { nodeId: "candidate-6", role: "alternative", depth: 5 },
+      candidateNodeId: "candidate-7",
+      outcome: "leader-promoted",
+      leaderAfter: "candidate-7",
+      alternativesAfter: ["candidate-6"],
+    }),
+  });
+  expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    phase: "proposal-completed",
+    iteration: 7,
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    addressedCase: "lithography-interruption",
+  }) }));
+  expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    phase: "candidate-completed",
+    iteration: 7,
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    addressedCase: "lithography-interruption",
+    decision: "KEEP",
+  }) }));
   const guardedHuman = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash]);
   expect(guardedHuman.stdout).toContain("fails current-best case guardrail · facility-interruption -3.915879 · allowed regression 0.000000");
   expect(guardedHuman.stdout).toContain("candidate-2 → candidate-3 · branch-retained");
   expect(guardedHuman.stdout).toContain("before blocked by facility-interruption -3.915879 · allowed regression 0.000000");
   expect(guardedHuman.stdout).toContain("repairs facility-interruption");
-  expect(guardedHuman.stdout).toContain("1 searchable · 1 exhausted · next candidate-4");
+  expect(guardedHuman.stdout).toContain("before blocked by lithography-interruption -0.054667 · allowed regression 0.000000");
+  expect(guardedHuman.stdout).toContain("repairs lithography-interruption");
+  expect(guardedHuman.stdout).toContain("2 searchable · 0 exhausted · next candidate-6");
   expect(guardedHuman.stdout).toContain("X01 EXHAUST alternative candidate-3 before iteration 5 · next candidate-4");
   const guardedFrontier = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "frontier", "--json"]);
   expect(JSON.parse(guardedFrontier.stdout).data.result).toMatchObject({
-    leader: "candidate-4",
-    alternatives: ["candidate-3"],
-    scheduler: { searchOrder: ["candidate-4"], exhausted: ["candidate-3"] },
+    leader: "candidate-7",
+    alternatives: ["candidate-6"],
+    scheduler: { searchOrder: ["candidate-6", "candidate-7"], exhausted: [] },
     nodes: [
-      expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
-      expect.objectContaining({ nodeId: "candidate-3", role: "alternative", searchStatus: "exhausted" }),
+      expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
+      expect.objectContaining({ nodeId: "candidate-6", role: "alternative", searchStatus: "searchable" }),
     ],
     exhaustions: [expect.objectContaining({ sequence: 1, nextNodeId: "candidate-4" })],
   });

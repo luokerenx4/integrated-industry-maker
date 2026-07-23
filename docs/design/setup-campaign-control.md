@@ -45,6 +45,8 @@ The first open-loop sweep evaluated 120 policies. Its best active campaign held 
 
 This negative result is useful: setup fragmentation is not repaired by idle holding alone in the current one-tool topology. The next physical hypotheses are parallel tool capacity, setup-group-specialized equipment, and cleaning/maintenance calendars. Campaign control remains a first-class Blueprint dimension for those layouts.
 
+The separate greenfield Design Program later reaches a different local context after release, maintenance, and facility repair. Its `3 / 12000` lithography campaign is aggregate-profitable but violates only the locked `lithography-interruption` case by `-0.054667` relative to the current leader. `strategies/research/campaign-repair.ts` reloads that immutable leader and the five-case Benchmark. A focused `minimumReadyLots: 3` sweep over hold thresholds from zero through three seconds finds every positive hold still regresses the interruption case; `3 / 0` alone is promotable. The resulting no-wait repair changes none of the first four leader case scores and improves `facility-interruption` by `+1.707292`, so the unchanged evaluator promotes it. The evidence does not imply that zero hold reduced setup work—it proves that preserving the explicit campaign shape without voluntary waiting is the robust policy at this frontier point.
+
 ## Verification
 
 ```bash
@@ -53,4 +55,6 @@ bun run inm analyze examples/memory-fab --blueprint experiment
 bun run memory-fab:research-campaign
 bun run memory-fab:research-campaign -- --maximum-wip 10 --reopen-at-wip 4 --release-dispatch fifo
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
+bun run inm design examples/memory-fab --program greenfield-dram-fab --run --max-candidates 4 --json
+bun examples/memory-fab/strategies/research/campaign-repair.ts --program greenfield-dram-fab --run-id 1628f3a52f31ff6d670f3e844315fa73d5232d8000a7b09c09974aa47f832263
 ```

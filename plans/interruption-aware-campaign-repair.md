@@ -1,8 +1,8 @@
 # Interruption-aware campaign repair
 
-- Status: `proposed`
+- Status: `active`
 - Updated: `2026-07-23`
-- Related design: [[docs/design/design-programs]], [[docs/design/equipment-changeover]], and [[docs/design/fab-loss-attribution]].
+- Related design: [[docs/design/design-programs]], [[docs/design/setup-campaign-control]], [[docs/design/equipment-changeover]], and [[docs/design/fab-loss-attribution]].
 
 ## Outcome
 
@@ -32,24 +32,26 @@ The branch then honestly becomes search-exhausted because the current project po
 
 ## Acceptance
 
-- [ ] Focused evidence explains which campaign thresholds are defensible repair candidates and why.
-- [ ] A blocked campaign alternative selects a deterministic repair naming the exact current `lithography-interruption` case.
-- [ ] The repair consumes one ordinary Candidate budget and the unchanged Benchmark decides its result.
-- [ ] CLI and Studio expose the before-blocker, repair target, after-decision, and resulting scheduler state consistently.
-- [ ] A real greenfield run records the campaign repair outcome without changing any evaluator-owned input.
+- [x] Focused evidence explains which campaign thresholds are defensible repair candidates and why.
+- [x] A blocked campaign alternative selects a deterministic repair naming the exact current `lithography-interruption` case.
+- [x] The repair consumes one ordinary Candidate budget and the unchanged Benchmark decides its result.
+- [x] CLI and Studio expose the before-blocker, repair target, after-decision, and resulting scheduler state consistently.
+- [x] A real greenfield run records the campaign repair outcome without changing any evaluator-owned input.
 - [ ] Provider, Core, CLI, Studio, documentation, and full regression pass.
 
 ## Work
 
-- [ ] Audit the campaign research grid and the retained alternative's five-case metrics.
-- [ ] Add the bounded project-local campaign repair portfolio and provider selection rule.
-- [ ] Update deterministic run expectations plus CLI/Studio evidence tests.
+- [x] Audit the campaign research grid and the retained alternative's five-case metrics.
+- [x] Add the bounded project-local campaign repair portfolio and provider selection rule.
+- [x] Update deterministic run expectations plus CLI/Studio evidence tests.
 - [ ] Generate real memory-fab evidence, run full regression, and audit completion.
 
 ## Findings and decisions
 
 - 2026-07-23 — The retained campaign is already profitable in aggregate and in four locked cases; its single `-0.054667` interruption regression is an exact refinement boundary, not justification for weakening the Program guardrail.
 - 2026-07-23 — Policy refinement precedes redundant equipment in this plan because it uses existing industrial controls and can be rejected cheaply by the unchanged Benchmark before topology expansion is considered.
+- 2026-07-23 — A `minimumReadyLots: 3` grid over `maximumHoldTicks` `0`, `250`, `500`, `750`, `1000`, `1500`, `2000`, `2500`, and `3000` found that every positive hold still regresses `lithography-interruption`; `3 / 0` is the sole promotable refinement, with zero score change in four cases and `+1.707292` in `facility-interruption` relative to the current leader.
+- 2026-07-23 — `maximumHoldTicks: 0` is an explicit no-wait campaign escape, not a claim that the ordinary setup reduction survives. It retains setup-aware selection but forbids voluntary waiting for compatible lots; only the unchanged five-case Benchmark may promote it.
 
 ## Verification
 
@@ -58,6 +60,11 @@ The branch then honestly becomes search-exhausted because the current project po
 ## Progress log
 
 - 2026-07-23 — Proposed from `candidate-6` in Design Run `ebb1a45fe61db1f5e20924d40d6b48df0933a672be1a834c7f4707352f904f78` after node-local exhaustion scheduling exposed the next exact blocker.
+- 2026-07-23 — Activated to measure campaign refinements directly from the immutable `candidate-4` leader before adding any repair to the Design portfolio.
+- 2026-07-23 — Added a project-local TypeScript research command that reloads the immutable leader and locked Benchmark, checks score drift, and reports aggregate, per-case, changeover, and hold evidence for a bounded policy grid.
+- 2026-07-23 — A clean clone can reconstruct the research incumbent with a current-source four-candidate run (`1628f3a52f31ff6d670f3e844315fa73d5232d8000a7b09c09974aa47f832263`) instead of depending on an untracked historical artifact.
+- 2026-07-23 — Design Run `59dca3faf587091dacb20f28bfb4b5020fd5b6d4ce4af718f335bb0b92383562` evaluates the repair as candidate 7. The unchanged Benchmark promotes it to score `-242.199221` (`+37.971590` from seed); candidate 6 remains a searchable non-dominated alternative and only candidate 3 is exhausted.
+- 2026-07-23 — Core, CLI, and Studio server evidence now agree on candidate 6's exact pre-repair blocker, candidate 7's `addressedCase`, KEEP decision, and final two-searchable-node scheduler state.
 
 ## Completion
 

@@ -207,15 +207,15 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     promotionBase: { blueprint: "generated-dram-fab", hash: hashValue(JSON.parse(targetBefore)) },
     budget: { maximum: 7, evaluated: 7 },
     frontier: {
-      leader: "candidate-4",
+      leader: "candidate-7",
       alternatives: ["candidate-6"],
-      scheduler: { searchOrder: ["candidate-4"], exhausted: ["candidate-6"] },
+      scheduler: { searchOrder: ["candidate-6", "candidate-7"], exhausted: [] },
       nodes: [
-        expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
-        expect.objectContaining({ nodeId: "candidate-6", role: "alternative", searchStatus: "exhausted" }),
+        expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
+        expect.objectContaining({ nodeId: "candidate-6", role: "alternative", searchStatus: "searchable" }),
       ],
     },
-    best: { iteration: 4, verdict: "KEEP" },
+    best: { iteration: 7, verdict: "KEEP" },
     stopReason: "budget-exhausted",
   });
   const promotionPatchOperations = first.manifest.best.promotionPatchOperations;
@@ -305,16 +305,6 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
       exhaustedAfter: ["candidate-3"],
       nextNodeId: "candidate-4",
     },
-    {
-      sequence: 2,
-      beforeIteration: 7,
-      node: { nodeId: "candidate-6", role: "alternative", depth: 5 },
-      reason: "proposal-exhausted",
-      searchOrderBefore: ["candidate-6", "candidate-4"],
-      searchOrderAfter: ["candidate-4"],
-      exhaustedAfter: ["candidate-6"],
-      nextNodeId: "candidate-4",
-    },
   ]);
   expect(first.manifest.iterations.slice(4).map((item) => ({
     iteration: item.iteration,
@@ -324,8 +314,35 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   }))).toEqual([
     { iteration: 5, parent: "candidate-4", strategy: "batch-formation:furnace-flex-30000", decision: "REJECT" },
     { iteration: 6, parent: "candidate-4", strategy: "setup-campaign:lithography-3-12000", decision: "BRANCH" },
-    { iteration: 7, parent: "candidate-4", strategy: "dispatch:conwip-10-7-edd", decision: "REJECT" },
+    { iteration: 7, parent: "candidate-6", strategy: "setup-campaign:lithography-3-0-interruption-escape", decision: "KEEP" },
   ]);
+  expect(first.manifest.iterations[6]).toMatchObject({
+    addressedCase: "lithography-interruption",
+    promotionBoundary: {
+      leaderNodeId: "candidate-4",
+      selectedNodeId: "candidate-6",
+      promotable: false,
+      limitingCase: "lithography-interruption",
+      guardrail: { kind: "uniform", passed: false, violations: ["lithography-interruption"] },
+    },
+    decisionEvidence: {
+      basis: "current-best-improvement",
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    frontierEvidence: {
+      parent: { nodeId: "candidate-6", role: "alternative", depth: 5 },
+      candidateNodeId: "candidate-7",
+      outcome: "leader-promoted",
+      leaderAfter: "candidate-7",
+      alternativesAfter: ["candidate-6"],
+      searchOrderAfter: ["candidate-6", "candidate-7"],
+      exhaustedAfter: [],
+    },
+  });
+  expect(first.manifest.iterations[6]!.promotionBoundary.aggregate.scoreDelta).toBeCloseTo(0.45578375, 8);
+  expect(first.manifest.iterations[6]!.promotionBoundary.cases.find((item) => item.id === "lithography-interruption")!.scoreDelta).toBeCloseTo(-0.0546675, 8);
+  expect(first.manifest.iterations[6]!.decisionEvidence!.aggregate.scoreDelta).toBeCloseTo(0.24389893, 8);
+  expect(first.manifest.best.candidateScore).toBeCloseTo(-242.19922104, 8);
   const guardedEvidence = first.manifest.iterations[2]!.decisionEvidence!;
   expect(guardedEvidence.aggregate.scoreDelta > 7).toBeTrue();
   expect(guardedEvidence.cases.map((item) => item.id)).toEqual(["steady-production", "mixed-quality", "quality-excursion", "lithography-interruption", "facility-interruption"]);
@@ -347,7 +364,6 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   }));
   expect(progress.filter((event) => event.phase === "node-exhausted")).toEqual([
     expect.objectContaining({ phase: "node-exhausted", exhaustion: expect.objectContaining({ sequence: 1, node: expect.objectContaining({ nodeId: "candidate-3" }), nextNodeId: "candidate-4" }) }),
-    expect.objectContaining({ phase: "node-exhausted", exhaustion: expect.objectContaining({ sequence: 2, node: expect.objectContaining({ nodeId: "candidate-6" }), nextNodeId: "candidate-4" }) }),
   ]);
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "proposal-started",
@@ -366,6 +382,19 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     iteration: 4,
     strategy: "facility:utility-n-plus-one",
     addressedCase: "facility-interruption",
+    decision: "KEEP",
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "proposal-completed",
+    iteration: 7,
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    addressedCase: "lithography-interruption",
+  }));
+  expect(progress).toContainEqual(expect.objectContaining({
+    phase: "candidate-completed",
+    iteration: 7,
+    strategy: "setup-campaign:lithography-3-0-interruption-escape",
+    addressedCase: "lithography-interruption",
     decision: "KEEP",
   }));
   expect(progress).toContainEqual(expect.objectContaining({
@@ -418,7 +447,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   }, true);
   await rejectTampered((manifest) => { manifest.exhaustions.reverse(); });
   await rejectTampered((manifest) => { manifest.exhaustions[0]!.nextNodeId = "candidate-3"; });
-  await rejectTampered((manifest) => { manifest.frontier.nodes[1]!.searchStatus = "searchable"; });
+  await rejectTampered((manifest) => { manifest.frontier.nodes[1]!.searchStatus = "exhausted"; });
   await rejectTampered((manifest) => { manifest.stopReason = "frontier-exhausted"; });
   expect(await listDesignRuns(copy, "greenfield-dram-fab")).toEqual([
     expect.objectContaining({
