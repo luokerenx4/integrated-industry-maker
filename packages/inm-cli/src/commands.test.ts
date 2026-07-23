@@ -575,7 +575,7 @@ test("public inspect exposes compatible-run memory-fab loss attribution without 
     section: "losses",
     result: expect.objectContaining({
       version: 4,
-      run: { id: "062-simulate", resultHash: "6978e920a06687ba80ea0abac0c32d5f2286df7dd890e23144050dfc96faa7b4" },
+      run: { id: "064-simulate", resultHash: "a400286cadc9ae78a79217677ecf65780abd3e53e05a733e64f76863e85d0850" },
       family: "dram-wafer",
       outcome: expect.objectContaining({
         deliveryShortfall: 15,

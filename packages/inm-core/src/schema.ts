@@ -16,6 +16,25 @@ export const resourceVisualSchema = z.object({
   icon: relativeAssetFile.nullable(),
 }).strict();
 
+const deviceMaterialMapsSchema = z.object({
+  baseColor: relativeAssetFile.nullable(),
+  normal: relativeAssetFile.nullable(),
+  roughness: relativeAssetFile.nullable(),
+  metalness: relativeAssetFile.nullable(),
+  emissive: relativeAssetFile.nullable(),
+}).strict();
+
+const deviceMaterialSchema = z.object({
+  baseColor: visualColor,
+  maps: deviceMaterialMapsSchema,
+  metalness: z.number().min(0).max(1),
+  roughness: z.number().min(0).max(1),
+  normalScale: z.number().min(0).max(4),
+  emissiveColor: visualColor,
+  emissiveIntensity: z.number().min(0).max(4),
+  repeat: z.object({ x: z.number().positive().max(64), y: z.number().positive().max(64) }).strict(),
+}).strict();
+
 export const deviceVisualSchema = z.object({
   shape: z.enum([
     "box", "cylinder", "sphere", "plane",
@@ -24,9 +43,8 @@ export const deviceVisualSchema = z.object({
     "service-bay", "storage-rack", "utility-skid", "wind-turbine", "bin",
   ]),
   height: z.number().positive(),
-  texture: relativeAssetFile.nullable(),
   model: relativeAssetFile.nullable(),
-  color: visualColor.nullable(),
+  material: deviceMaterialSchema,
   label: z.string(),
 }).strict();
 

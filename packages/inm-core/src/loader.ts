@@ -154,12 +154,31 @@ async function loadDevices(rootDir: string): Promise<Record<string, DeviceAsset>
     if (catalog[manifest.id]) throw new InmValidationError([{ path: assetDir, code: "reference.duplicate", message: `Duplicate device id '${manifest.id}'` }]);
     const hash = await contentHash(assetDir);
     const visual = await parseFile<DeviceVisual>(assetFile(assetDir, manifest.files.visual), "device-visual");
-    await verifyReferencedFiles(assetDir, [visual.texture, visual.model]);
+    const materialMaps = visual.material.maps;
+    await verifyReferencedFiles(assetDir, [
+      visual.model,
+      materialMaps.baseColor,
+      materialMaps.normal,
+      materialMaps.roughness,
+      materialMaps.metalness,
+      materialMaps.emissive,
+    ]);
     const program = await importDeviceProgram(manifest.id, assetFile(assetDir, manifest.runtime.entry), hash);
     catalog[manifest.id] = {
       ...manifest, assetDir, contentHash: hash, runtimeSourceHash: hash, program,
       visual: {
-        ...visual, texture: projectFile(rootDir, assetDir, visual.texture), model: projectFile(rootDir, assetDir, visual.model),
+        ...visual,
+        model: projectFile(rootDir, assetDir, visual.model),
+        material: {
+          ...visual.material,
+          maps: {
+            baseColor: projectFile(rootDir, assetDir, materialMaps.baseColor),
+            normal: projectFile(rootDir, assetDir, materialMaps.normal),
+            roughness: projectFile(rootDir, assetDir, materialMaps.roughness),
+            metalness: projectFile(rootDir, assetDir, materialMaps.metalness),
+            emissive: projectFile(rootDir, assetDir, materialMaps.emissive),
+          },
+        },
       },
     };
   }

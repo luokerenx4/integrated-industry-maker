@@ -12,14 +12,36 @@ import { DesignWorkbench } from "./design-workbench";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 
-interface Visual {
+interface ResourceVisual {
   shape?: string;
-  height?: number;
   color?: string | null;
-  label?: string;
   texture?: string | null;
-  model?: string | null;
   icon?: string | null;
+}
+
+interface DeviceMaterialVisual {
+  baseColor: string;
+  maps: {
+    baseColor: string | null;
+    normal: string | null;
+    roughness: string | null;
+    metalness: string | null;
+    emissive: string | null;
+  };
+  metalness: number;
+  roughness: number;
+  normalScale: number;
+  emissiveColor: string;
+  emissiveIntensity: number;
+  repeat: { x: number; y: number };
+}
+
+interface DeviceVisual {
+  shape: string;
+  height: number;
+  label: string;
+  model: string | null;
+  material: DeviceMaterialVisual;
 }
 
 interface ProjectSummary {
@@ -89,7 +111,7 @@ interface Device {
   position: { x: number; y: number };
   rotation: number;
   footprint: { width: number; height: number };
-  visual: Visual;
+  visual: DeviceVisual;
   transportEndpoint?: { connection: string; stage: "loader" | "unloader"; distance: number };
   recipe?: DeviceRecipe;
   recipes?: DeviceRecipe[];
@@ -152,7 +174,7 @@ interface DeviceCatalogAsset {
     storage?: { capacityMilliJoules: number; chargeMilliWatts: number; dischargeMilliWatts: number };
   };
   economics: { buildCost: number };
-  visual: Visual;
+  visual: DeviceVisual;
   contentHash: string;
   instanceCount: number;
   fleetCount: number;
@@ -168,7 +190,7 @@ interface ResourceCatalogAsset {
   transport: { stackSize: number };
   tracking?: { kind: "lot"; family: string; route: string };
   fuel?: { energyMilliJoules: number };
-  visual: Visual;
+  visual: ResourceVisual;
   contentHash: string;
 }
 
@@ -527,7 +549,7 @@ interface StudioData {
     id: string; network: string; resource: string; fromDevice: string; toDevice: string;
     from: { x: number; y: number }; to: { x: number; y: number };
   }>;
-  resources: Record<string, { visual?: Visual }>;
+  resources: Record<string, { visual?: ResourceVisual }>;
   electricityTariffs: Array<{
     region: string; periodTicks: number; demandChargeMicroCurrencyPerKiloWatt: number;
     points: Array<{ atTick: number; energyPriceMicroCurrencyPerKiloWattHour: number }>;
@@ -696,10 +718,56 @@ function FactoryTexture({ projectId, path, color, processing }: { projectId: str
   return <meshStandardMaterial map={texture} color={color} metalness={.32} roughness={.48} emissive={color} emissiveIntensity={processing ? .16 : .02} />;
 }
 
-function PrimitiveMaterial({ projectId, texture, color, processing }: { projectId: string; texture?: string | null; color: string; processing: boolean }) {
-  return texture
-    ? <FactoryTexture projectId={projectId} path={texture} color={color} processing={processing} />
-    : <meshStandardMaterial color={color} metalness={.45} roughness={.38} emissive={color} emissiveIntensity={processing ? .22 : .03} />;
+type DeviceMaterialMapName = keyof DeviceMaterialVisual["maps"];
+
+function TexturedDeviceMaterial({ projectId, material, color, processing, entries }: {
+  projectId: string;
+  material: DeviceMaterialVisual;
+  color: string;
+  processing: boolean;
+  entries: Array<[DeviceMaterialMapName, string]>;
+}) {
+  const loaded = useTexture(entries.map(([, path]) => fileUrl(projectId, path))) as THREE.Texture[];
+  const textures = Object.fromEntries(entries.map(([name], index) => [name, loaded[index]!])) as Partial<Record<DeviceMaterialMapName, THREE.Texture>>;
+  for (const [name, texture] of Object.entries(textures) as Array<[DeviceMaterialMapName, THREE.Texture]>) {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(material.repeat.x, material.repeat.y);
+    texture.colorSpace = name === "baseColor" || name === "emissive" ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    texture.anisotropy = 8;
+  }
+  const emissive = processing ? color : material.emissiveColor;
+  const emissiveIntensity = processing ? Math.max(.2, material.emissiveIntensity) : material.emissiveIntensity;
+  return <meshStandardMaterial
+    color={color}
+    map={textures.baseColor}
+    normalMap={textures.normal}
+    normalScale={new THREE.Vector2(material.normalScale, material.normalScale)}
+    roughness={material.roughness}
+    roughnessMap={textures.roughness}
+    metalness={material.metalness}
+    metalnessMap={textures.metalness}
+    emissive={emissive}
+    emissiveMap={textures.emissive}
+    emissiveIntensity={emissiveIntensity}
+  />;
+}
+
+function DeviceSurfaceMaterial({ projectId, material, color, processing }: {
+  projectId: string;
+  material: DeviceMaterialVisual;
+  color: string;
+  processing: boolean;
+}) {
+  const entries = Object.entries(material.maps).filter((entry): entry is [DeviceMaterialMapName, string] => entry[1] !== null);
+  if (entries.length) return <TexturedDeviceMaterial projectId={projectId} material={material} color={color} processing={processing} entries={entries} />;
+  return <meshStandardMaterial
+    color={color}
+    metalness={material.metalness}
+    roughness={material.roughness}
+    emissive={processing ? color : material.emissiveColor}
+    emissiveIntensity={processing ? Math.max(.2, material.emissiveIntensity) : material.emissiveIntensity}
+  />;
 }
 
 function DetailMaterial({ color, processing, dark = false, glass = false }: { color: string; processing: boolean; dark?: boolean; glass?: boolean }) {
@@ -726,7 +794,7 @@ function ProcessBayBody({ projectId, device, height, color, processing }: { proj
   const depth = device.footprint.height * .86;
   return <group>
     <RoundedBox args={[width, height * .72, depth * .82]} position={[0, -.02, depth * .05]} radius={.1} smoothness={3} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     <RoundedBox args={[width * .68, height * .25, depth * .22]} position={[0, -height * .28, -depth * .48]} radius={.05} smoothness={2} castShadow>
       <DetailMaterial color={color} processing={processing} dark />
@@ -746,7 +814,7 @@ function ScannerCellBody({ projectId, device, height, color, processing }: { pro
   return <group>
     {[-.23, .23].map((x, index) => <RoundedBox key={x} args={[width * .48, height * (index ? .7 : .82), depth * .72]} position={[width * x, -.03, depth * (index ? .07 : -.03)]} radius={.09} smoothness={3} castShadow receiveShadow>
       {index === 0
-        ? <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+        ? <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
         : <DetailMaterial color={color} processing={processing} dark />}
     </RoundedBox>)}
     <mesh position={[0, height * .12, -depth * .39]} castShadow>
@@ -764,7 +832,7 @@ function ChamberToolBody({ projectId, device, height, color, processing }: { pro
   const chamberRadius = Math.min(width, depth) * .17;
   return <group>
     <RoundedBox args={[width * .5, height * .78, depth * .62]} position={[0, 0, depth * .1]} radius={.08} smoothness={3} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     {[-.31, .31].map((x) => <group key={x} position={[width * x, -height * .08, -depth * .13]}>
       <mesh castShadow receiveShadow><cylinderGeometry args={[chamberRadius, chamberRadius * 1.08, height * .46, 32]} /><DetailMaterial color={color} processing={processing} dark /></mesh>
@@ -781,7 +849,7 @@ function VerticalFurnaceBody({ projectId, device, height, color, processing }: {
   const depth = device.footprint.height * .84;
   return <group>
     <RoundedBox args={[width, height * .28, depth]} position={[0, -height * .36, 0]} radius={.07} smoothness={3} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     {[-.24, 0, .24].map((x) => <group key={x} position={[width * x, height * .08, 0]}>
       <mesh castShadow receiveShadow><cylinderGeometry args={[width * .13, width * .15, height * .72, 32]} /><DetailMaterial color={color} processing={processing} dark={x !== 0} /></mesh>
@@ -795,7 +863,7 @@ function MetrologyCellBody({ projectId, device, height, color, processing, probe
   const depth = device.footprint.height * .86;
   return <group>
     <RoundedBox args={[width, height * .42, depth]} position={[0, -height * .29, 0]} radius={.08} smoothness={3} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     <RoundedBox args={[width * .68, height * .42, depth * .64]} position={[0, height * .12, depth * .04]} radius={.13} smoothness={4} castShadow>
       <DetailMaterial color={probe ? "#72d8cb" : "#8fd7ff"} processing={processing} glass />
@@ -815,7 +883,7 @@ function EquipmentRackBody({ projectId, device, height, color, processing }: { p
   const depth = device.footprint.height * .82;
   return <group>
     <RoundedBox args={[width, height * .94, depth]} radius={.06} smoothness={2} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     {[-.3, -.1, .1, .3].map((y, index) => <mesh key={y} position={[0, height * y, -depth * .51]}>
       <boxGeometry args={[width * .82, height * .11, .035]} /><DetailMaterial color={index % 2 ? "#17333b" : color} processing={processing} dark={index % 2 === 1} />
@@ -831,7 +899,7 @@ function PackagingCellBody({ projectId, device, height, color, processing }: { p
   const depth = device.footprint.height * .86;
   return <group>
     {[-.27, .27].map((x) => <RoundedBox key={x} args={[width * .42, height * .48, depth * .68]} position={[width * x, -height * .22, 0]} radius={.07} smoothness={3} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>)}
     {[-.42, .42].map((x) => <mesh key={x} position={[width * x, height * .16, 0]} castShadow>
       <boxGeometry args={[.07, height * .64, .07]} /><DetailMaterial color={color} processing={processing} dark />
@@ -850,7 +918,7 @@ function ServiceBayBody({ projectId, device, height, color, processing }: { proj
   const depth = device.footprint.height * .84;
   return <group>
     <RoundedBox args={[width, height * .16, depth]} position={[0, -height * .42, 0]} radius={.04} smoothness={2} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     {[-.42, .42].flatMap((x) => [-.38, .38].map((z) => <mesh key={`${x}-${z}`} position={[width * x, 0, depth * z]} castShadow>
       <boxGeometry args={[.08, height * .78, .08]} /><DetailMaterial color={color} processing={processing} dark />
@@ -869,7 +937,7 @@ function StorageRackBody({ projectId, device, height, color, processing, bin = f
   const depth = device.footprint.height * .8;
   if (bin) return <group>
     <RoundedBox args={[width, height * .7, depth]} position={[0, -height * .12, 0]} radius={.05} smoothness={2} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     <mesh position={[0, height * .25, 0]}><boxGeometry args={[width * .78, .04, depth * .72]} /><DetailMaterial color="#071217" processing={processing} dark /></mesh>
   </group>;
@@ -878,7 +946,7 @@ function StorageRackBody({ projectId, device, height, color, processing, bin = f
       <boxGeometry args={[.06, height * .92, .06]} /><DetailMaterial color={color} processing={processing} dark />
     </mesh>))}
     {[-.42, -.14, .14, .42].map((y) => <mesh key={y} position={[0, height * y, 0]} castShadow receiveShadow>
-      <boxGeometry args={[width, .07, depth]} /><PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <boxGeometry args={[width, .07, depth]} /><DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </mesh>)}
   </group>;
 }
@@ -889,7 +957,7 @@ function UtilitySkidBody({ projectId, device, height, color, processing }: { pro
   const radius = Math.min(width, depth) * .2;
   return <group>
     <RoundedBox args={[width, height * .1, depth]} position={[0, -height * .45, 0]} radius={.04} smoothness={2} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     {[-.25, .25].map((x, index) => <group key={x} position={[width * x, -height * .02, index ? depth * .08 : -depth * .08]}>
       <mesh castShadow receiveShadow><cylinderGeometry args={[radius, radius * 1.04, height * (index ? .72 : .82), 32]} /><DetailMaterial color={color} processing={processing} dark={index === 1} /></mesh>
@@ -907,7 +975,7 @@ function WindTurbineBody({ projectId, device, height, color, processing }: { pro
   const bladeLength = Math.min(width, height) * .36;
   return <group>
     <RoundedBox args={[width, height * .08, depth]} position={[0, -height * .46, 0]} radius={.04} smoothness={2} castShadow receiveShadow>
-      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+      <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />
     </RoundedBox>
     <mesh position={[0, -height * .05, 0]} castShadow receiveShadow>
       <cylinderGeometry args={[width * .055, width * .13, height * .82, 24]} /><DetailMaterial color={color} processing={processing} />
@@ -941,7 +1009,7 @@ function DeviceBody({ projectId, device, height, color, processing }: { projectI
   if (device.visual.shape === "utility-skid") return <UtilitySkidBody {...props} />;
   if (device.visual.shape === "wind-turbine") return <WindTurbineBody {...props} />;
   if (device.visual.shape === "bin") return <StorageRackBody {...props} bin />;
-  const material = <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />;
+  const material = <DeviceSurfaceMaterial projectId={projectId} material={device.visual.material} color={color} processing={processing} />;
   if (device.visual.shape === "cylinder") return <mesh castShadow receiveShadow><cylinderGeometry args={[device.footprint.width * .42, device.footprint.width * .48, height, 32]} />{material}</mesh>;
   if (device.visual.shape === "sphere") return <mesh castShadow receiveShadow><sphereGeometry args={[Math.min(device.footprint.width, device.footprint.height, height) * .48, 32, 24]} />{material}</mesh>;
   if (device.visual.shape === "plane") return <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow><boxGeometry args={[device.footprint.width * .88, device.footprint.height * .88, .12]} />{material}</mesh>;
@@ -952,7 +1020,7 @@ function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelec
   projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean; selected: boolean; onSelect: () => void;
 }) {
   const height = device.transportEndpoint ? .34 : device.visual.height ?? 1.25;
-  const baseColor = device.visual.color ?? "#475569";
+  const baseColor = device.visual.material.baseColor;
   const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
   const showTelemetry = selected || bottleneck || frame.status !== "idle";
   const position: [number, number, number] = [device.position.x + device.footprint.width / 2, height / 2, device.position.y + device.footprint.height / 2];
@@ -1332,8 +1400,9 @@ function SceneInspector({ data, frame, selection, onClose, onSelection }: {
 function AssetGlyph({ projectId, asset }: { projectId: string; asset: DeviceCatalogAsset | ResourceCatalogAsset | ProcessCatalogAsset | RouteCatalogAsset }) {
   if (asset.type === "process") return <span className="asset-glyph process">ƒ</span>;
   if (asset.type === "route") return <span className="asset-glyph process">⇢</span>;
-  if (asset.visual.icon) return <img className="asset-icon-image" src={fileUrl(projectId, asset.visual.icon)} alt="" />;
-  return <span className={`asset-glyph ${asset.visual.shape ?? "box"}`} style={{ "--asset-color": asset.visual.color ?? "#4f7f86" } as React.CSSProperties} />;
+  if (asset.type === "resource" && asset.visual.icon) return <img className="asset-icon-image" src={fileUrl(projectId, asset.visual.icon)} alt="" />;
+  const color = asset.type === "device" ? asset.visual.material.baseColor : asset.visual.color ?? "#4f7f86";
+  return <span className={`asset-glyph ${asset.visual.shape ?? "box"}`} style={{ "--asset-color": color } as React.CSSProperties} />;
 }
 
 function AssetBrowser({ data, initialKind = "devices", initialId, onNavigate, onClose }: {
@@ -1421,6 +1490,7 @@ function AssetBrowser({ data, initialKind = "devices", initialId, onNavigate, on
               {selected.power.sleep && <section className="asset-section"><h4>Low-power idle</h4><div className="asset-table"><div><b>{(selected.power.sleep.idleMilliWatts / 1000).toFixed(1)} W asleep</b><strong>{formatTick(selected.power.sleep.wakeDurationTicks)} wake @ {(selected.power.sleep.wakePowerMilliWatts / 1000).toFixed(1)} W</strong><span>Blueprint-controlled idle threshold</span><code>asset-owned wake physics</code></div></div></section>}
               {selected.power.storage && <section className="asset-section"><h4>Power storage</h4><div className="asset-table"><div><b>{(selected.power.storage.capacityMilliJoules / 1e6).toFixed(3)} MJ</b><strong>+{(selected.power.storage.chargeMilliWatts / 1000).toFixed(0)} / −{(selected.power.storage.dischargeMilliWatts / 1000).toFixed(0)} W</strong><span>charge / discharge</span><code>deterministic grid buffer</code></div></div></section>}
               {selected.power.distribution && <section className="asset-section"><h4>Power distribution</h4><div className="asset-table"><div><b>grid reach</b><strong>{selected.power.distribution.connectionRange} cells</strong><span>coverage</span><code>{selected.power.distribution.coverageRange} cells</code></div></div></section>}
+              <section className="asset-section"><h4>Presentation material</h4><div className="asset-table"><div><b>{selected.visual.shape}</b><strong>{selected.visual.material.baseColor}</strong><span>{selected.visual.material.metalness.toFixed(2)} metal · {selected.visual.material.roughness.toFixed(2)} rough</span><code>{Object.values(selected.visual.material.maps).filter(Boolean).length} texture maps · repeat {selected.visual.material.repeat.x}×{selected.visual.material.repeat.y}</code></div></div></section>
               <section className="asset-section"><h4>Ports</h4><div className="asset-table">{selected.geometry.ports.map((port) => <div key={port.id}><b className={port.direction}>{port.direction === "input" ? "IN" : "OUT"}</b><strong>{port.id}</strong><span>{port.side}</span><code>{port.buffer}</code></div>)}</div></section>
               <section className="asset-section"><h4>Buffers</h4><div className="asset-table">{selected.buffers.map((buffer) => <div key={buffer.id}><b>{buffer.role}</b><strong>{buffer.id}</strong><span>cap {buffer.capacity}</span><code>{buffer.accepts.join(", ")}</code></div>)}</div></section>
               <section className="asset-section compact"><h4>Runtime</h4><code>{selected.runtime.entry}</code></section>

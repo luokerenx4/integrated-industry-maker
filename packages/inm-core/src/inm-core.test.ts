@@ -3167,12 +3167,36 @@ describe("deterministic discrete-event simulation", () => {
     const withVisual = compileFactoryProject(await loaded()); const source = await loaded();
     for (const resource of Object.values(source.resources)) resource.visual.color = "#ffffff";
     for (const device of Object.values(source.deviceAssets)) {
-      device.visual.color = "#000000";
+      device.visual.material.baseColor = "#000000";
       device.visual.shape = "process-bay";
     }
     const recolored = compileFactoryProject(source);
     const first = runUntil(withVisual, undefined, { seed: 42 }); const second = runUntil(recolored, undefined, { seed: 42 });
     expect(first.events).toEqual(second.events); expect(first.state).toEqual(second.state); expect(first.metrics).toEqual(second.metrics);
+  });
+
+  test("Device PBR maps resolve inside their self-contained asset package", async () => {
+    const project = await openFactoryProject(memoryFab);
+    const visual = project.deviceAssets["plasma-etch-bay"]!.visual;
+    expect(visual.material.maps).toEqual({
+      baseColor: "assets/devices/plasma-etch-bay/equipment-base-color.png",
+      normal: "assets/devices/plasma-etch-bay/equipment-normal.png",
+      roughness: "assets/devices/plasma-etch-bay/equipment-roughness.png",
+      metalness: "assets/devices/plasma-etch-bay/equipment-metalness.png",
+      emissive: null,
+    });
+    for (const file of Object.values(visual.material.maps)) {
+      if (file !== null) expect(await Bun.file(join(memoryFab, file)).exists()).toBeTrue();
+    }
+  });
+
+  test("Device PBR maps must reference readable package-local files", async () => {
+    const dir = await projectCopy();
+    const visualPath = join(dir, "assets/devices/smelter/visual.json");
+    const visual = JSON.parse(await readFile(visualPath, "utf8"));
+    visual.material.maps.normal = "missing-normal.png";
+    await writeFile(visualPath, `${JSON.stringify(visual, null, 2)}\n`);
+    expect(loadFactoryProject(dir)).rejects.toThrow("Cannot read referenced asset file");
   });
 
   test("one TypeScript device program can consume and produce multiple resource streams", async () => {

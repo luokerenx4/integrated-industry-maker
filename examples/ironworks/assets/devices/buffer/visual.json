@@ -1,8 +1,25 @@
 {
   "shape": "box",
-  "height": 1.0,
-  "texture": null,
+  "height": 1,
   "model": null,
-  "color": "#c1a15a",
+  "material": {
+    "baseColor": "#c1a15a",
+    "maps": {
+      "baseColor": null,
+      "normal": null,
+      "roughness": null,
+      "metalness": null,
+      "emissive": null
+    },
+    "metalness": 0.45,
+    "roughness": 0.38,
+    "normalScale": 0.65,
+    "emissiveColor": "#000000",
+    "emissiveIntensity": 0,
+    "repeat": {
+      "x": 1,
+      "y": 1
+    }
+  },
   "label": "BUF"
 }

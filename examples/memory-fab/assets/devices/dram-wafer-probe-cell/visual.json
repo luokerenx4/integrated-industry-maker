@@ -1,8 +1,25 @@
 {
   "shape": "probe-cell",
   "height": 2.4,
-  "texture": null,
   "model": null,
-  "color": "#43b8a8",
+  "material": {
+    "baseColor": "#43b8a8",
+    "maps": {
+      "baseColor": "equipment-base-color.png",
+      "normal": "equipment-normal.png",
+      "roughness": "equipment-roughness.png",
+      "metalness": "equipment-metalness.png",
+      "emissive": null
+    },
+    "metalness": 0.55,
+    "roughness": 0.62,
+    "normalScale": 0.68,
+    "emissiveColor": "#000000",
+    "emissiveIntensity": 0,
+    "repeat": {
+      "x": 1.25,
+      "y": 1.25
+    }
+  },
   "label": "DRAM WAFER PROBE CELL"
 }

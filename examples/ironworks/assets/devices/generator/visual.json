@@ -1,8 +1,25 @@
 {
   "shape": "cylinder",
-  "height": 2.0,
-  "texture": null,
+  "height": 2,
   "model": null,
-  "color": "#e6c84f",
+  "material": {
+    "baseColor": "#e6c84f",
+    "maps": {
+      "baseColor": null,
+      "normal": null,
+      "roughness": null,
+      "metalness": null,
+      "emissive": null
+    },
+    "metalness": 0.45,
+    "roughness": 0.38,
+    "normalScale": 0.65,
+    "emissiveColor": "#000000",
+    "emissiveIntensity": 0,
+    "repeat": {
+      "x": 1,
+      "y": 1
+    }
+  },
   "label": "PWR"
 }

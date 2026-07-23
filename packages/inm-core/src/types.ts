@@ -15,6 +15,23 @@ export interface ResourceVisual {
   icon: string | null;
 }
 
+export interface DeviceMaterialVisual {
+  baseColor: string;
+  maps: {
+    baseColor: string | null;
+    normal: string | null;
+    roughness: string | null;
+    metalness: string | null;
+    emissive: string | null;
+  };
+  metalness: number;
+  roughness: number;
+  normalScale: number;
+  emissiveColor: string;
+  emissiveIntensity: number;
+  repeat: { x: number; y: number };
+}
+
 export interface DeviceVisual {
   shape:
     | "box"
@@ -35,9 +52,8 @@ export interface DeviceVisual {
     | "wind-turbine"
     | "bin";
   height: number;
-  texture: string | null;
   model: string | null;
-  color: string | null;
+  material: DeviceMaterialVisual;
   label: string;
 }
 

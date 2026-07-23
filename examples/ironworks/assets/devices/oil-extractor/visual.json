@@ -1,1 +1,25 @@
-{ "shape": "cylinder", "height": 1.7, "texture": null, "model": null, "color": "#354252", "label": "PUMP" }
+{
+  "shape": "cylinder",
+  "height": 1.7,
+  "model": null,
+  "material": {
+    "baseColor": "#354252",
+    "maps": {
+      "baseColor": null,
+      "normal": null,
+      "roughness": null,
+      "metalness": null,
+      "emissive": null
+    },
+    "metalness": 0.45,
+    "roughness": 0.38,
+    "normalScale": 0.65,
+    "emissiveColor": "#000000",
+    "emissiveIntensity": 0,
+    "repeat": {
+      "x": 1,
+      "y": 1
+    }
+  },
+  "label": "PUMP"
+}

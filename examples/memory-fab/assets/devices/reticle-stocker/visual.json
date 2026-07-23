@@ -1,8 +1,25 @@
 {
   "shape": "storage-rack",
   "height": 1.8,
-  "texture": null,
   "model": null,
-  "color": "#9f6be8",
+  "material": {
+    "baseColor": "#9f6be8",
+    "maps": {
+      "baseColor": "equipment-base-color.png",
+      "normal": "equipment-normal.png",
+      "roughness": "equipment-roughness.png",
+      "metalness": "equipment-metalness.png",
+      "emissive": null
+    },
+    "metalness": 0.42,
+    "roughness": 0.68,
+    "normalScale": 0.74,
+    "emissiveColor": "#000000",
+    "emissiveIntensity": 0,
+    "repeat": {
+      "x": 1.5,
+      "y": 1.5
+    }
+  },
   "label": "RETICLES"
 }

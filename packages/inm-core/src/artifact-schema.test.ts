@@ -26,3 +26,16 @@ test("strict Zod object contracts remain closed in exported JSON Schemas", () =>
     expect(root.required).toEqual(expect.any(Array));
   }
 });
+
+test("Device visual schema exposes only the strict PBR material contract", () => {
+  const schema = projectArtifactJsonSchema("device-visual");
+  const root = (schema.definitions as Record<string, {
+    properties: Record<string, unknown>;
+    required: string[];
+  }>)["device-visual"]!;
+  expect(root.required).toContain("material");
+  expect(root.properties).not.toHaveProperty("texture");
+  expect(root.properties).not.toHaveProperty("color");
+  expect(JSON.stringify(root.properties.material)).toContain("normalScale");
+  expect(JSON.stringify(root.properties.material)).toContain("emissiveIntensity");
+});

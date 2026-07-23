@@ -1,8 +1,25 @@
 {
   "shape": "wind-turbine",
   "height": 2.6,
-  "texture": null,
   "model": null,
-  "color": "#b9d9df",
+  "material": {
+    "baseColor": "#b9d9df",
+    "maps": {
+      "baseColor": "equipment-base-color.png",
+      "normal": "equipment-normal.png",
+      "roughness": "equipment-roughness.png",
+      "metalness": "equipment-metalness.png",
+      "emissive": null
+    },
+    "metalness": 0.5,
+    "roughness": 0.66,
+    "normalScale": 0.66,
+    "emissiveColor": "#000000",
+    "emissiveIntensity": 0,
+    "repeat": {
+      "x": 1.2,
+      "y": 1.2
+    }
+  },
   "label": "WIND"
 }
