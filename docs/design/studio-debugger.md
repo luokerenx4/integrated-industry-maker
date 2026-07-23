@@ -46,7 +46,9 @@ Regions are independent labeled cleanroom-style floors arranged side by side. Lo
 
 Each procedural Device also owns a strict PBR material: base tint, optional base-color/normal/roughness/metalness/emissive maps, scalar response, normal strength, emissive baseline, and two-axis repeat. Studio samples color maps as sRGB, data maps as linear, and uses repeat wrapping for deterministic procedural UVs. Every map is served from its owning Device package; a copied material is a copied set of files, not a shared library reference. Dynamic process emission, status, selection, progress, and labels remain overlay concerns rather than baked texture content. A project-local GLTF/GLB model replaces the procedural body and retains its embedded materials.
 
-The default perspective camera fits the compiled region bounds against the live viewport and preserves orbit controls. Subtle floor sections, boundary lines, asymmetric fill lighting, and compact always-visible identity labels establish spatial context; detailed status, Process, and Resource text appears only for selected, bottleneck, or non-idle equipment. A physical status beacon, progress surface, selection ring, and bottleneck ring retain runtime evidence without forcing every Device to carry a permanent telemetry stack. Sorter stage start/finish, power loss/restoration, breakdown, and recovery events drive the attachment's own visible status. Opening or scrubbing never runs a hidden simulation.
+Factory presentation has three deterministic scales over the same compiled geometry: overview fits the complete region bounds, work-cell frames an aspect-aware area around the equipment fleet's centroid, and focus frames the route-selected Device or connection. `AUTO` chooses overview for a scene viewport at least 700 pixels wide, work-cell below it, and focus whenever the route names a valid scene object. Explicit overview/work-cell controls override the automatic camera without clearing selection; the control surface reports both the requested policy and resolved view. Orbit and pan remain available at every scale. This policy is presentation-only and never changes Blueprint positions, footprints, connections, replay, or selection identity.
+
+Subtle floor sections, boundary lines, asymmetric fill lighting, and progressive identity labels establish spatial context. Overview retains labels for selected, bottleneck, or non-idle equipment, while work-cell and focus restore all nearby equipment identities; detailed status, Process, and Resource text still appears only for selected, bottleneck, or non-idle equipment. A physical status beacon, progress surface, selection ring, and bottleneck ring retain runtime evidence at every scale without forcing every Device to carry a permanent telemetry stack. Sorter stage start/finish, power loss/restoration, breakdown, and recovery events drive the attachment's own visible status. Opening or scrubbing never runs a hidden simulation.
 
 The Performance panel exposes tracked-lot completion, on-time service, mean/p95 cycle time, queue/process/transport decomposition, tardiness, equipment changeovers, and setup work when the Objective target belongs to a lot family. These values come only from the selected immutable run.
 
@@ -74,6 +76,7 @@ Inspectors are navigation and debugging surfaces only. They contain no Blueprint
 - Shared project orientation projection: `packages/inm-core/src/workbench.ts`
 - Project/run data server: `packages/inm-studio/src/server.ts`
 - React/Three UI: `packages/inm-studio/src/main.tsx`
+- Factory presentation policy: `packages/inm-studio/src/factory-presentation.ts`
 - Project-scoped selection state: `packages/inm-studio/src/selection.ts`
 - Styling: `packages/inm-studio/src/styles.css`
 

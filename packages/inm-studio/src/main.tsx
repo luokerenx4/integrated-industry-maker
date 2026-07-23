@@ -6,6 +6,7 @@ import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, us
 import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
+import { factoryPresentation, type FactoryLabelDensity, type FactoryPresentation as FactoryPresentationPolicy, type FactoryPresentationRequest } from "./factory-presentation";
 import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 import { DesignWorkbench } from "./design-workbench";
@@ -1016,13 +1017,14 @@ function DeviceBody({ projectId, device, height, color, processing }: { projectI
   return <RoundedBox args={[device.footprint.width * .88, height, device.footprint.height * .88]} radius={.12} smoothness={4} castShadow receiveShadow>{material}</RoundedBox>;
 }
 
-function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelect }: {
-  projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean; selected: boolean; onSelect: () => void;
+function FactoryDevice({ projectId, device, frame, bottleneck, selected, labelDensity, onSelect }: {
+  projectId: string; device: Device; frame: DeviceFrame; bottleneck: boolean; selected: boolean; labelDensity: FactoryLabelDensity; onSelect: () => void;
 }) {
   const height = device.transportEndpoint ? .34 : device.visual.height ?? 1.25;
   const baseColor = device.visual.material.baseColor;
   const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
   const showTelemetry = selected || bottleneck || frame.status !== "idle";
+  const showIdentity = labelDensity === "all" || showTelemetry;
   const position: [number, number, number] = [device.position.x + device.footprint.width / 2, height / 2, device.position.y + device.footprint.height / 2];
   return <group
     position={position}
@@ -1041,7 +1043,7 @@ function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelec
       <meshStandardMaterial color={STATUS_COLORS[frame.status]} emissive={STATUS_COLORS[frame.status]} emissiveIntensity={frame.status === "idle" ? .45 : 1.4} roughness={.2} />
     </mesh>}
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    {(!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .42, 0]}>
+    {showIdentity && (!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .42, 0]}>
       <Text fontSize={device.transportEndpoint ? .14 : .21} color={selected ? "#cffff2" : "#d7e7e9"} anchorY="bottom" outlineWidth={.012} outlineColor="#071117" maxWidth={Math.max(2.2, device.footprint.width * 1.5)} textAlign="center">{device.visual.label ?? device.name}</Text>
       {showTelemetry && <Text position={[0, -.2, 0]} fontSize={.105} color={STATUS_COLORS[frame.status]}>{device.transportEndpoint ? `${device.transportEndpoint.stage.toUpperCase()} · ${STATUS_LABELS[frame.status]}` : STATUS_LABELS[frame.status]}</Text>}
       {showTelemetry && device.recipe && <Text position={[0, -.36, 0]} fontSize={.082} color="#9dd9d0">{(device.recipes?.length ?? 0) > 1 ? `${device.recipes!.length} QUALIFIED OPS` : `${device.recipe.process} / ${device.recipe.mode}`}</Text>}
@@ -1063,15 +1065,18 @@ function ResourceDeposit({ data, node, remaining }: { data: StudioData; node: St
   </group>;
 }
 
-function FactoryCameraControls({ bounds }: { bounds: StudioData["bounds"] }) {
+function FactoryCameraControls({ presentation }: { presentation: FactoryPresentationPolicy }) {
   const { camera, size } = useThree();
   const verticalFov = THREE.MathUtils.degToRad(46);
   const aspect = Math.max(.55, size.width / Math.max(1, size.height));
   const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
-  const widthDistance = bounds.width * .54 / Math.tan(horizontalFov / 2);
-  const depthDistance = (bounds.height * .62 + 4) * .54 / Math.tan(verticalFov / 2);
-  const distance = Math.max(26, widthDistance, depthDistance);
-  const target = useMemo(() => new THREE.Vector3(bounds.width / 2, .35, bounds.height / 2), [bounds.height, bounds.width]);
+  const widthDistance = presentation.span.width * .58 / Math.tan(horizontalFov / 2);
+  const depthDistance = (presentation.span.height * .65 + 3) * .58 / Math.tan(verticalFov / 2);
+  const distance = Math.max(presentation.minimumDistance, widthDistance, depthDistance);
+  const target = useMemo(
+    () => new THREE.Vector3(presentation.target.x, presentation.target.y, presentation.target.z),
+    [presentation.target.x, presentation.target.y, presentation.target.z],
+  );
 
   useEffect(() => {
     const perspectiveCamera = camera as THREE.PerspectiveCamera;
@@ -1093,9 +1098,20 @@ function FactoryCameraControls({ bounds }: { bounds: StudioData["bounds"] }) {
   />;
 }
 
-function FactoryWorld({ data, tick, selection, onSelection }: {
-  data: StudioData; tick: number; selection: StudioSelection | null; onSelection: (selection: StudioSelection) => void;
+function FactoryWorld({ data, tick, selection, presentationRequest, onPresentationMode, onSelection }: {
+  data: StudioData;
+  tick: number;
+  selection: StudioSelection | null;
+  presentationRequest: FactoryPresentationRequest;
+  onPresentationMode: (mode: FactoryPresentationPolicy["mode"]) => void;
+  onSelection: (selection: StudioSelection) => void;
 }) {
+  const { size } = useThree();
+  const presentation = useMemo(
+    () => factoryPresentation(data, presentationRequest, selection, { width: size.width, height: size.height }),
+    [data, presentationRequest, selection, size.height, size.width],
+  );
+  useEffect(() => onPresentationMode(presentation.mode), [onPresentationMode, presentation.mode]);
   const frame = useMemo(() => buildFrame(data, tick), [data, tick]);
   const nodeRemaining = useMemo(() => {
     const remaining = Object.fromEntries(data.resourceNodes.map((node) => [node.id, node.amount]));
@@ -1161,6 +1177,7 @@ function FactoryWorld({ data, tick, selection, onSelection }: {
       frame={frame.devices[device.id] ?? { status: "idle", progress: 0 }}
       bottleneck={data.metrics?.bottleneckEntity === device.id}
       selected={selection?.kind === "device" && selection.id === device.id}
+      labelDensity={presentation.labelDensity}
       onSelect={() => onSelection({ kind: "device", id: device.id })}
     />)}
     {frame.transits.map((transit) => {
@@ -1179,7 +1196,7 @@ function FactoryWorld({ data, tick, selection, onSelection }: {
         {(transit.count > 1 || transit.treatmentLevel > 0) && <Html position={[0, layers * .17 + .12, 0]} center distanceFactor={12}><span className="cargo-stack-count">{transit.count > 1 ? `×${transit.count}` : ""}{transit.treatmentLevel > 0 ? ` @${transit.treatmentLevel}` : ""}</span></Html>}
       </group>;
     })}
-    <FactoryCameraControls bounds={data.bounds} />
+    <FactoryCameraControls presentation={presentation} />
   </>;
 }
 
@@ -1953,6 +1970,8 @@ function App() {
   const [operationResult, setOperationResult] = useState<ProjectOperationResult<unknown> | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [selection, setSelection] = useState<StudioSelection | null>(initialRoute.selection);
+  const [factoryPresentationRequest, setFactoryPresentationRequest] = useState<FactoryPresentationRequest>("auto");
+  const [factoryPresentationMode, setFactoryPresentationMode] = useState<FactoryPresentationPolicy["mode"]>(initialRoute.selection ? "selection" : "overview");
   const runRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
   const requestSequence = useRef(0);
@@ -2050,6 +2069,7 @@ function App() {
     setRouteCandidate(null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null);
     setSelection(null);
+    setFactoryPresentationRequest("auto");
   }, [closeRouteSurface, routeProject, routeView]);
 
   const navigateCandidate = useCallback((candidateId: string | null) => {
@@ -2267,8 +2287,24 @@ function App() {
     {header}
     <section className="workspace">
       <div className="viewport">
-        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={clearFactorySelection}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} onSelection={chooseSceneObject} /></Suspense></Canvas>
+        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={clearFactorySelection}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} presentationRequest={factoryPresentationRequest} onPresentationMode={setFactoryPresentationMode} onSelection={chooseSceneObject} /></Suspense></Canvas>
         <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} INDUSTRIAL ZONES</b></div>
+        <div className="factory-presentation-controls" role="group" aria-label="Factory presentation scale">
+          {(["auto", "overview", "work-cell"] as const).map((request) => <button
+            key={request}
+            type="button"
+            aria-pressed={factoryPresentationRequest === request}
+            data-testid={`factory-presentation-${request}`}
+            onClick={() => setFactoryPresentationRequest(request)}
+          >{request === "work-cell" ? "WORK CELL" : request.toUpperCase()}</button>)}
+          {selection && <button
+            type="button"
+            aria-pressed={factoryPresentationRequest === "selection"}
+            data-testid="factory-presentation-selection"
+            onClick={() => setFactoryPresentationRequest("selection")}
+          >FOCUS</button>}
+          <span className="factory-presentation-status" aria-live="polite">VIEW: {factoryPresentationMode === "selection" ? "FOCUS" : factoryPresentationMode === "work-cell" ? "WORK CELL" : "OVERVIEW"}</span>
+        </div>
         <div className="scene-stats"><span><b>{data.regions.length}</b> INDUSTRIAL ZONES</span><span><b>{data.devices.filter((device) => !device.transportEndpoint).length}</b> MACHINES</span><span><b>{data.devices.filter((device) => device.transportEndpoint).length}</b> SORTERS</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
         {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
         {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={clearFactorySelection} onSelection={chooseSceneObject} />}

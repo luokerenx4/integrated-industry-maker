@@ -98,6 +98,12 @@ main.syncing::after { content: ""; position: fixed; z-index: 20; left: 0; top: 7
 .viewport canvas { display: block; }
 .viewport-title { position: absolute; left: 18px; top: 16px; display: flex; align-items: center; gap: 8px; color: #9ab2ba; background: #071014c9; border: 1px solid #18323a; padding: 8px 10px; border-radius: 7px; font: 9px var(--mono); letter-spacing: .1em; backdrop-filter: blur(8px); }
 .viewport-title b { color: #57747d; font-weight: 400; }
+.factory-presentation-controls { position: absolute; z-index: 4; left: 18px; top: 51px; display: flex; overflow: hidden; border: 1px solid #183b42; border-radius: 7px; background: #071014df; box-shadow: 0 10px 30px #0004; backdrop-filter: blur(8px); }
+.factory-presentation-controls button { min-height: 27px; padding: 0 9px; color: #5d7d84; border: 0; border-right: 1px solid #18323a; border-radius: 0; background: transparent; font: 7px var(--mono); letter-spacing: .08em; }
+.factory-presentation-controls button:last-child { border-right: 0; }
+.factory-presentation-controls button:hover { color: #b9ded7; background: #10272a; }
+.factory-presentation-controls button[aria-pressed="true"] { color: #cffff2; background: #12332d; box-shadow: inset 0 -2px #55e4bd; }
+.factory-presentation-status { display: inline-flex; align-items: center; min-height: 27px; padding: 0 9px; color: #4d6d73; border-left: 1px solid #18323a; font: 7px var(--mono); letter-spacing: .08em; white-space: nowrap; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 10px var(--mint); }
 .scene-stats { position: absolute; right: 18px; top: 16px; display: flex; gap: 4px; }
 .scene-stats span { padding: 7px 8px; color: #536f77; background: #071014c9; border: 1px solid #18323a; font: 8px var(--mono); }
@@ -895,9 +901,13 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
   .workspace { grid-template-columns: 1fr; }
   .viewport { min-width: 0; border-right: 0; }
   aside, .legend, .scene-stats { display: none; }
+  .viewport-title { left: 10px; top: 10px; }
+  .factory-presentation-controls { left: 10px; right: 10px; top: 45px; flex-wrap: wrap; overflow: hidden; }
+  .factory-presentation-controls button { padding-inline: 8px; }
+  .factory-presentation-status { flex: 1 0 100%; justify-content: center; border-top: 1px solid #18323a; border-left: 0; }
   .scene-selection-hint { bottom: 10px; width: max-content; max-width: calc(100% - 20px); }
   .scene-selection-hint b { display: none; }
-  .scene-inspector { top: 52px; right: 8px; width: calc(100% - 16px); max-height: calc(100% - 62px); }
+  .scene-inspector { top: 112px; right: 8px; width: calc(100% - 16px); max-height: calc(100% - 122px); }
   .scene-inspector-header { padding: 12px; }
   .scene-inspector-scroll { padding: 8px; }
   .timeline { min-width: 0; padding: 0 10px; gap: 6px; }

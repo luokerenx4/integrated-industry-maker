@@ -18,9 +18,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/responsive-factory-presentation]] | Keep dense factories inspectable at narrow and desktop viewports through presentation-only camera and detail-level policies without changing industrial geometry. | 2026-07-23 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -30,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/responsive-factory-presentation]] | Keep dense factories inspectable at narrow and desktop viewports through presentation-only camera and detail-level policies without changing industrial geometry. | 2026-07-23 |
 | [[plans/device-pbr-material-migration]] | Replace Device single-texture presentation with a project-local PBR material contract and ship a coherent generated material set for the memory fab. | 2026-07-23 |
 | [[plans/memory-fab-visual-language]] | Give project-local semiconductor assets distinct equipment silhouettes and make the dense memory-fab Factory replay legible as an industrial cleanroom. | 2026-07-23 |
 | [[plans/commissioned-q-time-convergence]] | Expose step-level Route Q-time causality to humans and Agents, then reduce the commissioned memory fab's anneal and inspection violations without surrendering its accepted quality, delivery, capacity, or locked-case gains. | 2026-07-23 |
