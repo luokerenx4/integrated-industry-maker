@@ -100,6 +100,12 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     await rm(join(projectDir, `candidate-reviews/${candidateId}`), { recursive: true, force: true });
   }
   await rm(join(projectDir, "candidate-reviews/commissioned-release-control"), { recursive: true, force: true });
+  const benchmarkPath = join(projectDir, "benchmarks/greenfield-dram-design.benchmark.json");
+  const historicalBenchmark = JSON.parse(await readFile(benchmarkPath, "utf8"));
+  historicalBenchmark.acceptance.outcomeGuardrails = historicalBenchmark.acceptance.outcomeGuardrails
+    .filter((guardrail: { metric: string }) => guardrail.metric !== "onTimeLots");
+  await writeFile(benchmarkPath, `${JSON.stringify(historicalBenchmark, null, 2)}\n`);
+  await lockBlueprintBenchmark(projectDir, "greenfield-dram-design");
   const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
   const preReleaseControl = JSON.parse(await readFile(
     join(repository, "examples/memory-fab/runs/067-simulate/blueprint.json"),
@@ -184,6 +190,38 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     error: expect.objectContaining({ code: "candidate.stale-base", retryable: false, hashes: expect.objectContaining({ expectedBaseHash: expect.any(String), currentCandidateHash: expect.any(String) }) }),
   }));
 }, 60_000);
+
+test("current memory-fab Benchmark exposes the explicit on-time service contract", async () => {
+  const result = await runCli([
+    "benchmark",
+    join(repository, "examples/memory-fab"),
+    "--benchmark",
+    "greenfield-dram-design",
+    "--json",
+  ]);
+  expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const summary = JSON.parse(result.stdout).data.result;
+  expect(summary).toEqual(expect.objectContaining({
+    verdict: "KEEP",
+    accepted: true,
+    outcomeGuardrails: expect.objectContaining({ total: 7, passed: 7, failed: 0 }),
+  }));
+  expect(summary.outcomeGuardrails.evidence.find((guardrail: { id: string }) =>
+    guardrail.id === "preserve-on-time-service")).toEqual({
+    id: "preserve-on-time-service",
+    metric: "onTimeLots",
+    label: "On-time lots",
+    operator: "minimum",
+    passed: true,
+    cases: [
+      expect.objectContaining({ id: "steady-production", candidateValue: 12, threshold: 12, candidatePassed: true }),
+      expect.objectContaining({ id: "mixed-quality", candidateValue: 10, threshold: 10, candidatePassed: true }),
+      expect.objectContaining({ id: "quality-excursion", candidateValue: 8, threshold: 8, candidatePassed: true }),
+      expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
+      expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
+    ],
+  });
+}, 30_000);
 
 test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
   const projectDir = join(repository, "examples/ironworks");

@@ -8,6 +8,7 @@ import {
   loadBlueprintBenchmark,
   lockBlueprintBenchmark,
 } from "./benchmark";
+import { loadFactoryProject } from "./loader";
 import { atomicWriteJson, readJson } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -122,6 +123,39 @@ test("locked outcome guardrails reject a score winner with exact per-case physic
   expect((await loadBlueprintBenchmark(projectDir, "product-mix-research")).lock?.contractHash)
     .toBe(locked.lock?.contractHash);
 }, 15_000);
+
+test("memory-fab on-time service rejects score-positive inspection maintenance", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const loaded = await loadFactoryProject(projectDir, { blueprint: "generated-dram-fab" });
+  const candidateBlueprint = structuredClone(loaded.blueprint);
+  const inspection = candidateBlueprint.devices.find((device) => device.id === "inspection-1")!;
+  inspection.policy = {
+    ...inspection.policy,
+    preventiveMaintenance: { planned: { afterJobs: 4 } },
+  };
+
+  const result = await evaluateBlueprintBenchmark(projectDir, "greenfield-dram-design", { candidateBlueprint });
+  expect(result.scoreDelta).toBeGreaterThan(0);
+  expect(result.verdict).toBe("DISCARD");
+  expect(result.outcomeGuardrails?.filter((guardrail) => !guardrail.passed)).toEqual([
+    expect.objectContaining({
+      id: "preserve-on-time-service",
+      metric: "onTimeLots",
+      cases: [
+        expect.objectContaining({ id: "steady-production", candidateValue: 10, threshold: 12, candidatePassed: false }),
+        expect.objectContaining({ id: "mixed-quality", candidateValue: 8, threshold: 10, candidatePassed: false }),
+        expect.objectContaining({ id: "quality-excursion", candidateValue: 7, threshold: 8, candidatePassed: false }),
+        expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
+        expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
+      ],
+    }),
+  ]);
+  expect(result.reasons).toEqual([
+    "outcome guardrail 'preserve-on-time-service' failed in case 'steady-production': onTimeLots 10.000000 must be >= 12.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'mixed-quality': onTimeLots 8.000000 must be >= 10.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'quality-excursion': onTimeLots 7.000000 must be >= 8.000000",
+  ]);
+}, 30_000);
 
 test("benchmark loading rejects unknown cases and duplicate metric-case ownership", async () => {
   const projectDir = await copiedMemoryFab();

@@ -133,6 +133,11 @@ function summarizeMetrics(metrics: BlueprintMetricSnapshot) {
 const source = await loadFactoryProject(projectDir, { blueprint: incumbentBlueprintId });
 const incumbentProject = compileFactoryProject(source);
 const prepared = await prepareBlueprintBenchmark(projectDir, benchmarkId);
+const outcomeGuardrailCount = prepared.manifest.acceptance.outcomeGuardrails?.length ?? 0;
+const outcomeThresholdCount = prepared.manifest.acceptance.outcomeGuardrails?.reduce(
+  (total, guardrail) => total + Object.keys(guardrail.thresholds).length,
+  0,
+) ?? 0;
 const incumbent = await evaluatePreparedBlueprintBenchmark(prepared, {
   candidateBlueprint: incumbentProject.blueprint,
   evaluationId: "commissioned-yield-incumbent",
@@ -360,6 +365,8 @@ const report = {
     requireCapacityReady: true,
     minimumAggregateDeltaFromIncumbent: 0,
     maximumCaseRegressionFromIncumbent: 0,
+    outcomeGuardrails: outcomeGuardrailCount,
+    outcomeThresholds: outcomeThresholdCount,
   },
   rows,
 };
@@ -367,7 +374,7 @@ const report = {
 if (Bun.argv.includes("--json")) {
   process.stdout.write(`${stableStringify(report, 2)}\n`);
 } else {
-  console.log(`# commissioned yield search · current=${incumbent.candidateScore.toFixed(6)} · ${rows.length} causal variants · locked Benchmark + 30 absolute thresholds + zero current-best regression`);
+  console.log(`# commissioned yield search · current=${incumbent.candidateScore.toFixed(6)} · ${rows.length} causal variants · locked Benchmark + ${outcomeGuardrailCount} guardrails / ${outcomeThresholdCount} absolute thresholds + zero current-best regression`);
   console.log("verdict\tstrategy\taggregate-delta\tminimum-case-delta\tcase-deltas\thard-outcomes\tcapacity\tmixed-value/min\tmixed-overflow\tmixed-completed/on-time\tmixed-fpy\tmixed-scrap\tmixed-rework\tmixed-cycle/tardy-s\tmixed-qtime\tmixed-qtime-lots\tmixed-maintenance\tmixed-energy-mj\tcost\tarea\treasons");
   for (const row of rows) console.log([
     row.verdict,

@@ -28,6 +28,18 @@
         }
       },
       {
+        "id": "preserve-on-time-service",
+        "metric": "onTimeLots",
+        "operator": "minimum",
+        "thresholds": {
+          "facility-interruption": 9,
+          "lithography-interruption": 7,
+          "mixed-quality": 10,
+          "quality-excursion": 8,
+          "steady-production": 12
+        }
+      },
+      {
         "id": "preserve-first-pass-yield",
         "metric": "firstPassYield",
         "operator": "minimum",
@@ -186,7 +198,7 @@
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "91b6a301b6cfa7c18dfa726a5b761d09a660a1864859e70910e07df91d0b3530"
+    "contractHash": "28cd57cf25ec01ad98a827a562d009ded14530ecb928131d895c1d44614d3b83"
   },
   "name": "Greenfield DRAM Build and Optimization",
   "version": 1
