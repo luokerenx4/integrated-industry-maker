@@ -1483,6 +1483,12 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const priority = snapshot.diagnostics.slice(0, 4);
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
   const recommendation = snapshot.nextAction;
+  const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
+  const qTimeMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
+    "batch-companion-wait": "BATCH COMPANION WAIT",
+    "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
+    "equipment-availability": "EQUIPMENT AVAILABILITY",
+  })[mechanism];
   const followRecommendation = (target: WorkbenchNextActionTarget) => {
     if (target.kind === "diagnostic") {
       onDiagnosticFocus(target.diagnosticId);
@@ -1525,6 +1531,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
         <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => <div key={bucket.id} className={index === 0 ? "primary" : ""}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong><small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>)}</div>
+        {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">
+          <header><span className="eyebrow">Q-TIME CONTRIBUTORS</span><small>Exact event-backed step, equipment, lot, and wait evidence</small></header>
+          <div>{qTimeContributors.map((contributor) => <article key={contributor.id} data-testid={`q-time-contributor-${contributor.step}`}>
+            <span><small>{qTimeMechanismLabel(contributor.mechanism)}</small><strong>{contributor.step}</strong><code>{contributor.route} · {contributor.processes.join(" + ")}</code></span>
+            <span><b>{contributor.evidence.violatedLots}</b><small>LOTS / {contributor.evidence.violations} VISITS</small></span>
+            <span><b>{(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s</b><small>MEAN / {(contributor.evidence.limitTicks! / 1000).toFixed(1)}s LIMIT</small></span>
+            <span><b>+{(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s</b><small>TOTAL OVERRUN</small></span>
+            <code>{contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join(" · ")}</code>
+          </article>)}</div>
+        </div>}
         <footer><span>FIRST-PASS YIELD {(snapshot.lossAttribution.outcome.firstPassYield * 100).toFixed(1)}%</span><span>CONTRACTS {(snapshot.lossAttribution.outcome.contractFulfillment * 100).toFixed(1)}%</span><small>Ranking signals overlap; they are not additive lost output.</small></footer>
       </section>}
       <section className="overview-panel contracts-panel">

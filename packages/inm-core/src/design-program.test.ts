@@ -180,7 +180,7 @@ test("commissioned Design pins its live promotion base and applies only a review
       addressedLoss: "delivery-portfolio",
       driverEvidence: {
         fabLoss: {
-          version: 3,
+          version: 4,
           primary: { id: "delivery-portfolio" },
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
@@ -360,7 +360,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     addressedLoss: "q-time",
     driverEvidence: {
       metricsHash: hashValue(driverMetrics),
-      fabLoss: { version: 3, family: "dram-wafer", primary: { id: "q-time" }, chain: expect.arrayContaining(["q-time", "yield-quality", "queue-congestion"]) },
+      fabLoss: { version: 4, family: "dram-wafer", primary: { id: "q-time" }, chain: expect.arrayContaining(["q-time", "yield-quality", "queue-congestion"]) },
     },
     proposalHash: expect.any(String),
     promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true, limitingCase: null, guardrail: { passed: true, violations: [] } },

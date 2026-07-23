@@ -58,7 +58,7 @@ export type FabLossBucketId =
   | "yield-quality";
 
 export interface FabLossProfile {
-  version: 3;
+  version: 4;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;
@@ -72,6 +72,18 @@ export interface FabLossBucket {
   label: string;
   score: number;
   summary: string;
+  subjects: Array<{ kind: "project" | "device" | "connection" | "route"; id: string }>;
+  evidence: Record<string, number>;
+  contributors: FabLossContributor[];
+}
+
+export interface FabLossContributor {
+  id: string;
+  label: string;
+  mechanism: "batch-companion-wait" | "maintenance-qualification" | "equipment-availability";
+  route: string;
+  step: string;
+  processes: string[];
   subjects: Array<{ kind: "project" | "device" | "connection" | "route"; id: string }>;
   evidence: Record<string, number>;
 }

@@ -228,6 +228,8 @@ export async function validateCommand(projectDir: string, selection: ProjectSele
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
   requireJsonSection("inspect", options);
   const snapshot = await openProjectWorkbenchSnapshot(projectDir, selection);
+  const qTimeContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "q-time")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
       summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
@@ -261,6 +263,13 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
+      ...(qTimeContributors.length ? [
+        "Q-time contributors:",
+        ...qTimeContributors.map((contributor) => {
+          const devices = contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join("+");
+          return `  ${contributor.step} · ${contributor.mechanism} · ${contributor.evidence.violatedLots} lots / ${contributor.evidence.violations} visits · mean ${(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.limitTicks! / 1000).toFixed(1)}s limit · +${(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s overrun · ${devices}`;
+        }),
+      ] : []),
     ] : []),
     "",
     `Next action: ${snapshot.nextAction.title}`,

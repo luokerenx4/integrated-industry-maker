@@ -1,0 +1,2754 @@
+{
+  "benchmark": "greenfield-dram-design",
+  "candidate": "furnace-flex-dual-service",
+  "currentCandidateHash": "9af27defc6f17385e8d242c272de40878a84d4405a10ebe165076fc9560121b5",
+  "proposalHash": "d2da7f191a212a42302307cb1582d66a2841b697e034ba2c76b8bef54d1a613a",
+  "proposedCandidateHash": "d67991771b844fb1f6f0b953e7afe8870ceb1efb69a01727f654c597a3444392",
+  "result": {
+    "accepted": true,
+    "baselineBlueprint": "baseline",
+    "baselineBlueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
+    "baselineScore": -280.17081149007936,
+    "benchmark": "greenfield-dram-design",
+    "candidateBlueprint": "generated-dram-fab",
+    "candidateBlueprintHash": "d67991771b844fb1f6f0b953e7afe8870ceb1efb69a01727f654c597a3444392",
+    "candidateScore": -165.28419531445408,
+    "cases": [
+      {
+        "baselineCapacityReady": true,
+        "baselineMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 3,
+          "averageWip": 142.75291666666666,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 4,
+          "batchLots": 12,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.007301051051051051,
+          "bottleneckEntity": "lithography-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 5,
+          "contractFulfillment": 0.48,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 587840650,
+          "deliveryNetValuePerMinute": -28,
+          "deliveryOverflow": 0,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 276159350,
+          "firstPassYield": 0.16666666666666666,
+          "goodYield": 0.4166666666666667,
+          "infeasibleReason": null,
+          "lotOutputJobs": 5,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 25000,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 6000,
+          "meanBatchQueueWaitTicksPerLot": 10083.333333333334,
+          "meanCycleTimeTicks": 165100,
+          "meanQueueTimeTicks": 93220,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 22500,
+          "objectiveAttainment": 0.16666666666666666,
+          "occupiedArea": 251,
+          "onTimeLots": 2,
+          "p95CycleTimeTicks": 198500,
+          "peakActiveLots": 12,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 8,
+          "queueTimeViolations": 9,
+          "releasedLots": 12,
+          "reworkCycles": 10,
+          "scheduledLots": 12,
+          "score": -275.12967175,
+          "scrappedLots": 3,
+          "serviceLevelOpenings": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 6,
+          "totalBuildCost": 177990,
+          "totalCalendarTriggeredMaintenance": 1,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 3,
+          "totalDriftDefects": 10,
+          "totalDriftedJobs": 12,
+          "totalDriftedLots": 12,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 8,
+          "totalMaintenanceCrewWaitTicks": 12300,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 27000,
+          "totalMaintenanceServiceCrewTicks": 83000,
+          "totalMaintenanceTicks": 83000,
+          "totalMandatoryMaintenance": 8,
+          "totalOpportunisticMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 8,
+          "totalQualificationTicks": 27000,
+          "totalSetupTicks": 10000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 153000,
+          "totalToolingUnitTicks": 153000,
+          "totalUsageTriggeredMaintenance": 7,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 363000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 936000,
+          "transportCongestion": 0.007301051051051089,
+          "transportEnergyConsumedMilliJoules": 4070850,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "baselineScore": -275.12967175,
+        "candidateCapacityGaps": [],
+        "candidateCapacityReady": true,
+        "candidateMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 125.61125,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.008283639143730887,
+          "bottleneckEntity": "burn-in-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 11,
+          "contractFulfillment": 1.12,
+          "controlBlockedLots": 4,
+          "controlBlockedTicks": 85600,
+          "curtailedMilliJoules": 495013000,
+          "deliveryNetValuePerMinute": 49,
+          "deliveryOverflow": 6,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 368987000,
+          "firstPassYield": 0.8333333333333334,
+          "goodYield": 0.9166666666666666,
+          "infeasibleReason": null,
+          "lotOutputJobs": 11,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 12800,
+          "maximumReleaseDelayTicks": 42400,
+          "meanActualReleaseIntervalTicks": 8218.181818181818,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 79072.72727272728,
+          "meanQueueTimeTicks": 17736.363636363636,
+          "meanReleaseDelayTicks": 7133.333333333333,
+          "meanTardinessTicks": 3509.090909090909,
+          "objectiveAttainment": 0.5833333333333334,
+          "occupiedArea": 285,
+          "onTimeLots": 7,
+          "p95CycleTimeTicks": 138400,
+          "peakActiveLots": 8,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 1,
+          "queueTimeViolations": 1,
+          "releasedLots": 12,
+          "reworkCycles": 2,
+          "scheduledLots": 12,
+          "score": -161.16734030303027,
+          "scrappedLots": 1,
+          "serviceLevelOpenings": 4,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 14,
+          "totalBuildCost": 229050,
+          "totalCalendarTriggeredMaintenance": 0,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 4,
+          "totalDriftDefects": 2,
+          "totalDriftedJobs": 2,
+          "totalDriftedLots": 2,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 9,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 32000,
+          "totalMaintenanceServiceCrewTicks": 99000,
+          "totalMaintenanceTicks": 99000,
+          "totalMandatoryMaintenance": 2,
+          "totalOpportunisticMaintenance": 7,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 9,
+          "totalQualificationTicks": 32000,
+          "totalSetupTicks": 18000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 147000,
+          "totalToolingUnitTicks": 147000,
+          "totalUsageTriggeredMaintenance": 9,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 351000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 906000,
+          "transportCongestion": 0.008283639143730844,
+          "transportEnergyConsumedMilliJoules": 4401000,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "candidateScore": -161.16734030303027,
+        "durationTicks": 240000,
+        "id": "steady-production",
+        "name": "Excursion-free production",
+        "scoreDelta": 113.96233144696973,
+        "seed": 42,
+        "weight": 1
+      },
+      {
+        "baselineCapacityReady": true,
+        "baselineMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 3,
+          "averageWip": 142.75291666666666,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 4,
+          "batchLots": 12,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.007301051051051051,
+          "bottleneckEntity": "lithography-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 5,
+          "contractFulfillment": 0.48,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 587840650,
+          "deliveryNetValuePerMinute": -28,
+          "deliveryOverflow": 0,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 276159350,
+          "firstPassYield": 0.16666666666666666,
+          "goodYield": 0.4166666666666667,
+          "infeasibleReason": null,
+          "lotOutputJobs": 5,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 25000,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 6000,
+          "meanBatchQueueWaitTicksPerLot": 10083.333333333334,
+          "meanCycleTimeTicks": 165100,
+          "meanQueueTimeTicks": 93220,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 22500,
+          "objectiveAttainment": 0.16666666666666666,
+          "occupiedArea": 251,
+          "onTimeLots": 2,
+          "p95CycleTimeTicks": 198500,
+          "peakActiveLots": 12,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 8,
+          "queueTimeViolations": 9,
+          "releasedLots": 12,
+          "reworkCycles": 10,
+          "scheduledLots": 12,
+          "score": -275.12967175,
+          "scrappedLots": 3,
+          "serviceLevelOpenings": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 6,
+          "totalBuildCost": 177990,
+          "totalCalendarTriggeredMaintenance": 1,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 3,
+          "totalDriftDefects": 10,
+          "totalDriftedJobs": 12,
+          "totalDriftedLots": 12,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 8,
+          "totalMaintenanceCrewWaitTicks": 12300,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 27000,
+          "totalMaintenanceServiceCrewTicks": 83000,
+          "totalMaintenanceTicks": 83000,
+          "totalMandatoryMaintenance": 8,
+          "totalOpportunisticMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 8,
+          "totalQualificationTicks": 27000,
+          "totalSetupTicks": 10000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 153000,
+          "totalToolingUnitTicks": 153000,
+          "totalUsageTriggeredMaintenance": 7,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 363000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 936000,
+          "transportCongestion": 0.007301051051051089,
+          "transportEnergyConsumedMilliJoules": 4070850,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "baselineScore": -275.12967175,
+        "candidateCapacityGaps": [],
+        "candidateCapacityReady": true,
+        "candidateMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 123.57583333333334,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.007981651376146788,
+          "bottleneckEntity": "burn-in-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 8,
+          "contractFulfillment": 1.12,
+          "controlBlockedLots": 4,
+          "controlBlockedTicks": 85600,
+          "curtailedMilliJoules": 497414000,
+          "deliveryNetValuePerMinute": 49,
+          "deliveryOverflow": 6,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 366586000,
+          "firstPassYield": 0.6666666666666666,
+          "goodYield": 0.6666666666666666,
+          "infeasibleReason": null,
+          "lotOutputJobs": 8,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 62800,
+          "maximumReleaseDelayTicks": 42400,
+          "meanActualReleaseIntervalTicks": 8218.181818181818,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 74500,
+          "meanQueueTimeTicks": 15100,
+          "meanReleaseDelayTicks": 7133.333333333333,
+          "meanTardinessTicks": 5525,
+          "objectiveAttainment": 0.4166666666666667,
+          "occupiedArea": 285,
+          "onTimeLots": 5,
+          "p95CycleTimeTicks": 90000,
+          "peakActiveLots": 8,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 2,
+          "queueTimeViolations": 2,
+          "releasedLots": 12,
+          "reworkCycles": 4,
+          "scheduledLots": 12,
+          "score": -162.41751333333335,
+          "scrappedLots": 4,
+          "serviceLevelOpenings": 4,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 14,
+          "totalBuildCost": 229050,
+          "totalCalendarTriggeredMaintenance": 0,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 4,
+          "totalDriftDefects": 2,
+          "totalDriftedJobs": 2,
+          "totalDriftedLots": 2,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 10,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 35000,
+          "totalMaintenanceServiceCrewTicks": 108000,
+          "totalMaintenanceTicks": 108000,
+          "totalMandatoryMaintenance": 3,
+          "totalOpportunisticMaintenance": 7,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 10,
+          "totalQualificationTicks": 35000,
+          "totalSetupTicks": 18000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 147000,
+          "totalToolingUnitTicks": 147000,
+          "totalUsageTriggeredMaintenance": 10,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 351000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 906000,
+          "transportCongestion": 0.007981651376146731,
+          "transportEnergyConsumedMilliJoules": 4368000,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "candidateScore": -162.41751333333335,
+        "durationTicks": 240000,
+        "id": "mixed-quality",
+        "name": "Mixed repair, scrap, and escape workload",
+        "scoreDelta": 112.71215841666665,
+        "seed": 42,
+        "weight": 2
+      },
+      {
+        "baselineCapacityReady": true,
+        "baselineMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 3,
+          "averageWip": 142.76416666666665,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 4,
+          "batchLots": 12,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.007171546546546547,
+          "bottleneckEntity": "lithography-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 4,
+          "contractFulfillment": 0.48,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 590406125,
+          "deliveryNetValuePerMinute": -28,
+          "deliveryOverflow": 0,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 273593875,
+          "firstPassYield": 0.08333333333333333,
+          "goodYield": 0.3333333333333333,
+          "infeasibleReason": null,
+          "lotOutputJobs": 4,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 25000,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 6000,
+          "meanBatchQueueWaitTicksPerLot": 10083.333333333334,
+          "meanCycleTimeTicks": 164750,
+          "meanQueueTimeTicks": 90500,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 10500,
+          "objectiveAttainment": 0.16666666666666666,
+          "occupiedArea": 251,
+          "onTimeLots": 2,
+          "p95CycleTimeTicks": 198500,
+          "peakActiveLots": 12,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 8,
+          "queueTimeViolations": 9,
+          "releasedLots": 12,
+          "reworkCycles": 10,
+          "scheduledLots": 12,
+          "score": -274.32205270833333,
+          "scrappedLots": 3,
+          "serviceLevelOpenings": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 6,
+          "totalBuildCost": 177990,
+          "totalCalendarTriggeredMaintenance": 1,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 3,
+          "totalDriftDefects": 10,
+          "totalDriftedJobs": 12,
+          "totalDriftedLots": 12,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 8,
+          "totalMaintenanceCrewWaitTicks": 12300,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 27000,
+          "totalMaintenanceServiceCrewTicks": 83000,
+          "totalMaintenanceTicks": 83000,
+          "totalMandatoryMaintenance": 8,
+          "totalOpportunisticMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 8,
+          "totalQualificationTicks": 27000,
+          "totalSetupTicks": 10000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 153000,
+          "totalToolingUnitTicks": 153000,
+          "totalUsageTriggeredMaintenance": 7,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 363000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 936000,
+          "transportCongestion": 0.007171546546546585,
+          "transportEnergyConsumedMilliJoules": 4060875,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "baselineScore": -274.32205270833333,
+        "candidateCapacityGaps": [],
+        "candidateCapacityReady": true,
+        "candidateMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 124.24166666666666,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.007454128440366973,
+          "bottleneckEntity": "inspection-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 6,
+          "contractFulfillment": 0.96,
+          "controlBlockedLots": 4,
+          "controlBlockedTicks": 134600,
+          "curtailedMilliJoules": 501828000,
+          "deliveryNetValuePerMinute": 44,
+          "deliveryOverflow": 0,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 362172000,
+          "firstPassYield": 0.5,
+          "goodYield": 0.5,
+          "infeasibleReason": null,
+          "lotOutputJobs": 6,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 102800,
+          "maximumReleaseDelayTicks": 67400,
+          "meanActualReleaseIntervalTicks": 10490.90909090909,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 72100,
+          "meanQueueTimeTicks": 12700,
+          "meanReleaseDelayTicks": 11216.666666666666,
+          "meanTardinessTicks": 3633.3333333333335,
+          "objectiveAttainment": 0.3333333333333333,
+          "occupiedArea": 285,
+          "onTimeLots": 4,
+          "p95CycleTimeTicks": 86400,
+          "peakActiveLots": 8,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 4,
+          "queueTimeViolations": 4,
+          "releasedLots": 12,
+          "reworkCycles": 6,
+          "scheduledLots": 12,
+          "score": -170.85474888888885,
+          "scrappedLots": 6,
+          "serviceLevelOpenings": 4,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 12,
+          "totalBuildCost": 229050,
+          "totalCalendarTriggeredMaintenance": 0,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 4,
+          "totalDriftDefects": 2,
+          "totalDriftedJobs": 2,
+          "totalDriftedLots": 2,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 10,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 35000,
+          "totalMaintenanceServiceCrewTicks": 108000,
+          "totalMaintenanceTicks": 108000,
+          "totalMandatoryMaintenance": 3,
+          "totalOpportunisticMaintenance": 7,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 10,
+          "totalQualificationTicks": 35000,
+          "totalSetupTicks": 18000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 147000,
+          "totalToolingUnitTicks": 147000,
+          "totalUsageTriggeredMaintenance": 10,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 351000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 906000,
+          "transportCongestion": 0.007454128440366904,
+          "transportEnergyConsumedMilliJoules": 4341000,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "candidateScore": -170.85474888888885,
+        "durationTicks": 240000,
+        "id": "quality-excursion",
+        "name": "Systematic quality excursion",
+        "scoreDelta": 103.46730381944448,
+        "seed": 42,
+        "weight": 2
+      },
+      {
+        "baselineCapacityReady": true,
+        "baselineMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 3,
+          "averageWip": 150.13166666666666,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 3,
+          "batchLots": 9,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.005531156156156156,
+          "bottleneckEntity": "lithography-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 3,
+          "contractFulfillment": 0.16,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 624175225,
+          "deliveryNetValuePerMinute": -44,
+          "deliveryOverflow": 0,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 239824775,
+          "firstPassYield": 0,
+          "goodYield": 0.25,
+          "infeasibleReason": null,
+          "lotOutputJobs": 3,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 52500,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 6000,
+          "meanBatchQueueWaitTicksPerLot": 15166.666666666666,
+          "meanCycleTimeTicks": 203300,
+          "meanQueueTimeTicks": 125100,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 0,
+          "objectiveAttainment": 0.25,
+          "occupiedArea": 251,
+          "onTimeLots": 3,
+          "p95CycleTimeTicks": 211300,
+          "peakActiveLots": 11,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 8,
+          "queueTimeViolations": 8,
+          "releasedLots": 12,
+          "reworkCycles": 8,
+          "scheduledLots": 12,
+          "score": -299.12279054166663,
+          "scrappedLots": 3,
+          "serviceLevelOpenings": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 2,
+          "totalBuildCost": 177990,
+          "totalCalendarTriggeredMaintenance": 1,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 3,
+          "totalDriftDefects": 6,
+          "totalDriftedJobs": 8,
+          "totalDriftedLots": 8,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 7,
+          "totalMaintenanceCrewWaitTicks": 12000,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 24000,
+          "totalMaintenanceServiceCrewTicks": 76400,
+          "totalMaintenanceTicks": 74000,
+          "totalMandatoryMaintenance": 7,
+          "totalOpportunisticMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 7,
+          "totalQualificationTicks": 24000,
+          "totalSetupTicks": 10000,
+          "totalToolingAllocations": 21,
+          "totalToolingCancelled": 1,
+          "totalToolingCompleted": 20,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 159500,
+          "totalToolingUnitTicks": 159500,
+          "totalUsageTriggeredMaintenance": 6,
+          "totalUtilityAllocations": 52,
+          "totalUtilityCancelled": 1,
+          "totalUtilityCompleted": 51,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 310500,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 802000,
+          "transportCongestion": 0.005531156156156171,
+          "transportEnergyConsumedMilliJoules": 4024875,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "baselineScore": -299.12279054166663,
+        "candidateCapacityGaps": [],
+        "candidateCapacityReady": true,
+        "candidateMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 125.43666666666667,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.0081651376146789,
+          "bottleneckEntity": "burn-in-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 10,
+          "contractFulfillment": 1.12,
+          "controlBlockedLots": 3,
+          "controlBlockedTicks": 61200,
+          "curtailedMilliJoules": 504170250,
+          "deliveryNetValuePerMinute": 49,
+          "deliveryOverflow": 6,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 359829750,
+          "firstPassYield": 0.5833333333333334,
+          "goodYield": 0.8333333333333334,
+          "infeasibleReason": null,
+          "lotOutputJobs": 10,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 0,
+          "maximumReleaseDelayTicks": 34400,
+          "meanActualReleaseIntervalTicks": 7490.909090909091,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 89670,
+          "meanQueueTimeTicks": 24030,
+          "meanReleaseDelayTicks": 5100,
+          "meanTardinessTicks": 9770,
+          "objectiveAttainment": 0.5833333333333334,
+          "occupiedArea": 285,
+          "onTimeLots": 7,
+          "p95CycleTimeTicks": 119400,
+          "peakActiveLots": 8,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 0,
+          "queueTimeViolations": 0,
+          "releasedLots": 12,
+          "reworkCycles": 4,
+          "scheduledLots": 12,
+          "score": -162.63031541666666,
+          "scrappedLots": 2,
+          "serviceLevelOpenings": 4,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 14,
+          "totalBuildCost": 229050,
+          "totalCalendarTriggeredMaintenance": 0,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 4,
+          "totalDriftDefects": 2,
+          "totalDriftedJobs": 2,
+          "totalDriftedLots": 2,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 8,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 28000,
+          "totalMaintenanceServiceCrewTicks": 86000,
+          "totalMaintenanceTicks": 86000,
+          "totalMandatoryMaintenance": 3,
+          "totalOpportunisticMaintenance": 5,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 8,
+          "totalQualificationTicks": 28000,
+          "totalSetupTicks": 18000,
+          "totalToolingAllocations": 23,
+          "totalToolingCancelled": 1,
+          "totalToolingCompleted": 22,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 168500,
+          "totalToolingUnitTicks": 168500,
+          "totalUsageTriggeredMaintenance": 8,
+          "totalUtilityAllocations": 56,
+          "totalUtilityCancelled": 1,
+          "totalUtilityCompleted": 55,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 325500,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 838000,
+          "transportCongestion": 0.008165137614678835,
+          "transportEnergyConsumedMilliJoules": 4386750,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "candidateScore": -162.63031541666666,
+        "durationTicks": 240000,
+        "id": "lithography-interruption",
+        "name": "Timed lithography interruption",
+        "scoreDelta": 136.49247512499997,
+        "seed": 42,
+        "weight": 1
+      },
+      {
+        "baselineCapacityReady": true,
+        "baselineMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 3,
+          "averageWip": 148.43333333333334,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 3,
+          "batchLots": 9,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.006103603603603604,
+          "bottleneckEntity": "lithography-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 6,
+          "contractFulfillment": 0.32,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 620390600,
+          "deliveryNetValuePerMinute": -36,
+          "deliveryOverflow": 0,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 243609400,
+          "firstPassYield": 0.16666666666666666,
+          "goodYield": 0.5,
+          "infeasibleReason": null,
+          "lotOutputJobs": 6,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 39500,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 6000,
+          "meanBatchQueueWaitTicksPerLot": 13844.444444444445,
+          "meanCycleTimeTicks": 186466.66666666666,
+          "meanQueueTimeTicks": 113283.33333333333,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 32600,
+          "objectiveAttainment": 0.3333333333333333,
+          "occupiedArea": 251,
+          "onTimeLots": 4,
+          "p95CycleTimeTicks": 203800,
+          "peakActiveLots": 9,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 6,
+          "queueTimeViolations": 6,
+          "releasedLots": 12,
+          "reworkCycles": 7,
+          "scheduledLots": 12,
+          "score": -288.0397692222223,
+          "scrappedLots": 5,
+          "serviceLevelOpenings": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 4,
+          "totalBuildCost": 177990,
+          "totalCalendarTriggeredMaintenance": 1,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 3,
+          "totalDriftDefects": 6,
+          "totalDriftedJobs": 8,
+          "totalDriftedLots": 8,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 8,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 27000,
+          "totalMaintenanceServiceCrewTicks": 83000,
+          "totalMaintenanceTicks": 83000,
+          "totalMandatoryMaintenance": 8,
+          "totalOpportunisticMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 8,
+          "totalQualificationTicks": 27000,
+          "totalSetupTicks": 10000,
+          "totalToolingAllocations": 21,
+          "totalToolingCancelled": 1,
+          "totalToolingCompleted": 20,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 129500,
+          "totalToolingUnitTicks": 129500,
+          "totalUsageTriggeredMaintenance": 7,
+          "totalUtilityAllocations": 51,
+          "totalUtilityCancelled": 3,
+          "totalUtilityCompleted": 48,
+          "totalUtilityInputBlocks": 2,
+          "totalUtilityInputWaitTicks": 59000,
+          "totalUtilityOccupiedTicks": 299800,
+          "totalUtilityProviderInterruptions": 3,
+          "totalUtilityUnitTicks": 769900,
+          "transportCongestion": 0.00610360360360362,
+          "transportEnergyConsumedMilliJoules": 4051500,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "baselineScore": -288.0397692222223,
+        "candidateCapacityGaps": [],
+        "candidateCapacityReady": true,
+        "candidateMetrics": {
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 125.825,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.007759938837920489,
+          "bottleneckEntity": "burn-in-1",
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 9,
+          "contractFulfillment": 1.12,
+          "controlBlockedLots": 3,
+          "controlBlockedTicks": 44800,
+          "curtailedMilliJoules": 517970000,
+          "deliveryNetValuePerMinute": 49,
+          "deliveryOverflow": 6,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 0,
+          "electricityEnergyChargeMicroCurrency": 0,
+          "electricityTotalCostMicroCurrency": 0,
+          "energyConsumedMilliJoules": 346030000,
+          "firstPassYield": 0.6666666666666666,
+          "goodYield": 0.75,
+          "infeasibleReason": null,
+          "lotOutputJobs": 9,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 31800,
+          "maximumReleaseDelayTicks": 26400,
+          "meanActualReleaseIntervalTicks": 6763.636363636364,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 83533.33333333333,
+          "meanQueueTimeTicks": 21766.666666666668,
+          "meanReleaseDelayTicks": 3733.3333333333335,
+          "meanTardinessTicks": 5388.888888888889,
+          "objectiveAttainment": 0.3333333333333333,
+          "occupiedArea": 285,
+          "onTimeLots": 4,
+          "p95CycleTimeTicks": 140900,
+          "peakActiveLots": 8,
+          "pendingReleaseLots": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 1,
+          "queueTimeViolations": 1,
+          "releasedLots": 12,
+          "reworkCycles": 2,
+          "scheduledLots": 12,
+          "score": -166.64718703703704,
+          "scrappedLots": 3,
+          "serviceLevelOpenings": 3,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 14,
+          "totalBuildCost": 229050,
+          "totalCalendarTriggeredMaintenance": 0,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 4,
+          "totalDriftDefects": 2,
+          "totalDriftedJobs": 2,
+          "totalDriftedLots": 2,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 8,
+          "totalMaintenanceCrewWaitTicks": 9700,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 28000,
+          "totalMaintenanceServiceCrewTicks": 86000,
+          "totalMaintenanceTicks": 86000,
+          "totalMandatoryMaintenance": 2,
+          "totalOpportunisticMaintenance": 6,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 8,
+          "totalQualificationTicks": 28000,
+          "totalSetupTicks": 18000,
+          "totalToolingAllocations": 23,
+          "totalToolingCancelled": 1,
+          "totalToolingCompleted": 22,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 137400,
+          "totalToolingUnitTicks": 137400,
+          "totalUsageTriggeredMaintenance": 8,
+          "totalUtilityAllocations": 57,
+          "totalUtilityCancelled": 2,
+          "totalUtilityCompleted": 55,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 330300,
+          "totalUtilityProviderInterruptions": 2,
+          "totalUtilityUnitTicks": 853500,
+          "transportCongestion": 0.007759938837920423,
+          "transportEnergyConsumedMilliJoules": 4371000,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "candidateScore": -166.64718703703704,
+        "durationTicks": 240000,
+        "id": "facility-interruption",
+        "name": "Timed fab utility interruption",
+        "scoreDelta": 121.39258218518523,
+        "seed": 42,
+        "weight": 1
+      }
+    ],
+    "changes": [
+      {
+        "action": "changed",
+        "after": {
+          "asset": "sorter",
+          "id": "batch-furnace-to-lithography-unloader",
+          "position": {
+            "x": 18,
+            "y": 10
+          },
+          "region": "cleanroom",
+          "rotation": 180,
+          "transportEndpoint": {
+            "connection": "batch-furnace-to-lithography",
+            "distance": 1,
+            "stage": "unloader"
+          }
+        },
+        "before": {
+          "asset": "sorter",
+          "id": "batch-furnace-to-lithography-unloader",
+          "position": {
+            "x": 9,
+            "y": 11
+          },
+          "region": "cleanroom",
+          "rotation": 90,
+          "transportEndpoint": {
+            "connection": "batch-furnace-to-lithography",
+            "distance": 1,
+            "stage": "unloader"
+          }
+        },
+        "fields": [
+          "position.x",
+          "position.y",
+          "rotation"
+        ],
+        "id": "batch-furnace-to-lithography-unloader",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "dram-burn-in-rack",
+          "id": "burn-in-1",
+          "policy": {
+            "powerPriority": 5,
+            "recipeDispatch": "contract-value"
+          },
+          "position": {
+            "x": 8,
+            "y": 26
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "packaged-dram-device": "package-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "commercial-dram-device": "commercial-output"
+              },
+              "priority": 1,
+              "process": "screen-commercial-dram"
+            },
+            {
+              "inputs": {
+                "packaged-dram-device": "package-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "automotive-dram-device": "automotive-output",
+                "commercial-dram-device": "commercial-output",
+                "performance-dram-device": "performance-output"
+              },
+              "priority": 10,
+              "process": "screen-performance-mix"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "before": {
+          "asset": "dram-burn-in-rack",
+          "id": "burn-in-1",
+          "policy": {
+            "powerPriority": 5,
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 8,
+            "y": 26
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "packaged-dram-device": "package-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "commercial-dram-device": "commercial-output"
+              },
+              "priority": 1,
+              "process": "screen-commercial-dram"
+            },
+            {
+              "inputs": {
+                "packaged-dram-device": "package-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "automotive-dram-device": "automotive-output",
+                "commercial-dram-device": "commercial-output",
+                "performance-dram-device": "performance-output"
+              },
+              "priority": 10,
+              "process": "screen-performance-mix"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [
+          "policy.recipeDispatch"
+        ],
+        "id": "burn-in-1",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "plasma-etch-bay",
+          "id": "etch-1",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 9,
+            "preventiveMaintenance": {
+              "minimumJobs": 5
+            },
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 17,
+            "y": 12
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "patterned-cell-l1-lot": "pattern-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "etched-cell-l1-lot": "loop-output"
+              },
+              "priority": 1,
+              "process": "etch-cell-layer-1"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "before": {
+          "asset": "plasma-etch-bay",
+          "id": "etch-1",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 9,
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 17,
+            "y": 12
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "patterned-cell-l1-lot": "pattern-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "etched-cell-l1-lot": "loop-output"
+              },
+              "priority": 1,
+              "process": "etch-cell-layer-1"
+            },
+            {
+              "inputs": {
+                "patterned-cell-l2-lot": "pattern-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "dram-wafer-lot": "final-output"
+              },
+              "priority": 10,
+              "process": "etch-cell-layer-2"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [
+          "policy.preventiveMaintenance",
+          "recipes"
+        ],
+        "id": "etch-1",
+        "kind": "device"
+      },
+      {
+        "action": "added",
+        "after": {
+          "asset": "plasma-etch-bay",
+          "id": "etch-l2",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 9,
+            "preventiveMaintenance": {
+              "minimumJobs": 5
+            },
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 15,
+            "y": 15
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "patterned-cell-l2-lot": "pattern-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "dram-wafer-lot": "final-output"
+              },
+              "priority": 10,
+              "process": "etch-cell-layer-2"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [],
+        "id": "etch-l2",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "sorter",
+          "id": "etch-to-inspection-loader",
+          "position": {
+            "x": 16,
+            "y": 18
+          },
+          "region": "cleanroom",
+          "rotation": 90,
+          "transportEndpoint": {
+            "connection": "etch-to-inspection",
+            "distance": 1,
+            "stage": "loader"
+          }
+        },
+        "before": {
+          "asset": "sorter",
+          "id": "etch-to-inspection-loader",
+          "position": {
+            "x": 18,
+            "y": 15
+          },
+          "region": "cleanroom",
+          "rotation": 90,
+          "transportEndpoint": {
+            "connection": "etch-to-inspection",
+            "distance": 1,
+            "stage": "loader"
+          }
+        },
+        "fields": [
+          "position.x",
+          "position.y"
+        ],
+        "id": "etch-to-inspection-loader",
+        "kind": "device"
+      },
+      {
+        "action": "added",
+        "after": {
+          "asset": "fab-utility-plant",
+          "id": "fab-utility-plant-2",
+          "position": {
+            "x": 34,
+            "y": 17
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [],
+        "id": "fab-utility-plant-2",
+        "kind": "device"
+      },
+      {
+        "action": "added",
+        "after": {
+          "asset": "fab-utility-plant",
+          "id": "fab-utility-plant-3",
+          "position": {
+            "x": 30,
+            "y": 22
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [],
+        "id": "fab-utility-plant-3",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "thermal-batch-furnace",
+          "id": "furnace-1",
+          "policy": {
+            "batchFormation": {
+              "maximumWaitTicks": 0,
+              "preferredProcess": "batch-anneal-dielectric-stack"
+            },
+            "lotDispatch": "fifo",
+            "powerPriority": 8
+          },
+          "position": {
+            "x": 25,
+            "y": 5
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "dielectric-stack-lot": "batch-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "annealed-dielectric-stack-lot": "batch-output"
+              },
+              "process": "batch-anneal-dielectric-stack"
+            },
+            {
+              "inputs": {
+                "dielectric-stack-lot": "batch-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "annealed-dielectric-stack-lot": "batch-output"
+              },
+              "process": "rapid-anneal-dielectric-stack"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "before": {
+          "asset": "thermal-batch-furnace",
+          "id": "furnace-1",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 8
+          },
+          "position": {
+            "x": 25,
+            "y": 5
+          },
+          "recipe": {
+            "inputs": {
+              "dielectric-stack-lot": "batch-input"
+            },
+            "mode": "qualified",
+            "outputs": {
+              "annealed-dielectric-stack-lot": "batch-output"
+            },
+            "process": "batch-anneal-dielectric-stack"
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [
+          "policy.batchFormation",
+          "recipe",
+          "recipes"
+        ],
+        "id": "furnace-1",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "wafer-inspection-bay",
+          "id": "inspection-1",
+          "policy": {
+            "lotDispatch": "earliest-due-date",
+            "powerPriority": 7
+          },
+          "position": {
+            "x": 17,
+            "y": 20
+          },
+          "recipe": {
+            "inputs": {
+              "dram-wafer-lot": "wafer-input"
+            },
+            "mode": "qualified",
+            "outputs": {
+              "qualified-dram-wafer-lot": "pass-output",
+              "rework-required-dram-wafer-lot": "reject-output",
+              "scrap-dram-wafer-lot": "scrap-output"
+            },
+            "process": "inspect-final-pattern-deep"
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "before": {
+          "asset": "wafer-inspection-bay",
+          "id": "inspection-1",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 7
+          },
+          "position": {
+            "x": 17,
+            "y": 20
+          },
+          "recipe": {
+            "inputs": {
+              "dram-wafer-lot": "wafer-input"
+            },
+            "mode": "qualified",
+            "outputs": {
+              "qualified-dram-wafer-lot": "pass-output",
+              "rework-required-dram-wafer-lot": "reject-output",
+              "scrap-dram-wafer-lot": "scrap-output"
+            },
+            "process": "inspect-final-pattern-standard"
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [
+          "policy.lotDispatch",
+          "recipe.process"
+        ],
+        "id": "inspection-1",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "lithography-bay",
+          "id": "lithography-1",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 10,
+            "preventiveMaintenance": {
+              "minimumJobs": 6
+            },
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 8,
+            "y": 12
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "blank-dram-wafer-lot": "release-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "patterned-cell-l1-lot": "pattern-output"
+              },
+              "priority": 1,
+              "process": "pattern-cell-layer-1"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "before": {
+          "asset": "lithography-bay",
+          "id": "lithography-1",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 10,
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 8,
+            "y": 12
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "blank-dram-wafer-lot": "release-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "patterned-cell-l1-lot": "pattern-output"
+              },
+              "priority": 1,
+              "process": "pattern-cell-layer-1"
+            },
+            {
+              "inputs": {
+                "annealed-dielectric-stack-lot": "reentrant-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "patterned-cell-l2-lot": "pattern-output"
+              },
+              "priority": 10,
+              "process": "pattern-cell-layer-2"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [
+          "policy.preventiveMaintenance",
+          "recipes"
+        ],
+        "id": "lithography-1",
+        "kind": "device"
+      },
+      {
+        "action": "added",
+        "after": {
+          "asset": "lithography-bay",
+          "id": "lithography-l2",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 10,
+            "preventiveMaintenance": {
+              "minimumJobs": 6
+            },
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 15,
+            "y": 9
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "annealed-dielectric-stack-lot": "reentrant-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "patterned-cell-l2-lot": "pattern-output"
+              },
+              "priority": 10,
+              "process": "pattern-cell-layer-2"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 90
+        },
+        "fields": [],
+        "id": "lithography-l2",
+        "kind": "device"
+      },
+      {
+        "action": "added",
+        "after": {
+          "asset": "sorter",
+          "id": "lithography-to-etch-lithography-l2-loader",
+          "position": {
+            "x": 16,
+            "y": 12
+          },
+          "region": "cleanroom",
+          "rotation": 90,
+          "transportEndpoint": {
+            "connection": "lithography-to-etch-lithography-l2",
+            "distance": 1,
+            "stage": "loader"
+          }
+        },
+        "fields": [],
+        "id": "lithography-to-etch-lithography-l2-loader",
+        "kind": "device"
+      },
+      {
+        "action": "added",
+        "after": {
+          "asset": "sorter",
+          "id": "lithography-to-etch-lithography-l2-unloader",
+          "position": {
+            "x": 14,
+            "y": 16
+          },
+          "region": "cleanroom",
+          "rotation": 0,
+          "transportEndpoint": {
+            "connection": "lithography-to-etch-lithography-l2",
+            "distance": 1,
+            "stage": "unloader"
+          }
+        },
+        "fields": [],
+        "id": "lithography-to-etch-lithography-l2-unloader",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "asset": "dual-crew-maintenance-service-bay",
+          "id": "maintenance-service-1",
+          "position": {
+            "x": 34,
+            "y": 26
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "before": {
+          "asset": "maintenance-service-bay",
+          "id": "maintenance-service-1",
+          "position": {
+            "x": 34,
+            "y": 26
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        },
+        "fields": [
+          "asset"
+        ],
+        "id": "maintenance-service-1",
+        "kind": "device"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "from": {
+            "device": "furnace-1",
+            "port": "batch-output"
+          },
+          "id": "batch-furnace-to-lithography",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "batch-furnace-to-lithography-loader"
+            },
+            "unloader": {
+              "device": "batch-furnace-to-lithography-unloader"
+            }
+          },
+          "path": [
+            {
+              "x": 24,
+              "y": 6
+            },
+            {
+              "x": 23,
+              "y": 6
+            },
+            {
+              "x": 22,
+              "y": 6
+            },
+            {
+              "x": 21,
+              "y": 6
+            },
+            {
+              "x": 20,
+              "y": 6
+            },
+            {
+              "x": 19,
+              "y": 6
+            },
+            {
+              "x": 18,
+              "y": 6
+            },
+            {
+              "x": 18,
+              "y": 7
+            },
+            {
+              "x": 18,
+              "y": 8
+            },
+            {
+              "x": 18,
+              "y": 9
+            },
+            {
+              "x": 18,
+              "y": 10
+            }
+          ],
+          "resources": [
+            "annealed-dielectric-stack-lot"
+          ],
+          "to": {
+            "device": "lithography-l2",
+            "port": "reentrant-input"
+          }
+        },
+        "before": {
+          "from": {
+            "device": "furnace-1",
+            "port": "batch-output"
+          },
+          "id": "batch-furnace-to-lithography",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "batch-furnace-to-lithography-loader"
+            },
+            "unloader": {
+              "device": "batch-furnace-to-lithography-unloader"
+            }
+          },
+          "path": [
+            {
+              "x": 24,
+              "y": 6
+            },
+            {
+              "x": 23,
+              "y": 6
+            },
+            {
+              "x": 22,
+              "y": 6
+            },
+            {
+              "x": 21,
+              "y": 6
+            },
+            {
+              "x": 20,
+              "y": 6
+            },
+            {
+              "x": 19,
+              "y": 6
+            },
+            {
+              "x": 18,
+              "y": 6
+            },
+            {
+              "x": 17,
+              "y": 6
+            },
+            {
+              "x": 16,
+              "y": 6
+            },
+            {
+              "x": 15,
+              "y": 6
+            },
+            {
+              "x": 14,
+              "y": 6
+            },
+            {
+              "x": 13,
+              "y": 6
+            },
+            {
+              "x": 12,
+              "y": 6
+            },
+            {
+              "x": 11,
+              "y": 6
+            },
+            {
+              "x": 10,
+              "y": 6
+            },
+            {
+              "x": 9,
+              "y": 6
+            },
+            {
+              "x": 9,
+              "y": 7
+            },
+            {
+              "x": 9,
+              "y": 8
+            },
+            {
+              "x": 9,
+              "y": 9
+            },
+            {
+              "x": 9,
+              "y": 10
+            },
+            {
+              "x": 9,
+              "y": 11
+            }
+          ],
+          "resources": [
+            "annealed-dielectric-stack-lot"
+          ],
+          "to": {
+            "device": "lithography-1",
+            "port": "reentrant-input"
+          }
+        },
+        "fields": [
+          "path",
+          "to.device"
+        ],
+        "id": "batch-furnace-to-lithography",
+        "kind": "connection"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "from": {
+            "device": "etch-l2",
+            "port": "final-output"
+          },
+          "id": "etch-to-inspection",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "etch-to-inspection-loader"
+            },
+            "unloader": {
+              "device": "etch-to-inspection-unloader"
+            }
+          },
+          "path": [
+            {
+              "x": 16,
+              "y": 18
+            },
+            {
+              "x": 17,
+              "y": 18
+            },
+            {
+              "x": 17,
+              "y": 19
+            },
+            {
+              "x": 18,
+              "y": 19
+            }
+          ],
+          "resources": [
+            "dram-wafer-lot"
+          ],
+          "to": {
+            "device": "inspection-1",
+            "port": "wafer-input"
+          }
+        },
+        "before": {
+          "from": {
+            "device": "etch-1",
+            "port": "final-output"
+          },
+          "id": "etch-to-inspection",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "etch-to-inspection-loader"
+            },
+            "unloader": {
+              "device": "etch-to-inspection-unloader"
+            }
+          },
+          "path": [
+            {
+              "x": 18,
+              "y": 15
+            },
+            {
+              "x": 18,
+              "y": 16
+            },
+            {
+              "x": 18,
+              "y": 17
+            },
+            {
+              "x": 18,
+              "y": 18
+            },
+            {
+              "x": 18,
+              "y": 19
+            }
+          ],
+          "resources": [
+            "dram-wafer-lot"
+          ],
+          "to": {
+            "device": "inspection-1",
+            "port": "wafer-input"
+          }
+        },
+        "fields": [
+          "from.device",
+          "path"
+        ],
+        "id": "etch-to-inspection",
+        "kind": "connection"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "from": {
+            "device": "lithography-1",
+            "port": "pattern-output"
+          },
+          "id": "lithography-to-etch",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "lithography-to-etch-loader"
+            },
+            "unloader": {
+              "device": "lithography-to-etch-unloader"
+            }
+          },
+          "path": [
+            {
+              "x": 11,
+              "y": 13
+            },
+            {
+              "x": 12,
+              "y": 13
+            },
+            {
+              "x": 13,
+              "y": 13
+            },
+            {
+              "x": 14,
+              "y": 13
+            },
+            {
+              "x": 15,
+              "y": 13
+            },
+            {
+              "x": 16,
+              "y": 13
+            }
+          ],
+          "resources": [
+            "patterned-cell-l1-lot"
+          ],
+          "to": {
+            "device": "etch-1",
+            "port": "pattern-input"
+          }
+        },
+        "before": {
+          "from": {
+            "device": "lithography-1",
+            "port": "pattern-output"
+          },
+          "id": "lithography-to-etch",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "lithography-to-etch-loader"
+            },
+            "unloader": {
+              "device": "lithography-to-etch-unloader"
+            }
+          },
+          "path": [
+            {
+              "x": 11,
+              "y": 13
+            },
+            {
+              "x": 12,
+              "y": 13
+            },
+            {
+              "x": 13,
+              "y": 13
+            },
+            {
+              "x": 14,
+              "y": 13
+            },
+            {
+              "x": 15,
+              "y": 13
+            },
+            {
+              "x": 16,
+              "y": 13
+            }
+          ],
+          "resources": [
+            "patterned-cell-l1-lot",
+            "patterned-cell-l2-lot"
+          ],
+          "to": {
+            "device": "etch-1",
+            "port": "pattern-input"
+          }
+        },
+        "fields": [
+          "resources"
+        ],
+        "id": "lithography-to-etch",
+        "kind": "connection"
+      },
+      {
+        "action": "added",
+        "after": {
+          "from": {
+            "device": "lithography-l2",
+            "port": "pattern-output"
+          },
+          "id": "lithography-to-etch-lithography-l2",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "lithography-to-etch-lithography-l2-loader"
+            },
+            "unloader": {
+              "device": "lithography-to-etch-lithography-l2-unloader"
+            }
+          },
+          "path": [
+            {
+              "level": 0,
+              "x": 16,
+              "y": 12
+            },
+            {
+              "level": 1,
+              "x": 15,
+              "y": 12
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 12
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 13
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 14
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 15
+            },
+            {
+              "level": 0,
+              "x": 14,
+              "y": 16
+            }
+          ],
+          "resources": [
+            "patterned-cell-l2-lot"
+          ],
+          "to": {
+            "device": "etch-l2",
+            "port": "pattern-input"
+          }
+        },
+        "fields": [],
+        "id": "lithography-to-etch-lithography-l2",
+        "kind": "connection"
+      },
+      {
+        "action": "changed",
+        "after": {
+          "dispatch": "shortage-first",
+          "lotRelease": {
+            "dispatch": "earliest-due-date",
+            "kind": "conwip",
+            "maximumReleaseDelayTicks": 18000,
+            "maximumWip": 8,
+            "reopenAtWip": 5
+          },
+          "powerAllocation": "priority-load-shedding"
+        },
+        "before": {
+          "dispatch": "shortage-first",
+          "powerAllocation": "priority-load-shedding"
+        },
+        "fields": [
+          "lotRelease"
+        ],
+        "id": "factory",
+        "kind": "policy"
+      },
+      {
+        "action": "changed",
+        "after": "9af27defc6f17385e8d242c272de40878a84d4405a10ebe165076fc9560121b5",
+        "before": "memory-fab-product-v1",
+        "fields": [
+          "revision"
+        ],
+        "id": "revision",
+        "kind": "metadata"
+      }
+    ],
+    "minimumCaseScoreDelta": 103.46730381944448,
+    "name": "Greenfield DRAM Build and Optimization",
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/connections/1/resources/1"
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/7/x",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/7/y",
+        "value": 7
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/8/x",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/8/y",
+        "value": 8
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/9/x",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/9/y",
+        "value": 9
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/10/x",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/path/10/y",
+        "value": 10
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/20"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/19"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/18"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/17"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/16"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/15"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/14"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/13"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/12"
+      },
+      {
+        "op": "remove",
+        "path": "/connections/4/path/11"
+      },
+      {
+        "op": "replace",
+        "path": "/connections/4/to/device",
+        "value": "lithography-l2"
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/from/device",
+        "value": "etch-l2"
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/0/x",
+        "value": 16
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/0/y",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/1/x",
+        "value": 17
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/1/y",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/2/x",
+        "value": 17
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/2/y",
+        "value": 19
+      },
+      {
+        "op": "replace",
+        "path": "/connections/5/path/3/y",
+        "value": 19
+      },
+      {
+        "op": "remove",
+        "path": "/connections/5/path/4"
+      },
+      {
+        "op": "add",
+        "path": "/connections/-",
+        "value": {
+          "from": {
+            "device": "lithography-l2",
+            "port": "pattern-output"
+          },
+          "id": "lithography-to-etch-lithography-l2",
+          "logistics": {
+            "line": {
+              "deviceAsset": "conveyor"
+            },
+            "loader": {
+              "device": "lithography-to-etch-lithography-l2-loader"
+            },
+            "unloader": {
+              "device": "lithography-to-etch-lithography-l2-unloader"
+            }
+          },
+          "path": [
+            {
+              "level": 0,
+              "x": 16,
+              "y": 12
+            },
+            {
+              "level": 1,
+              "x": 15,
+              "y": 12
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 12
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 13
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 14
+            },
+            {
+              "level": 1,
+              "x": 14,
+              "y": 15
+            },
+            {
+              "level": 0,
+              "x": 14,
+              "y": 16
+            }
+          ],
+          "resources": [
+            "patterned-cell-l2-lot"
+          ],
+          "to": {
+            "device": "etch-l2",
+            "port": "pattern-input"
+          }
+        }
+      },
+      {
+        "op": "add",
+        "path": "/devices/2/policy/preventiveMaintenance",
+        "value": {
+          "minimumJobs": 6
+        }
+      },
+      {
+        "op": "remove",
+        "path": "/devices/2/recipes/1"
+      },
+      {
+        "op": "add",
+        "path": "/devices/3/policy/preventiveMaintenance",
+        "value": {
+          "minimumJobs": 5
+        }
+      },
+      {
+        "op": "remove",
+        "path": "/devices/3/recipes/1"
+      },
+      {
+        "op": "remove",
+        "path": "/devices/5/recipe"
+      },
+      {
+        "op": "add",
+        "path": "/devices/5/recipes",
+        "value": [
+          {
+            "inputs": {
+              "dielectric-stack-lot": "batch-input"
+            },
+            "mode": "qualified",
+            "outputs": {
+              "annealed-dielectric-stack-lot": "batch-output"
+            },
+            "process": "batch-anneal-dielectric-stack"
+          },
+          {
+            "inputs": {
+              "dielectric-stack-lot": "batch-input"
+            },
+            "mode": "qualified",
+            "outputs": {
+              "annealed-dielectric-stack-lot": "batch-output"
+            },
+            "process": "rapid-anneal-dielectric-stack"
+          }
+        ]
+      },
+      {
+        "op": "add",
+        "path": "/devices/5/policy/batchFormation",
+        "value": {
+          "maximumWaitTicks": 0,
+          "preferredProcess": "batch-anneal-dielectric-stack"
+        }
+      },
+      {
+        "op": "replace",
+        "path": "/devices/6/policy/lotDispatch",
+        "value": "earliest-due-date"
+      },
+      {
+        "op": "replace",
+        "path": "/devices/6/recipe/process",
+        "value": "inspect-final-pattern-deep"
+      },
+      {
+        "op": "replace",
+        "path": "/devices/10/policy/recipeDispatch",
+        "value": "contract-value"
+      },
+      {
+        "op": "replace",
+        "path": "/devices/16/asset",
+        "value": "dual-crew-maintenance-service-bay"
+      },
+      {
+        "op": "replace",
+        "path": "/devices/33/position/x",
+        "value": 18
+      },
+      {
+        "op": "replace",
+        "path": "/devices/33/position/y",
+        "value": 10
+      },
+      {
+        "op": "replace",
+        "path": "/devices/33/rotation",
+        "value": 180
+      },
+      {
+        "op": "replace",
+        "path": "/devices/34/position/x",
+        "value": 16
+      },
+      {
+        "op": "replace",
+        "path": "/devices/34/position/y",
+        "value": 18
+      },
+      {
+        "op": "add",
+        "path": "/devices/-",
+        "value": {
+          "asset": "fab-utility-plant",
+          "id": "fab-utility-plant-2",
+          "position": {
+            "x": 34,
+            "y": 17
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        }
+      },
+      {
+        "op": "add",
+        "path": "/devices/-",
+        "value": {
+          "asset": "lithography-bay",
+          "id": "lithography-l2",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 10,
+            "preventiveMaintenance": {
+              "minimumJobs": 6
+            },
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 15,
+            "y": 9
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "annealed-dielectric-stack-lot": "reentrant-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "patterned-cell-l2-lot": "pattern-output"
+              },
+              "priority": 10,
+              "process": "pattern-cell-layer-2"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 90
+        }
+      },
+      {
+        "op": "add",
+        "path": "/devices/-",
+        "value": {
+          "asset": "sorter",
+          "id": "lithography-to-etch-lithography-l2-loader",
+          "position": {
+            "x": 16,
+            "y": 12
+          },
+          "region": "cleanroom",
+          "rotation": 90,
+          "transportEndpoint": {
+            "connection": "lithography-to-etch-lithography-l2",
+            "distance": 1,
+            "stage": "loader"
+          }
+        }
+      },
+      {
+        "op": "add",
+        "path": "/devices/-",
+        "value": {
+          "asset": "sorter",
+          "id": "lithography-to-etch-lithography-l2-unloader",
+          "position": {
+            "x": 14,
+            "y": 16
+          },
+          "region": "cleanroom",
+          "rotation": 0,
+          "transportEndpoint": {
+            "connection": "lithography-to-etch-lithography-l2",
+            "distance": 1,
+            "stage": "unloader"
+          }
+        }
+      },
+      {
+        "op": "add",
+        "path": "/devices/-",
+        "value": {
+          "asset": "fab-utility-plant",
+          "id": "fab-utility-plant-3",
+          "position": {
+            "x": 30,
+            "y": 22
+          },
+          "region": "cleanroom",
+          "rotation": 0
+        }
+      },
+      {
+        "op": "add",
+        "path": "/devices/-",
+        "value": {
+          "asset": "plasma-etch-bay",
+          "id": "etch-l2",
+          "policy": {
+            "lotDispatch": "fifo",
+            "powerPriority": 9,
+            "preventiveMaintenance": {
+              "minimumJobs": 5
+            },
+            "recipeDispatch": "authored-order"
+          },
+          "position": {
+            "x": 15,
+            "y": 15
+          },
+          "recipes": [
+            {
+              "inputs": {
+                "patterned-cell-l2-lot": "pattern-input"
+              },
+              "mode": "qualified",
+              "outputs": {
+                "dram-wafer-lot": "final-output"
+              },
+              "priority": 10,
+              "process": "etch-cell-layer-2"
+            }
+          ],
+          "region": "cleanroom",
+          "rotation": 0
+        }
+      },
+      {
+        "op": "add",
+        "path": "/policies/lotRelease",
+        "value": {
+          "dispatch": "earliest-due-date",
+          "kind": "conwip",
+          "maximumReleaseDelayTicks": 18000,
+          "maximumWip": 8,
+          "reopenAtWip": 5
+        }
+      },
+      {
+        "op": "replace",
+        "path": "/revision",
+        "value": "9af27defc6f17385e8d242c272de40878a84d4405a10ebe165076fc9560121b5"
+      }
+    ],
+    "reasons": [],
+    "scoreDelta": 114.88661617562528,
+    "totalSimulationTicks": 2400000,
+    "verdict": "KEEP",
+    "worstCaseBaselineScore": -299.12279054166663,
+    "worstCaseCandidateScore": -170.85474888888885
+  },
+  "resultHash": "2b07422a5e5a51c2fa076dd7d2ab35250e7b1781c36a9be80f23d529a51d953a",
+  "scoreDelta": 114.88661617562528,
+  "verdict": "KEEP",
+  "version": 1
+}

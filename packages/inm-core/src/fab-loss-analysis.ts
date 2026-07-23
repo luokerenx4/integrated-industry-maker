@@ -1,4 +1,4 @@
-import type { CompiledFactoryProject, FactoryMetrics } from "./types";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics } from "./types";
 
 export type FabLossBucketId =
   | "delivery-portfolio"
@@ -21,6 +21,22 @@ export interface FabLossSubject {
   id: string;
 }
 
+export type FabLossContributorMechanism =
+  | "batch-companion-wait"
+  | "maintenance-qualification"
+  | "equipment-availability";
+
+export interface FabLossContributor {
+  id: string;
+  label: string;
+  mechanism: FabLossContributorMechanism;
+  route: string;
+  step: string;
+  processes: string[];
+  subjects: FabLossSubject[];
+  evidence: Record<string, number>;
+}
+
 export interface FabLossBucket {
   id: FabLossBucketId;
   label: string;
@@ -28,10 +44,11 @@ export interface FabLossBucket {
   summary: string;
   subjects: FabLossSubject[];
   evidence: Record<string, number>;
+  contributors: FabLossContributor[];
 }
 
 export interface FabLossProfile {
-  version: 3;
+  version: 4;
   family: string;
   outcome: {
     scheduled: number;
@@ -64,16 +81,133 @@ const productionCapabilities = new Set(["extract", "process", "treat"]);
 const isProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">, id: string) =>
   project.devices[id]?.assetDef.capabilities.some((capability) => productionCapabilities.has(capability)) ?? false;
 
+type QueueTimeViolationEvent = Extract<FactoryEvent, { type: "lot.queue-time-violation" }>;
+
+function qTimeMechanism(
+  event: QueueTimeViolationEvent,
+  events: readonly FactoryEvent[],
+  project: Pick<CompiledFactoryProject, "devices">,
+): { mechanism: FabLossContributorMechanism; providers: string[] } {
+  const queueStartedAt = event.tick - event.queueTicks;
+  const maintenanceEvents = events.filter((candidate) =>
+    candidate.tick >= queueStartedAt
+    && candidate.tick <= event.tick
+    && "device" in candidate
+    && candidate.device === event.device
+    && (
+      candidate.type === "device.maintenance-start"
+      || candidate.type === "device.maintenance-service-finish"
+      || candidate.type === "device.maintenance-blocked"
+      || candidate.type === "device.qualification-start"
+      || candidate.type === "device.qualification-finish"
+      || candidate.type === "device.maintenance-finish"
+    ));
+  if (maintenanceEvents.length) {
+    return {
+      mechanism: "maintenance-qualification",
+      providers: [...new Set(maintenanceEvents.flatMap((candidate) =>
+        "provider" in candidate ? [candidate.provider] : []))].sort(),
+    };
+  }
+  const processPlan = project.devices[event.device]?.processPlans.find((plan) =>
+    plan.definition.id === event.process);
+  if (processPlan?.lotTransfers.some((transfer) => transfer.input.count > 1)) {
+    return { mechanism: "batch-companion-wait", providers: [] };
+  }
+  return { mechanism: "equipment-availability", providers: [] };
+}
+
+function qTimeContributors(
+  events: readonly FactoryEvent[],
+  project: Pick<CompiledFactoryProject, "devices">,
+): FabLossContributor[] {
+  const groups = new Map<string, {
+    route: string;
+    step: string;
+    mechanism: FabLossContributorMechanism;
+    processes: Set<string>;
+    devices: Set<string>;
+    providers: Set<string>;
+    lots: Set<string>;
+    violations: number;
+    totalQueueTicks: number;
+    maximumQueueTicks: number;
+    limitTicks: number;
+    totalOverrunTicks: number;
+    maximumOverrunTicks: number;
+  }>();
+  for (const event of events) {
+    if (event.type !== "lot.queue-time-violation") continue;
+    const { mechanism, providers } = qTimeMechanism(event, events, project);
+    const id = `${event.route}:${event.step}:${mechanism}`;
+    const group = groups.get(id) ?? {
+      route: event.route,
+      step: event.step,
+      mechanism,
+      processes: new Set<string>(),
+      devices: new Set<string>(),
+      providers: new Set<string>(),
+      lots: new Set<string>(),
+      violations: 0,
+      totalQueueTicks: 0,
+      maximumQueueTicks: 0,
+      limitTicks: event.maximumTicks,
+      totalOverrunTicks: 0,
+      maximumOverrunTicks: 0,
+    };
+    const overrunTicks = Math.max(0, event.queueTicks - event.maximumTicks);
+    group.processes.add(event.process);
+    group.devices.add(event.device);
+    providers.forEach((provider) => group.providers.add(provider));
+    group.lots.add(event.lot);
+    group.violations++;
+    group.totalQueueTicks += event.queueTicks;
+    group.maximumQueueTicks = Math.max(group.maximumQueueTicks, event.queueTicks);
+    group.limitTicks = Math.min(group.limitTicks, event.maximumTicks);
+    group.totalOverrunTicks += overrunTicks;
+    group.maximumOverrunTicks = Math.max(group.maximumOverrunTicks, overrunTicks);
+    groups.set(id, group);
+  }
+  return [...groups.entries()].map(([id, group]) => ({
+    id,
+    label: group.step,
+    mechanism: group.mechanism,
+    route: group.route,
+    step: group.step,
+    processes: [...group.processes].sort(),
+    subjects: [
+      { kind: "route" as const, id: group.route },
+      ...[...group.devices, ...group.providers].sort().map((device) => ({ kind: "device" as const, id: device })),
+    ],
+    evidence: {
+      violations: group.violations,
+      violatedLots: group.lots.size,
+      totalQueueTicks: group.totalQueueTicks,
+      meanQueueTicks: group.totalQueueTicks / group.violations,
+      maximumQueueTicks: group.maximumQueueTicks,
+      limitTicks: group.limitTicks,
+      totalOverrunTicks: group.totalOverrunTicks,
+      maximumOverrunTicks: group.maximumOverrunTicks,
+    },
+  })).sort((left, right) =>
+    right.evidence.violations! - left.evidence.violations!
+    || right.evidence.totalOverrunTicks! - left.evidence.totalOverrunTicks!
+    || left.id.localeCompare(right.id));
+}
+
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
   project: Pick<CompiledFactoryProject, "devices">,
+  events: readonly FactoryEvent[],
 ): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
   const scheduled = Math.max(1, metrics.lotFlow.scheduled);
   const cycleTicks = Math.max(1, metrics.lotFlow.meanCycleTimeTicks);
   const buckets: FabLossBucket[] = [];
-  const add = (bucket: FabLossBucket) => { if (bucket.score > 1e-9) buckets.push(bucket); };
+  const add = (bucket: Omit<FabLossBucket, "contributors"> & { contributors?: FabLossContributor[] }) => {
+    if (bucket.score > 1e-9) buckets.push({ contributors: [], ...bucket });
+  };
 
   const deliveryContracts = Object.values(metrics.deliveryPortfolio.contracts);
   const deliveryShortfall = deliveryContracts.reduce((total, contract) => total + contract.shortfall, 0);
@@ -213,7 +347,16 @@ export function analyzeFabLossProfile(
   const qTimeViolations = Object.values(metrics.routeFlow).reduce((total, route) => total + route.queueTimeViolations, 0);
   const qTimeLots = Object.values(metrics.routeFlow).reduce((total, route) => total + route.violatedLots, 0);
   const qTimeRoute = topKey(Object.fromEntries(Object.entries(metrics.routeFlow).map(([id, route]) => [id, route.queueTimeViolations])));
-  add({ id: "q-time", label: "Route Q-time", score: ratio(qTimeLots, scheduled) + ratio(qTimeViolations, scheduled), summary: `${qTimeLots} lots crossed a Route Q-time limit in ${qTimeViolations} step visits.`, subjects: qTimeRoute ? [{ kind: "route", id: qTimeRoute }] : [], evidence: { violatedLots: qTimeLots, violations: qTimeViolations } });
+  const qTimeDetails = qTimeContributors(events, project);
+  add({
+    id: "q-time",
+    label: "Route Q-time",
+    score: ratio(qTimeLots, scheduled) + ratio(qTimeViolations, scheduled),
+    summary: `${qTimeLots} lots crossed a Route Q-time limit in ${qTimeViolations} step visits across ${qTimeDetails.length} measured contributors.`,
+    subjects: qTimeRoute ? [{ kind: "route", id: qTimeRoute }] : [],
+    evidence: { violatedLots: qTimeLots, violations: qTimeViolations, contributors: qTimeDetails.length },
+    contributors: qTimeDetails,
+  });
 
   const inspectedLots = metrics.qualityFlow.inspectedLots;
   const firstPassYield = inspectedLots ? ratio(metrics.qualityFlow.firstPassCompleted, inspectedLots) : 1;
@@ -252,7 +395,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 3,
+    version: 4,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,
@@ -272,7 +415,8 @@ export function analyzeFabLosses(
   durationTicks: number,
   run: { id: string; resultHash: string },
   project: Pick<CompiledFactoryProject, "devices">,
+  events: readonly FactoryEvent[],
 ): FabLossAttribution | null {
-  const profile = analyzeFabLossProfile(metrics, durationTicks, project);
+  const profile = analyzeFabLossProfile(metrics, durationTicks, project, events);
   return profile ? { ...profile, run } : null;
 }

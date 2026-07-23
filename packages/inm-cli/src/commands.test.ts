@@ -88,6 +88,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   for (const candidateId of [
     "commissioned-greenfield-dram-fab",
     "dedicated-etch-quality-cell",
+    "furnace-flex-dual-service",
     "inspection-edd-resilience",
     "layer-two-lithography-capacity",
     "stable-furnace-sleep",
@@ -573,8 +574,8 @@ test("public inspect exposes compatible-run memory-fab loss attribution without 
   expect(JSON.parse(result.stdout).data).toEqual({
     section: "losses",
     result: expect.objectContaining({
-      version: 3,
-      run: { id: "054-simulate", resultHash: expect.any(String) },
+      version: 4,
+      run: { id: "060-simulate", resultHash: "c8fc8824c17d3656aa22b9e50187d77ef7bf5141b31f6adc09d1aa32ab4b6830" },
       family: "dram-wafer",
       outcome: expect.objectContaining({
         deliveryShortfall: 15,
@@ -589,6 +590,35 @@ test("public inspect exposes compatible-run memory-fab loss attribution without 
       chain: ["input-starvation", "queue-congestion", "delivery-portfolio", "transport-blocking", "maintenance-qualification"],
     }),
   });
+});
+
+test("public inspect gives Agents and humans the same current Q-time contributors", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const machine = await runCli(["inspect", projectDir, "--section", "losses", "--json"]);
+  expect({ exitCode: machine.exitCode, stderr: machine.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const qTime = JSON.parse(machine.stdout).data.result.buckets
+    .find((bucket: { id: string }) => bucket.id === "q-time");
+  expect(qTime).toMatchObject({
+    id: "q-time",
+    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
+    contributors: [{
+      step: "final-inspection",
+      mechanism: "maintenance-qualification",
+      processes: ["inspect-final-pattern-deep"],
+      subjects: [
+        { kind: "route", id: "dram-front-end" },
+        { kind: "device", id: "inspection-1" },
+        { kind: "device", id: "maintenance-service-1" },
+      ],
+      evidence: { violatedLots: 2, violations: 2, totalOverrunTicks: 83_600 },
+    }],
+  });
+
+  const human = await runCli(["inspect", projectDir]);
+  expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(human.stdout).toContain("Q-time contributors:");
+  expect(human.stdout).not.toContain("batch-companion-wait");
+  expect(human.stdout).toContain("final-inspection · maintenance-qualification · 2 lots / 2 visits · mean 76.8s / 35.0s limit · +83.6s overrun · inspection-1+maintenance-service-1");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {

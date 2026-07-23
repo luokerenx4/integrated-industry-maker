@@ -12,13 +12,13 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
-
-## Proposed plans
-
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/commissioned-q-time-convergence]] | Expose step-level Route Q-time causality to humans and Agents, then reduce the commissioned memory fab's anneal and inspection violations without surrendering its accepted quality, delivery, capacity, or locked-case gains. | 2026-07-23 |
+
+## Proposed plans
+
+There are no proposed plans.
 
 ## Paused plans
 

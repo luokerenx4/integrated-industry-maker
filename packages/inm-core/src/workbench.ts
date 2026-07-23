@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { listRuns } from "./artifacts";
 import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./benchmark";
@@ -8,7 +9,7 @@ import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { analyzeProduction, type ProductionAnalysis, type ProductionDiagnostic } from "./production-analysis";
-import type { CompiledFactoryProject, FactoryMetrics, ProjectHashes } from "./types";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, ProjectHashes } from "./types";
 import { ENGINE_VERSION, hashValue, readJson, stableStringify } from "./utils";
 
 export type WorkbenchDiagnosticSeverity = "blocking" | "warning" | "info";
@@ -178,6 +179,11 @@ function uniqueSubjects(subjects: WorkbenchSubjectReference[]): WorkbenchSubject
     seen.add(key);
     return true;
   });
+}
+
+async function readFactoryEvents(path: string): Promise<FactoryEvent[]> {
+  const source = await readFile(path, "utf8");
+  return source.split("\n").filter(Boolean).map((line) => JSON.parse(line) as FactoryEvent);
 }
 
 function analysisSubjects(projectId: string, diagnostic: ProductionDiagnostic): WorkbenchSubjectReference[] {
@@ -491,7 +497,13 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const currentRun = matchingRun(selection, runSummaries);
   const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
   const lossAttribution = currentArtifact && Object.keys(project.routes).length
-    ? analyzeFabLosses(await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics, project.scenario.durationTicks, { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash }, project)
+    ? analyzeFabLosses(
+      await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics,
+      project.scenario.durationTicks,
+      { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash },
+      project,
+      await readFactoryEvents(join(currentArtifact.path, "events.ndjson")),
+    )
     : null;
   const diagnostics = projectDiagnostics(project, analysis, capacity, lossAttribution);
   const operations = operationDescriptors(experiments, candidateSummaries);

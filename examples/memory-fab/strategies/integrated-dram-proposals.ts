@@ -151,6 +151,47 @@ function furnaceBatchFormationPatch(blueprint: { devices: Array<Record<string, u
   ];
 }
 
+function commissionedQTimeCapacityPatch(
+  blueprint: { devices: Array<Record<string, unknown>> },
+): JsonPatchOperation[] | null {
+  const commissionedDevices = ["lithography-l2", "etch-l2", "fab-utility-plant-3"];
+  if (commissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
+  const furnaceIndex = deviceIndex(blueprint, "furnace-1");
+  const serviceIndex = deviceIndex(blueprint, "maintenance-service-1");
+  if (furnaceIndex < 0 || serviceIndex < 0) return null;
+  const furnace = blueprint.devices[furnaceIndex]!;
+  const service = blueprint.devices[serviceIndex]!;
+  const policy = furnace.policy;
+  const recipe = furnace.recipe;
+  if (furnace.asset !== "thermal-batch-furnace"
+    || service.asset !== "maintenance-service-bay"
+    || !isRecord(policy)
+    || !isRecord(recipe)
+    || recipe.process !== "batch-anneal-dielectric-stack"
+    || furnace.recipes !== undefined) return null;
+  return [
+    { op: "remove", path: `/devices/${furnaceIndex}/recipe` },
+    {
+      op: "add",
+      path: `/devices/${furnaceIndex}/recipes`,
+      value: [
+        structuredClone(recipe),
+        { ...structuredClone(recipe), process: "rapid-anneal-dielectric-stack" },
+      ],
+    },
+    {
+      op: Object.hasOwn(policy, "batchFormation") ? "replace" : "add",
+      path: `/devices/${furnaceIndex}/policy/batchFormation`,
+      value: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 0 },
+    },
+    {
+      op: "replace",
+      path: `/devices/${serviceIndex}/asset`,
+      value: "dual-crew-maintenance-service-bay",
+    },
+  ];
+}
+
 function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
   const requiredCommissionedDevices = ["fab-utility-plant-2", "lithography-1", "burn-in-1"];
   if (requiredCommissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
@@ -488,6 +529,14 @@ const candidates: Candidate[] = [
     subjects: ["etch-1"],
     patch: etchLayerTwoQualityCellPatch,
   },
+  {
+    strategy: "batch-formation:furnace-zero-wait+dual-service",
+    hypothesis: "Let the commissioned furnace take a ready three-lot batch immediately but never hold a ready single lot for companions, while staffing the existing shared service bay with a second physical crew so inspection qualification is not trapped behind unrelated work.",
+    expectedEffect: "Remove anneal companion-wait visits and reduce final-inspection maintenance Q-time through explicit furnace flexibility and staffed service capacity, with every locked case and causal quality floor remaining authoritative.",
+    addresses: ["q-time", "batch-formation", "maintenance-qualification"],
+    subjects: ["furnace-1", "inspection-1", "maintenance-service-1"],
+    patch: commissionedQTimeCapacityPatch,
+  },
   release(9, 6),
   release(8, 5),
   release(10, 7),
@@ -581,8 +630,12 @@ export default {
           (attempts.get(left) ?? 0) - (attempts.get(right) ?? 0)
           || lossChain.indexOf(left) - lossChain.indexOf(right));
         const addressedLoss = targets[0];
-        const observedSubjects = addressedLoss
-          ? context.fabLoss?.buckets.find((bucket) => bucket.id === addressedLoss)?.subjects.map((subject) => subject.id) ?? []
+        const observedBucket = addressedLoss
+          ? context.fabLoss?.buckets.find((bucket) => bucket.id === addressedLoss)
+          : undefined;
+        const observedSubjects = observedBucket
+          ? [...observedBucket.subjects, ...observedBucket.contributors.flatMap((contributor) => contributor.subjects)]
+            .map((subject) => subject.id)
           : [];
         const subjectMatch = candidate.subjects?.some((subject) => observedSubjects.includes(subject)) ?? false;
         return { candidate, index, addressedLoss, subjectMatch, attempts: addressedLoss ? attempts.get(addressedLoss) ?? 0 : 0 };

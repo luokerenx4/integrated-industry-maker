@@ -15,7 +15,8 @@ async function memoryFabInput() {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, { blueprint: "experiment", scenario: "production-window", objective: "dram-output" });
   const project = compileFactoryProject(loaded);
-  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
+  const result = runUntil(project, undefined, { seed: 42 });
+  const metrics = result.metrics;
   const input = {
     iteration: 1,
     branch: { nodeId: "seed", role: "leader" as const, depth: 0, leaderNodeId: "seed" },
@@ -31,7 +32,7 @@ async function memoryFabInput() {
     project,
     blueprint: project.blueprint,
     metrics,
-    fabLoss: analyzeFabLossProfile(metrics, project.scenario.durationTicks, project),
+    fabLoss: analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events),
     production: analyzeProduction(project),
     capacityPlan: planProductionCapacity(project),
     history: [],
@@ -56,17 +57,22 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
 
 test("memory-fab project provider reaches the measured delivery mismatch after higher-ranked losses are attempted", async () => {
   const root = resolve("examples/memory-fab");
-  const loaded = await loadFactoryProject(root, {
+  const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
+  const commissionedBlueprint = JSON.parse(
+    await readFile(resolve(root, "runs/058-simulate/blueprint.json"), "utf8"),
+  ) as typeof current.blueprint;
+  const loaded = { ...current, blueprint: commissionedBlueprint };
   const blueprint = structuredClone(loaded.blueprint);
   const burnIn = blueprint.devices.find((device) => device.id === "burn-in-1")!;
   burnIn.policy = { ...burnIn.policy, recipeDispatch: "authored-order" };
   const project = compileFactoryProject({ ...loaded, blueprint });
-  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
-  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
+  const result = runUntil(project, undefined, { seed: 42 });
+  const metrics = result.metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
-    version: 3,
+    version: 4,
     outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
@@ -112,17 +118,22 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   });
 });
 
-test("current commissioned fab loss exposes the next physical constraint after yield convergence", async () => {
+test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms", async () => {
   const root = resolve("examples/memory-fab");
-  const loaded = await loadFactoryProject(root, {
+  const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
+  const blueprint = JSON.parse(
+    await readFile(resolve(root, "runs/058-simulate/blueprint.json"), "utf8"),
+  );
+  const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
-  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
-  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
+  const result = runUntil(project, undefined, { seed: 42 });
+  const metrics = result.metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 3,
+    version: 4,
     outcome: {
       completed: 6,
       inProgress: 5,
@@ -135,6 +146,48 @@ test("current commissioned fab loss exposes the next physical constraint after y
       id: "q-time",
       subjects: [{ kind: "route", id: "dram-front-end" }],
       evidence: { violatedLots: 5, violations: 6 },
+      contributors: [{
+        id: "dram-front-end:anneal-dielectric-stack:batch-companion-wait",
+        mechanism: "batch-companion-wait",
+        route: "dram-front-end",
+        step: "anneal-dielectric-stack",
+        processes: ["batch-anneal-dielectric-stack"],
+        subjects: [
+          { kind: "route", id: "dram-front-end" },
+          { kind: "device", id: "furnace-1" },
+        ],
+        evidence: {
+          violations: 3,
+          violatedLots: 3,
+          totalQueueTicks: 103_600,
+          meanQueueTicks: 103_600 / 3,
+          maximumQueueTicks: 40_800,
+          limitTicks: 20_000,
+          totalOverrunTicks: 43_600,
+          maximumOverrunTicks: 20_800,
+        },
+      }, {
+        id: "dram-front-end:final-inspection:maintenance-qualification",
+        mechanism: "maintenance-qualification",
+        route: "dram-front-end",
+        step: "final-inspection",
+        processes: ["inspect-final-pattern-deep"],
+        subjects: [
+          { kind: "route", id: "dram-front-end" },
+          { kind: "device", id: "inspection-1" },
+          { kind: "device", id: "maintenance-service-1" },
+        ],
+        evidence: {
+          violations: 3,
+          violatedLots: 3,
+          totalQueueTicks: 120_900,
+          meanQueueTicks: 40_300,
+          maximumQueueTicks: 42_300,
+          limitTicks: 35_000,
+          totalOverrunTicks: 15_900,
+          maximumOverrunTicks: 7_300,
+        },
+      }],
     },
     chain: ["q-time", "input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification"],
   });
@@ -164,6 +217,99 @@ test("current commissioned fab loss exposes the next physical constraint after y
     },
   });
   expect(fabLoss.buckets.some((bucket) => bucket.subjects.some((subject) => subject.id === "rework-1"))).toBeFalse();
+  const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+  expect(proposal).toMatchObject({
+    strategy: "batch-formation:furnace-zero-wait+dual-service",
+    addressedLoss: "q-time",
+    patch: [
+      { op: "remove", path: expect.stringContaining("/recipe") },
+      { op: "add", path: expect.stringContaining("/recipes") },
+      {
+        op: "add",
+        path: expect.stringContaining("/policy/batchFormation"),
+        value: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 0 },
+      },
+      {
+        op: "replace",
+        path: expect.stringContaining("/asset"),
+        value: "dual-crew-maintenance-service-bay",
+      },
+    ],
+  });
+});
+
+test("current commissioned fab removes batch-companion Q-time with physical service capacity", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
+  });
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(
+    result.metrics,
+    project.scenario.durationTicks,
+    project,
+    result.events,
+  )!;
+  const qTime = fabLoss.buckets.find((bucket) => bucket.id === "q-time");
+
+  expect(fabLoss).toMatchObject({
+    version: 4,
+    outcome: {
+      completed: 8,
+      inProgress: 0,
+      firstPassYield: 2 / 3,
+      deliveryShortfall: 0,
+      deliveryOverflow: 6,
+      portfolioNetValue: 196,
+      scrapped: 4,
+    },
+  });
+  expect(qTime).toMatchObject({
+    evidence: { violatedLots: 2, violations: 2, contributors: 1 },
+    contributors: [{
+      id: "dram-front-end:final-inspection:maintenance-qualification",
+      mechanism: "maintenance-qualification",
+      step: "final-inspection",
+      subjects: [
+        { kind: "route", id: "dram-front-end" },
+        { kind: "device", id: "inspection-1" },
+        { kind: "device", id: "maintenance-service-1" },
+      ],
+      evidence: {
+        violatedLots: 2,
+        violations: 2,
+        totalOverrunTicks: 83_600,
+      },
+    }],
+  });
+  expect(qTime?.contributors.some((contributor) =>
+    contributor.mechanism === "batch-companion-wait")).toBeFalse();
+  expect(project.blueprint.devices.find((device) => device.id === "maintenance-service-1")?.asset)
+    .toBe("dual-crew-maintenance-service-bay");
 });
 
 test("historical commissioned yield evidence reproduces the dedicated etch quality-cell intervention", async () => {
@@ -174,11 +320,12 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const blueprint = JSON.parse(await readFile(resolve(root, "runs/057-simulate/blueprint.json"), "utf8"));
   const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
-  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
-  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
+  const result = runUntil(project, undefined, { seed: 42 });
+  const metrics = result.metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 3,
+    version: 4,
     outcome: {
       completed: 6,
       inProgress: 4,
@@ -261,8 +408,9 @@ test("commissioned provider skips installed CONWIP and proposes explicit layer-t
   const blueprint = JSON.parse(await readFile(resolve(root, "runs/056-simulate/blueprint.json"), "utf8"));
   const loaded = { ...current, blueprint };
   const project = compileFactoryProject(loaded);
-  const metrics = runUntil(project, undefined, { seed: 42 }).metrics;
-  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project)!;
+  const result = runUntil(project, undefined, { seed: 42 });
+  const metrics = result.metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
     iteration: 2,
     branch: { nodeId: "candidate-1", parentNodeId: "seed", role: "leader", depth: 1, leaderNodeId: "candidate-1" },
@@ -301,7 +449,8 @@ test("commissioned provider skips installed CONWIP and proposes explicit layer-t
   }));
   const candidateBlueprint = applyResearchPatch(loaded.blueprint, proposal.patch);
   const candidate = compileFactoryProject({ ...loaded, blueprint: candidateBlueprint });
-  const candidateMetrics = runUntil(candidate, undefined, { seed: 42 }).metrics;
+  const candidateResult = runUntil(candidate, undefined, { seed: 42 });
+  const candidateMetrics = candidateResult.metrics;
   expect(candidateMetrics).toMatchObject({
     bottleneckEntity: "etch-1",
     lotFlow: { completed: 6, inProgress: 4, scrapped: 2 },
@@ -337,7 +486,7 @@ test("commissioned provider skips installed CONWIP and proposes explicit layer-t
     project: candidate,
     blueprint: candidateBlueprint,
     metrics: candidateMetrics,
-    fabLoss: analyzeFabLossProfile(candidateMetrics, candidate.scenario.durationTicks, candidate),
+    fabLoss: analyzeFabLossProfile(candidateMetrics, candidate.scenario.durationTicks, candidate, candidateResult.events),
     production: analyzeProduction(candidate),
     capacityPlan: planProductionCapacity(candidate),
     history: [{
@@ -441,7 +590,10 @@ test("memory-fab project provider diversifies measured loss targets from immutab
     score: 1,
     scoreDelta: -1,
   }] });
-  expect(batch).toMatchObject({ strategy: "batch-formation:furnace-flex-30000", addressedLoss: "batch-formation" });
+  expect(batch).toMatchObject({
+    strategy: "batch-formation:furnace-flex-30000",
+    addressedLoss: "batch-formation",
+  });
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(blueprint, batch.patch) })).not.toThrow();
 
   const campaign = await agent.propose({ ...guided, iteration: 6, history: [...history, {

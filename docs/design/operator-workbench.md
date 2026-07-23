@@ -39,7 +39,7 @@ The V3 snapshot contains:
 - immutable run evidence with selection, engine compatibility, decision, score, and result hash;
 - locked Benchmark summaries and Candidate summaries with cheap `proposed`, reviewed-verdict, `verified`, or `stale` decisions reconstructed from hashes and immutable review receipts without running their evaluators;
 - prioritized diagnostics and operation descriptors.
-- optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, and interpretation caveat;
+- optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, ordered Q-time step/Device contributors, and interpretation caveat;
 - exactly one shared next action with stable identity, reason, effect, confirmation requirement, exact CLI argv, project-qualified Studio route, and typed target.
 
 Every array is emitted in deterministic id order where its source is not already ordered. Snapshot `version` identifies this projection contract; INM is still pre-alpha, so changing it means replacing both consumers and tests in the same change rather than adding compatibility readers.
@@ -68,7 +68,7 @@ The three operation effects are `read-only`, `creates-artifact`, and `mutates-bl
 
 ## CLI and Studio projections
 
-`inm inspect --json` emits a compact summary inside the versioned CLI envelope. `inm inspect --section next-action --json` returns the exact Core next-action object, `--section losses --json` returns compatible-run attribution, and `inm inspect --section all --json` places the exact Core snapshot in `data.result`; the envelope's `nextActions` contains that same one object. Human `inm inspect` renders effective selection/hashes, Objective, the four explicit status facets, the shared next action, topology/catalog/evidence counts, the primary realized loss/chain when current, highest-priority diagnostics, and operation effects. Dense analysis remains in `inm analyze` and `inm plan`. See [[docs/design/agent-cli-contract]].
+`inm inspect --json` emits a compact summary inside the versioned CLI envelope. `inm inspect --section next-action --json` returns the exact Core next-action object, `--section losses --json` returns compatible-run attribution, and `inm inspect --section all --json` places the exact Core snapshot in `data.result`; the envelope's `nextActions` contains that same one object. Human `inm inspect` renders effective selection/hashes, Objective, the four explicit status facets, the shared next action, topology/catalog/evidence counts, the primary realized loss/chain and any measured Q-time contributor rows even when Q-time is not rank one, highest-priority diagnostics, and operation effects. Studio renders the same structured contributor evidence in the Fab Loss panel. Dense analysis remains in `inm analyze` and `inm plan`. See [[docs/design/agent-cli-contract]].
 
 Studio exposes the same snapshot at:
 

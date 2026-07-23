@@ -1,0 +1,60 @@
+{
+  "baseCandidateHash": "9af27defc6f17385e8d242c272de40878a84d4405a10ebe165076fc9560121b5",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 899f244bdc60: aggregate score -165.284195 (+114.886616 versus locked baseline) across 5 cases.",
+  "hypothesis": "Let the commissioned furnace take a ready three-lot batch immediately but never hold a ready single lot for companions, while staffing the existing shared service bay with a second physical crew so inspection qualification is not trapped behind unrelated work.",
+  "id": "furnace-flex-dual-service",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "remove",
+      "path": "/devices/5/recipe"
+    },
+    {
+      "op": "add",
+      "path": "/devices/5/recipes",
+      "value": [
+        {
+          "inputs": {
+            "dielectric-stack-lot": "batch-input"
+          },
+          "mode": "qualified",
+          "outputs": {
+            "annealed-dielectric-stack-lot": "batch-output"
+          },
+          "process": "batch-anneal-dielectric-stack"
+        },
+        {
+          "inputs": {
+            "dielectric-stack-lot": "batch-input"
+          },
+          "mode": "qualified",
+          "outputs": {
+            "annealed-dielectric-stack-lot": "batch-output"
+          },
+          "process": "rapid-anneal-dielectric-stack"
+        }
+      ]
+    },
+    {
+      "op": "add",
+      "path": "/devices/5/policy/batchFormation",
+      "value": {
+        "maximumWaitTicks": 0,
+        "preferredProcess": "batch-anneal-dielectric-stack"
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/16/asset",
+      "value": "dual-crew-maintenance-service-bay"
+    }
+  ],
+  "source": {
+    "blueprintHash": "d67991771b844fb1f6f0b953e7afe8870ceb1efb69a01727f654c597a3444392",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "899f244bdc608c26db883d9093abdfebeedbae9364e4b01f60e9e638fcfdfb35"
+  },
+  "version": 1
+}

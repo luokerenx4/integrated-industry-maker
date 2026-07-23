@@ -31,7 +31,7 @@
     "cases": {
       "yield-excursion": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "deviceCatalogHash": "3539a5d270f17fd2d8e3cfd195c3a8f2ca5d4a89b9423c064109c534242008cc",
+        "deviceCatalogHash": "fd8ece2d0a400b38d10aba399374033cdb65969a78f2581d4c0dc4413f965692",
         "engineVersion": "inm-sim/0.75.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
@@ -42,7 +42,7 @@
       },
       "yield-window": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "deviceCatalogHash": "3539a5d270f17fd2d8e3cfd195c3a8f2ca5d4a89b9423c064109c534242008cc",
+        "deviceCatalogHash": "fd8ece2d0a400b38d10aba399374033cdb65969a78f2581d4c0dc4413f965692",
         "engineVersion": "inm-sim/0.75.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
