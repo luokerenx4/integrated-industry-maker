@@ -14,7 +14,7 @@ This document owns workspace discovery, project identity, file confinement, proj
 - An engine workspace contains many project directories and a selected default project.
 - A workspace has no Resource, Device, Process, Blueprint, World, Scenario, Objective, or run catalog of its own.
 - Reuse is explicit copying. Two copied assets immediately become independent packages with independent hashes.
-- Device appearance is also project-owned: each package selects its procedural profile or names its own texture/model file. Studio provides rendering capabilities but never an implicit shared asset catalog.
+- Device appearance is also project-owned: each package selects its procedural profile or names its own texture/model file. Whole-factory presentation may name a project-root-confined environment image and floor palette from `inm.json`. Studio provides rendering capabilities but never an implicit shared asset catalog.
 - `inm <command> <path> [--project id]` resolves exactly one project before any domain loading begins.
 - Studio chooses the project at entry and uses `/<project-id>` as the stable project context. Runtime UI never switches projects from a sidebar.
 
@@ -33,7 +33,7 @@ This document owns workspace discovery, project identity, file confinement, proj
 2. Project discovery scans one configured directory level and rejects symlink project entries.
 3. Indexed asset files are relative paths confined beneath their package directory.
 4. Studio file URLs include a project id and cannot traverse outside that project root.
-5. Catalog hashes cover project-local package contents, including TypeScript runtime and presentation files.
+5. Catalog hashes cover project-local Device/Resource package contents, including TypeScript runtime and package presentation files. Project-level environment imagery is validated and confined presentation metadata but does not alter industrial catalog or Blueprint identity.
 6. No loader walks upward, consults another project, or falls back to an engine-global asset.
 7. Creating a project copies a complete starter, including its local runtime API.
 

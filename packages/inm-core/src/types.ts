@@ -726,6 +726,25 @@ export interface InmManifest {
   defaultObjective: string;
   /** Optional project-owned TypeScript strategy used by `inm synthesize`. */
   synthesis?: { strategy: string };
+  /** Optional renderer-only Factory environment owned by this project. */
+  presentation?: {
+    environment: {
+      floor?: {
+        baseColor: string;
+        gridColor: string;
+        sectionColor: string;
+        edgeColor: string;
+        aisleColor: string;
+        slabMargin: number;
+      };
+      backdrop?: {
+        image: string;
+        height: number;
+        distance: number;
+        opacity: number;
+      };
+    };
+  };
 }
 
 export interface InmWorkspaceManifest {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, realpath } from "node:fs/promises";
 import { basename, join, relative, resolve, sep } from "node:path";
 import type { ZodError, ZodType } from "zod";
 import { importDeviceProgram } from "./device-runtime";
@@ -68,6 +68,19 @@ function assetFile(assetDir: string, path: string): string {
 
 function projectFile(rootDir: string, assetDir: string, path: string | null): string | null {
   return path === null ? null : relative(rootDir, assetFile(assetDir, path)).split(sep).join("/");
+}
+
+function projectOwnedFile(rootDir: string, path: string): string {
+  const target = resolve(rootDir, path);
+  if (target !== rootDir && !target.startsWith(`${rootDir}${sep}`)) throw new Error(`Project file escapes project directory: ${path}`);
+  return target;
+}
+
+async function verifyProjectReferencedFile(rootDir: string, path: string): Promise<void> {
+  const target = projectOwnedFile(rootDir, path);
+  const [realRoot, realTarget] = await Promise.all([realpath(rootDir), realpath(target)]);
+  if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) throw new Error(`Project file escapes project directory through a symbolic link: ${path}`);
+  await readFile(realTarget);
 }
 
 async function verifyReferencedFiles(assetDir: string, paths: Array<string | null>): Promise<void> {
@@ -190,6 +203,11 @@ export interface ProjectSelection { world?: string; blueprint?: string; scenario
 export async function loadFactoryProject(projectDir: string, selection: ProjectSelection = {}): Promise<LoadedFactoryProject> {
   const rootDir = resolve(projectDir);
   const manifest = await parseFile<InmManifest>(join(rootDir, "inm.json"), "manifest");
+  const backdrop = manifest.presentation?.environment.backdrop;
+  if (backdrop) {
+    try { await verifyProjectReferencedFile(rootDir, backdrop.image); }
+    catch (error) { throw new Error(`Cannot read referenced project environment file ${join(rootDir, backdrop.image)}: ${error instanceof Error ? error.message : String(error)}`); }
+  }
   const worldId = selection.world ?? manifest.defaultWorld;
   const blueprintId = selection.blueprint ?? manifest.defaultBlueprint;
   const scenarioId = selection.scenario ?? manifest.defaultScenario;

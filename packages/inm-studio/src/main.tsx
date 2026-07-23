@@ -525,6 +525,22 @@ interface CapacityPlan {
 interface StudioData {
   projectId: string;
   name: string;
+  environment: {
+    floor?: {
+      baseColor: string;
+      gridColor: string;
+      sectionColor: string;
+      edgeColor: string;
+      aisleColor: string;
+      slabMargin: number;
+    };
+    backdrop?: {
+      image: string;
+      height: number;
+      distance: number;
+      opacity: number;
+    };
+  } | null;
   selection: { world: string; blueprint: string; scenario: string; objective: string };
   experiments: BlueprintBenchmarkSummary[];
   designPrograms: DesignProgramSummary[];
@@ -1101,6 +1117,84 @@ function FactoryCameraControls({ presentation }: { presentation: FactoryPresenta
   />;
 }
 
+function FactoryBackdrop({ data }: { data: StudioData }) {
+  const backdrop = data.environment?.backdrop;
+  if (!backdrop) return null;
+  return <FactoryBackdropImage data={data} backdrop={backdrop} />;
+}
+
+function FactoryBackdropImage({ data, backdrop }: {
+  data: StudioData;
+  backdrop: NonNullable<NonNullable<StudioData["environment"]>["backdrop"]>;
+}) {
+  const texture = useTexture(fileUrl(data.projectId, backdrop.image));
+  useEffect(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+  }, [texture]);
+  const image = texture.image as { width?: number; height?: number } | undefined;
+  const aspect = image?.width && image?.height ? image.width / image.height : 2.5;
+  const width = Math.max(data.bounds.width + 8, backdrop.height * aspect);
+  return <mesh
+    position={[data.bounds.width / 2, backdrop.height / 2 - .02, -backdrop.distance]}
+    renderOrder={-2}
+  >
+    <planeGeometry args={[width, backdrop.height]} />
+    <meshBasicMaterial map={texture} transparent opacity={backdrop.opacity} toneMapped={false} />
+  </mesh>;
+}
+
+function FactoryEnvironment({ data }: { data: StudioData }) {
+  const floor = data.environment?.floor;
+  if (!floor) return <FactoryBackdrop data={data} />;
+  const margin = floor.slabMargin;
+  const slabWidth = data.bounds.width + margin * 2;
+  const slabDepth = data.bounds.height + margin * 2;
+  const centerX = data.bounds.width / 2;
+  const centerZ = data.bounds.height / 2;
+  const rearZ = -margin + .15;
+  const columns = Math.max(3, Math.ceil(slabWidth / 8));
+  return <group>
+    <mesh position={[centerX, -.12, centerZ]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[slabWidth, slabDepth]} />
+      <meshStandardMaterial color={floor.baseColor} roughness={.88} metalness={.08} />
+    </mesh>
+    <mesh position={[centerX, -.045, -margin / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[data.bounds.width + margin * 1.35, Math.max(1.6, margin)]} />
+      <meshStandardMaterial color={floor.aisleColor} roughness={.72} metalness={.12} />
+    </mesh>
+    <mesh position={[centerX, .13, rearZ]} receiveShadow castShadow>
+      <boxGeometry args={[slabWidth, .34, .32]} />
+      <meshStandardMaterial color="#183139" roughness={.48} metalness={.5} />
+    </mesh>
+    <mesh position={[-margin + .15, .13, centerZ]} receiveShadow castShadow>
+      <boxGeometry args={[.32, .34, slabDepth]} />
+      <meshStandardMaterial color="#183139" roughness={.48} metalness={.5} />
+    </mesh>
+    <mesh position={[data.bounds.width + margin - .15, .13, centerZ]} receiveShadow castShadow>
+      <boxGeometry args={[.32, .34, slabDepth]} />
+      <meshStandardMaterial color="#183139" roughness={.48} metalness={.5} />
+    </mesh>
+    {Array.from({ length: columns }, (_, index) => {
+      const x = -margin + (slabWidth * index) / (columns - 1);
+      return <group key={index} position={[x, 0, rearZ]}>
+        <mesh position={[0, 2.35, 0]} castShadow receiveShadow>
+          <boxGeometry args={[.38, 4.7, .38]} />
+          <meshStandardMaterial color="#183943" roughness={.42} metalness={.62} />
+        </mesh>
+        <mesh position={[0, 4.15, .22]}>
+          <boxGeometry args={[.56, .08, .10]} />
+          <meshStandardMaterial color="#8ef1e0" emissive="#3fb8aa" emissiveIntensity={1.4} roughness={.3} />
+        </mesh>
+      </group>;
+    })}
+    <Line points={[[-margin + .5, .015, -margin / 2], [data.bounds.width + margin - .5, .015, -margin / 2]]} color={floor.edgeColor} lineWidth={2} transparent opacity={.72} />
+    <FactoryBackdrop data={data} />
+  </group>;
+}
+
 function FactoryWorld({ data, tick, selection, presentationRequest, onPresentationMode, onSelection }: {
   data: StudioData;
   tick: number;
@@ -1128,16 +1222,17 @@ function FactoryWorld({ data, tick, selection, presentationRequest, onPresentati
     <hemisphereLight args={["#c8f4ff", "#102026", 1.28]} />
     <directionalLight position={[12, 24, 8]} intensity={2.45} castShadow shadow-mapSize={[2048, 2048]} />
     <directionalLight position={[-14, 14, -10]} intensity={.72} color="#73d8d1" />
+    <FactoryEnvironment data={data} />
     {data.regions.map((region) => <group key={region.id}>
-      <mesh position={[region.offset.x + region.bounds.width / 2, -.055, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color="#0b191d" roughness={.78} metalness={.16} /></mesh>
-      <Grid args={[region.bounds.width, region.bounds.height]} position={[region.offset.x + region.bounds.width / 2, 0, region.offset.y + region.bounds.height / 2]} cellSize={1} cellThickness={.32} cellColor="#173038" sectionSize={4} sectionThickness={.95} sectionColor="#32717a" fadeDistance={82} infiniteGrid={false} />
+      <mesh position={[region.offset.x + region.bounds.width / 2, -.055, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color={data.environment?.floor?.baseColor ?? "#0b191d"} roughness={.78} metalness={.16} /></mesh>
+      <Grid args={[region.bounds.width, region.bounds.height]} position={[region.offset.x + region.bounds.width / 2, 0, region.offset.y + region.bounds.height / 2]} cellSize={1} cellThickness={.32} cellColor={data.environment?.floor?.gridColor ?? "#173038"} sectionSize={4} sectionThickness={.95} sectionColor={data.environment?.floor?.sectionColor ?? "#32717a"} fadeDistance={82} infiniteGrid={false} />
       <Line points={[
         [region.offset.x, .025, region.offset.y],
         [region.offset.x + region.bounds.width, .025, region.offset.y],
         [region.offset.x + region.bounds.width, .025, region.offset.y + region.bounds.height],
         [region.offset.x, .025, region.offset.y + region.bounds.height],
         [region.offset.x, .025, region.offset.y],
-      ]} color="#48b8ad" lineWidth={2} transparent opacity={.55} />
+      ]} color={data.environment?.floor?.edgeColor ?? "#48b8ad"} lineWidth={2} transparent opacity={.55} />
       <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
     </group>)}
     {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}

@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/project-local-factory-environment]] | Give the memory-fab a project-owned cleanroom floor, open-roof architectural frame, and generated distant industrial backdrop without changing industrial geometry or execution. | 2026-07-23 |
 | [[plans/commissioned-planned-maintenance-convergence]] | Separate opportunistic maintenance from planned production stops, then remove the commissioned memory fab's lithography drift without regressing its accepted factory or locked cases. | 2026-07-23 |
 | [[plans/responsive-factory-presentation]] | Keep dense factories inspectable at narrow and desktop viewports through presentation-only camera and detail-level policies without changing industrial geometry. | 2026-07-23 |
 | [[plans/device-pbr-material-migration]] | Replace Device single-texture presentation with a project-local PBR material contract and ship a coherent generated material set for the memory fab. | 2026-07-23 |

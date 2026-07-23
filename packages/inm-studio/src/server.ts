@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { mkdir, readFile, readdir, watch } from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, watch } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -187,6 +187,7 @@ async function loadStudioData(projectId: string, runName?: string) {
   return {
     name: project.manifest.name,
     projectId: project.manifest.id,
+    environment: project.manifest.presentation?.environment ?? null,
     selection: { ...project.selection },
     experiments,
     designPrograms,
@@ -672,7 +673,10 @@ const server = Bun.serve({
         const filePath = resolve(root, segments.join("/"));
         if (filePath !== root && !filePath.startsWith(`${root}${sep}`)) return new Response("Forbidden", { status: 403 });
         const file = Bun.file(filePath);
-        return await file.exists() ? new Response(file) : new Response("Not found", { status: 404 });
+        if (!await file.exists()) return new Response("Not found", { status: 404 });
+        const [realRoot, realFilePath] = await Promise.all([realpath(root), realpath(filePath)]);
+        if (realFilePath !== realRoot && !realFilePath.startsWith(`${realRoot}${sep}`)) return new Response("Forbidden", { status: 403 });
+        return new Response(Bun.file(realFilePath));
       }
 
       if (url.pathname === "/api/watch") {

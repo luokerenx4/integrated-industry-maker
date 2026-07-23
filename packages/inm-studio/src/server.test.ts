@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
@@ -37,6 +37,7 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
     const defaultResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/data`);
     expect(defaultResponse.status).toBe(200);
     expect(await defaultResponse.json()).toEqual(expect.objectContaining({
+      environment: null,
       selectedRun: current.data.run.id,
       selection: { world: "main", blueprint: "main", scenario: "baseline", objective: "default" },
     }));
@@ -60,6 +61,9 @@ test("opening a project without runs does not write a Studio baseline", async ()
     recursive: true,
     filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
   });
+  const outsideFile = join(root, "outside-project.txt");
+  await writeFile(outsideFile, "outside");
+  await symlink(outsideFile, join(projectDir, "linked-outside.txt"));
   const candidateBlueprintPath = join(projectDir, "blueprints/power-priority-candidate.blueprint.json");
   const candidateBlueprint = JSON.parse(await readFile(candidateBlueprintPath, "utf8")) as Blueprint;
   const protectedIds = new Set(["z-critical-assembler", "z-critical-link-loader", "z-critical-link-unloader"]);
@@ -94,6 +98,8 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const data = await response.json() as { selectedRun: string | null; runs: unknown[] };
     expect(data.selectedRun).toBeNull();
     expect(data.runs).toEqual([]);
+    const escapedFile = await fetch(`http://localhost:${port}/api/projects/ironworks/files/linked-outside.txt`);
+    expect(escapedFile.status).toBe(403);
 
     const overviewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/overview?world=main&blueprint=main&scenario=baseline&objective=default`);
     expect(overviewResponse.status).toBe(200);

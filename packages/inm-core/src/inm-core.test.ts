@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import {
@@ -3202,9 +3202,43 @@ describe("deterministic discrete-event simulation", () => {
       device.visual.material.baseColor = "#000000";
       device.visual.shape = "process-bay";
     }
+    source.manifest.presentation = {
+      environment: {
+        floor: {
+          baseColor: "#111111", gridColor: "#222222", sectionColor: "#333333",
+          edgeColor: "#444444", aisleColor: "#555555", slabMargin: 4,
+        },
+      },
+    };
     const recolored = compileFactoryProject(source);
     const first = runUntil(withVisual, undefined, { seed: 42 }); const second = runUntil(recolored, undefined, { seed: 42 });
     expect(first.events).toEqual(second.events); expect(first.state).toEqual(second.state); expect(first.metrics).toEqual(second.metrics);
+  });
+
+  test("project-local Factory environment backdrop is loaded and must be readable", async () => {
+    const project = await loadFactoryProject(memoryFab);
+    const backdrop = project.manifest.presentation?.environment.backdrop;
+    expect(backdrop?.image).toBe("assets/environment/cleanroom-far-wall.png");
+    expect(await Bun.file(join(memoryFab, backdrop!.image)).exists()).toBeTrue();
+
+    const dir = await projectCopy();
+    const manifestPath = join(dir, "inm.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.presentation = {
+      environment: {
+        backdrop: { image: "assets/environment/missing.png", height: 8, distance: 6, opacity: .9 },
+      },
+    };
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    expect(loadFactoryProject(dir)).rejects.toThrow("Cannot read referenced project environment file");
+
+    const outside = join(await mkdtemp(join(tmpdir(), "inm-environment-outside-")), "backdrop.png");
+    await writeFile(outside, "not really a png");
+    await mkdir(join(dir, "assets/environment"), { recursive: true });
+    await symlink(outside, join(dir, "assets/environment/linked.png"));
+    manifest.presentation.environment.backdrop.image = "assets/environment/linked.png";
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    expect(loadFactoryProject(dir)).rejects.toThrow("escapes project directory through a symbolic link");
   });
 
   test("Device PBR maps resolve inside their self-contained asset package", async () => {

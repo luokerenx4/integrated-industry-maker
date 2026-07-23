@@ -8,6 +8,7 @@ const relativeAssetFile = z.string().min(1).refine((value) => !value.startsWith(
 const runtimeEntry = relativeAssetFile.refine((value) => value.endsWith(".ts"), "device runtime entry must be a TypeScript file");
 const strategyEntry = relativeAssetFile.refine((value) => value.endsWith(".ts"), "synthesis strategy must be a TypeScript file");
 const relativeDirectory = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes(".."), "must be a relative directory inside the workspace");
+const relativeProjectFile = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes(".."), "must be a relative path inside the project");
 
 export const resourceVisualSchema = z.object({
   shape: z.enum(["box", "sphere", "cylinder"]),
@@ -363,6 +364,24 @@ export const objectiveSchema = z.object({
 export const manifestSchema = z.object({
   version: z.literal(1), id, name: z.string().min(1), defaultWorld: id, defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
   synthesis: z.object({ strategy: strategyEntry }).strict().optional(),
+  presentation: z.object({
+    environment: z.object({
+      floor: z.object({
+        baseColor: visualColor,
+        gridColor: visualColor,
+        sectionColor: visualColor,
+        edgeColor: visualColor,
+        aisleColor: visualColor,
+        slabMargin: z.number().min(1).max(24),
+      }).strict().optional(),
+      backdrop: z.object({
+        image: relativeProjectFile,
+        height: z.number().min(2).max(64),
+        distance: z.number().min(1).max(64),
+        opacity: z.number().min(0).max(1),
+      }).strict().optional(),
+    }).strict().refine((environment) => environment.floor !== undefined || environment.backdrop !== undefined, "environment must declare a floor or backdrop"),
+  }).strict().optional(),
 }).strict();
 
 export const workspaceSchema = z.object({

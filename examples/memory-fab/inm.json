@@ -8,5 +8,23 @@
   "defaultObjective": "dram-output",
   "synthesis": {
     "strategy": "strategies/reentrant-dram-fab.ts"
+  },
+  "presentation": {
+    "environment": {
+      "floor": {
+        "baseColor": "#0b1b20",
+        "gridColor": "#1d3b43",
+        "sectionColor": "#3b7680",
+        "edgeColor": "#57d1c2",
+        "aisleColor": "#12323a",
+        "slabMargin": 6
+      },
+      "backdrop": {
+        "image": "assets/environment/cleanroom-far-wall.png",
+        "height": 10,
+        "distance": 6,
+        "opacity": 0.88
+      }
+    }
   }
 }

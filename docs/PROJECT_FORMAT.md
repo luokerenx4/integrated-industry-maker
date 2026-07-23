@@ -63,7 +63,36 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. It may also declare renderer-only Factory scenery under `presentation.environment`: `floor` owns the slab/grid/aisle palette and margin, while `backdrop` names one project-confined raster image plus its scene height, rear distance, and opacity. This presentation metadata never changes Blueprint geometry or industrial execution.
+
+Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
+
+A self-contained environment can be declared directly in `inm.json`:
+
+```json
+{
+  "presentation": {
+    "environment": {
+      "floor": {
+        "baseColor": "#0b1b20",
+        "gridColor": "#1d3b43",
+        "sectionColor": "#3b7680",
+        "edgeColor": "#57d1c2",
+        "aisleColor": "#12323a",
+        "slabMargin": 6
+      },
+      "backdrop": {
+        "image": "assets/environment/cleanroom-far-wall.png",
+        "height": 10,
+        "distance": 6,
+        "opacity": 0.88
+      }
+    }
+  }
+}
+```
+
+The image path is relative to the project root, cannot escape it, and must be readable during project loading. A project may declare only `floor` or only `backdrop`. An environment-free project keeps Studio's generic floor.
 
 A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Without a declared strategy, synthesis reads only this project tree and applies the generic fungible-flow optimizer. With a declared strategy, Core gives the project-local TypeScript entry a frozen data-only catalog/Route/World/Scenario/Objective context and empty/minimal seed. The synchronous result must be deterministic across two executions, pass the Blueprint schema and compiler, report target-rate capacity READY, and run the selected operating Scenario before it is atomically written. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
 

@@ -39,3 +39,16 @@ test("Device visual schema exposes only the strict PBR material contract", () =>
   expect(JSON.stringify(root.properties.material)).toContain("normalScale");
   expect(JSON.stringify(root.properties.material)).toContain("emissiveIntensity");
 });
+
+test("project manifest schema exposes the strict project-local Factory environment", () => {
+  const schema = projectArtifactJsonSchema("manifest");
+  const root = (schema.definitions as Record<string, {
+    properties: Record<string, unknown>;
+  }>).manifest!;
+  const presentation = JSON.stringify(root.properties.presentation);
+  expect(presentation).toContain("environment");
+  expect(presentation).toContain("slabMargin");
+  expect(presentation).toContain("backdrop");
+  expect(presentation).toContain("image");
+  expect(presentation).not.toContain("url");
+});
