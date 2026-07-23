@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { hashValue, listRuns, listWorkspaceProjects, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { listRuns, listWorkspaceProjects, lockBlueprintBenchmark, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -15,19 +15,6 @@ async function runCli(args: string[]) {
     new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
   ]);
   return { stdout, stderr, exitCode };
-}
-
-function migrateArchivedMaintenanceForTest<T>(value: T): T {
-  const blueprint = structuredClone(value) as {
-    devices: Array<{ policy?: { preventiveMaintenance?: Record<string, unknown> } }>;
-  };
-  for (const device of blueprint.devices) {
-    const policy = device.policy?.preventiveMaintenance;
-    if (typeof policy?.minimumJobs === "number") {
-      device.policy!.preventiveMaintenance = { opportunistic: { afterJobs: policy.minimumJobs } };
-    }
-  }
-  return blueprint as T;
 }
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
@@ -95,7 +82,7 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
   expect(await readFile(candidatePath, "utf8")).toBe(candidateBefore);
 });
 
-test("CLI-only operator discovers, inspects, previews, applies, and verifies a Candidate", async () => {
+test("CLI-only operator discovers, inspects, previews, applies, and verifies an outcome-guarded Candidate", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
   for (const candidateId of [
@@ -104,24 +91,20 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
     "furnace-flex-dual-service",
     "inspection-edd-resilience",
     "layer-two-lithography-capacity",
+    "planned-lithography-maintenance",
+    "portfolio-aware-dram-dispatch",
     "stable-furnace-sleep",
   ]) {
     await rm(join(projectDir, `candidates/${candidateId}.candidate.json`), { force: true });
     await rm(join(projectDir, `candidate-reviews/${candidateId}`), { recursive: true, force: true });
   }
-  await rm(join(projectDir, "candidate-reviews/portfolio-aware-dram-dispatch"), { recursive: true, force: true });
+  await rm(join(projectDir, "candidate-reviews/commissioned-release-control"), { recursive: true, force: true });
   const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
-  const prePortfolio = migrateArchivedMaintenanceForTest(
-    JSON.parse(await readFile(
-      join(repository, "examples/memory-fab/runs/053-simulate/blueprint.json"),
-      "utf8",
-    )),
-  );
-  await writeFile(blueprintPath, `${JSON.stringify(prePortfolio, null, 2)}\n`);
-  const portfolioCandidatePath = join(projectDir, "candidates/portfolio-aware-dram-dispatch.candidate.json");
-  const portfolioCandidate = JSON.parse(await readFile(portfolioCandidatePath, "utf8"));
-  portfolioCandidate.baseCandidateHash = hashValue(prePortfolio);
-  await writeFile(portfolioCandidatePath, `${JSON.stringify(portfolioCandidate, null, 2)}\n`);
+  const preReleaseControl = JSON.parse(await readFile(
+    join(repository, "examples/memory-fab/runs/067-simulate/blueprint.json"),
+    "utf8",
+  ));
+  await writeFile(blueprintPath, `${JSON.stringify(preReleaseControl, null, 2)}\n`);
   const before = await readFile(blueprintPath, "utf8");
   const discovery = await runCli(["help", "--json"]);
   expect({ exitCode: discovery.exitCode, stderr: discovery.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -129,12 +112,12 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   const inspection = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
   expect({ exitCode: inspection.exitCode, stderr: inspection.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.arrayContaining([
-    expect.objectContaining({ id: "portfolio-aware-dram-dispatch", benchmark: "greenfield-dram-design" }),
+    expect.objectContaining({ id: "commissioned-release-control", benchmark: "greenfield-dram-design" }),
   ]));
   const runCandidate = async (apply = false) => {
     const child = Bun.spawn([
       process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
-      "--candidate", "portfolio-aware-dram-dispatch", ...(apply ? ["--apply"] : []), "--json",
+      "--candidate", "commissioned-release-control", ...(apply ? ["--apply"] : []), "--json",
     ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
@@ -147,10 +130,13 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(result).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "candidate" }));
   expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
-    result: expect.objectContaining({ action: "preview", candidate: "portfolio-aware-dram-dispatch", verdict: "KEEP", scoreDelta: expect.any(Number) }),
+    result: expect.objectContaining({
+      action: "preview", candidate: "commissioned-release-control", verdict: "KEEP", scoreDelta: expect.any(Number),
+      outcomeGuardrails: expect.objectContaining({ total: 6, passed: 6, failed: 0, evidence: expect.any(Array) }),
+    }),
     operation: expect.objectContaining({
       operation: "candidate.preview", effect: "creates-artifact",
-      writeSet: [expect.stringContaining("candidate-reviews/portfolio-aware-dram-dispatch/")],
+      writeSet: [expect.stringContaining("candidate-reviews/commissioned-release-control/")],
       artifacts: [expect.objectContaining({ kind: "candidate-review", immutable: true })],
     }),
   }));
@@ -159,7 +145,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
   const reviewedAction = await runCli(["inspect", projectDir, "--section", "next-action", "--json"]);
   const reviewedEnvelope = JSON.parse(reviewedAction.stdout);
-  expect(reviewedEnvelope.data.result).toEqual(expect.objectContaining({ id: "candidate.apply:portfolio-aware-dram-dispatch", requiresConfirmation: true }));
+  expect(reviewedEnvelope.data.result).toEqual(expect.objectContaining({ id: "candidate.apply:commissioned-release-control", requiresConfirmation: true }));
   expect(reviewedEnvelope.nextActions).toEqual([reviewedEnvelope.data.result]);
 
   const applied = await runCandidate(true);
@@ -167,20 +153,26 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies a C
   expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
     schemaVersion: 1, ok: true, command: "candidate",
     data: expect.objectContaining({
-      section: "summary", result: expect.objectContaining({ action: "apply", applied: true }),
+      section: "summary", result: expect.objectContaining({
+        action: "apply", applied: true,
+        outcomeGuardrails: expect.objectContaining({ total: 6, passed: 6, failed: 0 }),
+      }),
       operation: expect.objectContaining({ operation: "candidate.apply", effect: "mutates-blueprint", writeSet: [blueprintPath] }),
     }),
   }));
   expect(await readFile(blueprintPath, "utf8")).not.toBe(before);
   const postApply = await runCli(["inspect", projectDir, "--section", "candidates", "--json"]);
   const postApplyEnvelope = JSON.parse(postApply.stdout);
-  expect(postApplyEnvelope.data.result.find((candidate: { id: string }) => candidate.id === "portfolio-aware-dram-dispatch").decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
+  expect(postApplyEnvelope.data.result.find((candidate: { id: string }) => candidate.id === "commissioned-release-control").decision).toEqual(expect.objectContaining({ state: "verified", verdict: "KEEP" }));
   expect(postApplyEnvelope.nextActions[0].id.startsWith("candidate.")).toBeFalse();
 
   const verified = await runCli(["benchmark", projectDir, "--benchmark", "greenfield-dram-design", "--json"]);
   expect({ exitCode: verified.exitCode, stderr: verified.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(verified.stdout).data).toEqual(expect.objectContaining({
-    result: expect.objectContaining({ benchmark: "greenfield-dram-design", verdict: "KEEP" }),
+    result: expect.objectContaining({
+      benchmark: "greenfield-dram-design", verdict: "KEEP",
+      outcomeGuardrails: expect.objectContaining({ total: 6, passed: 6, failed: 0 }),
+    }),
     operation: expect.objectContaining({ operation: "benchmark.evaluate", effect: "read-only" }),
   }));
 
@@ -256,6 +248,11 @@ test("public schema discovery lists and emits every project artifact JSON Schema
 test("public Design Program workflow discovers, inspects, and executes without mutating its seed Blueprint", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-design-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") });
+  const benchmarkPath = join(projectDir, "benchmarks/greenfield-dram-design.benchmark.json");
+  const benchmark = JSON.parse(await readFile(benchmarkPath, "utf8"));
+  delete benchmark.acceptance.outcomeGuardrails;
+  await writeFile(benchmarkPath, `${JSON.stringify(benchmark, null, 2)}\n`);
+  await lockBlueprintBenchmark(projectDir, "greenfield-dram-design");
   const invalidRunId = "a".repeat(64);
   const invalidRunPath = join(projectDir, "design-runs", "integrated-dram-fab", invalidRunId);
   await mkdir(invalidRunPath, { recursive: true });

@@ -17,6 +17,9 @@ async function responseJson<T>(response: Response): Promise<T> {
 const signed = (value: number, digits = 3) => `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const shortHash = (value: string) => value.slice(0, 12);
+const outcomeValue = (metric: string, value: number) => metric === "contractFulfillment" || metric === "firstPassYield"
+  ? percent(value)
+  : Number.isInteger(value) ? String(value) : value.toFixed(3);
 
 export function ExperimentWorkbench({
   projectId, experiments, selectedId, selectedCandidateId, onSelect, onSelectCandidate, onDesignSource, onClose,
@@ -174,6 +177,7 @@ export function ExperimentWorkbench({
             <span><small>CASE REGRESSION</small><b>≤ {selected.acceptance.maximumCaseScoreRegression.toFixed(6)}</b></span>
             <span><small>CAPACITY</small><b>{selected.acceptance.requireCandidateCapacityReady ? "READY REQUIRED" : "OBSERVED"}</b></span>
             <span><small>FIXED CASES</small><b>{selected.cases.length}</b></span>
+            <span><small>HARD OUTCOMES</small><b>{selected.acceptance.outcomeGuardrails?.length ?? 0} ABSOLUTE</b></span>
           </section>
           {error && <div className="experiment-error" role="alert"><strong>EVALUATION FAILED</strong><span>{error}</span></div>}
           {!result && !error && <section className="experiment-program">
@@ -195,6 +199,16 @@ export function ExperimentWorkbench({
                     : <button className="confirm" data-testid="confirm-candidate-apply" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
             </section>}
             {result.reasons.length > 0 && <section className="experiment-reasons"><div className="experiment-section-title"><span>GATE DECISION</span><b>{result.reasons.length} REASONS</b></div>{result.reasons.map((reason) => <p key={reason}>{reason}</p>)}</section>}
+            {result.outcomeGuardrails && <section className="experiment-outcomes" data-testid="outcome-guardrails">
+              <div className="experiment-section-title"><span>HARD INDUSTRIAL OUTCOMES</span><b>{result.outcomeGuardrails.filter((guardrail) => guardrail.passed).length}/{result.outcomeGuardrails.length} PASSED</b></div>
+              {result.outcomeGuardrails.map((guardrail) => <article className={guardrail.passed ? "passed" : "failed"} key={guardrail.id} data-testid={`outcome-guardrail-${guardrail.id}`}>
+                <header><span><small>{guardrail.metric}</small><strong>{guardrail.label}</strong><code>{guardrail.id}</code></span><b>{guardrail.passed ? "PASS" : "FAIL"}</b></header>
+                <div>{guardrail.cases.map((item) => <span className={item.candidatePassed ? "passed" : "failed"} key={item.id}>
+                  <small>{item.id}</small><strong>{outcomeValue(guardrail.metric, item.baselineValue)} → {outcomeValue(guardrail.metric, item.candidateValue)}</strong>
+                  <code>{guardrail.operator === "minimum" ? "≥" : "≤"} {outcomeValue(guardrail.metric, item.threshold)}</code><b>{item.candidatePassed ? "PASS" : "FAIL"}</b>
+                </span>)}</div>
+              </article>)}
+            </section>}
             <section className="experiment-cases">
               <div className="experiment-section-title"><span>CASE EVALUATION</span><b>{result.totalSimulationTicks.toLocaleString()} SIMULATED TICKS</b></div>
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>THROUGHPUT</span><span>CONTRACTS</span></div>

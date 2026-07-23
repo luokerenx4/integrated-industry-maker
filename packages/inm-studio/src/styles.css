@@ -580,12 +580,12 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .candidate-source strong { color: #b8d2d9; font-size: 9px; }
 .candidate-source code { color: #6497a4; }
 .candidate-source b { color: #66cfe9; text-align: right; font-size: 7px; }
-.experiment-gates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 10px 0; }
+.experiment-gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 7px; margin: 10px 0; }
 .experiment-gates span { padding: 10px 11px; border: 1px solid #17343e; border-radius: 6px; background: #08151a; }
 .experiment-gates small, .experiment-gates b { display: block; }
 .experiment-gates small { margin-bottom: 6px; color: #4a6973; font: 6px var(--mono); letter-spacing: .1em; }
 .experiment-gates b { color: #9eb8c0; font: 10px var(--mono); }
-.experiment-program, .experiment-cases, .experiment-change-set, .experiment-reasons { overflow: hidden; margin-top: 11px; border: 1px solid #193942; border-radius: 7px; background: #071217; }
+.experiment-program, .experiment-cases, .experiment-change-set, .experiment-reasons, .experiment-outcomes { overflow: hidden; margin-top: 11px; border: 1px solid #193942; border-radius: 7px; background: #071217; }
 .experiment-section-title { height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid #193740; color: #8ca8b0; font: 8px var(--mono); letter-spacing: .1em; }
 .experiment-section-title b { color: #4f707a; font-weight: 400; }
 .experiment-case-contract { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(4, minmax(85px, 1fr)) 45px; gap: 9px; align-items: center; padding: 10px 12px; border-top: 1px solid #112a32; color: #6f8b94; font: 8px var(--mono); }
@@ -606,6 +606,23 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .experiment-verdict b { color: #bed0d5; font: 13px var(--mono); }
 .experiment-verdict > i { color: #42717e; text-align: center; font-style: normal; }
 .experiment-verdict .experiment-delta b { color: #69d9f4; }
+.experiment-outcomes > article { border-top: 1px solid #132f36; box-shadow: inset 3px 0 #28705e; }
+.experiment-outcomes > article.failed { box-shadow: inset 3px 0 #a34f41; }
+.experiment-outcomes article > header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #09191b; }
+.experiment-outcomes article > header span { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; }
+.experiment-outcomes article > header small { color: #4f7b72; font: 6px var(--mono); text-transform: uppercase; }
+.experiment-outcomes article > header strong { color: #b9d6ce; font: 10px var(--mono); }
+.experiment-outcomes article > header code { color: #50736c; font: 7px var(--mono); }
+.experiment-outcomes article > header b { color: #66dab7; font: 9px var(--mono); }
+.experiment-outcomes article.failed > header b { color: #ff9584; }
+.experiment-outcomes article > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
+.experiment-outcomes article > div > span { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 9px 11px; border-top: 1px solid #10282e; border-right: 1px solid #10282e; }
+.experiment-outcomes article > div small, .experiment-outcomes article > div strong, .experiment-outcomes article > div code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.experiment-outcomes article > div small { grid-column: 1 / -1; color: #4c6f69; font: 6px var(--mono); }
+.experiment-outcomes article > div strong { color: #a9c4bd; font: 8px var(--mono); }
+.experiment-outcomes article > div code { color: #638d82; font: 7px var(--mono); }
+.experiment-outcomes article > div b { grid-row: 2; grid-column: 2; color: #60d8b4; font: 7px var(--mono); }
+.experiment-outcomes article > div span.failed strong, .experiment-outcomes article > div span.failed b { color: #ff9584; }
 .candidate-review { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-color: #286579; background: linear-gradient(90deg, #0b2832, #08181d); }
 .candidate-review small, .candidate-review code { display: block; }
 .candidate-review small { margin-bottom: 5px; color: #56808d; font: 6px var(--mono); letter-spacing: .1em; }

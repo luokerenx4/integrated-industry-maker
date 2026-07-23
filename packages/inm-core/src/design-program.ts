@@ -161,6 +161,7 @@ export interface DesignProgramBrief {
       minimumAggregateScoreDelta: number;
       maximumCaseScoreRegression: number;
       requireCandidateCapacityReady: boolean;
+      outcomeGuardrails?: BlueprintBenchmarkManifest["acceptance"]["outcomeGuardrails"];
     };
   };
   seed: {

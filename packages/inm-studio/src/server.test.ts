@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { evaluateBlueprintBenchmark, hashValue, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
@@ -213,6 +213,11 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     recursive: true,
     filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
   });
+  const benchmarkPath = join(projectDir, "benchmarks/greenfield-dram-design.benchmark.json");
+  const benchmark = JSON.parse(await readFile(benchmarkPath, "utf8"));
+  delete benchmark.acceptance.outcomeGuardrails;
+  await writeFile(benchmarkPath, `${JSON.stringify(benchmark, null, 2)}\n`);
+  await lockBlueprintBenchmark(projectDir, "greenfield-dram-design");
   const invalidRunId = "a".repeat(64);
   const invalidRunPath = join(projectDir, "design-runs", "greenfield-dram-fab", invalidRunId);
   await mkdir(invalidRunPath, { recursive: true });

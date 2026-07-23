@@ -10,6 +10,7 @@ import { applyCandidateOperation, previewCandidateOperation } from "./operation"
 import { hashValue } from "./utils";
 import { compileFactoryProject } from "./compiler";
 import { runUntil } from "./simulator";
+import { lockBlueprintBenchmark } from "./benchmark";
 
 const projectDir = resolve("examples/memory-fab");
 const temporaryDirectories: string[] = [];
@@ -195,7 +196,7 @@ test("invalid sibling evidence is indexed without blocking strict Design operati
   expect(await listDesignRuns(copy, "commissioned-dram-fab")).toEqual(index.runs);
 }, 60_000);
 
-test("commissioned Design pins its live promotion base and applies only a reviewed product-mix policy", async () => {
+test("commissioned Design pins its live promotion base and rejects a score winner below hard industrial outcomes", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-commissioned-design-"));
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
@@ -233,37 +234,35 @@ test("commissioned Design pins its live promotion base and applies only a review
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
       },
-      decision: "KEEP",
+      decision: "REJECT",
       decisionEvidence: {
+        basis: "benchmark-gate",
         guardrail: { kind: "uniform", passed: true, violations: [] },
+        gateReasons: expect.arrayContaining([
+          expect.stringContaining("outcome guardrail 'preserve-contract-fulfillment' failed"),
+        ]),
       },
     }],
-    best: { iteration: 1, verdict: "KEEP", promotionPatchOperations: 1 },
+    best: { iteration: 0, verdict: "DISCARD", promotionPatchOperations: 0 },
   });
-  const evidence = result.manifest.iterations[0]!.decisionEvidence!;
+  const iteration = result.manifest.iterations[0]!;
+  const evidence = iteration.decisionEvidence!;
   expect(evidence.aggregate.scoreDelta).toBeCloseTo(23.281223, 6);
   expect(evidence.cases.every((item) =>
     item.maximumScoreRegression === 0 && item.guardrailPassed && item.scoreDelta >= 0)).toBeTrue();
-
-  const promoted = await promoteDesignRun(copy, "commissioned-dram-fab", result.manifest.resultHash, "tested-portfolio-dispatch");
-  expect(promoted.candidate.patch).toEqual([{
-    op: "replace",
-    path: `/devices/${authored.devices.indexOf(burnIn)}/policy/recipeDispatch`,
-    value: "contract-value",
-  }]);
-  const preview = await previewCandidateOperation(copy, promoted.candidate.id);
-  expect(preview.data).toMatchObject({
-    proposedCandidateHash: result.manifest.best.blueprintHash,
-    result: { verdict: "KEEP" },
-  });
-  await applyCandidateOperation(copy, promoted.candidate.id, {
-    proposalHash: preview.data.proposalHash,
-    currentCandidateHash: preview.data.currentCandidateHash,
-    proposedCandidateHash: preview.data.proposedCandidateHash,
-  });
-  const applied = JSON.parse(await readFile(targetPath, "utf8"));
-  expect(applied.devices.find((device: { id: string }) => device.id === "burn-in-1").policy.recipeDispatch).toBe("contract-value");
-  expect(hashValue(applied)).toBe(result.manifest.best.blueprintHash);
+  expect(iteration.evaluation!.scoreDelta).toBeGreaterThan(0);
+  expect(iteration.evaluation!.outcomeGuardrails).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      id: "preserve-contract-fulfillment",
+      passed: false,
+      cases: expect.arrayContaining([expect.objectContaining({
+        id: "steady-production", candidateValue: 0.64, threshold: 1.12, candidatePassed: false,
+      })]),
+    }),
+  ]));
+  await expect(promoteDesignRun(copy, "commissioned-dram-fab", result.manifest.resultHash, "rejected-portfolio-dispatch"))
+    .rejects.toMatchObject({ code: "design.no-accepted-design" });
+  expect(JSON.parse(await readFile(targetPath, "utf8"))).toEqual(authored);
 }, 60_000);
 
 test("Design stops only after every retained frontier node is search-exhausted", async () => {
@@ -353,6 +352,11 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   temporaryDirectories.push(root);
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
+  const benchmarkPath = join(copy, "benchmarks", "greenfield-dram-design.benchmark.json");
+  const benchmark = JSON.parse(await readFile(benchmarkPath, "utf8"));
+  delete benchmark.acceptance.outcomeGuardrails;
+  await writeFile(benchmarkPath, `${JSON.stringify(benchmark, null, 2)}\n`);
+  await lockBlueprintBenchmark(copy, "greenfield-dram-design");
   const sourcePath = join(copy, "blueprints", "greenfield.blueprint.json");
   const targetPath = join(copy, "blueprints", "generated-dram-fab.blueprint.json");
   const tunedPath = join(copy, "blueprints", "experiment.blueprint.json");

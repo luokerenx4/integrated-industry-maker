@@ -22,6 +22,84 @@ const projectHashesSchema = z.object({
   worldHash: hash, blueprintHash: hash, scenarioHash: hash, objectiveHash: hash,
 }).strict();
 
+export const blueprintOutcomeMetricSchema = z.enum([
+  "contractFulfillment",
+  "completedLots",
+  "onTimeLots",
+  "pendingReleaseLots",
+  "scrappedLots",
+  "firstPassYield",
+  "qualityEscapes",
+  "reworkCycles",
+  "queueTimeViolations",
+]);
+
+export type BlueprintOutcomeMetric = z.infer<typeof blueprintOutcomeMetricSchema>;
+export type BlueprintOutcomeOperator = "minimum" | "maximum";
+
+const outcomeMetricOperator: Record<BlueprintOutcomeMetric, BlueprintOutcomeOperator> = {
+  contractFulfillment: "minimum",
+  completedLots: "minimum",
+  onTimeLots: "minimum",
+  pendingReleaseLots: "maximum",
+  scrappedLots: "maximum",
+  firstPassYield: "minimum",
+  qualityEscapes: "maximum",
+  reworkCycles: "maximum",
+  queueTimeViolations: "maximum",
+};
+
+const outcomeMetricLabel: Record<BlueprintOutcomeMetric, string> = {
+  contractFulfillment: "Contract fulfillment",
+  completedLots: "Completed lots",
+  onTimeLots: "On-time lots",
+  pendingReleaseLots: "Pending-release lots",
+  scrappedLots: "Scrapped lots",
+  firstPassYield: "First-pass yield",
+  qualityEscapes: "Quality escapes",
+  reworkCycles: "Rework cycles",
+  queueTimeViolations: "Route Q-time violations",
+};
+
+const integerOutcomeMetrics = new Set<BlueprintOutcomeMetric>([
+  "completedLots", "onTimeLots", "pendingReleaseLots", "scrappedLots", "qualityEscapes", "reworkCycles", "queueTimeViolations",
+]);
+
+const outcomeThresholdsSchema = z.record(z.number().finite().nonnegative()).superRefine((thresholds, context) => {
+  const cases = Object.keys(thresholds);
+  if (cases.length === 0) context.addIssue({ code: "custom", message: "must declare at least one operating-case threshold" });
+  for (const caseId of cases) if (!/^[a-z0-9][a-z0-9-]*$/.test(caseId)) context.addIssue({
+    code: "custom", path: [caseId], message: "case id must use lowercase kebab-case",
+  });
+});
+
+export const blueprintOutcomeGuardrailSchema = z.object({
+  id,
+  metric: blueprintOutcomeMetricSchema,
+  operator: z.enum(["minimum", "maximum"]),
+  thresholds: outcomeThresholdsSchema,
+}).strict().superRefine((guardrail, context) => {
+  const expected = outcomeMetricOperator[guardrail.metric];
+  if (guardrail.operator !== expected) context.addIssue({
+    code: "custom",
+    path: ["operator"],
+    message: `${guardrail.metric} uses '${expected}' industrial direction`,
+  });
+  if (integerOutcomeMetrics.has(guardrail.metric)) for (const [caseId, threshold] of Object.entries(guardrail.thresholds)) {
+    if (!Number.isInteger(threshold)) context.addIssue({
+      code: "custom",
+      path: ["thresholds", caseId],
+      message: `${guardrail.metric} threshold must be an integer`,
+    });
+  }
+});
+
+export type BlueprintOutcomeGuardrail = z.infer<typeof blueprintOutcomeGuardrailSchema>;
+
+export function blueprintOutcomeMetricLabel(metric: BlueprintOutcomeMetric): string {
+  return outcomeMetricLabel[metric];
+}
+
 export const blueprintBenchmarkSchema = z.object({
   version: z.literal(1), id, name: z.string().min(1),
   baselineBlueprint: id, candidateBlueprint: id,
@@ -33,6 +111,7 @@ export const blueprintBenchmarkSchema = z.object({
     minimumAggregateScoreDelta: z.number().positive().default(0.000001),
     maximumCaseScoreRegression: z.number().nonnegative().default(0),
     requireCandidateCapacityReady: z.boolean().default(false),
+    outcomeGuardrails: z.array(blueprintOutcomeGuardrailSchema).min(1).optional(),
   }).strict().default({}),
   lock: z.object({ contractHash: hash, cases: z.record(projectHashesSchema) }).strict().optional(),
 }).strict();
@@ -71,10 +150,30 @@ export interface BlueprintBenchmarkResult {
   verdict: "KEEP" | "DISCARD" | "UNCHANGED";
   accepted: boolean;
   reasons: string[];
+  outcomeGuardrails?: BlueprintOutcomeGuardrailEvidence[];
   totalSimulationTicks: number;
   cases: BlueprintBenchmarkCaseResult[];
   patch: JsonPatchOperation[];
   changes: BlueprintSemanticChange[];
+}
+
+export interface BlueprintOutcomeGuardrailCaseEvidence {
+  id: string;
+  name: string;
+  baselineValue: number;
+  candidateValue: number;
+  threshold: number;
+  baselinePassed: boolean;
+  candidatePassed: boolean;
+}
+
+export interface BlueprintOutcomeGuardrailEvidence {
+  id: string;
+  metric: BlueprintOutcomeMetric;
+  label: string;
+  operator: BlueprintOutcomeOperator;
+  passed: boolean;
+  cases: BlueprintOutcomeGuardrailCaseEvidence[];
 }
 
 export interface BlueprintBenchmarkSummary {
@@ -142,6 +241,20 @@ function parseBlueprintBenchmark(value: unknown, benchmarkId: string): Blueprint
     if (ids.has(item.id)) throw new Error(`Blueprint benchmark '${benchmarkId}' repeats case id '${item.id}'`);
     ids.add(item.id);
   }
+  const guardrailIds = new Set<string>();
+  const guardedMetricCases = new Set<string>();
+  for (const guardrail of parsed.data.acceptance.outcomeGuardrails ?? []) {
+    if (guardrailIds.has(guardrail.id)) throw new Error(`Blueprint benchmark '${benchmarkId}' repeats outcome guardrail id '${guardrail.id}'`);
+    guardrailIds.add(guardrail.id);
+    for (const caseId of Object.keys(guardrail.thresholds)) {
+      if (!ids.has(caseId)) throw new Error(`Blueprint benchmark '${benchmarkId}' outcome guardrail '${guardrail.id}' names unknown case '${caseId}'`);
+      const metricCase = `${guardrail.metric}:${caseId}`;
+      if (guardedMetricCases.has(metricCase)) throw new Error(
+        `Blueprint benchmark '${benchmarkId}' guards outcome metric '${guardrail.metric}' more than once for case '${caseId}'`,
+      );
+      guardedMetricCases.add(metricCase);
+    }
+  }
   return parsed.data;
 }
 
@@ -169,7 +282,7 @@ export async function listBlueprintBenchmarks(projectDir: string): Promise<Bluep
       locked: Boolean(manifest.lock),
       contractHash: manifest.lock?.contractHash ?? null,
       cases: manifest.cases.map((item) => ({ ...item })),
-      acceptance: { ...manifest.acceptance },
+      acceptance: structuredClone(manifest.acceptance),
     };
   }));
 }
@@ -299,6 +412,33 @@ export async function evaluatePreparedBlueprintBenchmark(
   const worstCaseBaselineScore = Math.min(...cases.map((item) => item.baselineScore));
   const worstCaseCandidateScore = Math.min(...cases.map((item) => item.candidateScore));
   const minimumCaseScoreDelta = Math.min(...cases.map((item) => item.scoreDelta));
+  const outcomeGuardrails = manifest.acceptance.outcomeGuardrails?.map((guardrail): BlueprintOutcomeGuardrailEvidence => {
+    const evidenceCases = cases.filter((item) => guardrail.thresholds[item.id] !== undefined).map((item) => {
+      const threshold = guardrail.thresholds[item.id]!;
+      const baselineValue = item.baselineMetrics[guardrail.metric];
+      const candidateValue = item.candidateMetrics[guardrail.metric];
+      const passes = (value: number) => guardrail.operator === "minimum"
+        ? value >= threshold - 1e-9
+        : value <= threshold + 1e-9;
+      return {
+        id: item.id,
+        name: item.name,
+        baselineValue,
+        candidateValue,
+        threshold,
+        baselinePassed: passes(baselineValue),
+        candidatePassed: passes(candidateValue),
+      };
+    });
+    return {
+      id: guardrail.id,
+      metric: guardrail.metric,
+      label: blueprintOutcomeMetricLabel(guardrail.metric),
+      operator: guardrail.operator,
+      passed: evidenceCases.every((item) => item.candidatePassed),
+      cases: evidenceCases,
+    };
+  });
   if (scoreDelta + 1e-12 < manifest.acceptance.minimumAggregateScoreDelta) reasons.push(
     `aggregate score delta ${scoreDelta.toFixed(6)} is below required ${manifest.acceptance.minimumAggregateScoreDelta.toFixed(6)}`,
   );
@@ -308,6 +448,9 @@ export async function evaluatePreparedBlueprintBenchmark(
   if (manifest.acceptance.requireCandidateCapacityReady) for (const item of cases) if (!item.candidateCapacityReady) reasons.push(
     `case '${item.id}' has ${item.candidateCapacityGaps.length} target-rate capacity gap(s)`,
   );
+  for (const guardrail of outcomeGuardrails ?? []) for (const item of guardrail.cases) if (!item.candidatePassed) reasons.push(
+    `outcome guardrail '${guardrail.id}' failed in case '${item.id}': ${guardrail.metric} ${item.candidateValue.toFixed(6)} must be ${guardrail.operator === "minimum" ? ">=" : "<="} ${item.threshold.toFixed(6)}`,
+  );
   const accepted = reasons.length === 0;
   return {
     benchmark: manifest.id, name: manifest.name,
@@ -315,7 +458,7 @@ export async function evaluatePreparedBlueprintBenchmark(
     baselineBlueprintHash: comparisons[0]!.from.blueprintHash, candidateBlueprintHash: comparisons[0]!.to.blueprintHash,
     baselineScore, candidateScore, scoreDelta, worstCaseBaselineScore, worstCaseCandidateScore, minimumCaseScoreDelta,
     verdict: Math.abs(scoreDelta) <= 1e-9 ? "UNCHANGED" : accepted ? "KEEP" : "DISCARD",
-    accepted, reasons, totalSimulationTicks, cases,
+    accepted, reasons, ...(outcomeGuardrails ? { outcomeGuardrails } : {}), totalSimulationTicks, cases,
     patch: comparisons[0]!.patch, changes: comparisons[0]!.changes,
   };
 }

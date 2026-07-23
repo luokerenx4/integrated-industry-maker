@@ -16,9 +16,7 @@ There are no active plans.
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/explicit-industrial-outcome-guardrails]] | Make project-authored quality, scrap, service, and completion limits explicit beside aggregate score. | 2026-07-24 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/explicit-industrial-outcome-guardrails]] | Make project-authored quality, scrap, service, and completion limits explicit beside aggregate score. | 2026-07-24 |
 | [[plans/commissioned-release-control]] | Commission the accepted zero-regression `9/6 EDD` release controller and regenerate one compatible memory-fab operating record. | 2026-07-24 |
 | [[plans/resilient-design-evidence-index]] | Keep Design Programs inspectable and runnable beside invalid local evidence while excluding that evidence from every authoritative operation. | 2026-07-24 |
 | [[plans/event-backed-yield-causality]] | Trace verified rework, persistence, scrap, and escape outcomes back to exact defect-origin mechanisms for humans, Agents, and Design. | 2026-07-23 |

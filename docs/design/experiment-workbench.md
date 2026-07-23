@@ -16,7 +16,7 @@ Capability parity does not require interaction parity. A model should not scrape
 
 ## One authoritative protocol
 
-`evaluateBlueprintBenchmark()` remains the only evaluator. The named `benchmark.evaluate`, `candidate.preview`, and `candidate.apply` Core operations wrap that evaluator with the shared effect/context/hash/artifact/write-set result contract. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, capacity readiness, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
+`evaluateBlueprintBenchmark()` remains the only evaluator. The named `benchmark.evaluate`, `candidate.preview`, and `candidate.apply` Core operations wrap that evaluator with the shared effect/context/hash/artifact/write-set result contract. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, capacity readiness, ordered hard-outcome evidence, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
 
 `listBlueprintBenchmarks()` discovers project-local `benchmarks/*.benchmark.json` files in stable id order and projects their immutable case and acceptance contracts. Studio does not invent sessions or copy Benchmark state into browser storage.
 
@@ -42,9 +42,9 @@ The workbench uses a native dialog role, named buttons, ordinary buttons for exp
 The first vertical slice supports:
 
 1. enumerate and select fixed project experiments;
-2. inspect baseline/candidate, cases, seeds, weights, and acceptance gates;
+2. inspect baseline/candidate, cases, seeds, weights, score gates, and project-authored hard industrial outcomes;
 3. explicitly execute the locked evaluator;
-4. inspect aggregate verdict, gate failures, per-case capacity/throughput/contracts, and semantic Blueprint changes;
+4. inspect aggregate verdict, gate failures, per-case capacity/throughput/contracts, exact baseline/candidate/threshold outcome evidence, and semantic Blueprint changes;
 5. reproduce the exact operation with `inm benchmark <project> --benchmark <id> --json`.
 
 It deliberately does not edit Blueprint JSON or turn KEEP into a Git mutation. A later authoring phase may expose exact Blueprint patches, but any UI edit must remain an ordinary project-local file change that the CLI can validate and evaluate.

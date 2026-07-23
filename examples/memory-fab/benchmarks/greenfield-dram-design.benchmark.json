@@ -2,6 +2,80 @@
   "acceptance": {
     "maximumCaseScoreRegression": 2,
     "minimumAggregateScoreDelta": 0.001,
+    "outcomeGuardrails": [
+      {
+        "id": "preserve-contract-fulfillment",
+        "metric": "contractFulfillment",
+        "operator": "minimum",
+        "thresholds": {
+          "facility-interruption": 1.12,
+          "lithography-interruption": 1.12,
+          "mixed-quality": 1.12,
+          "quality-excursion": 0.96,
+          "steady-production": 1.12
+        }
+      },
+      {
+        "id": "preserve-terminal-completion",
+        "metric": "completedLots",
+        "operator": "minimum",
+        "thresholds": {
+          "facility-interruption": 9,
+          "lithography-interruption": 10,
+          "mixed-quality": 8,
+          "quality-excursion": 6,
+          "steady-production": 11
+        }
+      },
+      {
+        "id": "preserve-first-pass-yield",
+        "metric": "firstPassYield",
+        "operator": "minimum",
+        "thresholds": {
+          "facility-interruption": 0.6666666666666666,
+          "lithography-interruption": 0.75,
+          "mixed-quality": 0.6666666666666666,
+          "quality-excursion": 0.5,
+          "steady-production": 0.9166666666666666
+        }
+      },
+      {
+        "id": "limit-scrapped-lots",
+        "metric": "scrappedLots",
+        "operator": "maximum",
+        "thresholds": {
+          "facility-interruption": 3,
+          "lithography-interruption": 2,
+          "mixed-quality": 4,
+          "quality-excursion": 6,
+          "steady-production": 1
+        }
+      },
+      {
+        "id": "prevent-quality-escapes",
+        "metric": "qualityEscapes",
+        "operator": "maximum",
+        "thresholds": {
+          "facility-interruption": 0,
+          "lithography-interruption": 0,
+          "mixed-quality": 0,
+          "quality-excursion": 0,
+          "steady-production": 0
+        }
+      },
+      {
+        "id": "complete-lot-release",
+        "metric": "pendingReleaseLots",
+        "operator": "maximum",
+        "thresholds": {
+          "facility-interruption": 0,
+          "lithography-interruption": 0,
+          "mixed-quality": 0,
+          "quality-excursion": 0,
+          "steady-production": 0
+        }
+      }
+    ],
     "requireCandidateCapacityReady": true
   },
   "baselineBlueprint": "baseline",
@@ -112,7 +186,7 @@
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "0de227a22056994595e4beb84cc081b6917ca6340631ca8d2b55e33bab5033d3"
+    "contractHash": "91b6a301b6cfa7c18dfa726a5b761d09a660a1864859e70910e07df91d0b3530"
   },
   "name": "Greenfield DRAM Build and Optimization",
   "version": 1

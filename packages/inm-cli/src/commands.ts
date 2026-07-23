@@ -5,7 +5,7 @@ import {
   CandidateChangeSetError, DesignRunError, InmValidationError, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
+  type BlueprintBenchmarkResult, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -130,6 +130,42 @@ export function schemaCommand(kind: string | undefined, options: OutputOptions):
 
 function signed(value: number, digits = 3): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
+function outcomeGuardrailSummary(result: BlueprintBenchmarkResult) {
+  const guardrails = result.outcomeGuardrails ?? [];
+  return {
+    total: guardrails.length,
+    passed: guardrails.filter((guardrail) => guardrail.passed).length,
+    failed: guardrails.filter((guardrail) => !guardrail.passed).length,
+    evidence: guardrails.map((guardrail) => ({
+      id: guardrail.id,
+      metric: guardrail.metric,
+      label: guardrail.label,
+      operator: guardrail.operator,
+      passed: guardrail.passed,
+      cases: guardrail.cases.map((item) => ({
+        id: item.id,
+        baselineValue: item.baselineValue,
+        candidateValue: item.candidateValue,
+        threshold: item.threshold,
+        baselinePassed: item.baselinePassed,
+        candidatePassed: item.candidatePassed,
+      })),
+    })),
+  };
+}
+
+function outcomeGuardrailLines(result: BlueprintBenchmarkResult): string[] {
+  const guardrails = result.outcomeGuardrails ?? [];
+  if (!guardrails.length) return ["Industrial outcome guardrails: none authored"];
+  return [
+    `Industrial outcome guardrails: ${guardrails.filter((guardrail) => guardrail.passed).length}/${guardrails.length} passed`,
+    ...guardrails.flatMap((guardrail) => [
+      `  ${guardrail.passed ? "PASS" : "FAIL"} ${guardrail.label} · ${guardrail.id} · ${guardrail.operator}`,
+      ...guardrail.cases.map((item) => `    ${item.id.padEnd(24)} ${item.baselineValue} → ${item.candidateValue}  ${guardrail.operator === "minimum" ? "≥" : "≤"} ${item.threshold}  ${item.candidatePassed ? "PASS" : "FAIL"}`),
+    ]),
+  ];
 }
 
 function fieldValue(value: unknown, field: string): unknown {
@@ -752,7 +788,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   const result = operation.data;
   if (options.json) {
     const data = sectionResult("benchmark", options, {
-      summary: () => ({ action: "evaluate", benchmark: result.benchmark, name: result.name, baselineBlueprint: result.baselineBlueprint, candidateBlueprint: result.candidateBlueprint, baselineBlueprintHash: result.baselineBlueprintHash, candidateBlueprintHash: result.candidateBlueprintHash, baselineScore: result.baselineScore, candidateScore: result.candidateScore, scoreDelta: result.scoreDelta, verdict: result.verdict, accepted: result.accepted, reasons: result.reasons, totalSimulationTicks: result.totalSimulationTicks, caseCount: result.cases.length, patchOperations: result.patch.length, semanticChanges: result.changes.length }),
+      summary: () => ({ action: "evaluate", benchmark: result.benchmark, name: result.name, baselineBlueprint: result.baselineBlueprint, candidateBlueprint: result.candidateBlueprint, baselineBlueprintHash: result.baselineBlueprintHash, candidateBlueprintHash: result.candidateBlueprintHash, baselineScore: result.baselineScore, candidateScore: result.candidateScore, scoreDelta: result.scoreDelta, verdict: result.verdict, accepted: result.accepted, reasons: result.reasons, totalSimulationTicks: result.totalSimulationTicks, caseCount: result.cases.length, outcomeGuardrails: outcomeGuardrailSummary(result), patchOperations: result.patch.length, semanticChanges: result.changes.length }),
       cases: () => result.cases,
       changes: () => ({ patch: result.patch, changes: result.changes }),
       all: () => ({ action: "evaluate", ...result }),
@@ -797,6 +833,8 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     `worst_case_baseline_score: ${result.worstCaseBaselineScore.toFixed(6)}`,
     `worst_case_benchmark_score: ${result.worstCaseCandidateScore.toFixed(6)}`,
     `minimum_case_score_delta: ${signed(result.minimumCaseScoreDelta, 6)}`,
+    "",
+    ...outcomeGuardrailLines(result),
     `patch_operations: ${result.patch.length}`,
     `semantic_changes: ${result.changes.length}`,
     `verdict: ${result.verdict}`,
@@ -812,7 +850,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     const operation = await applyCandidateOperation(projectDir, candidateId, preview);
     const applied = operation.data;
     if (options.json) { const data = sectionResult("candidate", options, {
-      summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, scoreDelta: applied.result.scoreDelta, applied: true, blueprintPath: applied.blueprintPath }),
+      summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, scoreDelta: applied.result.scoreDelta, outcomeGuardrails: outcomeGuardrailSummary(applied.result), applied: true, blueprintPath: applied.blueprintPath }),
       proposal: () => ({ action: "apply", candidate: applied.candidate, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, blueprintPath: applied.blueprintPath }),
       evaluation: () => applied.result,
       all: () => ({ action: "apply", ...applied }),
@@ -826,12 +864,13 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     write([
       `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
       `Reviewed ${applied.currentCandidateHash.slice(0, 12)} → ${applied.proposedCandidateHash.slice(0, 12)} · ${applied.result.verdict} · Δ ${signed(applied.result.scoreDelta, 6)}`,
+      ...outcomeGuardrailLines(applied.result),
       "The proposal is now stale by design and cannot be applied twice.", "",
     ].join("\n"), false);
     return;
   }
   if (options.json) { const data = sectionResult("candidate", options, {
-    summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, scoreDelta: preview.result.scoreDelta, reasons: preview.result.reasons, patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
+    summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, scoreDelta: preview.result.scoreDelta, reasons: preview.result.reasons, outcomeGuardrails: outcomeGuardrailSummary(preview.result), patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
     proposal: () => ({ action: "preview", candidate: preview.candidate, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
     evaluation: () => preview.result,
     all: () => ({ action: "preview", ...preview }),
@@ -850,6 +889,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     `Patch: ${preview.candidate.patch.length} authored ops · ${preview.result.changes.length} semantic changes`,
     `Score: ${preview.result.baselineScore.toFixed(6)} → ${preview.result.candidateScore.toFixed(6)} · Δ ${signed(preview.result.scoreDelta, 6)}`,
     `Verdict: ${preview.result.verdict}`,
+    ...outcomeGuardrailLines(preview.result),
     ...preview.result.reasons.map((reason) => `Gate: ${reason}`),
     "",
     `Apply only this reviewed result: inm candidate <path> --candidate ${preview.candidate.id} --apply`, "",
@@ -1069,6 +1109,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Seed: ${seedLabel} · ${brief.seed.synthesis?.method ?? "authored"} · ${brief.seed.blueprintHash.slice(0, 12)}`,
       `Will update: ${brief.promotionBase.blueprint}@${brief.promotionBase.hash.slice(0, 12)} · driver ${brief.driver.case.id}`,
       `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
+      `Hard industrial outcomes: ${brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} absolute guardrails`,
       `Current-best guardrail: ${brief.program.currentBestGuardrail.kind}${brief.program.currentBestGuardrail.kind === "uniform" ? ` · max ${brief.program.currentBestGuardrail.maximumCaseScoreRegression.toFixed(6)} regression/case` : brief.program.currentBestGuardrail.kind === "case-specific" ? ` · ${Object.keys(brief.program.currentBestGuardrail.maximumCaseScoreRegression).length} case budgets` : ""}`,
       `Frontier: 1 leader + up to ${brief.program.frontier.maximumAlternativeBranches} alternative branch${brief.program.frontier.maximumAlternativeBranches === 1 ? "" : "es"}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,

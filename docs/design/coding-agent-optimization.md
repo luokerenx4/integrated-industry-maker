@@ -1,6 +1,6 @@
 # Coding Agent Blueprint optimization
 
-Status: locked multi-case Blueprint benchmarks, project-local Candidate Change Sets, and a guarded human/Agent application loop are implemented.
+Status: locked multi-case Blueprint benchmarks with explicit industrial outcome guardrails, project-local Candidate Change Sets, and a guarded human/Agent application loop are implemented.
 
 Related: [[docs/design/blueprint-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/experiment-workbench]], [[docs/design/work-center-dispatch]], [[docs/design/work-center-specialization]], [[docs/design/reusable-production-tooling]], [[docs/design/usage-based-maintenance]], [[docs/design/equipment-energy-states]], [[docs/design/electricity-tariffs]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/lot-derived-output]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
@@ -45,7 +45,9 @@ INM is not a game-data clone. Project-local assets and TypeScript runtimes defin
 - one immutable baseline Blueprint;
 - one editable candidate Blueprint;
 - one or more weighted cases, each fixing World, Scenario, Objective, seed, and Scenario duration;
-- acceptance thresholds for aggregate improvement, worst allowed case regression, and optional target-rate capacity readiness.
+- acceptance thresholds for aggregate improvement, worst allowed case regression, optional target-rate capacity readiness, and optional case-scoped hard industrial outcomes.
+
+Hard outcomes are Benchmark-owned absolute thresholds, not another score and not a Design-provider preference. Each authored guardrail has a stable id, one typed metric, its metric's natural `minimum` or `maximum` direction, and explicit thresholds for concrete Benchmark cases. The initial closed vocabulary covers contract fulfillment, completed/on-time/pending/scrapped lots, first-pass yield, quality escapes, rework cycles, and Route Q-time violations. Count thresholds must be integers; unknown metrics, wrong directions, unknown cases, duplicate ids, and overlapping ownership of the same metric/case fail loading. Evaluation retains authored guardrail order and Benchmark case order with baseline value/pass, candidate value/pass, and threshold. A candidate that improves aggregate score but crosses one boundary is `DISCARD`.
 
 `inm benchmark --lock` compiles every baseline case and writes its engine, catalog, World, Blueprint, Scenario, and Objective hashes plus a hash of the benchmark contract. Normal evaluation refuses to run when any fixed input or the case contract has drifted. The candidate Blueprint content is deliberately excluded from the lock.
 
@@ -69,7 +71,7 @@ semantic_changes: 0
 verdict: UNCHANGED
 ```
 
-JSON output contains every case score, capacity state and gap, aggregate score, acceptance reasons, exact Blueprint patch, and semantic changes.
+JSON output contains every case score, capacity state and gap, aggregate score, acceptance reasons, exact ordered industrial-outcome evidence, exact Blueprint patch, and semantic changes. The compact summary reports guardrail pass/fail counts plus the same per-case values so an Agent does not need `--section all` merely to understand a rejection.
 
 Studio's [[docs/design/experiment-workbench]] is a human- and browser-agent-readable projection of this exact result, not a second evaluator. CLI remains the preferred structured interface for bulk Agent work; direct experiment URLs support human review, spatial context, and browser-capable Agent verification.
 
