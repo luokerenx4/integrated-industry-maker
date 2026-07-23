@@ -1,6 +1,6 @@
 # Converge commissioned lithography drift with planned maintenance
 
-- Status: `proposed`
+- Status: `active`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/usage-based-maintenance]], [[docs/design/quality-flow]], [[docs/design/fab-loss-attribution]], [[docs/design/design-programs]], [[docs/design/operator-workbench]], and [[docs/design/agent-cli-contract]].
 
@@ -10,7 +10,7 @@ Blueprint authors can distinguish opportunistic idle-window maintenance from a p
 
 ## Context
 
-Current immutable run `059-simulate` makes verified yield and quality the highest ranked loss. The shared Fab Loss Profile attributes two defect instances on two lot jobs to `lithography-1`. Its asset begins critical-dimension drift after six completed jobs but does not reach the physical maintenance limit until eight.
+Current compatible immutable run `061-simulate` makes verified yield and quality the highest ranked loss. It is the visual-catalog-compatible replay of accepted run `059-simulate` with identical industrial behavior. The shared Fab Loss Profile attributes two defect instances on two lot jobs to `lithography-1`. Its asset begins critical-dimension drift after six completed jobs but does not reach the physical maintenance limit until eight.
 
 The current Blueprint authors `preventiveMaintenance.minimumJobs: 6`. That field only makes maintenance eligible during an idle window; it does not stop a ready seventh job. The event stream therefore records:
 
@@ -76,6 +76,8 @@ A read-only sweep of `minimumJobs` off, 3, 4, 5, and 6 leaves `driftedJobs = 2` 
 ## Progress log
 
 - 2026-07-23 — Proposed from the compatible `059-simulate` Fab Loss Profile and exact maintenance/process-drift events while [[plans/commissioned-q-time-convergence]] remains active for manual visual acceptance.
+- 2026-07-23 — Activated without closing the Q-time Plan: its implementation and regression evidence are complete, while this independent domain change can proceed before the remaining manual Studio visual check.
+- 2026-07-23 — Memory-fab visual-profile assets changed only the Device catalog hash; compatible run `061-simulate` reproduces the accepted behavior and is now the active maintenance evidence.
 
 ## Completion
 

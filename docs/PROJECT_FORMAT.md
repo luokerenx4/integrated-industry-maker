@@ -208,6 +208,21 @@ A combustible Resource declares how much energy one unit contains. The value is 
 }
 ```
 
+The Device package's `visual.json` is renderer-only and remains part of that self-contained, hashed asset:
+
+```json
+{
+  "shape": "chamber-tool",
+  "height": 2.4,
+  "texture": null,
+  "model": null,
+  "color": "#ed8b3a",
+  "label": "PLASMA ETCH BAY"
+}
+```
+
+`shape` selects one Studio-supported procedural profile. Primitive profiles are `box`, `cylinder`, `sphere`, and `plane`; industrial profiles are `process-bay`, `scanner-cell`, `chamber-tool`, `vertical-furnace`, `metrology-cell`, `probe-cell`, `equipment-rack`, `packaging-cell`, `service-bay`, `storage-rack`, `utility-skid`, `wind-turbine`, and `bin`. The profile changes silhouette only: footprint and rotation still come from authoritative Device geometry, and simulation never branches on visual metadata. `texture` may skin the primary body and `model` may replace the procedural body with a project-local GLTF asset. Studio does not infer a profile from an asset id, tag, or Process category.
+
 Unlike the old single-behavior model, a Device declares descriptive capabilities and any number of ports and buffers. A process Device declares a mandatory exact list of project-local `processes`, compatible Process categories, an exact rational speed multiplier, the physical `inputPorts`/`outputPorts` a recipe may configure, and at least one production mode. The exact list is the equipment-qualification matrix: category equality alone never authorizes a recipe. Unknown, duplicate, or category-inconsistent qualifications are invalid. Optional `production.changeover.transitions` is a non-empty directed matrix: each `{ from, to, durationTicks, powerMilliWatts }` row owns the exact physical work for that setup transition, and `from: null` represents commissioning from an unconfigured state. The compiler rejects duplicate/self/unknown transitions, power below standby, and every direction required by the selected Blueprint qualifications but missing from the asset. Optional `production.maintenance` declares the maximum successfully completed production jobs before fixed powered maintenance is required. Its mandatory `service` and `qualification` contracts independently declare powered duration, skill, crew count, and consumed Resources. Service completion does not reset usage or release production; the qualification phase must finish first. A placed Device with `maintain` capability and `maintenanceProvider` supplies finite shared crews inside `serviceRadius` from one physical inventory buffer; compilation independently rejects uncovered service and qualification contracts, so the phases may use different providers. Its ordered `drift` stages may apply exact duration/power multipliers and lot defects after a usage threshold until qualification resets the counter; later stages are monotonic degradation states, not improvements, and retain earlier defect classes. A placed Device with `utility` capability and `utilityProvider` contributes finite non-material facility capacity inside its service radius; Process utility demands are acquired atomically for the full physical job. There is no implicit mode or compatibility fallback. Asset buffer `accepts` values are maximum capabilities. A blueprint instance may narrow an internal buffer with `bufferFilters` and independently narrow one physical ingress/egress with `portFilters`; an empty list closes that object. The selected recipe maps every Resource to a physical port and unused production ports carry nothing. Shared recipe buffers receive deterministic per-Resource capacity partitions so one material cannot starve another. Extractor output is narrowed to the Resource type of its bound deposits. The Device TypeScript program still owns the final local decision inside the compiled job contract. See [[docs/design/usage-based-maintenance]] and [[docs/design/fab-facility-utilities]].
 
 ```json

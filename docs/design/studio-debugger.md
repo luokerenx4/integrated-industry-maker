@@ -42,7 +42,9 @@ The route-backed Analysis dialog recompiles the selected run Blueprint, supports
 
 ## 3D replay
 
-Regions are independent labeled floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Machines, explicit selectable sorter Devices and arms, deposits, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. Sorter stage start/finish, power loss/restoration, breakdown, and recovery events drive the attachment's own visible status. Labels show Device identity, status, selected Process, accepted materials, and treatment mode where configured. Opening or scrubbing never runs a hidden simulation.
+Regions are independent labeled cleanroom-style floors arranged side by side. Local `(x, y)` maps to world `(x, z)`, while height maps to world `y`. Machines, explicit selectable sorter Devices and arms, deposits, belt cells/levels, grade-badged cargo stacks, and station routes come from renderer-independent compiled/replay data. A Device's project-local `visual.json` explicitly selects either a primitive or generic procedural industrial profile; Studio never switches on project-specific asset ids. The profiles preserve authoritative footprint and rotation while supplying distinguishable process enclosures, chambers, furnaces, metrology/probe cells, racks, packaging cells, service/storage structures, utility skids, turbines, and bins. A project-local texture skins the primary procedural body, while a project-local GLTF model replaces it.
+
+The default perspective camera fits the compiled region bounds against the live viewport and preserves orbit controls. Subtle floor sections, boundary lines, asymmetric fill lighting, and compact always-visible identity labels establish spatial context; detailed status, Process, and Resource text appears only for selected, bottleneck, or non-idle equipment. A physical status beacon, progress surface, selection ring, and bottleneck ring retain runtime evidence without forcing every Device to carry a permanent telemetry stack. Sorter stage start/finish, power loss/restoration, breakdown, and recovery events drive the attachment's own visible status. Opening or scrubbing never runs a hidden simulation.
 
 The Performance panel exposes tracked-lot completion, on-time service, mean/p95 cycle time, queue/process/transport decomposition, tardiness, equipment changeovers, and setup work when the Objective target belongs to a lot family. These values come only from the selected immutable run.
 
@@ -86,12 +88,13 @@ Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward
 
 - Keep Studio read-only with respect to Blueprint, Benchmark locks, and run history.
 - Add new industrial semantics to compiled/analysis data before rendering them.
+- Keep equipment profiles generic and asset-selected; never infer project appearance from an asset id.
 - Preserve stable project URLs and project-qualified asset requests.
 - Test empty projects/runs and avoid writing a baseline on view.
 - Validate visual changes in an actual browser.
 
 ## Known next gaps
 
-- Better dense-factory camera defaults and layer visibility controls.
+- Layer visibility controls for unusually dense multi-region factories.
 - Blueprint diff overlays between KEEP and REVERT runs.
 - Resource-node and station-route scoped inspectors.

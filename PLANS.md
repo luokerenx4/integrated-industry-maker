@@ -14,13 +14,11 @@ This file is the repository-level index of planned and completed engineering wor
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/commissioned-q-time-convergence]] | Expose step-level Route Q-time causality to humans and Agents, then reduce the commissioned memory fab's anneal and inspection violations without surrendering its accepted quality, delivery, capacity, or locked-case gains. | 2026-07-23 |
+| [[plans/commissioned-planned-maintenance-convergence]] | Separate opportunistic maintenance from planned production stops, then remove the commissioned memory fab's lithography drift without regressing its accepted factory or locked cases. | 2026-07-23 |
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/commissioned-planned-maintenance-convergence]] | Separate opportunistic maintenance from planned production stops, then remove the commissioned memory fab's lithography drift without regressing its accepted factory or locked cases. | 2026-07-23 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -30,6 +28,8 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/memory-fab-visual-language]] | Give project-local semiconductor assets distinct equipment silhouettes and make the dense memory-fab Factory replay legible as an industrial cleanroom. | 2026-07-23 |
+| [[plans/commissioned-q-time-convergence]] | Expose step-level Route Q-time causality to humans and Agents, then reduce the commissioned memory fab's anneal and inspection violations without surrendering its accepted quality, delivery, capacity, or locked-case gains. | 2026-07-23 |
 | [[plans/commissioned-yield-convergence]] | Reduce verified rework and scrap in the exact commissioned memory fab through causal physical or process-quality interventions without regressing its fulfilled high-value portfolio or locked cases. | 2026-07-23 |
 | [[plans/commissioned-fab-convergence-loop]] | Reduce the exact commissioned memory fab's remaining queue, yield, batch, Q-time, and commercial-delivery losses without regressing its fulfilled high-value portfolio or locked cases. | 2026-07-23 |
 | [[plans/portfolio-aware-commissioned-optimization]] | Let the shared loss model diagnose value-weighted delivery mismatch and use a commissioned-factory Design Program to improve the live memory fab through the guarded Candidate boundary. | 2026-07-23 |

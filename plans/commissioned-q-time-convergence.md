@@ -1,6 +1,6 @@
 # Converge commissioned memory-fab Q-time
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/fab-loss-attribution]], [[docs/design/product-routes]], [[docs/design/batch-processing]], [[docs/design/quality-flow]], [[docs/design/usage-based-maintenance]], [[docs/design/design-programs]], and [[docs/design/experiment-workbench]].
 
@@ -42,7 +42,7 @@ A release-policy tweak, faster transport, larger buffer, or relaxed Q-time thres
 - [x] Immutable before/after evidence reduces Route Q-time violations through one or both identified mechanisms without weakening the fixed contracts.
 - [x] The accepted factory preserves the commissioned delivery, quality, capacity, and value floors and has zero regression in every locked case.
 - [x] A bounded commissioned Design run records the intervention, step-level driver evidence, and exact five-case decision; only a reviewed `KEEP` Candidate may update the Blueprint.
-- [ ] Focused tests, project fixtures, documentation checks, type checking, full regression, and browser verification pass.
+- [x] Focused tests, project fixtures, documentation checks, type checking, full regression, and browser verification pass.
 
 ## Work
 
@@ -50,7 +50,7 @@ A release-policy tweak, faster transport, larger buffer, or relaxed Q-time thres
 - [x] Add CLI, Studio, diagnostics, and immutable Design projections with human/AI parity tests.
 - [x] Build a project-local TypeScript sweep for bounded batch-flexibility and maintenance service interventions.
 - [x] Evaluate, review, and apply only a non-regressing winner; regenerate the immutable current run.
-- [ ] Update durable design documentation and run the completion audit.
+- [x] Update durable design documentation and run the completion audit.
 
 ## Findings and decisions
 
@@ -75,7 +75,7 @@ A release-policy tweak, faster transport, larger buffer, or relaxed Q-time thres
 - `bun run typecheck` — Core, CLI, Studio, Ironworks assets, and memory-fab assets pass.
 - `bun run test` — 198 tests, 1,786 assertions, all Ironworks fixtures, zero failures.
 - Studio server `/api/projects/memory-fab/overview` — current `059-simulate`, primary `yield-quality`, one structured final-inspection Q-time contributor.
-- Manual browser refresh and visual check remain pending because automated reload was rejected by the in-app browser URL security policy.
+- Manual browser visual check — accepted by the user on the current memory-fab Factory surface; the Q-time projection and resulting Factory view were reported as visually correct.
 
 ## Progress log
 
@@ -85,7 +85,8 @@ A release-policy tweak, faster transport, larger buffer, or relaxed Q-time thres
 - 2026-07-23 — Added `memory-fab:research-commissioned-qtime`; the bounded five-case sweep rejected faster-flow variants that failed causal quality floors and selected the zero-wait flexible furnace plus dual-crew service capacity for guarded Design evaluation.
 - 2026-07-23 — Pinned the research script to immutable before run `058-simulate`, recorded Design Run `899f244bdc608c26db883d9093abdfebeedbae9364e4b01f60e9e638fcfdfb35`, reviewed and applied Candidate `furnace-flex-dual-service`, and generated current run `059-simulate`.
 - 2026-07-23 — Relocked all eight memory-fab Benchmarks after the new project-local Device asset changed the catalog hash, generated compatible energy run `060-simulate`, and completed the repository-wide regression.
+- 2026-07-23 — User completed the remaining manual Studio visual acceptance. The plan passed its completion audit and moved to `completed`.
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Shipped step- and Device-level Q-time causality across Core, CLI, Studio, compatible-run diagnostics, and Design evidence; selected the physical zero-wait furnace plus dual-service intervention through the locked five-case loop; reviewed and applied its immutable `KEEP` Candidate; and established compatible run `059-simulate` as the accepted evidence. The final manual Studio check passed. Subsequent equipment-maintenance work is tracked independently in [[plans/commissioned-planned-maintenance-convergence]], and Factory appearance work is tracked in [[plans/memory-fab-visual-language]].

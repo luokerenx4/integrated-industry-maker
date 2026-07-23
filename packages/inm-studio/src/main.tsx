@@ -1,7 +1,7 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BlueprintBenchmarkSummary, DesignProgramSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import "./styles.css";
@@ -702,14 +702,245 @@ function PrimitiveMaterial({ projectId, texture, color, processing }: { projectI
     : <meshStandardMaterial color={color} metalness={.45} roughness={.38} emissive={color} emissiveIntensity={processing ? .22 : .03} />;
 }
 
+function DetailMaterial({ color, processing, dark = false, glass = false }: { color: string; processing: boolean; dark?: boolean; glass?: boolean }) {
+  const materialColor = dark ? "#102128" : color;
+  return <meshStandardMaterial
+    color={materialColor}
+    metalness={glass ? .2 : dark ? .68 : .52}
+    roughness={glass ? .12 : dark ? .3 : .36}
+    emissive={processing ? color : dark ? "#071217" : color}
+    emissiveIntensity={processing ? (glass ? .5 : .18) : .025}
+    transparent={glass}
+    opacity={glass ? .58 : 1}
+  />;
+}
+
 function FactoryModel({ projectId, path, footprint, height }: { projectId: string; path: string; footprint: Device["footprint"]; height: number }) {
   const gltf = useGLTF(fileUrl(projectId, path));
   const scale = Math.min(footprint.width, footprint.height, height);
   return <Clone object={gltf.scene} scale={scale} castShadow receiveShadow />;
 }
 
+function ProcessBayBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .86;
+  const depth = device.footprint.height * .86;
+  return <group>
+    <RoundedBox args={[width, height * .72, depth * .82]} position={[0, -.02, depth * .05]} radius={.1} smoothness={3} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    <RoundedBox args={[width * .68, height * .25, depth * .22]} position={[0, -height * .28, -depth * .48]} radius={.05} smoothness={2} castShadow>
+      <DetailMaterial color={color} processing={processing} dark />
+    </RoundedBox>
+    <mesh position={[0, height * .17, -depth * .42]} castShadow>
+      <boxGeometry args={[width * .44, height * .2, .06]} /><DetailMaterial color="#87e8db" processing={processing} glass />
+    </mesh>
+    {[-.27, .27].map((x) => <mesh key={x} position={[width * x, height * .46, depth * .12]} castShadow>
+      <cylinderGeometry args={[width * .075, width * .09, height * .2, 20]} /><DetailMaterial color={color} processing={processing} dark />
+    </mesh>)}
+  </group>;
+}
+
+function ScannerCellBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .88;
+  const depth = device.footprint.height * .86;
+  return <group>
+    {[-.23, .23].map((x, index) => <RoundedBox key={x} args={[width * .48, height * (index ? .7 : .82), depth * .72]} position={[width * x, -.03, depth * (index ? .07 : -.03)]} radius={.09} smoothness={3} castShadow receiveShadow>
+      {index === 0
+        ? <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+        : <DetailMaterial color={color} processing={processing} dark />}
+    </RoundedBox>)}
+    <mesh position={[0, height * .12, -depth * .39]} castShadow>
+      <boxGeometry args={[width * .26, height * .26, .08]} /><DetailMaterial color="#b594ff" processing={processing} glass />
+    </mesh>
+    <mesh position={[width * .24, -height * .19, -depth * .39]} rotation={[Math.PI / 2, 0, 0]}>
+      <torusGeometry args={[Math.min(width, depth) * .1, .035, 12, 32]} /><DetailMaterial color="#d8fff4" processing={processing} />
+    </mesh>
+  </group>;
+}
+
+function ChamberToolBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .86;
+  const depth = device.footprint.height * .86;
+  const chamberRadius = Math.min(width, depth) * .17;
+  return <group>
+    <RoundedBox args={[width * .5, height * .78, depth * .62]} position={[0, 0, depth * .1]} radius={.08} smoothness={3} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    {[-.31, .31].map((x) => <group key={x} position={[width * x, -height * .08, -depth * .13]}>
+      <mesh castShadow receiveShadow><cylinderGeometry args={[chamberRadius, chamberRadius * 1.08, height * .46, 32]} /><DetailMaterial color={color} processing={processing} dark /></mesh>
+      <mesh position={[0, height * .24, 0]}><cylinderGeometry args={[chamberRadius * .72, chamberRadius, height * .06, 32]} /><DetailMaterial color={color} processing={processing} /></mesh>
+    </group>)}
+    <mesh position={[0, -height * .28, -depth * .41]} castShadow>
+      <boxGeometry args={[width * .42, height * .18, .08]} /><DetailMaterial color="#ffb45f" processing={processing} glass />
+    </mesh>
+  </group>;
+}
+
+function VerticalFurnaceBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .84;
+  const depth = device.footprint.height * .84;
+  return <group>
+    <RoundedBox args={[width, height * .28, depth]} position={[0, -height * .36, 0]} radius={.07} smoothness={3} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    {[-.24, 0, .24].map((x) => <group key={x} position={[width * x, height * .08, 0]}>
+      <mesh castShadow receiveShadow><cylinderGeometry args={[width * .13, width * .15, height * .72, 32]} /><DetailMaterial color={color} processing={processing} dark={x !== 0} /></mesh>
+      <mesh position={[0, height * .38, 0]}><cylinderGeometry args={[width * .1, width * .13, height * .06, 32]} /><DetailMaterial color="#ffc56e" processing={processing} /></mesh>
+    </group>)}
+  </group>;
+}
+
+function MetrologyCellBody({ projectId, device, height, color, processing, probe = false }: { projectId: string; device: Device; height: number; color: string; processing: boolean; probe?: boolean }) {
+  const width = device.footprint.width * .86;
+  const depth = device.footprint.height * .86;
+  return <group>
+    <RoundedBox args={[width, height * .42, depth]} position={[0, -height * .29, 0]} radius={.08} smoothness={3} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    <RoundedBox args={[width * .68, height * .42, depth * .64]} position={[0, height * .12, depth * .04]} radius={.13} smoothness={4} castShadow>
+      <DetailMaterial color={probe ? "#72d8cb" : "#8fd7ff"} processing={processing} glass />
+    </RoundedBox>
+    <mesh position={[0, -height * .04, -depth * .28]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
+      <cylinderGeometry args={[Math.min(width, depth) * .18, Math.min(width, depth) * .18, .07, 40]} /><DetailMaterial color="#d9fbf5" processing={processing} dark />
+    </mesh>
+    <mesh position={[0, height * .35, probe ? 0 : depth * .04]} castShadow>
+      {probe ? <boxGeometry args={[width * .2, height * .24, depth * .16]} /> : <cylinderGeometry args={[width * .06, width * .1, height * .2, 24]} />}
+      <DetailMaterial color={color} processing={processing} dark />
+    </mesh>
+  </group>;
+}
+
+function EquipmentRackBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .86;
+  const depth = device.footprint.height * .82;
+  return <group>
+    <RoundedBox args={[width, height * .94, depth]} radius={.06} smoothness={2} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    {[-.3, -.1, .1, .3].map((y, index) => <mesh key={y} position={[0, height * y, -depth * .51]}>
+      <boxGeometry args={[width * .82, height * .11, .035]} /><DetailMaterial color={index % 2 ? "#17333b" : color} processing={processing} dark={index % 2 === 1} />
+    </mesh>)}
+    {[-.34, .34].map((x) => <mesh key={x} position={[width * x, 0, -depth * .54]}>
+      <boxGeometry args={[.035, height * .78, .04]} /><DetailMaterial color="#b7e6e3" processing={processing} />
+    </mesh>)}
+  </group>;
+}
+
+function PackagingCellBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .88;
+  const depth = device.footprint.height * .86;
+  return <group>
+    {[-.27, .27].map((x) => <RoundedBox key={x} args={[width * .42, height * .48, depth * .68]} position={[width * x, -height * .22, 0]} radius={.07} smoothness={3} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>)}
+    {[-.42, .42].map((x) => <mesh key={x} position={[width * x, height * .16, 0]} castShadow>
+      <boxGeometry args={[.07, height * .64, .07]} /><DetailMaterial color={color} processing={processing} dark />
+    </mesh>)}
+    <mesh position={[0, height * .46, 0]} castShadow>
+      <boxGeometry args={[width * .9, .08, depth * .18]} /><DetailMaterial color={color} processing={processing} dark />
+    </mesh>
+    <mesh position={[0, height * .11, 0]} castShadow>
+      <boxGeometry args={[width * .2, height * .3, depth * .2]} /><DetailMaterial color="#ffd695" processing={processing} glass />
+    </mesh>
+  </group>;
+}
+
+function ServiceBayBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .86;
+  const depth = device.footprint.height * .84;
+  return <group>
+    <RoundedBox args={[width, height * .16, depth]} position={[0, -height * .42, 0]} radius={.04} smoothness={2} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    {[-.42, .42].flatMap((x) => [-.38, .38].map((z) => <mesh key={`${x}-${z}`} position={[width * x, 0, depth * z]} castShadow>
+      <boxGeometry args={[.08, height * .78, .08]} /><DetailMaterial color={color} processing={processing} dark />
+    </mesh>))}
+    <RoundedBox args={[width, height * .12, depth]} position={[0, height * .43, 0]} radius={.05} smoothness={2} castShadow>
+      <DetailMaterial color={color} processing={processing} />
+    </RoundedBox>
+    {[-.22, .22].map((x) => <mesh key={x} position={[width * x, -height * .28, 0]} castShadow>
+      <boxGeometry args={[width * .28, height * .2, depth * .42]} /><DetailMaterial color="#293d42" processing={processing} dark />
+    </mesh>)}
+  </group>;
+}
+
+function StorageRackBody({ projectId, device, height, color, processing, bin = false }: { projectId: string; device: Device; height: number; color: string; processing: boolean; bin?: boolean }) {
+  const width = device.footprint.width * .82;
+  const depth = device.footprint.height * .8;
+  if (bin) return <group>
+    <RoundedBox args={[width, height * .7, depth]} position={[0, -height * .12, 0]} radius={.05} smoothness={2} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    <mesh position={[0, height * .25, 0]}><boxGeometry args={[width * .78, .04, depth * .72]} /><DetailMaterial color="#071217" processing={processing} dark /></mesh>
+  </group>;
+  return <group>
+    {[-.43, .43].flatMap((x) => [-.42, .42].map((z) => <mesh key={`${x}-${z}`} position={[width * x, 0, depth * z]} castShadow>
+      <boxGeometry args={[.06, height * .92, .06]} /><DetailMaterial color={color} processing={processing} dark />
+    </mesh>))}
+    {[-.42, -.14, .14, .42].map((y) => <mesh key={y} position={[0, height * y, 0]} castShadow receiveShadow>
+      <boxGeometry args={[width, .07, depth]} /><PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </mesh>)}
+  </group>;
+}
+
+function UtilitySkidBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .84;
+  const depth = device.footprint.height * .84;
+  const radius = Math.min(width, depth) * .2;
+  return <group>
+    <RoundedBox args={[width, height * .1, depth]} position={[0, -height * .45, 0]} radius={.04} smoothness={2} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    {[-.25, .25].map((x, index) => <group key={x} position={[width * x, -height * .02, index ? depth * .08 : -depth * .08]}>
+      <mesh castShadow receiveShadow><cylinderGeometry args={[radius, radius * 1.04, height * (index ? .72 : .82), 32]} /><DetailMaterial color={color} processing={processing} dark={index === 1} /></mesh>
+      <mesh position={[0, height * (index ? .38 : .43), 0]}><sphereGeometry args={[radius, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} /><DetailMaterial color={color} processing={processing} /></mesh>
+    </group>)}
+    <mesh position={[0, height * .23, -depth * .38]} rotation={[0, 0, Math.PI / 2]} castShadow>
+      <cylinderGeometry args={[.045, .045, width * .78, 12]} /><DetailMaterial color="#8ed8d2" processing={processing} />
+    </mesh>
+  </group>;
+}
+
+function WindTurbineBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
+  const width = device.footprint.width * .82;
+  const depth = device.footprint.height * .82;
+  const bladeLength = Math.min(width, height) * .36;
+  return <group>
+    <RoundedBox args={[width, height * .08, depth]} position={[0, -height * .46, 0]} radius={.04} smoothness={2} castShadow receiveShadow>
+      <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />
+    </RoundedBox>
+    <mesh position={[0, -height * .05, 0]} castShadow receiveShadow>
+      <cylinderGeometry args={[width * .055, width * .13, height * .82, 24]} /><DetailMaterial color={color} processing={processing} />
+    </mesh>
+    <group position={[0, height * .32, -depth * .04]}>
+      {[0, Math.PI * 2 / 3, Math.PI * 4 / 3].map((angle) => <group key={angle} rotation={[0, 0, angle]}>
+        <mesh position={[0, bladeLength * .48, 0]} castShadow>
+          <boxGeometry args={[width * .07, bladeLength, .055]} /><DetailMaterial color="#d9f3f5" processing={processing} />
+        </mesh>
+      </group>)}
+      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[width * .09, width * .12, depth * .12, 24]} /><DetailMaterial color={color} processing={processing} dark />
+      </mesh>
+    </group>
+  </group>;
+}
+
 function DeviceBody({ projectId, device, height, color, processing }: { projectId: string; device: Device; height: number; color: string; processing: boolean }) {
   if (device.visual.model) return <FactoryModel projectId={projectId} path={device.visual.model} footprint={device.footprint} height={height} />;
+  const props = { projectId, device, height, color, processing };
+  if (device.visual.shape === "process-bay") return <ProcessBayBody {...props} />;
+  if (device.visual.shape === "scanner-cell") return <ScannerCellBody {...props} />;
+  if (device.visual.shape === "chamber-tool") return <ChamberToolBody {...props} />;
+  if (device.visual.shape === "vertical-furnace") return <VerticalFurnaceBody {...props} />;
+  if (device.visual.shape === "metrology-cell") return <MetrologyCellBody {...props} />;
+  if (device.visual.shape === "probe-cell") return <MetrologyCellBody {...props} probe />;
+  if (device.visual.shape === "equipment-rack") return <EquipmentRackBody {...props} />;
+  if (device.visual.shape === "packaging-cell") return <PackagingCellBody {...props} />;
+  if (device.visual.shape === "service-bay") return <ServiceBayBody {...props} />;
+  if (device.visual.shape === "storage-rack") return <StorageRackBody {...props} />;
+  if (device.visual.shape === "utility-skid") return <UtilitySkidBody {...props} />;
+  if (device.visual.shape === "wind-turbine") return <WindTurbineBody {...props} />;
+  if (device.visual.shape === "bin") return <StorageRackBody {...props} bin />;
   const material = <PrimitiveMaterial projectId={projectId} texture={device.visual.texture} color={color} processing={processing} />;
   if (device.visual.shape === "cylinder") return <mesh castShadow receiveShadow><cylinderGeometry args={[device.footprint.width * .42, device.footprint.width * .48, height, 32]} />{material}</mesh>;
   if (device.visual.shape === "sphere") return <mesh castShadow receiveShadow><sphereGeometry args={[Math.min(device.footprint.width, device.footprint.height, height) * .48, 32, 24]} />{material}</mesh>;
@@ -723,6 +954,7 @@ function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelec
   const height = device.transportEndpoint ? .34 : device.visual.height ?? 1.25;
   const baseColor = device.visual.color ?? "#475569";
   const color = frame.status === "idle" ? baseColor : STATUS_COLORS[frame.status];
+  const showTelemetry = selected || bottleneck || frame.status !== "idle";
   const position: [number, number, number] = [device.position.x + device.footprint.width / 2, height / 2, device.position.y + device.footprint.height / 2];
   return <group
     position={position}
@@ -736,8 +968,17 @@ function FactoryDevice({ projectId, device, frame, bottleneck, selected, onSelec
     {device.transportEndpoint
       ? <><mesh castShadow><cylinderGeometry args={[.18, .24, .18, 16]} /><meshStandardMaterial color={color} metalness={.7} roughness={.25} emissive={frame.status === "unpowered" ? "#761424" : "#102a31"} /></mesh><mesh position={[0, .13, 0]}><boxGeometry args={[.48, .12, .18]} /><meshStandardMaterial color={color} metalness={.72} roughness={.22} /></mesh></>
       : <DeviceBody projectId={projectId} device={device} height={height} color={color} processing={frame.status === "processing"} />}
+    {!device.transportEndpoint && <mesh position={[device.footprint.width * .31, height / 2 + .09, -device.footprint.height * .31]}>
+      <sphereGeometry args={[.065, 16, 12]} />
+      <meshStandardMaterial color={STATUS_COLORS[frame.status]} emissive={STATUS_COLORS[frame.status]} emissiveIntensity={frame.status === "idle" ? .45 : 1.4} roughness={.2} />
+    </mesh>}
     <mesh position={[0, height / 2 + .04, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[device.footprint.width * .65 * frame.progress, .08]} /><meshBasicMaterial color="#d8fff4" /></mesh>
-    {(!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .55, 0]}><Text fontSize={device.transportEndpoint ? .16 : .28} color="#eef9ff" anchorY="bottom" outlineWidth={.015} outlineColor="#071117">{device.visual.label ?? device.name}</Text><Text position={[0, -.24, 0]} fontSize={.13} color={STATUS_COLORS[frame.status]}>{device.transportEndpoint ? `${device.transportEndpoint.stage.toUpperCase()} · ${STATUS_LABELS[frame.status]}` : STATUS_LABELS[frame.status]}</Text>{device.recipe && <Text position={[0, -.42, 0]} fontSize={.1} color="#9dd9d0">{(device.recipes?.length ?? 0) > 1 ? `${device.recipes!.length} QUALIFIED OPS` : `${device.recipe.process} / ${device.recipe.mode}`}</Text>}{Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.58 : -.42, 0]} fontSize={.09} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}</Billboard>}
+    {(!device.transportEndpoint || selected) && <Billboard position={[0, height / 2 + .42, 0]}>
+      <Text fontSize={device.transportEndpoint ? .14 : .21} color={selected ? "#cffff2" : "#d7e7e9"} anchorY="bottom" outlineWidth={.012} outlineColor="#071117" maxWidth={Math.max(2.2, device.footprint.width * 1.5)} textAlign="center">{device.visual.label ?? device.name}</Text>
+      {showTelemetry && <Text position={[0, -.2, 0]} fontSize={.105} color={STATUS_COLORS[frame.status]}>{device.transportEndpoint ? `${device.transportEndpoint.stage.toUpperCase()} · ${STATUS_LABELS[frame.status]}` : STATUS_LABELS[frame.status]}</Text>}
+      {showTelemetry && device.recipe && <Text position={[0, -.36, 0]} fontSize={.082} color="#9dd9d0">{(device.recipes?.length ?? 0) > 1 ? `${device.recipes!.length} QUALIFIED OPS` : `${device.recipe.process} / ${device.recipe.mode}`}</Text>}
+      {selected && Object.values(device.resourceContracts).flat().length > 0 && <Text position={[0, device.recipe ? -.5 : -.36, 0]} fontSize={.075} color="#72b9d0">{[...new Set(Object.values(device.resourceContracts).flat())].join(" + ")}</Text>}
+    </Billboard>}
   </group>;
 }
 
@@ -754,6 +995,36 @@ function ResourceDeposit({ data, node, remaining }: { data: StudioData; node: St
   </group>;
 }
 
+function FactoryCameraControls({ bounds }: { bounds: StudioData["bounds"] }) {
+  const { camera, size } = useThree();
+  const verticalFov = THREE.MathUtils.degToRad(46);
+  const aspect = Math.max(.55, size.width / Math.max(1, size.height));
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+  const widthDistance = bounds.width * .54 / Math.tan(horizontalFov / 2);
+  const depthDistance = (bounds.height * .62 + 4) * .54 / Math.tan(verticalFov / 2);
+  const distance = Math.max(26, widthDistance, depthDistance);
+  const target = useMemo(() => new THREE.Vector3(bounds.width / 2, .35, bounds.height / 2), [bounds.height, bounds.width]);
+
+  useEffect(() => {
+    const perspectiveCamera = camera as THREE.PerspectiveCamera;
+    const direction = new THREE.Vector3(0, .58, .82).normalize();
+    perspectiveCamera.fov = 46;
+    perspectiveCamera.near = .1;
+    perspectiveCamera.far = Math.max(200, distance * 4);
+    perspectiveCamera.position.copy(target).addScaledVector(direction, distance);
+    perspectiveCamera.lookAt(target);
+    perspectiveCamera.updateProjectionMatrix();
+  }, [camera, distance, target]);
+
+  return <OrbitControls
+    makeDefault
+    target={target}
+    minDistance={Math.max(8, distance * .38)}
+    maxDistance={Math.max(80, distance * 1.8)}
+    maxPolarAngle={Math.PI * .47}
+  />;
+}
+
 function FactoryWorld({ data, tick, selection, onSelection }: {
   data: StudioData; tick: number; selection: StudioSelection | null; onSelection: (selection: StudioSelection) => void;
 }) {
@@ -765,12 +1036,21 @@ function FactoryWorld({ data, tick, selection, onSelection }: {
   }, [data, tick]);
   return <>
     <color attach="background" args={["#071014"]} />
-    <fog attach="fog" args={["#071014", 30, 72]} />
-    <hemisphereLight args={["#bcecff", "#102026", 1.15]} />
-    <directionalLight position={[12, 24, 8]} intensity={2.2} castShadow shadow-mapSize={[2048, 2048]} />
+    <fog attach="fog" args={["#071014", 42, 92]} />
+    <ambientLight intensity={.34} />
+    <hemisphereLight args={["#c8f4ff", "#102026", 1.28]} />
+    <directionalLight position={[12, 24, 8]} intensity={2.45} castShadow shadow-mapSize={[2048, 2048]} />
+    <directionalLight position={[-14, 14, -10]} intensity={.72} color="#73d8d1" />
     {data.regions.map((region) => <group key={region.id}>
-      <Grid args={[region.bounds.width, region.bounds.height]} position={[region.offset.x + region.bounds.width / 2, 0, region.offset.y + region.bounds.height / 2]} cellSize={1} cellThickness={.55} cellColor="#24414a" sectionSize={4} sectionThickness={1.1} sectionColor="#397080" fadeDistance={70} infiniteGrid={false} />
-      <mesh position={[region.offset.x + region.bounds.width / 2, -.04, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color="#0b1a20" roughness={.92} metalness={.08} /></mesh>
+      <mesh position={[region.offset.x + region.bounds.width / 2, -.055, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color="#0b191d" roughness={.78} metalness={.16} /></mesh>
+      <Grid args={[region.bounds.width, region.bounds.height]} position={[region.offset.x + region.bounds.width / 2, 0, region.offset.y + region.bounds.height / 2]} cellSize={1} cellThickness={.32} cellColor="#173038" sectionSize={4} sectionThickness={.95} sectionColor="#32717a" fadeDistance={82} infiniteGrid={false} />
+      <Line points={[
+        [region.offset.x, .025, region.offset.y],
+        [region.offset.x + region.bounds.width, .025, region.offset.y],
+        [region.offset.x + region.bounds.width, .025, region.offset.y + region.bounds.height],
+        [region.offset.x, .025, region.offset.y + region.bounds.height],
+        [region.offset.x, .025, region.offset.y],
+      ]} color="#48b8ad" lineWidth={2} transparent opacity={.55} />
       <Billboard position={[region.offset.x + 1, .75, region.offset.y + 1]}><Text fontSize={.38} color="#9edce7" anchorX="left" anchorY="bottom" outlineWidth={.02} outlineColor="#071014">{region.name.toUpperCase()}</Text><Text position={[0, -.28, 0]} fontSize={.14} color="#5f8992" anchorX="left">{region.kind.toUpperCase()} · {region.id}</Text></Billboard>
     </group>)}
     {data.resourceNodes.map((node) => <ResourceDeposit key={node.id} data={data} node={node} remaining={nodeRemaining[node.id] ?? node.amount} />)}
@@ -831,7 +1111,7 @@ function FactoryWorld({ data, tick, selection, onSelection }: {
         {(transit.count > 1 || transit.treatmentLevel > 0) && <Html position={[0, layers * .17 + .12, 0]} center distanceFactor={12}><span className="cargo-stack-count">{transit.count > 1 ? `×${transit.count}` : ""}{transit.treatmentLevel > 0 ? ` @${transit.treatmentLevel}` : ""}</span></Html>}
       </group>;
     })}
-    <OrbitControls makeDefault target={[data.bounds.width / 2, 0, data.bounds.height / 2]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI * .47} />
+    <FactoryCameraControls bounds={data.bounds} />
   </>;
 }
 

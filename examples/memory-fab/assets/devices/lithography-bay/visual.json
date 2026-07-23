@@ -1,5 +1,5 @@
 {
-  "shape": "box",
+  "shape": "scanner-cell",
   "height": 2.4,
   "texture": null,
   "model": null,

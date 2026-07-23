@@ -16,7 +16,24 @@ export interface ResourceVisual {
 }
 
 export interface DeviceVisual {
-  shape: "box" | "cylinder" | "sphere" | "plane";
+  shape:
+    | "box"
+    | "cylinder"
+    | "sphere"
+    | "plane"
+    | "process-bay"
+    | "scanner-cell"
+    | "chamber-tool"
+    | "vertical-furnace"
+    | "metrology-cell"
+    | "probe-cell"
+    | "equipment-rack"
+    | "packaging-cell"
+    | "service-bay"
+    | "storage-rack"
+    | "utility-skid"
+    | "wind-turbine"
+    | "bin";
   height: number;
   texture: string | null;
   model: string | null;

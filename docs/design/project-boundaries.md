@@ -14,6 +14,7 @@ This document owns workspace discovery, project identity, file confinement, proj
 - An engine workspace contains many project directories and a selected default project.
 - A workspace has no Resource, Device, Process, Blueprint, World, Scenario, Objective, or run catalog of its own.
 - Reuse is explicit copying. Two copied assets immediately become independent packages with independent hashes.
+- Device appearance is also project-owned: each package selects its procedural profile or names its own texture/model file. Studio provides rendering capabilities but never an implicit shared asset catalog.
 - `inm <command> <path> [--project id]` resolves exactly one project before any domain loading begins.
 - Studio chooses the project at entry and uses `/<project-id>` as the stable project context. Runtime UI never switches projects from a sidebar.
 

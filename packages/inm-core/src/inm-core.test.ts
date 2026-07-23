@@ -3166,7 +3166,10 @@ describe("deterministic discrete-event simulation", () => {
   test("visual metadata has no effect on logical execution", async () => {
     const withVisual = compileFactoryProject(await loaded()); const source = await loaded();
     for (const resource of Object.values(source.resources)) resource.visual.color = "#ffffff";
-    for (const device of Object.values(source.deviceAssets)) device.visual.color = "#000000";
+    for (const device of Object.values(source.deviceAssets)) {
+      device.visual.color = "#000000";
+      device.visual.shape = "process-bay";
+    }
     const recolored = compileFactoryProject(source);
     const first = runUntil(withVisual, undefined, { seed: 42 }); const second = runUntil(recolored, undefined, { seed: 42 });
     expect(first.events).toEqual(second.events); expect(first.state).toEqual(second.state); expect(first.metrics).toEqual(second.metrics);

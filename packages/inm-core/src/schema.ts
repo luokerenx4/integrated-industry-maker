@@ -17,7 +17,12 @@ export const resourceVisualSchema = z.object({
 }).strict();
 
 export const deviceVisualSchema = z.object({
-  shape: z.enum(["box", "cylinder", "sphere", "plane"]),
+  shape: z.enum([
+    "box", "cylinder", "sphere", "plane",
+    "process-bay", "scanner-cell", "chamber-tool", "vertical-furnace",
+    "metrology-cell", "probe-cell", "equipment-rack", "packaging-cell",
+    "service-bay", "storage-rack", "utility-skid", "wind-turbine", "bin",
+  ]),
   height: z.number().positive(),
   texture: relativeAssetFile.nullable(),
   model: relativeAssetFile.nullable(),

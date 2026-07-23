@@ -53,7 +53,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 10, infoCount: 12 },
-    evidence: { state: "current", runId: "059-simulate" },
+    evidence: { state: "current", runId: "061-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 5, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
@@ -146,10 +146,10 @@ test("a hash-compatible tracked-lot run outranks nominal warnings with measured 
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"), {
     world: "cleanroom", blueprint: "equipment-energy-sleep", scenario: "equipment-energy-window", objective: "dram-energy",
   });
-  expect(snapshot.status.evidence).toEqual({ state: "current", runId: "060-simulate" });
+  expect(snapshot.status.evidence).toEqual({ state: "current", runId: "062-simulate" });
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
     version: 4,
-    run: { id: "060-simulate", resultHash: "c8fc8824c17d3656aa22b9e50187d77ef7bf5141b31f6adc09d1aa32ab4b6830" },
+    run: { id: "062-simulate", resultHash: "6978e920a06687ba80ea0abac0c32d5f2286df7dd890e23144050dfc96faa7b4" },
     family: "dram-wafer",
     outcome: expect.objectContaining({
       scheduled: 12, released: 12, completed: 12, firstPassYield: 1,
@@ -167,7 +167,7 @@ test("a hash-compatible tracked-lot run outranks nominal warnings with measured 
   expect(snapshot.lossAttribution!.buckets.every((bucket, index, buckets) => index === 0 || buckets[index - 1]!.score >= bucket.score)).toBeTrue();
   expect(snapshot.diagnostics[0]).toEqual(expect.objectContaining({
     code: "fab-loss.input-starvation", priority: 90,
-    evidence: expect.objectContaining({ source: "compatible-run", runId: "060-simulate" }),
+    evidence: expect.objectContaining({ source: "compatible-run", runId: "062-simulate" }),
   }));
   expect(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code === "fab-loss.input-starvation"))
     .toBeLessThan(snapshot.diagnostics.findIndex((diagnostic) => diagnostic.code.startsWith("analysis.")));
