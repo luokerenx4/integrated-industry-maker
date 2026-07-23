@@ -232,6 +232,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "q-time")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
+  const qualityContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
       summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
@@ -265,6 +267,16 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
+      ...(qualityContributors.length ? [
+        "Quality-origin contributors:",
+        ...qualityContributors.slice(0, 5).map((contributor) => {
+          const devices = contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join("+");
+          const lotCount = contributor.evidence.introducedLots;
+          const defectCount = contributor.evidence.introducedDefectInstances;
+          return `  ${contributor.label} · ${contributor.mechanism} · ${lotCount} ${lotCount === 1 ? "lot" : "lots"} / ${defectCount} ${defectCount === 1 ? "defect instance" : "defect instances"} · ${contributor.evidence.reworkAttemptedLots} rework / ${contributor.evidence.repairedLots} repaired / ${contributor.evidence.persistentLots} persistent · ${contributor.evidence.scrappedLots} scrap / ${contributor.evidence.escapedLots} escape · ${contributor.defects.join("+")} · ${devices}`;
+        }),
+        ...(qualityContributors.length > 5 ? [`  … ${qualityContributors.length - 5} more in --section losses --json`] : []),
+      ] : []),
       ...(inputStarvationContributors.length ? [
         "Input-starvation contributors:",
         ...inputStarvationContributors.slice(0, 5).map((contributor) =>
@@ -275,7 +287,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         "Q-time contributors:",
         ...qTimeContributors.map((contributor) => {
           const devices = contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join("+");
-          return `  ${contributor.step ?? contributor.label} · ${contributor.mechanism} · ${contributor.evidence.violatedLots} lots / ${contributor.evidence.violations} visits · mean ${(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.limitTicks! / 1000).toFixed(1)}s limit · +${(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s overrun · ${devices}`;
+          const lotCount = contributor.evidence.violatedLots;
+          const visitCount = contributor.evidence.violations;
+          return `  ${contributor.step ?? contributor.label} · ${contributor.mechanism} · ${lotCount} ${lotCount === 1 ? "lot" : "lots"} / ${visitCount} ${visitCount === 1 ? "visit" : "visits"} · mean ${(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.limitTicks! / 1000).toFixed(1)}s limit · +${(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s overrun · ${devices}`;
         }),
       ] : []),
     ] : []),

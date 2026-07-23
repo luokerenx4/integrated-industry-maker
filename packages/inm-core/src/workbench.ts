@@ -404,7 +404,7 @@ function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "se
   if (warning) return {
     id: `diagnostic:${warning.id}`,
     tone: "attention",
-    title: "Inspect the highest-priority flow risk",
+    title: "Inspect the highest-priority industrial loss",
     reason: warning.message,
     actionLabel: "FOLLOW EVIDENCE",
     effect: "read-only",

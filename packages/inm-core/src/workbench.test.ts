@@ -112,15 +112,48 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     argv: ["inm", "analyze", snapshot.project.rootDir, "--world", "cleanroom", "--blueprint", "generated-dram-fab", "--scenario", "production-window", "--objective", "dram-output", "--section", "diagnostics", "--json"],
     studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/fab-loss.yield-quality"),
   }));
-  expect(snapshot.lossAttribution?.primary).toMatchObject({
+  const yieldQuality = snapshot.lossAttribution?.primary;
+  expect(yieldQuality).toMatchObject({
     id: "yield-quality",
-    subjects: [{ kind: "project", id: "dram-wafer" }],
+    subjects: [
+      { kind: "device", id: "etch-l2" },
+      { kind: "route", id: "dram-front-end" },
+      { kind: "project", id: "dram-wafer" },
+    ],
     evidence: {
       inspectedLots: 12,
       firstPassCompleted: 9,
       reworkedLots: 3,
       scrapDispositions: 3,
+      originContributors: 2,
+      subjectIntroducedLots: 3,
+      subjectPersistentLots: 2,
+      subjectScrappedLots: 2,
     },
+  });
+  expect(yieldQuality?.contributors).toHaveLength(2);
+  expect(yieldQuality?.contributors[0]).toMatchObject({
+    label: "etch-cell-layer-2",
+    mechanism: "quality-excursion",
+    defects: ["critical-dimension", "latent-electrical", "particle-contamination"],
+    lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
+    subjects: [{ kind: "device", id: "etch-l2" }, { kind: "route", id: "dram-front-end" }],
+    evidence: {
+      introducedLots: 3,
+      detectedLots: 3,
+      reworkAttemptedLots: 3,
+      repairedLots: 1,
+      persistentLots: 2,
+      scrappedLots: 2,
+      escapedLots: 0,
+    },
+  });
+  expect(yieldQuality?.contributors[1]).toMatchObject({
+    label: "final-inspection",
+    mechanism: "route-q-time-defect",
+    defects: ["particle-contamination"],
+    lots: ["dram-lot-03"],
+    evidence: { introducedLots: 1, detectedLots: 1, scrappedLots: 1 },
   });
   const inputStarvation = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation");
   expect(inputStarvation).toMatchObject({

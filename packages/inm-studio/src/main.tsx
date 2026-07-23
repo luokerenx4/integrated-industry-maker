@@ -1951,11 +1951,15 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const recommendation = snapshot.nextAction;
   const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
-  const qTimeMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
+  const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
+  const contributorMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
     "batch-companion-wait": "BATCH COMPANION WAIT",
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
     "inter-job-input-gap": "INTER-JOB INPUT GAP",
+    "quality-excursion": "AUTHORED QUALITY EXCURSION",
+    "equipment-process-drift": "EQUIPMENT PROCESS DRIFT",
+    "route-q-time-defect": "ROUTE Q-TIME DEFECT",
   })[mechanism];
   const followRecommendation = (target: WorkbenchNextActionTarget) => {
     if (target.kind === "diagnostic") {
@@ -1999,6 +2003,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
         <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => <div key={bucket.id} className={index === 0 ? "primary" : ""}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong><small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>)}</div>
+        {qualityContributors.length > 0 && <div className="q-time-contributors quality-contributors" data-testid="quality-origin-contributors">
+          <header><span className="eyebrow">QUALITY-ORIGIN CONTRIBUTORS</span><small>Observed defect origins followed through inspection, rework, persistence, scrap, and escape</small></header>
+          <div>{qualityContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`quality-origin-contributor-${contributor.label}`}>
+            <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.label}</strong><code>{contributor.processes.join(" + ")} · {contributor.defects.join(" + ")}</code></span>
+            <span><b>{contributor.evidence.introducedLots}</b><small>{contributor.evidence.introducedLots === 1 ? "LOT" : "LOTS"} / {contributor.evidence.introducedDefectInstances} {contributor.evidence.introducedDefectInstances === 1 ? "DEFECT" : "DEFECTS"}</small></span>
+            <span><b>{contributor.evidence.reworkAttemptedLots} / {contributor.evidence.persistentLots}</b><small>REWORK / PERSISTENT</small></span>
+            <span><b>{contributor.evidence.scrappedLots} / {contributor.evidence.escapedLots}</b><small>SCRAP / ESCAPE</small></span>
+            <code>{contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join(" · ")} · {contributor.lots.join(" · ")} · {contributor.evidence.repairedLots} repaired</code>
+          </article>)}</div>
+        </div>}
         {inputStarvationContributors.length > 0 && <div className="q-time-contributors starvation-contributors" data-testid="input-starvation-contributors">
           <header><span className="eyebrow">INPUT-GAP CONTRIBUTORS</span><small>Event-backed gaps inside repeated production opportunity · top {Math.min(5, inputStarvationContributors.length)} of {inputStarvationContributors.length}</small></header>
           <div>{inputStarvationContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`input-starvation-contributor-${contributor.label}`}>
@@ -2012,8 +2026,8 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">
           <header><span className="eyebrow">Q-TIME CONTRIBUTORS</span><small>Exact event-backed step, equipment, lot, and wait evidence</small></header>
           <div>{qTimeContributors.map((contributor) => <article key={contributor.id} data-testid={`q-time-contributor-${contributor.step ?? contributor.label}`}>
-            <span><small>{qTimeMechanismLabel(contributor.mechanism)}</small><strong>{contributor.step ?? contributor.label}</strong><code>{[contributor.route, contributor.processes.join(" + ")].filter(Boolean).join(" · ")}</code></span>
-            <span><b>{contributor.evidence.violatedLots}</b><small>LOTS / {contributor.evidence.violations} VISITS</small></span>
+            <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.step ?? contributor.label}</strong><code>{[contributor.route, contributor.processes.join(" + ")].filter(Boolean).join(" · ")}</code></span>
+            <span><b>{contributor.evidence.violatedLots}</b><small>{contributor.evidence.violatedLots === 1 ? "LOT" : "LOTS"} / {contributor.evidence.violations} {contributor.evidence.violations === 1 ? "VISIT" : "VISITS"}</small></span>
             <span><b>{(contributor.evidence.meanQueueTicks! / 1000).toFixed(1)}s</b><small>MEAN / {(contributor.evidence.limitTicks! / 1000).toFixed(1)}s LIMIT</small></span>
             <span><b>+{(contributor.evidence.totalOverrunTicks! / 1000).toFixed(1)}s</b><small>TOTAL OVERRUN</small></span>
             <code>{contributor.subjects.filter((subject) => subject.kind === "device").map((subject) => subject.id).join(" · ")}</code>

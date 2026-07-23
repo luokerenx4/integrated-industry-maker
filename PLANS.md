@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/event-backed-yield-causality]] | Trace verified rework, persistence, scrap, and escape outcomes back to exact defect-origin mechanisms for humans, Agents, and Design. | 2026-07-23 |
 | [[plans/opportunity-window-input-starvation]] | Replace boundary-heavy Device input-wait ranking with event-backed inter-job opportunity gaps and shared human/Agent contributors. | 2026-07-23 |
 | [[plans/project-local-factory-environment]] | Give the memory-fab a project-owned cleanroom floor, open-roof architectural frame, and generated distant industrial backdrop without changing industrial geometry or execution. | 2026-07-23 |
 | [[plans/commissioned-planned-maintenance-convergence]] | Separate opportunistic maintenance from planned production stops, then remove the commissioned memory fab's lithography drift without regressing its accepted factory or locked cases. | 2026-07-23 |

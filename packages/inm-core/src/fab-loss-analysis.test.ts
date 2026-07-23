@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
-import { analyzeInputStarvation } from "./fab-loss-analysis";
+import { analyzeInputStarvation, analyzeQualityContributors } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics } from "./types";
 
@@ -84,4 +84,108 @@ test("input starvation counts only available gaps between repeated productive jo
       },
     }],
   });
+});
+
+test("quality contributors trace authored, drift, and Q-time defects to separate outcomes", async () => {
+  const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
+  const events = [
+    {
+      type: "lot.quality-excursion", tick: 10, device: "etch-l2", lot: "lot-a",
+      process: "etch-cell-layer-2", excursion: "authored-cd", defects: ["critical-dimension"],
+    },
+    {
+      type: "lot.inspected", tick: 20, device: "inspection-1", lot: "lot-a",
+      process: "inspect-final-pattern-deep", result: "reject", detectedDefects: ["critical-dimension"], reworkCycles: 0,
+    },
+    {
+      type: "lot.reworked", tick: 30, device: "rework-1", lot: "lot-a",
+      process: "rework-final-pattern", repairedDefects: ["critical-dimension"], remainingDefects: [], reworkCycles: 1,
+    },
+    {
+      type: "lot.queue-time-violation", tick: 40, device: "inspection-1", lot: "lot-a",
+      route: "dram-front-end", step: "final-inspection", process: "inspect-final-pattern-deep",
+      queueTicks: 80, maximumTicks: 35, defects: ["particle-contamination"],
+    },
+    {
+      type: "lot.inspected", tick: 50, device: "inspection-1", lot: "lot-a",
+      process: "inspect-final-pattern-deep", result: "scrap", detectedDefects: ["particle-contamination"], reworkCycles: 1,
+    },
+    {
+      type: "device.process-drift", tick: 15, device: "etch-l2", process: "etch-cell-layer-2",
+      lotIds: ["lot-b", "lot-c"], afterJobs: 5, jobsSinceMaintenance: 6, durationTicks: 5,
+      powerMilliWatts: 1, defects: ["latent-electrical"],
+    },
+    {
+      type: "lot.inspected", tick: 25, device: "inspection-1", lot: "lot-b",
+      process: "inspect-final-pattern-deep", result: "reject", detectedDefects: ["latent-electrical"], reworkCycles: 0,
+    },
+    {
+      type: "lot.reworked", tick: 35, device: "rework-1", lot: "lot-b",
+      process: "rework-final-pattern", repairedDefects: [], remainingDefects: ["latent-electrical"], reworkCycles: 1,
+    },
+    {
+      type: "lot.inspected", tick: 45, device: "inspection-1", lot: "lot-b",
+      process: "inspect-final-pattern-deep", result: "scrap", detectedDefects: ["latent-electrical"], reworkCycles: 1,
+    },
+    {
+      type: "lot.output-profile", tick: 55, device: "probe-1", lot: "lot-c",
+      process: "probe-sort-dram-standard", profile: "latent-loss", defects: ["latent-electrical"],
+      nominalOutputs: [], actualOutputs: [],
+    },
+  ] as unknown as FactoryEvent[];
+
+  expect(analyzeQualityContributors(project, events)).toMatchObject([
+    {
+      mechanism: "equipment-process-drift",
+      route: "dram-front-end",
+      step: "etch-cell-layer-2",
+      processes: ["etch-cell-layer-2"],
+      defects: ["latent-electrical"],
+      lots: ["lot-b", "lot-c"],
+      subjects: [{ kind: "device", id: "etch-l2" }, { kind: "route", id: "dram-front-end" }],
+      evidence: {
+        originEvents: 1,
+        introducedLots: 2,
+        introducedDefectInstances: 2,
+        detectedLots: 1,
+        reworkAttemptedLots: 1,
+        repairedLots: 0,
+        persistentLots: 1,
+        scrappedLots: 1,
+        escapedLots: 1,
+      },
+    },
+    {
+      mechanism: "route-q-time-defect",
+      route: "dram-front-end",
+      step: "final-inspection",
+      defects: ["particle-contamination"],
+      lots: ["lot-a"],
+      evidence: {
+        introducedLots: 1,
+        detectedLots: 1,
+        reworkAttemptedLots: 0,
+        repairedLots: 0,
+        persistentLots: 0,
+        scrappedLots: 1,
+        escapedLots: 0,
+      },
+    },
+    {
+      mechanism: "quality-excursion",
+      route: "dram-front-end",
+      step: "etch-cell-layer-2",
+      defects: ["critical-dimension"],
+      lots: ["lot-a"],
+      evidence: {
+        introducedLots: 1,
+        detectedLots: 1,
+        reworkAttemptedLots: 1,
+        repairedLots: 1,
+        persistentLots: 0,
+        scrappedLots: 0,
+        escapedLots: 0,
+      },
+    },
+  ]);
 });

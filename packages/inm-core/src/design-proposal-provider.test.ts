@@ -194,8 +194,13 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
     },
     chain: ["q-time", "yield-quality", "input-starvation", "queue-congestion", "maintenance-qualification"],
   });
-  expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toMatchObject({
-    subjects: [{ kind: "device", id: "lithography-1" }, { kind: "project", id: "dram-wafer" }],
+  const yieldQuality = fabLoss.buckets.find((bucket) => bucket.id === "yield-quality");
+  expect(yieldQuality).toMatchObject({
+    subjects: [
+      { kind: "device", id: "inspection-1" },
+      { kind: "route", id: "dram-front-end" },
+      { kind: "project", id: "dram-wafer" },
+    ],
     evidence: {
       inspectedLots: 12,
       firstPassCompleted: 5,
@@ -203,8 +208,25 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
       scrapDispositions: 2,
       equipmentDriftedLots: 3,
       equipmentDriftDefects: 3,
-      subjectDriftedLots: 2,
-      subjectDriftDefects: 2,
+      leadingDriftDeviceLots: 2,
+      leadingDriftDeviceDefects: 2,
+      originContributors: 5,
+      subjectIntroducedLots: 5,
+      subjectPersistentLots: 4,
+      subjectScrappedLots: 2,
+    },
+  });
+  expect(yieldQuality?.contributors[0]).toMatchObject({
+    label: "final-inspection",
+    mechanism: "route-q-time-defect",
+    defects: ["particle-contamination"],
+    lots: ["dram-lot-03", "dram-lot-05", "dram-lot-09", "dram-lot-10", "dram-lot-11"],
+    evidence: {
+      introducedLots: 5,
+      detectedLots: 5,
+      reworkAttemptedLots: 4,
+      persistentLots: 4,
+      scrappedLots: 2,
     },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "queue-congestion")).toMatchObject({
@@ -350,7 +372,11 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
     },
     primary: {
       id: "yield-quality",
-      subjects: [{ kind: "device", id: "etch-1" }, { kind: "project", id: "dram-wafer" }],
+      subjects: [
+        { kind: "device", id: "etch-1" },
+        { kind: "route", id: "dram-front-end" },
+        { kind: "project", id: "dram-wafer" },
+      ],
       evidence: {
         inspectedLots: 11,
         firstPassCompleted: 5,
@@ -358,8 +384,12 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
         scrapDispositions: 2,
         equipmentDriftedLots: 8,
         equipmentDriftDefects: 8,
-        subjectDriftedLots: 6,
-        subjectDriftDefects: 6,
+        leadingDriftDeviceLots: 6,
+        leadingDriftDeviceDefects: 6,
+        originContributors: 5,
+        subjectIntroducedLots: 4,
+        subjectPersistentLots: 4,
+        subjectScrappedLots: 2,
       },
     },
     chain: ["yield-quality", "q-time", "queue-congestion", "input-starvation", "batch-formation"],

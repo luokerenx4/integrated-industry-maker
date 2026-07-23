@@ -25,7 +25,10 @@ export type FabLossContributorMechanism =
   | "batch-companion-wait"
   | "maintenance-qualification"
   | "equipment-availability"
-  | "inter-job-input-gap";
+  | "inter-job-input-gap"
+  | "quality-excursion"
+  | "equipment-process-drift"
+  | "route-q-time-defect";
 
 export interface FabLossContributor {
   id: string;
@@ -34,6 +37,8 @@ export interface FabLossContributor {
   route: string | null;
   step: string | null;
   processes: string[];
+  defects: string[];
+  lots: string[];
   subjects: FabLossSubject[];
   evidence: Record<string, number>;
 }
@@ -210,6 +215,8 @@ export function analyzeInputStarvation(
       route: null,
       step: null,
       processes: [...processes].sort(),
+      defects: [],
+      lots: [],
       subjects: [{ kind: "device", id: device }],
       evidence: {
         jobs: starts.length,
@@ -303,6 +310,7 @@ function qTimeContributors(
     devices: Set<string>;
     providers: Set<string>;
     lots: Set<string>;
+    defects: Set<string>;
     violations: number;
     totalQueueTicks: number;
     maximumQueueTicks: number;
@@ -322,6 +330,7 @@ function qTimeContributors(
       devices: new Set<string>(),
       providers: new Set<string>(),
       lots: new Set<string>(),
+      defects: new Set<string>(),
       violations: 0,
       totalQueueTicks: 0,
       maximumQueueTicks: 0,
@@ -334,6 +343,7 @@ function qTimeContributors(
     group.devices.add(event.device);
     providers.forEach((provider) => group.providers.add(provider));
     group.lots.add(event.lot);
+    event.defects.forEach((defect) => group.defects.add(defect));
     group.violations++;
     group.totalQueueTicks += event.queueTicks;
     group.maximumQueueTicks = Math.max(group.maximumQueueTicks, event.queueTicks);
@@ -349,6 +359,8 @@ function qTimeContributors(
     route: group.route,
     step: group.step,
     processes: [...group.processes].sort(),
+    defects: [...group.defects].sort(),
+    lots: [...group.lots].sort(),
     subjects: [
       { kind: "route" as const, id: group.route },
       ...[...group.devices, ...group.providers].sort().map((device) => ({ kind: "device" as const, id: device })),
@@ -369,10 +381,165 @@ function qTimeContributors(
     || left.id.localeCompare(right.id));
 }
 
+type DefectOriginEvent = Extract<FactoryEvent,
+  { type: "lot.quality-excursion" | "device.process-drift" | "lot.queue-time-violation" }>;
+
+function routeStepForProcess(
+  project: Pick<CompiledFactoryProject, "routes">,
+  process: string,
+): { route: string; step: string } | null {
+  const matches: { route: string; step: string }[] = [];
+  for (const route of Object.values(project.routes).sort((left, right) => left.id.localeCompare(right.id))) {
+    for (const step of route.steps) {
+      if (step.operations.includes(process)) matches.push({ route: route.id, step: step.id });
+    }
+  }
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function routeStepForOrigin(
+  event: DefectOriginEvent,
+  lot: string,
+  events: readonly FactoryEvent[],
+  project: Pick<CompiledFactoryProject, "routes">,
+): { route: string; step: string } | null {
+  if (event.type === "lot.queue-time-violation") return { route: event.route, step: event.step };
+  const transition = events.find((candidate): candidate is Extract<FactoryEvent, { type: "lot.route-advanced" }> =>
+    candidate.type === "lot.route-advanced"
+    && candidate.tick === event.tick
+    && candidate.device === event.device
+    && candidate.process === event.process
+    && candidate.lot === lot);
+  return transition
+    ? { route: transition.route, step: transition.fromStep }
+    : routeStepForProcess(project, event.process);
+}
+
+export function analyzeQualityContributors(
+  project: Pick<CompiledFactoryProject, "routes">,
+  events: readonly FactoryEvent[],
+): FabLossContributor[] {
+  const groups = new Map<string, {
+    label: string;
+    mechanism: Extract<FabLossContributorMechanism,
+      "quality-excursion" | "equipment-process-drift" | "route-q-time-defect">;
+    route: string | null;
+    step: string | null;
+    process: string;
+    device: string;
+    originEvents: number;
+    introducedDefectInstances: number;
+    lotDefects: Map<string, Map<string, number>>;
+  }>();
+  for (const event of events) {
+    if (
+      event.type !== "lot.quality-excursion"
+      && event.type !== "device.process-drift"
+      && event.type !== "lot.queue-time-violation"
+    ) continue;
+    if (event.defects.length === 0) continue;
+    const mechanism = event.type === "lot.quality-excursion"
+      ? "quality-excursion"
+      : event.type === "device.process-drift"
+        ? "equipment-process-drift"
+        : "route-q-time-defect";
+    const lots = event.type === "device.process-drift" ? event.lotIds : [event.lot];
+    const eventGroups = new Set<string>();
+    for (const lot of lots) {
+      const location = routeStepForOrigin(event, lot, events, project);
+      const id = `quality:${mechanism}:${location?.route ?? "unrouted"}:${location?.step ?? event.process}:${event.device}:${event.process}`;
+      const group = groups.get(id) ?? {
+        label: location?.step ?? event.process,
+        mechanism,
+        route: location?.route ?? null,
+        step: location?.step ?? null,
+        process: event.process,
+        device: event.device,
+        originEvents: 0,
+        introducedDefectInstances: 0,
+        lotDefects: new Map<string, Map<string, number>>(),
+      };
+      if (!eventGroups.has(id)) {
+        group.originEvents++;
+        eventGroups.add(id);
+      }
+      group.introducedDefectInstances += event.defects.length;
+      const lotOrigin = group.lotDefects.get(lot) ?? new Map<string, number>();
+      event.defects.forEach((defect) =>
+        lotOrigin.set(defect, Math.min(lotOrigin.get(defect) ?? event.tick, event.tick)));
+      group.lotDefects.set(lot, lotOrigin);
+      groups.set(id, group);
+    }
+  }
+
+  const intersectsAfterOrigin = (
+    defects: readonly string[],
+    origins: ReadonlyMap<string, number>,
+    tick: number,
+  ) => defects.some((defect) => (origins.get(defect) ?? Number.POSITIVE_INFINITY) <= tick);
+  return [...groups.entries()].map(([id, group]) => {
+    const detectedLots = new Set<string>();
+    const reworkAttemptedLots = new Set<string>();
+    const repairedLots = new Set<string>();
+    const persistentLots = new Set<string>();
+    const scrappedLots = new Set<string>();
+    const escapedLots = new Set<string>();
+    for (const [lot, origins] of group.lotDefects) {
+      for (const event of events) {
+        if (!("lot" in event) || event.lot !== lot) continue;
+        if (event.type === "lot.inspected" && intersectsAfterOrigin(event.detectedDefects, origins, event.tick)) {
+          detectedLots.add(lot);
+          if (event.result === "scrap") scrappedLots.add(lot);
+        } else if (event.type === "lot.reworked") {
+          if (intersectsAfterOrigin([...event.repairedDefects, ...event.remainingDefects], origins, event.tick)) {
+            reworkAttemptedLots.add(lot);
+          }
+          if (intersectsAfterOrigin(event.repairedDefects, origins, event.tick)) repairedLots.add(lot);
+          if (intersectsAfterOrigin(event.remainingDefects, origins, event.tick)) persistentLots.add(lot);
+        } else if (event.type === "lot.output-profile" && intersectsAfterOrigin(event.defects, origins, event.tick)) {
+          escapedLots.add(lot);
+        }
+      }
+    }
+    const defects = [...new Set([...group.lotDefects.values()].flatMap((origin) => [...origin.keys()]))].sort();
+    return {
+      id,
+      label: group.label,
+      mechanism: group.mechanism,
+      route: group.route,
+      step: group.step,
+      processes: [group.process],
+      defects,
+      lots: [...group.lotDefects.keys()].sort(),
+      subjects: [
+        { kind: "device" as const, id: group.device },
+        ...(group.route ? [{ kind: "route" as const, id: group.route }] : []),
+      ],
+      evidence: {
+        originEvents: group.originEvents,
+        introducedLots: group.lotDefects.size,
+        introducedDefectInstances: group.introducedDefectInstances,
+        detectedLots: detectedLots.size,
+        reworkAttemptedLots: reworkAttemptedLots.size,
+        repairedLots: repairedLots.size,
+        persistentLots: persistentLots.size,
+        scrappedLots: scrappedLots.size,
+        escapedLots: escapedLots.size,
+      },
+    };
+  }).sort((left, right) =>
+    right.evidence.scrappedLots! - left.evidence.scrappedLots!
+    || right.evidence.escapedLots! - left.evidence.escapedLots!
+    || right.evidence.persistentLots! - left.evidence.persistentLots!
+    || right.evidence.reworkAttemptedLots! - left.evidence.reworkAttemptedLots!
+    || right.evidence.introducedLots! - left.evidence.introducedLots!
+    || left.id.localeCompare(right.id));
+}
+
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
-  project: Pick<CompiledFactoryProject, "devices">,
+  project: Pick<CompiledFactoryProject, "devices" | "routes">,
   events: readonly FactoryEvent[],
 ): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
@@ -525,11 +692,16 @@ export function analyzeFabLossProfile(
   const driftContext = driftDevice
     ? ` Equipment drift introduced ${driftDefectCount} defect instances across ${driftedLots} lot jobs; ${driftDevice} contributed ${driftDefects[driftDevice]}.`
     : "";
+  const qualityDetails = analyzeQualityContributors(project, events);
+  const qualitySubject = qualityDetails[0] ?? null;
+  const contributorContext = qualitySubject
+    ? ` ${qualityDetails.length} defect-origin contributors are traceable; ${qualitySubject.label} leads with ${qualitySubject.evidence.scrappedLots} scrap dispositions.`
+    : "";
   add({
     id: "yield-quality", label: "Verified yield and quality loss", score: ratio(affectedLots, inspectedLots) + ratio(metrics.lotOutputFlow.lostUnits, metrics.lotOutputFlow.nominalUnits),
-    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.${driftContext}`,
+    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.${driftContext}${contributorContext}`,
     subjects: [
-      ...(driftDevice ? [{ kind: "device" as const, id: driftDevice }] : []),
+      ...(qualitySubject?.subjects ?? (driftDevice ? [{ kind: "device" as const, id: driftDevice }] : [])),
       { kind: "project", id: metrics.lotFlow.family },
     ],
     evidence: {
@@ -542,9 +714,14 @@ export function analyzeFabLossProfile(
       lostOutputUnits: metrics.lotOutputFlow.lostUnits,
       equipmentDriftedLots: driftedLots,
       equipmentDriftDefects: driftDefectCount,
-      subjectDriftedLots: driftDevice ? metrics.equipmentMaintenance.devices[driftDevice]!.driftedLots : 0,
-      subjectDriftDefects: driftDevice ? driftDefects[driftDevice]! : 0,
+      leadingDriftDeviceLots: driftDevice ? metrics.equipmentMaintenance.devices[driftDevice]!.driftedLots : 0,
+      leadingDriftDeviceDefects: driftDevice ? driftDefects[driftDevice]! : 0,
+      originContributors: qualityDetails.length,
+      subjectIntroducedLots: qualitySubject?.evidence.introducedLots ?? 0,
+      subjectPersistentLots: qualitySubject?.evidence.persistentLots ?? 0,
+      subjectScrappedLots: qualitySubject?.evidence.scrappedLots ?? 0,
     },
+    contributors: qualityDetails,
   });
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
@@ -568,7 +745,7 @@ export function analyzeFabLosses(
   metrics: FactoryMetrics,
   durationTicks: number,
   run: { id: string; resultHash: string },
-  project: Pick<CompiledFactoryProject, "devices">,
+  project: Pick<CompiledFactoryProject, "devices" | "routes">,
   events: readonly FactoryEvent[],
 ): FabLossAttribution | null {
   const profile = analyzeFabLossProfile(metrics, durationTicks, project, events);
