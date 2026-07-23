@@ -1,6 +1,6 @@
 # Frontier node exhaustion scheduling
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-23`
 - Related design: [[docs/design/design-programs]] and [[docs/design/agent-cli-contract]].
 
@@ -72,4 +72,6 @@ Frontier membership, promotion authority, and search eligibility are therefore t
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Summarize what shipped, identify any intentionally deferred follow-up as a separately indexed plan, and link the final commit or pull request when available.
+Implemented in commit `5013e0f` (`feat: continue exhausted Design frontiers`). Design now separates retained Pareto membership, promotion authority, and search eligibility. Provider exhaustion creates immutable zero-budget scheduler evidence, retires only the selected node, and continues another searchable node; Core replay, CLI, and Studio all expose the same state.
+
+The real greenfield memory-fab search now continues from the repaired leader through the complete 7/7 budget while preserving an exhausted non-dominated alternative. Explicit bounded reactivation after a later leader change remains a documented design gap, not unfinished work in this plan.

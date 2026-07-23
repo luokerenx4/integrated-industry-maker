@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/frontier-node-exhaustion-scheduling]] | Retire only a proposal-exhausted Pareto node from active scheduling while preserving its evidence and continuing other branches. | 2026-07-23 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/frontier-node-exhaustion-scheduling]] | Retire only a proposal-exhausted Pareto node from active scheduling while preserving its evidence and continuing other branches. | 2026-07-23 |
 | [[plans/promotion-blocker-guided-branch-repair]] | Expose exact leader-relative promotion blockers before proposal generation and repair the retained memory-fab branch with explicit facility resilience. | 2026-07-23 |
 | [[plans/pareto-branch-design-search]] | Retain and explore bounded non-dominated Design branches without weakening the policy-compliant promotable leader. | 2026-07-23 |
 | [[plans/current-best-case-guardrails]] | Make current-best per-case regression budgets explicit and enforceable in robust Design decisions across CLI and Studio. | 2026-07-23 |
