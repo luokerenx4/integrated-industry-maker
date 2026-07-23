@@ -133,7 +133,8 @@
       "id": "final-pattern-rework",
       "name": "Final Pattern Rework",
       "operations": [
-        "rework-final-pattern"
+        "rework-final-pattern",
+        "recover-final-pattern-advanced"
       ],
       "transitions": [
         {

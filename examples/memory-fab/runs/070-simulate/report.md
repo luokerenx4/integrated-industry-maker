@@ -1,9 +1,9 @@
-# INM Run 069-simulate
+# INM Run 070-simulate
 
 - Decision: **BASELINE**
 - Blueprint: `generated-dram-fab`
 - Score: **-153.787**
-- Result hash: `038517f5a633f8d64a6ccb821d6cbae1e2c7a043d5ed79e2e99b63bb98d63cd0`
+- Result hash: `13867cd1f657c59ed758c04d7b085acd9837e0ac76139621518f48390fa0a9c3`
 - Bottleneck: burn-in-1
 - Throughput/min: 15.750
 - Delivery portfolio: 126.0% demand attainment · 63.000 / 50.000 valued / demanded · 13.000 above demand · 52.500 net value/min

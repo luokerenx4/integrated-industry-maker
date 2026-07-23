@@ -231,6 +231,50 @@ function continuousDeepMetrologyPatch(blueprint: ProposalBlueprint): JsonPatchOp
   ];
 }
 
+function advancedPatternRecoveryPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const recoveryIndex = deviceIndex(blueprint, "rework-1");
+  if (recoveryIndex < 0) return null;
+  const recovery = blueprint.devices[recoveryIndex]!;
+  const recipe = recovery.recipe;
+  const policy = recovery.policy;
+  const incumbentRelease = {
+    kind: "conwip",
+    maximumWip: 7,
+    reopenAtWip: 4,
+    maximumReleaseDelayTicks: 30_000,
+    dispatch: "earliest-due-date",
+  };
+  if (recovery.asset !== "pattern-rework-bay"
+    || !isRecord(recipe)
+    || recipe.process !== "rework-final-pattern"
+    || !isRecord(policy)
+    || Object.hasOwn(policy, "preventiveMaintenance")
+    || !equalJson(blueprint.policies.lotRelease, incumbentRelease)) return null;
+  return [
+    {
+      op: "replace",
+      path: `/devices/${recoveryIndex}/asset`,
+      value: "advanced-pattern-recovery-cell",
+    },
+    {
+      op: "replace",
+      path: `/devices/${recoveryIndex}/recipe/process`,
+      value: "recover-final-pattern-advanced",
+    },
+    {
+      op: "replace",
+      path: "/policies/lotRelease",
+      value: {
+        kind: "conwip",
+        maximumWip: 6,
+        reopenAtWip: 3,
+        maximumReleaseDelayTicks: 18_000,
+        dispatch: "earliest-due-date",
+      },
+    },
+  ];
+}
+
 function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
   const requiredCommissionedDevices = ["fab-utility-plant-2", "lithography-1", "burn-in-1"];
   if (requiredCommissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
@@ -584,6 +628,14 @@ const candidates: Candidate[] = [
     addresses: ["yield-quality", "q-time", "maintenance-qualification", "release-admission", "queue-congestion"],
     subjects: ["inspection-1"],
     patch: continuousDeepMetrologyPatch,
+  },
+  {
+    strategy: "recipe:advanced-pattern-recovery+conwip-6-3-delay-18",
+    hypothesis: "A high-power advanced pattern-recovery cell can remove particle contamination while a six-card release window gives the recovered lot enough downstream horizon to complete, without pretending latent electrical damage is repairable.",
+    expectedEffect: "Reduce persistent quality scrap and mixed-case cycle time through one explicit recovery Process and Device coupled to bounded admission; the lithography-interruption case remains authoritative.",
+    addresses: ["yield-quality", "release-admission", "queue-congestion"],
+    subjects: ["etch-l2", "rework-1"],
+    patch: advancedPatternRecoveryPatch,
   },
   release(9, 6),
   release(8, 5),

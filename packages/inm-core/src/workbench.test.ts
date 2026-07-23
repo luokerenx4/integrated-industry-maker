@@ -53,7 +53,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 12, infoCount: 12 },
-    evidence: { state: "current", runId: "069-simulate" },
+    evidence: { state: "current", runId: "070-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 8, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");

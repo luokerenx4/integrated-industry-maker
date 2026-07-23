@@ -22,12 +22,12 @@
     "cases": {
       "calendar-maintenance-window": {
         "blueprintHash": "f684c6b465f956460f806b07c23a1f623fcde34fc3b2ad88a6791c8f49e7c0db",
-        "deviceCatalogHash": "cd99afc26ff08af7d68acc44617d30b717f5a0635d468a8d9e858ba99fb35067",
+        "deviceCatalogHash": "d31dbf877949224cc47a62d9983b0f9d8c288692b7cf79e03b977dc6f77203a3",
         "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
-        "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
+        "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
-        "routeCatalogHash": "a02c853df7b9855e2aa4f3c64dd6a4bcab305bc2bca6622feedc4a9dca30061d",
+        "routeCatalogHash": "e706d898f2cdc31b0abb456f7da04cdac5d9839ff93b160cb14c54c3c6b1c6d2",
         "scenarioHash": "2be54aa42e1e2a154e1fe9ea1b52b1eecf748a4a9c13b319b12c74473ba46c77",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }

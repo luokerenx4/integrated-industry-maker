@@ -1,0 +1,139 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "advanced-pattern-recovery-cell",
+  "name": "Advanced Pattern Recovery Cell",
+  "description": "A qualified dry-clean and localized correction cell for recoverable critical-dimension and particle-contamination excursions.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "rework",
+    "advanced-recovery"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "reject-input",
+        "direction": "input",
+        "side": "west",
+        "offset": 1,
+        "buffer": "reject-input",
+        "kind": "resource"
+      },
+      {
+        "id": "recovered-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "recovered-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "reject-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "recovered-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "processes": [
+      "recover-final-pattern-advanced"
+    ],
+    "categories": [
+      "rework"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "reject-input"
+    ],
+    "outputPorts": [
+      "recovered-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified advanced recovery recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
+      }
+    ],
+    "maintenance": {
+      "maximumJobs": 10,
+      "maximumQualificationTicks": 360000,
+      "durationTicks": 8000,
+      "powerMilliWatts": 220000,
+      "service": {
+        "skill": "vacuum-process",
+        "crews": 1,
+        "inputs": [
+          {
+            "resource": "chamber-clean-kit",
+            "count": 1
+          }
+        ]
+      },
+      "qualification": {
+        "durationTicks": 4000,
+        "powerMilliWatts": 240000,
+        "service": {
+          "skill": "equipment-qualification",
+          "crews": 1,
+          "inputs": [
+            {
+              "resource": "tool-qualification-wafer",
+              "count": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 20000,
+    "activeMilliWatts": 500000
+  },
+  "economics": {
+    "buildCost": 10100
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

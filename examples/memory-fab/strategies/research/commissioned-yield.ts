@@ -68,18 +68,35 @@ function selectContinuousMetrology(source: Blueprint): Blueprint {
   return blueprint;
 }
 
+function selectAdvancedRecovery(
+  source: Blueprint,
+  lotDispatch: "fifo" | "earliest-due-date" | "highest-priority" = "fifo",
+): Blueprint {
+  const blueprint = structuredClone(source);
+  const recovery = blueprint.devices.find((item) => item.id === "rework-1");
+  if (!recovery?.recipe || recovery.recipe.process !== "rework-final-pattern") {
+    throw new Error("advanced pattern recovery requires rework-1 with the incumbent selective-rework recipe");
+  }
+  recovery.asset = "advanced-pattern-recovery-cell";
+  recovery.recipe.process = "recover-final-pattern-advanced";
+  recovery.policy = { ...recovery.policy, lotDispatch };
+  delete recovery.policy.preventiveMaintenance;
+  return blueprint;
+}
+
 function configureRelease(
   source: Blueprint,
   maximumWip: number,
   reopenAtWip: number,
   maximumReleaseDelayTicks: number,
+  dispatch: "fifo" | "earliest-due-date" | "highest-priority" = "earliest-due-date",
 ): Blueprint {
   const blueprint = structuredClone(source);
   blueprint.policies.lotRelease = {
     kind: "conwip",
     maximumWip,
     reopenAtWip,
-    dispatch: "earliest-due-date",
+    dispatch,
     maximumReleaseDelayTicks,
   };
   return blueprint;
@@ -89,7 +106,10 @@ function summarizeMetrics(metrics: BlueprintMetricSnapshot) {
   return {
     score: metrics.score,
     contractFulfillment: metrics.contractFulfillment,
+    deliveryNetValuePerMinute: metrics.deliveryNetValuePerMinute,
+    deliveryOverflow: metrics.deliveryOverflow,
     completedLots: metrics.completedLots,
+    onTimeLots: metrics.onTimeLots,
     firstPassYield: metrics.firstPassYield,
     scrappedLots: metrics.scrappedLots,
     reworkCycles: metrics.reworkCycles,
@@ -98,6 +118,8 @@ function summarizeMetrics(metrics: BlueprintMetricSnapshot) {
     queueTimeViolations: metrics.queueTimeViolations,
     queueTimeViolatedLots: metrics.queueTimeViolatedLots,
     maximumQueueTimeOverrunTicks: metrics.maximumQueueTimeOverrunTicks,
+    meanCycleTimeTicks: metrics.meanCycleTimeTicks,
+    meanTardinessTicks: metrics.meanTardinessTicks,
     maintenanceCompleted: metrics.totalMaintenanceCompleted,
     assetLimitMaintenance: metrics.totalAssetLimitMaintenance,
     qualificationCompleted: metrics.totalQualificationCompleted,
@@ -158,6 +180,111 @@ const variants: Variant[] = [
       4,
       30_000,
     ),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery",
+    hypothesis: "Replace the selective pattern bay with a higher-power advanced recovery cell that removes particle contamination while leaving latent electrical damage terminal.",
+    blueprint: selectAdvancedRecovery(incumbentProject.blueprint),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+edd",
+    hypothesis: "Run the advanced recovery cell earliest-due-date so repaired lots return to continuous metrology in contract-slack order.",
+    blueprint: selectAdvancedRecovery(incumbentProject.blueprint, "earliest-due-date"),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+priority",
+    hypothesis: "Run the advanced recovery cell highest-priority so the most valuable delayed lot receives scarce recovery capacity first.",
+    blueprint: selectAdvancedRecovery(incumbentProject.blueprint, "highest-priority"),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3",
+    hypothesis: "Pair advanced recovery with a six-card release window so recoverable lots reach the back end with less congestion.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 30_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-18",
+    hypothesis: "Use the six-card recovery window with an eighteen-second starvation escape to preserve interruption service.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 18_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-20",
+    hypothesis: "Use the six-card recovery window with a twenty-second starvation escape between the two observed interruption blockers.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 20_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-22",
+    hypothesis: "Use the six-card recovery window with a twenty-two-second starvation escape between the two observed interruption blockers.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 22_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-24",
+    hypothesis: "Use the six-card recovery window with a twenty-four-second starvation escape between the two observed interruption blockers.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 24_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-26",
+    hypothesis: "Use the six-card recovery window with a twenty-six-second starvation escape between the two observed interruption blockers.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 26_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-28",
+    hypothesis: "Use the six-card recovery window with a twenty-eight-second starvation escape between the two observed interruption blockers.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 28_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-45",
+    hypothesis: "Use the six-card recovery window with a forty-five-second starvation escape to reduce congestion in the quality stress wave.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 45_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-60",
+    hypothesis: "Use the six-card recovery window with a sixty-second starvation escape to test strict WIP control under all locked cases.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 60_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-18-fifo",
+    hypothesis: "Use FIFO admission with the six-card recovery window and eighteen-second starvation escape to avoid resequencing lots into the lithography outage.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 18_000, "fifo"),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-30-fifo",
+    hypothesis: "Use FIFO admission with the six-card recovery window and thirty-second starvation escape to preserve authored wave order.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 30_000, "fifo"),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-18-priority",
+    hypothesis: "Use priority admission with the six-card recovery window and eighteen-second starvation escape to serve the fixed high-priority tail first.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 18_000, "highest-priority"),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-3-delay-30-priority",
+    hypothesis: "Use priority admission with the six-card recovery window and thirty-second starvation escape to serve the fixed high-priority tail first.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 3, 30_000, "highest-priority"),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-6-4",
+    hypothesis: "Reopen the six-card recovery window at four lots so the facility-interruption case can replenish earlier.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 6, 4, 30_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-7-3",
+    hypothesis: "Keep seven maximum active lots but require a deeper drain before admitting the recovery wave.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 7, 3, 30_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-5-3",
+    hypothesis: "Use a five-card recovery window reopening at three to test whether the smallest practical front-end wave improves robust service.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 5, 3, 30_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-8-5",
+    hypothesis: "Pair advanced recovery with an eight-card release window so the recovered particle lot reaches product disposition earlier without reopening the original nine-card wave.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 8, 5, 30_000),
+  },
+  {
+    strategy: "recovery:advanced-pattern-recovery+conwip-9-6",
+    hypothesis: "Pair advanced recovery with the earlier nine-card commissioned release window so recovered yield has enough downstream horizon to become product.",
+    blueprint: configureRelease(selectAdvancedRecovery(incumbentProject.blueprint), 9, 6, 18_000),
   },
 ];
 
@@ -241,7 +368,7 @@ if (Bun.argv.includes("--json")) {
   process.stdout.write(`${stableStringify(report, 2)}\n`);
 } else {
   console.log(`# commissioned yield search · current=${incumbent.candidateScore.toFixed(6)} · ${rows.length} causal variants · locked Benchmark + 30 absolute thresholds + zero current-best regression`);
-  console.log("verdict\tstrategy\taggregate-delta\tminimum-case-delta\tcase-deltas\thard-outcomes\tcapacity\tmixed-completed\tmixed-fpy\tmixed-scrap\tmixed-rework\tmixed-qtime\tmixed-qtime-lots\tmixed-maintenance\tmixed-energy-mj\tcost\tarea\treasons");
+  console.log("verdict\tstrategy\taggregate-delta\tminimum-case-delta\tcase-deltas\thard-outcomes\tcapacity\tmixed-value/min\tmixed-overflow\tmixed-completed/on-time\tmixed-fpy\tmixed-scrap\tmixed-rework\tmixed-cycle/tardy-s\tmixed-qtime\tmixed-qtime-lots\tmixed-maintenance\tmixed-energy-mj\tcost\tarea\treasons");
   for (const row of rows) console.log([
     row.verdict,
     row.strategy,
@@ -250,10 +377,13 @@ if (Bun.argv.includes("--json")) {
     row.caseDeltasFromIncumbent.map((item) => `${item.id}:${item.delta.toFixed(3)}`).join(","),
     row.hardOutcomesPassed ? "PASS" : "FAIL",
     row.capacityReady ? "READY" : "GAP",
-    row.mixedQuality.completedLots,
+    row.mixedQuality.deliveryNetValuePerMinute.toFixed(3),
+    row.mixedQuality.deliveryOverflow,
+    `${row.mixedQuality.completedLots}/${row.mixedQuality.onTimeLots}`,
     row.mixedQuality.firstPassYield.toFixed(3),
     row.mixedQuality.scrappedLots,
     row.mixedQuality.reworkCycles,
+    `${(row.mixedQuality.meanCycleTimeTicks / 1000).toFixed(3)}/${(row.mixedQuality.meanTardinessTicks / 1000).toFixed(3)}`,
     row.mixedQuality.queueTimeViolations,
     row.mixedQuality.queueTimeViolatedLots,
     `${row.mixedQuality.assetLimitMaintenance}/${row.mixedQuality.maintenanceCompleted}`,

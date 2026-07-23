@@ -45,6 +45,7 @@ const halfTextureSize = textureSize / 2;
 const families: Record<MaterialFamilyId, MaterialFamily> = {
   enclosure: {
     devices: [
+      "advanced-pattern-recovery-cell",
       "ald-deposition-bay",
       "continuous-deep-metrology-cell",
       "dram-packaging-cell",

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "id": "recover-final-pattern-advanced",
+  "name": "Advanced final-pattern recovery",
+  "description": "A selective dry-clean and localized pattern-correction operation that repairs critical-dimension and particle-contamination defects but cannot recover latent electrical damage.",
+  "category": "rework",
+  "tags": [
+    "dram",
+    "quality",
+    "rework",
+    "advanced-recovery"
+  ],
+  "durationTicks": 4000,
+  "inputs": [
+    {
+      "resource": "rework-required-dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "dram-wafer-lot",
+      "count": 1
+    }
+  ],
+  "quality": {
+    "kind": "rework",
+    "repairs": [
+      "critical-dimension",
+      "particle-contamination"
+    ]
+  }
+}

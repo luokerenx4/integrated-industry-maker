@@ -1655,6 +1655,52 @@ describe("blueprint compiler", () => {
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
   }, 30_000);
 
+  test("advanced pattern recovery repairs particle contamination without hiding latent electrical damage", async () => {
+    const source = await loadFactoryProject(memoryFab, {
+      blueprint: "generated-dram-fab",
+      scenario: "production-window",
+      objective: "dram-output",
+    });
+    const blueprint = structuredClone(source.blueprint);
+    const recovery = blueprint.devices.find((device) => device.id === "rework-1")!;
+    recovery.asset = "advanced-pattern-recovery-cell";
+    recovery.recipe!.process = "recover-final-pattern-advanced";
+    blueprint.policies.lotRelease = {
+      kind: "conwip",
+      maximumWip: 6,
+      reopenAtWip: 3,
+      maximumReleaseDelayTicks: 18_000,
+      dispatch: "earliest-due-date",
+    };
+
+    const result = runUntil(compileFactoryProject({ ...source, blueprint }), undefined, { seed: 42 });
+    expect(result.metrics.qualityFlow).toEqual(expect.objectContaining({
+      inspectedLots: 12,
+      firstPassCompleted: 9,
+      reworkedLots: 3,
+      scrapDispositions: 1,
+      defectFreeCompleted: 11,
+      escapedDefects: 0,
+      goodYield: 11 / 12,
+    }));
+    expect(result.state.lots["dram-lot-03"]).toEqual(expect.objectContaining({
+      status: "completed",
+      quality: expect.objectContaining({ defects: [], reworkCycles: 1, scrapDispositions: 0 }),
+    }));
+    expect(result.state.lots["dram-lot-08"]).toEqual(expect.objectContaining({
+      status: "completed",
+      quality: expect.objectContaining({ defects: [], reworkCycles: 1, scrapDispositions: 0 }),
+    }));
+    expect(result.state.lots["dram-lot-11"]).toEqual(expect.objectContaining({
+      status: "scrapped",
+      quality: expect.objectContaining({
+        defects: ["latent-electrical"],
+        reworkCycles: 1,
+        scrapDispositions: 1,
+      }),
+    }));
+  }, 30_000);
+
   test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {
     const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
     expect(issueCodes(() => compileFactoryProject(unknown))).toContain("production-mode.unknown");

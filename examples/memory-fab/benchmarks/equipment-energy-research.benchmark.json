@@ -22,12 +22,12 @@
     "cases": {
       "equipment-energy-window": {
         "blueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
-        "deviceCatalogHash": "cd99afc26ff08af7d68acc44617d30b717f5a0635d468a8d9e858ba99fb35067",
+        "deviceCatalogHash": "d31dbf877949224cc47a62d9983b0f9d8c288692b7cf79e03b977dc6f77203a3",
         "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "d7e78cbc549f465c0d95281ede812ff4b30c1b244ad6a6e742913dc1c07a0461",
-        "processCatalogHash": "5723ab2b486cd7a3b7039d7489f1693643b80269ddbc97b6da327b4b234ccce0",
+        "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
-        "routeCatalogHash": "a02c853df7b9855e2aa4f3c64dd6a4bcab305bc2bca6622feedc4a9dca30061d",
+        "routeCatalogHash": "e706d898f2cdc31b0abb456f7da04cdac5d9839ff93b160cb14c54c3c6b1c6d2",
         "scenarioHash": "63804dfca87bde7e658fb7fba886a7afc85433531f813cd886bde3488f268736",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }

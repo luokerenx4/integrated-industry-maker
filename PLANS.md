@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/commissioned-advanced-pattern-recovery]] | Add and evaluate an explicit costed pattern-recovery option, then retain it as a Pareto branch because its lithography-interruption regression blocks commissioning. | 2026-07-24 |
 | [[plans/commissioned-continuous-metrology]] | Commission a project-local continuous deep-metrology option that removes final-inspection Q-time contamination under the locked industrial outcome gates. | 2026-07-24 |
 | [[plans/explicit-industrial-outcome-guardrails]] | Make project-authored quality, scrap, service, and completion limits explicit beside aggregate score. | 2026-07-24 |
 | [[plans/commissioned-release-control]] | Commission the accepted zero-regression `9/6 EDD` release controller and regenerate one compatible memory-fab operating record. | 2026-07-24 |

@@ -68,6 +68,69 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
 
+test("current memory-fab yield loss proposes only the bounded advanced-recovery branch", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const metrics = result.metrics;
+  const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
+  const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  });
+  const recoveryIndex = project.blueprint.devices.findIndex((device) => device.id === "rework-1");
+
+  expect(fabLoss.chain[0]).toBe("yield-quality");
+  expect(proposal).toMatchObject({
+    strategy: "recipe:advanced-pattern-recovery+conwip-6-3-delay-18",
+    addressedLoss: "yield-quality",
+    patch: [{
+      op: "replace",
+      path: `/devices/${recoveryIndex}/asset`,
+      value: "advanced-pattern-recovery-cell",
+    }, {
+      op: "replace",
+      path: `/devices/${recoveryIndex}/recipe/process`,
+      value: "recover-final-pattern-advanced",
+    }, {
+      op: "replace",
+      path: "/policies/lotRelease",
+      value: {
+        kind: "conwip",
+        maximumWip: 6,
+        reopenAtWip: 3,
+        maximumReleaseDelayTicks: 18_000,
+        dispatch: "earliest-due-date",
+      },
+    }],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+});
+
 test("memory-fab project provider reaches the measured delivery mismatch after higher-ranked losses are attempted", async () => {
   const root = resolve("examples/memory-fab");
   const current = await loadFactoryProject(root, {
