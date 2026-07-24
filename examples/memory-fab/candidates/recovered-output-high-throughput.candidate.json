@@ -1,0 +1,52 @@
+{
+  "baseCandidateHash": "b62ff5ab7587e1519011b0397513efc865ed8e0d3ba2739c9cb3619312e30438",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 717685836f91: aggregate score -122.322164 (+157.848648 versus locked baseline) across 5 cases.",
+  "hypothesis": "A six-card advanced-recovery flow can become paid delivery when the existing final-test rack runs both qualified screens at two-thirds duration and 150% active power, without purchasing another rack.",
+  "id": "recovered-output-high-throughput",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/7/asset",
+      "value": "advanced-pattern-recovery-cell"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/7/recipe/process",
+      "value": "recover-final-pattern-advanced"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/10/recipes/0/mode",
+      "value": "high-throughput-qualified"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/10/recipes/1/mode",
+      "value": "high-throughput-qualified"
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumReleaseDelayTicks",
+      "value": 18000
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumWip",
+      "value": 6
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/reopenAtWip",
+      "value": 3
+    }
+  ],
+  "source": {
+    "blueprintHash": "5f2852b5c09a5fe68e7ab1a32a52cc401742146caaf51fb8a672ada8a89882fd",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "717685836f91415906efd543742891007fc955f063bcf765348e090cf17e9bad"
+  },
+  "version": 1
+}

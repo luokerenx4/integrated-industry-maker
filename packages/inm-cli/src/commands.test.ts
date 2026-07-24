@@ -222,7 +222,7 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
     cases: [
       expect.objectContaining({ id: "steady-production", candidateValue: 12, threshold: 12, candidatePassed: true }),
       expect.objectContaining({ id: "mixed-quality", candidateValue: 10, threshold: 10, candidatePassed: true }),
-      expect.objectContaining({ id: "quality-excursion", candidateValue: 8, threshold: 8, candidatePassed: true }),
+      expect.objectContaining({ id: "quality-excursion", candidateValue: 9, threshold: 8, candidatePassed: true }),
       expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
       expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
     ],
@@ -642,8 +642,8 @@ test("public inspect gives Agents and humans the same current loss contributors"
     evidence: {
       originContributors: 1,
       subjectIntroducedLots: 3,
-      subjectPersistentLots: 2,
-      subjectScrappedLots: 2,
+      subjectPersistentLots: 1,
+      subjectScrappedLots: 1,
     },
   });
   expect(yieldQuality.contributors[0]).toMatchObject({
@@ -651,30 +651,30 @@ test("public inspect gives Agents and humans the same current loss contributors"
     mechanism: "quality-excursion",
     defects: ["critical-dimension", "latent-electrical", "particle-contamination"],
     lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
-    evidence: { introducedLots: 3, repairedLots: 1, persistentLots: 2, scrappedLots: 2 },
+    evidence: { introducedLots: 3, repairedLots: 2, persistentLots: 1, scrappedLots: 1 },
   });
   expect(inputStarvation).toMatchObject({
-    subjects: [{ kind: "device", id: "inspection-1" }],
+    subjects: [{ kind: "device", id: "furnace-1" }],
     evidence: {
-      rawWaitingInputTicks: 1_677_216,
-      boundaryWaitingInputTicks: 1_211_096,
-      exceptionWaitingInputTicks: 216_000,
-      starvationTicks: 250_120,
+      rawWaitingInputTicks: 1_686_660,
+      boundaryWaitingInputTicks: 1_194_940,
+      exceptionWaitingInputTicks: 228_000,
+      starvationTicks: 263_720,
     },
   });
   expect(inputStarvation.contributors[0]).toMatchObject({
-    label: "inspection-1",
+    label: "furnace-1",
     mechanism: "inter-job-input-gap",
-    evidence: { starvationTicks: 65_078, opportunityWindowTicks: 118_418 },
+    evidence: { starvationTicks: 42_456, opportunityWindowTicks: 114_456 },
   });
   expect(qTime).toBeUndefined();
 
   const human = await runCli(["inspect", projectDir]);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(human.stdout).toContain("Quality-origin contributors:");
-  expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 3 lots / 3 defect instances · 3 rework / 1 repaired / 2 persistent · 2 scrap / 0 escape");
+  expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 3 lots / 3 defect instances · 3 rework / 2 repaired / 1 persistent · 1 scrap / 0 escape");
   expect(human.stdout).toContain("Input-starvation contributors:");
-  expect(human.stdout).toContain("inspection-1 · inter-job-input-gap · 65.1s input gap / 118.4s opportunity · 15 jobs");
+  expect(human.stdout).toContain("furnace-1 · inter-job-input-gap · 42.5s input gap / 114.5s opportunity · 12 jobs");
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 

@@ -22,7 +22,7 @@
     "cases": {
       "calendar-maintenance-window": {
         "blueprintHash": "f684c6b465f956460f806b07c23a1f623fcde34fc3b2ad88a6791c8f49e7c0db",
-        "deviceCatalogHash": "d31dbf877949224cc47a62d9983b0f9d8c288692b7cf79e03b977dc6f77203a3",
+        "deviceCatalogHash": "7ddeb38ff5370787b265416e4b40a0b3f2f188777e261a0d45ce2998adcbdf41",
         "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",

@@ -275,6 +275,25 @@ function advancedPatternRecoveryPatch(blueprint: ProposalBlueprint): JsonPatchOp
   ];
 }
 
+function recoveredOutputHighThroughputPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const recoveryPatch = advancedPatternRecoveryPatch(blueprint);
+  const burnInIndex = deviceIndex(blueprint, "burn-in-1");
+  if (!recoveryPatch || burnInIndex < 0) return null;
+  const recipes = blueprint.devices[burnInIndex]!.recipes;
+  if (!Array.isArray(recipes)) return null;
+  const requiredProcesses = new Set(["screen-commercial-dram", "screen-performance-mix"]);
+  const modePatch: JsonPatchOperation[] = [];
+  for (const [recipeIndex, recipe] of recipes.entries()) {
+    if (!isRecord(recipe) || !requiredProcesses.has(String(recipe.process)) || recipe.mode !== "qualified") continue;
+    modePatch.push({
+      op: "replace",
+      path: `/devices/${burnInIndex}/recipes/${recipeIndex}/mode`,
+      value: "high-throughput-qualified",
+    });
+  }
+  return modePatch.length === requiredProcesses.size ? [...recoveryPatch, ...modePatch] : null;
+}
+
 function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
   const requiredCommissionedDevices = ["fab-utility-plant-2", "lithography-1", "burn-in-1"];
   if (requiredCommissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
@@ -628,6 +647,14 @@ const candidates: Candidate[] = [
     addresses: ["yield-quality", "q-time", "maintenance-qualification", "release-admission", "queue-congestion"],
     subjects: ["inspection-1"],
     patch: continuousDeepMetrologyPatch,
+  },
+  {
+    strategy: "recipe:advanced-recovery+high-throughput-burn-in",
+    hypothesis: "A six-card advanced-recovery flow can become paid delivery when the existing final-test rack runs both qualified screens at two-thirds duration and 150% active power, without purchasing another rack.",
+    expectedEffect: "Convert the recovered eight-device batch into delivered contract value, reduce terminal packaged-device WIP, and keep capital and occupied area within the locked ceilings.",
+    addresses: ["yield-quality", "delivery-portfolio", "release-admission", "queue-congestion"],
+    subjects: ["etch-l2", "rework-1", "burn-in-1"],
+    patch: recoveredOutputHighThroughputPatch,
   },
   {
     strategy: "recipe:advanced-pattern-recovery+conwip-6-3-delay-18",

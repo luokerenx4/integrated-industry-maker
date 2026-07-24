@@ -81,14 +81,15 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
 
-test("current memory-fab yield loss proposes only the bounded advanced-recovery branch", async () => {
+test("pre-intervention memory-fab yield loss proposes recovered-output delivery conversion", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab",
     scenario: "production-window",
     objective: "dram-output",
   });
-  const project = compileFactoryProject(loaded);
+  const blueprint = JSON.parse(await readFile(resolve(root, "runs/070-simulate/blueprint.json"), "utf8"));
+  const project = compileFactoryProject({ ...loaded, blueprint });
   const result = runUntil(project, undefined, { seed: 42 });
   const metrics = result.metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
@@ -113,10 +114,11 @@ test("current memory-fab yield loss proposes only the bounded advanced-recovery 
     history: [],
   });
   const recoveryIndex = project.blueprint.devices.findIndex((device) => device.id === "rework-1");
+  const burnInIndex = project.blueprint.devices.findIndex((device) => device.id === "burn-in-1");
 
   expect(fabLoss.chain[0]).toBe("yield-quality");
   expect(proposal).toMatchObject({
-    strategy: "recipe:advanced-pattern-recovery+conwip-6-3-delay-18",
+    strategy: "recipe:advanced-recovery+high-throughput-burn-in",
     addressedLoss: "yield-quality",
     patch: [{
       op: "replace",
@@ -136,6 +138,14 @@ test("current memory-fab yield loss proposes only the bounded advanced-recovery 
         maximumReleaseDelayTicks: 18_000,
         dispatch: "earliest-due-date",
       },
+    }, {
+      op: "replace",
+      path: `/devices/${burnInIndex}/recipes/0/mode`,
+      value: "high-throughput-qualified",
+    }, {
+      op: "replace",
+      path: `/devices/${burnInIndex}/recipes/1/mode`,
+      value: "high-throughput-qualified",
     }],
   });
   expect(() => compileFactoryProject({
@@ -389,13 +399,13 @@ test("current commissioned fab removes final-inspection Q-time with continuous m
   expect(fabLoss).toMatchObject({
     version: 4,
     outcome: {
-      completed: 10,
+      completed: 11,
       inProgress: 0,
       firstPassYield: 3 / 4,
       deliveryShortfall: 0,
-      deliveryOverflow: 13,
-      portfolioNetValue: 210,
-      scrapped: 2,
+      deliveryOverflow: 38,
+      portfolioNetValue: 288,
+      scrapped: 1,
     },
   });
   expect(qTime).toBeUndefined();

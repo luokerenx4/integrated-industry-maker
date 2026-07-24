@@ -22,7 +22,7 @@
     "cases": {
       "equipment-energy-window": {
         "blueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
-        "deviceCatalogHash": "d31dbf877949224cc47a62d9983b0f9d8c288692b7cf79e03b977dc6f77203a3",
+        "deviceCatalogHash": "7ddeb38ff5370787b265416e4b40a0b3f2f188777e261a0d45ce2998adcbdf41",
         "engineVersion": "inm-sim/0.76.0",
         "objectiveHash": "d7e78cbc549f465c0d95281ede812ff4b30c1b244ad6a6e742913dc1c07a0461",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",

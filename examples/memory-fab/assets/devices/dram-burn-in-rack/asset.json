@@ -123,6 +123,22 @@
         },
         "auxiliaryInputs": [],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "high-throughput-qualified",
+        "name": "High-throughput qualified screening",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 2,
+          "denominator": 3
+        },
+        "powerMultiplier": {
+          "numerator": 3,
+          "denominator": 2
+        },
+        "auxiliaryInputs": [],
+        "minimumInputTreatmentLevel": 0
       }
     ],
     "changeover": {

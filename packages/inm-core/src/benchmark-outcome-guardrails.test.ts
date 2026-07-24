@@ -143,25 +143,40 @@ test("memory-fab on-time service rejects score-positive inspection maintenance",
       id: "preserve-on-time-service",
       metric: "onTimeLots",
       cases: [
-        expect.objectContaining({ id: "steady-production", candidateValue: 10, threshold: 12, candidatePassed: false }),
-        expect.objectContaining({ id: "mixed-quality", candidateValue: 8, threshold: 10, candidatePassed: false }),
+        expect.objectContaining({ id: "steady-production", candidateValue: 12, threshold: 12, candidatePassed: true }),
+        expect.objectContaining({ id: "mixed-quality", candidateValue: 9, threshold: 10, candidatePassed: false }),
         expect.objectContaining({ id: "quality-excursion", candidateValue: 7, threshold: 8, candidatePassed: false }),
-        expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
-        expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
+        expect.objectContaining({ id: "lithography-interruption", candidateValue: 6, threshold: 7, candidatePassed: false }),
+        expect.objectContaining({ id: "facility-interruption", candidateValue: 8, threshold: 9, candidatePassed: false }),
       ],
     }),
   ]);
   expect(result.reasons).toEqual([
-    "outcome guardrail 'preserve-on-time-service' failed in case 'steady-production': onTimeLots 10.000000 must be >= 12.000000",
-    "outcome guardrail 'preserve-on-time-service' failed in case 'mixed-quality': onTimeLots 8.000000 must be >= 10.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'mixed-quality': onTimeLots 9.000000 must be >= 10.000000",
     "outcome guardrail 'preserve-on-time-service' failed in case 'quality-excursion': onTimeLots 7.000000 must be >= 8.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'lithography-interruption': onTimeLots 6.000000 must be >= 7.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'facility-interruption': onTimeLots 8.000000 must be >= 9.000000",
   ]);
 }, 30_000);
 
 test("memory-fab advanced recovery exposes exact Objective score causality", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const loaded = await loadFactoryProject(projectDir, { blueprint: "generated-dram-fab" });
-  const candidateBlueprint = structuredClone(loaded.blueprint);
+  const incumbentBlueprint = structuredClone(loaded.blueprint);
+  const incumbentRecovery = incumbentBlueprint.devices.find((device) => device.id === "rework-1")!;
+  incumbentRecovery.asset = "pattern-rework-bay";
+  incumbentRecovery.recipe!.process = "rework-final-pattern";
+  incumbentBlueprint.policies.lotRelease = {
+    kind: "conwip",
+    maximumWip: 7,
+    reopenAtWip: 4,
+    maximumReleaseDelayTicks: 30_000,
+    dispatch: "earliest-due-date",
+  };
+  for (const recipe of incumbentBlueprint.devices.find((device) => device.id === "burn-in-1")!.recipes!) {
+    recipe.mode = "qualified";
+  }
+  const candidateBlueprint = structuredClone(incumbentBlueprint);
   const recovery = candidateBlueprint.devices.find((device) => device.id === "rework-1")!;
   recovery.asset = "advanced-pattern-recovery-cell";
   recovery.recipe!.process = "recover-final-pattern-advanced";
@@ -174,7 +189,7 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
   };
 
   const [incumbent, branch] = await Promise.all([
-    evaluateBlueprintBenchmark(projectDir, "greenfield-dram-design"),
+    evaluateBlueprintBenchmark(projectDir, "greenfield-dram-design", { candidateBlueprint: incumbentBlueprint }),
     evaluateBlueprintBenchmark(projectDir, "greenfield-dram-design", { candidateBlueprint }),
   ]);
   const incumbentInterruption = incumbent.cases.find((item) => item.id === "lithography-interruption")!;
