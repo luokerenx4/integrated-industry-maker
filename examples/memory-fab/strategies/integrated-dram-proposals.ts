@@ -109,6 +109,58 @@ function deviceLotDispatchPatch(
   }];
 }
 
+function deviceRecipeModePatch(
+  blueprint: { devices: Array<Record<string, unknown>> },
+  id: string,
+  process: string,
+  mode: string,
+): JsonPatchOperation[] | null {
+  const index = deviceIndex(blueprint, id);
+  if (index < 0) return null;
+  const recipe = blueprint.devices[index]!.recipe;
+  if (!isRecord(recipe) || recipe.process !== process || recipe.mode === mode) return null;
+  return [{
+    op: Object.hasOwn(recipe, "mode") ? "replace" : "add",
+    path: `/devices/${index}/recipe/mode`,
+    value: mode,
+  }];
+}
+
+function commissionedAgilePulsePatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const requiredAssets = {
+    "inspection-1": "continuous-deep-metrology-cell",
+    "rework-1": "advanced-pattern-recovery-cell",
+    "maintenance-service-1": "dual-crew-maintenance-service-bay",
+    "etch-l2": "closed-loop-plasma-etch-bay",
+    "lithography-l2": "lithography-bay",
+    "fab-utility-plant-3": "fab-utility-plant",
+  };
+  if (!Object.entries(requiredAssets).every(([id, asset]) => {
+    const index = deviceIndex(blueprint, id);
+    return index >= 0 && blueprint.devices[index]!.asset === asset;
+  })) return null;
+  const burnInIndex = deviceIndex(blueprint, "burn-in-1");
+  const burnIn = burnInIndex >= 0 ? blueprint.devices[burnInIndex] : undefined;
+  if (!burnIn
+    || !isRecord(burnIn.policy)
+    || burnIn.policy.recipeDispatch !== "contract-value"
+    || !Array.isArray(burnIn.recipes)
+    || !burnIn.recipes.every((recipe) => isRecord(recipe) && recipe.mode === "high-throughput-qualified")
+    || !equalJson(blueprint.policies.lotRelease, {
+      kind: "conwip",
+      maximumWip: 6,
+      reopenAtWip: 3,
+      maximumReleaseDelayTicks: 18_000,
+      dispatch: "earliest-due-date",
+    })) return null;
+  return deviceRecipeModePatch(
+    blueprint,
+    "deposition-1",
+    "deposit-dielectric-stack",
+    "agile-pulse",
+  );
+}
+
 function lithographyCampaignInterruptionEscapePatch(
   blueprint: { devices: Array<Record<string, unknown>> },
 ): JsonPatchOperation[] | null {
@@ -663,6 +715,14 @@ const candidates: Candidate[] = [
     addresses: ["yield-quality", "release-admission", "queue-congestion"],
     subjects: ["etch-l2", "rework-1"],
     patch: advancedPatternRecoveryPatch,
+  },
+  {
+    strategy: "recipe:agile-pulse-deposition",
+    hypothesis: "A qualified 4/5-duration ALD pulse sequence may feed the commissioned rapid furnace more evenly without purchasing another chamber, while its 5/4 active-power envelope remains explicit.",
+    expectedEffect: "Reduce the measured deposition-to-furnace input-gap chain if faster deposition becomes useful delivery rather than merely moving idle time upstream; every locked case remains authoritative.",
+    addresses: ["input-starvation"],
+    subjects: ["deposition-1", "furnace-1"],
+    patch: commissionedAgilePulsePatch,
   },
   release(9, 6),
   release(8, 5),

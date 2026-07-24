@@ -22,7 +22,7 @@
     "cases": {
       "changeover-pressure": {
         "blueprintHash": "d6d0e86c9a117449019ac833b251c18fa74473be64d7e8699b1a89709f47b797",
-        "deviceCatalogHash": "2b94884eca03f89d587d00a48c772f4b353d0f7143dab48e8536b61d98a09bc7",
+        "deviceCatalogHash": "b01357e1944ff43786e23b6f54de13ab9fc00dc96b7d906aa697c8f91be2d30e",
         "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",

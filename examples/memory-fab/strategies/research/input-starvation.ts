@@ -145,7 +145,7 @@ const variants: Variant[] = [
     id: "agile-pulse-ald-2-3",
     technology: {
       kind: "mode",
-      id: "agile-pulse",
+      id: "agile-pulse-fast",
       name: "Agile pulse deposition",
       durationMultiplier: { numerator: 2, denominator: 3 },
       powerMultiplier: { numerator: 3, denominator: 2 },
@@ -187,8 +187,17 @@ function researchAsset(source: DeviceAsset, technology: AssetTechnologyEnvelope)
 
 function researchModeAsset(source: DeviceAsset, technology: ModeTechnologyEnvelope): DeviceAsset {
   if (!source.production) throw new Error(`${depositionAssetId} has no production contract`);
-  if (source.production.modes.some((mode) => mode.id === technology.id)) {
-    throw new Error(`${depositionAssetId} already has mode ${technology.id}`);
+  const existing = source.production.modes.find((mode) => mode.id === technology.id);
+  if (existing) {
+    const matchesResearchEnvelope =
+      existing.durationMultiplier.numerator === technology.durationMultiplier.numerator
+      && existing.durationMultiplier.denominator === technology.durationMultiplier.denominator
+      && existing.powerMultiplier.numerator === technology.powerMultiplier.numerator
+      && existing.powerMultiplier.denominator === technology.powerMultiplier.denominator;
+    if (!matchesResearchEnvelope) {
+      throw new Error(`${depositionAssetId} mode ${technology.id} does not match the research envelope`);
+    }
+    return source;
   }
   return {
     ...source,

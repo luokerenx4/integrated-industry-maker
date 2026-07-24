@@ -64,6 +64,14 @@ Synthesis writes `recipe.mode` into the generated blueprint, routes auxiliary Re
 
 Engine hashes include asset and blueprint content, so changing a mode or selection invalidates prior run identity. Immutable runs record the compiled blueprint and engine version used for replay.
 
+## Option catalog versus commissioned operation
+
+A project-local mode may be a real qualified option without being the selected operating regime. The memory-fab ALD bay exposes `qualified` and `agile-pulse`; the latter runs the same deposition Process at `4/5` duration and `5/4` active power. Adding the mode changes the Device catalog hash but does not silently change the commissioned Blueprint, which continues to select `qualified`.
+
+The commissioned Design provider may propose the exact one-field mode switch when current compatible evidence ranks `input-starvation`. Design Run `1ae93e2ca28cb6bf2fd7c26ff808103e71ddb935b91540bc187bb6d2cbbe38bf` retains that proposal only as a non-dominated `BRANCH`: it improves the weighted five-case score by `0.691655`, but loses `0.375853` in steady production and `0.923040` under facility interruption against the current best. The zero-regression leader boundary therefore emits no Candidate and leaves the live factory on `qualified`.
+
+This separation is intentional. Asset catalogs describe physically available choices; Blueprints declare operation; Benchmark and Design evidence decide whether a choice is robust enough to commission. Humans and Agents inspect the same mode, exact patch, power trade, case deltas, and branch decision instead of treating an unselected option as an upgrade.
+
 ## Source of truth
 
 - Types/schema: `packages/inm-core/src/types.ts`, `packages/inm-core/src/schema.ts`

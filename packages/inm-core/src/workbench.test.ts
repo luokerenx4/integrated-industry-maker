@@ -64,14 +64,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 13, infoCount: 11 },
-    evidence: { state: "current", runId: "074-simulate" },
+    evidence: { state: "current", runId: "075-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 10, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "074-simulate",
+    runId: "075-simulate",
     averageWip: 21.793333333333333,
     averageTotalInventory: 119.14593333333333,
     averageExcludedInventory: 97.3526,

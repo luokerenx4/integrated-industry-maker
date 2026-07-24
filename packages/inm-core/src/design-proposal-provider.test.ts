@@ -81,6 +81,54 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
 
+test("commissioned input starvation proposes the bounded agile-pulse ALD control", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
+  const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  });
+  const depositionIndex = project.blueprint.devices.findIndex((device) => device.id === "deposition-1");
+
+  expect(fabLoss.chain[0]).toBe("input-starvation");
+  expect(proposal).toMatchObject({
+    strategy: "recipe:agile-pulse-deposition",
+    addressedLoss: "input-starvation",
+    patch: [{
+      op: "replace",
+      path: `/devices/${depositionIndex}/recipe/mode`,
+      value: "agile-pulse",
+    }],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+});
+
 test("pre-intervention memory-fab yield loss proposes recovered-output delivery conversion", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {

@@ -89,6 +89,23 @@
         "auxiliaryInputs": [],
         "preventsDefects": [],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "agile-pulse",
+        "name": "Agile pulse deposition",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 4,
+          "denominator": 5
+        },
+        "powerMultiplier": {
+          "numerator": 5,
+          "denominator": 4
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0
       }
     ]
   },
