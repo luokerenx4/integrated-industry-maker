@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/commissioned-input-starvation-convergence]] | Investigate the commissioned memory fab's leading front-end input-starvation signal through explicit project-local cadence interventions and the locked Benchmark. | 2026-07-24 |
 
 ## Proposed plans
 
