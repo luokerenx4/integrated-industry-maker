@@ -114,6 +114,60 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
   }
 }, 30_000);
 
+test("Studio file watching uses WebSockets without occupying project API connections", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-websocket-watch-"));
+  const projectDir = join(root, "ironworks");
+  await cp(ironworks, projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  const port = 49_000 + process.pid % 1_000;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  const sockets: WebSocket[] = [];
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+
+    for (let index = 0; index < 8; index++) sockets.push(new WebSocket(`ws://localhost:${port}/api/watch`));
+    await Promise.race([
+      Promise.all(sockets.map((socket) => new Promise<void>((resolveOpen, rejectOpen) => {
+        socket.addEventListener("open", () => resolveOpen(), { once: true });
+        socket.addEventListener("error", () => rejectOpen(new Error("Studio watch WebSocket failed to open")), { once: true });
+      }))),
+      Bun.sleep(5_000).then(() => { throw new Error("Studio watch WebSockets did not open"); }),
+    ]);
+
+    const response = await Promise.race([
+      fetch(`http://localhost:${port}/api/projects/ironworks/data`),
+      Bun.sleep(5_000).then(() => { throw new Error("Studio project API was blocked by watch connections"); }),
+    ]);
+    expect(response.status).toBe(200);
+
+    const refreshes = sockets.map((socket) => new Promise<string>((resolveMessage) => {
+      socket.addEventListener("message", (event) => resolveMessage(String(event.data)), { once: true });
+    }));
+    await writeFile(join(projectDir, "watch-probe.txt"), "refresh\n");
+    expect(await Promise.race([
+      Promise.all(refreshes),
+      Bun.sleep(5_000).then(() => { throw new Error("Studio watch refresh was not published"); }),
+    ])).toEqual(Array.from({ length: 8 }, () => "refresh"));
+  } finally {
+    for (const socket of sockets) socket.close();
+    child.kill();
+    await child.exited;
+  }
+}, 30_000);
+
 test("opening a project without runs does not write a Studio baseline", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-readonly-"));
   const projectDir = join(root, "ironworks");

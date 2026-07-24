@@ -1899,15 +1899,12 @@ function AnalysisBrowser({ data, focusDiagnostic, onClose }: { data: StudioData;
   </div>;
 }
 
-function ProjectLauncher({ index, onOpen }: { index: ProjectIndex; onOpen: (projectId: string) => void }) {
+function ProjectLauncher({ index }: { index: ProjectIndex }) {
   return <div className="launcher-shell">
     <header className="launcher-header"><div className="brand"><div className="mark">INM</div><div><h1>Integrated Industry Maker</h1><p>PROJECT WORKSPACE</p></div></div><span className="engine-status"><i /> ENGINE READY</span></header>
     <section className="launcher-content">
       <div className="launcher-intro"><span className="eyebrow">{index.workspace ? "ENGINE WORKSPACE" : "STANDALONE PROJECT"}</span><h2>{index.name}</h2><p>Choose a self-contained industrial project. Its route, assets, runs, and simulation state remain isolated from every other project.</p></div>
-      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <a className="project-card" href={projectPath(project.id)} key={project.id} data-testid={`project-${project.id}`} onClick={(event) => {
-        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault(); onOpen(project.id);
-      }}>
+      {index.projects.length ? <div className="project-grid">{index.projects.map((project) => <a className="project-card" href={projectPath(project.id)} key={project.id} data-testid={`project-${project.id}`}>
         <div className="project-card-top"><span className="project-monogram">{project.name.slice(0, 2).toUpperCase()}</span>{project.isDefault && <em>DEFAULT</em>}</div>
         <div className="project-diagram" aria-hidden="true"><i /><i /><i /><span /><span /></div>
         <h3>{project.name}</h3><code>/{project.id}</code>
@@ -2405,13 +2402,27 @@ function App() {
     if (routeProject) void loadProject(routeProject);
   }, [routeProject, loadProject]);
   useEffect(() => {
-    const source = new EventSource("/api/watch");
-    source.onmessage = (event) => {
-      if (event.data !== "refresh") return;
-      void loadIndex();
-      if (projectRef.current) void loadProject(projectRef.current, runRef.current);
+    let source: WebSocket | undefined;
+    let reconnectTimer: number | undefined;
+    let closed = false;
+    const connect = () => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      source = new WebSocket(`${protocol}//${window.location.host}/api/watch`);
+      source.onmessage = (event) => {
+        if (event.data !== "refresh") return;
+        void loadIndex();
+        if (projectRef.current) void loadProject(projectRef.current, runRef.current);
+      };
+      source.onclose = () => {
+        if (!closed) reconnectTimer = window.setTimeout(connect, 1_000);
+      };
     };
-    return () => source.close();
+    connect();
+    return () => {
+      closed = true;
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+      source?.close();
+    };
   }, [loadIndex, loadProject]);
   useEffect(() => {
     const experiment = routeExperiment && data?.experiments.find((item) => item.id === routeExperiment);
@@ -2453,7 +2464,7 @@ function App() {
   if (!routeProject) {
     if (!index && !error) return <div className="loading">DISCOVERING PROJECTS…</div>;
     if (error && !index) return <div className="route-state error-state"><span>WORKSPACE ERROR</span><strong>{error}</strong><button onClick={() => window.location.reload()}>RETRY</button></div>;
-    return <ProjectLauncher index={index!} onOpen={(projectId) => navigateProject(projectId)} />;
+    return <ProjectLauncher index={index!} />;
   }
   if ((!data || !overview) && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
   if (!data || !overview || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;

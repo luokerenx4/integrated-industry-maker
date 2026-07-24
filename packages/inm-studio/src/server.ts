@@ -497,15 +497,19 @@ function designRunStream(projectDir: string, programId: string, maxCandidates?: 
   } });
 }
 
-const clients = new Set<ReadableStreamDefaultController>();
+const WATCH_TOPIC = "studio:refresh";
 const html = `<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#071014"/><title>INM Studio</title><link rel="stylesheet" href="/main.css"/></head><body><div id="root"></div><script type="module" src="/main.js"></script></body></html>`;
 
 const server = Bun.serve({
   port,
   idleTimeout: 255,
-  async fetch(request) {
+  async fetch(request, server) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/api/watch") {
+        if (server.upgrade(request)) return;
+        return new Response("WebSocket upgrade required", { status: 426 });
+      }
       if (url.pathname === "/main.js" || url.pathname === "/main.js.map" || url.pathname === "/main.css") {
         const file = Bun.file(join(cacheDir, url.pathname.slice(1)));
         return await file.exists() ? new Response(file) : new Response("Not found", { status: 404 });
@@ -680,17 +684,6 @@ const server = Bun.serve({
         return new Response(Bun.file(realFilePath));
       }
 
-      if (url.pathname === "/api/watch") {
-        const stream = new ReadableStream({
-          start(controller) {
-            clients.add(controller);
-            controller.enqueue("data: ready\n\n");
-          },
-          cancel(controller) { clients.delete(controller); },
-        });
-        return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" } });
-      }
-
       if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname)
         || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?|designs(?:\/[^/]+(?:\/runs\/[^/]+)?)?)\/?$/.test(url.pathname)) {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
@@ -700,6 +693,11 @@ const server = Bun.serve({
       return errorResponse(error);
     }
   },
+  websocket: {
+    open(socket) { socket.subscribe(WATCH_TOPIC); },
+    message() {},
+    close(socket) { socket.unsubscribe(WATCH_TOPIC); },
+  },
 });
 
 (async () => {
@@ -707,10 +705,7 @@ const server = Bun.serve({
     for await (const event of watch(inputDir, { recursive: true })) {
       const name = event.filename?.toString() ?? "";
       if (name.startsWith(".inm/") || name.includes("/.inm/") || name.startsWith("runs/") || name.includes("/runs/")) continue;
-      for (const client of clients) {
-        try { client.enqueue("data: refresh\n\n"); }
-        catch { clients.delete(client); }
-      }
+      server.publish(WATCH_TOPIC, "refresh");
     }
   } catch { /* Recursive watch is best-effort; manual refresh remains available. */ }
 })();
