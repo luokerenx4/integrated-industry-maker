@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/design-evidence-aware-workbench]] | Make shared Workbench next actions reflect current promotable, continuable, exhausted, stale, and invalid Design evidence. | 2026-07-24 |
 
 ## Proposed plans
 
