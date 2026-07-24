@@ -18,7 +18,7 @@ import type {
 
 interface Variant {
   id: string;
-  minimumStarvationTicks: number | null;
+  minimumCoverageDeficitTicks: number | null;
 }
 
 interface CaseResult {
@@ -35,10 +35,10 @@ const projectDir = resolve(import.meta.dir, "../..");
 const benchmarkId = "greenfield-dram-design";
 const blueprintId = "generated-dram-fab";
 const variants: Variant[] = [
-  { id: "incumbent", minimumStarvationTicks: null },
-  ...[1, 1_000, 2_000, 3_000, 5_000, 7_000, 10_000, 15_000, 20_000].map((minimumStarvationTicks) => ({
-    id: `adaptive-agile-pulse-after-${minimumStarvationTicks}`,
-    minimumStarvationTicks,
+  { id: "incumbent", minimumCoverageDeficitTicks: null },
+  ...[1, 1_000, 2_000, 3_000, 5_000, 7_000, 10_000, 15_000, 20_000].map((minimumCoverageDeficitTicks) => ({
+    id: `adaptive-agile-pulse-after-${minimumCoverageDeficitTicks}`,
+    minimumCoverageDeficitTicks,
   })),
 ];
 
@@ -54,7 +54,7 @@ function withoutCadenceControl(blueprint: Blueprint): Blueprint {
   return candidate;
 }
 
-function withCadenceControl(blueprint: Blueprint, minimumStarvationTicks: number): Blueprint {
+function withCadenceControl(blueprint: Blueprint, minimumCoverageDeficitTicks: number): Blueprint {
   const candidate = withoutCadenceControl(blueprint);
   const deposition = candidate.devices.find((device) => device.id === "deposition-1")!;
   const normal = structuredClone(deposition.recipe!);
@@ -63,13 +63,13 @@ function withCadenceControl(blueprint: Blueprint, minimumStarvationTicks: number
   deposition.policy = {
     ...deposition.policy,
     cadenceControl: {
-      kind: "downstream-starvation-recovery",
+      kind: "downstream-coverage-recovery",
       process: "deposit-dielectric-stack",
       normalMode: "qualified",
       recoveryMode: "agile-pulse",
       downstreamConnection: "deposition-to-batch-furnace",
       recoverBelowItems: 1,
-      minimumStarvationTicks,
+      minimumCoverageDeficitTicks,
     },
   };
   return candidate;
@@ -118,9 +118,9 @@ for (const variant of variants) {
       scenario: item.scenario,
       objective: item.objective,
     });
-    const blueprint = variant.minimumStarvationTicks === null
+    const blueprint = variant.minimumCoverageDeficitTicks === null
       ? withoutCadenceControl(loaded.blueprint)
-      : withCadenceControl(loaded.blueprint, variant.minimumStarvationTicks);
+      : withCadenceControl(loaded.blueprint, variant.minimumCoverageDeficitTicks);
     const project = compileFactoryProject({ ...loaded, blueprint });
     const evaluation = evaluateFactoryBlueprint(project, variant.id, item.seed);
     cases.push({
@@ -181,8 +181,8 @@ const rows = variants.map((variant) => {
   const mixed = result.cases.find((item) => item.id === "mixed-quality")!;
   return {
     id: variant.id,
-    recoverBelowItems: variant.minimumStarvationTicks === null ? null : 1,
-    minimumStarvationTicks: variant.minimumStarvationTicks,
+    recoverBelowItems: variant.minimumCoverageDeficitTicks === null ? null : 1,
+    minimumCoverageDeficitTicks: variant.minimumCoverageDeficitTicks,
     benchmarkAccepted,
     capacityReady,
     hardOutcomesPassed,
@@ -217,7 +217,7 @@ const rows = variants.map((variant) => {
 }).sort((left, right) => Number(right.promotable) - Number(left.promotable)
   || right.aggregateScore - left.aggregateScore
   || right.minimumCurrentBestCaseDelta - left.minimumCurrentBestCaseDelta
-  || (left.minimumStarvationTicks ?? 0) - (right.minimumStarvationTicks ?? 0));
+  || (left.minimumCoverageDeficitTicks ?? 0) - (right.minimumCoverageDeficitTicks ?? 0));
 
 console.log(stableStringify({
   benchmark: benchmarkId,

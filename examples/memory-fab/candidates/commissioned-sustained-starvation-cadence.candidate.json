@@ -41,8 +41,8 @@
       "path": "/devices/4/policy/cadenceControl",
       "value": {
         "downstreamConnection": "deposition-to-batch-furnace",
-        "kind": "downstream-starvation-recovery",
-        "minimumStarvationTicks": 10000,
+        "kind": "downstream-coverage-recovery",
+        "minimumCoverageDeficitTicks": 10000,
         "normalMode": "qualified",
         "process": "deposit-dielectric-stack",
         "recoverBelowItems": 1,

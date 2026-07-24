@@ -735,7 +735,7 @@ describe("blueprint compiler", () => {
   });
 
   test("cadence control recovers an explicit downstream lane with an auditable qualified mode pair", async () => {
-    const cadenceSource = async (minimumStarvationTicks = 10_000) => {
+    const cadenceSource = async (minimumCoverageDeficitTicks = 10_000) => {
       const source = await loadFactoryProject(memoryFab);
       const deposition = source.blueprint.devices.find((device) => device.id === "deposition-1")!;
       const normal = structuredClone(deposition.recipe
@@ -746,13 +746,13 @@ describe("blueprint compiler", () => {
       deposition.policy = {
         ...deposition.policy,
         cadenceControl: {
-          kind: "downstream-starvation-recovery",
+          kind: "downstream-coverage-recovery",
           process: "deposit-dielectric-stack",
           normalMode: "qualified",
           recoveryMode: "agile-pulse",
           downstreamConnection: "deposition-to-batch-furnace",
           recoverBelowItems: 1,
-          minimumStarvationTicks,
+          minimumCoverageDeficitTicks,
         },
       };
       return source;
@@ -769,33 +769,40 @@ describe("blueprint compiler", () => {
     expect(starts.map((event) => event.mode)).toContain("qualified");
     expect(finishes.map((event) => event.mode)).toEqual(starts.map((event) => event.mode));
     expect(first.metrics.cadenceControl.devices["deposition-1"]).toEqual(expect.objectContaining({
-      kind: "downstream-starvation-recovery",
+      kind: "downstream-coverage-recovery",
       process: "deposit-dielectric-stack",
       normalMode: "qualified",
       recoveryMode: "agile-pulse",
       downstreamConnection: "deposition-to-batch-furnace",
       recoverBelowItems: 1,
-      minimumStarvationTicks: 10_000,
+      minimumCoverageDeficitTicks: 10_000,
       normalJobs: starts.filter((event) => event.mode === "qualified").length,
       recoveryJobs: starts.filter((event) => event.mode === "agile-pulse").length,
       recoveryActivations: expect.any(Number),
-      starvationEpisodes: expect.any(Number),
-      starvationTicks: expect.any(Number),
+      coverageDeficitEpisodes: expect.any(Number),
+      coverageDeficitTicks: expect.any(Number),
     }));
     expect(first.metrics.cadenceControl.devices["deposition-1"]!.recoveryActivations).toBeGreaterThan(0);
-    expect(first.metrics.cadenceControl.devices["deposition-1"]!.starvationEpisodes).toBeGreaterThan(0);
-    expect(first.metrics.cadenceControl.devices["deposition-1"]!.starvationTicks).toBeGreaterThan(0);
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.coverageDeficitEpisodes).toBeGreaterThan(0);
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.coverageDeficitTicks).toBeGreaterThan(0);
     const immediate = runUntil(compileFactoryProject(await cadenceSource(1)), undefined, { seed: 42 });
     expect(first.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs)
       .toBeLessThan(immediate.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs);
     expect(first.metrics.cadenceControl.devices["deposition-1"]!.normalJobs)
       .toBeGreaterThan(immediate.metrics.cadenceControl.devices["deposition-1"]!.normalJobs);
     const missingInterval = await cadenceSource();
-    delete (missingInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl as Partial<NonNullable<NonNullable<Blueprint["devices"][number]["policy"]>["cadenceControl"]>>).minimumStarvationTicks;
+    delete (missingInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl as Partial<NonNullable<NonNullable<Blueprint["devices"][number]["policy"]>["cadenceControl"]>>).minimumCoverageDeficitTicks;
     expect(blueprintSchema.safeParse(missingInterval.blueprint).success).toBeFalse();
     const zeroInterval = await cadenceSource();
-    zeroInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.minimumStarvationTicks = 0;
+    zeroInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.minimumCoverageDeficitTicks = 0;
     expect(blueprintSchema.safeParse(zeroInterval.blueprint).success).toBeFalse();
+    const legacyContract = await cadenceSource();
+    const legacyControl = legacyContract.blueprint.devices.find((device) =>
+      device.id === "deposition-1")!.policy!.cadenceControl as unknown as Record<string, unknown>;
+    legacyControl.kind = "downstream-starvation-recovery";
+    legacyControl.minimumStarvationTicks = legacyControl.minimumCoverageDeficitTicks;
+    delete legacyControl.minimumCoverageDeficitTicks;
+    expect(blueprintSchema.safeParse(legacyContract.blueprint).success).toBeFalse();
     const uncontrolledSource = await cadenceSource();
     delete uncontrolledSource.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl;
     const comparison = compareFactoryBlueprints(compileFactoryProject(uncontrolledSource), project, { seed: 42 });

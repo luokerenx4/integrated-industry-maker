@@ -233,13 +233,13 @@ function commissionedAdaptiveCadencePatch(blueprint: ProposalBlueprint): JsonPat
       op: "add",
       path: `/devices/${index}/policy/cadenceControl`,
       value: {
-        kind: "downstream-starvation-recovery",
+        kind: "downstream-coverage-recovery",
         process: "deposit-dielectric-stack",
         normalMode: "qualified",
         recoveryMode: "agile-pulse",
         downstreamConnection: "deposition-to-batch-furnace",
         recoverBelowItems: 1,
-        minimumStarvationTicks: 10_000,
+        minimumCoverageDeficitTicks: 10_000,
       },
     },
   ];

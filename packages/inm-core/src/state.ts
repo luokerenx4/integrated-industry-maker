@@ -55,7 +55,7 @@ export type FactoryStateMutation =
   | { kind: "carrier-return" }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
-  | { kind: "cadence.coverage"; device: string; starved: boolean }
+  | { kind: "cadence.coverage"; device: string; deficit: boolean }
   | { kind: "energy.sleep"; device: string }
   | { kind: "energy.wake-finish"; device: string; tick: Tick; durationTicks: Tick }
   | { kind: "energy.idle"; device: string; tick: Tick }
@@ -424,14 +424,14 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "cadence.coverage": {
       const cadence = state.devices[mutation.device]!.cadenceControl;
       if (!cadence) throw new Error(`Device '${mutation.device}' does not track cadence control`);
-      if (mutation.starved) {
-        if (cadence.starvedSinceTick === null) {
-          cadence.starvedSinceTick = state.tick;
-          cadence.starvationEpisodes++;
+      if (mutation.deficit) {
+        if (cadence.coverageDeficitSinceTick === null) {
+          cadence.coverageDeficitSinceTick = state.tick;
+          cadence.coverageDeficitEpisodes++;
         }
-      } else if (cadence.starvedSinceTick !== null) {
-        cadence.starvationTicks += state.tick - cadence.starvedSinceTick;
-        cadence.starvedSinceTick = null;
+      } else if (cadence.coverageDeficitSinceTick !== null) {
+        cadence.coverageDeficitTicks += state.tick - cadence.coverageDeficitSinceTick;
+        cadence.coverageDeficitSinceTick = null;
       }
       return;
     }

@@ -484,8 +484,8 @@ export interface BlueprintRecipe {
   /** Exact physical port selected for each Process output Resource. */
   outputs: Record<ResourceId, PortId>;
 }
-export interface DownstreamStarvationRecoveryPolicy {
-  kind: "downstream-starvation-recovery";
+export interface DownstreamCoverageRecoveryPolicy {
+  kind: "downstream-coverage-recovery";
   /** The one material transformation shared by both qualified modes. */
   process: ProcessId;
   /** Normal qualified mode used while downstream coverage is healthy. */
@@ -497,7 +497,7 @@ export interface DownstreamStarvationRecoveryPolicy {
   /** Select recoveryMode while resident plus in-flight destination items are below this count. */
   recoverBelowItems: number;
   /** Require continuous below-boundary coverage for this long before selecting recoveryMode. */
-  minimumStarvationTicks: Tick;
+  minimumCoverageDeficitTicks: Tick;
 }
 export interface BlueprintDevice {
   id: DeviceInstanceId;
@@ -526,7 +526,7 @@ export interface BlueprintDevice {
     /** Deterministic selection among ready qualified operations. */
     recipeDispatch?: RecipeDispatchPolicy;
     /** Non-preemptive same-Process mode selection from explicit downstream physical coverage. */
-    cadenceControl?: DownstreamStarvationRecoveryPolicy;
+    cadenceControl?: DownstreamCoverageRecoveryPolicy;
     /** Deterministic selection of identity-preserving lots within a ready operation. */
     lotDispatch?: LotDispatchPolicy;
     /** Setup-sensitive work-center campaign formation before switching to another recipe family. */
@@ -1155,9 +1155,9 @@ export interface DeviceRuntimeState {
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
   cadenceControl?: {
     /** Start of the current continuous below-boundary interval, or null while coverage is healthy. */
-    starvedSinceTick: Tick | null;
-    starvationEpisodes: number;
-    starvationTicks: Tick;
+    coverageDeficitSinceTick: Tick | null;
+    coverageDeficitEpisodes: number;
+    coverageDeficitTicks: Tick;
   };
   energyManagement?: {
     mode: "awake" | "sleeping";
@@ -1649,18 +1649,18 @@ export interface FactoryMetrics {
   };
   cadenceControl: {
     devices: Record<DeviceInstanceId, {
-      kind: "downstream-starvation-recovery";
+      kind: "downstream-coverage-recovery";
       process: ProcessId;
       normalMode: string;
       recoveryMode: string;
       downstreamConnection: ConnectionId;
       recoverBelowItems: number;
-      minimumStarvationTicks: Tick;
+      minimumCoverageDeficitTicks: Tick;
       normalJobs: number;
       recoveryJobs: number;
       recoveryActivations: number;
-      starvationEpisodes: number;
-      starvationTicks: Tick;
+      coverageDeficitEpisodes: number;
+      coverageDeficitTicks: Tick;
     }>;
   };
   energyConsumedMilliJoules: number;

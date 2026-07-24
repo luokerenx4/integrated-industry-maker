@@ -705,9 +705,9 @@ export function evaluateFactory(
         normalJobs: starts.filter((event) => event.mode === control.normalMode).length,
         recoveryJobs: starts.filter((event) => event.mode === control.recoveryMode).length,
         recoveryActivations,
-        starvationEpisodes: runtime.starvationEpisodes,
-        starvationTicks: runtime.starvationTicks
-          + (runtime.starvedSinceTick === null ? 0 : state.tick - runtime.starvedSinceTick),
+        coverageDeficitEpisodes: runtime.coverageDeficitEpisodes,
+        coverageDeficitTicks: runtime.coverageDeficitTicks
+          + (runtime.coverageDeficitSinceTick === null ? 0 : state.tick - runtime.coverageDeficitSinceTick),
       }]];
     })),
   };

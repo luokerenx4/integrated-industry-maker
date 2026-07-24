@@ -10,8 +10,8 @@ function ControlState({ label, control }: { label: string; control: CadenceContr
       ? <>
         <b>{control.normalJobs} NORMAL · {control.recoveryJobs} RECOVERY · {control.recoveryActivations} ACTIVATIONS</b>
         <code>{control.normalMode} / {control.recoveryMode}</code>
-        <em>RECOVER AFTER {(control.minimumStarvationTicks / 1000).toFixed(1)}S BELOW {control.recoverBelowItems} · {control.downstreamConnection}</em>
-        <code>{control.starvationEpisodes} STARVATION EPISODES · {(control.starvationTicks / 1000).toFixed(1)}S</code>
+        <em>RECOVER AFTER {(control.minimumCoverageDeficitTicks / 1000).toFixed(1)}S BELOW {control.recoverBelowItems} · {control.downstreamConnection}</em>
+        <code>{control.coverageDeficitEpisodes} COVERAGE-DEFICIT EPISODES · {(control.coverageDeficitTicks / 1000).toFixed(1)}S</code>
       </>
       : <b>OFF</b>}
   </span>;

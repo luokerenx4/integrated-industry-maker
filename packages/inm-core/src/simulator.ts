@@ -114,9 +114,9 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     devices[id] = {
       status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds,
       ...(project.devices[id]!.policy?.cadenceControl ? { cadenceControl: {
-        starvedSinceTick: null,
-        starvationEpisodes: 0,
-        starvationTicks: 0,
+        coverageDeficitSinceTick: null,
+        coverageDeficitEpisodes: 0,
+        coverageDeficitTicks: 0,
       } } : {}),
       ...(project.devices[id]!.policy?.idleEnergy ? { energyManagement: {
         mode: "awake" as const, idleSinceTick: 0, sleeps: 0, wakeups: 0, wakeTicks: 0,
@@ -1772,11 +1772,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         plan.definition.id === cadence.process && plan.mode.id === cadence.normalMode)!.outputs[0]!;
       const coverage = materialQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0)
         + incomingQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0);
-      const starved = coverage < cadence.recoverBelowItems;
-      mutateFactoryState(state, { kind: "cadence.coverage", device: device.id, starved });
+      const coverageDeficit = coverage < cadence.recoverBelowItems;
+      mutateFactoryState(state, { kind: "cadence.coverage", device: device.id, deficit: coverageDeficit });
       const runtimeCadence = state.devices[device.id]!.cadenceControl!;
-      const starvationTicks = runtimeCadence.starvedSinceTick === null ? 0 : state.tick - runtimeCadence.starvedSinceTick;
-      const preferredMode = starved && starvationTicks >= cadence.minimumStarvationTicks
+      const coverageDeficitTicks = runtimeCadence.coverageDeficitSinceTick === null
+        ? 0 : state.tick - runtimeCadence.coverageDeficitSinceTick;
+      const preferredMode = coverageDeficit && coverageDeficitTicks >= cadence.minimumCoverageDeficitTicks
         ? cadence.recoveryMode : cadence.normalMode;
       ranked.sort((left, right) => Number(right.plan.definition.id === cadence.process && right.plan.mode.id === preferredMode)
         - Number(left.plan.definition.id === cadence.process && left.plan.mode.id === preferredMode)

@@ -71,13 +71,13 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
   delete deposition.recipe;
   deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
   deposition.policy.cadenceControl = {
-    kind: "downstream-starvation-recovery",
+    kind: "downstream-coverage-recovery",
     process: "deposit-dielectric-stack",
     normalMode: "qualified",
     recoveryMode: "agile-pulse",
     downstreamConnection: "deposition-to-batch-furnace",
     recoverBelowItems: 1,
-    minimumStarvationTicks: 1,
+    minimumCoverageDeficitTicks: 1,
   };
   await writeFile(join(projectDir, "blueprints/cadence.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
   await writeFile(sourcePath, `${JSON.stringify(blueprint, null, 2)}\n`);
@@ -105,13 +105,13 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
       metrics: { cadenceControl: { devices: Record<string, { normalJobs: number; recoveryJobs: number }> } };
     };
     expect(data.devices.find((device) => device.id === "deposition-1")?.cadenceControl).toEqual({
-      kind: "downstream-starvation-recovery",
+      kind: "downstream-coverage-recovery",
       process: "deposit-dielectric-stack",
       normalMode: "qualified",
       recoveryMode: "agile-pulse",
       downstreamConnection: "deposition-to-batch-furnace",
       recoverBelowItems: 1,
-      minimumStarvationTicks: 1,
+      minimumCoverageDeficitTicks: 1,
     });
     expect(data.metrics.cadenceControl.devices["deposition-1"]!.normalJobs).toBeGreaterThan(0);
     expect(data.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs).toBeGreaterThan(0);

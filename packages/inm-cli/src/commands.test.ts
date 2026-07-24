@@ -769,9 +769,9 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same exhausted current V7 Design authority", async () => {
+test("public inspect gives Agents and humans the same exhausted current Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
-  const authorityRunId = "2fc7517b47e2900bed8b5a7cdc8db8cad01809b45290fc30c4c79e9b5394686b";
+  const authorityRunId = "459e984f034242d3ddf807592cbd312aa636db0dd066afd3b7305ef74503d137";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -787,8 +787,8 @@ test("public inspect gives Agents and humans the same exhausted current V7 Desig
       state: "exhausted",
       authorityRunId,
       currentRuns: 1,
-      historicalRuns: 1,
-      invalidRuns: 28,
+      historicalRuns: 0,
+      invalidRuns: 30,
     }),
   }));
   expect(result.nextAction).toEqual(expect.objectContaining({
@@ -807,7 +807,7 @@ test("public inspect gives Agents and humans the same exhausted current V7 Desig
   expect(human.stdout).toContain(`Design handoff: commissioned-dram-fab · EXHAUSTED · ${authorityRunId.slice(0, 12)}`);
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 2 valid immutable runs · 28 invalid runs excluded");
+  expect(brief.stdout).toContain("Evidence: 1 valid immutable run · 30 invalid runs excluded");
   const reopened = await runCli(["design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId, "--json", "--section", "summary"]);
   expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(reopened.stdout).data.result).toEqual(expect.objectContaining({
@@ -879,13 +879,13 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
   delete deposition.recipe;
   deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
   deposition.policy.cadenceControl = {
-    kind: "downstream-starvation-recovery",
+    kind: "downstream-coverage-recovery",
     process: "deposit-dielectric-stack",
     normalMode: "qualified",
     recoveryMode: "agile-pulse",
     downstreamConnection: "deposition-to-batch-furnace",
     recoverBelowItems: 1,
-    minimumStarvationTicks: 1,
+    minimumCoverageDeficitTicks: 1,
   };
   const cadencePath = join(projectDir, "blueprints/cadence.blueprint.json");
   await writeFile(cadencePath, `${JSON.stringify(blueprint, null, 2)}\n`);
@@ -900,7 +900,7 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
     recoveryMode: "agile-pulse",
     downstreamConnection: "deposition-to-batch-furnace",
     recoverBelowItems: 1,
-    minimumStarvationTicks: 1,
+    minimumCoverageDeficitTicks: 1,
   }));
   expect(control.normalJobs).toBeGreaterThan(0);
   expect(control.recoveryJobs).toBeGreaterThan(0);

@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/coverage-deficit-cadence-contract]] | Separate predictive downstream coverage deficit from event-backed equipment input starvation across every human and Agent surface. | 2026-07-25 |
 | [[plans/policy-resolved-material-shortage-demand]] | Make every shortage Process and quantity match the authored scheduling policy's exact next resumption condition. | 2026-07-25 |
 | [[plans/causal-input-starvation-attribution]] | Turn productive-equipment input starvation into exact Resource, Buffer, immediate supply-path, and observed-state evidence shared by humans and Agents. | 2026-07-25 |
 | [[plans/current-v6-commissioned-design-authority]] | Rebuild strict current V6 commissioned Design authority and promote only a fully guarded memory-fab improvement. | 2026-07-25 |

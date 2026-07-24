@@ -91,8 +91,8 @@ interface Device {
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
   batchFormation?: { preferredProcess: string; maximumWaitTicks: number };
   cadenceControl?: {
-    kind: "downstream-starvation-recovery"; process: string; normalMode: string; recoveryMode: string;
-    downstreamConnection: string; recoverBelowItems: number; minimumStarvationTicks: number;
+    kind: "downstream-coverage-recovery"; process: string; normalMode: string; recoveryMode: string;
+    downstreamConnection: string; recoverBelowItems: number; minimumCoverageDeficitTicks: number;
   };
   preventiveMaintenance?: {
     opportunistic?: { afterJobs?: number; afterQualificationTicks?: number };
@@ -331,10 +331,10 @@ interface Metrics {
   };
   cadenceControl: {
     devices: Record<string, {
-      kind: "downstream-starvation-recovery"; process: string; normalMode: string; recoveryMode: string;
-      downstreamConnection: string; recoverBelowItems: number; minimumStarvationTicks: number;
+      kind: "downstream-coverage-recovery"; process: string; normalMode: string; recoveryMode: string;
+      downstreamConnection: string; recoverBelowItems: number; minimumCoverageDeficitTicks: number;
       normalJobs: number; recoveryJobs: number; recoveryActivations: number;
-      starvationEpisodes: number; starvationTicks: number;
+      coverageDeficitEpisodes: number; coverageDeficitTicks: number;
     }>;
   };
   energyConsumedMilliJoules: number;
@@ -1466,9 +1466,9 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         {setup && <span><small>CAMPAIGN HOLDS</small><b>{setup.campaignHolds} · {formatTick(setup.campaignHoldTicks)}</b></span>}
         {device.batchFormation && <span><small>PREFERRED BATCH</small><b>{device.batchFormation.preferredProcess} · {formatTick(device.batchFormation.maximumWaitTicks)} MAX WAIT</b></span>}
         {batchFormation && <span><small>BATCH HOLDS</small><b>{batchFormation.holds} · {formatTick(batchFormation.holdTicks)} · {batchFormation.preferredReleases} FULL / {batchFormation.timeoutReleases} TIMEOUT</b></span>}
-        {device.cadenceControl && <span><small>CADENCE CONTROL</small><b>{device.cadenceControl.normalMode.toUpperCase()} → {device.cadenceControl.recoveryMode.toUpperCase()} AFTER {(device.cadenceControl.minimumStarvationTicks / 1000).toFixed(1)}S BELOW {device.cadenceControl.recoverBelowItems} · {device.cadenceControl.downstreamConnection}</b></span>}
+        {device.cadenceControl && <span><small>CADENCE CONTROL</small><b>{device.cadenceControl.normalMode.toUpperCase()} → {device.cadenceControl.recoveryMode.toUpperCase()} AFTER {(device.cadenceControl.minimumCoverageDeficitTicks / 1000).toFixed(1)}S COVERAGE DEFICIT BELOW {device.cadenceControl.recoverBelowItems} · {device.cadenceControl.downstreamConnection}</b></span>}
         {cadenceControl && <span><small>CADENCE MODE JOBS</small><b>{cadenceControl.normalJobs} {cadenceControl.normalMode.toUpperCase()} / {cadenceControl.recoveryJobs} {cadenceControl.recoveryMode.toUpperCase()} · {cadenceControl.recoveryActivations} ACTIVATIONS</b></span>}
-        {cadenceControl && <span><small>STARVATION OBSERVED</small><b>{cadenceControl.starvationEpisodes} EPISODES / {(cadenceControl.starvationTicks / 1000).toFixed(1)}S</b></span>}
+        {cadenceControl && <span><small>COVERAGE DEFICIT OBSERVED</small><b>{cadenceControl.coverageDeficitEpisodes} EPISODES / {(cadenceControl.coverageDeficitTicks / 1000).toFixed(1)}S</b></span>}
         {tooling && <span><small>TOOLING ALLOCATIONS</small><b>{tooling.allocations} · {tooling.completed} COMPLETE / {tooling.cancelled} CANCEL</b></span>}
         {tooling && <span><small>TOOLING OCCUPANCY</small><b>{formatTick(tooling.occupiedTicks)} EQUIPMENT · {formatTick(tooling.unitTicks)} UNIT-TIME</b></span>}
         {tooling && <span><small>TOOLING WAIT</small><b>{formatTick(tooling.inputWaitTicks)} · {tooling.inputBlocks} BLOCKS{tooling.wait ? ` · ${tooling.wait.process}` : ""}</b></span>}
