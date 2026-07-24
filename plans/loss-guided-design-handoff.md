@@ -1,6 +1,6 @@
 # Connect measured fab loss to the shared Design loop
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-24`
 - Related design: [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], and [[docs/design/fab-loss-attribution]].
 
@@ -38,7 +38,7 @@ The shared `ProjectWorkbenchSnapshot` does not currently discover Design Program
 - [x] CLI and Studio consume the same Core target and operation descriptor; neither recomputes alignment or recommendation priority.
 - [x] Missing, synthesis-seeded, unlocked, or differently targeted Programs remain visible but cannot be recommended as current-factory optimization authority.
 - [x] The current memory-fab Design Run records complete locked-case evidence; only an accepted zero-current-best-regression leader may cross the existing Design → Candidate → review → apply boundary.
-- [ ] Documentation, focused/full tests, project validation, browser verification, Git, and remote verification pass.
+- [x] Documentation, focused/full tests, project validation, browser verification, Git, and remote verification pass.
 
 ## Work
 
@@ -72,7 +72,7 @@ The shared `ProjectWorkbenchSnapshot` does not currently discover Design Program
 - `bun run inm inspect examples/memory-fab --section next-action --json` — exact Core `design.inspect` target and envelope parity passed.
 - `bun run inm design examples/memory-fab --program commissioned-dram-fab --section summary --json` — locked authored seed and exact creates-artifact next action passed.
 - Final cold-built Studio browser: launcher, `/memory-fab`, `DESIGN 3`, shared loss recommendation, `/memory-fab/designs/commissioned-dram-fab`, locked Program, current immutable run, and new-run control rendered with zero runtime/network errors.
-- Git and remote verification pending.
+- Feature commit `2cc8244bd51b338ede25056527a3e0edafb959d8` was pushed to `origin/main`; `git ls-remote` returned the exact same hash.
 
 ## Progress log
 
@@ -81,4 +81,4 @@ The shared `ProjectWorkbenchSnapshot` does not currently discover Design Program
 
 ## Completion
 
-Pending.
+Workbench V5 now connects compatible physical loss evidence to the exact locked Design Program that owns the effective commissioned Blueprint. Humans receive one route-backed Design control room; Agents receive the same typed target and argv; opening either remains read-only, while an explicit run retains the existing immutable locked-case contract. The current memory-fab search produced four useful rejections and correctly stopped without a promotable Candidate. Full repository, project, browser, Git, and remote evidence passed on 2026-07-24.
