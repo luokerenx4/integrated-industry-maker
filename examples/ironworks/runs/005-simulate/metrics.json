@@ -359,6 +359,28 @@
       "averageInFlightItems": 4.8,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 1920,
       "deliveredByResource": {
         "iron-ore": 8

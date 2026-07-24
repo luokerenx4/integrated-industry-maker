@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `xray-cracking-factory`
 - Score: **402.663**
-- Result hash: `59105a81a168952194853d9b1c82bf248cc140f48f676b73f5329a25e4bfea22`
+- Result hash: `0e49302a0ba78a79d7e9a351f36a0a9da37994f65310afec771f366cafc12123`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Delivery portfolio: 390.0% demand attainment · 78.000 / 20.000 valued / demanded · 58.000 above demand · 0.000 net value/min
@@ -42,13 +42,15 @@
 
 ## Measured transport flows
 
-| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
-| --- | ---: | ---: | ---: | --- |
-| synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink | 39.000 / 240.000 | 16.3% | 0 | 78 hydrogen |
-| synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1 | 29.500 / 240.000 | 12.3% | 0 | 59 crude-oil |
-| synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1 | 28.000 / 240.000 | 11.7% | 0 | 56 refined-oil |
-| synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1 | 14.000 / 240.000 | 5.8% | 0 | 28 hydrogen |
-| synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink | 13.000 / 240.000 | 5.4% | 0 | 26 graphite |
+Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink | 39.000 / 240.000 | 16.3% | 0 | 0 | 0 | 0 | 0 | 78 hydrogen |
+| synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1 | 29.500 / 240.000 | 12.3% | 0 | 0 | 0 | 0 | 0 | 59 crude-oil |
+| synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1 | 28.000 / 240.000 | 11.7% | 0 | 0 | 0 | 0 | 0 | 56 refined-oil |
+| synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1 | 14.000 / 240.000 | 5.8% | 0 | 0 | 0 | 0 | 0 | 28 hydrogen |
+| synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink | 13.000 / 240.000 | 5.4% | 0 | 0 | 0 | 0 | 0 | 26 graphite |
 
 ## Grid storage
 

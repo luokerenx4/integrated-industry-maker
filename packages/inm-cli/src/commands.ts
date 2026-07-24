@@ -5,7 +5,8 @@ import {
   CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
+  type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -20,6 +21,31 @@ const writeSuccess = (command: string, data: unknown, options: CliSuccessOptions
 type DesignProgressMode = "off" | "human" | "ndjson";
 
 const scoreComponentLabel = (component: string) => component.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+
+function transportBlockBreakdown(flow: FactoryMetrics["transportFlows"][string]): string {
+  const totals = transportBlockCauseTotals(flow.blockedItemTicksByCause);
+  return TRANSPORT_BLOCK_CAUSES
+    .map((cause) => `${TRANSPORT_BLOCK_CAUSE_LABELS[cause]} ${totals[cause]} item-ticks`)
+    .join(" · ");
+}
+
+function transportContributorBreakdown(evidence: Record<string, number | undefined>): string {
+  return [
+    ["line contention", evidence.lineContentionTicks],
+    ["endpoint capacity", evidence.endpointCapacityTicks],
+    ["endpoint power", evidence.endpointPowerTicks],
+    ["endpoint failure", evidence.endpointFailureTicks],
+  ].map(([label, ticks]) => `${label} ${((ticks as number) / 1000).toFixed(1)} item-s`).join(" · ");
+}
+
+function transportMechanismLabel(mechanism: FabLossContributorMechanism): string {
+  return ({
+    "transport-line-contention": "dominant immediate cause: line contention",
+    "transport-endpoint-capacity": "dominant immediate cause: endpoint capacity",
+    "transport-endpoint-power": "dominant immediate cause: endpoint power",
+    "transport-endpoint-failure": "dominant immediate cause: endpoint failure",
+  } as Partial<Record<FabLossContributorMechanism, string>>)[mechanism] ?? mechanism;
+}
 
 function leadingScoreDrivers(delta: ScoreBreakdown, maximum = 3): string {
   const entries = SCORE_BREAKDOWN_COMPONENTS
@@ -418,7 +444,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
       ...(transportContributors.length ? [
         "Transport-blocking contributors:",
         ...transportContributors.slice(0, 5).map((contributor) =>
-          `  ${contributor.label} · ${(contributor.evidence.blockedItemTicks! / 1000).toFixed(1)} blocked item-s · ${(contributor.evidence.blockedFraction! * 100).toFixed(1)}% in-flight blocking · ${contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}/${contributor.evidence.capacityItemsPerMinute!.toFixed(1)} items/min · ${contributor.resources.join("+") || "no delivered resources"}`),
+          `  ${contributor.label} · ${transportMechanismLabel(contributor.mechanism)} · ${(contributor.evidence.blockedItemTicks! / 1000).toFixed(1)} blocked item-s · ${transportContributorBreakdown(contributor.evidence)} · ${contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}/${contributor.evidence.capacityItemsPerMinute!.toFixed(1)} items/min · ${contributor.resources.join("+") || "no delivered resources"}`),
         ...(transportContributors.length > 5 ? [`  … ${transportContributors.length - 5} more in --section losses --json`] : []),
       ] : []),
       ...(qTimeContributors.length ? [
@@ -784,7 +810,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
   else {
     const flowLines = Object.entries(result.metrics.transportFlows).sort(([, a], [, b]) => b.utilization - a.utilization || b.blockedItemTicks - a.blockedItemTicks).map(([connection, flow]) => {
       const resources = Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "no deliveries";
-      return `  ${connection.padEnd(32)} ${flow.deliveredItemsPerMinute.toFixed(3).padStart(8)}/${flow.capacityItemsPerMinute.toFixed(3)} items/min  ${(flow.utilization * 100).toFixed(1).padStart(5)}%  blocked ${flow.blockedItemTicks} item-ticks  ${resources}`;
+      return `  ${connection.padEnd(32)} ${flow.deliveredItemsPerMinute.toFixed(3).padStart(8)}/${flow.capacityItemsPerMinute.toFixed(3)} items/min  ${(flow.utilization * 100).toFixed(1).padStart(5)}%  blocked ${flow.blockedItemTicks} item-ticks (${transportBlockBreakdown(flow)})  ${resources}`;
     });
     write([
     `Simulation ${cached ? "reproduced (cached artifact)" : "completed"}`, `Run: ${run.path}`, `Score: ${result.metrics.finalScore.toFixed(3)}`,

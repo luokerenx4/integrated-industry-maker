@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.595**
-- Result hash: `0ba6d30d175ea30dd84f288c974b68da33ac440dc36852df8c92e91e0c3ee286`
+- Result hash: `7cb008fba5b1586bbcdbd9774a25fcc2d5e89d5f2dd20f97f1ad06130361e24c`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Delivery portfolio: 100.0% demand attainment · 8.000 / 8.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -42,9 +42,11 @@
 
 ## Measured transport flows
 
-| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
-| --- | ---: | ---: | ---: | --- |
-| stacked-link | 240.000 / 1920.000 | 12.5% | 0 | 8 iron-ore |
+Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| stacked-link | 240.000 / 1920.000 | 12.5% | 0 | 0 | 0 | 0 | 0 | 8 iron-ore |
 
 ## Grid storage
 

@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import type { Blueprint, CompiledFactoryProject, FactoryEvent, SimulationResult } from "./types";
 import { atomicWrite, atomicWriteJson, hashValue, pathExists, stableStringify } from "./utils";
 import { planProductionCapacity } from "./capacity-plan";
+import { transportBlockCauseTotals } from "./transport-blocking";
 
 export interface RunArtifactOptions {
   label: string;
@@ -80,7 +81,8 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   if (options.patch) await atomicWriteJson(join(runDir, "patch.json"), options.patch);
   const transportRows = Object.entries(result.metrics.transportFlows).sort(([, a], [, b]) => b.utilization - a.utilization || b.blockedItemTicks - a.blockedItemTicks).map(([connection, flow]) => {
     const resources = Object.entries(flow.deliveredByResource).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "—";
-    return `| ${connection} | ${flow.deliveredItemsPerMinute.toFixed(3)} / ${flow.capacityItemsPerMinute.toFixed(3)} | ${(flow.utilization * 100).toFixed(1)}% | ${flow.blockedItemTicks} | ${resources} |`;
+    const causes = transportBlockCauseTotals(flow.blockedItemTicksByCause);
+    return `| ${connection} | ${flow.deliveredItemsPerMinute.toFixed(3)} / ${flow.capacityItemsPerMinute.toFixed(3)} | ${(flow.utilization * 100).toFixed(1)}% | ${flow.blockedItemTicks} | ${causes["line-contention"]} | ${causes["endpoint-capacity"]} | ${causes["endpoint-power"]} | ${causes["endpoint-failure"]} | ${resources} |`;
   });
   const storageRows = Object.entries(result.metrics.energyStorage).filter(([, storage]) => storage.capacityMilliJoules > 0)
     .map(([grid, storage]) => `| ${grid} | ${(storage.initialMilliJoules / 1e6).toFixed(3)} | ${(storage.storedMilliJoules / 1e6).toFixed(3)} / ${(storage.capacityMilliJoules / 1e6).toFixed(3)} | ${(storage.chargedMilliJoules / 1e6).toFixed(3)} | ${(storage.dischargedMilliJoules / 1e6).toFixed(3)} |`);
@@ -136,8 +138,9 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     result.metrics.infeasibleReason ? `- Infeasible: ${result.metrics.infeasibleReason}` : "- Feasible: yes", "", "## Capacity-plan gaps", "",
     ...(capacityPlan.gaps.length ? capacityPlan.gaps.map((gap) => `- **${gap.kind}** \`${gap.entity}\`: ${gap.message}`) : ["- None; the selected blueprint provisions the complete target-rate plan."]),
     "", "## Measured transport flows", "",
-    "| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |",
-    "| --- | ---: | ---: | ---: | --- |", ...transportRows, "", "## Grid storage", "",
+    "Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.", "",
+    "| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |", ...transportRows, "", "## Grid storage", "",
     ...(storageRows.length ? [
       "| Grid | Initial (MJ) | Final / capacity (MJ) | Charged (MJ) | Discharged (MJ) |",
       "| --- | ---: | ---: | ---: | ---: |", ...storageRows,

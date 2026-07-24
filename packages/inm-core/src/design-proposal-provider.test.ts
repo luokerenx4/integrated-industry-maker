@@ -9,7 +9,7 @@ import { planProductionCapacity } from "./capacity-plan";
 import { analyzeProduction } from "./production-analysis";
 import { applyResearchPatch } from "./research";
 import { runUntil } from "./simulator";
-import { analyzeFabLossProfile } from "./fab-loss-analysis";
+import { analyzeFabLossProfile, type FabLossBucket } from "./fab-loss-analysis";
 import { SCORE_BREAKDOWN_COMPONENTS, type ScoreBreakdown } from "./types";
 
 function zeroScoreBreakdown(): ScoreBreakdown {
@@ -380,7 +380,7 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const metrics = result.metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
-    version: 5,
+    version: 6,
     outcome: { deliveryShortfall: 18, deliveryOverflow: 8, portfolioNetValue: -64 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
@@ -441,7 +441,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 5,
+    version: 6,
     outcome: {
       completed: 5,
       inProgress: 5,
@@ -606,7 +606,7 @@ test("current commissioned fab prevents latent etch damage without reintroducing
   const qTime = fabLoss.buckets.find((bucket) => bucket.id === "q-time");
 
   expect(fabLoss).toMatchObject({
-    version: 5,
+    version: 6,
     outcome: {
       completed: 12,
       inProgress: 0,
@@ -659,7 +659,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 5,
+    version: 6,
     outcome: {
       completed: 6,
       inProgress: 4,
@@ -1052,17 +1052,78 @@ test("memory-fab project provider gives a retained setup campaign an exact inter
 
 test("project proposal providers cannot ignore or fabricate Core-owned loss evidence", async () => {
   const { root, input } = await memoryFabInput();
-  const transport = input.fabLoss!.buckets.find((bucket) => bucket.id === "transport-blocking")!;
-  const unmatched = { ...input, fabLoss: { ...input.fabLoss!, primary: transport, chain: ["transport-blocking" as const] } };
+  const transport = {
+    id: "transport-blocking",
+    label: "Local transport blocking by cause",
+    score: .01,
+    summary: "Strict causal transport evidence",
+    subjects: [{ kind: "connection", id: "causal-lane" }],
+    evidence: {
+      connections: 1,
+      blockedConnections: 1,
+      blockedItemTicks: 10,
+      lineContentionTicks: 4,
+      endpointCapacityTicks: 3,
+      endpointPowerTicks: 2,
+      endpointFailureTicks: 1,
+    },
+    contributors: [{
+      id: "connection:causal-lane:transport-line-contention",
+      label: "causal-lane",
+      mechanism: "transport-line-contention",
+      route: null,
+      step: null,
+      resources: ["dram-wafer-lot"],
+      processes: [],
+      defects: [],
+      lots: [],
+      subjects: [{ kind: "connection", id: "causal-lane" }],
+      evidence: {
+        blockedItemTicks: 10,
+        lineContentionTicks: 4,
+        endpointCapacityTicks: 3,
+        endpointPowerTicks: 2,
+        endpointFailureTicks: 1,
+      },
+    }],
+  } satisfies FabLossBucket;
+  const unmatched = {
+    ...input,
+    fabLoss: {
+      ...input.fabLoss!,
+      primary: transport,
+      chain: ["transport-blocking" as const],
+      buckets: [...input.fabLoss!.buckets.filter((bucket) => bucket.id !== "transport-blocking"), transport],
+    },
+  };
+  expect(transport.contributors.every((contributor) =>
+    contributor.mechanism.startsWith("transport-")
+    && contributor.evidence.blockedItemTicks === contributor.evidence.lineContentionTicks!
+      + contributor.evidence.endpointCapacityTicks!
+      + contributor.evidence.endpointPowerTicks!
+      + contributor.evidence.endpointFailureTicks!)).toBeTrue();
   await expect(new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose(unmatched))
     .rejects.toBeInstanceOf(ProjectProposalExhaustedError);
 
   const providerRoot = await mkdtemp(`${tmpdir()}/inm-loss-provider-`);
   await mkdir(resolve(providerRoot, "strategies"));
   const proposal = `{ strategy: "dispatch:test", hypothesis: "test", patch: [{ op: "add", path: "/policies/lotRelease", value: {} }] }`;
-  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 5, propose() { return ${proposal}; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 5, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 5, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/causal-transport.ts"), `export default {
+    apiVersion: 6,
+    propose(context) {
+      const contributor = context.fabLoss?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors[0];
+      if (context.fabLoss?.version !== 6 || !contributor?.mechanism.startsWith("transport-")
+        || contributor.evidence.blockedItemTicks !== contributor.evidence.lineContentionTicks
+          + contributor.evidence.endpointCapacityTicks + contributor.evidence.endpointPowerTicks
+          + contributor.evidence.endpointFailureTicks) throw new Error("missing exact causal transport profile");
+      return { ...${proposal}, addressedLoss: "transport-blocking" };
+    },
+  };\n`);
+  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 6, propose() { return ${proposal}; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 6, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 6, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
+  await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/causal-transport.ts").propose(unmatched))
+    .resolves.toMatchObject({ addressedLoss: "transport-blocking" });
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/missing.ts").propose(input)).rejects.toThrow("must name addressedLoss");
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/fabricated.ts").propose(input)).rejects.toThrow("addressed unobserved loss 'release-admission'");
   const blocked = {

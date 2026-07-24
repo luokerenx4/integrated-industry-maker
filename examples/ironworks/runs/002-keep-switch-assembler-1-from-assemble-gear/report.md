@@ -3,7 +3,7 @@
 - Decision: **KEEP**
 - Blueprint: `main`
 - Score: **35.301**
-- Result hash: `a44c5c234ec880de9f5f259b457182b7d65be0bd4e2918ad0807fbd60fd89c48`
+- Result hash: `862131be484073be024963115cda25aef79de5203e8714bc93f701ff39501cb2`
 - Bottleneck: smelter-1
 - Throughput/min: 7.000
 - Delivery portfolio: 58.3% demand attainment · 14.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -42,16 +42,18 @@
 
 ## Measured transport flows
 
-| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
-| --- | ---: | ---: | ---: | --- |
-| ore-to-smelter | 33.000 / 80.000 | 41.3% | 0 | 66 iron-ore |
-| coal-assembly-to-splitter | 14.000 / 240.000 | 5.8% | 0 | 28 coal |
-| plate-to-station | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
-| station-to-assembler | 10.500 / 240.000 | 4.4% | 0 | 21 iron-plate |
-| coal-splitter-to-assembler | 7.500 / 240.000 | 3.1% | 0 | 15 coal |
-| gear-to-output | 7.000 / 240.000 | 2.9% | 0 | 14 gear |
-| coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
-| coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
+Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ore-to-smelter | 33.000 / 80.000 | 41.3% | 0 | 0 | 0 | 0 | 0 | 66 iron-ore |
+| coal-assembly-to-splitter | 14.000 / 240.000 | 5.8% | 0 | 0 | 0 | 0 | 0 | 28 coal |
+| plate-to-station | 14.000 / 240.000 | 5.8% | 0 | 0 | 0 | 0 | 0 | 28 iron-plate |
+| station-to-assembler | 10.500 / 240.000 | 4.4% | 0 | 0 | 0 | 0 | 0 | 21 iron-plate |
+| coal-splitter-to-assembler | 7.500 / 240.000 | 3.1% | 0 | 0 | 0 | 0 | 0 | 15 coal |
+| gear-to-output | 7.000 / 240.000 | 2.9% | 0 | 0 | 0 | 0 | 0 | 14 gear |
+| coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 0 | 0 | 0 | 0 | 5 coal |
+| coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 0 | 0 | 0 | 0 | 5 coal |
 
 ## Grid storage
 

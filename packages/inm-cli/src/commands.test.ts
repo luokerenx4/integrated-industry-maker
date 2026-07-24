@@ -672,7 +672,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
     .find((bucket: { id: string }) => bucket.id === "yield-quality");
   const transportBlocking = lossProfile.buckets
     .find((bucket: { id: string }) => bucket.id === "transport-blocking");
-  expect(lossProfile.version).toBe(5);
+  expect(lossProfile.version).toBe(6);
   expect(yieldQuality).toMatchObject({
     subjects: [
       { kind: "device", id: "etch-l2" },
@@ -713,8 +713,28 @@ test("public inspect gives Agents and humans the same current loss contributors"
   });
   expect(qTime).toBeUndefined();
   expect(transportBlocking).toMatchObject({
-    evidence: { blockedConnections: 3, blockedItemTicks: 79_200, connections: 17 },
+    label: "Local transport blocking by cause",
+    evidence: {
+      blockedConnections: 3,
+      blockedItemTicks: 79_200,
+      connections: 17,
+      lineContentionTicks: 47_200,
+      endpointCapacityTicks: 23_300,
+      endpointPowerTicks: 8_700,
+      endpointFailureTicks: 0,
+    },
     subjects: [{ kind: "connection", id: "probe-to-packaging" }],
+  });
+  expect(transportBlocking.contributors[0]).toMatchObject({
+    id: "connection:probe-to-packaging:transport-line-contention",
+    mechanism: "transport-line-contention",
+    evidence: {
+      blockedItemTicks: 67_900,
+      lineContentionTicks: 41_100,
+      endpointCapacityTicks: 22_000,
+      endpointPowerTicks: 4_800,
+      endpointFailureTicks: 0,
+    },
   });
 
   const human = await runCli(["inspect", projectDir]);
@@ -725,7 +745,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("furnace-1 · inter-job-input-gap · 42.5s input gap / 114.5s opportunity · 12 jobs");
   expect(human.stdout).not.toContain("fab-loss.transport-blocking");
   expect(human.stdout).toContain("Transport-blocking contributors:");
-  expect(human.stdout).toContain("etch-to-inspection · 0.1 blocked item-s · 0.9% in-flight blocking · 3.0/240.0 items/min · dram-wafer-lot");
+  expect(human.stdout).toContain("etch-to-inspection · dominant immediate cause: line contention · 0.1 blocked item-s · line contention 0.1 item-s · endpoint capacity 0.0 item-s · endpoint power 0.0 item-s · endpoint failure 0.0 item-s · 3.0/240.0 items/min · dram-wafer-lot");
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
@@ -746,11 +766,10 @@ test("public inspect gives Agents and humans the same missing current Design aut
       state: "missing",
       authorityRunId: null,
       currentRuns: 0,
-      historicalRuns: 4,
-      invalidRuns: expect.any(Number),
+      historicalRuns: 0,
+      invalidRuns: 27,
     }),
   }));
-  expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
     title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
     actionLabel: "OPEN DESIGN LOOP",
@@ -765,7 +784,7 @@ test("public inspect gives Agents and humans the same missing current Design aut
   expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 4 valid immutable runs · 23 invalid runs excluded");
+  expect(brief.stdout).toContain("Evidence: 0 valid immutable runs · 27 invalid runs excluded");
   expect(brief.stdout).toContain("Run: inm design <path> --program commissioned-dram-fab --run");
 });
 

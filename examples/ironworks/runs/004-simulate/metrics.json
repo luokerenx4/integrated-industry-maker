@@ -645,6 +645,28 @@
       "averageInFlightItems": 0.23333333333333334,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 40
@@ -662,6 +684,28 @@
       "averageInFlightItems": 0.21875,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 120,
       "deliveredByResource": {
         "coal": 21
@@ -679,6 +723,28 @@
       "averageInFlightItems": 0.34833333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 19
@@ -696,6 +762,28 @@
       "averageInFlightItems": 0.15166666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 14
@@ -713,6 +801,28 @@
       "averageInFlightItems": 0.25,
       "blockedFraction": 0.32,
       "blockedItemTicks": 9600,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 6600
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 3000,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 120,
       "deliveredByResource": {
         "gear": 24
@@ -730,6 +840,28 @@
       "averageInFlightItems": 0.67125,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "iron-ore": 66
@@ -747,6 +879,28 @@
       "averageInFlightItems": 0.385,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "iron-plate": 22
@@ -764,6 +918,28 @@
       "averageInFlightItems": 0.5833333333333334,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "iron-plate": 20
@@ -781,6 +957,28 @@
       "averageInFlightItems": 0.2633333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "iron-plate": 28
@@ -798,6 +996,28 @@
       "averageInFlightItems": 0.36833333333333335,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "proliferator": 34
@@ -815,6 +1035,28 @@
       "averageInFlightItems": 0.4116666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "proliferator": 13
@@ -832,6 +1074,28 @@
       "averageInFlightItems": 0.11916666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "proliferator": 13

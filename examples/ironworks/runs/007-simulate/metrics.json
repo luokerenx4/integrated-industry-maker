@@ -405,6 +405,28 @@
       "averageInFlightItems": 0.8358333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "crude-oil": 59
@@ -422,6 +444,28 @@
       "averageInFlightItems": 0.5816666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "hydrogen": 27
@@ -439,6 +483,28 @@
       "averageInFlightItems": 0.15166666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "plastic": 26
@@ -456,6 +522,28 @@
       "averageInFlightItems": 0.7466666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "refined-oil": 56

@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-07-24T14:42:23.411Z",
+  "createdAt": "2026-07-24T19:26:27.567Z",
   "decision": "KEEP",
-  "engineVersion": "inm-sim/0.81.0",
+  "engineVersion": "inm-sim/0.82.0",
   "hashes": {
     "blueprintHash": "ebdb9d70b8a9969fcd814c74018bc85f9ca89c397e9a03fbb4be9fca5a074d13",
     "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
-    "engineVersion": "inm-sim/0.81.0",
+    "engineVersion": "inm-sim/0.82.0",
     "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
     "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
     "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
@@ -14,8 +14,8 @@
     "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
   },
   "parentRun": "001-keep-add-wind-turbine-support-near-generat",
-  "resultHash": "a44c5c234ec880de9f5f259b457182b7d65be0bd4e2918ad0807fbd60fd89c48",
-  "runKey": "14003c043e69f906465dad314db8b64609cea0529c41a97f1a153d20c20eacf6",
+  "resultHash": "862131be484073be024963115cda25aef79de5203e8714bc93f701ff39501cb2",
+  "runKey": "591a24657334761fb543f6d64c434ecc481c5a2ccaf77ce0f3076d27ec98f816",
   "seed": 42,
   "selection": {
     "blueprint": "main",

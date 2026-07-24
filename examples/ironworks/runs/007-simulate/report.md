@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `chemical-factory`
 - Score: **122.943**
-- Result hash: `6a8de3f5fc61b993f182a464e19ff4ac1f2917a4942af8f093080b8ed2291874`
+- Result hash: `6326b8740e9901ee0f2f502a0a6cb9019d968bea3b97052fa4f088f320b32ffd`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Delivery portfolio: 130.0% demand attainment · 26.000 / 20.000 valued / demanded · 6.000 above demand · 0.000 net value/min
@@ -42,12 +42,14 @@
 
 ## Measured transport flows
 
-| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
-| --- | ---: | ---: | ---: | --- |
-| synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1 | 29.500 / 240.000 | 12.3% | 0 | 59 crude-oil |
-| synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1 | 28.000 / 240.000 | 11.7% | 0 | 56 refined-oil |
-| synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1 | 13.500 / 240.000 | 5.6% | 0 | 27 hydrogen |
-| synth-plastic-synth-make-plastic-1-to-synth-plastic-sink | 13.000 / 240.000 | 5.4% | 0 | 26 plastic |
+Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1 | 29.500 / 240.000 | 12.3% | 0 | 0 | 0 | 0 | 0 | 59 crude-oil |
+| synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1 | 28.000 / 240.000 | 11.7% | 0 | 0 | 0 | 0 | 0 | 56 refined-oil |
+| synth-hydrogen-synth-refine-crude-1-to-synth-make-plastic-1 | 13.500 / 240.000 | 5.6% | 0 | 0 | 0 | 0 | 0 | 27 hydrogen |
+| synth-plastic-synth-make-plastic-1-to-synth-plastic-sink | 13.000 / 240.000 | 5.4% | 0 | 0 | 0 | 0 | 0 | 26 plastic |
 
 ## Grid storage
 

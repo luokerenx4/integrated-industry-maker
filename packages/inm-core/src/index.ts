@@ -29,6 +29,7 @@ export * from "./design-program";
 export * from "./design-run";
 export * from "./design-proposal-provider";
 export * from "./fab-loss-analysis";
+export * from "./transport-blocking";
 export * from "./workbench";
 export * from "./artifact-schema";
 export * from "./operation";

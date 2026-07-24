@@ -2429,6 +2429,63 @@ describe("deterministic discrete-event simulation", () => {
     expect(replayFactoryEvents(project, result.events, 2_000).devices["failure-belt-loader"]!.runtimeStatus).toBe("idle");
   });
 
+  test("belt-end waits preserve endpoint power and failure as distinct physical causes", async () => {
+    const build = async (kind: "power" | "failure") => {
+      const source = await loaded();
+      source.deviceAssets.sorter!.program = {
+        apiVersion: 1,
+        evaluate: () => ({ kind: "none" }),
+        planTransport: () => ({ capacity: 1, durationTicks: 100 }),
+      };
+      source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+      source.deviceAssets.sorter!.power.activeMilliWatts = 0;
+      source.deviceAssets["blocked-unloader"] = {
+        ...source.deviceAssets.sorter!,
+        id: "blocked-unloader",
+        name: "Blocked unloader",
+        power: kind === "power"
+          ? { ...source.deviceAssets.sorter!.power, idleMilliWatts: 10_000, activeMilliWatts: 10_000 }
+          : { ...source.deviceAssets.sorter!.power },
+      };
+      source.blueprint.devices = [
+        { id: "source", asset: "buffer", region: "forge-zone", position: { x: 0, y: 0 }, rotation: 0 },
+        { id: "target", asset: "buffer", region: "forge-zone", position: { x: 4, y: 0 }, rotation: 0 },
+      ];
+      setTestConnections(source, [{
+        id: `${kind}-blocked-belt`,
+        from: { device: "source", port: "output" },
+        to: { device: "target", port: "input" },
+        resources: ["iron-ore"],
+        path: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+        logistics: {
+          loader: { deviceAsset: "sorter", distance: 1 },
+          line: { deviceAsset: "conveyor" },
+          unloader: { deviceAsset: "blocked-unloader", distance: 1 },
+        },
+      }]);
+      source.blueprint.logisticsNetworks = [];
+      source.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
+      source.scenario.failures = kind === "failure"
+        ? [{ device: `${kind}-blocked-belt-unloader`, atTick: 0, durationTicks: 2_000 }]
+        : [];
+      return runUntil(compileFactoryProject(source), undefined, { untilTick: 1_500 });
+    };
+
+    const power = await build("power");
+    expect(power.events.some((event) => event.type === "resource.belt-blocked"
+      && event.cause === "endpoint-power"
+      && event.stage === "unloader")).toBeTrue();
+    expect(power.metrics.transportFlows["power-blocked-belt"]!.blockedItemTicksByCause["endpoint-power"].unloader)
+      .toBeGreaterThan(0);
+
+    const failure = await build("failure");
+    expect(failure.events.some((event) => event.type === "resource.belt-blocked"
+      && event.cause === "endpoint-failure"
+      && event.stage === "unloader")).toBeTrue();
+    expect(failure.metrics.transportFlows["failure-blocked-belt"]!.blockedItemTicksByCause["endpoint-failure"].unloader)
+      .toBeGreaterThan(0);
+  });
+
   test("the slowest logistics stage gates connection dispatch", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.program = {
@@ -2581,7 +2638,17 @@ describe("deterministic discrete-event simulation", () => {
     expect(beltItems.map((transit) => transit.cellIndex).sort()).toEqual([0, 1, 2, 3, 4]);
     expect(result.state.transports.belt!.some((transit) => transit.phase === "loading" && transit.blockedBy === "forge-zone:1,0")).toBeTrue();
     expect(result.state.transports.belt!.some((transit) => transit.phase === "unloading")).toBeTrue();
-    expect(result.events.some((event) => event.type === "resource.belt-blocked" && event.cell === "forge-zone:5,0" && event.waitingFor === "target.input")).toBeTrue();
+    expect(result.events.some((event) =>
+      event.type === "resource.belt-blocked"
+      && event.cell === "forge-zone:5,0"
+      && event.waitingFor === "target.input"
+      && event.cause === "endpoint-capacity"
+      && event.stage === "unloader")).toBeTrue();
+    expect(result.events.some((event) =>
+      event.type === "resource.belt-blocked"
+      && event.waitingFor.startsWith("forge-zone:")
+      && event.cause === "line-contention"
+      && event.stage === "line")).toBeTrue();
     expect(result.metrics.averageBlockedBeltItems).toBeGreaterThan(0);
     expect(result.metrics.peakBeltItems).toBe(5);
     expect(result.metrics.beltCellUtilization).toBeGreaterThan(0.5);
@@ -2590,6 +2657,11 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.metrics.transportFlows.belt!.averageInFlightItems).toBeGreaterThan(1);
     expect(result.metrics.transportFlows.belt!.blockedItemTicks).toBeGreaterThan(0);
     expect(result.metrics.transportFlows.belt!.blockedFraction).toBeGreaterThan(0);
+    const blockedByCause = result.metrics.transportFlows.belt!.blockedItemTicksByCause;
+    expect(blockedByCause["endpoint-capacity"].unloader).toBeGreaterThan(0);
+    expect(blockedByCause["line-contention"].line).toBeGreaterThan(0);
+    expect(Object.values(blockedByCause).flatMap(Object.values).reduce((sum, ticks) => sum + ticks, 0))
+      .toBe(result.metrics.transportFlows.belt!.blockedItemTicks);
   });
 
   test("splitter policies route filtered resources through explicit output ports", async () => {

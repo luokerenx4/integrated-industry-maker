@@ -561,6 +561,28 @@
       "averageInFlightItems": 0.175,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 30
@@ -578,6 +600,28 @@
       "averageInFlightItems": 0.0372,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 5
@@ -595,6 +639,28 @@
       "averageInFlightItems": 0.18416666666666667,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 17
@@ -612,6 +678,28 @@
       "averageInFlightItems": 0.03333333333333333,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "coal": 5
@@ -629,6 +717,28 @@
       "averageInFlightItems": 0.075,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "gear": 9
@@ -646,6 +756,28 @@
       "averageInFlightItems": 0.728325,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 80,
       "deliveredByResource": {
         "iron-ore": 60
@@ -663,6 +795,28 @@
       "averageInFlightItems": 0.18060833333333334,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "iron-plate": 25
@@ -680,6 +834,28 @@
       "averageInFlightItems": 0.12,
       "blockedFraction": 0,
       "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
       "capacityItemsPerMinute": 240,
       "deliveredByResource": {
         "iron-plate": 18

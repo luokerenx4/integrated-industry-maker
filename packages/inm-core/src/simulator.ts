@@ -4,10 +4,11 @@ import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
   ActiveDeviceJob, BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
-  MaintenanceCause, MaintenanceTrigger, ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick,
+  MaintenanceCause, MaintenanceTrigger, ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
+import { emptyTransportBlockTicks } from "./transport-blocking";
 
 type InternalEvent =
   | { kind: "lot-release"; lotIds: string[] }
@@ -304,7 +305,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     durations: {}, wipArea: 0, inventoryArea: {}, inventoryPeak: {}, peakTotalInventory: 0, peakWip: 0,
     congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
     releaseControlServiceLevelOpenings: 0,
-    transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
+    transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedAreaByCause: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {}, stationFleetBusyArea: {}, stationFleetCompletedReturns: {},
     lotProcessBatches: {}, lotOutputProfiles: {},
     consumedByRegion: {},
@@ -599,8 +600,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (state.devices[unloader.device!.id]!.status === "processing") active.unloader += transits.filter((transit) => transit.phase === "unloading").length * delta;
       stats.connectionOccupancyArea[connectionId] = (stats.connectionOccupancyArea[connectionId] ?? 0)
         + transits.reduce((sum, transit) => sum + transit.count, 0) * delta;
-      stats.connectionBlockedArea[connectionId] = (stats.connectionBlockedArea[connectionId] ?? 0)
-        + transits.filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0) * delta;
+      const blockedByCause = stats.connectionBlockedAreaByCause[connectionId] ??= emptyTransportBlockTicks();
+      for (const transit of transits.filter((item) => item.blockedBy)) {
+        if (!transit.blockedCause || !transit.blockedStage) {
+          throw new Error(`Blocked transit '${transit.id}' on '${connectionId}' has no typed cause and stage`);
+        }
+        blockedByCause[transit.blockedCause][transit.blockedStage] += transit.count * delta;
+      }
     }
     const regionalMeteredPower: Record<string, number> = {};
     for (const grid of Object.keys(project.powerGrids).sort()) {
@@ -836,19 +842,52 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return project.transportCells[cell]!.connections.filter((connection) => waiting.has(connection));
   };
-  const markBlocked = (connectionId: string, transit: BeltTransit, waitingFor: string, retryTicks: number) => {
-    const firstBlock = transit.blockedBy !== waitingFor;
-    mutateFactoryState(state, { kind: "transport.update", connection: connectionId, transitId: transit.id, changes: { readyTick: state.tick + retryTicks, blockedBy: waitingFor } });
+  const markBlocked = (
+    connectionId: string,
+    transit: BeltTransit,
+    waitingFor: string,
+    retryTicks: number,
+    cause: TransportBlockCause,
+    stage: TransportBlockStage,
+  ) => {
+    const firstBlock = transit.blockedBy !== waitingFor
+      || transit.blockedCause !== cause
+      || transit.blockedStage !== stage;
+    mutateFactoryState(state, {
+      kind: "transport.update",
+      connection: connectionId,
+      transitId: transit.id,
+      changes: {
+        readyTick: state.tick + retryTicks,
+        blockedBy: waitingFor,
+        blockedCause: cause,
+        blockedStage: stage,
+      },
+    });
     if (firstBlock) {
       const connection = project.connections[connectionId]!;
       const cell = transit.phase === "belt" ? connection.transportCells[transit.cellIndex]! : null;
-      emit({ type: "resource.belt-blocked", tick: state.tick, transit: { ...transit }, connection: connectionId, cell, waitingFor });
+      emit({
+        type: "resource.belt-blocked",
+        tick: state.tick,
+        transit: { ...transit },
+        connection: connectionId,
+        cell,
+        waitingFor,
+        cause,
+        stage,
+      });
     }
     schedule(state.tick + retryTicks, 8, { kind: "belt-step", connection: connectionId, transitId: transit.id });
   };
   const clearBlocked = (connectionId: string, transit: BeltTransit) => {
     if (!transit.blockedBy) return;
-    mutateFactoryState(state, { kind: "transport.update", connection: connectionId, transitId: transit.id, changes: { blockedBy: null } });
+    mutateFactoryState(state, {
+      kind: "transport.update",
+      connection: connectionId,
+      transitId: transit.id,
+      changes: { blockedBy: null, blockedCause: null, blockedStage: null },
+    });
     emit({ type: "resource.belt-unblocked", tick: state.tick, transit: { ...transit }, connection: connectionId });
   };
 
@@ -2752,16 +2791,37 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (transit.phase === "belt" && transit.cellIndex === connection.transportCells.length - 1) {
         const unloader = transportStage(connection, "unloader");
         if (state.devices[unloader.device!.id]!.status === "failed") {
-          markBlocked(event.connection, transit, `device:${unloader.device!.id}:failed`, Math.max(1, unloader.durationTicks));
+          markBlocked(
+            event.connection,
+            transit,
+            `device:${unloader.device!.id}:failed`,
+            Math.max(1, unloader.durationTicks),
+            "endpoint-failure",
+            "unloader",
+          );
           continue;
         }
         const unloading = state.transports[event.connection]!.filter((item) => item.phase === "unloading").length;
         if (unloading >= unloader.capacity) {
-          markBlocked(event.connection, transit, `${connection.to.device}.${connection.to.port}`, connection.lineCellTravelTicks);
+          markBlocked(
+            event.connection,
+            transit,
+            `${connection.to.device}.${connection.to.port}`,
+            connection.lineCellTravelTicks,
+            "endpoint-capacity",
+            "unloader",
+          );
           continue;
         }
         if (!transportStagePowered(connection, "unloader")) {
-          markBlocked(event.connection, transit, `power:${unloader.powerGrid ?? "disconnected"}`, connection.lineCellTravelTicks);
+          markBlocked(
+            event.connection,
+            transit,
+            `power:${unloader.powerGrid ?? "disconnected"}`,
+            connection.lineCellTravelTicks,
+            "endpoint-power",
+            "unloader",
+          );
           continue;
         }
         clearBlocked(event.connection, transit);
@@ -2779,11 +2839,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         const finishedLoading = transit.phase === "loading";
         const loader = finishedLoading ? transportStage(connection, "loader") : undefined;
         if (loader && state.devices[loader.device!.id]!.status === "failed") {
-          markBlocked(event.connection, transit, `device:${loader.device!.id}:failed`, Math.max(1, loader.durationTicks));
+          markBlocked(
+            event.connection,
+            transit,
+            `device:${loader.device!.id}:failed`,
+            Math.max(1, loader.durationTicks),
+            "endpoint-failure",
+            "loader",
+          );
           continue;
         }
         if (loader && !transportStagePowered(connection, "loader")) {
-          markBlocked(event.connection, transit, `power:${loader.powerGrid ?? "disconnected"}`, Math.max(1, loader.durationTicks));
+          markBlocked(
+            event.connection,
+            transit,
+            `power:${loader.powerGrid ?? "disconnected"}`,
+            Math.max(1, loader.durationTicks),
+            "endpoint-power",
+            "loader",
+          );
           continue;
         }
         const targetIndex = transit.phase === "loading" ? 0 : transit.cellIndex + 1;
@@ -2795,7 +2869,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           ? [...cell.connections.slice(cursor), ...cell.connections.slice(0, cursor)].find((candidate) => contenders.includes(candidate))!
           : event.connection;
         if (occupiedCell(targetCell) || preferred !== event.connection) {
-          markBlocked(event.connection, transit, targetCell, cell.travelTicks);
+          markBlocked(event.connection, transit, targetCell, cell.travelTicks, "line-contention", "line");
           continue;
         }
         clearBlocked(event.connection, transit);

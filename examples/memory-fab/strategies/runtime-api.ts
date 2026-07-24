@@ -58,7 +58,7 @@ export type FabLossBucketId =
   | "yield-quality";
 
 export interface FabLossProfile {
-  version: 5;
+  version: 6;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;
@@ -85,7 +85,10 @@ export interface FabLossContributor {
     | "maintenance-qualification"
     | "equipment-availability"
     | "inter-job-input-gap"
-    | "physical-lane-blocking"
+    | "transport-line-contention"
+    | "transport-endpoint-capacity"
+    | "transport-endpoint-power"
+    | "transport-endpoint-failure"
     | "quality-excursion"
     | "equipment-process-drift"
     | "route-q-time-defect";
@@ -100,7 +103,7 @@ export interface FabLossContributor {
 }
 
 export interface ProjectProposalContext {
-  apiVersion: 5;
+  apiVersion: 6;
   iteration: number;
   branch: {
     nodeId: string;
@@ -157,7 +160,7 @@ type ScoreBreakdown = Record<
 >;
 
 export interface ProjectProposalProvider {
-  apiVersion: 5;
+  apiVersion: 6;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;

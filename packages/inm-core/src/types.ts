@@ -1278,12 +1278,21 @@ export interface CarrierMission {
   highSpeed?: boolean;
 }
 export type BeltTransitPhase = "loading" | "belt" | "unloading";
+export type TransportBlockCause =
+  | "line-contention"
+  | "endpoint-capacity"
+  | "endpoint-power"
+  | "endpoint-failure";
+export type TransportBlockStage = "line" | "loader" | "unloader";
+export type TransportBlockTicks = Record<TransportBlockCause, Record<TransportBlockStage, Tick>>;
 export interface BeltTransit extends ResourceTransit {
   phase: BeltTransitPhase;
   /** -1 while the item is in a loader or unloader; otherwise indexes connection.transportCells. */
   cellIndex: number;
   readyTick: Tick;
   blockedBy?: string;
+  blockedCause?: TransportBlockCause;
+  blockedStage?: TransportBlockStage;
 }
 export interface FactoryState {
   tick: Tick;
@@ -1364,7 +1373,7 @@ export type FactoryEvent =
   | { type: "resource.depleted"; tick: Tick; node: string; resource: ResourceId }
   | { type: "resource.depart"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
   | { type: "resource.belt-position"; tick: Tick; transit: BeltTransit; connection: ConnectionId; cell: string; cellIndex: number }
-  | { type: "resource.belt-blocked"; tick: Tick; transit: BeltTransit; connection: ConnectionId; cell: string | null; waitingFor: string }
+  | { type: "resource.belt-blocked"; tick: Tick; transit: BeltTransit; connection: ConnectionId; cell: string | null; waitingFor: string; cause: TransportBlockCause; stage: TransportBlockStage }
   | { type: "resource.belt-unblocked"; tick: Tick; transit: BeltTransit; connection: ConnectionId }
   | { type: "resource.unload-start"; tick: Tick; transit: BeltTransit; connection: ConnectionId }
   | { type: "resource.arrive"; tick: Tick; transit: ResourceTransit; connection: ConnectionId }
@@ -1844,6 +1853,7 @@ export interface FactoryMetrics {
     averageInFlightItems: number;
     blockedItemTicks: Tick;
     blockedFraction: number;
+    blockedItemTicksByCause: TransportBlockTicks;
   }>;
   transportEnergyConsumedMilliJoules: number;
   transportCongestion: number;

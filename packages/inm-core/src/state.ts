@@ -1,4 +1,4 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceTrigger, ProcessAmount, ResourceTransit, Tick, WorkLot, WorkLotStatus } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceTrigger, ProcessAmount, ResourceTransit, Tick, TransportBlockCause, TransportBlockStage, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
@@ -21,7 +21,16 @@ export type FactoryStateMutation =
   | { kind: "lot.rework"; lotIds: string[]; repairs: string[] }
   | { kind: "lot.checkpoint"; lotIds: string[] }
   | { kind: "transport.add"; connection: string; transit: BeltTransit }
-  | { kind: "transport.update"; connection: string; transitId: string; changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & { blockedBy?: string | null } }
+  | {
+    kind: "transport.update";
+    connection: string;
+    transitId: string;
+    changes: Partial<Pick<BeltTransit, "phase" | "cellIndex" | "readyTick" | "arriveTick">> & {
+      blockedBy?: string | null;
+      blockedCause?: TransportBlockCause | null;
+      blockedStage?: TransportBlockStage | null;
+    };
+  }
   | { kind: "transport.remove"; connection: string; transitId: string }
   | { kind: "logistics.add"; network: string; transit: ResourceTransit }
   | { kind: "logistics.remove"; network: string; transitId: string }
@@ -316,6 +325,8 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (!transit) throw new Error(`Unknown transit '${mutation.transitId}' on '${mutation.connection}'`);
       Object.assign(transit, mutation.changes);
       if (mutation.changes.blockedBy === null) delete transit.blockedBy;
+      if (mutation.changes.blockedCause === null) delete transit.blockedCause;
+      if (mutation.changes.blockedStage === null) delete transit.blockedStage;
       return;
     }
     case "transport.remove": {

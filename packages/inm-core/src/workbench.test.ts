@@ -64,14 +64,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
-    evidence: { state: "current", runId: "082-simulate" },
+    evidence: { state: "current", runId: "083-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 14, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "082-simulate",
+    runId: "083-simulate",
     averageWip: 19.738966666666666,
     averageTotalInventory: 116.45466666666667,
     averageExcludedInventory: 96.7157,
@@ -82,12 +82,32 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 39.8024,
   }));
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
-    version: 5,
+    version: 6,
     chain: ["input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification", "release-admission"],
   }));
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")).toMatchObject({
-    evidence: { blockedConnections: 3, blockedItemTicks: 79_200, connections: 17 },
+    label: "Local transport blocking by cause",
+    evidence: {
+      blockedConnections: 3,
+      blockedItemTicks: 79_200,
+      connections: 17,
+      lineContentionTicks: 47_200,
+      endpointCapacityTicks: 23_300,
+      endpointPowerTicks: 8_700,
+      endpointFailureTicks: 0,
+    },
     subjects: [{ kind: "connection", id: "probe-to-packaging" }],
+    contributors: expect.arrayContaining([expect.objectContaining({
+      id: "connection:probe-to-packaging:transport-line-contention",
+      mechanism: "transport-line-contention",
+      evidence: expect.objectContaining({
+        blockedItemTicks: 67_900,
+        lineContentionTicks: 41_100,
+        endpointCapacityTicks: 22_000,
+        endpointPowerTicks: 4_800,
+        endpointFailureTicks: 0,
+      }),
+    })]),
   });
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);

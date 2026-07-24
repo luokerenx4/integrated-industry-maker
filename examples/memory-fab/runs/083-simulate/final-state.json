@@ -1,0 +1,2552 @@
+{
+  "carrierMissions": 0,
+  "carrierReturns": 0,
+  "completedOrders": 87,
+  "consumed": {
+    "automotive-dram-device": 12,
+    "chamber-clean-kit": 8,
+    "commercial-dram-device": 51,
+    "performance-dram-device": 24,
+    "tool-qualification-wafer": 8
+  },
+  "devices": {
+    "automotive-customer": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "automotive-to-customer-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "automotive-to-customer-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "batch-furnace-to-lithography-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "batch-furnace-to-lithography-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "burn-in-1": {
+      "activeJob": {
+        "changeover": {
+          "from": "reliability-screen",
+          "to": "commercial-screen"
+        },
+        "durationTicks": 8000,
+        "operation": "changeover:reliability-screen->commercial-screen",
+        "powerMilliWatts": 180000,
+        "powerSatisfactionPpm": 1000000,
+        "produce": [],
+        "remainingTicks": 8000,
+        "resumedAt": 238156,
+        "startedAt": 238156,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "automotive-output": {},
+        "commercial-output": {},
+        "package-input": {
+          "packaged-dram-device": 8
+        },
+        "performance-output": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "automotive-output": {},
+        "commercial-output": {},
+        "package-input": {},
+        "performance-output": {}
+      },
+      "materialBatches": {
+        "automotive-output": {},
+        "commercial-output": {},
+        "package-input": {
+          "packaged-dram-device": {
+            "0": 8
+          }
+        },
+        "performance-output": {}
+      },
+      "progressTicks": 1844,
+      "setup": {
+        "campaignHolds": 0,
+        "campaignHoldTicks": 0,
+        "campaignMaximumHoldReleases": 0,
+        "campaignMinimumLotReleases": 0,
+        "changeovers": 3,
+        "group": "reliability-screen",
+        "setupTicks": 14000
+      },
+      "status": "processing"
+    },
+    "cleanroom-power-a": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "cleanroom-power-b": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "cleanroom-power-c": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "cleanroom-power-d": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "cleanroom-power-e": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "commercial-customer": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "commercial-to-customer-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "commercial-to-customer-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "processing"
+    },
+    "deposition-1": {
+      "buffers": {
+        "etch-input": {},
+        "return-output": {}
+      },
+      "cadenceControl": {
+        "starvationEpisodes": 8,
+        "starvationTicks": 87356,
+        "starvedSinceTick": 129056
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "etch-input": {},
+        "return-output": {}
+      },
+      "materialBatches": {
+        "etch-input": {},
+        "return-output": {}
+      },
+      "productionUtilities": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 81200,
+        "providerInterruptions": 0,
+        "unitTicks": 243600,
+        "utilities": {
+          "hazardous-exhaust": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 81200
+          },
+          "high-vacuum": {
+            "allocations": 12,
+            "unitsAllocated": 24,
+            "unitTicks": 162400
+          }
+        }
+      },
+      "status": "waiting-input"
+    },
+    "deposition-to-batch-furnace-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "deposition-to-batch-furnace-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "etch-1": {
+      "buffers": {
+        "final-output": {},
+        "loop-output": {},
+        "pattern-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "final-output": {},
+        "loop-output": {},
+        "pattern-input": {}
+      },
+      "maintenance": {
+        "assetLimit": 0,
+        "calendarTriggered": 0,
+        "cancelled": 0,
+        "completed": 2,
+        "crewBlocks": 0,
+        "crewWaitTicks": 0,
+        "driftDefects": 0,
+        "driftedJobs": 0,
+        "driftedLots": 0,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "jobsSinceMaintenance": 2,
+        "maintenanceTicks": 21000,
+        "opportunistic": 2,
+        "plannedBoundary": 0,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 2,
+        "qualificationConsumables": {
+          "tool-qualification-wafer": 2
+        },
+        "qualificationTicks": 7000,
+        "qualifiedAtTick": 108156,
+        "serviceConsumables": {
+          "chamber-clean-kit": 2
+        },
+        "usageTriggered": 2
+      },
+      "materialBatches": {
+        "final-output": {},
+        "loop-output": {},
+        "pattern-input": {}
+      },
+      "productionUtilities": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 60000,
+        "providerInterruptions": 0,
+        "unitTicks": 180000,
+        "utilities": {
+          "hazardous-exhaust": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 60000
+          },
+          "high-vacuum": {
+            "allocations": 12,
+            "unitsAllocated": 24,
+            "unitTicks": 120000
+          }
+        }
+      },
+      "setup": {
+        "campaignHolds": 0,
+        "campaignHoldTicks": 0,
+        "campaignMaximumHoldReleases": 0,
+        "campaignMinimumLotReleases": 0,
+        "changeovers": 0,
+        "group": "etch-recipe-l1",
+        "setupTicks": 0
+      },
+      "status": "waiting-input"
+    },
+    "etch-l2": {
+      "buffers": {
+        "final-output": {},
+        "loop-output": {},
+        "pattern-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "final-output": {},
+        "loop-output": {},
+        "pattern-input": {}
+      },
+      "maintenance": {
+        "assetLimit": 0,
+        "calendarTriggered": 0,
+        "cancelled": 0,
+        "completed": 2,
+        "crewBlocks": 0,
+        "crewWaitTicks": 0,
+        "driftDefects": 0,
+        "driftedJobs": 0,
+        "driftedLots": 0,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "jobsSinceMaintenance": 2,
+        "maintenanceTicks": 21000,
+        "opportunistic": 2,
+        "plannedBoundary": 0,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 2,
+        "qualificationConsumables": {
+          "tool-qualification-wafer": 2
+        },
+        "qualificationTicks": 7000,
+        "qualifiedAtTick": 136856,
+        "serviceConsumables": {
+          "chamber-clean-kit": 2
+        },
+        "usageTriggered": 2
+      },
+      "materialBatches": {
+        "final-output": {},
+        "loop-output": {},
+        "pattern-input": {}
+      },
+      "productionUtilities": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 60000,
+        "providerInterruptions": 0,
+        "unitTicks": 180000,
+        "utilities": {
+          "hazardous-exhaust": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 60000
+          },
+          "high-vacuum": {
+            "allocations": 12,
+            "unitsAllocated": 24,
+            "unitTicks": 120000
+          }
+        }
+      },
+      "setup": {
+        "campaignHolds": 0,
+        "campaignHoldTicks": 0,
+        "campaignMaximumHoldReleases": 0,
+        "campaignMinimumLotReleases": 0,
+        "changeovers": 1,
+        "group": "etch-recipe-l2",
+        "setupTicks": 3000
+      },
+      "status": "waiting-input"
+    },
+    "etch-to-deposition-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "etch-to-deposition-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "etch-to-inspection-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "etch-to-inspection-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "fab-utility-plant-1": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle",
+      "utilityProvider": {
+        "allocations": 36,
+        "cancelled": 0,
+        "capacity": {
+          "hazardous-exhaust": 2,
+          "high-vacuum": 6
+        },
+        "completed": 36,
+        "interruptedJobs": 0,
+        "occupiedTicks": 234400,
+        "peakReserved": {
+          "hazardous-exhaust": 1,
+          "high-vacuum": 4
+        },
+        "reserved": {},
+        "unitTicks": 387600,
+        "utilities": {
+          "hazardous-exhaust": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 81200
+          },
+          "high-vacuum": {
+            "allocations": 24,
+            "unitsAllocated": 48,
+            "unitTicks": 306400
+          }
+        }
+      }
+    },
+    "fab-utility-plant-2": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle",
+      "utilityProvider": {
+        "allocations": 0,
+        "cancelled": 0,
+        "capacity": {
+          "hazardous-exhaust": 2,
+          "high-vacuum": 6
+        },
+        "completed": 0,
+        "interruptedJobs": 0,
+        "occupiedTicks": 0,
+        "peakReserved": {},
+        "reserved": {},
+        "unitTicks": 0,
+        "utilities": {}
+      }
+    },
+    "fab-utility-plant-3": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle",
+      "utilityProvider": {
+        "allocations": 60,
+        "cancelled": 0,
+        "capacity": {
+          "hazardous-exhaust": 2,
+          "high-vacuum": 6
+        },
+        "completed": 60,
+        "interruptedJobs": 0,
+        "occupiedTicks": 312000,
+        "peakReserved": {
+          "hazardous-exhaust": 2,
+          "high-vacuum": 6
+        },
+        "reserved": {},
+        "unitTicks": 504000,
+        "utilities": {
+          "hazardous-exhaust": {
+            "allocations": 24,
+            "unitsAllocated": 24,
+            "unitTicks": 120000
+          },
+          "high-vacuum": {
+            "allocations": 36,
+            "unitsAllocated": 72,
+            "unitTicks": 384000
+          }
+        }
+      }
+    },
+    "furnace-1": {
+      "batchFormation": {
+        "draining": false,
+        "holds": 0,
+        "holdTicks": 0,
+        "preferredReleases": 0,
+        "timeoutReleases": 0
+      },
+      "buffers": {
+        "batch-input": {},
+        "batch-output": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "batch-input": {},
+        "batch-output": {}
+      },
+      "materialBatches": {
+        "batch-input": {},
+        "batch-output": {}
+      },
+      "status": "waiting-input"
+    },
+    "inspection-1": {
+      "buffers": {
+        "pass-output": {},
+        "reject-output": {},
+        "scrap-output": {},
+        "wafer-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "pass-output": {},
+        "reject-output": {},
+        "scrap-output": {},
+        "wafer-input": {}
+      },
+      "maintenance": {
+        "assetLimit": 0,
+        "calendarTriggered": 0,
+        "cancelled": 0,
+        "completed": 0,
+        "crewBlocks": 0,
+        "crewWaitTicks": 0,
+        "driftDefects": 0,
+        "driftedJobs": 0,
+        "driftedLots": 0,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "jobsSinceMaintenance": 14,
+        "maintenanceTicks": 0,
+        "opportunistic": 0,
+        "plannedBoundary": 0,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 0,
+        "qualificationConsumables": {},
+        "qualificationTicks": 0,
+        "qualifiedAtTick": 0,
+        "serviceConsumables": {},
+        "usageTriggered": 0
+      },
+      "materialBatches": {
+        "pass-output": {},
+        "reject-output": {},
+        "scrap-output": {},
+        "wafer-input": {}
+      },
+      "status": "waiting-input"
+    },
+    "inspection-to-probe-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "inspection-to-probe-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "inspection-to-rework-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "inspection-to-rework-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "inspection-to-scrap-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "inspection-to-scrap-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "lithography-1": {
+      "buffers": {
+        "pattern-output": {},
+        "reentrant-input": {},
+        "release-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "pattern-output": {},
+        "reentrant-input": {},
+        "release-input": {}
+      },
+      "maintenance": {
+        "assetLimit": 0,
+        "calendarTriggered": 0,
+        "cancelled": 0,
+        "completed": 2,
+        "crewBlocks": 0,
+        "crewWaitTicks": 0,
+        "driftDefects": 0,
+        "driftedJobs": 0,
+        "driftedLots": 0,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "jobsSinceMaintenance": 0,
+        "maintenanceTicks": 26000,
+        "opportunistic": 0,
+        "plannedBoundary": 2,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 2,
+        "qualificationConsumables": {
+          "tool-qualification-wafer": 2
+        },
+        "qualificationTicks": 8000,
+        "qualifiedAtTick": 120556,
+        "serviceConsumables": {
+          "chamber-clean-kit": 2
+        },
+        "usageTriggered": 2
+      },
+      "materialBatches": {
+        "pattern-output": {},
+        "reentrant-input": {},
+        "release-input": {}
+      },
+      "productionTooling": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 72000,
+        "resources": {
+          "reticle-mask-set-l1": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 72000
+          }
+        },
+        "unitTicks": 72000
+      },
+      "productionUtilities": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 72000,
+        "providerInterruptions": 0,
+        "unitTicks": 144000,
+        "utilities": {
+          "high-vacuum": {
+            "allocations": 12,
+            "unitsAllocated": 24,
+            "unitTicks": 144000
+          }
+        }
+      },
+      "setup": {
+        "campaignHolds": 0,
+        "campaignHoldTicks": 0,
+        "campaignMaximumHoldReleases": 0,
+        "campaignMinimumLotReleases": 0,
+        "changeovers": 0,
+        "group": "photo-mask-l1",
+        "setupTicks": 0
+      },
+      "status": "waiting-input"
+    },
+    "lithography-l2": {
+      "buffers": {
+        "pattern-output": {},
+        "reentrant-input": {},
+        "release-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "pattern-output": {},
+        "reentrant-input": {},
+        "release-input": {}
+      },
+      "maintenance": {
+        "assetLimit": 0,
+        "calendarTriggered": 0,
+        "cancelled": 0,
+        "completed": 2,
+        "crewBlocks": 0,
+        "crewWaitTicks": 0,
+        "driftDefects": 0,
+        "driftedJobs": 0,
+        "driftedLots": 0,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "jobsSinceMaintenance": 0,
+        "maintenanceTicks": 26000,
+        "opportunistic": 2,
+        "plannedBoundary": 0,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 2,
+        "qualificationConsumables": {
+          "tool-qualification-wafer": 2
+        },
+        "qualificationTicks": 8000,
+        "qualifiedAtTick": 155656,
+        "serviceConsumables": {
+          "chamber-clean-kit": 2
+        },
+        "usageTriggered": 2
+      },
+      "materialBatches": {
+        "pattern-output": {},
+        "reentrant-input": {},
+        "release-input": {}
+      },
+      "productionTooling": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 72000,
+        "resources": {
+          "reticle-mask-set-l2": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 72000
+          }
+        },
+        "unitTicks": 72000
+      },
+      "productionUtilities": {
+        "allocations": 12,
+        "cancelled": 0,
+        "completed": 12,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "occupiedTicks": 72000,
+        "providerInterruptions": 0,
+        "unitTicks": 144000,
+        "utilities": {
+          "high-vacuum": {
+            "allocations": 12,
+            "unitsAllocated": 24,
+            "unitTicks": 144000
+          }
+        }
+      },
+      "setup": {
+        "campaignHolds": 0,
+        "campaignHoldTicks": 0,
+        "campaignMaximumHoldReleases": 0,
+        "campaignMinimumLotReleases": 0,
+        "changeovers": 1,
+        "group": "photo-mask-l2",
+        "setupTicks": 4000
+      },
+      "status": "waiting-input"
+    },
+    "lithography-to-etch-lithography-l2-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "lithography-to-etch-lithography-l2-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "lithography-to-etch-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "lithography-to-etch-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "lot-release": {
+      "buffers": {
+        "storage": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
+      "materialBatches": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "maintenance-service-1": {
+      "buffers": {
+        "service-store": {
+          "chamber-clean-kit": 8,
+          "metrology-calibration-kit": 16,
+          "metrology-reference-wafer": 16,
+          "tool-qualification-wafer": 8
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "service-store": {}
+      },
+      "maintenanceProvider": {
+        "assignments": 16,
+        "cancelled": 0,
+        "completed": 16,
+        "consumables": {
+          "chamber-clean-kit": 8,
+          "tool-qualification-wafer": 8
+        },
+        "crews": 2,
+        "crewsInUse": 0,
+        "peakCrewsInUse": 2,
+        "qualificationAssignments": 8,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 8,
+        "qualificationCrewTicks": 30000,
+        "serviceCrewTicks": 94000
+      },
+      "materialBatches": {
+        "service-store": {
+          "chamber-clean-kit": {
+            "0": 8
+          },
+          "metrology-calibration-kit": {
+            "0": 16
+          },
+          "metrology-reference-wafer": {
+            "0": 16
+          },
+          "tool-qualification-wafer": {
+            "0": 8
+          }
+        }
+      },
+      "status": "idle"
+    },
+    "packaging-1": {
+      "buffers": {
+        "die-input": {},
+        "package-output": {},
+        "substrate-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "die-input": {},
+        "package-output": {},
+        "substrate-input": {}
+      },
+      "materialBatches": {
+        "die-input": {},
+        "package-output": {},
+        "substrate-input": {}
+      },
+      "status": "waiting-input"
+    },
+    "packaging-to-burn-in-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "packaging-to-burn-in-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "performance-customer": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "performance-to-customer-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "performance-to-customer-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "probe-1": {
+      "buffers": {
+        "die-output": {},
+        "wafer-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "die-output": {},
+        "wafer-input": {}
+      },
+      "materialBatches": {
+        "die-output": {},
+        "wafer-input": {}
+      },
+      "status": "waiting-input"
+    },
+    "probe-to-packaging-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "probe-to-packaging-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "unpowered"
+    },
+    "quality-scrap": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "release-to-lithography-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "release-to-lithography-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "reticle-stocker-1": {
+      "buffers": {
+        "reticle-inventory": {
+          "reticle-mask-set-l1": 1,
+          "reticle-mask-set-l2": 1
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "reticle-inventory": {}
+      },
+      "materialBatches": {
+        "reticle-inventory": {
+          "reticle-mask-set-l1": {
+            "0": 1
+          },
+          "reticle-mask-set-l2": {
+            "0": 1
+          }
+        }
+      },
+      "status": "idle",
+      "toolingProvider": {
+        "allocations": 24,
+        "cancelled": 0,
+        "completed": 24,
+        "occupiedTicks": 144000,
+        "peakReserved": {
+          "reticle-mask-set-l1": 1,
+          "reticle-mask-set-l2": 1
+        },
+        "reserved": {},
+        "resources": {
+          "reticle-mask-set-l1": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 72000
+          },
+          "reticle-mask-set-l2": {
+            "allocations": 12,
+            "unitsAllocated": 12,
+            "unitTicks": 72000
+          }
+        },
+        "unitTicks": 144000
+      }
+    },
+    "rework-1": {
+      "buffers": {
+        "recovered-output": {},
+        "reject-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "recovered-output": {},
+        "reject-input": {}
+      },
+      "maintenance": {
+        "assetLimit": 0,
+        "calendarTriggered": 0,
+        "cancelled": 0,
+        "completed": 0,
+        "crewBlocks": 0,
+        "crewWaitTicks": 0,
+        "driftDefects": 0,
+        "driftedJobs": 0,
+        "driftedLots": 0,
+        "inputBlocks": 0,
+        "inputWaitTicks": 0,
+        "jobsSinceMaintenance": 2,
+        "maintenanceTicks": 0,
+        "opportunistic": 0,
+        "plannedBoundary": 0,
+        "qualificationCancelled": 0,
+        "qualificationCompleted": 0,
+        "qualificationConsumables": {},
+        "qualificationTicks": 0,
+        "qualifiedAtTick": 0,
+        "serviceConsumables": {},
+        "usageTriggered": 0
+      },
+      "materialBatches": {
+        "recovered-output": {},
+        "reject-input": {}
+      },
+      "status": "waiting-input"
+    },
+    "rework-to-inspection-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "rework-to-inspection-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "shipping-power": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "substrate-receiving": {
+      "buffers": {
+        "storage": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
+      "materialBatches": {
+        "storage": {}
+      },
+      "status": "idle"
+    },
+    "substrate-receiving-to-packaging-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "unpowered"
+    },
+    "substrate-receiving-to-packaging-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "unpowered"
+    }
+  },
+  "energy": {
+    "availableMilliWatts": 3600000,
+    "consumedMilliJoules": 411721146,
+    "fuelConsumed": {},
+    "grids": {
+      "grid-cleanroom-cleanroom-power-a": {
+        "availableMilliWatts": 3000000,
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 314562700,
+        "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
+      },
+      "grid-cleanroom-shipping-power": {
+        "availableMilliWatts": 600000,
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 97158446,
+        "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
+      }
+    }
+  },
+  "highSpeedMissions": 0,
+  "logisticsMissions": {},
+  "logisticsTransports": {},
+  "lotReleaseControl": {
+    "open": true
+  },
+  "lots": {
+    "dram-lot-01": {
+      "completedAtTick": 60556,
+      "dueTick": 240000,
+      "family": "dram-wafer",
+      "id": "dram-lot-01",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 0,
+      "priority": 1,
+      "processTicks": 45156,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 7000,
+      "releasedAtTick": 0,
+      "releaseWait": {
+        "encountered": [],
+        "reason": null,
+        "sinceTick": 0,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 0,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 4200,
+            "starts": 1,
+            "totalTicks": 4200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 5600,
+            "starts": 1,
+            "totalTicks": 5600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 700,
+            "starts": 1,
+            "totalTicks": 700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-02": {
+      "completedAtTick": 68556,
+      "dueTick": 230000,
+      "family": "dram-wafer",
+      "id": "dram-lot-02",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 6000,
+      "priority": 1,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 7600,
+      "releasedAtTick": 6000,
+      "releaseWait": {
+        "encountered": [],
+        "reason": null,
+        "sinceTick": 6000,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 0,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 3200,
+            "starts": 1,
+            "totalTicks": 3200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 4200,
+            "starts": 1,
+            "totalTicks": 4200,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 3700,
+            "starts": 1,
+            "totalTicks": 3700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-03": {
+      "completedAtTick": 84556,
+      "dueTick": 220000,
+      "family": "dram-wafer",
+      "id": "dram-lot-03",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 12000,
+      "priority": 1,
+      "processTicks": 54112,
+      "quality": {
+        "appliedExcursions": [
+          "cd-excursion-lot-03"
+        ],
+        "defects": [],
+        "inspections": 2,
+        "passes": 1,
+        "rejections": 1,
+        "reworkCycles": 1,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 6244,
+      "releasedAtTick": 12000,
+      "releaseWait": {
+        "encountered": [],
+        "reason": null,
+        "sinceTick": 12000,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 0,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 10,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 2000,
+            "starts": 1,
+            "totalTicks": 2000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 2200,
+            "starts": 1,
+            "totalTicks": 2200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 2600,
+            "starts": 2,
+            "totalTicks": 3500,
+            "violations": 0
+          },
+          "final-pattern-rework": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 3200,
+            "starts": 1,
+            "totalTicks": 3200,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 3344,
+            "starts": 1,
+            "totalTicks": 3344,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 1,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 2,
+          "final-pattern-rework": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 12200,
+      "treatmentLevel": 0
+    },
+    "dram-lot-04": {
+      "completedAtTick": 76556,
+      "dueTick": 210000,
+      "family": "dram-wafer",
+      "id": "dram-lot-04",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 18000,
+      "priority": 1,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 3600,
+      "releasedAtTick": 18000,
+      "releaseWait": {
+        "encountered": [],
+        "reason": null,
+        "sinceTick": 18000,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 0,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 3000,
+            "starts": 1,
+            "totalTicks": 3000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 2200,
+            "starts": 1,
+            "totalTicks": 2200,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 1700,
+            "starts": 1,
+            "totalTicks": 1700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-05": {
+      "completedAtTick": 92556,
+      "dueTick": 200000,
+      "family": "dram-wafer",
+      "id": "dram-lot-05",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 24000,
+      "priority": 1,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 13500,
+      "releasedAtTick": 24000,
+      "releaseWait": {
+        "encountered": [],
+        "reason": null,
+        "sinceTick": 24000,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 0,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 4000,
+            "starts": 1,
+            "totalTicks": 4000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 4412,
+            "starts": 1,
+            "totalTicks": 4412,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 7788,
+            "starts": 1,
+            "totalTicks": 7788,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8500,
+      "treatmentLevel": 0
+    },
+    "dram-lot-06": {
+      "completedAtTick": 100556,
+      "dueTick": 190000,
+      "family": "dram-wafer",
+      "id": "dram-lot-06",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 30000,
+      "priority": 1,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 15600,
+      "releasedAtTick": 30000,
+      "releaseWait": {
+        "encountered": [],
+        "reason": null,
+        "sinceTick": 30000,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 0,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 10600,
+            "starts": 1,
+            "totalTicks": 10600,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 4200,
+            "starts": 1,
+            "totalTicks": 4200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 3800,
+            "starts": 1,
+            "totalTicks": 3800,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-07": {
+      "completedAtTick": 162012,
+      "dueTick": 180000,
+      "family": "dram-wafer",
+      "id": "dram-lot-07",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 36000,
+      "priority": 5,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 6500,
+      "releasedAtTick": 100556,
+      "releaseWait": {
+        "encountered": [
+          "conwip-limit"
+        ],
+        "reason": null,
+        "sinceTick": 100556,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 64556,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 3000,
+            "starts": 1,
+            "totalTicks": 3000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 5600,
+            "starts": 1,
+            "totalTicks": 5600,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 700,
+            "starts": 1,
+            "totalTicks": 700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-08": {
+      "completedAtTick": 170012,
+      "dueTick": 170000,
+      "family": "dram-wafer",
+      "id": "dram-lot-08",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 42000,
+      "priority": 5,
+      "processTicks": 54112,
+      "quality": {
+        "appliedExcursions": [
+          "particle-excursion-lot-08"
+        ],
+        "defects": [],
+        "inspections": 2,
+        "passes": 1,
+        "rejections": 1,
+        "reworkCycles": 1,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 11144,
+      "releasedAtTick": 92556,
+      "releaseWait": {
+        "encountered": [
+          "conwip-limit"
+        ],
+        "reason": null,
+        "sinceTick": 92556,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 50556,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 10,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 8600,
+            "starts": 1,
+            "totalTicks": 8600,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 2600,
+            "starts": 2,
+            "totalTicks": 3500,
+            "violations": 0
+          },
+          "final-pattern-rework": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 4344,
+            "starts": 1,
+            "totalTicks": 4344,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 1,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 2,
+          "final-pattern-rework": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 12200,
+      "treatmentLevel": 0
+    },
+    "dram-lot-09": {
+      "completedAtTick": 139512,
+      "dueTick": 160000,
+      "family": "dram-wafer",
+      "id": "dram-lot-09",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 48000,
+      "priority": 5,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 0,
+      "releasedAtTick": 84556,
+      "releaseWait": {
+        "encountered": [
+          "conwip-limit"
+        ],
+        "reason": null,
+        "sinceTick": 84556,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 36556,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 700,
+            "starts": 1,
+            "totalTicks": 700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-10": {
+      "completedAtTick": 131512,
+      "dueTick": 150000,
+      "family": "dram-wafer",
+      "id": "dram-lot-10",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 54000,
+      "priority": 10,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 0,
+      "releasedAtTick": 76556,
+      "releaseWait": {
+        "encountered": [
+          "conwip-limit"
+        ],
+        "reason": null,
+        "sinceTick": 76556,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 22556,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 700,
+            "starts": 1,
+            "totalTicks": 700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-11": {
+      "completedAtTick": 114112,
+      "dueTick": 140000,
+      "family": "dram-wafer",
+      "id": "dram-lot-11",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 60000,
+      "priority": 10,
+      "processTicks": 45156,
+      "quality": {
+        "appliedExcursions": [
+          "latent-electrical-lot-11"
+        ],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 0,
+      "releasedAtTick": 60556,
+      "releaseWait": {
+        "encountered": [
+          "conwip-limit"
+        ],
+        "reason": null,
+        "sinceTick": 60556,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 556,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 700,
+            "starts": 1,
+            "totalTicks": 700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    },
+    "dram-lot-12": {
+      "completedAtTick": 123512,
+      "dueTick": 130000,
+      "family": "dram-wafer",
+      "id": "dram-lot-12",
+      "location": {
+        "device": "probe-1",
+        "kind": "completed"
+      },
+      "plannedReleaseTick": 66000,
+      "priority": 10,
+      "processTicks": 46556,
+      "quality": {
+        "appliedExcursions": [],
+        "defects": [],
+        "inspections": 1,
+        "passes": 1,
+        "rejections": 0,
+        "reworkCycles": 0,
+        "scrapDispositions": 0
+      },
+      "queueTicks": 0,
+      "releasedAtTick": 68556,
+      "releaseWait": {
+        "encountered": [
+          "conwip-limit"
+        ],
+        "reason": null,
+        "sinceTick": 68556,
+        "ticks": {
+          "buffer-capacity": 0,
+          "conwip-limit": 2556,
+          "resource-capacity": 0
+        }
+      },
+      "resource": "qualified-dram-wafer-lot",
+      "route": {
+        "completedSteps": 8,
+        "id": "dram-front-end",
+        "queue": {
+          "anneal-dielectric-stack": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "deposit-dielectric-stack": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "etch-cell-layer-1": {
+            "maximumTicks": 1100,
+            "starts": 1,
+            "totalTicks": 1100,
+            "violations": 0
+          },
+          "etch-cell-layer-2": {
+            "maximumTicks": 1200,
+            "starts": 1,
+            "totalTicks": 1200,
+            "violations": 0
+          },
+          "final-inspection": {
+            "maximumTicks": 900,
+            "starts": 1,
+            "totalTicks": 900,
+            "violations": 0
+          },
+          "pattern-cell-layer-1": {
+            "maximumTicks": 1000,
+            "starts": 1,
+            "totalTicks": 1000,
+            "violations": 0
+          },
+          "pattern-cell-layer-2": {
+            "maximumTicks": 1600,
+            "starts": 1,
+            "totalTicks": 1600,
+            "violations": 0
+          },
+          "probe-dram": {
+            "maximumTicks": 700,
+            "starts": 1,
+            "totalTicks": 700,
+            "violations": 0
+          }
+        },
+        "queueTimeViolations": 0,
+        "reentrantTransitions": 0,
+        "step": null,
+        "stepEnteredAtTick": null,
+        "terminal": "complete",
+        "visits": {
+          "anneal-dielectric-stack": 1,
+          "deposit-dielectric-stack": 1,
+          "etch-cell-layer-1": 1,
+          "etch-cell-layer-2": 1,
+          "final-inspection": 1,
+          "pattern-cell-layer-1": 1,
+          "pattern-cell-layer-2": 1,
+          "probe-dram": 1
+        }
+      },
+      "status": "completed",
+      "statusSinceTick": 240000,
+      "transportTicks": 8400,
+      "treatmentLevel": 0
+    }
+  },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
+  "produced": {
+    "annealed-dielectric-stack-lot": 12,
+    "automotive-dram-device": 12,
+    "commercial-dram-device": 52,
+    "dielectric-stack-lot": 12,
+    "dram-wafer-lot": 14,
+    "etched-cell-l1-lot": 12,
+    "known-good-dram-die": 96,
+    "packaged-dram-device": 96,
+    "patterned-cell-l1-lot": 12,
+    "patterned-cell-l2-lot": 12,
+    "performance-dram-device": 24,
+    "qualified-dram-wafer-lot": 12,
+    "rework-required-dram-wafer-lot": 2
+  },
+  "resourceNodes": {},
+  "tick": 240000,
+  "transports": {
+    "automotive-to-customer": [],
+    "batch-furnace-to-lithography": [],
+    "commercial-to-customer": [
+      {
+        "arriveTick": 240206,
+        "cellIndex": -1,
+        "count": 1,
+        "departTick": 238406,
+        "from": "burn-in-1",
+        "fromBuffer": "commercial-output",
+        "id": "transit-000473",
+        "phase": "unloading",
+        "readyTick": 240206,
+        "resource": "commercial-dram-device",
+        "to": "commercial-customer",
+        "toBuffer": "input",
+        "treatmentLevel": 0
+      }
+    ],
+    "deposition-to-batch-furnace": [],
+    "etch-to-deposition": [],
+    "etch-to-inspection": [],
+    "inspection-to-probe": [],
+    "inspection-to-rework": [],
+    "inspection-to-scrap": [],
+    "lithography-to-etch": [],
+    "lithography-to-etch-lithography-l2": [],
+    "packaging-to-burn-in": [],
+    "performance-to-customer": [],
+    "probe-to-packaging": [],
+    "release-to-lithography": [],
+    "rework-to-inspection": [],
+    "substrate-receiving-to-packaging": []
+  }
+}

@@ -3,7 +3,16 @@ import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
 import { analyzeInputStarvation, analyzeQualityContributors, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
-import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics } from "./types";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, TransportBlockTicks } from "./types";
+
+const transportBlockTicks = (
+  values: Partial<Record<keyof TransportBlockTicks, Partial<TransportBlockTicks[keyof TransportBlockTicks]>>> = {},
+): TransportBlockTicks => ({
+  "line-contention": { line: 0, loader: 0, unloader: 0, ...values["line-contention"] },
+  "endpoint-capacity": { line: 0, loader: 0, unloader: 0, ...values["endpoint-capacity"] },
+  "endpoint-power": { line: 0, loader: 0, unloader: 0, ...values["endpoint-power"] },
+  "endpoint-failure": { line: 0, loader: 0, unloader: 0, ...values["endpoint-failure"] },
+});
 
 const clearTransportFlow = {
   departedItems: 12,
@@ -17,6 +26,7 @@ const clearTransportFlow = {
   averageInFlightItems: .6,
   blockedItemTicks: 0,
   blockedFraction: 0,
+  blockedItemTicksByCause: transportBlockTicks(),
 } satisfies FactoryMetrics["transportFlows"][string];
 
 test("necessary tracked-lot transit is context rather than recoverable transport loss", () => {
@@ -29,7 +39,7 @@ test("necessary tracked-lot transit is context rather than recoverable transport
 
   expect(bucket).toMatchObject({
     score: 0,
-    summary: "Tracked lots averaged 9.0 s in necessary transit (context only); 0/1 physical lanes accumulated 0.0 blocked item-s.",
+    summary: "Tracked lots averaged 9.0 s in necessary transit (context only); 0/1 connections accumulated 0.0 blocked item-s (0.0 line, 0.0 endpoint capacity, 0.0 endpoint power, 0.0 endpoint failure).",
     subjects: [{ kind: "project", id: "dram-wafer" }],
     evidence: {
       connections: 1,
@@ -41,7 +51,7 @@ test("necessary tracked-lot transit is context rather than recoverable transport
   });
 });
 
-test("physical transport blocking identifies only positive connection contributors", () => {
+test("transport blocking identifies positive connections and preserves exact physical causes", () => {
   const bucket = analyzeTransportBlocking({
     lotFlow: { family: "dram-wafer", meanTransportTimeTicks: 9_000 },
     transportFlows: {
@@ -52,6 +62,10 @@ test("physical transport blocking identifies only positive connection contributo
         deliveredByResource: { "blank-dram-wafer-lot": 7 },
         blockedItemTicks: 6_000,
         blockedFraction: .25,
+        blockedItemTicksByCause: transportBlockTicks({
+          "line-contention": { line: 2_000 },
+          "endpoint-capacity": { unloader: 4_000 },
+        }),
       },
     },
   }, 100_000);
@@ -64,11 +78,15 @@ test("physical transport blocking identifies only positive connection contributo
       blockedConnections: 1,
       meanTransportTicks: 9_000,
       blockedItemTicks: 6_000,
+      lineContentionTicks: 2_000,
+      endpointCapacityTicks: 4_000,
+      endpointPowerTicks: 0,
+      endpointFailureTicks: 0,
     },
     contributors: [{
-      id: "connection:blocked-lane:physical-lane-blocking",
+      id: "connection:blocked-lane:transport-endpoint-capacity",
       label: "blocked-lane",
-      mechanism: "physical-lane-blocking",
+      mechanism: "transport-endpoint-capacity",
       resources: ["blank-dram-wafer-lot"],
       subjects: [{ kind: "connection", id: "blocked-lane" }],
       evidence: {
@@ -77,9 +95,27 @@ test("physical transport blocking identifies only positive connection contributo
         utilization: .3,
         deliveredItemsPerMinute: 72,
         capacityItemsPerMinute: 240,
+        lineContentionTicks: 2_000,
+        endpointCapacityTicks: 4_000,
+        endpointPowerTicks: 0,
+        endpointFailureTicks: 0,
+        loaderCapacityTicks: 0,
+        unloaderCapacityTicks: 4_000,
       },
     }],
   });
+});
+
+test("transport blocking rejects a total that disagrees with its strict physical-cause partition", () => {
+  expect(() => analyzeTransportBlocking({
+    lotFlow: { family: "dram-wafer", meanTransportTimeTicks: 9_000 },
+    transportFlows: {
+      "invalid-lane": {
+        ...clearTransportFlow,
+        blockedItemTicks: 1,
+      },
+    },
+  }, 100_000)).toThrow("physical-cause partition sums to 0");
 });
 
 test("input starvation counts only available gaps between repeated productive jobs", async () => {

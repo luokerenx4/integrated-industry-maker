@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `synthesized`
 - Score: **59.335**
-- Result hash: `365684c8fc7fe0ac020ef3a95f9b7c8a48d6b870e1cb7a7ff93fc2d1cb0023d9`
+- Result hash: `332f2eaf3236b5fe2b24ac6d18be51d4c30ed92ced1cfafd0b80b27881db2af9`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Delivery portfolio: 100.0% demand attainment · 24.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -42,20 +42,22 @@
 
 ## Measured transport flows
 
-| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
-| --- | ---: | ---: | ---: | --- |
-| synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1 | 33.000 / 240.000 | 13.8% | 0 | 66 iron-ore |
-| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 12.000 / 120.000 | 10.0% | 9600 | 24 gear |
-| synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1 | 10.500 / 120.000 | 8.8% | 0 | 21 coal |
-| synth-coal-synth-coal-extractor-1-to-synth-coal-split | 20.000 / 240.000 | 8.3% | 0 | 40 coal |
-| synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split | 17.000 / 240.000 | 7.1% | 0 | 34 proliferator |
-| synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1 | 14.000 / 240.000 | 5.8% | 0 | 28 iron-plate |
-| synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1 | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
-| synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1 | 10.000 / 240.000 | 4.2% | 0 | 20 iron-plate |
-| synth-coal-synth-coal-split-to-synth-make-proliferator-1 | 9.500 / 240.000 | 4.0% | 0 | 19 coal |
-| synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1 | 7.000 / 240.000 | 2.9% | 0 | 14 coal |
-| synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1 | 6.500 / 240.000 | 2.7% | 0 | 13 proliferator |
-| synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1 | 6.500 / 240.000 | 2.7% | 0 | 13 proliferator |
+Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| synth-iron-ore-synth-iron-ore-extractor-1-to-synth-smelt-iron-1 | 33.000 / 240.000 | 13.8% | 0 | 0 | 0 | 0 | 0 | 66 iron-ore |
+| synth-gear-synth-forge-gear-pair-1-to-synth-gear-sink | 12.000 / 120.000 | 10.0% | 9600 | 3000 | 6600 | 0 | 0 | 24 gear |
+| synth-coal-synth-coal-split-to-synth-coal-synth-forge-gear-pair-1-coater-1 | 10.500 / 120.000 | 8.8% | 0 | 0 | 0 | 0 | 0 | 21 coal |
+| synth-coal-synth-coal-extractor-1-to-synth-coal-split | 20.000 / 240.000 | 8.3% | 0 | 0 | 0 | 0 | 0 | 40 coal |
+| synth-proliferator-synth-make-proliferator-1-to-synth-proliferator-split | 17.000 / 240.000 | 7.1% | 0 | 0 | 0 | 0 | 0 | 34 proliferator |
+| synth-iron-plate-synth-smelt-iron-1-to-synth-iron-plate-forge-zone-station-supply-1 | 14.000 / 240.000 | 5.8% | 0 | 0 | 0 | 0 | 0 | 28 iron-plate |
+| synth-iron-plate-synth-iron-plate-assembly-zone-station-demand-1-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1 | 11.000 / 240.000 | 4.6% | 0 | 0 | 0 | 0 | 0 | 22 iron-plate |
+| synth-iron-plate-synth-iron-plate-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1 | 10.000 / 240.000 | 4.2% | 0 | 0 | 0 | 0 | 0 | 20 iron-plate |
+| synth-coal-synth-coal-split-to-synth-make-proliferator-1 | 9.500 / 240.000 | 4.0% | 0 | 0 | 0 | 0 | 0 | 19 coal |
+| synth-coal-synth-coal-synth-forge-gear-pair-1-coater-1-to-synth-forge-gear-pair-1 | 7.000 / 240.000 | 2.9% | 0 | 0 | 0 | 0 | 0 | 14 coal |
+| synth-proliferator-synth-proliferator-split-to-synth-coal-synth-forge-gear-pair-1-coater-1 | 6.500 / 240.000 | 2.7% | 0 | 0 | 0 | 0 | 0 | 13 proliferator |
+| synth-proliferator-synth-proliferator-split-to-synth-iron-plate-synth-forge-gear-pair-1-coater-1 | 6.500 / 240.000 | 2.7% | 0 | 0 | 0 | 0 | 0 | 13 proliferator |
 
 ## Grid storage
 

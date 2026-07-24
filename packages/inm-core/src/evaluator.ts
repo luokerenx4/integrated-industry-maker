@@ -1,4 +1,5 @@
-import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, FactoryState, ScoreBreakdown, Tick } from "./types";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, FactoryState, ScoreBreakdown, Tick, TransportBlockTicks } from "./types";
+import { emptyTransportBlockTicks, totalTransportBlockTicks } from "./transport-blocking";
 
 export interface SimulationStats {
   durations: Record<string, Record<string, Tick>>;
@@ -16,7 +17,7 @@ export interface SimulationStats {
   releaseControlServiceLevelOpenings: number;
   transportStageActiveArea: Record<string, { loader: number; unloader: number }>;
   connectionOccupancyArea: Record<string, number>;
-  connectionBlockedArea: Record<string, number>;
+  connectionBlockedAreaByCause: Record<string, TransportBlockTicks>;
   connectionDepartedItems: Record<string, number>;
   connectionDeliveredItems: Record<string, number>;
   connectionDepartedByResource: Record<string, Record<string, number>>;
@@ -393,13 +394,17 @@ export function evaluateFactory(
     const effectiveStackSize = equivalentStacks > 0 ? deliveredItems / equivalentStacks : connection.maxStackSize;
     const capacityItemsPerMinute = effectiveStackSize * 60_000 / connection.dispatchIntervalTicks;
     const occupancyArea = stats.connectionOccupancyArea[connection.id] ?? 0;
-    const blockedItemTicks = stats.connectionBlockedArea[connection.id] ?? 0;
+    const blockedItemTicksByCause = structuredClone(
+      stats.connectionBlockedAreaByCause[connection.id] ?? emptyTransportBlockTicks(),
+    );
+    const blockedItemTicks = totalTransportBlockTicks(blockedItemTicksByCause);
     return [connection.id, {
       departedItems, deliveredItems, departedByResource, deliveredByResource, departedItemsPerMinute, deliveredItemsPerMinute, capacityItemsPerMinute,
       utilization: deliveredItemsPerMinute / capacityItemsPerMinute,
       averageInFlightItems: occupancyArea / duration,
       blockedItemTicks,
       blockedFraction: blockedItemTicks / Math.max(1, occupancyArea),
+      blockedItemTicksByCause,
     }];
   }));
   const transportEntityCount = Object.keys(project.connections).length + Object.keys(project.logisticsNetworks).length;

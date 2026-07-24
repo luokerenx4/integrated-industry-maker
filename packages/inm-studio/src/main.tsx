@@ -1,5 +1,6 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BlueprintBenchmarkSummary, DesignProgramSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
+import { TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals } from "@inm/core/transport-blocking";
+import type { BlueprintBenchmarkSummary, DesignProgramSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, TransportBlockTicks, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -433,6 +434,7 @@ interface Metrics {
     departedItems: number; deliveredItems: number; departedByResource: Record<string, number>; deliveredByResource: Record<string, number>;
     departedItemsPerMinute: number; deliveredItemsPerMinute: number; capacityItemsPerMinute: number; utilization: number;
     averageInFlightItems: number; blockedItemTicks: number; blockedFraction: number;
+    blockedItemTicksByCause: TransportBlockTicks;
   }>;
   transportEnergyConsumedMilliJoules: number;
   bottleneckEntity: string | null;
@@ -1548,6 +1550,7 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
 }) {
   const analysis = data.analysis.connections.find((item) => item.connection === connection.id);
   const flow = data.metrics?.transportFlows[connection.id];
+  const blockCauses = flow ? transportBlockCauseTotals(flow.blockedItemTicksByCause) : null;
   const stageUtilization = data.metrics?.transportStageUtilization[connection.id];
   const liveCargo = frame.transits.filter((transit) => transit.kind === "belt" && transit.path === connection.id);
   const diagnostics = data.analysis.diagnostics.filter((diagnostic) => diagnostic.connection === connection.id);
@@ -1588,6 +1591,8 @@ function ConnectionInspector({ data, frame, connection, onClose, onSelection }: 
       <div className="inspector-section">
         <div className="inspector-section-title"><span>CONGESTION</span><b>{flow?.blockedItemTicks ?? 0} BLOCKED ITEM-TICKS</b></div>
         <div className="inspector-inline"><strong>{flow ? `${(flow.blockedFraction * 100).toFixed(2)}% blocked` : "NO RUN"}</strong><code>{flow ? `${flow.averageInFlightItems.toFixed(2)} average in flight` : "Select a completed run for telemetry"}</code></div>
+        {blockCauses && <div className="inspector-chip-row">{TRANSPORT_BLOCK_CAUSES.map((cause) =>
+          <span key={cause}>{TRANSPORT_BLOCK_CAUSE_LABELS[cause].toUpperCase()} · {blockCauses[cause]}</span>)}</div>}
       </div>
       {diagnostics.length > 0 && <div className="inspector-section inspector-diagnostics"><div className="inspector-section-title"><span>DIAGNOSTICS</span><b>{diagnostics.length}</b></div>{diagnostics.map((diagnostic, index) => <div key={`${diagnostic.code}-${index}`}><code>{diagnostic.code}</code><p>{diagnostic.message}</p></div>)}</div>}
     </div>
@@ -2058,11 +2063,20 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
     "inter-job-input-gap": "INTER-JOB INPUT GAP",
-    "physical-lane-blocking": "PHYSICAL LANE BLOCKING",
+    "transport-line-contention": "TRANSPORT LINE CONTENTION",
+    "transport-endpoint-capacity": "TRANSPORT ENDPOINT CAPACITY",
+    "transport-endpoint-power": "TRANSPORT ENDPOINT POWER",
+    "transport-endpoint-failure": "TRANSPORT ENDPOINT FAILURE",
     "quality-excursion": "AUTHORED QUALITY EXCURSION",
     "equipment-process-drift": "EQUIPMENT PROCESS DRIFT",
     "route-q-time-defect": "ROUTE Q-TIME DEFECT",
   })[mechanism];
+  const transportContributorBreakdown = (evidence: Record<string, number | undefined>) => [
+    ["line", evidence.lineContentionTicks],
+    ["endpoint capacity", evidence.endpointCapacityTicks],
+    ["endpoint power", evidence.endpointPowerTicks],
+    ["endpoint failure", evidence.endpointFailureTicks],
+  ].map(([label, ticks]) => `${label} ${((ticks as number) / 1000).toFixed(1)} item-s`).join(" · ");
   const followRecommendation = (target: WorkbenchNextActionTarget) => {
     if (target.kind === "diagnostic") {
       onDiagnosticFocus(target.diagnosticId);
@@ -2128,13 +2142,13 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           </article>)}</div>
         </div>}
         {transportContributors.length > 0 && <div className="q-time-contributors transport-contributors" data-testid="transport-blocking-contributors">
-          <header><span className="eyebrow">TRANSPORT-BLOCKING CONTRIBUTORS</span><small>Only measured physical backpressure is ranked; necessary transit remains context</small></header>
+          <header><span className="eyebrow">TRANSPORT-BLOCKING CONTRIBUTORS</span><small>Immediate physical cause is ranked; necessary transit remains context and downstream propagation remains visible</small></header>
           <div>{transportContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`transport-blocking-contributor-${contributor.label}`}>
-            <span><small>PHYSICAL LANE BLOCKING</small><strong>{contributor.label}</strong><code>{contributor.resources.join(" + ") || "no delivered resources"}</code></span>
+            <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.label}</strong><code>{contributor.resources.join(" + ") || "no delivered resources"}</code></span>
             <span><b>{(contributor.evidence.blockedItemTicks! / 1000).toFixed(1)}s</b><small>BLOCKED ITEM-TIME</small></span>
-            <span><b>{(contributor.evidence.blockedFraction! * 100).toFixed(1)}%</b><small>IN-FLIGHT BLOCKING</small></span>
+            <span><b>{(contributor.evidence.lineContentionTicks! / 1000).toFixed(1)}s</b><small>LINE CONTENTION</small></span>
             <span><b>{contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}</b><small>/ {contributor.evidence.capacityItemsPerMinute!.toFixed(1)} ITEMS/MIN</small></span>
-            <code>{contributor.evidence.deliveredItems} delivered · {contributor.evidence.averageInFlightItems!.toFixed(2)} average in flight</code>
+            <code>{transportContributorBreakdown(contributor.evidence)} · {contributor.evidence.deliveredItems} delivered · {contributor.evidence.averageInFlightItems!.toFixed(2)} average in flight</code>
           </article>)}</div>
         </div>}
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">

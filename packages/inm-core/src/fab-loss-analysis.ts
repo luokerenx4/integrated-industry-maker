@@ -1,4 +1,5 @@
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics } from "./types";
+import { totalTransportBlockTicks, transportBlockCauseTotals } from "./transport-blocking";
 
 export type FabLossBucketId =
   | "delivery-portfolio"
@@ -26,7 +27,10 @@ export type FabLossContributorMechanism =
   | "maintenance-qualification"
   | "equipment-availability"
   | "inter-job-input-gap"
-  | "physical-lane-blocking"
+  | "transport-line-contention"
+  | "transport-endpoint-capacity"
+  | "transport-endpoint-power"
+  | "transport-endpoint-failure"
   | "quality-excursion"
   | "equipment-process-drift"
   | "route-q-time-defect";
@@ -56,7 +60,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 5;
+  version: 6;
   family: string;
   outcome: {
     scheduled: number;
@@ -550,51 +554,89 @@ export function analyzeTransportBlocking(
     .sort(([left], [right]) => left.localeCompare(right));
   const contributors: FabLossContributor[] = flows
     .filter(([, flow]) => flow.blockedItemTicks > 0)
-    .map(([connection, flow]) => ({
-      id: `connection:${connection}:physical-lane-blocking`,
-      label: connection,
-      mechanism: "physical-lane-blocking" as const,
-      route: null,
-      step: null,
-      resources: [...new Set([
-        ...Object.entries(flow.departedByResource)
-          .filter(([, count]) => count > 0)
-          .map(([resource]) => resource),
-        ...Object.entries(flow.deliveredByResource)
-          .filter(([, count]) => count > 0)
-          .map(([resource]) => resource),
-      ])].sort(),
-      processes: [],
-      defects: [],
-      lots: [],
-      subjects: [{ kind: "connection" as const, id: connection }],
-      evidence: {
-        departedItems: flow.departedItems,
-        deliveredItems: flow.deliveredItems,
-        departedItemsPerMinute: flow.departedItemsPerMinute,
-        deliveredItemsPerMinute: flow.deliveredItemsPerMinute,
-        capacityItemsPerMinute: flow.capacityItemsPerMinute,
-        utilization: flow.utilization,
-        averageInFlightItems: flow.averageInFlightItems,
-        blockedItemTicks: flow.blockedItemTicks,
-        blockedFraction: flow.blockedFraction,
-      },
-    }))
+    .map(([connection, flow]) => {
+      const causeTicks = transportBlockCauseTotals(flow.blockedItemTicksByCause);
+      const partitionedTicks = totalTransportBlockTicks(flow.blockedItemTicksByCause);
+      if (partitionedTicks !== flow.blockedItemTicks) {
+        throw new Error(
+          `Transport flow '${connection}' reports ${flow.blockedItemTicks} blocked item-ticks but its physical-cause partition sums to ${partitionedTicks}`,
+        );
+      }
+      const dominantCause = topKey(causeTicks)! as keyof typeof causeTicks;
+      const mechanism = {
+        "line-contention": "transport-line-contention",
+        "endpoint-capacity": "transport-endpoint-capacity",
+        "endpoint-power": "transport-endpoint-power",
+        "endpoint-failure": "transport-endpoint-failure",
+      }[dominantCause] as FabLossContributorMechanism;
+      return {
+        id: `connection:${connection}:${mechanism}`,
+        label: connection,
+        mechanism,
+        route: null,
+        step: null,
+        resources: [...new Set([
+          ...Object.entries(flow.departedByResource)
+            .filter(([, count]) => count > 0)
+            .map(([resource]) => resource),
+          ...Object.entries(flow.deliveredByResource)
+            .filter(([, count]) => count > 0)
+            .map(([resource]) => resource),
+        ])].sort(),
+        processes: [],
+        defects: [],
+        lots: [],
+        subjects: [{ kind: "connection" as const, id: connection }],
+        evidence: {
+          departedItems: flow.departedItems,
+          deliveredItems: flow.deliveredItems,
+          departedItemsPerMinute: flow.departedItemsPerMinute,
+          deliveredItemsPerMinute: flow.deliveredItemsPerMinute,
+          capacityItemsPerMinute: flow.capacityItemsPerMinute,
+          utilization: flow.utilization,
+          averageInFlightItems: flow.averageInFlightItems,
+          blockedItemTicks: flow.blockedItemTicks,
+          blockedFraction: flow.blockedFraction,
+          lineContentionTicks: causeTicks["line-contention"],
+          endpointCapacityTicks: causeTicks["endpoint-capacity"],
+          endpointPowerTicks: causeTicks["endpoint-power"],
+          endpointFailureTicks: causeTicks["endpoint-failure"],
+          loaderCapacityTicks: flow.blockedItemTicksByCause["endpoint-capacity"].loader,
+          unloaderCapacityTicks: flow.blockedItemTicksByCause["endpoint-capacity"].unloader,
+          loaderPowerTicks: flow.blockedItemTicksByCause["endpoint-power"].loader,
+          unloaderPowerTicks: flow.blockedItemTicksByCause["endpoint-power"].unloader,
+          loaderFailureTicks: flow.blockedItemTicksByCause["endpoint-failure"].loader,
+          unloaderFailureTicks: flow.blockedItemTicksByCause["endpoint-failure"].unloader,
+        },
+      };
+    })
     .sort((left, right) =>
       right.evidence.blockedItemTicks! - left.evidence.blockedItemTicks!
       || right.evidence.blockedFraction! - left.evidence.blockedFraction!
       || left.id.localeCompare(right.id));
   const blockedItemTicks = contributors
     .reduce((total, contributor) => total + contributor.evidence.blockedItemTicks!, 0);
+  const lineContentionTicks = contributors
+    .reduce((total, contributor) => total + contributor.evidence.lineContentionTicks!, 0);
+  const endpointCapacityTicks = contributors
+    .reduce((total, contributor) => total + contributor.evidence.endpointCapacityTicks!, 0);
+  const endpointPowerTicks = contributors
+    .reduce((total, contributor) => total + contributor.evidence.endpointPowerTicks!, 0);
+  const endpointFailureTicks = contributors
+    .reduce((total, contributor) => total + contributor.evidence.endpointFailureTicks!, 0);
   return {
     score: ratio(blockedItemTicks, durationTicks * Math.max(1, flows.length)),
-    summary: `Tracked lots averaged ${(metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s in necessary transit (context only); ${contributors.length}/${flows.length} physical lanes accumulated ${(blockedItemTicks / 1000).toFixed(1)} blocked item-s.`,
+    summary: `Tracked lots averaged ${(metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s in necessary transit (context only); ${contributors.length}/${flows.length} connections accumulated ${(blockedItemTicks / 1000).toFixed(1)} blocked item-s (${(lineContentionTicks / 1000).toFixed(1)} line, ${(endpointCapacityTicks / 1000).toFixed(1)} endpoint capacity, ${(endpointPowerTicks / 1000).toFixed(1)} endpoint power, ${(endpointFailureTicks / 1000).toFixed(1)} endpoint failure).`,
     subjects: contributors[0]?.subjects ?? [{ kind: "project", id: metrics.lotFlow.family ?? "tracked-lot" }],
     evidence: {
       connections: flows.length,
       blockedConnections: contributors.length,
       meanTransportTicks: metrics.lotFlow.meanTransportTimeTicks,
       blockedItemTicks,
+      lineContentionTicks,
+      endpointCapacityTicks,
+      endpointPowerTicks,
+      endpointFailureTicks,
     },
     contributors,
   };
@@ -722,7 +764,7 @@ export function analyzeFabLossProfile(
 
   add({
     id: "transport-blocking",
-    label: "Physical transport blocking",
+    label: "Local transport blocking by cause",
     ...analyzeTransportBlocking(metrics, durationTicks),
   });
 
@@ -794,7 +836,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 5,
+    version: 6,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,

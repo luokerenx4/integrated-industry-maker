@@ -3,7 +3,7 @@
 - Decision: **KEEP**
 - Blueprint: `main`
 - Score: **90.405**
-- Result hash: `39c7002abdb2c2eab459aead8af87129723711b64abaf579be8c68e440edb1ee`
+- Result hash: `f4863bb4fb61bfc4bbe8fdc06175e9027fccdc2bdf52862126a90d06ac0038de`
 - Bottleneck: smelter-1
 - Throughput/min: 13.000
 - Delivery portfolio: 108.3% demand attainment · 26.000 / 24.000 valued / demanded · 2.000 above demand · 0.000 net value/min
@@ -42,19 +42,21 @@
 
 ## Measured transport flows
 
-| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Delivered resources |
-| --- | ---: | ---: | ---: | --- |
-| ore-to-smelter | 45.000 / 80.000 | 56.3% | 0 | 90 iron-ore |
-| ore-to-smelter-smelter-1-split-original | 22.500 / 80.000 | 28.1% | 0 | 45 iron-ore |
-| ore-to-smelter-smelter-1-split-parallel | 22.500 / 80.000 | 28.1% | 0 | 45 iron-ore |
-| station-to-assembler | 19.500 / 240.000 | 8.1% | 0 | 39 iron-plate |
-| coal-assembly-to-splitter | 17.000 / 240.000 | 7.1% | 0 | 34 coal |
-| gear-to-output | 13.000 / 240.000 | 5.4% | 0 | 26 gear |
-| plate-to-station | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
-| plate-to-station-smelter-1-parallel | 11.000 / 240.000 | 4.6% | 0 | 22 iron-plate |
-| coal-splitter-to-assembler | 10.500 / 240.000 | 4.4% | 0 | 21 coal |
-| coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
-| coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 5 coal |
+Necessary transit is context; blocked item-time is partitioned by its immediate physical cause.
+
+| Connection | Delivered / capacity (items/min) | Utilization | Blocked item-ticks | Line contention | Endpoint capacity | Endpoint power | Endpoint failure | Delivered resources |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ore-to-smelter | 45.000 / 80.000 | 56.3% | 0 | 0 | 0 | 0 | 0 | 90 iron-ore |
+| ore-to-smelter-smelter-1-split-original | 22.500 / 80.000 | 28.1% | 0 | 0 | 0 | 0 | 0 | 45 iron-ore |
+| ore-to-smelter-smelter-1-split-parallel | 22.500 / 80.000 | 28.1% | 0 | 0 | 0 | 0 | 0 | 45 iron-ore |
+| station-to-assembler | 19.500 / 240.000 | 8.1% | 0 | 0 | 0 | 0 | 0 | 39 iron-plate |
+| coal-assembly-to-splitter | 17.000 / 240.000 | 7.1% | 0 | 0 | 0 | 0 | 0 | 34 coal |
+| gear-to-output | 13.000 / 240.000 | 5.4% | 0 | 0 | 0 | 0 | 0 | 26 gear |
+| plate-to-station | 11.000 / 240.000 | 4.6% | 0 | 0 | 0 | 0 | 0 | 22 iron-plate |
+| plate-to-station-smelter-1-parallel | 11.000 / 240.000 | 4.6% | 0 | 0 | 0 | 0 | 0 | 22 iron-plate |
+| coal-splitter-to-assembler | 10.500 / 240.000 | 4.4% | 0 | 0 | 0 | 0 | 0 | 21 coal |
+| coal-forge-to-generator | 2.500 / 240.000 | 1.0% | 0 | 0 | 0 | 0 | 0 | 5 coal |
+| coal-splitter-to-generator | 2.500 / 240.000 | 1.0% | 0 | 0 | 0 | 0 | 0 | 5 coal |
 
 ## Grid storage
 
