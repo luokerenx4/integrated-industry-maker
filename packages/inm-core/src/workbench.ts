@@ -5,6 +5,7 @@ import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./bench
 import { listCandidateChangeSets } from "./candidate-change-set";
 import { inspectCandidateDecision, type CandidateDecisionState } from "./candidate-review";
 import { listDesignPrograms, type DesignProgramSummary } from "./design-program";
+import { indexDesignRuns, type DesignRunSummary, type InvalidDesignRunSummary } from "./design-run";
 import { analyzeFabLosses, type FabLossAttribution } from "./fab-loss-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
@@ -66,6 +67,7 @@ export type WorkbenchNextActionTarget =
   | { kind: "diagnostic"; diagnosticId: string }
   | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
   | { kind: "design-program"; programId: string; diagnosticId: string }
+  | { kind: "design-run"; programId: string; runId: string; phase: "promotable" | "continuable" | "exhausted"; diagnosticId: string }
   | { kind: "operation"; operationId: "analyze" | "simulate" }
   | { kind: "run"; runId: string };
 
@@ -82,8 +84,52 @@ export interface WorkbenchNextAction {
   target: WorkbenchNextActionTarget;
 }
 
+export type WorkbenchDesignRunCurrentnessReason =
+  | "engine-version-mismatch"
+  | "project-mismatch"
+  | "program-mismatch"
+  | "program-hash-mismatch"
+  | "benchmark-mismatch"
+  | "benchmark-contract-mismatch"
+  | "seed-source-mismatch"
+  | "seed-source-hash-mismatch"
+  | "seed-blueprint-hash-mismatch"
+  | "promotion-base-mismatch";
+
+export type WorkbenchDesignEvidenceState = "not-applicable" | "missing" | "promotable" | "continuable" | "exhausted";
+export type WorkbenchDesignRunOutcome = "promotable" | "continuable" | "exhausted";
+
+export interface WorkbenchDesignEvidenceIdentity {
+  engineVersion: string;
+  project: string;
+  program: { id: string; hash: string };
+  benchmark: { id: string; contractHash: string };
+  seed: { source: DesignRunSummary["seed"]["source"]; sourceBlueprintHash: string; blueprintHash: string };
+  promotionBase: DesignRunSummary["promotionBase"];
+}
+
+export interface WorkbenchDesignRunEvidence {
+  id: string;
+  currentness: { state: "current" | "historical"; reasons: WorkbenchDesignRunCurrentnessReason[] };
+  outcome: WorkbenchDesignRunOutcome;
+  continuation: DesignRunSummary["continuation"];
+  budget: DesignRunSummary["budget"];
+  best: DesignRunSummary["best"];
+  stopReason: DesignRunSummary["stopReason"];
+}
+
+export interface WorkbenchDesignProgramEvidence {
+  state: WorkbenchDesignEvidenceState;
+  authorityRunId: string | null;
+  currentRuns: number;
+  historicalRuns: number;
+  invalidRuns: number;
+  runs: WorkbenchDesignRunEvidence[];
+  invalid: Array<Pick<InvalidDesignRunSummary, "id" | "code" | "message">>;
+}
+
 export interface ProjectWorkbenchSnapshot {
-  version: 5;
+  version: 6;
   project: {
     id: string;
     name: string;
@@ -169,6 +215,7 @@ export interface ProjectWorkbenchSnapshot {
       state: "aligned" | "not-aligned";
       reasons: Array<"unlocked-benchmark" | "synthesis-seed" | "seed-blueprint-mismatch" | "promotion-target-mismatch">;
     };
+    evidence: WorkbenchDesignProgramEvidence;
   }>;
   candidates: Array<{
     id: string;
@@ -291,6 +338,66 @@ function conditionalWhen(condition: boolean, conditionSummary: string, unavailab
   return condition ? { state: "conditional", reasons: [conditionSummary] } : { state: "unavailable", reasons: [unavailableReason] };
 }
 
+function designRunOutcome(run: DesignRunSummary): WorkbenchDesignRunOutcome {
+  if (run.best.verdict === "KEEP" && run.best.promotionPatchOperations > 0) return "promotable";
+  return run.stopReason === "budget-exhausted" ? "continuable" : "exhausted";
+}
+
+function designRunCurrentness(identity: WorkbenchDesignEvidenceIdentity, run: DesignRunSummary): WorkbenchDesignRunCurrentnessReason[] {
+  const reasons: WorkbenchDesignRunCurrentnessReason[] = [];
+  if (run.engineVersion !== identity.engineVersion) reasons.push("engine-version-mismatch");
+  if (run.project !== identity.project) reasons.push("project-mismatch");
+  if (run.program !== identity.program.id) reasons.push("program-mismatch");
+  if (run.programHash !== identity.program.hash) reasons.push("program-hash-mismatch");
+  if (run.benchmark !== identity.benchmark.id) reasons.push("benchmark-mismatch");
+  if (run.benchmarkContractHash !== identity.benchmark.contractHash) reasons.push("benchmark-contract-mismatch");
+  if (stableStringify(run.seed.source) !== stableStringify(identity.seed.source)) reasons.push("seed-source-mismatch");
+  if (run.seed.sourceBlueprintHash !== identity.seed.sourceBlueprintHash) reasons.push("seed-source-hash-mismatch");
+  if (run.seed.blueprintHash !== identity.seed.blueprintHash) reasons.push("seed-blueprint-hash-mismatch");
+  if (stableStringify(run.promotionBase) !== stableStringify(identity.promotionBase)) reasons.push("promotion-base-mismatch");
+  return reasons;
+}
+
+export function classifyDesignProgramEvidence(
+  identity: WorkbenchDesignEvidenceIdentity,
+  runs: DesignRunSummary[],
+  invalidRuns: InvalidDesignRunSummary[],
+): WorkbenchDesignProgramEvidence {
+  const projected = runs.map((run): WorkbenchDesignRunEvidence => {
+    const reasons = designRunCurrentness(identity, run);
+    return {
+      id: run.id,
+      currentness: { state: reasons.length ? "historical" : "current", reasons },
+      outcome: designRunOutcome(run),
+      continuation: structuredClone(run.continuation),
+      budget: { ...run.budget },
+      best: { ...run.best },
+      stopReason: run.stopReason,
+    };
+  }).sort((left, right) =>
+    (left.currentness.state === "current" ? 0 : 1) - (right.currentness.state === "current" ? 0 : 1)
+    || left.id.localeCompare(right.id));
+  const current = projected.filter((run) => run.currentness.state === "current");
+  const continuedSources = new Set(current.flatMap((run) => run.continuation ? [run.continuation.sourceResultHash] : []));
+  const leaves = current.filter((run) => !continuedSources.has(run.id));
+  const authority = [...(leaves.length ? leaves : current)].sort((left, right) => {
+    const rank = (outcome: WorkbenchDesignRunOutcome) => outcome === "promotable" ? 0 : outcome === "continuable" ? 1 : 2;
+    return rank(left.outcome) - rank(right.outcome)
+      || right.budget.evaluated - left.budget.evaluated
+      || right.best.candidateScore - left.best.candidateScore
+      || left.id.localeCompare(right.id);
+  })[0] ?? null;
+  return {
+    state: authority?.outcome ?? "missing",
+    authorityRunId: authority?.id ?? null,
+    currentRuns: current.length,
+    historicalRuns: projected.length - current.length,
+    invalidRuns: invalidRuns.length,
+    runs: projected,
+    invalid: invalidRuns.map(({ id, code, message }) => ({ id, code, message })).sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
 function operationDescriptors(
   experiments: BlueprintBenchmarkSummary[],
   candidates: ProjectWorkbenchSnapshot["candidates"],
@@ -299,6 +406,16 @@ function operationDescriptors(
   const lockedExperiments = experiments.filter((experiment) => experiment.locked).length;
   const reviewable = candidates.some((candidate) => candidate.decision.state === "proposed" || candidate.decision.state.startsWith("reviewed-"));
   const applicable = candidates.some((candidate) => candidate.decision.state === "reviewed-keep");
+  const alignedDesign = designPrograms.find((program) => program.alignment.state === "aligned");
+  const designAvailability: WorkbenchOperationDescriptor["availability"] = !designPrograms.some((program) => program.locked)
+    ? { state: "unavailable", reasons: ["No locked project-local Design Program is available."] }
+    : alignedDesign?.evidence.state === "promotable"
+      ? { state: "conditional", reasons: ["The aligned Design Program already has a current promotable leader; review that immutable run before starting another."] }
+      : alignedDesign?.evidence.state === "continuable"
+        ? { state: "conditional", reasons: ["The aligned Design Program has a current searchable frontier; continue that immutable run instead of restarting it."] }
+        : alignedDesign?.evidence.state === "exhausted"
+          ? { state: "conditional", reasons: ["The aligned Design Program has exhausted its current intervention portfolio; change its Program inputs before rerunning."] }
+          : { state: "available", reasons: [] };
   return [
     {
       id: "validate", label: "Validate project", description: "Parse, resolve, and compile the selected industrial project.",
@@ -329,7 +446,7 @@ function operationDescriptors(
       effect: "creates-artifact", selectionAware: false, requiresConfirmation: false,
       writeSet: ["design-runs/<program>/<result-hash>/"],
       guards: ["locked-benchmark", "current-program-hash", "bounded-candidate-budget", "immutable-design-run"],
-      availability: unavailableWhen(designPrograms.some((program) => program.locked), "No locked project-local Design Program is available."),
+      availability: designAvailability,
     },
     {
       id: "benchmark.evaluate", label: "Evaluate Benchmark", description: "Evaluate a candidate Blueprint against a locked multi-case Benchmark without writing project state.",
@@ -369,7 +486,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   ];
 }
 
-function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms">): WorkbenchNextAction {
+export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms">): WorkbenchNextAction {
   const projectRoute = `/${encodeURIComponent(context.project.id)}`;
   const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
   if (blocking) return {
@@ -435,6 +552,34 @@ function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "se
 
   const warning = context.diagnostics.find((diagnostic) => diagnostic.severity === "warning");
   const alignedProgram = context.designPrograms.find((program) => program.alignment.state === "aligned");
+  const designAuthority = alignedProgram?.evidence.authorityRunId
+    ? alignedProgram.evidence.runs.find((run) => run.id === alignedProgram.evidence.authorityRunId)
+    : null;
+  if (warning?.evidence.source === "compatible-run" && alignedProgram && designAuthority) {
+    const phase = designAuthority.outcome;
+    const title = phase === "promotable"
+      ? `Review the current Design leader from ${alignedProgram.name}`
+      : phase === "continuable"
+        ? `Continue the current ${alignedProgram.name} frontier`
+        : `Expand ${alignedProgram.name}'s intervention portfolio`;
+    const next = phase === "promotable"
+      ? `Current Design Run ${designAuthority.id} has a guarded leader with ${designAuthority.best.promotionPatchOperations} promotion operations. Review its immutable evidence before creating a Candidate.`
+      : phase === "continuable"
+        ? `Current Design Run ${designAuthority.id} stopped at its ${designAuthority.budget.evaluated}/${designAuthority.budget.maximum} Candidate budget with searchable frontier evidence. Reopen that exact result before choosing an additional bounded budget.`
+        : `Current Design Run ${designAuthority.id} evaluated ${designAuthority.budget.evaluated} Candidates, exhausted every eligible intervention, and retained ${designAuthority.best.promotionPatchOperations ? "a changed leader" : "the unchanged seed"}. Review the exact rejections and change the project-local intervention portfolio before rerunning.`;
+    return {
+      id: `design.run.inspect:${alignedProgram.id}:${designAuthority.id}:${warning.id}`,
+      tone: phase === "promotable" ? "review" : "attention",
+      title,
+      reason: `${warning.message} ${next}`,
+      actionLabel: phase === "promotable" ? "REVIEW DESIGN LEADER" : phase === "continuable" ? "REVIEW CONTINUATION" : "REVIEW EXHAUSTED DESIGN",
+      effect: "read-only",
+      requiresConfirmation: false,
+      argv: ["inm", "design", context.project.rootDir, "--program", alignedProgram.id, "--run-id", designAuthority.id, "--json"],
+      studioRoute: `${projectRoute}/designs/${encodeURIComponent(alignedProgram.id)}/runs/${designAuthority.id}`,
+      target: { kind: "design-run", programId: alignedProgram.id, runId: designAuthority.id, phase, diagnosticId: warning.id },
+    };
+  }
   if (warning?.evidence.source === "compatible-run" && alignedProgram) return {
     id: `design.inspect:${alignedProgram.id}:${warning.id}`,
     tone: "attention",
@@ -542,13 +687,40 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     };
   });
   const experimentsById = new Map(experiments.map((experiment) => [experiment.id, experiment]));
-  const designPrograms: ProjectWorkbenchSnapshot["designPrograms"] = programs.map((program) => {
-    const promotionTarget = experimentsById.get(program.benchmark)!.candidateBlueprint;
+  const designPrograms: ProjectWorkbenchSnapshot["designPrograms"] = await Promise.all(programs.map(async (program) => {
+    const benchmark = experimentsById.get(program.benchmark)!;
+    const promotionTarget = benchmark.candidateBlueprint;
     const reasons: ProjectWorkbenchSnapshot["designPrograms"][number]["alignment"]["reasons"] = [];
     if (!program.locked) reasons.push("unlocked-benchmark");
     if (program.seed.kind === "synthesis") reasons.push("synthesis-seed");
     else if (program.seed.blueprint !== selection.blueprint.id) reasons.push("seed-blueprint-mismatch");
     if (promotionTarget !== selection.blueprint.id) reasons.push("promotion-target-mismatch");
+    let evidence: WorkbenchDesignProgramEvidence = {
+      state: "not-applicable",
+      authorityRunId: null,
+      currentRuns: 0,
+      historicalRuns: 0,
+      invalidRuns: 0,
+      runs: [],
+      invalid: [],
+    };
+    if (!reasons.length && benchmark.contractHash) {
+      const normalizedSeed = structuredClone(project.blueprint);
+      normalizedSeed.revision = project.hashes.blueprintHash;
+      const indexed = await indexDesignRuns(project.rootDir, program.id);
+      evidence = classifyDesignProgramEvidence({
+        engineVersion: ENGINE_VERSION,
+        project: project.manifest.id,
+        program: { id: program.id, hash: program.programHash },
+        benchmark: { id: benchmark.id, contractHash: benchmark.contractHash },
+        seed: {
+          source: structuredClone(program.seed),
+          sourceBlueprintHash: project.hashes.blueprintHash,
+          blueprintHash: hashValue(normalizedSeed),
+        },
+        promotionBase: { blueprint: promotionTarget, hash: project.hashes.blueprintHash },
+      }, indexed.runs, indexed.invalidRuns);
+    }
     return {
       id: program.id,
       name: program.name,
@@ -562,8 +734,9 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       locked: program.locked,
       promotionTarget,
       alignment: { state: reasons.length ? "not-aligned" : "aligned", reasons },
+      evidence,
     };
-  });
+  }));
   const currentRun = matchingRun(selection, runSummaries);
   const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
   const currentMetrics = currentArtifact
@@ -587,7 +760,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 5 as const,
+    version: 6 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -648,7 +821,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     lossAttribution,
     operations,
   } satisfies Omit<ProjectWorkbenchSnapshot, "nextAction">;
-  return { ...snapshot, nextAction: buildNextAction(snapshot) };
+  return { ...snapshot, nextAction: buildWorkbenchNextAction(snapshot) };
 }
 
 export async function openProjectWorkbenchSnapshot(projectDir: string, selection: ProjectSelection = {}): Promise<ProjectWorkbenchSnapshot> {

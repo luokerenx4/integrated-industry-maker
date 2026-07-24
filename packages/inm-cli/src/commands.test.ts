@@ -257,6 +257,35 @@ test("public inspect JSON and next action are the shared Core workbench snapshot
   expect(nextEnvelope.nextActions).toEqual([expected.nextAction]);
 });
 
+test("public inspect summary exposes bounded current Design evidence to Agents and humans", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-cli-design-evidence-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const [machine, human] = await Promise.all([
+    runCli(["inspect", projectDir, "--json"]),
+    runCli(["inspect", projectDir]),
+  ]);
+  expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
+    .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+  const programs = JSON.parse(machine.stdout).data.result.designPrograms;
+  expect(programs).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      id: "commissioned-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: { state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+    }),
+    expect.objectContaining({
+      id: "greenfield-dram-fab",
+      evidence: { state: "not-applicable", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+    }),
+  ]));
+  expect(programs[0].evidence.runs).toBeUndefined();
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
+});
+
 test("public inspect rejects an invalid explicit selection", async () => {
   const projectDir = join(repository, "examples/ironworks");
   const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);

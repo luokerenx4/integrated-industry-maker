@@ -42,10 +42,10 @@ The project Overview still recommends opening the generic Program brief because 
 
 ## Work
 
-- [ ] Define the current Design evidence identity, deterministic selection, summary, and Workbench V6 target contract.
-- [ ] Implement Core evidence discovery, classification, operation availability, and next-action precedence.
-- [ ] Project the contract through public CLI and Studio, including exact run deep links and unavailable action states.
-- [ ] Update durable design documents, focused tests, current memory-fab evidence, and browser coverage.
+- [x] Define the current Design evidence identity, deterministic selection, summary, and Workbench V6 target contract.
+- [x] Implement Core evidence discovery, classification, operation availability, and next-action precedence.
+- [x] Project the contract through public CLI and Studio, including exact run deep links and conditional action states.
+- [x] Update durable design documents, focused tests, current memory-fab evidence, and browser coverage.
 - [ ] Complete repository/project verification, plan audit, commit, push, and remote verification.
 
 ## Findings and decisions
@@ -54,6 +54,9 @@ The project Overview still recommends opening the generic Program brief because 
 - 2026-07-24 — Content-addressed Design execution is deterministic, so another invocation with unchanged engine, Program, Benchmark, seed, and promotion base reuses evidence rather than creating a new search opportunity.
 - 2026-07-24 — `indexDesignRuns()` already separates strict valid runs from quarantined invalid siblings, but its summaries do not expose enough current-input identity for Workbench classification. Filesystem modification time and lexicographic result-hash order are not industrial authority and will not be introduced.
 - 2026-07-24 — After an exhausted unchanged-seed result, the honest safe handoff is the exact read-only run evidence plus an explicit intervention-portfolio boundary. Editing project TypeScript remains a normal Coding Agent engineering task, not a hidden effect of `inm inspect`.
+- 2026-07-24 — Workbench V6 now defines currentness over engine, project, Program id/hash, Benchmark id/contract, declared seed/source hash/normalized hash, and promotion base. Current continuation leaves supersede their direct sources; authority then prefers promotable, continuable, and exhausted leaves without timestamp or hash-recency inference.
+- 2026-07-24 — The local memory-fab index contains one exact current exhausted Run, two strict-valid historical Runs, and thirteen quarantined invalid siblings. Only Run `260d04b0c76047e4d0ddd3b4175fdb6f6480836ec54c87569a1d51c382f164fd` becomes authority.
+- 2026-07-24 — `design.run` remains an advertised artifact capability, but its Workbench availability is conditional when current evidence already owns the next decision. Studio opens that exact authority and labels the operation `REVIEW CURRENT RUN`; it does not silently start an identical run.
 
 ## Verification
 
@@ -62,6 +65,8 @@ The project Overview still recommends opening the generic Program brief because 
 ## Progress log
 
 - 2026-07-24 — Plan activated immediately after shipping Workbench V5 and auditing its first complete current-factory Design handoff.
+- 2026-07-24 — Implemented Core classification and Workbench V6, expanded strict run summaries with current-input identity, projected bounded CLI evidence and exact next-action argv, and connected Studio Overview/operation routes to immutable Design results.
+- 2026-07-24 — A reported project-open failure reproduced only on the stale Studio process. Restarting port `4176` from current source restored `/` → `/memory-fab`; the refreshed page rendered the V6 exhausted handoff with no browser warnings or errors.
 
 ## Completion
 

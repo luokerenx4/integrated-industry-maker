@@ -215,9 +215,17 @@ type DesignRunProgressPayload = DesignRunProgress extends infer Progress
 export interface DesignRunSummary {
   id: string;
   path: string;
+  engineVersion: string;
+  project: string;
   program: string;
+  programHash: string;
   benchmark: string;
-  seed: DesignRunManifest["seed"]["source"];
+  benchmarkContractHash: string;
+  seed: {
+    source: DesignRunManifest["seed"]["source"];
+    sourceBlueprintHash: string;
+    blueprintHash: string;
+  };
   promotionBase: DesignRunManifest["promotionBase"];
   continuation: DesignRunManifest["continuation"];
   budget: DesignRunManifest["budget"];
@@ -927,9 +935,17 @@ export async function indexDesignRuns(projectDir: string, programId?: string): P
         runs.push({
           id: resultId,
           path: run.artifact.path,
+          engineVersion: run.manifest.engineVersion,
+          project: run.manifest.project,
           program: id,
+          programHash: run.manifest.program.hash,
           benchmark: run.manifest.benchmark.id,
-          seed: structuredClone(run.manifest.seed.source),
+          benchmarkContractHash: run.manifest.benchmark.contractHash,
+          seed: {
+            source: structuredClone(run.manifest.seed.source),
+            sourceBlueprintHash: run.manifest.seed.sourceBlueprintHash,
+            blueprintHash: run.manifest.seed.blueprintHash,
+          },
           promotionBase: { ...run.manifest.promotionBase },
           continuation: structuredClone(run.manifest.continuation),
           budget: { ...run.manifest.budget },

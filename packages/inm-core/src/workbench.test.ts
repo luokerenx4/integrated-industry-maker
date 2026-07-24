@@ -2,15 +2,16 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
+import type { DesignRunSummary } from "./design-run";
 import { previewCandidateOperation } from "./operation";
-import { openProjectWorkbenchSnapshot } from "./workbench";
+import { buildWorkbenchNextAction, classifyDesignProgramEvidence, openProjectWorkbenchSnapshot, type WorkbenchDesignEvidenceIdentity } from "./workbench";
 import { pathExists, stableStringify } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(5);
+  expect(snapshot.version).toBe(6);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -52,7 +53,13 @@ test("shared workbench snapshot orients an operator with stable diagnostics and 
 });
 
 test("memory-fab workbench discovers project-local routes, experiments, and candidates", async () => {
-  const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"));
+  const root = await mkdtemp(join(tmpdir(), "inm-workbench-memory-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const snapshot = await openProjectWorkbenchSnapshot(projectDir);
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
@@ -84,18 +91,21 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
     }),
     expect.objectContaining({
       id: "greenfield-dram-fab",
       seed: { kind: "synthesis", inputBlueprint: "greenfield" },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "not-aligned", reasons: ["synthesis-seed"] },
+      evidence: expect.objectContaining({ state: "not-applicable", authorityRunId: null }),
     }),
     expect.objectContaining({
       id: "integrated-dram-fab",
       seed: { kind: "blueprint", blueprint: "experiment" },
       promotionTarget: "experiment",
       alignment: { state: "not-aligned", reasons: ["seed-blueprint-mismatch", "promotion-target-mismatch"] },
+      evidence: expect.objectContaining({ state: "not-applicable", authorityRunId: null }),
     }),
   ]);
   expect(snapshot.candidates).toEqual([
@@ -188,6 +198,42 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     }),
   }));
+  const exhaustedId = "f".repeat(64);
+  const withExhaustedEvidence = snapshot.designPrograms.map((program) => program.id === "commissioned-dram-fab" ? {
+    ...program,
+    evidence: {
+      state: "exhausted" as const,
+      authorityRunId: exhaustedId,
+      currentRuns: 1,
+      historicalRuns: 0,
+      invalidRuns: 0,
+      runs: [{
+        id: exhaustedId,
+        currentness: { state: "current" as const, reasons: [] },
+        outcome: "exhausted" as const,
+        continuation: null,
+        budget: { maximum: 7, evaluated: 4 },
+        best: {
+          iteration: 0,
+          blueprintHash: "a".repeat(64),
+          promotionPatchOperations: 0,
+          candidateScore: 29.321159,
+          scoreDelta: 104.296881,
+          verdict: "KEEP" as const,
+        },
+        stopReason: "frontier-exhausted" as const,
+      }],
+      invalid: [],
+    },
+  } : program);
+  expect(buildWorkbenchNextAction({ ...snapshot, designPrograms: withExhaustedEvidence })).toEqual(expect.objectContaining({
+    id: expect.stringMatching(/^design\.run\.inspect:commissioned-dram-fab:/),
+    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "commissioned-dram-fab", "--run-id", exhaustedId, "--json"],
+    studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${exhaustedId}`,
+    target: expect.objectContaining({ kind: "design-run", programId: "commissioned-dram-fab", runId: exhaustedId, phase: "exhausted" }),
+  }));
   expect(snapshot.operations.find((operation) => operation.id === "design.run")).toEqual(expect.objectContaining({
     effect: "creates-artifact",
     availability: { state: "available", reasons: [] },
@@ -256,6 +302,73 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
 
+test("Design evidence classification chooses current leaf authority without timestamp or hash recency", () => {
+  const hash = (value: string) => value.repeat(64);
+  const identity: WorkbenchDesignEvidenceIdentity = {
+    engineVersion: "inm-sim/test",
+    project: "memory-fab",
+    program: { id: "commissioned-dram-fab", hash: hash("a") },
+    benchmark: { id: "greenfield-dram-design", contractHash: hash("b") },
+    seed: {
+      source: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      sourceBlueprintHash: hash("c"),
+      blueprintHash: hash("d"),
+    },
+    promotionBase: { blueprint: "generated-dram-fab", hash: hash("c") },
+  };
+  const run = (id: string, overrides: Partial<DesignRunSummary> = {}): DesignRunSummary => ({
+    id: hash(id),
+    path: `/design-runs/${id}`,
+    engineVersion: identity.engineVersion,
+    project: identity.project,
+    program: identity.program.id,
+    programHash: identity.program.hash,
+    benchmark: identity.benchmark.id,
+    benchmarkContractHash: identity.benchmark.contractHash,
+    seed: structuredClone(identity.seed),
+    promotionBase: { ...identity.promotionBase },
+    continuation: null,
+    budget: { maximum: 1, evaluated: 1 },
+    best: {
+      iteration: 0,
+      blueprintHash: identity.seed.blueprintHash,
+      promotionPatchOperations: 0,
+      candidateScore: 1,
+      scoreDelta: 1,
+      verdict: "KEEP",
+    },
+    stopReason: "budget-exhausted",
+    ...overrides,
+  });
+  const source = run("1");
+  const continuation = run("2", {
+    continuation: { sourceResultHash: source.id, reusedIterations: 1, reusedExhaustions: 0, additionalCandidateBudget: 1 },
+    budget: { maximum: 2, evaluated: 2 },
+  });
+  const exhausted = run("3", { budget: { maximum: 7, evaluated: 4 }, stopReason: "frontier-exhausted" });
+  const promotable = run("4", {
+    budget: { maximum: 3, evaluated: 3 },
+    best: { ...source.best, iteration: 3, promotionPatchOperations: 2, candidateScore: 4 },
+    stopReason: "frontier-exhausted",
+  });
+  const historical = run("5", { programHash: hash("e") });
+  const evidence = classifyDesignProgramEvidence(identity, [historical, exhausted, source, promotable, continuation], [{
+    id: hash("6"), path: "/invalid", program: identity.program.id, code: "design.invalid-run", message: "invalid evidence",
+  }]);
+  expect(evidence).toEqual(expect.objectContaining({
+    state: "promotable",
+    authorityRunId: promotable.id,
+    currentRuns: 4,
+    historicalRuns: 1,
+    invalidRuns: 1,
+  }));
+  expect(evidence.runs.find((item) => item.id === historical.id)?.currentness)
+    .toEqual({ state: "historical", reasons: ["program-hash-mismatch"] });
+  expect(evidence.runs.find((item) => item.id === continuation.id)?.outcome).toBe("continuable");
+  expect(classifyDesignProgramEvidence(identity, [exhausted], []).state).toBe("exhausted");
+  expect(classifyDesignProgramEvidence(identity, [], []).state).toBe("missing");
+});
+
 test("a historical run with a stale Device catalog cannot supply current fab loss authority", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"), {
     world: "cleanroom", blueprint: "equipment-energy-sleep", scenario: "equipment-energy-window", objective: "dram-energy",
@@ -268,7 +381,10 @@ test("a historical run with a stale Device catalog cannot supply current fab los
 test("a non-KEEP Candidate receipt resolves review work without displacing current fab evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-workbench-candidate-"));
   const projectDir = join(root, "memory-fab");
-  await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
   await rm(join(projectDir, "candidate-reviews", "stable-furnace-sleep"), { recursive: true, force: true });
 
   const review = await previewCandidateOperation(projectDir, "stable-furnace-sleep");

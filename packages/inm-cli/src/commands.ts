@@ -296,7 +296,34 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
-      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, inventoryAccounting: snapshot.inventoryAccounting, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
+      summary: () => ({
+        version: snapshot.version,
+        project: snapshot.project,
+        selection: snapshot.selection,
+        hashes: snapshot.hashes,
+        objective: snapshot.objective,
+        inventoryAccounting: snapshot.inventoryAccounting,
+        status: snapshot.status,
+        lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null,
+        designPrograms: snapshot.designPrograms.map((program) => ({
+          id: program.id,
+          name: program.name,
+          benchmark: program.benchmark,
+          seed: program.seed,
+          locked: program.locked,
+          promotionTarget: program.promotionTarget,
+          alignment: program.alignment,
+          evidence: {
+            state: program.evidence.state,
+            authorityRunId: program.evidence.authorityRunId,
+            currentRuns: program.evidence.currentRuns,
+            historicalRuns: program.evidence.historicalRuns,
+            invalidRuns: program.evidence.invalidRuns,
+          },
+        })),
+        nextAction: snapshot.nextAction,
+        counts: snapshot.counts,
+      }),
       "next-action": () => snapshot.nextAction,
       diagnostics: () => snapshot.diagnostics,
       losses: () => snapshot.lossAttribution,
@@ -333,7 +360,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
     `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
     `Evidence: runs ${snapshot.counts.runs} · experiments ${snapshot.counts.experiments} · candidates ${snapshot.counts.candidates} · design programs ${snapshot.counts.designPrograms}`,
-    `Design handoff: ${snapshot.designPrograms.filter((program) => program.alignment.state === "aligned").map((program) => program.id).join(", ") || "no program aligned to the effective Blueprint"}`,
+    `Design handoff: ${snapshot.designPrograms.filter((program) => program.alignment.state === "aligned").map((program) =>
+      `${program.id} · ${program.evidence.state.toUpperCase()}${program.evidence.authorityRunId ? ` · ${program.evidence.authorityRunId.slice(0, 12)}` : ""}`
+    ).join(", ") || "no program aligned to the effective Blueprint"}`,
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
