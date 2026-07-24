@@ -8,7 +8,7 @@ Related: [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]],
 
 An industrial operation is one named invocation of existing Core behavior with an explicit project context, effect, result, and verification path. It prevents CLI and Studio from independently assembling validation, analysis, capacity, simulation, Benchmark, or Candidate semantics.
 
-The V1 named operations are `validate`, `analyze`, `plan`, `simulate`, `benchmark.evaluate`, `candidate.preview`, and `candidate.apply`. Inspection remains the read-only workbench snapshot. Synthesis retains its dedicated authoring result until its required output-id input receives the same operation form.
+The V1 named operations are `validate`, `analyze`, `plan`, `simulate`, `benchmark.evaluate`, `candidate.preview`, and `candidate.apply`. Inspection remains the read-only workbench snapshot. Synthesis retains its dedicated authoring result until its required output-id input receives the same operation form. Workbench may advertise the existing `design.run` capability and route operators to its read-only brief, but long-running Design continues to own its richer deterministic progress and immutable-run contract rather than pretending to return this shorter result type.
 
 ## Result contract
 

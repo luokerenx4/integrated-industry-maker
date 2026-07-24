@@ -10,7 +10,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(4);
+  expect(snapshot.version).toBe(5);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -25,7 +25,7 @@ test("shared workbench snapshot orients an operator with stable diagnostics and 
     target: expect.objectContaining({ kind: "diagnostic" }),
   }));
   expect(snapshot.counts).toEqual(expect.objectContaining({
-    regions: 2, deviceInstances: 29, connections: 8, experiments: 5,
+    regions: 2, deviceInstances: 29, connections: 8, experiments: 5, designPrograms: 0,
   }));
   expect(snapshot.catalog.resources.map((asset) => asset.id)).toContain("iron-ore");
   expect(snapshot.experiments.map((experiment) => experiment.id)).toEqual([
@@ -34,8 +34,12 @@ test("shared workbench snapshot orients an operator with stable diagnostics and 
 
   const operationIds = new Set(snapshot.operations.map((operation) => operation.id));
   expect(operationIds).toEqual(new Set([
-    "validate", "inspect", "analyze", "plan", "simulate", "synthesize", "benchmark.evaluate", "candidate.preview", "candidate.apply",
+    "validate", "inspect", "analyze", "plan", "simulate", "synthesize", "design.run", "benchmark.evaluate", "candidate.preview", "candidate.apply",
   ]));
+  expect(snapshot.operations.find((operation) => operation.id === "design.run")).toEqual(expect.objectContaining({
+    effect: "creates-artifact",
+    availability: { state: "unavailable", reasons: ["No locked project-local Design Program is available."] },
+  }));
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")).toEqual(expect.objectContaining({
     effect: "mutates-blueprint", requiresConfirmation: true,
     availability: { state: "unavailable", reasons: ["No Candidate has a current recorded KEEP review."] },
@@ -72,6 +76,28 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   }));
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
+  expect(snapshot.counts.designPrograms).toBe(3);
+  expect(snapshot.designPrograms).toEqual([
+    expect.objectContaining({
+      id: "commissioned-dram-fab",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+    }),
+    expect.objectContaining({
+      id: "greenfield-dram-fab",
+      seed: { kind: "synthesis", inputBlueprint: "greenfield" },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "not-aligned", reasons: ["synthesis-seed"] },
+    }),
+    expect.objectContaining({
+      id: "integrated-dram-fab",
+      seed: { kind: "blueprint", blueprint: "experiment" },
+      promotionTarget: "experiment",
+      alignment: { state: "not-aligned", reasons: ["seed-blueprint-mismatch", "promotion-target-mismatch"] },
+    }),
+  ]);
   expect(snapshot.candidates).toEqual([
     expect.objectContaining({
       id: "closed-loop-layer-two-etch", benchmark: "greenfield-dram-design", patchOperations: 2,
@@ -151,11 +177,20 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^diagnostic:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^design\.inspect:commissioned-dram-fab:fab-loss\.input-starvation:/),
     effect: "read-only",
     requiresConfirmation: false,
-    argv: ["inm", "analyze", snapshot.project.rootDir, "--world", "cleanroom", "--blueprint", "generated-dram-fab", "--scenario", "production-window", "--objective", "dram-output", "--section", "diagnostics", "--json"],
-    studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/fab-loss.input-starvation"),
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "commissioned-dram-fab", "--json"],
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    target: expect.objectContaining({
+      kind: "design-program",
+      programId: "commissioned-dram-fab",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    }),
+  }));
+  expect(snapshot.operations.find((operation) => operation.id === "design.run")).toEqual(expect.objectContaining({
+    effect: "creates-artifact",
+    availability: { state: "available", reasons: [] },
   }));
   const yieldQuality = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality");
   expect(yieldQuality).toMatchObject({
@@ -244,8 +279,8 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     .toEqual(expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD" }));
   expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 10, verifiedCount: 1 });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringContaining("fab-loss."),
-    target: expect.objectContaining({ kind: "diagnostic" }),
+    id: expect.stringContaining("design.inspect:commissioned-dram-fab:fab-loss."),
+    target: expect.objectContaining({ kind: "design-program", programId: "commissioned-dram-fab" }),
   }));
 }, 20_000);
 

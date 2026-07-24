@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V4 shared decision status, Objective-owned inventory accounting, hash-compatible tracked-lot loss attribution, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
+Status: V5 shared decision status, Objective-owned inventory accounting, hash-compatible tracked-lot loss attribution, current-Blueprint Design Program handoff, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
@@ -17,7 +17,7 @@ project-local files + explicit ProjectSelection
   → loadFactoryProject()
   → compileFactoryProject()
   → analyzeProduction() + planProductionCapacity()
-  → runs + Benchmarks + Candidate Change Sets
+  → runs + Benchmarks + Candidate Change Sets + Design Programs
   → buildProjectWorkbenchSnapshot()
   → inm inspect / Studio project overview API
 ```
@@ -28,7 +28,7 @@ Opening a snapshot is read-only. It does not create cache directories, runs, Ben
 
 ## Snapshot contract
 
-The V4 snapshot contains:
+The V5 snapshot contains:
 
 - project id, display name, and resolved project root;
 - the effective World, Blueprint, Scenario, and Objective ids/names plus complete input hashes;
@@ -38,6 +38,7 @@ The V4 snapshot contains:
 - compact Resource, Process, Product Route, and Device asset summaries;
 - immutable run evidence with selection, engine compatibility, decision, score, and result hash;
 - locked Benchmark summaries and Candidate summaries with cheap `proposed`, reviewed-verdict, `verified`, or `stale` decisions reconstructed from hashes and immutable review receipts without running their evaluators;
+- project-local Design Program summaries with their seed, locked Benchmark promotion target, bounded policy, and explicit alignment result against the effective Blueprint;
 - prioritized diagnostics and operation descriptors.
 - optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, ordered quality-origin, input-gap Device, and Q-time step/Device contributors, and interpretation caveat;
 - optional compatible-run Objective inventory accounting with average/peak total inventory, scored WIP, excluded inventory, and per-Resource averages, peaks, final quantities, and inclusion state;
@@ -65,7 +66,7 @@ An operation descriptor advertises one Core capability without executing it. It 
 - `conditional` means a capability exists but its selected artifact must still satisfy listed guards;
 - `unavailable` means the project contains no applicable artifact or prerequisite.
 
-The three operation effects are `read-only`, `creates-artifact`, and `mutates-blueprint`. `simulate` declares an immutable `runs/<generated>/` artifact. `synthesize` declares a new Blueprint path. Candidate review declares `candidate-reviews/<candidate>/<proposal-hash>.review.json`; Candidate application declares its candidate Blueprint path pattern, explicit confirmation, immutable review receipt, reviewed/base/proposed hashes, KEEP verdict, and post-write hash guards. A descriptor never grants permission to bypass the command's runtime validation.
+The three operation effects are `read-only`, `creates-artifact`, and `mutates-blueprint`. `simulate` declares an immutable `runs/<generated>/` artifact. `synthesize` declares a new Blueprint path. `design.run` declares a content-addressed `design-runs/<program>/<result-hash>/` artifact and the locked-Benchmark, current-Program-hash, bounded-budget, and immutable-result guards; it is available only when the project has at least one locked Program, and its existing streaming Design executor remains separate from the shorter named-operation result protocol. Candidate review declares `candidate-reviews/<candidate>/<proposal-hash>.review.json`; Candidate application declares its candidate Blueprint path pattern, explicit confirmation, immutable review receipt, reviewed/base/proposed hashes, KEEP verdict, and post-write hash guards. A descriptor never grants permission to bypass the command's runtime validation. Studio disables unavailable operation actions instead of inventing a client-side escape from this Core state.
 
 ## CLI and Studio projections
 
@@ -82,7 +83,9 @@ Explicit query selection never falls back when invalid. The endpoint is project-
 
 ### Shared next action
 
-Core derives one visible and machine-readable next action from existing workbench facts so operators do not assign equal weight to every panel. This is an operating projection, not a new industrial conclusion. It selects, in order, the first blocking capacity diagnostic, an exact reviewed KEEP awaiting confirmation, a new current Candidate proposal awaiting review, missing or incompatible immutable evidence for the exact effective selection, the first flow warning, the latest matching run, or shared analysis. A reviewed non-KEEP verdict is resolved evidence, and a stale Candidate is historical evidence; both remain visible in the catalog and status counts but neither can permanently displace work on the current factory.
+Core derives one visible and machine-readable next action from existing workbench facts so operators do not assign equal weight to every panel. This is an operating projection, not a new industrial conclusion. It selects, in order, the first blocking capacity diagnostic, an exact reviewed KEEP awaiting confirmation, a new current Candidate proposal awaiting review, missing or incompatible immutable evidence for the exact effective selection, an aligned Design Program for the first compatible-run loss, the first remaining flow warning, the latest matching run, or shared analysis. A reviewed non-KEEP verdict is resolved evidence, and a stale Candidate is historical evidence; both remain visible in the catalog and status counts but neither can permanently displace work on the current factory.
+
+A Program is aligned only when its Benchmark is locked, its seed is an authored Blueprint equal to the effective Blueprint, and that Benchmark's candidate/promotion target is the same Blueprint. Synthesis seeds, unlocked Benchmarks, and different seed or promotion targets remain visible with exact non-alignment reasons but cannot become current-factory recommendation authority. The aligned recommendation opens the read-only Program brief with exact `inm design ... --program ... --json` argv and a project-qualified Studio route; it never starts a Design Run on page load or claims that the Program will remove the measured loss.
 
 Every target already exists in the snapshot and carries exact CLI argv plus a Studio route. CLI returns the object unchanged and Studio renders it unchanged; neither surface chooses priority locally. Orientation never executes a Benchmark, creates a review receipt, mutates a Blueprint, or claims that a non-matching run proves the selected selection.
 

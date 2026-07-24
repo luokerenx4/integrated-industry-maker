@@ -1923,7 +1923,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
     { view: "overview", label: "OVERVIEW" },
     { view: "factory", label: "FACTORY" },
     { view: "runs", label: "RUNS", count: overview.counts.runs },
-    { view: "designs", label: "DESIGN", count: data.designPrograms.length },
+    { view: "designs", label: "DESIGN", count: overview.counts.designPrograms },
     { view: "experiments", label: "EXPERIMENTS", count: overview.counts.experiments },
     { view: "analysis", label: "ANALYSIS", count: overview.diagnostics.length },
     { view: "catalog", label: "CATALOG", count: overview.counts.resourceAssets + overview.counts.deviceAssets + overview.counts.processes + overview.counts.routes },
@@ -1978,6 +1978,10 @@ function operationCli(snapshot: ProjectWorkbenchSnapshot, operation: WorkbenchOp
   const selection = `--world ${argument(snapshot.selection.world.id)} --blueprint ${argument(snapshot.selection.blueprint.id)} --scenario ${argument(snapshot.selection.scenario.id)} --objective ${argument(snapshot.selection.objective.id)}`;
   if (operation.id === "benchmark.evaluate") return `inm benchmark ${root} --benchmark ${argument(snapshot.experiments.find((item) => item.locked)?.id ?? "<benchmark-id>")} --json`;
   if (operation.id === "candidate.preview" || operation.id === "candidate.apply") return `inm candidate ${root} --candidate ${argument(snapshot.candidates[0]?.id ?? "<candidate-id>")}${operation.id === "candidate.apply" ? " --apply" : ""} --json`;
+  if (operation.id === "design.run") {
+    const program = snapshot.designPrograms.find((item) => item.alignment.state === "aligned") ?? snapshot.designPrograms.find((item) => item.locked);
+    return `inm design ${root} --program ${argument(program?.id ?? "<program-id>")} --run --max-candidates ${program?.budget.maxCandidates ?? "<candidate-budget>"} --json`;
+  }
   if (operation.id === "synthesize") return `inm synthesize ${root} ${selection} --output '<new-blueprint-id>' --json`;
   return `inm ${operation.id} ${root} ${selection} --json`;
 }
@@ -2011,13 +2015,14 @@ function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperat
   </div>;
 }
 
-function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus, onExperiment, onCandidate, onRun, onOperation }: {
+function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus, onExperiment, onCandidate, onDesign, onRun, onOperation }: {
   snapshot: ProjectWorkbenchSnapshot;
   onNavigate: (view: StudioView) => void;
   onDiagnostic: (diagnostic: WorkbenchDiagnostic) => void;
   onDiagnosticFocus: (diagnosticId: string) => void;
   onExperiment: (id: string) => void;
   onCandidate: (benchmarkId: string, candidateId: string) => void;
+  onDesign: (programId: string) => void;
   onRun: (runId: string) => void;
   onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
@@ -2048,6 +2053,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       return;
     }
     if (target.kind === "candidate") { onCandidate(target.benchmarkId, target.candidateId); return; }
+    if (target.kind === "design-program") { onDesign(target.programId); return; }
     if (target.kind === "run") { onRun(target.runId); return; }
     const operation = snapshot.operations.find((item) => item.id === target.operationId);
     if (operation) onOperation(operation, operationCli(snapshot, operation));
@@ -2144,9 +2150,12 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           const cli = operationCli(snapshot, operation);
           const runnable = ["validate", "analyze", "plan", "simulate"].includes(operation.id);
           const review = operation.id.startsWith("candidate") || operation.id === "benchmark.evaluate";
+          const design = operation.id === "design.run";
           const current = operation.id === "inspect";
-          const action = runnable ? () => onOperation(operation, cli) : review ? () => onNavigate("experiments") : () => { void navigator.clipboard.writeText(cli); };
-          return <article key={operation.id} data-operation-id={operation.id} data-testid={`operation-${operation.id}`}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current} onClick={action}>{runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><CopyButton text={cli} testId={`copy-operation-${operation.id}`} /></div></article>;
+          const available = operation.availability.state !== "unavailable";
+          const designProgram = snapshot.designPrograms.find((item) => item.alignment.state === "aligned") ?? snapshot.designPrograms.find((item) => item.locked);
+          const action = runnable ? () => onOperation(operation, cli) : review ? () => onNavigate("experiments") : design && designProgram ? () => onDesign(designProgram.id) : () => { void navigator.clipboard.writeText(cli); };
+          return <article key={operation.id} data-operation-id={operation.id} data-testid={`operation-${operation.id}`}><span className={operation.effect}>{operation.effect}</span><strong>{operation.label}</strong><p>{operation.description}</p><code>{operation.selectionAware ? "CURRENT SELECTION" : "PROJECT WIDE"}{operation.guards.length ? ` · ${operation.guards.join(" + ")}` : ""}</code><div><button disabled={current || !available} onClick={action}>{!available ? "UNAVAILABLE" : runnable ? "RUN OPERATION" : review ? "OPEN WORKBENCH" : design ? "OPEN DESIGN" : current ? "CURRENT VIEW" : "COPY CLI TEMPLATE"}</button><CopyButton text={cli} testId={`copy-operation-${operation.id}`} /></div></article>;
         })}</div>
       </details>
     </div>
@@ -2461,7 +2470,7 @@ function App() {
     navigateView("factory");
   };
   const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic} onDiagnosticFocus={navigateAnalysisDiagnostic}
-    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} onRun={openRun} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
+    onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect} onDesign={navigateDesignProgram} onRun={openRun} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
 
   if (routeView !== "factory") {
     const focusedDiagnostic = routeDiagnostic ? overview.diagnostics.find((diagnostic) => diagnostic.id === routeDiagnostic) : undefined;

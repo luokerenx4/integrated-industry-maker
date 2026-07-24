@@ -4,6 +4,7 @@ import { listRuns } from "./artifacts";
 import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./benchmark";
 import { listCandidateChangeSets } from "./candidate-change-set";
 import { inspectCandidateDecision, type CandidateDecisionState } from "./candidate-review";
+import { listDesignPrograms, type DesignProgramSummary } from "./design-program";
 import { analyzeFabLosses, type FabLossAttribution } from "./fab-loss-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
@@ -47,7 +48,7 @@ export interface WorkbenchDiagnostic {
 export type WorkbenchOperationEffect = "read-only" | "creates-artifact" | "mutates-blueprint";
 
 export interface WorkbenchOperationDescriptor {
-  id: "validate" | "inspect" | "analyze" | "plan" | "simulate" | "synthesize" | "benchmark.evaluate" | "candidate.preview" | "candidate.apply";
+  id: "validate" | "inspect" | "analyze" | "plan" | "simulate" | "synthesize" | "design.run" | "benchmark.evaluate" | "candidate.preview" | "candidate.apply";
   label: string;
   description: string;
   effect: WorkbenchOperationEffect;
@@ -64,6 +65,7 @@ export interface WorkbenchOperationDescriptor {
 export type WorkbenchNextActionTarget =
   | { kind: "diagnostic"; diagnosticId: string }
   | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
+  | { kind: "design-program"; programId: string; diagnosticId: string }
   | { kind: "operation"; operationId: "analyze" | "simulate" }
   | { kind: "run"; runId: string };
 
@@ -81,7 +83,7 @@ export interface WorkbenchNextAction {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 4;
+  version: 5;
   project: {
     id: string;
     name: string;
@@ -133,6 +135,7 @@ export interface ProjectWorkbenchSnapshot {
     runs: number;
     experiments: number;
     candidates: number;
+    designPrograms: number;
   };
   catalog: {
     resources: Array<{ id: string; name: string; unit: { kind: "discrete" | "continuous"; symbol: string; precision: number }; tags: string[] }>;
@@ -150,6 +153,23 @@ export interface ProjectWorkbenchSnapshot {
     selection: { world: string; blueprint: string; scenario: string; objective: string };
   }>;
   experiments: BlueprintBenchmarkSummary[];
+  designPrograms: Array<{
+    id: string;
+    name: string;
+    description: string;
+    benchmark: string;
+    seed: DesignProgramSummary["seed"];
+    driverCase: string;
+    currentBestGuardrail: DesignProgramSummary["currentBestGuardrail"];
+    frontier: DesignProgramSummary["frontier"];
+    budget: DesignProgramSummary["budget"];
+    locked: boolean;
+    promotionTarget: string;
+    alignment: {
+      state: "aligned" | "not-aligned";
+      reasons: Array<"unlocked-benchmark" | "synthesis-seed" | "seed-blueprint-mismatch" | "promotion-target-mismatch">;
+    };
+  }>;
   candidates: Array<{
     id: string;
     name: string;
@@ -254,7 +274,7 @@ function projectDiagnostics(project: CompiledFactoryProject, analysis: Productio
       subjects,
       message,
       evidence: { source: "compatible-run", summary: bucket.summary, runId: lossAttribution!.run.id },
-      actionIds: ["simulate", "analyze"],
+      actionIds: ["simulate", "analyze", "design.run"],
     };
   });
   return [...blocking, ...realized, ...advisory].sort((left, right) =>
@@ -271,7 +291,11 @@ function conditionalWhen(condition: boolean, conditionSummary: string, unavailab
   return condition ? { state: "conditional", reasons: [conditionSummary] } : { state: "unavailable", reasons: [unavailableReason] };
 }
 
-function operationDescriptors(experiments: BlueprintBenchmarkSummary[], candidates: ProjectWorkbenchSnapshot["candidates"]): WorkbenchOperationDescriptor[] {
+function operationDescriptors(
+  experiments: BlueprintBenchmarkSummary[],
+  candidates: ProjectWorkbenchSnapshot["candidates"],
+  designPrograms: ProjectWorkbenchSnapshot["designPrograms"],
+): WorkbenchOperationDescriptor[] {
   const lockedExperiments = experiments.filter((experiment) => experiment.locked).length;
   const reviewable = candidates.some((candidate) => candidate.decision.state === "proposed" || candidate.decision.state.startsWith("reviewed-"));
   const applicable = candidates.some((candidate) => candidate.decision.state === "reviewed-keep");
@@ -299,6 +323,13 @@ function operationDescriptors(experiments: BlueprintBenchmarkSummary[], candidat
     {
       id: "synthesize", label: "Synthesize Blueprint", description: "Generate a new Blueprint id from project-local assets and the selected Objective.",
       effect: "creates-artifact", selectionAware: true, requiresConfirmation: false, writeSet: ["blueprints/<output>.blueprint.json"], guards: ["new-output-id"], availability: { state: "available", reasons: [] },
+    },
+    {
+      id: "design.run", label: "Run bounded Design Program", description: "Diagnose one project-local seed and evaluate bounded proposals against its locked multi-case Benchmark.",
+      effect: "creates-artifact", selectionAware: false, requiresConfirmation: false,
+      writeSet: ["design-runs/<program>/<result-hash>/"],
+      guards: ["locked-benchmark", "current-program-hash", "bounded-candidate-budget", "immutable-design-run"],
+      availability: unavailableWhen(designPrograms.some((program) => program.locked), "No locked project-local Design Program is available."),
     },
     {
       id: "benchmark.evaluate", label: "Evaluate Benchmark", description: "Evaluate a candidate Blueprint against a locked multi-case Benchmark without writing project state.",
@@ -338,7 +369,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   ];
 }
 
-function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations">): WorkbenchNextAction {
+function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms">): WorkbenchNextAction {
   const projectRoute = `/${encodeURIComponent(context.project.id)}`;
   const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
   if (blocking) return {
@@ -403,6 +434,19 @@ function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "se
   };
 
   const warning = context.diagnostics.find((diagnostic) => diagnostic.severity === "warning");
+  const alignedProgram = context.designPrograms.find((program) => program.alignment.state === "aligned");
+  if (warning?.evidence.source === "compatible-run" && alignedProgram) return {
+    id: `design.inspect:${alignedProgram.id}:${warning.id}`,
+    tone: "attention",
+    title: `Investigate the leading loss with ${alignedProgram.name}`,
+    reason: `${warning.message} Open the aligned Design Program brief before choosing whether to create bounded locked-case evidence.`,
+    actionLabel: "OPEN DESIGN LOOP",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: ["inm", "design", context.project.rootDir, "--program", alignedProgram.id, "--json"],
+    studioRoute: `${projectRoute}/designs/${encodeURIComponent(alignedProgram.id)}`,
+    target: { kind: "design-program", programId: alignedProgram.id, diagnosticId: warning.id },
+  };
   if (warning) return {
     id: `diagnostic:${warning.id}`,
     tone: "attention",
@@ -446,10 +490,11 @@ function buildNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "se
 export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProject): Promise<ProjectWorkbenchSnapshot> {
   const analysis = analyzeProduction(project);
   const capacity = planProductionCapacity(project);
-  const [runs, experiments, candidates] = await Promise.all([
+  const [runs, experiments, candidates, programs] = await Promise.all([
     listRuns(project.rootDir),
     listBlueprintBenchmarks(project.rootDir),
     listCandidateChangeSets(project.rootDir),
+    listDesignPrograms(project.rootDir),
   ]);
   const decisions = await Promise.all(candidates.map((candidate) => inspectCandidateDecision(project.rootDir, candidate.id)));
   const gapsByKind: ProjectWorkbenchSnapshot["status"]["capacity"]["gapsByKind"] = {};
@@ -496,6 +541,29 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       },
     };
   });
+  const experimentsById = new Map(experiments.map((experiment) => [experiment.id, experiment]));
+  const designPrograms: ProjectWorkbenchSnapshot["designPrograms"] = programs.map((program) => {
+    const promotionTarget = experimentsById.get(program.benchmark)!.candidateBlueprint;
+    const reasons: ProjectWorkbenchSnapshot["designPrograms"][number]["alignment"]["reasons"] = [];
+    if (!program.locked) reasons.push("unlocked-benchmark");
+    if (program.seed.kind === "synthesis") reasons.push("synthesis-seed");
+    else if (program.seed.blueprint !== selection.blueprint.id) reasons.push("seed-blueprint-mismatch");
+    if (promotionTarget !== selection.blueprint.id) reasons.push("promotion-target-mismatch");
+    return {
+      id: program.id,
+      name: program.name,
+      description: program.description,
+      benchmark: program.benchmark,
+      seed: structuredClone(program.seed),
+      driverCase: program.driverCase,
+      currentBestGuardrail: structuredClone(program.currentBestGuardrail),
+      frontier: { ...program.frontier },
+      budget: { ...program.budget },
+      locked: program.locked,
+      promotionTarget,
+      alignment: { state: reasons.length ? "not-aligned" : "aligned", reasons },
+    };
+  });
   const currentRun = matchingRun(selection, runSummaries);
   const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
   const currentMetrics = currentArtifact
@@ -511,7 +579,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     )
     : null;
   const diagnostics = projectDiagnostics(project, analysis, capacity, lossAttribution);
-  const operations = operationDescriptors(experiments, candidateSummaries);
+  const operations = operationDescriptors(experiments, candidateSummaries, designPrograms);
   const flowWarnings = diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
   const flowInfo = diagnostics.filter((diagnostic) => diagnostic.severity === "info").length;
   const pendingReviews = candidateSummaries.filter((candidate) =>
@@ -519,7 +587,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 4 as const,
+    version: 5 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -560,6 +628,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       runs: runs.length,
       experiments: experiments.length,
       candidates: candidates.length,
+      designPrograms: designPrograms.length,
     },
     catalog: {
       resources: Object.values(project.resources).map((asset) => ({ id: asset.id, name: asset.name, unit: { ...asset.unit }, tags: [...asset.tags] })).sort((a, b) => a.id.localeCompare(b.id)),
@@ -573,6 +642,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       cases: experiment.cases.map((item) => ({ ...item })),
       acceptance: { ...experiment.acceptance },
     })),
+    designPrograms,
     candidates: candidateSummaries,
     diagnostics,
     lossAttribution,
