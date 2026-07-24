@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/cadence-control-evidence-parity]] | Preserve exact per-case cadence policy activation evidence across locked Benchmark, immutable Design, CLI, and Studio. | 2026-07-24 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/cadence-control-evidence-parity]] | Preserve exact per-case cadence policy activation evidence across locked Benchmark, immutable Design, CLI, and Studio. | 2026-07-24 |
 | [[plans/adaptive-cadence-mode-control]] | Let an explicitly qualified Device recover downstream starvation with a bounded alternate production mode and shared human/Agent evidence. | 2026-07-24 |
 | [[plans/current-schema-commissioned-frontier]] | Rebuild a useful current-contract optimization frontier for the commissioned memory fab without reviving incompatible evidence or weakening industrial guards. | 2026-07-24 |
 | [[plans/recoverable-transport-loss-attribution]] | Rank only measured physical-lane blocking as transport loss while preserving necessary transit as context for humans and Agents. | 2026-07-24 |
