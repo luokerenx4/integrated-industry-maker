@@ -1364,6 +1364,12 @@ describe("blueprint compiler", () => {
       demandPerMinute: 1, valuePerItem: 1, shortfallPenaltyPerItem: 1,
     });
     expect(issueCodes(() => compileFactoryProject(duplicateContractResource))).toContain("objective.duplicate-contract-resource");
+    const duplicateWipResource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    duplicateWipResource.objective.wipResources.push("known-good-dram-die");
+    expect(issueCodes(() => compileFactoryProject(duplicateWipResource))).toContain("objective.duplicate-wip-resource");
+    const unknownWipResource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
+    unknownWipResource.objective.wipResources.push("unobtainium");
+    expect(issueCodes(() => compileFactoryProject(unknownWipResource))).toContain("reference.resource");
 
     const portfolioProject = compileFactoryProject(await loadFactoryProject(memoryFab, { blueprint: "experiment" }));
     const portfolio = runUntil(portfolioProject, undefined, { seed: 42 });
@@ -1375,6 +1381,21 @@ describe("blueprint compiler", () => {
       "commercial-order": expect.objectContaining({ demand: 32, delivered: 38, valued: 38, overflow: 6, fulfillment: 38 / 32 }),
       "performance-order": expect.objectContaining({ demand: 12, delivered: 12, fulfillment: 1 }),
       "automotive-order": expect.objectContaining({ demand: 6, delivered: 6, fulfillment: 1 }),
+    }));
+    expect(portfolio.metrics.inventoryAccounting.averageWip).toBe(portfolio.metrics.averageWip);
+    expect(portfolio.metrics.inventoryAccounting.averageTotalInventory)
+      .toBeGreaterThan(portfolio.metrics.inventoryAccounting.averageWip);
+    expect(Object.entries(portfolio.metrics.inventoryAccounting.resources)
+      .filter(([, accounting]) => accounting.includedInWip)
+      .reduce((sum, [, accounting]) => sum + accounting.averageInventory, 0))
+      .toBeCloseTo(portfolio.metrics.averageWip, 12);
+    expect(portfolio.metrics.inventoryAccounting.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
+      includedInWip: false,
+      averageInventory: expect.any(Number),
+    }));
+    expect(portfolio.metrics.inventoryAccounting.resources["reticle-mask-set-l1"]).toEqual(expect.objectContaining({
+      includedInWip: false,
+      finalInventory: 1,
     }));
 
     const deadlineSource = await loadFactoryProject(memoryFab, {
@@ -3253,6 +3274,14 @@ describe("deterministic discrete-event simulation", () => {
         floor: {
           baseColor: "#111111", gridColor: "#222222", sectionColor: "#333333",
           edgeColor: "#444444", aisleColor: "#555555", slabMargin: 4,
+          material: {
+            maps: {
+              baseColor: "assets/environment/cleanroom-floor-base-color.png",
+              normal: "assets/environment/cleanroom-floor-normal.png",
+              roughness: "assets/environment/cleanroom-floor-roughness.png",
+            },
+            metalness: .18, roughness: .72, normalScale: .42, tileSize: 5,
+          },
         },
       },
     };
@@ -3266,6 +3295,13 @@ describe("deterministic discrete-event simulation", () => {
     const backdrop = project.manifest.presentation?.environment.backdrop;
     expect(backdrop?.image).toBe("assets/environment/cleanroom-far-wall.png");
     expect(await Bun.file(join(memoryFab, backdrop!.image)).exists()).toBeTrue();
+    const floorMaps = project.manifest.presentation?.environment.floor?.material.maps;
+    expect(floorMaps).toEqual({
+      baseColor: "assets/environment/cleanroom-floor-base-color.png",
+      normal: "assets/environment/cleanroom-floor-normal.png",
+      roughness: "assets/environment/cleanroom-floor-roughness.png",
+    });
+    for (const file of Object.values(floorMaps!)) expect(await Bun.file(join(memoryFab, file)).exists()).toBeTrue();
 
     const dir = await projectCopy();
     const manifestPath = join(dir, "inm.json");
@@ -3907,7 +3943,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.accepted).toBeTrue();
     expect(result.cases.map((item) => item.id)).toEqual(["incomplete-tail"]);
     expect(result.totalSimulationTicks).toBe(720_000);
-    expect(result.scoreDelta).toBeCloseTo(14.534068, 5);
+    expect(result.scoreDelta).toBeCloseTo(6.409068, 5);
     expect(result.cases[0]!.baselineMetrics.batchJobs).toBe(3);
     expect(result.cases[0]!.candidateMetrics).toEqual(expect.objectContaining({
       batchJobs: 3, averageLotsPerBatch: 3, batchFormationHolds: 4,
@@ -3944,10 +3980,10 @@ describe("coding-agent Blueprint benchmarks", () => {
       .toBeLessThan(benchmarkCase.baselineMetrics.deliveryNetValuePerMinute);
     expect(benchmarkCase.candidateMetrics.averageWip)
       .toBeGreaterThan(benchmarkCase.baselineMetrics.averageWip);
-    expect(result.scoreDelta).toBeCloseTo(-1.518292, 5);
+    expect(result.scoreDelta).toBeCloseTo(-0.905583, 5);
     expect(result.reasons).toEqual([
-      "aggregate score delta -1.518292 is below required 0.001000",
-      "case 'equipment-energy-window' regressed by 1.518292, above allowed 0.000000",
+      "aggregate score delta -0.905583 is below required 0.001000",
+      "case 'equipment-energy-window' regressed by 0.905583, above allowed 0.000000",
     ]);
   }, 15_000);
 

@@ -23,8 +23,8 @@
       "equipment-energy-window": {
         "blueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
         "deviceCatalogHash": "7ddeb38ff5370787b265416e4b40a0b3f2f188777e261a0d45ce2998adcbdf41",
-        "engineVersion": "inm-sim/0.76.0",
-        "objectiveHash": "d7e78cbc549f465c0d95281ede812ff4b30c1b244ad6a6e742913dc1c07a0461",
+        "engineVersion": "inm-sim/0.77.0",
+        "objectiveHash": "460550d870c673def3fb7f60c2f9c673aca190ee4a81be3e407528ce64152608",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
         "routeCatalogHash": "e706d898f2cdc31b0abb456f7da04cdac5d9839ff93b160cb14c54c3c6b1c6d2",

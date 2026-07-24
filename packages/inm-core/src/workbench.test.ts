@@ -10,7 +10,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(3);
+  expect(snapshot.version).toBe(4);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -53,10 +53,23 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 13, infoCount: 11 },
-    evidence: { state: "current", runId: "071-simulate" },
+    evidence: { state: "current", runId: "073-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 9, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
+  expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
+  expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
+  expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
+    runId: "073-simulate",
+    averageWip: 18.335616666666667,
+    averageTotalInventory: 116.93968333333333,
+    averageExcludedInventory: 98.60406666666667,
+    peakWip: 47,
+  }));
+  expect(snapshot.inventoryAccounting?.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
+    includedInWip: false,
+    averageInventory: 41.69886666666667,
+  }));
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
   expect(snapshot.candidates).toEqual([

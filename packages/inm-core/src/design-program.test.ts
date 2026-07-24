@@ -247,7 +247,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
   });
   const iteration = result.manifest.iterations[0]!;
   const evidence = iteration.decisionEvidence!;
-  expect(evidence.aggregate.scoreDelta).toBeCloseTo(23.281223, 6);
+  expect(evidence.aggregate.scoreDelta).toBeCloseTo(22.93091048214286, 6);
   expect(evidence.cases.every((item) =>
     item.maximumScoreRegression === 0 && item.guardrailPassed && item.scoreDelta >= 0)).toBeTrue();
   expect(iteration.evaluation!.scoreDelta).toBeGreaterThan(0);

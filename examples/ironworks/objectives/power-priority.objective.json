@@ -9,6 +9,9 @@
   "targetRatePerMinute": 12,
   "targetRegion": "assembly-zone",
   "targetResource": "gear",
+  "wipResources": [
+    "iron-plate"
+  ],
   "weights": {
     "blocked": 2,
     "buildCost": 0.2,

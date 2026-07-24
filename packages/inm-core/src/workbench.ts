@@ -81,7 +81,7 @@ export interface WorkbenchNextAction {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 3;
+  version: 4;
   project: {
     id: string;
     name: string;
@@ -98,6 +98,7 @@ export interface ProjectWorkbenchSnapshot {
     targetResource: string;
     targetRegion: string;
     targetRatePerMinute: number;
+    wipResources: string[];
     deliveryContracts: Array<{
       id: string;
       resource: string;
@@ -105,6 +106,7 @@ export interface ProjectWorkbenchSnapshot {
       demandPerMinute: number;
     }>;
   };
+  inventoryAccounting: (FactoryMetrics["inventoryAccounting"] & { runId: string }) | null;
   status: {
     capacity: {
       state: "ready" | "blocked";
@@ -496,9 +498,12 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   });
   const currentRun = matchingRun(selection, runSummaries);
   const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
+  const currentMetrics = currentArtifact
+    ? await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics
+    : null;
   const lossAttribution = currentArtifact && Object.keys(project.routes).length
     ? analyzeFabLosses(
-      await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics,
+      currentMetrics!,
       project.scenario.durationTicks,
       { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash },
       project,
@@ -514,7 +519,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 3 as const,
+    version: 4 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -522,8 +527,12 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       targetResource: project.objective.targetResource,
       targetRegion: project.objective.targetRegion,
       targetRatePerMinute: project.objective.targetRatePerMinute,
+      wipResources: [...project.objective.wipResources],
       deliveryContracts,
     },
+    inventoryAccounting: currentMetrics
+      ? { ...structuredClone(currentMetrics.inventoryAccounting), runId: currentArtifact!.name }
+      : null,
     status: {
       capacity: { state: capacity.ready ? "ready" as const : "blocked" as const, gapCount: capacity.gaps.length, gapsByKind },
       flow: { state: flowWarnings ? "at-risk" as const : "clear" as const, warningCount: flowWarnings, infoCount: flowInfo },

@@ -48,7 +48,19 @@ test("project manifest schema exposes the strict project-local Factory environme
   const presentation = JSON.stringify(root.properties.presentation);
   expect(presentation).toContain("environment");
   expect(presentation).toContain("slabMargin");
+  expect(presentation).toContain("tileSize");
+  expect(presentation).toContain("normalScale");
   expect(presentation).toContain("backdrop");
   expect(presentation).toContain("image");
   expect(presentation).not.toContain("url");
+});
+
+test("Objective schema requires an explicit WIP Resource scope", () => {
+  const schema = projectArtifactJsonSchema("objective");
+  const root = (schema.definitions as Record<string, {
+    properties: Record<string, unknown>;
+    required: string[];
+  }>).objective!;
+  expect(root.required).toContain("wipResources");
+  expect(JSON.stringify(root.properties.wipResources)).toContain("array");
 });

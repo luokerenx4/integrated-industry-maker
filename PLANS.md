@@ -26,6 +26,8 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/factory-environment-depth]] | Make the memory-fab floor and distant cleanroom read as one spatial exhibit at both overview and work-cell scales. | 2026-07-24 |
+| [[plans/objective-owned-wip-accounting]] | Make Objective-scoped industrial WIP explicit and equally inspectable by humans and Coding Agents. | 2026-07-24 |
 | [[plans/commissioned-recovery-delivery-conversion]] | Convert advanced-recovery yield into paid DRAM delivery inside the locked interruption window through explicit back-end equipment and control. | 2026-07-24 |
 | [[plans/objective-score-causality]] | Expose exact Objective component causality across Benchmark, Design, CLI, Studio, and project-local proposal providers. | 2026-07-24 |
 | [[plans/explicit-on-time-service-guardrail]] | Make commissioned memory-fab due-date service an explicit Benchmark-owned hard outcome so WIP reduction cannot hide late lots. | 2026-07-24 |

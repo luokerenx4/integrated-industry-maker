@@ -1,7 +1,7 @@
 {
   "averageBeltItems": 1.6133333333333333,
   "averageBlockedBeltItems": 0,
-  "averageWip": 3.2183333333333333,
+  "averageWip": 1.1633333333333333,
   "batchFlow": {
     "averageLotsPerJob": 0,
     "batchOperations": 0,
@@ -143,7 +143,7 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-loader": 0,
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
-  "finalScore": 122.73716316666668,
+  "finalScore": 122.94266316666668,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -163,6 +163,39 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 106000
   },
   "infeasibleReason": null,
+  "inventoryAccounting": {
+    "averageExcludedInventory": 2.0549999999999997,
+    "averageTotalInventory": 3.2183333333333333,
+    "averageWip": 1.1633333333333333,
+    "peakTotalInventory": 5,
+    "peakWip": 2,
+    "resources": {
+      "crude-oil": {
+        "averageInventory": 1.3216666666666668,
+        "finalInventory": 2,
+        "includedInWip": false,
+        "peakInventory": 2
+      },
+      "hydrogen": {
+        "averageInventory": 0.5816666666666667,
+        "finalInventory": 1,
+        "includedInWip": false,
+        "peakInventory": 1
+      },
+      "plastic": {
+        "averageInventory": 0.15166666666666667,
+        "finalInventory": 0,
+        "includedInWip": false,
+        "peakInventory": 1
+      },
+      "refined-oil": {
+        "averageInventory": 1.1633333333333333,
+        "finalInventory": 2,
+        "includedInWip": true,
+        "peakInventory": 2
+      }
+    }
+  },
   "lotFlow": {
     "completed": 0,
     "family": null,
@@ -331,7 +364,7 @@
     "rework": 0,
     "tardiness": 0,
     "throughput": 130,
-    "wip": -0.32183333333333336
+    "wip": -0.11633333333333334
   },
   "sleepingTime": {
     "synth-chemical-basin-wind-turbine-1": 0,

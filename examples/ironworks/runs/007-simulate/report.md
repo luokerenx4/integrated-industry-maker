@@ -2,8 +2,8 @@
 
 - Decision: **BASELINE**
 - Blueprint: `chemical-factory`
-- Score: **122.737**
-- Result hash: `ef6ddce203200f7bc6c9f502032e7db9f58b1d6da3c759f0cae3b1bdc4adde39`
+- Score: **122.943**
+- Result hash: `9dc9a3fee445fdb6cea9afb08053cb330ce2018e656fd95329389ff190b1803e`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Delivery portfolio: 130.0% demand attainment · 26.000 / 20.000 valued / demanded · 6.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Inventory accounting: 1.163 average scored WIP / 3.218 total inventory · 2.000 peak WIP / 5.000 peak total
 - Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 10.000 plastic/min
 - Capacity delivery targets: 10.000 plastic/min
@@ -56,6 +57,17 @@ No configured accumulators.
 
 No configured logistics stations.
 
+## Objective inventory accounting
+
+| Resource | Scope | Average inventory | Peak inventory | Final inventory |
+| --- | --- | ---: | ---: | ---: |
+| refined-oil | WIP | 1.163 | 2.000 | 2.000 |
+| crude-oil | excluded | 1.322 | 2.000 | 2.000 |
+| hydrogen | excluded | 0.582 | 1.000 | 1.000 |
+| plastic | excluded | 0.152 | 1.000 | 0.000 |
+
+Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.
+
 ## Score breakdown
 
 ```json
@@ -74,6 +86,6 @@ No configured logistics stations.
   "rework": 0,
   "tardiness": 0,
   "throughput": 130,
-  "wip": -0.32183333333333336
+  "wip": -0.11633333333333334
 }
 ```

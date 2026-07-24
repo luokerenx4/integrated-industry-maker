@@ -2,8 +2,8 @@
 
 - Decision: **BASELINE**
 - Blueprint: `scaled-factory`
-- Score: **122.079**
-- Result hash: `35a966b969002816f1798fa3a40e3b02ee4067f0bb721248756d7a62ff613718`
+- Score: **129.731**
+- Result hash: `740867167362fa58485426d4a259da3ec5d1eb3929f004cc4f11e6b0043dfd10`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
 - Delivery portfolio: 83.3% demand attainment · 40.000 / 48.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Inventory accounting: 16.224 average scored WIP / 92.742 total inventory · 26.000 peak WIP / 130.000 peak total
 - Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 24.000 gear/min
 - Capacity delivery targets: 24.000 gear/min
@@ -71,6 +72,18 @@ No configured accumulators.
 | synth-iron-plate-assembly-zone-station-demand-1 | 0.000 | 12.000 / 12.000 | 300.000 | 12.000 | 0.000 |
 | synth-iron-plate-forge-zone-station-supply-1 | 0.000 | 9.961 / 12.000 | 300.000 | 21.161 | 11.200 |
 
+## Objective inventory accounting
+
+| Resource | Scope | Average inventory | Peak inventory | Final inventory |
+| --- | --- | ---: | ---: | ---: |
+| iron-plate | WIP | 16.224 | 26.000 | 23.000 |
+| coal | excluded | 39.997 | 63.000 | 61.000 |
+| proliferator | excluded | 33.254 | 40.000 | 38.000 |
+| iron-ore | excluded | 2.708 | 4.000 | 4.000 |
+| gear | excluded | 0.558 | 4.000 | 0.000 |
+
+Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.
+
 ## Score breakdown
 
 ```json
@@ -89,6 +102,6 @@ No configured accumulators.
   "rework": 0,
   "tardiness": 0,
   "throughput": 200,
-  "wip": -9.274158333333334
+  "wip": -1.622375
 }
 ```

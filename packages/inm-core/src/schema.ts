@@ -346,6 +346,7 @@ export const scenarioSchema = z.object({
 
 export const objectiveSchema = z.object({
   id, name: z.string().min(1), targetResource: id, targetRegion: id, targetRatePerMinute: z.number().positive(),
+  wipResources: z.array(id),
   trackedFamily: id.optional(),
   deliveryContracts: z.array(z.object({
     id, name: z.string().min(1), resource: id, region: id, demandPerMinute: z.number().positive(),
@@ -373,6 +374,17 @@ export const manifestSchema = z.object({
         edgeColor: visualColor,
         aisleColor: visualColor,
         slabMargin: z.number().min(1).max(24),
+        material: z.object({
+          maps: z.object({
+            baseColor: relativeProjectFile,
+            normal: relativeProjectFile,
+            roughness: relativeProjectFile,
+          }).strict(),
+          metalness: z.number().min(0).max(1),
+          roughness: z.number().min(0).max(1),
+          normalScale: z.number().min(0).max(4),
+          tileSize: z.number().min(.25).max(32),
+        }).strict(),
       }).strict().optional(),
       backdrop: z.object({
         image: relativeProjectFile,

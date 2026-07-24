@@ -12,18 +12,29 @@
   "presentation": {
     "environment": {
       "floor": {
-        "baseColor": "#0b1b20",
+        "baseColor": "#8aa4a8",
         "gridColor": "#1d3b43",
         "sectionColor": "#3b7680",
         "edgeColor": "#57d1c2",
         "aisleColor": "#12323a",
-        "slabMargin": 6
+        "slabMargin": 6,
+        "material": {
+          "maps": {
+            "baseColor": "assets/environment/cleanroom-floor-base-color.png",
+            "normal": "assets/environment/cleanroom-floor-normal.png",
+            "roughness": "assets/environment/cleanroom-floor-roughness.png"
+          },
+          "metalness": 0.18,
+          "roughness": 0.72,
+          "normalScale": 0.42,
+          "tileSize": 5
+        }
       },
       "backdrop": {
         "image": "assets/environment/cleanroom-far-wall.png",
-        "height": 10,
+        "height": 13,
         "distance": 6,
-        "opacity": 0.88
+        "opacity": 0.94
       }
     }
   }

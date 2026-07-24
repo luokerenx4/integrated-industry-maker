@@ -87,7 +87,7 @@ export function factoryPresentation(
 ): FactoryPresentation {
   const focus = selectedObjectFocus(scene, selection);
   const mode = resolveFactoryPresentationMode(request, viewport.width, focus !== null);
-  const sceneTarget = { x: scene.bounds.width / 2, y: .35, z: scene.bounds.height / 2 };
+  const sceneTarget = { x: scene.bounds.width / 2, y: .9, z: scene.bounds.height / 2 };
 
   if (mode === "selection" && focus) {
     return {
@@ -102,7 +102,7 @@ export function factoryPresentation(
     const equipment = scene.devices.filter((device) => !device.transportEndpoint);
     const workCellTarget = equipment.length ? {
       x: equipment.reduce((sum, device) => sum + device.position.x + device.footprint.width / 2, 0) / equipment.length,
-      y: .35,
+      y: .9,
       z: equipment.reduce((sum, device) => sum + device.position.y + device.footprint.height / 2, 0) / equipment.length,
     } : sceneTarget;
     const viewportAspect = Math.max(.55, viewport.width / Math.max(1, viewport.height));

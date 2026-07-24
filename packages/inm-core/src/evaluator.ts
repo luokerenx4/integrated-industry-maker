@@ -3,6 +3,10 @@ import type { CompiledFactoryProject, FactoryMetrics, FactoryState, ScoreBreakdo
 export interface SimulationStats {
   durations: Record<string, Record<string, Tick>>;
   wipArea: number;
+  inventoryArea: Record<string, number>;
+  inventoryPeak: Record<string, number>;
+  peakTotalInventory: number;
+  peakWip: number;
   congestionArea: number;
   beltOccupancyArea: number;
   beltItemArea: number;
@@ -286,7 +290,43 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   for (const contract of contractMetrics) if (contract.minimumFulfillment !== undefined && contract.fulfillment + 1e-12 < contract.minimumFulfillment) violations.push(
     `delivery contract ${contract.id} fulfillment ${(contract.fulfillment * 100).toFixed(1)}% is below ${(contract.minimumFulfillment * 100).toFixed(1)}%`,
   );
+  const finalInventory: Record<string, number> = {};
+  const addFinalInventory = (resource: string, count: number) => {
+    finalInventory[resource] = (finalInventory[resource] ?? 0) + count;
+  };
+  for (const runtime of Object.values(state.devices)) {
+    for (const inventory of Object.values(runtime.buffers)) {
+      for (const [resource, count] of Object.entries(inventory)) addFinalInventory(resource, count);
+    }
+  }
+  for (const transit of Object.values(state.transports).flat()) addFinalInventory(transit.resource, transit.count);
+  for (const transit of Object.values(state.logisticsTransports).flat()) addFinalInventory(transit.resource, transit.count);
+  const wipResources = new Set(project.objective.wipResources);
+  const accountedResources = [...new Set([
+    ...project.objective.wipResources,
+    ...Object.keys(stats.inventoryArea),
+    ...Object.keys(stats.inventoryPeak),
+    ...Object.keys(finalInventory),
+  ])].sort();
+  const inventoryResources: FactoryMetrics["inventoryAccounting"]["resources"] = Object.fromEntries(accountedResources.map((resource) => [
+    resource,
+    {
+      includedInWip: wipResources.has(resource),
+      averageInventory: (stats.inventoryArea[resource] ?? 0) / duration,
+      peakInventory: stats.inventoryPeak[resource] ?? 0,
+      finalInventory: finalInventory[resource] ?? 0,
+    },
+  ]));
   const averageWip = stats.wipArea / duration;
+  const averageTotalInventory = Object.values(stats.inventoryArea).reduce((sum, area) => sum + area, 0) / duration;
+  const inventoryAccounting: FactoryMetrics["inventoryAccounting"] = {
+    averageTotalInventory,
+    averageWip,
+    averageExcludedInventory: Math.max(0, averageTotalInventory - averageWip),
+    peakTotalInventory: stats.peakTotalInventory,
+    peakWip: stats.peakWip,
+    resources: inventoryResources,
+  };
   const averageBeltItems = stats.beltItemArea / duration;
   const averageBlockedBeltItems = stats.beltBlockedArea / duration;
   const beltCellUtilization = stats.beltOccupancyArea / duration / Math.max(1, Object.keys(project.transportCells).length);
@@ -619,7 +659,7 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
     }])),
     materialTreatment: structuredClone(state.materialTreatment), productionTooling, productionUtilities, equipmentSetups, equipmentMaintenance, equipmentEnergyManagement,
     totalBuildCost, occupiedArea, machineUtilization, idleTime, sleepingTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
-    averageWip, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
+    averageWip, inventoryAccounting, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,
     scoreBreakdown, finalScore,

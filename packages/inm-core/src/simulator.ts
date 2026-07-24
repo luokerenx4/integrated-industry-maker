@@ -35,7 +35,20 @@ const scaledCeil = (value: number, multiplier: { numerator: number; denominator:
   Math.ceil(value * multiplier.numerator / multiplier.denominator);
 
 function quantity(inventory: Record<string, number>): number { return Object.values(inventory).reduce((sum, count) => sum + count, 0); }
-function deviceQuantity(state: DeviceRuntimeState): number { return Object.values(state.buffers).reduce((sum, inventory) => sum + quantity(inventory), 0); }
+function inventoryByResource(state: FactoryState): Record<string, number> {
+  const result: Record<string, number> = {};
+  const add = (resource: string, count: number) => {
+    result[resource] = (result[resource] ?? 0) + count;
+  };
+  for (const runtime of Object.values(state.devices)) {
+    for (const inventory of Object.values(runtime.buffers)) {
+      for (const [resource, count] of Object.entries(inventory)) add(resource, count);
+    }
+  }
+  for (const transit of Object.values(state.transports).flat()) add(transit.resource, transit.count);
+  for (const transit of Object.values(state.logisticsTransports).flat()) add(transit.resource, transit.count);
+  return result;
+}
 function stationFleetKey(network: string, station: string): string { return `${network}:${station}`; }
 
 function renewableProfileFor(project: CompiledFactoryProject, deviceId: string) {
@@ -283,7 +296,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
-    durations: {}, wipArea: 0, congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
+    durations: {}, wipArea: 0, inventoryArea: {}, inventoryPeak: {}, peakTotalInventory: 0, peakWip: 0,
+    congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
     releaseControlServiceLevelOpenings: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedArea: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
     connectionDepartedByResource: {}, connectionDeliveredByResource: {}, stationFleetBusyArea: {}, stationFleetCompletedReturns: {},
@@ -533,9 +547,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const measureUntil = (tick: number) => {
     const delta = tick - state.tick;
     if (delta <= 0) return;
-    const wip = Object.values(state.devices).reduce((sum, runtime) => sum + deviceQuantity(runtime), 0)
-      + Object.values(state.transports).flat().reduce((sum, transit) => sum + transit.count, 0)
-      + Object.values(state.logisticsTransports).flat().reduce((sum, transit) => sum + transit.count, 0);
+    const inventory = inventoryByResource(state);
+    const wipScope = new Set(project.objective.wipResources);
+    const totalInventory = Object.values(inventory).reduce((sum, count) => sum + count, 0);
+    const wip = Object.entries(inventory).reduce((sum, [resource, count]) => sum + (wipScope.has(resource) ? count : 0), 0);
+    for (const [resource, count] of Object.entries(inventory)) {
+      stats.inventoryArea[resource] = (stats.inventoryArea[resource] ?? 0) + count * delta;
+      stats.inventoryPeak[resource] = Math.max(stats.inventoryPeak[resource] ?? 0, count);
+    }
+    stats.peakTotalInventory = Math.max(stats.peakTotalInventory, totalInventory);
+    stats.peakWip = Math.max(stats.peakWip, wip);
     updatePeakActiveLots();
     const beltTransits = Object.values(state.transports).flat().filter((transit) => transit.phase === "belt");
     const occupiedBeltCells = beltTransits.length;

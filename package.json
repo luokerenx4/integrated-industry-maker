@@ -25,6 +25,7 @@
     "memory-fab:research-recovery-delivery": "bun examples/memory-fab/strategies/research/recovery-delivery.ts",
     "memory-fab:research-planned-maintenance": "bun examples/memory-fab/strategies/research/commissioned-planned-maintenance.ts",
     "memory-fab:materials": "bun examples/memory-fab/strategies/generate-device-materials.ts",
+    "memory-fab:environment-material": "bun examples/memory-fab/strategies/generate-environment-material.ts",
     "ironworks:relock-benchmarks": "bun examples/ironworks/strategies/relock-benchmarks.ts",
     "memory-fab:relock-benchmarks": "bun examples/memory-fab/strategies/relock-benchmarks.ts",
     "runs:regenerate": "bun scripts/regenerate-example-runs.ts",

@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V3 shared decision status, hash-compatible tracked-lot loss attribution, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
+Status: V4 shared decision status, Objective-owned inventory accounting, hash-compatible tracked-lot loss attribution, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
@@ -28,11 +28,11 @@ Opening a snapshot is read-only. It does not create cache directories, runs, Ben
 
 ## Snapshot contract
 
-The V3 snapshot contains:
+The V4 snapshot contains:
 
 - project id, display name, and resolved project root;
 - the effective World, Blueprint, Scenario, and Objective ids/names plus complete input hashes;
-- normalized primary or portfolio delivery contracts;
+- normalized primary or portfolio delivery contracts plus the Objective's exact WIP Resource scope;
 - separate capacity, flow-risk, matching-evidence, and Candidate-review status facets;
 - topology, project-local catalog, run, experiment, and candidate counts;
 - compact Resource, Process, Product Route, and Device asset summaries;
@@ -40,6 +40,7 @@ The V3 snapshot contains:
 - locked Benchmark summaries and Candidate summaries with cheap `proposed`, reviewed-verdict, `verified`, or `stale` decisions reconstructed from hashes and immutable review receipts without running their evaluators;
 - prioritized diagnostics and operation descriptors.
 - optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, ordered quality-origin, input-gap Device, and Q-time step/Device contributors, and interpretation caveat;
+- optional compatible-run Objective inventory accounting with average/peak total inventory, scored WIP, excluded inventory, and per-Resource averages, peaks, final quantities, and inclusion state;
 - exactly one shared next action with stable identity, reason, effect, confirmation requirement, exact CLI argv, project-qualified Studio route, and typed target.
 
 Every array is emitted in deterministic id order where its source is not already ordered. Snapshot `version` identifies this projection contract; INM is still pre-alpha, so changing it means replacing both consumers and tests in the same change rather than adding compatibility readers.

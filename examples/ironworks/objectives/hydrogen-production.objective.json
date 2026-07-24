@@ -4,6 +4,7 @@
   "targetResource": "hydrogen",
   "targetRegion": "chemical-basin",
   "targetRatePerMinute": 10,
+  "wipResources": ["refined-oil"],
   "constraints": { "maxBuildCost": 40000, "maxOccupiedArea": 180, "minProduction": 12 },
   "weights": { "throughput": 10, "onTimeDelivery": 10, "energy": 0.01, "buildCost": 0.5, "occupiedArea": 0.2, "wip": 0.1, "blocked": 2 }
 }

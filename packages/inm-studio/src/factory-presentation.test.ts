@@ -23,14 +23,14 @@ describe("factory presentation policy", () => {
   test("auto uses overview for a wide viewport and work-cell scale for a narrow viewport", () => {
     expect(factoryPresentation(scene, "auto", null, { width: 1024, height: 700 })).toEqual({
       mode: "overview",
-      target: { x: 24, y: .35, z: 16 },
+      target: { x: 24, y: .9, z: 16 },
       span: { width: 48, height: 32 },
       minimumDistance: 26,
       labelDensity: "priority",
     });
     expect(factoryPresentation(scene, "auto", null, { width: 390, height: 682 })).toMatchObject({
       mode: "work-cell",
-      target: { x: 9.5, y: .35, z: 11 },
+      target: { x: 9.5, y: .9, z: 11 },
       span: { height: 18 },
       labelDensity: "all",
     });

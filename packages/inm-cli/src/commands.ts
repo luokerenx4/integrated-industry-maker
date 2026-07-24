@@ -296,7 +296,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
-      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
+      summary: () => ({ version: snapshot.version, project: snapshot.project, selection: snapshot.selection, hashes: snapshot.hashes, objective: snapshot.objective, inventoryAccounting: snapshot.inventoryAccounting, status: snapshot.status, lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null, nextAction: snapshot.nextAction, counts: snapshot.counts }),
       "next-action": () => snapshot.nextAction,
       diagnostics: () => snapshot.diagnostics,
       losses: () => snapshot.lossAttribution,
@@ -320,6 +320,15 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Hashes: World ${snapshot.hashes.worldHash.slice(0, 12)} · Blueprint ${snapshot.hashes.blueprintHash.slice(0, 12)} · Scenario ${snapshot.hashes.scenarioHash.slice(0, 12)} · Objective ${snapshot.hashes.objectiveHash.slice(0, 12)}`,
     `Objective: ${snapshot.objective.targetRatePerMinute} ${snapshot.objective.targetResource}/min @ ${snapshot.objective.targetRegion}`,
     `Contracts: ${snapshot.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`,
+    `WIP scope: ${snapshot.objective.wipResources.join(", ") || "none"}`,
+    ...(snapshot.inventoryAccounting ? [
+      `Inventory evidence: run ${snapshot.inventoryAccounting.runId} · ${snapshot.inventoryAccounting.averageWip.toFixed(3)} average scored WIP / ${snapshot.inventoryAccounting.averageTotalInventory.toFixed(3)} total · ${snapshot.inventoryAccounting.peakWip.toFixed(3)} peak WIP`,
+      ...Object.entries(snapshot.inventoryAccounting.resources)
+        .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
+        .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
+        .slice(0, 5)
+        .map(([resource, accounting]) => `  ${resource}: ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak`),
+    ] : ["Inventory evidence: no compatible run"]),
     `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
     `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
     `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
@@ -590,6 +599,8 @@ export async function compareCommand(
     `  unpowered time     ${fromMetrics.unpoweredTicks.toFixed(0).padStart(12)} → ${toMetrics.unpoweredTicks.toFixed(0).padStart(12)} ticks  Δ ${signed(comparison.delta.unpoweredTicks, 0)}`,
     `  build cost         ${fromMetrics.totalBuildCost.toFixed(0).padStart(12)} → ${toMetrics.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
     `  occupied area      ${fromMetrics.occupiedArea.toFixed(0).padStart(12)} → ${toMetrics.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
+    `  average WIP        ${fromMetrics.averageWip.toFixed(3).padStart(12)} → ${toMetrics.averageWip.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageWip)}`,
+    `  total inventory    ${fromMetrics.inventoryAccounting.averageTotalInventory.toFixed(3).padStart(12)} → ${toMetrics.inventoryAccounting.averageTotalInventory.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.inventoryAccounting.averageTotalInventory)}`,
     `  blocked belt items ${fromMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)} → ${toMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageBlockedBeltItems)}`,
     `  bottleneck         ${(fromMetrics.bottleneckEntity ?? "none").padStart(12)} → ${(toMetrics.bottleneckEntity ?? "none").padStart(12)}`, "",
     `VERDICT: ${comparison.verdict} (${signed(comparison.delta.score)} objective score)`,
@@ -686,6 +697,7 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
       finalScore: result.metrics.finalScore, throughputPerMinute: result.metrics.throughputPerMinute, demandAttainment: result.metrics.deliveryPortfolio.fulfillment,
       bottleneckEntity: result.metrics.bottleneckEntity, deliveryPortfolio: result.metrics.deliveryPortfolio,
       energyConsumedMilliJoules: result.metrics.energyConsumedMilliJoules, totalBuildCost: result.metrics.totalBuildCost, occupiedArea: result.metrics.occupiedArea,
+      inventoryAccounting: result.metrics.inventoryAccounting,
     } }),
     artifact: () => ({ cached: summary.cached, run: summary.run, resultHash: summary.resultHash, runKey: summary.runKey }),
     metrics: () => summary.metrics,
@@ -708,6 +720,11 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     `Contracts: ${(result.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}% demand attainment · ${result.metrics.deliveryPortfolio.valued.toFixed(3)}/${result.metrics.deliveryPortfolio.demanded.toFixed(3)} valued · ${result.metrics.deliveryPortfolio.overflow.toFixed(3)} above demand · ${result.metrics.deliveryPortfolio.netValuePerMinute.toFixed(3)} net value/min`,
     ...Object.entries(result.metrics.deliveryPortfolio.contracts).map(([id, contract]) => `  ${id}: ${contract.delivered.toFixed(3)}/${contract.demand.toFixed(3)} ${contract.resource} · ${(contract.fulfillment * 100).toFixed(1)}% · net ${contract.netValue.toFixed(3)}`),
     `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
+    `Inventory: ${result.metrics.inventoryAccounting.averageWip.toFixed(3)} average scored WIP / ${result.metrics.inventoryAccounting.averageTotalInventory.toFixed(3)} total · ${result.metrics.inventoryAccounting.peakWip.toFixed(3)} peak WIP / ${result.metrics.inventoryAccounting.peakTotalInventory.toFixed(3)} peak total`,
+    ...Object.entries(result.metrics.inventoryAccounting.resources)
+      .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
+      .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
+      .map(([resource, accounting]) => `  WIP ${resource}: ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak · ${accounting.finalInventory.toFixed(3)} final`),
     ...(result.metrics.lotFlow.family ? [
       `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released}/${result.metrics.lotFlow.scheduled} completed/released/scheduled · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
       `Release flow: ${(result.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(3)} s planned interval · ${(result.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(3)} s actual · ${(result.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(3)} s mean delay · ${result.metrics.releaseFlow.pending} pending`,
@@ -827,6 +844,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
       ...scoreBreakdownLines(item.baselineMetrics.scoreBreakdown, item.candidateMetrics.scoreBreakdown, item.scoreBreakdownDelta),
       `    contracts ${(item.baselineMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.baselineMetrics.deliveryNetValuePerMinute.toFixed(3)} net/min / ${item.baselineMetrics.deliveryOverflow.toFixed(3)} overflow → ${(item.candidateMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.candidateMetrics.deliveryNetValuePerMinute.toFixed(3)} / ${item.candidateMetrics.deliveryOverflow.toFixed(3)}`,
+      `    inventory ${item.baselineMetrics.averageWip.toFixed(3)} WIP / ${item.baselineMetrics.inventoryAccounting.averageTotalInventory.toFixed(3)} total → ${item.candidateMetrics.averageWip.toFixed(3)} / ${item.candidateMetrics.inventoryAccounting.averageTotalInventory.toFixed(3)}`,
       ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
         `    lots ${item.baselineMetrics.completedLots}/${item.baselineMetrics.onTimeLots} complete/on-time → ${item.candidateMetrics.completedLots}/${item.candidateMetrics.onTimeLots} · mean cycle ${(item.baselineMetrics.meanCycleTimeTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanCycleTimeTicks / 1000).toFixed(3)} s · tardiness ${(item.baselineMetrics.meanTardinessTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanTardinessTicks / 1000).toFixed(3)} s`,
         `    release ${item.baselineMetrics.releasedLots}/${item.baselineMetrics.scheduledLots} released · ${(item.baselineMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s interval / ${(item.baselineMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s delay → ${item.candidateMetrics.releasedLots}/${item.candidateMetrics.scheduledLots} · ${(item.candidateMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s / ${(item.candidateMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s`,

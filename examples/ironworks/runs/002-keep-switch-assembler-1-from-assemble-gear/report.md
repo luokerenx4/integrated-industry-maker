@@ -2,8 +2,8 @@
 
 - Decision: **KEEP**
 - Blueprint: `main`
-- Score: **30.404**
-- Result hash: `3e3fd42085c32344f7381920e78dadd53e912100c9dddc8c199d8c109122f7c1`
+- Score: **35.301**
+- Result hash: `3ca01a8e410f5a6d37d6bf76c42cd9db998b35f1e94b8ce98d8f092701586be0`
 - Bottleneck: smelter-1
 - Throughput/min: 7.000
 - Delivery portfolio: 58.3% demand attainment · 14.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Inventory accounting: 5.378 average scored WIP / 54.341 total inventory · 9.000 peak WIP / 65.000 peak total
 - Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 12.000 gear/min
 - Capacity delivery targets: 12.000 gear/min
@@ -65,6 +66,17 @@
 | station-demand | 0.000 | 12.000 / 12.000 | 300.000 | 12.000 | 0.000 |
 | station-supply | 0.000 | 12.000 / 12.000 | 300.000 | 23.300 | 11.300 |
 
+## Objective inventory accounting
+
+| Resource | Scope | Average inventory | Peak inventory | Final inventory |
+| --- | --- | ---: | ---: | ---: |
+| iron-plate | WIP | 5.378 | 9.000 | 8.000 |
+| coal | excluded | 35.483 | 40.000 | 39.000 |
+| iron-ore | excluded | 13.348 | 16.000 | 14.000 |
+| gear | excluded | 0.131 | 2.000 | 0.000 |
+
+Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.
+
 ## Score breakdown
 
 ```json
@@ -83,6 +95,6 @@
   "rework": 0,
   "tardiness": 0,
   "throughput": 70,
-  "wip": -5.434141666666667
+  "wip": -0.53785
 }
 ```

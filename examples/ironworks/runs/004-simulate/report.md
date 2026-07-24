@@ -2,8 +2,8 @@
 
 - Decision: **BASELINE**
 - Blueprint: `synthesized`
-- Score: **52.511**
-- Result hash: `df4815862d6be8496f332a0707459e6ac3e4309279e0dfcd34cf6904be5cc67a`
+- Score: **59.335**
+- Result hash: `545979ef358707e202c095b67524e41be99e90fee3c3dba8a6d98c891fd6e540`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 12.000
 - Delivery portfolio: 100.0% demand attainment · 24.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Inventory accounting: 7.938 average scored WIP / 76.183 total inventory · 15.000 peak WIP / 95.000 peak total
 - Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 12.000 gear/min
 - Capacity delivery targets: 12.000 gear/min
@@ -67,6 +68,18 @@ No configured accumulators.
 | synth-iron-plate-assembly-zone-station-demand-1 | 0.000 | 12.000 / 12.000 | 300.000 | 12.000 | 0.000 |
 | synth-iron-plate-forge-zone-station-supply-1 | 0.000 | 10.330 / 12.000 | 300.000 | 21.830 | 11.500 |
 
+## Objective inventory accounting
+
+| Resource | Scope | Average inventory | Peak inventory | Final inventory |
+| --- | --- | ---: | ---: | ---: |
+| iron-plate | WIP | 7.938 | 15.000 | 11.000 |
+| proliferator | excluded | 33.236 | 40.000 | 38.000 |
+| coal | excluded | 21.339 | 28.000 | 22.000 |
+| iron-ore | excluded | 13.335 | 16.000 | 14.000 |
+| gear | excluded | 0.335 | 4.000 | 0.000 |
+
+Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.
+
 ## Score breakdown
 
 ```json
@@ -85,6 +98,6 @@ No configured accumulators.
   "rework": 0,
   "tardiness": 0,
   "throughput": 120,
-  "wip": -7.618291666666668
+  "wip": -0.7937500000000001
 }
 ```

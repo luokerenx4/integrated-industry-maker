@@ -2,8 +2,8 @@
 
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
-- Score: **245.090**
-- Result hash: `995d2e83a66e23dc2ee4d5d8f560139fe638aced881405e12296345cabed2b27`
+- Score: **245.595**
+- Result hash: `369311eb89d69fe4e20e726dfdb17930cb82b318e3d139a3628aeb7cfe201e2c`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Delivery portfolio: 100.0% demand attainment · 8.000 / 8.000 valued / demanded · 0.000 above demand · 0.000 net value/min
@@ -18,6 +18,7 @@
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)
 - Equipment setup: 0 changeovers · 0.000 s work · 0 campaign holds / 0.000 s (0 lot-ready / 0 timeout)
 - Equipment energy states: 0 sleeps · 0 wakeups · 0.000 equipment-s sleeping · 0.000 equipment-s waking
+- Inventory accounting: 0.000 average scored WIP / 5.050 total inventory · 0.000 peak WIP / 8.000 peak total
 - Electricity cost: 0.000000 currency · 0.000000 energy · 0.000000 peak demand
 - Primary target rate: 240.000 iron-ore/min
 - Capacity delivery targets: 240.000 iron-ore/min
@@ -53,6 +54,14 @@ No configured accumulators.
 
 No configured logistics stations.
 
+## Objective inventory accounting
+
+| Resource | Scope | Average inventory | Peak inventory | Final inventory |
+| --- | --- | ---: | ---: | ---: |
+| iron-ore | excluded | 5.050 | 8.000 | 0.000 |
+
+Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.
+
 ## Score breakdown
 
 ```json
@@ -71,6 +80,6 @@ No configured logistics stations.
   "rework": 0,
   "tardiness": 0,
   "throughput": 240,
-  "wip": -0.505
+  "wip": 0
 }
 ```

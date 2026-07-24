@@ -1795,6 +1795,19 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
 
   if (!loaded.resources[loaded.objective.targetResource]) issues.push({ path: "objective/targetResource", code: "reference.resource", message: `Unknown target resource '${loaded.objective.targetResource}'` });
   if (!regions[loaded.objective.targetRegion]) issues.push({ path: "objective/targetRegion", code: "reference.region", message: `Unknown target region '${loaded.objective.targetRegion}'` });
+  const wipResources = new Set<string>();
+  for (const [index, resource] of loaded.objective.wipResources.entries()) {
+    const path = `objective/wipResources/${index}`;
+    if (wipResources.has(resource)) issues.push({
+      path, code: "objective.duplicate-wip-resource",
+      message: `WIP Resource '${resource}' is declared more than once`,
+    });
+    wipResources.add(resource);
+    if (!loaded.resources[resource]) issues.push({
+      path, code: "reference.resource",
+      message: `Unknown WIP Resource '${resource}'`,
+    });
+  }
   if (loaded.objective.trackedFamily && !Object.values(loaded.resources).some((resource) => resource.tracking?.family === loaded.objective.trackedFamily)) issues.push({
     path: "objective/trackedFamily", code: "reference.lot-family",
     message: `Objective tracked family '${loaded.objective.trackedFamily}' is not declared by a project Resource`,

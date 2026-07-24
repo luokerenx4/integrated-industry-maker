@@ -5,6 +5,19 @@
   "trackedFamily": "dram-wafer",
   "targetRegion": "cleanroom",
   "targetRatePerMinute": 8,
+  "wipResources": [
+    "blank-dram-wafer-lot",
+    "patterned-cell-l1-lot",
+    "etched-cell-l1-lot",
+    "dielectric-stack-lot",
+    "annealed-dielectric-stack-lot",
+    "patterned-cell-l2-lot",
+    "dram-wafer-lot",
+    "rework-required-dram-wafer-lot",
+    "qualified-dram-wafer-lot",
+    "known-good-dram-die",
+    "packaged-dram-device"
+  ],
   "deliveryContracts": [
     {
       "id": "commercial-order",

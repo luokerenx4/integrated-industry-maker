@@ -203,10 +203,16 @@ export interface ProjectSelection { world?: string; blueprint?: string; scenario
 export async function loadFactoryProject(projectDir: string, selection: ProjectSelection = {}): Promise<LoadedFactoryProject> {
   const rootDir = resolve(projectDir);
   const manifest = await parseFile<InmManifest>(join(rootDir, "inm.json"), "manifest");
-  const backdrop = manifest.presentation?.environment.backdrop;
-  if (backdrop) {
-    try { await verifyProjectReferencedFile(rootDir, backdrop.image); }
-    catch (error) { throw new Error(`Cannot read referenced project environment file ${join(rootDir, backdrop.image)}: ${error instanceof Error ? error.message : String(error)}`); }
+  const environment = manifest.presentation?.environment;
+  const environmentFiles = [
+    environment?.backdrop?.image,
+    environment?.floor?.material.maps.baseColor,
+    environment?.floor?.material.maps.normal,
+    environment?.floor?.material.maps.roughness,
+  ].filter((file): file is string => Boolean(file));
+  for (const file of environmentFiles) {
+    try { await verifyProjectReferencedFile(rootDir, file); }
+    catch (error) { throw new Error(`Cannot read referenced project environment file ${join(rootDir, file)}: ${error instanceof Error ? error.message : String(error)}`); }
   }
   const worldId = selection.world ?? manifest.defaultWorld;
   const blueprintId = selection.blueprint ?? manifest.defaultBlueprint;

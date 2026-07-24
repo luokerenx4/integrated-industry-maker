@@ -676,6 +676,8 @@ export interface Objective {
   targetResource: ResourceId;
   targetRegion: string;
   targetRatePerMinute: number;
+  /** Exact Objective-owned Resource scope whose resident and in-flight quantities contribute to average WIP. */
+  wipResources: ResourceId[];
   /** Optional source work-lot family used for service and quality metrics when the target Resource is untracked. */
   trackedFamily?: string;
   /** Fixed evaluator-owned customer contracts. Demand is a service floor, not a production ceiling. */
@@ -736,6 +738,17 @@ export interface InmManifest {
         edgeColor: string;
         aisleColor: string;
         slabMargin: number;
+        material: {
+          maps: {
+            baseColor: string;
+            normal: string;
+            roughness: string;
+          };
+          metalness: number;
+          roughness: number;
+          normalScale: number;
+          tileSize: number;
+        };
       };
       backdrop?: {
         image: string;
@@ -1729,6 +1742,19 @@ export interface FactoryMetrics {
   unpoweredTime: Record<DeviceInstanceId, Tick>;
   failedTime: Record<DeviceInstanceId, Tick>;
   averageWip: number;
+  inventoryAccounting: {
+    averageTotalInventory: number;
+    averageWip: number;
+    averageExcludedInventory: number;
+    peakTotalInventory: number;
+    peakWip: number;
+    resources: Record<ResourceId, {
+      includedInWip: boolean;
+      averageInventory: number;
+      peakInventory: number;
+      finalInventory: number;
+    }>;
+  };
   averageBeltItems: number;
   averageBlockedBeltItems: number;
   peakBeltItems: number;

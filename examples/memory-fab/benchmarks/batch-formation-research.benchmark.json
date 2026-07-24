@@ -23,8 +23,8 @@
       "incomplete-tail": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
         "deviceCatalogHash": "7ddeb38ff5370787b265416e4b40a0b3f2f188777e261a0d45ce2998adcbdf41",
-        "engineVersion": "inm-sim/0.76.0",
-        "objectiveHash": "cddc381fe26949315d6e576de2eca0859b4c5609e86ba98fe3c3d7f279023a78",
+        "engineVersion": "inm-sim/0.77.0",
+        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
         "routeCatalogHash": "e706d898f2cdc31b0abb456f7da04cdac5d9839ff93b160cb14c54c3c6b1c6d2",

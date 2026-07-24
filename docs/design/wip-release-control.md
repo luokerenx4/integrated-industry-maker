@@ -1,6 +1,6 @@
 # Closed-loop WIP release control
 
-Status: Blueprint-authored factory CONWIP, high/low-watermark and maximum-delay service replenishment, eligible-lot arbitration, causal blocking metrics, and commissioned memory-fab control implemented through engine version `inm-sim/0.76.0`.
+Status: Blueprint-authored factory CONWIP, high/low-watermark and maximum-delay service replenishment, eligible-lot arbitration, causal blocking metrics, and commissioned memory-fab control implemented through engine version `inm-sim/0.77.0`.
 
 Related: [[docs/design/lot-release-scheduling]], [[docs/design/lot-tracking]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 

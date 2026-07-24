@@ -1,7 +1,7 @@
 {
   "averageBeltItems": 2.8,
   "averageBlockedBeltItems": 0,
-  "averageWip": 5.05,
+  "averageWip": 0,
   "batchFlow": {
     "averageLotsPerJob": 0,
     "batchOperations": 0,
@@ -126,7 +126,7 @@
     "stacked-link-loader": 0,
     "stacked-link-unloader": 0
   },
-  "finalScore": 245.08993,
+  "finalScore": 245.59493,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -137,6 +137,21 @@
     "stacked-link-unloader": 1625
   },
   "infeasibleReason": null,
+  "inventoryAccounting": {
+    "averageExcludedInventory": 5.05,
+    "averageTotalInventory": 5.05,
+    "averageWip": 0,
+    "peakTotalInventory": 8,
+    "peakWip": 0,
+    "resources": {
+      "iron-ore": {
+        "averageInventory": 5.05,
+        "finalInventory": 0,
+        "includedInWip": false,
+        "peakInventory": 8
+      }
+    }
+  },
   "lotFlow": {
     "completed": 0,
     "family": null,
@@ -312,7 +327,7 @@
     "rework": 0,
     "tardiness": 0,
     "throughput": 240,
-    "wip": -0.505
+    "wip": 0
   },
   "sleepingTime": {
     "stack-power": 0,

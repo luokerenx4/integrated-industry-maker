@@ -1,7 +1,7 @@
 {
   "averageBeltItems": 2.0375,
   "averageBlockedBeltItems": 0,
-  "averageWip": 50.58775,
+  "averageWip": 10.874333333333333,
   "batchFlow": {
     "averageLotsPerJob": 0,
     "batchOperations": 0,
@@ -199,7 +199,7 @@
     "wind-assembly-recipe-line": 0,
     "wind-turbine-support": 0
   },
-  "finalScore": 86.43337966666668,
+  "finalScore": 90.40472133333334,
   "fuelConsumed": {
     "coal": 4
   },
@@ -245,6 +245,39 @@
     "wind-turbine-support": 120000
   },
   "infeasibleReason": null,
+  "inventoryAccounting": {
+    "averageExcludedInventory": 39.71341666666667,
+    "averageTotalInventory": 50.58775,
+    "averageWip": 10.874333333333333,
+    "peakTotalInventory": 64,
+    "peakWip": 18,
+    "resources": {
+      "coal": {
+        "averageInventory": 35.294666666666664,
+        "finalInventory": 37,
+        "includedInWip": false,
+        "peakInventory": 40
+      },
+      "gear": {
+        "averageInventory": 0.24375,
+        "finalInventory": 0,
+        "includedInWip": false,
+        "peakInventory": 2
+      },
+      "iron-ore": {
+        "averageInventory": 4.175,
+        "finalInventory": 2,
+        "includedInWip": false,
+        "peakInventory": 6
+      },
+      "iron-plate": {
+        "averageInventory": 10.874333333333333,
+        "finalInventory": 5,
+        "includedInWip": true,
+        "peakInventory": 18
+      }
+    }
+  },
   "lotFlow": {
     "completed": 0,
     "family": null,
@@ -472,7 +505,7 @@
     "rework": 0,
     "tardiness": 0,
     "throughput": 130,
-    "wip": -5.058775000000001
+    "wip": -1.0874333333333333
   },
   "sleepingTime": {
     "assembler-1": 0,

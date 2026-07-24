@@ -1,7 +1,7 @@
 {
   "averageBeltItems": 2.2025,
   "averageBlockedBeltItems": 0,
-  "averageWip": 4.1258333333333335,
+  "averageWip": 0.84,
   "batchFlow": {
     "averageLotsPerJob": 0,
     "batchOperations": 0,
@@ -150,7 +150,7 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
     "synth-xray-crack-oil-1": 0
   },
-  "finalScore": 402.3343879166667,
+  "finalScore": 402.66297125,
   "fuelConsumed": {},
   "highSpeedMissions": 0,
   "idleTime": {
@@ -173,6 +173,39 @@
     "synth-xray-crack-oil-1": 0
   },
   "infeasibleReason": null,
+  "inventoryAccounting": {
+    "averageExcludedInventory": 3.2858333333333336,
+    "averageTotalInventory": 4.1258333333333335,
+    "averageWip": 0.84,
+    "peakTotalInventory": 6,
+    "peakWip": 2,
+    "resources": {
+      "crude-oil": {
+        "averageInventory": 1.3216666666666668,
+        "finalInventory": 2,
+        "includedInWip": false,
+        "peakInventory": 2
+      },
+      "graphite": {
+        "averageInventory": 0.8491666666666666,
+        "finalInventory": 1,
+        "includedInWip": false,
+        "peakInventory": 1
+      },
+      "hydrogen": {
+        "averageInventory": 1.115,
+        "finalInventory": 3,
+        "includedInWip": false,
+        "peakInventory": 3
+      },
+      "refined-oil": {
+        "averageInventory": 0.84,
+        "finalInventory": 0,
+        "includedInWip": true,
+        "peakInventory": 2
+      }
+    }
+  },
   "lotFlow": {
     "completed": 0,
     "family": null,
@@ -344,7 +377,7 @@
     "rework": 0,
     "tardiness": 0,
     "throughput": 390,
-    "wip": -0.41258333333333336
+    "wip": -0.084
   },
   "sleepingTime": {
     "synth-chemical-basin-wind-turbine-1": 0,

@@ -395,6 +395,13 @@ interface Metrics {
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
+  inventoryAccounting: {
+    averageTotalInventory: number; averageWip: number; averageExcludedInventory: number;
+    peakTotalInventory: number; peakWip: number;
+    resources: Record<string, {
+      includedInWip: boolean; averageInventory: number; peakInventory: number; finalInventory: number;
+    }>;
+  };
   averageBeltItems: number;
   averageBlockedBeltItems: number;
   peakBeltItems: number;
@@ -533,6 +540,17 @@ interface StudioData {
       edgeColor: string;
       aisleColor: string;
       slabMargin: number;
+      material: {
+        maps: {
+          baseColor: string;
+          normal: string;
+          roughness: string;
+        };
+        metalness: number;
+        roughness: number;
+        normalScale: number;
+        tileSize: number;
+      };
     };
     backdrop?: {
       image: string;
@@ -1146,6 +1164,46 @@ function FactoryBackdropImage({ data, backdrop }: {
   </mesh>;
 }
 
+type EnvironmentFloor = NonNullable<NonNullable<StudioData["environment"]>["floor"]>;
+
+function EnvironmentFloorMaterial({ data, floor, width, depth }: {
+  data: StudioData;
+  floor: EnvironmentFloor;
+  width: number;
+  depth: number;
+}) {
+  const [baseColorSource, normalSource, roughnessSource] = useTexture([
+    fileUrl(data.projectId, floor.material.maps.baseColor),
+    fileUrl(data.projectId, floor.material.maps.normal),
+    fileUrl(data.projectId, floor.material.maps.roughness),
+  ]) as THREE.Texture[];
+  const textures = useMemo(
+    () => [baseColorSource!, normalSource!, roughnessSource!].map((texture) => texture.clone()),
+    [baseColorSource, normalSource, roughnessSource],
+  );
+  useEffect(() => {
+    for (const texture of textures) {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(width / floor.material.tileSize, depth / floor.material.tileSize);
+      texture.needsUpdate = true;
+    }
+    textures[0]!.colorSpace = THREE.SRGBColorSpace;
+    textures[1]!.colorSpace = THREE.NoColorSpace;
+    textures[2]!.colorSpace = THREE.NoColorSpace;
+    return () => textures.forEach((texture) => texture.dispose());
+  }, [depth, floor.material.tileSize, textures, width]);
+  return <meshStandardMaterial
+    color={floor.baseColor}
+    map={textures[0]}
+    normalMap={textures[1]}
+    normalScale={new THREE.Vector2(floor.material.normalScale, floor.material.normalScale)}
+    roughnessMap={textures[2]}
+    metalness={floor.material.metalness}
+    roughness={floor.material.roughness}
+  />;
+}
+
 function FactoryEnvironment({ data }: { data: StudioData }) {
   const floor = data.environment?.floor;
   if (!floor) return <FactoryBackdrop data={data} />;
@@ -1159,7 +1217,7 @@ function FactoryEnvironment({ data }: { data: StudioData }) {
   return <group>
     <mesh position={[centerX, -.12, centerZ]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[slabWidth, slabDepth]} />
-      <meshStandardMaterial color={floor.baseColor} roughness={.88} metalness={.08} />
+      <EnvironmentFloorMaterial data={data} floor={floor} width={slabWidth} depth={slabDepth} />
     </mesh>
     <mesh position={[centerX, -.045, -margin / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[data.bounds.width + margin * 1.35, Math.max(1.6, margin)]} />
@@ -1224,7 +1282,12 @@ function FactoryWorld({ data, tick, selection, presentationRequest, onPresentati
     <directionalLight position={[-14, 14, -10]} intensity={.72} color="#73d8d1" />
     <FactoryEnvironment data={data} />
     {data.regions.map((region) => <group key={region.id}>
-      <mesh position={[region.offset.x + region.bounds.width / 2, -.055, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[region.bounds.width, region.bounds.height]} /><meshStandardMaterial color={data.environment?.floor?.baseColor ?? "#0b191d"} roughness={.78} metalness={.16} /></mesh>
+      <mesh position={[region.offset.x + region.bounds.width / 2, -.055, region.offset.y + region.bounds.height / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[region.bounds.width, region.bounds.height]} />
+        {data.environment?.floor
+          ? <EnvironmentFloorMaterial data={data} floor={data.environment.floor} width={region.bounds.width} depth={region.bounds.height} />
+          : <meshStandardMaterial color="#0b191d" roughness={.78} metalness={.16} />}
+      </mesh>
       <Grid args={[region.bounds.width, region.bounds.height]} position={[region.offset.x + region.bounds.width / 2, 0, region.offset.y + region.bounds.height / 2]} cellSize={1} cellThickness={.32} cellColor={data.environment?.floor?.gridColor ?? "#173038"} sectionSize={4} sectionThickness={.95} sectionColor={data.environment?.floor?.sectionColor ?? "#32717a"} fadeDistance={82} infiniteGrid={false} />
       <Line points={[
         [region.offset.x, .025, region.offset.y],
@@ -1952,6 +2015,11 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
+  const wipContributors = snapshot.inventoryAccounting
+    ? Object.entries(snapshot.inventoryAccounting.resources)
+      .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
+      .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
+    : [];
   const contributorMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
     "batch-companion-wait": "BATCH COMPANION WAIT",
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
@@ -2035,6 +2103,14 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         </div>}
         <footer><span>FIRST-PASS YIELD {(snapshot.lossAttribution.outcome.firstPassYield * 100).toFixed(1)}%</span><span>CONTRACTS {(snapshot.lossAttribution.outcome.contractFulfillment * 100).toFixed(1)}%</span><small>Ranking signals overlap; they are not additive lost output.</small></footer>
       </section>}
+      <section className="overview-panel inventory-panel" data-testid="objective-inventory-accounting">
+        <header><div><span className="eyebrow">OBJECTIVE ACCOUNTING{snapshot.inventoryAccounting ? ` · ${snapshot.inventoryAccounting.runId}` : ""}</span><h3>Scored work in process</h3></div>{snapshot.inventoryAccounting && <b>{snapshot.inventoryAccounting.averageWip.toFixed(2)}<small> AVG WIP</small></b>}</header>
+        {snapshot.inventoryAccounting ? <>
+          <div className="contract-list">{wipContributors.slice(0, 6).map(([resource, accounting]) => <div key={resource}><span><strong>{resource}</strong><code>{accounting.finalInventory.toFixed(2)} final · {accounting.peakInventory.toFixed(2)} peak</code></span><b>{accounting.averageInventory.toFixed(2)}<small> AVG</small></b></div>)}</div>
+          <footer><span>{snapshot.inventoryAccounting.averageTotalInventory.toFixed(2)} average total inventory</span><span>{snapshot.inventoryAccounting.averageExcludedInventory.toFixed(2)} excluded</span><span>{snapshot.inventoryAccounting.peakWip.toFixed(2)} peak WIP</span></footer>
+        </> : <div className="overview-empty"><span>Create a compatible immutable run to measure the Objective's WIP scope.</span></div>}
+        <code>{snapshot.objective.wipResources.join(" · ") || "Objective scores no Resource inventory as WIP"}</code>
+      </section>
       <section className="overview-panel contracts-panel">
         <header><div><span className="eyebrow">INDUSTRIAL OUTCOME</span><h3>Delivery contracts</h3></div></header>
         <div className="contract-list">{snapshot.objective.deliveryContracts.map((contract) => <div key={contract.id}><span><strong>{contract.id}</strong><code>{contract.resource} → {contract.region}</code></span><b>{contract.demandPerMinute.toFixed(2)}<small>/ MIN</small></b></div>)}</div>
@@ -2438,6 +2514,7 @@ function App() {
       <aside>
         {data.metrics && <div className="panel"><h2>Delivery contracts</h2><div className="metrics"><Metric label="DEMAND ATTAINMENT" value={`${(data.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}%`} accent /><Metric label="NET VALUE / MIN" value={data.metrics.deliveryPortfolio.netValuePerMinute.toFixed(2)} /><Metric label="VALUED / DEMANDED" value={`${data.metrics.deliveryPortfolio.valued.toFixed(0)} / ${data.metrics.deliveryPortfolio.demanded.toFixed(0)}`} /><Metric label="ABOVE DEMAND" value={data.metrics.deliveryPortfolio.overflow.toFixed(0)} />{Object.entries(data.metrics.deliveryPortfolio.contracts).map(([id, contract]) => <Metric key={id} label={id.toUpperCase()} value={`${contract.delivered.toFixed(0)} / ${contract.demand.toFixed(0)} ${contract.resource} · ${(contract.fulfillment * 100).toFixed(1)}%`} />)}</div></div>}
         <div className="panel run-panel"><label>SIMULATION RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision === "BASELINE" ? item.blueprint.toUpperCase() : `${item.decision} · ${item.blueprint.toUpperCase()}`} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.blueprint.toUpperCase()}</div>}</div>
+        {data.metrics && <div className="panel" data-testid="factory-inventory-accounting"><h2>Objective inventory</h2><div className="metrics"><Metric label="AVERAGE WIP / TOTAL" value={`${data.metrics.inventoryAccounting.averageWip.toFixed(2)} / ${data.metrics.inventoryAccounting.averageTotalInventory.toFixed(2)}`} accent /><Metric label="PEAK WIP / TOTAL" value={`${data.metrics.inventoryAccounting.peakWip.toFixed(0)} / ${data.metrics.inventoryAccounting.peakTotalInventory.toFixed(0)}`} />{Object.entries(data.metrics.inventoryAccounting.resources).filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0).sort(([, left], [, right]) => right.averageInventory - left.averageInventory).slice(0, 6).map(([resource, accounting]) => <Metric key={resource} label={resource.toUpperCase()} value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.peakInventory.toFixed(0)} peak`} />)}</div></div>}
         <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="COMPLETE / RELEASED / PLAN" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released} / ${data.metrics.lotFlow.scheduled}`} />{Object.entries(data.metrics.routeFlow).map(([route, flow]) => <Fragment key={route}><Metric label={`ROUTE ${route.toUpperCase()}`} value={`${flow.transitions} steps / ${flow.reentrantTransitions} re-entry`} /><Metric label="ROUTE TERMINALS / ACTIVE" value={`${flow.completed} complete · ${flow.scrapped} scrap / ${flow.inProgress} active`} /></Fragment>)}<Metric label="RELEASE INTERVAL PLAN / ACTUAL" value={`${(data.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(1)} s`} /><Metric label="RELEASE DELAY / PENDING" value={`${(data.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(1)} s / ${data.metrics.releaseFlow.pending}`} /><Metric label="RELEASE CONTROL / PEAK" value={`${data.metrics.releaseFlow.control === "conwip" ? `CONWIP ${data.metrics.releaseFlow.maximumWip}↕${data.metrics.releaseFlow.reopenAtWip}` : "OPEN LOOP"} / ${data.metrics.releaseFlow.peakActiveLots}`} /><Metric label="MAX DELAY / SERVICE OPENS" value={`${data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks === null ? "—" : `${(data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks / 1000).toFixed(1)} s`} / ${data.metrics.releaseFlow.serviceLevelOpenings}`} /><Metric label="CONTROL BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.controlBlockedLots} / ${(data.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="CAPACITY BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.capacityBlockedLots} / ${(data.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /><Metric label="GOOD / FIRST-PASS YIELD" value={`${(data.metrics.qualityFlow.goodYield * 100).toFixed(1)} / ${(data.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}%`} /><Metric label="INSPECTIONS / REWORK" value={`${data.metrics.qualityFlow.totalInspections} / ${data.metrics.qualityFlow.totalReworkCycles}`} /><Metric label="SCRAP / QUALITY ESCAPES" value={`${data.metrics.qualityFlow.scrapDispositions} / ${data.metrics.qualityFlow.escapedDefects}`} />{data.metrics.batchFlow.batchOperations > 0 && <><Metric label="BATCH JOBS / LOTS" value={`${data.metrics.batchFlow.jobs} / ${data.metrics.batchFlow.lots}`} /><Metric label="LOTS / BATCH" value={data.metrics.batchFlow.averageLotsPerJob.toFixed(2)} /><Metric label="MEAN BATCH WAIT" value={`${(data.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(1)} s`} /></>}</>}<Metric label="CHANGEOVERS / SETUP" value={data.metrics ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN HOLDS / TIME" value={data.metrics ? `${data.metrics.equipmentSetups.totalCampaignHolds} / ${(data.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN LOT-READY / TIMEOUT" value={data.metrics ? `${data.metrics.equipmentSetups.campaignMinimumLotReleases} / ${data.metrics.equipmentSetups.campaignMaximumHoldReleases}` : "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
         {data.metrics && Object.keys(data.metrics.routeFlow).length > 0 && <div className="panel"><h2>Route Q-time</h2><div className="metrics">{Object.entries(data.metrics.routeFlow).map(([route, flow]) => <Fragment key={route}><Metric label={`${route.toUpperCase()} VIOLATIONS / LOTS`} value={`${flow.queueTimeViolations} / ${flow.violatedLots}`} />{Object.entries(flow.steps).filter(([, step]) => step.queueTimeMaximumTicks !== null).map(([stepId, step]) => <Metric key={stepId} label={stepId.toUpperCase()} value={`${(step.meanQueueTicks / 1000).toFixed(1)} avg · ${(step.maximumQueueTicks / 1000).toFixed(1)} / ${(step.queueTimeMaximumTicks! / 1000).toFixed(1)} s · ${step.queueTimeViolations} late`} />)}</Fragment>)}</div></div>}
         {data.metrics && data.metrics.productionTooling.totalAllocations > 0 && <div className="panel"><h2>Reusable production tooling</h2><div className="metrics"><Metric label="ALLOCATED / COMPLETE" value={`${data.metrics.productionTooling.totalAllocations} / ${data.metrics.productionTooling.totalCompleted}`} /><Metric label="CANCELLED" value={String(data.metrics.productionTooling.totalCancelled)} /><Metric label="EQUIPMENT / UNIT TIME" value={`${(data.metrics.productionTooling.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionTooling.totalUnitTicks / 1000).toFixed(1)} s`} /><Metric label="WAIT / BLOCKS" value={`${(data.metrics.productionTooling.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionTooling.totalInputBlocks}`} /><Metric label="TOOL ASSETS" value={Object.entries(data.metrics.productionTooling.resources).map(([resource, measured]) => `${resource}: ${measured.unitsAllocated} allocations / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`).join(" · ") || "NONE"} /></div></div>}

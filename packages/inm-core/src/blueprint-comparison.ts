@@ -124,6 +124,7 @@ export interface BlueprintMetricSnapshot {
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
+  inventoryAccounting: FactoryMetrics["inventoryAccounting"];
   averageBlockedBeltItems: number;
   beltCellUtilization: number;
   transportCongestion: number;
@@ -233,6 +234,19 @@ export interface BlueprintMetricDelta {
   totalBuildCost: number;
   occupiedArea: number;
   averageWip: number;
+  inventoryAccounting: {
+    averageTotalInventory: number;
+    averageWip: number;
+    averageExcludedInventory: number;
+    peakTotalInventory: number;
+    peakWip: number;
+    resources: Record<string, {
+      includedInWip: boolean;
+      averageInventory: number;
+      peakInventory: number;
+      finalInventory: number;
+    }>;
+  };
   averageBlockedBeltItems: number;
   beltCellUtilization: number;
   transportCongestion: number;
@@ -474,6 +488,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     totalBuildCost: metrics.totalBuildCost,
     occupiedArea: metrics.occupiedArea,
     averageWip: metrics.averageWip,
+    inventoryAccounting: structuredClone(metrics.inventoryAccounting),
     averageBlockedBeltItems: metrics.averageBlockedBeltItems,
     beltCellUtilization: metrics.beltCellUtilization,
     transportCongestion: metrics.transportCongestion,
@@ -485,6 +500,27 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
 function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnapshot): BlueprintMetricDelta {
   const scoreBreakdown = subtractScoreBreakdown(before.scoreBreakdown, after.scoreBreakdown);
   const score = after.score - before.score;
+  const inventoryResourceIds = [...new Set([
+    ...Object.keys(before.inventoryAccounting.resources),
+    ...Object.keys(after.inventoryAccounting.resources),
+  ])].sort();
+  const inventoryAccounting: BlueprintMetricDelta["inventoryAccounting"] = {
+    averageTotalInventory: after.inventoryAccounting.averageTotalInventory - before.inventoryAccounting.averageTotalInventory,
+    averageWip: after.inventoryAccounting.averageWip - before.inventoryAccounting.averageWip,
+    averageExcludedInventory: after.inventoryAccounting.averageExcludedInventory - before.inventoryAccounting.averageExcludedInventory,
+    peakTotalInventory: after.inventoryAccounting.peakTotalInventory - before.inventoryAccounting.peakTotalInventory,
+    peakWip: after.inventoryAccounting.peakWip - before.inventoryAccounting.peakWip,
+    resources: Object.fromEntries(inventoryResourceIds.map((resource) => {
+      const baseline = before.inventoryAccounting.resources[resource];
+      const candidate = after.inventoryAccounting.resources[resource];
+      return [resource, {
+        includedInWip: candidate?.includedInWip ?? baseline?.includedInWip ?? false,
+        averageInventory: (candidate?.averageInventory ?? 0) - (baseline?.averageInventory ?? 0),
+        peakInventory: (candidate?.peakInventory ?? 0) - (baseline?.peakInventory ?? 0),
+        finalInventory: (candidate?.finalInventory ?? 0) - (baseline?.finalInventory ?? 0),
+      }];
+    })),
+  };
   assertScoreBreakdownTotal("Blueprint metric delta", scoreBreakdown, score);
   return {
     score,
@@ -588,6 +624,7 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     totalBuildCost: after.totalBuildCost - before.totalBuildCost,
     occupiedArea: after.occupiedArea - before.occupiedArea,
     averageWip: after.averageWip - before.averageWip,
+    inventoryAccounting,
     averageBlockedBeltItems: after.averageBlockedBeltItems - before.averageBlockedBeltItems,
     beltCellUtilization: after.beltCellUtilization - before.beltCellUtilization,
     transportCongestion: after.transportCongestion - before.transportCongestion,

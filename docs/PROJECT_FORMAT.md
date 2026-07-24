@@ -63,7 +63,7 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. It may also declare renderer-only Factory scenery under `presentation.environment`: `floor` owns the slab/grid/aisle palette and margin, while `backdrop` names one project-confined raster image plus its scene height, rear distance, and opacity. This presentation metadata never changes Blueprint geometry or industrial execution.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. It may also declare renderer-only Factory scenery under `presentation.environment`: `floor` owns the slab/grid/aisle palette, margin, and a project-local PBR surface, while `backdrop` names one project-confined raster image plus its scene height, rear distance, and opacity. This presentation metadata never changes Blueprint geometry or industrial execution.
 
 Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
 
@@ -74,12 +74,23 @@ A self-contained environment can be declared directly in `inm.json`:
   "presentation": {
     "environment": {
       "floor": {
-        "baseColor": "#0b1b20",
+        "baseColor": "#8aa4a8",
         "gridColor": "#1d3b43",
         "sectionColor": "#3b7680",
         "edgeColor": "#57d1c2",
         "aisleColor": "#12323a",
-        "slabMargin": 6
+        "slabMargin": 6,
+        "material": {
+          "maps": {
+            "baseColor": "assets/environment/cleanroom-floor-base-color.png",
+            "normal": "assets/environment/cleanroom-floor-normal.png",
+            "roughness": "assets/environment/cleanroom-floor-roughness.png"
+          },
+          "metalness": 0.18,
+          "roughness": 0.72,
+          "normalScale": 0.42,
+          "tileSize": 5
+        }
       },
       "backdrop": {
         "image": "assets/environment/cleanroom-far-wall.png",
@@ -92,7 +103,7 @@ A self-contained environment can be declared directly in `inm.json`:
 }
 ```
 
-The image path is relative to the project root, cannot escape it, and must be readable during project loading. A project may declare only `floor` or only `backdrop`. An environment-free project keeps Studio's generic floor.
+Every environment map and image path is relative to the project root, cannot escape it, and must be readable during project loading. `tileSize` is the world-space width and depth of one texture repeat, so the slab and individual Region overlays keep the same material scale. Floor maps are sampled as sRGB base color plus linear normal and roughness data; grid, section, edge, and aisle markings remain code-rendered presentation over that material. A project may declare only `floor` or only `backdrop`. An environment-free project keeps Studio's generic floor.
 
 A project can include an empty blueprint (`devices`, `connections`, and `logisticsNetworks` are empty arrays) as the source for `inm synthesize`. Without a declared strategy, synthesis reads only this project tree and applies the generic fungible-flow optimizer. With a declared strategy, Core gives the project-local TypeScript entry a frozen data-only catalog/Route/World/Scenario/Objective context and empty/minimal seed. The synchronous result must be deterministic across two executions, pass the Blueprint schema and compiler, report target-rate capacity READY, and run the selected operating Scenario before it is atomically written. The generated result is another ordinary `blueprints/<id>.blueprint.json`; it receives no implicit engine-global assets or special runtime behavior.
 
@@ -910,6 +921,8 @@ Capacity planning integrates these curves against the Objective-derived constant
 ```
 
 Optional `trackedFamily` lets an untracked finished-good target retain work-order WIP, quality, due-date, cycle-time, and tardiness evaluation from a declared tracked family; throughput and minimum production still count the finished Resource. See [[docs/design/industrial-boundaries]].
+
+Required `wipResources` is the exact Objective-owned set of Resources whose resident and in-flight quantities contribute to average WIP and `weights.wip`. The list may be empty but cannot contain duplicates or unknown ids. Runtime integrates every Resource across Device buffers, local transport, and station cargo; total inventory and excluded Resource evidence remain visible without contributing to the WIP score. The scope is Objective-owned because one Resource may be a delivered product under one Objective and an intermediate under another. It is never inferred from tags or topology. See [[docs/design/inventory-accounting]].
 
 Optional `deliveryContracts` freezes a multi-product customer portfolio outside the editable Blueprint. A contract Resource must be untracked and may appear in only one contract. Demand is the Scenario-duration integral of `demandPerMinute` and acts as a service floor, not a production ceiling. Every delivered unit earns `valuePerItem`; units below demand additionally avoid `shortfallPenaltyPerItem`, while delivery above demand is reported as overflow and remains valuable. Optional `minimumFulfillment` creates a hard gate. `weights.deliveryValue` multiplies aggregate contract net value per simulated minute. `inm plan` jointly solves every demand floor through one material balance, including fixed coproduct ratios. See [[docs/design/delivery-contracts]].
 
