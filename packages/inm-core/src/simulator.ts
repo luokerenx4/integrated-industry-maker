@@ -345,8 +345,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const activeLotWip = () => Object.values(state.lots)
     .filter((lot) => lot.releasedAtTick !== undefined && lot.status !== "completed" && lot.status !== "scrapped").length;
   const updatePeakActiveLots = () => { stats.peakActiveLots = Math.max(stats.peakActiveLots, activeLotWip()); };
+  const isServiceProtectedLot = (id: string): boolean => {
+    const lot = state.lots[id];
+    return lot?.status === "scheduled" && releasePolicy?.serviceLevelAfterTicks !== undefined
+      && state.tick - lot.plannedReleaseTick >= releasePolicy.serviceLevelAfterTicks;
+  };
   const compareEligibleLots = (leftId: string, rightId: string): number => {
     const left = state.lots[leftId]!; const right = state.lots[rightId]!;
+    const serviceClass = Number(isServiceProtectedLot(rightId)) - Number(isServiceProtectedLot(leftId));
+    if (serviceClass) return serviceClass;
     if (releasePolicy?.dispatch === "earliest-due-date") {
       const due = (left.dueTick ?? Number.MAX_SAFE_INTEGER) - (right.dueTick ?? Number.MAX_SAFE_INTEGER);
       if (due) return due;
@@ -367,12 +374,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (event.type === "power.shortage") unmetPowerDemand[event.device] = event.requiredMilliWatts;
     events.push(event); publicEventCount++;
   };
-  const setReleaseControlOpen = (open: boolean, cause?: "reopen-threshold" | "maximum-release-delay"): boolean => {
+  const setReleaseControlOpen = (open: boolean, cause?: "reopen-threshold" | "service-level"): boolean => {
     if (!releasePolicy || state.lotReleaseControl.open === open) return false;
     mutateFactoryState(state, { kind: "lot.release-control", open });
     if (open) {
       if (!cause) throw new Error("Opening the lot release controller requires a cause");
-      if (cause === "maximum-release-delay") stats.releaseControlServiceLevelOpenings++;
+      if (cause === "service-level") stats.releaseControlServiceLevelOpenings++;
       emit({
         type: "lot.release-control-opened", tick: state.tick, cause,
         activeWip: activeLotWip(), reopenAtWip: releasePolicy.reopenAtWip, maximumWip: releasePolicy.maximumWip,
@@ -2371,13 +2378,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (releasePolicy && !state.lotReleaseControl.open) {
         const activeWip = activeLotWip();
         const reopenThresholdDue = activeWip <= releasePolicy.reopenAtWip;
-        const serviceLevelDue = releasePolicy.maximumReleaseDelayTicks !== undefined && activeWip < releasePolicy.maximumWip
-          && [...eligibleLotReleases].some((id) => {
-            const lot = state.lots[id];
-            return lot?.status === "scheduled" && state.tick - lot.plannedReleaseTick >= releasePolicy.maximumReleaseDelayTicks!;
-          });
+        const serviceLevelDue = releasePolicy.serviceLevelAfterTicks !== undefined && activeWip < releasePolicy.maximumWip
+          && [...eligibleLotReleases].some(isServiceProtectedLot);
         if (reopenThresholdDue || serviceLevelDue) {
-          releaseControlChanged = setReleaseControlOpen(true, reopenThresholdDue ? "reopen-threshold" : "maximum-release-delay");
+          releaseControlChanged = setReleaseControlOpen(true, reopenThresholdDue ? "reopen-threshold" : "service-level");
         }
       }
       let lotsReleased = false;
@@ -2403,13 +2407,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           if (activeWipBeforeRelease >= releasePolicy.maximumWip) releaseControlChanged = setReleaseControlOpen(false) || releaseControlChanged;
           blockRelease("conwip-limit"); continue;
         }
+        const serviceProtected = isServiceProtectedLot(id);
         mutateFactoryState(state, { kind: "lot.release", lotId: id, device: device.id, buffer: buffer.id });
         eligibleLotReleases.delete(id);
         emit({
           type: "lot.released", tick: state.tick, device: device.id, buffer: buffer.id, lot: id,
           family: lot.family, resource: lot.resource, plannedReleaseTick: lot.plannedReleaseTick,
           releaseDelayTicks: state.tick - lot.plannedReleaseTick,
-          releaseControl: releasePolicy ? "conwip" : "open-loop", activeWipBeforeRelease,
+          releaseControl: releasePolicy ? "conwip" : "open-loop",
+          serviceProtected,
+          activeWipBeforeRelease,
         });
         updatePeakActiveLots();
         if (releasePolicy && activeLotWip() >= releasePolicy.maximumWip) releaseControlChanged = setReleaseControlOpen(false) || releaseControlChanged;

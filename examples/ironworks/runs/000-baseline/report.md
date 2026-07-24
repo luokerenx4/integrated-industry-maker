@@ -3,14 +3,14 @@
 - Decision: **BASELINE**
 - Blueprint: `main`
 - Score: **9.968**
-- Result hash: `e8a03faa2e0ba6eba21bd9791654b0f542f9db7a96b7478464d3e1720c22f3c9`
+- Result hash: `d3659d06256b954395a6795ef8121ab1094789dd1e525ec69e854f6817896cf3`
 - Bottleneck: smelter-1
 - Throughput/min: 4.500
 - Delivery portfolio: 37.5% demand attainment · 9.000 / 24.000 valued / demanded · 0.000 above demand · 0.000 net value/min
   - Contract `primary`: 9.000 / 24.000 `gear` · 37.5% · 0.000 net value
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
-- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
-- Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
+- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean / 0.000 s maximum delay · 0 pending
+- Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings / 0 protected releases
 - Lot service: 37.5% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0/0 authored excursion defects prevented · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Lot-derived output: 0 / 0 actual / nominal units · 100.0% realization · 0 lost

@@ -151,7 +151,7 @@ function commissionedAgilePulsePatch(blueprint: ProposalBlueprint): JsonPatchOpe
       kind: "conwip",
       maximumWip: 6,
       reopenAtWip: 3,
-      maximumReleaseDelayTicks: 18_000,
+      serviceLevelAfterTicks: 18_000,
       dispatch: "earliest-due-date",
     })) return null;
   return deviceRecipeModePatch(
@@ -293,7 +293,7 @@ function continuousDeepMetrologyPatch(blueprint: ProposalBlueprint): JsonPatchOp
     kind: "conwip",
     maximumWip: 9,
     reopenAtWip: 6,
-    maximumReleaseDelayTicks: 18_000,
+    serviceLevelAfterTicks: 18_000,
     dispatch: "earliest-due-date",
   };
   if (inspection.asset !== "wafer-inspection-bay"
@@ -315,7 +315,7 @@ function continuousDeepMetrologyPatch(blueprint: ProposalBlueprint): JsonPatchOp
         kind: "conwip",
         maximumWip: 7,
         reopenAtWip: 4,
-        maximumReleaseDelayTicks: 30_000,
+        serviceLevelAfterTicks: 30_000,
         dispatch: "earliest-due-date",
       },
     },
@@ -332,7 +332,7 @@ function advancedPatternRecoveryPatch(blueprint: ProposalBlueprint): JsonPatchOp
     kind: "conwip",
     maximumWip: 7,
     reopenAtWip: 4,
-    maximumReleaseDelayTicks: 30_000,
+    serviceLevelAfterTicks: 30_000,
     dispatch: "earliest-due-date",
   };
   if (recovery.asset !== "pattern-rework-bay"
@@ -359,7 +359,7 @@ function advancedPatternRecoveryPatch(blueprint: ProposalBlueprint): JsonPatchOp
         kind: "conwip",
         maximumWip: 6,
         reopenAtWip: 3,
-        maximumReleaseDelayTicks: 18_000,
+        serviceLevelAfterTicks: 18_000,
         dispatch: "earliest-due-date",
       },
     },
@@ -666,7 +666,7 @@ const release = (maximumWip: number, reopenAtWip: number): Candidate => ({
   expectedEffect: "Lower peak active WIP and queue time while preserving locked-case admission service and completed product.",
   addresses: ["release-admission", "queue-congestion", "input-starvation", "q-time"],
   patch: (blueprint) => {
-    const value = { kind: "conwip", maximumWip, reopenAtWip, maximumReleaseDelayTicks: 18_000, dispatch: "earliest-due-date" };
+    const value = { kind: "conwip", maximumWip, reopenAtWip, serviceLevelAfterTicks: 18_000, dispatch: "earliest-due-date" };
     if (equalJson(blueprint.policies.lotRelease, value)) return null;
     return [{
       op: Object.hasOwn(blueprint.policies, "lotRelease") ? "replace" : "add",

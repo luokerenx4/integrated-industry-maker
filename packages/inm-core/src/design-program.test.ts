@@ -16,15 +16,26 @@ const projectDir = resolve("examples/memory-fab");
 const temporaryDirectories: string[] = [];
 afterAll(async () => { await Promise.all(temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true }))); });
 
-function migrateArchivedMaintenanceForTest<T>(value: T): T {
+function migrateArchivedBlueprintForTest<T>(value: T): T {
   const blueprint = structuredClone(value) as {
     devices: Array<{ policy?: { preventiveMaintenance?: Record<string, unknown> } }>;
+    policies?: {
+      lotRelease?: {
+        maximumReleaseDelayTicks?: number;
+        serviceLevelAfterTicks?: number;
+      };
+    };
   };
   for (const device of blueprint.devices) {
     const policy = device.policy?.preventiveMaintenance;
     if (typeof policy?.minimumJobs === "number") {
       device.policy!.preventiveMaintenance = { opportunistic: { afterJobs: policy.minimumJobs } };
     }
+  }
+  const lotRelease = blueprint.policies?.lotRelease;
+  if (typeof lotRelease?.maximumReleaseDelayTicks === "number") {
+    lotRelease.serviceLevelAfterTicks = lotRelease.maximumReleaseDelayTicks;
+    delete lotRelease.maximumReleaseDelayTicks;
   }
   return blueprint as T;
 }
@@ -223,7 +234,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   const targetPath = join(copy, "blueprints", "generated-dram-fab.blueprint.json");
-  const authored = migrateArchivedMaintenanceForTest(
+  const authored = migrateArchivedBlueprintForTest(
     JSON.parse(await readFile(join(projectDir, "runs/053-simulate/blueprint.json"), "utf8")),
   );
   const burnIn = authored.devices.find((device: { id: string }) => device.id === "burn-in-1");

@@ -1,6 +1,6 @@
 # Production modes and exact jobs
 
-Status: treatment-aware, in-situ-quality-aware, and sustained-starvation adaptive-cadence modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.80.0`.
+Status: treatment-aware, in-situ-quality-aware, and sustained-starvation adaptive-cadence modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.81.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 

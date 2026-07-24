@@ -172,7 +172,7 @@ export function evaluateFactory(
     control: releasePolicy ? "conwip" : "open-loop",
     maximumWip: releasePolicy?.maximumWip ?? null,
     reopenAtWip: releasePolicy?.reopenAtWip ?? null,
-    maximumReleaseDelayPolicyTicks: releasePolicy?.maximumReleaseDelayTicks ?? null,
+    serviceLevelAfterTicks: releasePolicy?.serviceLevelAfterTicks ?? null,
     dispatch: releasePolicy?.dispatch ?? null,
     peakActiveLots: stats.peakActiveLots,
     capacityBlockedLots: targetLots.filter((lot) => capacityReasons.some((reason) => lot.releaseWait.encountered.includes(reason))).length,
@@ -180,6 +180,7 @@ export function evaluateFactory(
     controlBlockedLots: targetLots.filter((lot) => lot.releaseWait.encountered.includes("conwip-limit")).length,
     controlBlockedTicks: targetLots.reduce((sum, lot) => sum + releaseBlockedTicks(lot, "conwip-limit"), 0),
     serviceLevelOpenings: stats.releaseControlServiceLevelOpenings,
+    serviceProtectedReleases: events.filter((event) => event.type === "lot.released" && event.serviceProtected).length,
   };
   const defectFreeCompleted = completedTargetLots.filter((lot) => lot.quality.defects.length === 0).length;
   const firstPassCompleted = completedTargetLots.filter((lot) => lot.quality.reworkCycles === 0 && lot.quality.defects.length === 0).length;

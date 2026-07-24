@@ -88,7 +88,7 @@ function configureRelease(
   source: Blueprint,
   maximumWip: number,
   reopenAtWip: number,
-  maximumReleaseDelayTicks: number,
+  serviceLevelAfterTicks: number,
   dispatch: "fifo" | "earliest-due-date" | "highest-priority" = "earliest-due-date",
 ): Blueprint {
   const blueprint = structuredClone(source);
@@ -97,7 +97,7 @@ function configureRelease(
     maximumWip,
     reopenAtWip,
     dispatch,
-    maximumReleaseDelayTicks,
+    serviceLevelAfterTicks,
   };
   return blueprint;
 }

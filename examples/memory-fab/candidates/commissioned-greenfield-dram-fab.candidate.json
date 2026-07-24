@@ -2136,7 +2136,7 @@
       "value": {
         "dispatch": "earliest-due-date",
         "kind": "conwip",
-        "maximumReleaseDelayTicks": 18000,
+        "serviceLevelAfterTicks": 18000,
         "maximumWip": 8,
         "reopenAtWip": 5
       }

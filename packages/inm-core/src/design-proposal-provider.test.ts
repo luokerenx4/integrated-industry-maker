@@ -24,15 +24,26 @@ function scoreBreakdownEvidence() {
   };
 }
 
-function migrateArchivedMaintenanceForTest<T>(value: T): T {
+function migrateArchivedBlueprintForTest<T>(value: T): T {
   const blueprint = structuredClone(value) as {
     devices: Array<{ policy?: { preventiveMaintenance?: Record<string, unknown> } }>;
+    policies?: {
+      lotRelease?: {
+        maximumReleaseDelayTicks?: number;
+        serviceLevelAfterTicks?: number;
+      };
+    };
   };
   for (const device of blueprint.devices) {
     const policy = device.policy?.preventiveMaintenance;
     if (typeof policy?.minimumJobs === "number") {
       device.policy!.preventiveMaintenance = { opportunistic: { afterJobs: policy.minimumJobs } };
     }
+  }
+  const lotRelease = blueprint.policies?.lotRelease;
+  if (typeof lotRelease?.maximumReleaseDelayTicks === "number") {
+    lotRelease.serviceLevelAfterTicks = lotRelease.maximumReleaseDelayTicks;
+    delete lotRelease.maximumReleaseDelayTicks;
   }
   return blueprint as T;
 }
@@ -164,7 +175,9 @@ test("pre-intervention memory-fab yield loss proposes recovered-output delivery 
     scenario: "production-window",
     objective: "dram-output",
   });
-  const blueprint = JSON.parse(await readFile(resolve(root, "runs/070-simulate/blueprint.json"), "utf8"));
+  const blueprint = migrateArchivedBlueprintForTest(JSON.parse(
+    await readFile(resolve(root, "runs/070-simulate/blueprint.json"), "utf8"),
+  ));
   const project = compileFactoryProject({ ...loaded, blueprint });
   const result = runUntil(project, undefined, { seed: 42 });
   const metrics = result.metrics;
@@ -211,7 +224,7 @@ test("pre-intervention memory-fab yield loss proposes recovered-output delivery 
         kind: "conwip",
         maximumWip: 6,
         reopenAtWip: 3,
-        maximumReleaseDelayTicks: 18_000,
+        serviceLevelAfterTicks: 18_000,
         dispatch: "earliest-due-date",
       },
     }, {
@@ -235,7 +248,7 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const commissionedBlueprint = migrateArchivedMaintenanceForTest(JSON.parse(
+  const commissionedBlueprint = migrateArchivedBlueprintForTest(JSON.parse(
     await readFile(resolve(root, "runs/058-simulate/blueprint.json"), "utf8"),
   )) as typeof current.blueprint;
   const loaded = { ...current, blueprint: commissionedBlueprint };
@@ -298,7 +311,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const blueprint = migrateArchivedMaintenanceForTest(JSON.parse(
+  const blueprint = migrateArchivedBlueprintForTest(JSON.parse(
     await readFile(resolve(root, "runs/058-simulate/blueprint.json"), "utf8"),
   ));
   const loaded = { ...current, blueprint };
@@ -508,7 +521,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const blueprint = migrateArchivedMaintenanceForTest(
+  const blueprint = migrateArchivedBlueprintForTest(
     JSON.parse(await readFile(resolve(root, "runs/057-simulate/blueprint.json"), "utf8")),
   );
   const loaded = { ...current, blueprint };
@@ -594,7 +607,7 @@ test("commissioned provider skips installed CONWIP and proposes explicit layer-t
   const current = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
   });
-  const blueprint = migrateArchivedMaintenanceForTest(
+  const blueprint = migrateArchivedBlueprintForTest(
     JSON.parse(await readFile(resolve(root, "runs/056-simulate/blueprint.json"), "utf8")),
   );
   const loaded = { ...current, blueprint };

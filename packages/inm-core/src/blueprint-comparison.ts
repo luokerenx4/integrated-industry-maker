@@ -43,6 +43,7 @@ export interface BlueprintMetricSnapshot {
   controlBlockedLots: number;
   controlBlockedTicks: number;
   serviceLevelOpenings: number;
+  serviceProtectedReleases: number;
   scrappedLots: number;
   onTimeLots: number;
   goodYield: number;
@@ -157,6 +158,7 @@ export interface BlueprintMetricDelta {
   controlBlockedLots: number;
   controlBlockedTicks: number;
   serviceLevelOpenings: number;
+  serviceProtectedReleases: number;
   scrappedLots: number;
   onTimeLots: number;
   goodYield: number;
@@ -413,6 +415,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     controlBlockedLots: metrics.releaseFlow.controlBlockedLots,
     controlBlockedTicks: metrics.releaseFlow.controlBlockedTicks,
     serviceLevelOpenings: metrics.releaseFlow.serviceLevelOpenings,
+    serviceProtectedReleases: metrics.releaseFlow.serviceProtectedReleases,
     scrappedLots: metrics.lotFlow.scrapped,
     onTimeLots: metrics.lotFlow.onTimeCompleted,
     goodYield: metrics.qualityFlow.goodYield,
@@ -554,6 +557,7 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     controlBlockedLots: after.controlBlockedLots - before.controlBlockedLots,
     controlBlockedTicks: after.controlBlockedTicks - before.controlBlockedTicks,
     serviceLevelOpenings: after.serviceLevelOpenings - before.serviceLevelOpenings,
+    serviceProtectedReleases: after.serviceProtectedReleases - before.serviceProtectedReleases,
     scrappedLots: after.scrappedLots - before.scrappedLots,
     onTimeLots: after.onTimeLots - before.onTimeLots,
     goodYield: after.goodYield - before.goodYield,

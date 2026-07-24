@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { listRuns, listWorkspaceProjects, lockBlueprintBenchmark, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { hashValue, listRuns, listWorkspaceProjects, lockBlueprintBenchmark, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -111,7 +111,14 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     join(repository, "examples/memory-fab/runs/067-simulate/blueprint.json"),
     "utf8",
   ));
+  preReleaseControl.policies.lotRelease.serviceLevelAfterTicks
+    = preReleaseControl.policies.lotRelease.maximumReleaseDelayTicks;
+  delete preReleaseControl.policies.lotRelease.maximumReleaseDelayTicks;
   await writeFile(blueprintPath, `${JSON.stringify(preReleaseControl, null, 2)}\n`);
+  const candidatePath = join(projectDir, "candidates/commissioned-release-control.candidate.json");
+  const candidate = JSON.parse(await readFile(candidatePath, "utf8"));
+  candidate.baseCandidateHash = hashValue(preReleaseControl);
+  await writeFile(candidatePath, `${JSON.stringify(candidate, null, 2)}\n`);
   const before = await readFile(blueprintPath, "utf8");
   const discovery = await runCli(["help", "--json"]);
   expect({ exitCode: discovery.exitCode, stderr: discovery.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -722,9 +729,9 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same exhausted current and historical memory-fab Design authority", async () => {
+test("public inspect gives Agents and humans the same continuable current memory-fab Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
-  const authorityRunId = "fb2f83859df5c22beec4f378ea93ffae4a99756b8ffe3ba94d777cfa975a36d6";
+  const authorityRunId = "e7d569b5e824259ec51beef79b22957e611146444fefc4e5c80eb58ce70ec87d";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -737,39 +744,40 @@ test("public inspect gives Agents and humans the same exhausted current and hist
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "exhausted",
+      state: "continuable",
       authorityRunId,
       currentRuns: 1,
-      historicalRuns: 1,
+      historicalRuns: 0,
       invalidRuns: expect.any(Number),
     }),
   }));
   expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
-    actionLabel: "REVIEW EXHAUSTED DESIGN",
+    title: "Continue the current Commissioned DRAM Fab Optimization frontier",
+    actionLabel: "REVIEW CONTINUATION",
     effect: "read-only",
     studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${authorityRunId}`,
     target: {
       kind: "design-run",
-      phase: "exhausted",
+      phase: "continuable",
       programId: "commissioned-dram-fab",
       runId: authorityRunId,
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · EXHAUSTED · fb2f83859df5");
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · CONTINUABLE · e7d569b5e824");
   const reopened = await runCli([
     "design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId,
   ]);
   expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(reopened.stdout).toContain("Evaluated: 4/7 · frontier-exhausted");
-  expect(reopened.stdout).toContain("X01 EXHAUST leader seed");
+  expect(reopened.stdout).toContain("Evaluated: 4/4 · budget-exhausted");
+  expect(reopened.stdout).toContain("Frontier: leader seed · 0/1 alternatives · 1 searchable · 0 exhausted · next seed");
   expect(reopened.stdout).toContain("REJECT dispatch:conwip-9-6-edd");
   expect(reopened.stdout).toContain("REJECT maintenance:inspection-jobs-4");
   expect(reopened.stdout).toContain("REJECT dispatch:conwip-8-5-edd");
   expect(reopened.stdout).toContain("REJECT dispatch:conwip-10-7-edd");
   expect(reopened.stdout).not.toContain("Promote:");
+  expect(reopened.stdout).toContain("Continue: inm design <path> --program commissioned-dram-fab");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {

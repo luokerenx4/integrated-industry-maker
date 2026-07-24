@@ -46,7 +46,7 @@ Planned-to-actual release delay remains separate, so an overloaded entry boundar
 
 ## Evaluation and Coding Agent boundary
 
-`releaseFlow` reports scheduled, released, pending, planned/actual span, mean planned/actual interval, mean/maximum admission delay, control thresholds, peak active lots, and capacity/controller blocked lots and lot-ticks. CLI simulation, locked benchmark cases, immutable reports, Blueprint comparisons, and Studio show the same values.
+`releaseFlow` reports scheduled, released, pending, planned/actual span, mean planned/actual interval, mean/maximum actual admission delay, control thresholds, configured service age, protected releases, peak active lots, and capacity/controller blocked lots and lot-ticks. The configured service age is an arbitration threshold, not an alias for maximum actual delay. CLI simulation, locked benchmark cases, immutable reports, Blueprint comparisons, and Studio show the same values.
 
 For tracked Objectives, on-time attainment uses all scheduled lots as its denominator. A Blueprint is therefore penalized when it cannot admit planned work before the horizon; withholding release cannot improve the score. Yield metrics use actually released lots, while WIP excludes work still outside the fab.
 

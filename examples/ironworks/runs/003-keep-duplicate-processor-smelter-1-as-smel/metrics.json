@@ -449,7 +449,6 @@
     "controlBlockedLots": 0,
     "controlBlockedTicks": 0,
     "dispatch": null,
-    "maximumReleaseDelayPolicyTicks": null,
     "maximumReleaseDelayTicks": 0,
     "maximumWip": null,
     "meanActualIntervalTicks": 0,
@@ -461,7 +460,9 @@
     "released": 0,
     "reopenAtWip": null,
     "scheduled": 0,
-    "serviceLevelOpenings": 0
+    "serviceLevelAfterTicks": null,
+    "serviceLevelOpenings": 0,
+    "serviceProtectedReleases": 0
   },
   "resourceNodes": {
     "coal-seam-assembly": {

@@ -297,7 +297,7 @@ interface Metrics {
     scheduled: number; released: number; pending: number; plannedSpanTicks: number; actualSpanTicks: number;
     meanPlannedIntervalTicks: number; meanActualIntervalTicks: number; meanReleaseDelayTicks: number; maximumReleaseDelayTicks: number;
     control: "open-loop" | "conwip"; maximumWip: number | null; reopenAtWip: number | null;
-    maximumReleaseDelayPolicyTicks: number | null; serviceLevelOpenings: number;
+    serviceLevelAfterTicks: number | null; serviceLevelOpenings: number; serviceProtectedReleases: number;
     dispatch: "fifo" | "earliest-due-date" | "highest-priority" | null; peakActiveLots: number;
     capacityBlockedLots: number; capacityBlockedTicks: number; controlBlockedLots: number; controlBlockedTicks: number;
   };
@@ -2550,50 +2550,757 @@ function App() {
     return selected;
   });
 
-  return <main className={loading ? "syncing" : ""}>
-    {header}
-    <section className="workspace">
-      <div className="viewport">
-        <Canvas shadows camera={{ position: [data.bounds.width / 2, 32, data.bounds.height * 1.75], fov: 42, near: .1, far: 200 }} dpr={[1, 1.75]} onPointerMissed={clearFactorySelection}><Suspense fallback={routeExperiment === null ? <Html center>Loading world…</Html> : null}><FactoryWorld data={data} tick={tick} selection={selection} presentationRequest={factoryPresentationRequest} onPresentationMode={setFactoryPresentationMode} onSelection={chooseSceneObject} /></Suspense></Canvas>
-        <div className="viewport-title"><span className="live-dot" /> FACTORY SYSTEM <b>{data.regions.length} INDUSTRIAL ZONES</b></div>
-        <div className="factory-presentation-controls" role="group" aria-label="Factory presentation scale">
-          {(["auto", "overview", "work-cell"] as const).map((request) => <button
-            key={request}
-            type="button"
-            aria-pressed={factoryPresentationRequest === request}
-            data-testid={`factory-presentation-${request}`}
-            onClick={() => setFactoryPresentationRequest(request)}
-          >{request === "work-cell" ? "WORK CELL" : request.toUpperCase()}</button>)}
-          {selection && <button
-            type="button"
-            aria-pressed={factoryPresentationRequest === "selection"}
-            data-testid="factory-presentation-selection"
-            onClick={() => setFactoryPresentationRequest("selection")}
-          >FOCUS</button>}
-          <span className="factory-presentation-status" aria-live="polite">VIEW: {factoryPresentationMode === "selection" ? "FOCUS" : factoryPresentationMode === "work-cell" ? "WORK CELL" : "OVERVIEW"}</span>
+  return (
+    <main className={loading ? "syncing" : ""}>
+      {header}
+      <section className="workspace">
+        <div className="viewport">
+          <Canvas
+            shadows
+            camera={{
+              position: [data.bounds.width / 2, 32, data.bounds.height * 1.75],
+              fov: 42,
+              near: 0.1,
+              far: 200,
+            }}
+            dpr={[1, 1.75]}
+            onPointerMissed={clearFactorySelection}
+          >
+            <Suspense
+              fallback={
+                routeExperiment === null ? (
+                  <Html center>Loading world…</Html>
+                ) : null
+              }
+            >
+              <FactoryWorld
+                data={data}
+                tick={tick}
+                selection={selection}
+                presentationRequest={factoryPresentationRequest}
+                onPresentationMode={setFactoryPresentationMode}
+                onSelection={chooseSceneObject}
+              />
+            </Suspense>
+          </Canvas>
+          <div className="viewport-title">
+            <span className="live-dot" /> FACTORY SYSTEM{" "}
+            <b>{data.regions.length} INDUSTRIAL ZONES</b>
+          </div>
+          <div
+            className="factory-presentation-controls"
+            role="group"
+            aria-label="Factory presentation scale"
+          >
+            {(["auto", "overview", "work-cell"] as const).map((request) => (
+              <button
+                key={request}
+                type="button"
+                aria-pressed={factoryPresentationRequest === request}
+                data-testid={`factory-presentation-${request}`}
+                onClick={() => setFactoryPresentationRequest(request)}
+              >
+                {request === "work-cell" ? "WORK CELL" : request.toUpperCase()}
+              </button>
+            ))}
+            {selection && (
+              <button
+                type="button"
+                aria-pressed={factoryPresentationRequest === "selection"}
+                data-testid="factory-presentation-selection"
+                onClick={() => setFactoryPresentationRequest("selection")}
+              >
+                FOCUS
+              </button>
+            )}
+            <span className="factory-presentation-status" aria-live="polite">
+              VIEW:{" "}
+              {factoryPresentationMode === "selection"
+                ? "FOCUS"
+                : factoryPresentationMode === "work-cell"
+                  ? "WORK CELL"
+                  : "OVERVIEW"}
+            </span>
+          </div>
+          <div className="scene-stats">
+            <span>
+              <b>{data.regions.length}</b> INDUSTRIAL ZONES
+            </span>
+            <span>
+              <b>
+                {
+                  data.devices.filter((device) => !device.transportEndpoint)
+                    .length
+                }
+              </b>{" "}
+              MACHINES
+            </span>
+            <span>
+              <b>
+                {
+                  data.devices.filter((device) => device.transportEndpoint)
+                    .length
+                }
+              </b>{" "}
+              SORTERS
+            </span>
+            <span>
+              <b>{data.resourceNodes.length}</b> DEPOSITS
+            </span>
+            <span>
+              <b>{data.connections.length}</b> LOCAL LINKS
+            </span>
+            <span>
+              <b>{data.analysis.stationNetworks.length}</b> STATION NETS
+            </span>
+            <span>
+              <b>{data.assets.processes.length}</b> PROCESSES
+            </span>
+          </div>
+          {!selection && (
+            <div className="scene-selection-hint">
+              <i>⌖</i>
+              <span>CLICK A MACHINE OR BELT</span>
+              <b>INSPECT INDUSTRIAL STATE</b>
+            </div>
+          )}
+          {selection && (
+            <SceneInspector
+              data={data}
+              frame={frame}
+              selection={selection}
+              onClose={clearFactorySelection}
+              onSelection={chooseSceneObject}
+            />
+          )}
+          <div className="legend">
+            {Object.entries(STATUS_COLORS).map(([status, color]) => (
+              <span key={status}>
+                <i style={{ background: color }} />
+                {status}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="scene-stats"><span><b>{data.regions.length}</b> INDUSTRIAL ZONES</span><span><b>{data.devices.filter((device) => !device.transportEndpoint).length}</b> MACHINES</span><span><b>{data.devices.filter((device) => device.transportEndpoint).length}</b> SORTERS</span><span><b>{data.resourceNodes.length}</b> DEPOSITS</span><span><b>{data.connections.length}</b> LOCAL LINKS</span><span><b>{data.analysis.stationNetworks.length}</b> STATION NETS</span><span><b>{data.assets.processes.length}</b> PROCESSES</span></div>
-        {!selection && <div className="scene-selection-hint"><i>⌖</i><span>CLICK A MACHINE OR BELT</span><b>INSPECT INDUSTRIAL STATE</b></div>}
-        {selection && <SceneInspector data={data} frame={frame} selection={selection} onClose={clearFactorySelection} onSelection={chooseSceneObject} />}
-        <div className="legend">{Object.entries(STATUS_COLORS).map(([status, color]) => <span key={status}><i style={{ background: color }} />{status}</span>)}</div>
-      </div>
-      <aside>
-        {data.metrics && <div className="panel"><h2>Delivery contracts</h2><div className="metrics"><Metric label="DEMAND ATTAINMENT" value={`${(data.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}%`} accent /><Metric label="NET VALUE / MIN" value={data.metrics.deliveryPortfolio.netValuePerMinute.toFixed(2)} /><Metric label="VALUED / DEMANDED" value={`${data.metrics.deliveryPortfolio.valued.toFixed(0)} / ${data.metrics.deliveryPortfolio.demanded.toFixed(0)}`} /><Metric label="ABOVE DEMAND" value={data.metrics.deliveryPortfolio.overflow.toFixed(0)} />{Object.entries(data.metrics.deliveryPortfolio.contracts).map(([id, contract]) => <Metric key={id} label={id.toUpperCase()} value={`${contract.delivered.toFixed(0)} / ${contract.demand.toFixed(0)} ${contract.resource} · ${(contract.fulfillment * 100).toFixed(1)}%`} />)}</div></div>}
-        <div className="panel run-panel"><label>SIMULATION RUN</label><select value={run ?? ""} disabled={!data.runs.length} onChange={(event) => void loadProject(data.projectId, event.target.value)}>{!data.runs.length && <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>}{data.runs.map((item) => <option key={item.name} value={item.name}>{item.decision === "BASELINE" ? item.blueprint.toUpperCase() : `${item.decision} · ${item.blueprint.toUpperCase()}`} · {item.name} · {item.score.toFixed(1)}</option>)}</select>{selectedRun && <div className={`decision ${selectedRun.decision.toLowerCase()}`}>{selectedRun.blueprint.toUpperCase()}</div>}</div>
-        {data.metrics && <div className="panel" data-testid="factory-inventory-accounting"><h2>Objective inventory</h2><div className="metrics"><Metric label="AVERAGE WIP / TOTAL" value={`${data.metrics.inventoryAccounting.averageWip.toFixed(2)} / ${data.metrics.inventoryAccounting.averageTotalInventory.toFixed(2)}`} accent /><Metric label="PEAK WIP / TOTAL" value={`${data.metrics.inventoryAccounting.peakWip.toFixed(0)} / ${data.metrics.inventoryAccounting.peakTotalInventory.toFixed(0)}`} />{Object.entries(data.metrics.inventoryAccounting.resources).filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0).sort(([, left], [, right]) => right.averageInventory - left.averageInventory).slice(0, 6).map(([resource, accounting]) => <Metric key={resource} label={resource.toUpperCase()} value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.peakInventory.toFixed(0)} peak`} />)}</div></div>}
-        <div className="panel"><h2>Performance</h2><div className="metrics"><Metric label="SCORE" value={data.metrics?.finalScore.toFixed(2) ?? "—"} accent /><Metric label="THROUGHPUT / MIN" value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"} />{data.metrics?.lotFlow.family && <><Metric label="COMPLETE / RELEASED / PLAN" value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released} / ${data.metrics.lotFlow.scheduled}`} />{Object.entries(data.metrics.routeFlow).map(([route, flow]) => <Fragment key={route}><Metric label={`ROUTE ${route.toUpperCase()}`} value={`${flow.transitions} steps / ${flow.reentrantTransitions} re-entry`} /><Metric label="ROUTE TERMINALS / ACTIVE" value={`${flow.completed} complete · ${flow.scrapped} scrap / ${flow.inProgress} active`} /></Fragment>)}<Metric label="RELEASE INTERVAL PLAN / ACTUAL" value={`${(data.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(1)} s`} /><Metric label="RELEASE DELAY / PENDING" value={`${(data.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(1)} s / ${data.metrics.releaseFlow.pending}`} /><Metric label="RELEASE CONTROL / PEAK" value={`${data.metrics.releaseFlow.control === "conwip" ? `CONWIP ${data.metrics.releaseFlow.maximumWip}↕${data.metrics.releaseFlow.reopenAtWip}` : "OPEN LOOP"} / ${data.metrics.releaseFlow.peakActiveLots}`} /><Metric label="MAX DELAY / SERVICE OPENS" value={`${data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks === null ? "—" : `${(data.metrics.releaseFlow.maximumReleaseDelayPolicyTicks / 1000).toFixed(1)} s`} / ${data.metrics.releaseFlow.serviceLevelOpenings}`} /><Metric label="CONTROL BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.controlBlockedLots} / ${(data.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="CAPACITY BLOCK LOTS / TIME" value={`${data.metrics.releaseFlow.capacityBlockedLots} / ${(data.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(1)} lot-s`} /><Metric label="LOTS SCRAPPED" value={String(data.metrics.lotFlow.scrapped)} /><Metric label="ON-TIME LOTS" value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`} /><Metric label="MEAN / P95 CYCLE" value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`} /><Metric label="QUEUE / PROCESS / MOVE" value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`} /><Metric label="MEAN TARDINESS" value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`} /><Metric label="GOOD / FIRST-PASS YIELD" value={`${(data.metrics.qualityFlow.goodYield * 100).toFixed(1)} / ${(data.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}%`} /><Metric label="PREVENTED / AUTHORED DEFECTS" value={`${data.metrics.qualityFlow.qualityControl.preventedDefectInstances} / ${data.metrics.qualityFlow.qualityControl.authoredDefectInstances}`} /><Metric label="INSPECTIONS / REWORK" value={`${data.metrics.qualityFlow.totalInspections} / ${data.metrics.qualityFlow.totalReworkCycles}`} /><Metric label="SCRAP / QUALITY ESCAPES" value={`${data.metrics.qualityFlow.scrapDispositions} / ${data.metrics.qualityFlow.escapedDefects}`} />{data.metrics.batchFlow.batchOperations > 0 && <><Metric label="BATCH JOBS / LOTS" value={`${data.metrics.batchFlow.jobs} / ${data.metrics.batchFlow.lots}`} /><Metric label="LOTS / BATCH" value={data.metrics.batchFlow.averageLotsPerJob.toFixed(2)} /><Metric label="MEAN BATCH WAIT" value={`${(data.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(1)} s`} /></>}{Object.entries(data.metrics.cadenceControl.devices).map(([device, control]) => <Fragment key={device}><Metric label={`${device.toUpperCase()} NORMAL / RECOVERY`} value={`${control.normalJobs} ${control.normalMode} / ${control.recoveryJobs} ${control.recoveryMode}`} /><Metric label="RECOVERY BOUNDARY" value={`< ${control.recoverBelowItems} items · ${control.downstreamConnection}`} /></Fragment>)}</>}<Metric label="CHANGEOVERS / SETUP" value={data.metrics ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN HOLDS / TIME" value={data.metrics ? `${data.metrics.equipmentSetups.totalCampaignHolds} / ${(data.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(1)} s` : "—"} /><Metric label="CAMPAIGN LOT-READY / TIMEOUT" value={data.metrics ? `${data.metrics.equipmentSetups.campaignMinimumLotReleases} / ${data.metrics.equipmentSetups.campaignMaximumHoldReleases}` : "—"} /><Metric label="MIN GRID SATISFACTION" value={minimumGridSatisfaction === null ? "—" : `${minimumGridSatisfaction.toFixed(1)}%`} /><Metric label="BELT UTILIZATION" value={data.metrics ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%` : "—"} /><Metric label="BLOCKED BELT ITEMS" value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"} /><Metric label="PEAK BELT ITEMS" value={String(data.metrics?.peakBeltItems ?? "—")} /><Metric label="SORTER ENERGY" value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`} /><Metric label="CARRIER MISSIONS / RETURNS" value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`} /><Metric label="CARRIER MISSION ENERGY" value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`} /><Metric label="HIGH-SPEED MISSIONS" value={String(data.metrics?.highSpeedMissions ?? 0)} /><Metric label="ENERGY" value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`} /><Metric label="GRID STORAGE" value={data.metrics && storageTotals.capacity ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ` : "—"} /><Metric label="FUEL BURNED" value={data.metrics ? Object.entries(data.metrics.fuelConsumed).map(([resource, count]) => `${count} ${resource}`).join(", ") || "0" : "—"} /><Metric label="BUILD COST" value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()} /><Metric label="AREA" value={`${data.metrics?.occupiedArea ?? 0} cells`} /></div></div>
-        {data.metrics && Object.keys(data.metrics.routeFlow).length > 0 && <div className="panel"><h2>Route Q-time</h2><div className="metrics">{Object.entries(data.metrics.routeFlow).map(([route, flow]) => <Fragment key={route}><Metric label={`${route.toUpperCase()} VIOLATIONS / LOTS`} value={`${flow.queueTimeViolations} / ${flow.violatedLots}`} />{Object.entries(flow.steps).filter(([, step]) => step.queueTimeMaximumTicks !== null).map(([stepId, step]) => <Metric key={stepId} label={stepId.toUpperCase()} value={`${(step.meanQueueTicks / 1000).toFixed(1)} avg · ${(step.maximumQueueTicks / 1000).toFixed(1)} / ${(step.queueTimeMaximumTicks! / 1000).toFixed(1)} s · ${step.queueTimeViolations} late`} />)}</Fragment>)}</div></div>}
-        {data.metrics && data.metrics.productionTooling.totalAllocations > 0 && <div className="panel"><h2>Reusable production tooling</h2><div className="metrics"><Metric label="ALLOCATED / COMPLETE" value={`${data.metrics.productionTooling.totalAllocations} / ${data.metrics.productionTooling.totalCompleted}`} /><Metric label="CANCELLED" value={String(data.metrics.productionTooling.totalCancelled)} /><Metric label="EQUIPMENT / UNIT TIME" value={`${(data.metrics.productionTooling.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionTooling.totalUnitTicks / 1000).toFixed(1)} s`} /><Metric label="WAIT / BLOCKS" value={`${(data.metrics.productionTooling.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionTooling.totalInputBlocks}`} /><Metric label="TOOL ASSETS" value={Object.entries(data.metrics.productionTooling.resources).map(([resource, measured]) => `${resource}: ${measured.unitsAllocated} allocations / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`).join(" · ") || "NONE"} /></div></div>}
-        {data.metrics && data.metrics.productionUtilities.totalAllocations > 0 && <div className="panel"><h2>Fab facility utilities</h2><div className="metrics"><Metric label="JOBS / COMPLETE" value={`${data.metrics.productionUtilities.totalAllocations} / ${data.metrics.productionUtilities.totalCompleted}`} /><Metric label="CANCELLED / TRIPS" value={`${data.metrics.productionUtilities.totalCancelled} / ${data.metrics.productionUtilities.totalProviderInterruptions}`} /><Metric label="JOB / CAPACITY TIME" value={`${(data.metrics.productionUtilities.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionUtilities.totalUnitTicks / 1000).toFixed(1)} s`} /><Metric label="WAIT / BLOCKS" value={`${(data.metrics.productionUtilities.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionUtilities.totalInputBlocks}`} /><Metric label="UTILITY SERVICES" value={Object.entries(data.metrics.productionUtilities.utilities).map(([utility, measured]) => `${utility}: ${measured.unitsAllocated} units / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`).join(" · ") || "NONE"} /></div></div>}
-        {data.metrics && Object.keys(data.metrics.equipmentMaintenance.devices).length > 0 && <div className="panel"><h2>Equipment maintenance</h2><div className="metrics"><Metric label="ASSET / PLANNED / OPPORTUNISTIC" value={`${data.metrics.equipmentMaintenance.totalAssetLimit} / ${data.metrics.equipmentMaintenance.totalPlannedBoundary} / ${data.metrics.equipmentMaintenance.totalOpportunistic}`} /><Metric label="USAGE / CALENDAR TRIGGERS" value={`${data.metrics.equipmentMaintenance.totalUsageTriggered} / ${data.metrics.equipmentMaintenance.totalCalendarTriggered}`} /><Metric label="RELEASED / SERVICE CANCEL" value={`${data.metrics.equipmentMaintenance.totalCompleted} / ${data.metrics.equipmentMaintenance.totalCancelled}`} /><Metric label="SERVICE / QUALIFICATION" value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationTicks / 1000).toFixed(1)} s`} /><Metric label="QUALIFIED / CANCELLED" value={`${data.metrics.equipmentMaintenance.totalQualificationCompleted} / ${data.metrics.equipmentMaintenance.totalQualificationCancelled}`} /><Metric label="SERVICE / QUAL CREW" value={`${(data.metrics.equipmentMaintenance.totalServiceCrewTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationCrewTicks / 1000).toFixed(1)} crew-s`} /><Metric label="INPUT / CREW WAIT" value={`${(data.metrics.equipmentMaintenance.totalInputWaitTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalCrewWaitTicks / 1000).toFixed(1)} s`} /><Metric label="INPUT / CREW BLOCKS" value={`${data.metrics.equipmentMaintenance.totalInputBlocks} / ${data.metrics.equipmentMaintenance.totalCrewBlocks}`} /><Metric label="SERVICE CONSUMABLES" value={Object.entries(data.metrics.equipmentMaintenance.serviceConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"} /><Metric label="QUALIFICATION CONSUMABLES" value={Object.entries(data.metrics.equipmentMaintenance.qualificationConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"} /><Metric label="DRIFTED JOBS / LOTS" value={`${data.metrics.equipmentMaintenance.totalDriftedJobs} / ${data.metrics.equipmentMaintenance.totalDriftedLots}`} /><Metric label="DRIFT DEFECTS" value={String(data.metrics.equipmentMaintenance.totalDriftDefects)} /></div></div>}
-        {data.metrics && Object.keys(data.metrics.equipmentEnergyManagement.devices).length > 0 && <div className="panel"><h2>Equipment energy states</h2><div className="metrics"><Metric label="SLEEPS / WAKES" value={`${data.metrics.equipmentEnergyManagement.totalSleeps} / ${data.metrics.equipmentEnergyManagement.totalWakeups}`} /><Metric label="SLEEP / WAKE TIME" value={`${(data.metrics.equipmentEnergyManagement.totalSleepingTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentEnergyManagement.totalWakeTicks / 1000).toFixed(1)} equipment-s`} /><Metric label="CONTROLLED EQUIPMENT" value={Object.entries(data.metrics.equipmentEnergyManagement.devices).map(([device, energy]) => `${device}: ${energy.mode}`).join(" · ")} /></div></div>}
-        <div className="panel bottleneck"><h2>Bottleneck</h2><strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong><p>Highlighted with an amber floor beacon in the factory world.</p>{data.metrics?.bottleneckEntity && <button onClick={() => navigateFactoryObject({ kind: "device", id: data.metrics!.bottleneckEntity! })}>INSPECT DEVICE →</button>}</div>
-        <div className="panel events"><h2>Event stream <span>{frame.visibleEvents.length}</span></h2>{recent.map((event, index) => <div className="event" key={`${event.tick}-${event.type}-${index}`}><time>{formatTick(event.tick)}</time><span>{event.type}</span><b>{event.device ?? event.connection ?? event.transit?.resource ?? event.resource ?? ""}</b></div>)}</div>
-        {data.metrics && data.metrics.lotOutputFlow.jobs > 0 && <div className="panel"><h2>Wafer probe yield</h2><div className="metrics"><Metric label="DIE OUTPUT ACTUAL / NOMINAL" value={`${data.metrics.lotOutputFlow.actualUnits} / ${data.metrics.lotOutputFlow.nominalUnits}`} accent /><Metric label="DIE OUTPUT REALIZATION" value={`${(data.metrics.lotOutputFlow.outputRatio * 100).toFixed(1)}%`} /><Metric label="DIE OUTPUT LOST" value={String(data.metrics.lotOutputFlow.lostUnits)} /></div></div>}
-      </aside>
-    </section>
-    <footer className="timeline"><button className="play" onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}</button><button onClick={() => { setPlaying(false); setTick(0); }}>RESET</button><div className="time"><strong>{formatTick(tick)}</strong><input aria-label="Timeline" type="range" min={0} max={maxTick} value={tick} onChange={(event) => { setPlaying(false); setTick(Number(event.target.value)); }} /><span>{formatTick(maxTick)}</span></div><div className="speeds">{[1, 4, 16, 64].map((value) => <button className={speed === value ? "active" : ""} onClick={() => setSpeed(value)} key={value}>{value}×</button>)}</div></footer>
-  </main>;
+        <aside>
+          {data.metrics && (
+            <div className="panel">
+              <h2>Delivery contracts</h2>
+              <div className="metrics">
+                <Metric
+                  label="DEMAND ATTAINMENT"
+                  value={`${(data.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}%`}
+                  accent
+                />
+                <Metric
+                  label="NET VALUE / MIN"
+                  value={data.metrics.deliveryPortfolio.netValuePerMinute.toFixed(
+                    2,
+                  )}
+                />
+                <Metric
+                  label="VALUED / DEMANDED"
+                  value={`${data.metrics.deliveryPortfolio.valued.toFixed(0)} / ${data.metrics.deliveryPortfolio.demanded.toFixed(0)}`}
+                />
+                <Metric
+                  label="ABOVE DEMAND"
+                  value={data.metrics.deliveryPortfolio.overflow.toFixed(0)}
+                />
+                {Object.entries(data.metrics.deliveryPortfolio.contracts).map(
+                  ([id, contract]) => (
+                    <Metric
+                      key={id}
+                      label={id.toUpperCase()}
+                      value={`${contract.delivered.toFixed(0)} / ${contract.demand.toFixed(0)} ${contract.resource} · ${(contract.fulfillment * 100).toFixed(1)}%`}
+                    />
+                  ),
+                )}
+              </div>
+            </div>
+          )}
+          <div className="panel run-panel">
+            <label>SIMULATION RUN</label>
+            <select
+              value={run ?? ""}
+              disabled={!data.runs.length}
+              onChange={(event) =>
+                void loadProject(data.projectId, event.target.value)
+              }
+            >
+              {!data.runs.length && (
+                <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>
+              )}
+              {data.runs.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.decision === "BASELINE"
+                    ? item.blueprint.toUpperCase()
+                    : `${item.decision} · ${item.blueprint.toUpperCase()}`}{" "}
+                  · {item.name} · {item.score.toFixed(1)}
+                </option>
+              ))}
+            </select>
+            {selectedRun && (
+              <div className={`decision ${selectedRun.decision.toLowerCase()}`}>
+                {selectedRun.blueprint.toUpperCase()}
+              </div>
+            )}
+          </div>
+          {data.metrics && (
+            <div className="panel" data-testid="factory-inventory-accounting">
+              <h2>Objective inventory</h2>
+              <div className="metrics">
+                <Metric
+                  label="AVERAGE WIP / TOTAL"
+                  value={`${data.metrics.inventoryAccounting.averageWip.toFixed(2)} / ${data.metrics.inventoryAccounting.averageTotalInventory.toFixed(2)}`}
+                  accent
+                />
+                <Metric
+                  label="PEAK WIP / TOTAL"
+                  value={`${data.metrics.inventoryAccounting.peakWip.toFixed(0)} / ${data.metrics.inventoryAccounting.peakTotalInventory.toFixed(0)}`}
+                />
+                {Object.entries(data.metrics.inventoryAccounting.resources)
+                  .filter(
+                    ([, accounting]) =>
+                      accounting.includedInWip &&
+                      accounting.averageInventory > 0,
+                  )
+                  .sort(
+                    ([, left], [, right]) =>
+                      right.averageInventory - left.averageInventory,
+                  )
+                  .slice(0, 6)
+                  .map(([resource, accounting]) => (
+                    <Metric
+                      key={resource}
+                      label={resource.toUpperCase()}
+                      value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.peakInventory.toFixed(0)} peak`}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
+          <div className="panel">
+            <h2>Performance</h2>
+            <div className="metrics">
+              <Metric
+                label="SCORE"
+                value={data.metrics?.finalScore.toFixed(2) ?? "—"}
+                accent
+              />
+              <Metric
+                label="THROUGHPUT / MIN"
+                value={data.metrics?.throughputPerMinute.toFixed(2) ?? "—"}
+              />
+              {data.metrics?.lotFlow.family && (
+                <>
+                  <Metric
+                    label="COMPLETE / RELEASED / PLAN"
+                    value={`${data.metrics.lotFlow.completed} / ${data.metrics.lotFlow.released} / ${data.metrics.lotFlow.scheduled}`}
+                  />
+                  {Object.entries(data.metrics.routeFlow).map(
+                    ([route, flow]) => (
+                      <Fragment key={route}>
+                        <Metric
+                          label={`ROUTE ${route.toUpperCase()}`}
+                          value={`${flow.transitions} steps / ${flow.reentrantTransitions} re-entry`}
+                        />
+                        <Metric
+                          label="ROUTE TERMINALS / ACTIVE"
+                          value={`${flow.completed} complete · ${flow.scrapped} scrap / ${flow.inProgress} active`}
+                        />
+                      </Fragment>
+                    ),
+                  )}
+                  <Metric
+                    label="RELEASE INTERVAL PLAN / ACTUAL"
+                    value={`${(data.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="RELEASE DELAY MEAN / MAX"
+                    value={`${(data.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(1)} / ${(data.metrics.releaseFlow.maximumReleaseDelayTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="RELEASE CONTROL / PEAK"
+                    value={`${data.metrics.releaseFlow.control === "conwip" ? `CONWIP ${data.metrics.releaseFlow.maximumWip}↕${data.metrics.releaseFlow.reopenAtWip}` : "OPEN LOOP"} / ${data.metrics.releaseFlow.peakActiveLots}`}
+                  />
+                  <Metric
+                    label="SERVICE AGE / OPENS"
+                    value={`${data.metrics.releaseFlow.serviceLevelAfterTicks === null ? "—" : `${(data.metrics.releaseFlow.serviceLevelAfterTicks / 1000).toFixed(1)} s`} / ${data.metrics.releaseFlow.serviceLevelOpenings}`}
+                  />
+                  <Metric
+                    label="SERVICE-PROTECTED RELEASES"
+                    value={String(
+                      data.metrics.releaseFlow.serviceProtectedReleases,
+                    )}
+                  />
+                  <Metric
+                    label="CONTROL BLOCK LOTS / TIME"
+                    value={`${data.metrics.releaseFlow.controlBlockedLots} / ${(data.metrics.releaseFlow.controlBlockedTicks / 1000).toFixed(1)} lot-s`}
+                  />
+                  <Metric
+                    label="CAPACITY BLOCK LOTS / TIME"
+                    value={`${data.metrics.releaseFlow.capacityBlockedLots} / ${(data.metrics.releaseFlow.capacityBlockedTicks / 1000).toFixed(1)} lot-s`}
+                  />
+                  <Metric
+                    label="LOTS SCRAPPED"
+                    value={String(data.metrics.lotFlow.scrapped)}
+                  />
+                  <Metric
+                    label="ON-TIME LOTS"
+                    value={`${data.metrics.lotFlow.onTimeCompleted} · ${(data.metrics.onTimeDelivery * 100).toFixed(1)}%`}
+                  />
+                  <Metric
+                    label="MEAN / P95 CYCLE"
+                    value={`${(data.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="QUEUE / PROCESS / MOVE"
+                    value={`${(data.metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanProcessTimeTicks / 1000).toFixed(1)} / ${(data.metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="MEAN TARDINESS"
+                    value={`${(data.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="GOOD / FIRST-PASS YIELD"
+                    value={`${(data.metrics.qualityFlow.goodYield * 100).toFixed(1)} / ${(data.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}%`}
+                  />
+                  <Metric
+                    label="PREVENTED / AUTHORED DEFECTS"
+                    value={`${data.metrics.qualityFlow.qualityControl.preventedDefectInstances} / ${data.metrics.qualityFlow.qualityControl.authoredDefectInstances}`}
+                  />
+                  <Metric
+                    label="INSPECTIONS / REWORK"
+                    value={`${data.metrics.qualityFlow.totalInspections} / ${data.metrics.qualityFlow.totalReworkCycles}`}
+                  />
+                  <Metric
+                    label="SCRAP / QUALITY ESCAPES"
+                    value={`${data.metrics.qualityFlow.scrapDispositions} / ${data.metrics.qualityFlow.escapedDefects}`}
+                  />
+                  {data.metrics.batchFlow.batchOperations > 0 && (
+                    <>
+                      <Metric
+                        label="BATCH JOBS / LOTS"
+                        value={`${data.metrics.batchFlow.jobs} / ${data.metrics.batchFlow.lots}`}
+                      />
+                      <Metric
+                        label="LOTS / BATCH"
+                        value={data.metrics.batchFlow.averageLotsPerJob.toFixed(
+                          2,
+                        )}
+                      />
+                      <Metric
+                        label="MEAN BATCH WAIT"
+                        value={`${(data.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(1)} s`}
+                      />
+                    </>
+                  )}
+                  {Object.entries(data.metrics.cadenceControl.devices).map(
+                    ([device, control]) => (
+                      <Fragment key={device}>
+                        <Metric
+                          label={`${device.toUpperCase()} NORMAL / RECOVERY`}
+                          value={`${control.normalJobs} ${control.normalMode} / ${control.recoveryJobs} ${control.recoveryMode}`}
+                        />
+                        <Metric
+                          label="RECOVERY BOUNDARY"
+                          value={`< ${control.recoverBelowItems} items · ${control.downstreamConnection}`}
+                        />
+                      </Fragment>
+                    ),
+                  )}
+                </>
+              )}
+              <Metric
+                label="CHANGEOVERS / SETUP"
+                value={
+                  data.metrics
+                    ? `${data.metrics.equipmentSetups.totalChangeovers} / ${(data.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(1)} s`
+                    : "—"
+                }
+              />
+              <Metric
+                label="CAMPAIGN HOLDS / TIME"
+                value={
+                  data.metrics
+                    ? `${data.metrics.equipmentSetups.totalCampaignHolds} / ${(data.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(1)} s`
+                    : "—"
+                }
+              />
+              <Metric
+                label="CAMPAIGN LOT-READY / TIMEOUT"
+                value={
+                  data.metrics
+                    ? `${data.metrics.equipmentSetups.campaignMinimumLotReleases} / ${data.metrics.equipmentSetups.campaignMaximumHoldReleases}`
+                    : "—"
+                }
+              />
+              <Metric
+                label="MIN GRID SATISFACTION"
+                value={
+                  minimumGridSatisfaction === null
+                    ? "—"
+                    : `${minimumGridSatisfaction.toFixed(1)}%`
+                }
+              />
+              <Metric
+                label="BELT UTILIZATION"
+                value={
+                  data.metrics
+                    ? `${(data.metrics.beltCellUtilization * 100).toFixed(1)}%`
+                    : "—"
+                }
+              />
+              <Metric
+                label="BLOCKED BELT ITEMS"
+                value={data.metrics?.averageBlockedBeltItems.toFixed(2) ?? "—"}
+              />
+              <Metric
+                label="PEAK BELT ITEMS"
+                value={String(data.metrics?.peakBeltItems ?? "—")}
+              />
+              <Metric
+                label="SORTER ENERGY"
+                value={`${((data.metrics?.transportEnergyConsumedMilliJoules ?? 0) / 1e6).toFixed(2)} MJ`}
+              />
+              <Metric
+                label="CARRIER MISSIONS / RETURNS"
+                value={`${data.metrics?.carrierMissions ?? 0} / ${data.metrics?.carrierReturns ?? 0}`}
+              />
+              <Metric
+                label="CARRIER MISSION ENERGY"
+                value={`${(stationMissionEnergy / 1e6).toFixed(2)} MJ`}
+              />
+              <Metric
+                label="HIGH-SPEED MISSIONS"
+                value={String(data.metrics?.highSpeedMissions ?? 0)}
+              />
+              <Metric
+                label="ENERGY"
+                value={`${((data.metrics?.energyConsumedMilliJoules ?? 0) / 1e6).toFixed(1)} MJ`}
+              />
+              <Metric
+                label="GRID STORAGE"
+                value={
+                  data.metrics && storageTotals.capacity
+                    ? `${(storageTotals.stored / 1e6).toFixed(2)} / ${(storageTotals.capacity / 1e6).toFixed(2)} MJ`
+                    : "—"
+                }
+              />
+              <Metric
+                label="FUEL BURNED"
+                value={
+                  data.metrics
+                    ? Object.entries(data.metrics.fuelConsumed)
+                        .map(([resource, count]) => `${count} ${resource}`)
+                        .join(", ") || "0"
+                    : "—"
+                }
+              />
+              <Metric
+                label="BUILD COST"
+                value={(data.metrics?.totalBuildCost ?? 0).toLocaleString()}
+              />
+              <Metric
+                label="AREA"
+                value={`${data.metrics?.occupiedArea ?? 0} cells`}
+              />
+            </div>
+          </div>
+          {data.metrics && Object.keys(data.metrics.routeFlow).length > 0 && (
+            <div className="panel">
+              <h2>Route Q-time</h2>
+              <div className="metrics">
+                {Object.entries(data.metrics.routeFlow).map(([route, flow]) => (
+                  <Fragment key={route}>
+                    <Metric
+                      label={`${route.toUpperCase()} VIOLATIONS / LOTS`}
+                      value={`${flow.queueTimeViolations} / ${flow.violatedLots}`}
+                    />
+                    {Object.entries(flow.steps)
+                      .filter(([, step]) => step.queueTimeMaximumTicks !== null)
+                      .map(([stepId, step]) => (
+                        <Metric
+                          key={stepId}
+                          label={stepId.toUpperCase()}
+                          value={`${(step.meanQueueTicks / 1000).toFixed(1)} avg · ${(step.maximumQueueTicks / 1000).toFixed(1)} / ${(step.queueTimeMaximumTicks! / 1000).toFixed(1)} s · ${step.queueTimeViolations} late`}
+                        />
+                      ))}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          )}
+          {data.metrics &&
+            data.metrics.productionTooling.totalAllocations > 0 && (
+              <div className="panel">
+                <h2>Reusable production tooling</h2>
+                <div className="metrics">
+                  <Metric
+                    label="ALLOCATED / COMPLETE"
+                    value={`${data.metrics.productionTooling.totalAllocations} / ${data.metrics.productionTooling.totalCompleted}`}
+                  />
+                  <Metric
+                    label="CANCELLED"
+                    value={String(
+                      data.metrics.productionTooling.totalCancelled,
+                    )}
+                  />
+                  <Metric
+                    label="EQUIPMENT / UNIT TIME"
+                    value={`${(data.metrics.productionTooling.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionTooling.totalUnitTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="WAIT / BLOCKS"
+                    value={`${(data.metrics.productionTooling.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionTooling.totalInputBlocks}`}
+                  />
+                  <Metric
+                    label="TOOL ASSETS"
+                    value={
+                      Object.entries(data.metrics.productionTooling.resources)
+                        .map(
+                          ([resource, measured]) =>
+                            `${resource}: ${measured.unitsAllocated} allocations / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`,
+                        )
+                        .join(" · ") || "NONE"
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          {data.metrics &&
+            data.metrics.productionUtilities.totalAllocations > 0 && (
+              <div className="panel">
+                <h2>Fab facility utilities</h2>
+                <div className="metrics">
+                  <Metric
+                    label="JOBS / COMPLETE"
+                    value={`${data.metrics.productionUtilities.totalAllocations} / ${data.metrics.productionUtilities.totalCompleted}`}
+                  />
+                  <Metric
+                    label="CANCELLED / TRIPS"
+                    value={`${data.metrics.productionUtilities.totalCancelled} / ${data.metrics.productionUtilities.totalProviderInterruptions}`}
+                  />
+                  <Metric
+                    label="JOB / CAPACITY TIME"
+                    value={`${(data.metrics.productionUtilities.totalOccupiedTicks / 1000).toFixed(1)} / ${(data.metrics.productionUtilities.totalUnitTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="WAIT / BLOCKS"
+                    value={`${(data.metrics.productionUtilities.totalInputWaitTicks / 1000).toFixed(1)} s / ${data.metrics.productionUtilities.totalInputBlocks}`}
+                  />
+                  <Metric
+                    label="UTILITY SERVICES"
+                    value={
+                      Object.entries(data.metrics.productionUtilities.utilities)
+                        .map(
+                          ([utility, measured]) =>
+                            `${utility}: ${measured.unitsAllocated} units / ${(measured.unitTicks / 1000).toFixed(1)} unit-s`,
+                        )
+                        .join(" · ") || "NONE"
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          {data.metrics &&
+            Object.keys(data.metrics.equipmentMaintenance.devices).length >
+              0 && (
+              <div className="panel">
+                <h2>Equipment maintenance</h2>
+                <div className="metrics">
+                  <Metric
+                    label="ASSET / PLANNED / OPPORTUNISTIC"
+                    value={`${data.metrics.equipmentMaintenance.totalAssetLimit} / ${data.metrics.equipmentMaintenance.totalPlannedBoundary} / ${data.metrics.equipmentMaintenance.totalOpportunistic}`}
+                  />
+                  <Metric
+                    label="USAGE / CALENDAR TRIGGERS"
+                    value={`${data.metrics.equipmentMaintenance.totalUsageTriggered} / ${data.metrics.equipmentMaintenance.totalCalendarTriggered}`}
+                  />
+                  <Metric
+                    label="RELEASED / SERVICE CANCEL"
+                    value={`${data.metrics.equipmentMaintenance.totalCompleted} / ${data.metrics.equipmentMaintenance.totalCancelled}`}
+                  />
+                  <Metric
+                    label="SERVICE / QUALIFICATION"
+                    value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="QUALIFIED / CANCELLED"
+                    value={`${data.metrics.equipmentMaintenance.totalQualificationCompleted} / ${data.metrics.equipmentMaintenance.totalQualificationCancelled}`}
+                  />
+                  <Metric
+                    label="SERVICE / QUAL CREW"
+                    value={`${(data.metrics.equipmentMaintenance.totalServiceCrewTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationCrewTicks / 1000).toFixed(1)} crew-s`}
+                  />
+                  <Metric
+                    label="INPUT / CREW WAIT"
+                    value={`${(data.metrics.equipmentMaintenance.totalInputWaitTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalCrewWaitTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="INPUT / CREW BLOCKS"
+                    value={`${data.metrics.equipmentMaintenance.totalInputBlocks} / ${data.metrics.equipmentMaintenance.totalCrewBlocks}`}
+                  />
+                  <Metric
+                    label="SERVICE CONSUMABLES"
+                    value={
+                      Object.entries(
+                        data.metrics.equipmentMaintenance.serviceConsumables,
+                      )
+                        .map(([resource, count]) => `${count} ${resource}`)
+                        .join(" + ") || "NONE"
+                    }
+                  />
+                  <Metric
+                    label="QUALIFICATION CONSUMABLES"
+                    value={
+                      Object.entries(
+                        data.metrics.equipmentMaintenance
+                          .qualificationConsumables,
+                      )
+                        .map(([resource, count]) => `${count} ${resource}`)
+                        .join(" + ") || "NONE"
+                    }
+                  />
+                  <Metric
+                    label="DRIFTED JOBS / LOTS"
+                    value={`${data.metrics.equipmentMaintenance.totalDriftedJobs} / ${data.metrics.equipmentMaintenance.totalDriftedLots}`}
+                  />
+                  <Metric
+                    label="DRIFT DEFECTS"
+                    value={String(
+                      data.metrics.equipmentMaintenance.totalDriftDefects,
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+          {data.metrics &&
+            Object.keys(data.metrics.equipmentEnergyManagement.devices).length >
+              0 && (
+              <div className="panel">
+                <h2>Equipment energy states</h2>
+                <div className="metrics">
+                  <Metric
+                    label="SLEEPS / WAKES"
+                    value={`${data.metrics.equipmentEnergyManagement.totalSleeps} / ${data.metrics.equipmentEnergyManagement.totalWakeups}`}
+                  />
+                  <Metric
+                    label="SLEEP / WAKE TIME"
+                    value={`${(data.metrics.equipmentEnergyManagement.totalSleepingTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentEnergyManagement.totalWakeTicks / 1000).toFixed(1)} equipment-s`}
+                  />
+                  <Metric
+                    label="CONTROLLED EQUIPMENT"
+                    value={Object.entries(
+                      data.metrics.equipmentEnergyManagement.devices,
+                    )
+                      .map(([device, energy]) => `${device}: ${energy.mode}`)
+                      .join(" · ")}
+                  />
+                </div>
+              </div>
+            )}
+          <div className="panel bottleneck">
+            <h2>Bottleneck</h2>
+            <strong>{data.metrics?.bottleneckEntity ?? "NONE"}</strong>
+            <p>Highlighted with an amber floor beacon in the factory world.</p>
+            {data.metrics?.bottleneckEntity && (
+              <button
+                onClick={() =>
+                  navigateFactoryObject({
+                    kind: "device",
+                    id: data.metrics!.bottleneckEntity!,
+                  })
+                }
+              >
+                INSPECT DEVICE →
+              </button>
+            )}
+          </div>
+          <div className="panel events">
+            <h2>
+              Event stream <span>{frame.visibleEvents.length}</span>
+            </h2>
+            {recent.map((event, index) => (
+              <div
+                className="event"
+                key={`${event.tick}-${event.type}-${index}`}
+              >
+                <time>{formatTick(event.tick)}</time>
+                <span>{event.type}</span>
+                <b>
+                  {event.device ??
+                    event.connection ??
+                    event.transit?.resource ??
+                    event.resource ??
+                    ""}
+                </b>
+              </div>
+            ))}
+          </div>
+          {data.metrics && data.metrics.lotOutputFlow.jobs > 0 && (
+            <div className="panel">
+              <h2>Wafer probe yield</h2>
+              <div className="metrics">
+                <Metric
+                  label="DIE OUTPUT ACTUAL / NOMINAL"
+                  value={`${data.metrics.lotOutputFlow.actualUnits} / ${data.metrics.lotOutputFlow.nominalUnits}`}
+                  accent
+                />
+                <Metric
+                  label="DIE OUTPUT REALIZATION"
+                  value={`${(data.metrics.lotOutputFlow.outputRatio * 100).toFixed(1)}%`}
+                />
+                <Metric
+                  label="DIE OUTPUT LOST"
+                  value={String(data.metrics.lotOutputFlow.lostUnits)}
+                />
+              </div>
+            </div>
+          )}
+        </aside>
+      </section>
+      <footer className="timeline">
+        <button className="play" onClick={() => setPlaying((value) => !value)}>
+          {playing ? "Ⅱ" : "▶"}
+        </button>
+        <button
+          onClick={() => {
+            setPlaying(false);
+            setTick(0);
+          }}
+        >
+          RESET
+        </button>
+        <div className="time">
+          <strong>{formatTick(tick)}</strong>
+          <input
+            aria-label="Timeline"
+            type="range"
+            min={0}
+            max={maxTick}
+            value={tick}
+            onChange={(event) => {
+              setPlaying(false);
+              setTick(Number(event.target.value));
+            }}
+          />
+          <span>{formatTick(maxTick)}</span>
+        </div>
+        <div className="speeds">
+          {[1, 4, 16, 64].map((value) => (
+            <button
+              className={speed === value ? "active" : ""}
+              onClick={() => setSpeed(value)}
+              key={value}
+            >
+              {value}×
+            </button>
+          ))}
+        </div>
+      </footer>
+    </main>
+  );
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

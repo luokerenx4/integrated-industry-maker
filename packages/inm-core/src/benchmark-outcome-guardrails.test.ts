@@ -147,12 +147,12 @@ test("memory-fab on-time service rejects score-positive inspection maintenance",
         expect.objectContaining({ id: "mixed-quality", candidateValue: 10, threshold: 10, candidatePassed: true }),
         expect.objectContaining({ id: "quality-excursion", candidateValue: 10, threshold: 8, candidatePassed: true }),
         expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
-        expect.objectContaining({ id: "facility-interruption", candidateValue: 8, threshold: 9, candidatePassed: false }),
+        expect.objectContaining({ id: "facility-interruption", candidateValue: 7, threshold: 9, candidatePassed: false }),
       ],
     }),
   ]);
   expect(result.reasons).toEqual([
-    "outcome guardrail 'preserve-on-time-service' failed in case 'facility-interruption': onTimeLots 8.000000 must be >= 9.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'facility-interruption': onTimeLots 7.000000 must be >= 9.000000",
   ]);
 }, 30_000);
 
@@ -170,7 +170,7 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
     kind: "conwip",
     maximumWip: 7,
     reopenAtWip: 4,
-    maximumReleaseDelayTicks: 30_000,
+    serviceLevelAfterTicks: 30_000,
     dispatch: "earliest-due-date",
   };
   for (const recipe of incumbentBlueprint.devices.find((device) => device.id === "burn-in-1")!.recipes!) {
@@ -184,7 +184,7 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
     kind: "conwip",
     maximumWip: 6,
     reopenAtWip: 3,
-    maximumReleaseDelayTicks: 18_000,
+    serviceLevelAfterTicks: 18_000,
     dispatch: "earliest-due-date",
   };
 
@@ -199,13 +199,13 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
     incumbentInterruption.candidateMetrics.scoreBreakdown,
     branchInterruption.candidateMetrics.scoreBreakdown,
   );
-  expect(scoreDelta).toBeCloseTo(0.465562424242421, 12);
-  expect(breakdownDelta.onTimeDelivery).toBeCloseTo(1.6666666666666643, 12);
-  expect(breakdownDelta.wip).toBeCloseTo(-1.2914999999999992, 12);
+  expect(scoreDelta).toBeCloseTo(-0.898787121212123, 12);
+  expect(breakdownDelta.onTimeDelivery).toBeCloseTo(1.6666666666666679, 12);
+  expect(breakdownDelta.wip).toBeCloseTo(-2.6942750000000046, 12);
   expect(breakdownDelta.energy).toBeCloseTo(-0.00604, 12);
   expect(breakdownDelta.buildCost).toBeCloseTo(-0.005, 12);
-  expect(breakdownDelta.cycleTime).toBeCloseTo(0.059091515151514784, 12);
-  expect(breakdownDelta.tardiness).toBeCloseTo(0.04234424242424245, 12);
+  expect(breakdownDelta.cycleTime).toBeCloseTo(0.0380357575757575, 12);
+  expect(breakdownDelta.tardiness).toBeCloseTo(0.10182545454545452, 12);
   expect(sumScoreBreakdown(incumbentInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(incumbentInterruption.candidateScore, 12);
   expect(sumScoreBreakdown(branchInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(branchInterruption.candidateScore, 12);
   expect(sumScoreBreakdown(breakdownDelta)).toBeCloseTo(scoreDelta, 12);

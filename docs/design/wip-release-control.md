@@ -1,6 +1,6 @@
 # Closed-loop WIP release control
 
-Status: Blueprint-authored factory CONWIP, high/low-watermark and maximum-delay service replenishment, eligible-lot arbitration, causal blocking metrics, and commissioned memory-fab control implemented through engine version `inm-sim/0.77.0`.
+Status: Blueprint-authored factory CONWIP, high/low-watermark replenishment, identity-safe release-service aging, eligible-lot arbitration, causal blocking metrics, and commissioned memory-fab control implemented through engine version `inm-sim/0.81.0`.
 
 Related: [[docs/design/lot-release-scheduling]], [[docs/design/lot-tracking]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
@@ -20,7 +20,7 @@ A Blueprint may instead select a closed-loop controller:
     "kind": "conwip",
     "maximumWip": 11,
     "reopenAtWip": 6,
-    "maximumReleaseDelayTicks": 24000,
+    "serviceLevelAfterTicks": 24000,
     "dispatch": "earliest-due-date"
   }
 }
@@ -35,23 +35,23 @@ Active WIP is every released tracked lot that is not completed or scrapped, acro
 
 Setting `reopenAtWip` to `maximumWip - 1` produces one-for-one replenishment. A lower threshold produces larger waves. That distinction matters in a fab: aggressive one-for-one control can lower inventory while destroying furnace batches or forcing extra mask/recipe changeovers.
 
-Optional `maximumReleaseDelayTicks` adds a service guard. If the controller is closed, at least one hard-cap card is free, and any eligible lot has waited this long since its Scenario release tick, the controller opens before the low watermark. It still cannot exceed `maximumWip`; while eligible demand remains overdue, the result is one-for-one service replenishment.
+Optional `serviceLevelAfterTicks` adds an aging-based service class. Once an eligible lot has waited that long since its Scenario release tick, it receives scarce-card precedence over every younger, ordinary eligible lot. If the controller is closed and at least one hard-cap card is free, the protected lot also opens the controller before the low watermark. The threshold is not an absolute delay promise: a lot can age past it while the hard WIP cap or physical release boundary has no slot. It is the exact point at which the lot becomes protected from younger admission work.
 
 ## Deterministic arbitration
 
-When fewer cards than eligible lots exist, `dispatch` chooses the released identities:
+When fewer cards than eligible lots exist, the runtime first separates service-protected and ordinary identities. Protected identities consume cards first. `dispatch` then orders identities within each class:
 
 - `fifo`: planned release tick, then stable lot id;
 - `earliest-due-date`: due tick, then FIFO;
 - `highest-priority`: authored Scenario priority, then FIFO.
 
-The controller never changes planned release, priority, due date, defect workload, or lot identity. It only decides which eligible identity consumes the next available card.
+The controller never changes planned release, priority, due date, defect workload, or lot identity. A service opening cannot be consumed by a younger unprotected lot while the identity that earned it remains eligible.
 
 ## Causal blocking and evaluation
 
-Physical admission is checked before policy admission. A lot therefore records one current cause: `buffer-capacity`, `resource-capacity`, or `conwip-limit`. Cause transitions accrue separate lot-ticks and emit `lot.release-blocked`. Controller state emits `lot.release-control-opened` with cause `reopen-threshold` or `maximum-release-delay`, plus `lot.release-control-closed`; `lot.released` records the controller kind and active WIP immediately before admission.
+Physical admission is checked before policy admission. A lot therefore records one current cause: `buffer-capacity`, `resource-capacity`, or `conwip-limit`. Cause transitions accrue separate lot-ticks and emit `lot.release-blocked`. Controller state emits `lot.release-control-opened` with cause `reopen-threshold` or `service-level`, plus `lot.release-control-closed`; `lot.released` records the controller kind, whether the identity was service-protected, and active WIP immediately before admission.
 
-`releaseFlow` exposes the configured controller, maximum/reopen/service thresholds, dispatch rule, service-triggered opening count, peak active lots, capacity-blocked lots/ticks, and controller-blocked lots/ticks alongside planned/actual cadence and delay. CLI simulation, comparison, benchmark output, run reports, and Studio use the same measurements.
+`releaseFlow` exposes the configured controller, maximum/reopen thresholds, `serviceLevelAfterTicks`, dispatch rule, service-triggered opening count, service-protected release count, peak active lots, capacity-blocked lots/ticks, and controller-blocked lots/ticks alongside planned/actual cadence and mean/maximum actual delay. CLI simulation, comparison, benchmark output, run reports, and Studio use the same measurements. Human text must call the configured value a service age and keep it visibly separate from actual delay.
 
 On-time delivery still divides by all Scenario-scheduled target lots. Withholding work can reduce internal queue time and average WIP, but it cannot hide unfinished demand from the score.
 
@@ -63,9 +63,11 @@ The first 225-policy sweep established a useful robust negative result. Several 
 
 A follow-up joint sweep crossed the best active CONWIP range with lithography and etch recipe/lot dispatch. It showed the loss was not a tie-break artifact: the best active policy reduced WIP and cycle time in disrupted cases, but in steady production it increased setup changes from two to six and lost one on-time lot. Service-guard thresholds recovered admission responsiveness but still missed the locked per-case gate. That was a valid result for the earlier factory, not a timeless ban on closed-loop control.
 
-After equipment specialization, utility resilience, quality, Q-time, and planned-maintenance commissioning changed the physical queueing regime, the authored-seed Design Program re-evaluated release control. Continuation `c60062ee6a88707a3ae7610d06f6231fddc04781d2c4aaa3c7110e5e0d294f63` promotes `dispatch:conwip-9-6-edd`: nine cards, reopen at six lots, an 18-second maximum release delay, and earliest-due-date admission. It improves current-best case scores by `+0.863614`, `+0.417884`, `+1.937604`, `+1.635813`, and `+1.418305`. Candidate `commissioned-release-control` and receipt `9ccae6b3df3178e9c2794ca06cb5270f6662a42d89b7d1bee02d5bc1bfe8e2e1` commission only the two threshold replacements. The later `10/7 EDD` branch is retained as negative evidence because `quality-excursion` regresses `-0.230799` under the current-best zero-score-regression policy.
+Run `078-simulate` exposed the old identity mismatch: lot 07 earned an 18-second service opening but younger EDD work consumed the cards and left it outside for 64.556 seconds. Re-evaluation under engine `0.81.0` correctly rejected the commissioned `6/3 EDD + 18 s` policy because protected ordering reduced on-time completion to 10 lots in steady production and 7 under the facility interruption, below the unchanged 12/9 hard thresholds.
 
-Compatible mixed-quality run `068-simulate` makes the live trade visible. Relative to the preceding `8/5 EDD` factory, controller-blocked time falls `85.6 → 48.85` lot-seconds, mean release delay falls `7.13 → 4.07` seconds, mean queue falls `16.53 → 15.57` seconds, and the case score improves `+0.417884`. The changed release ordering also moves first-pass completion `9/12 → 8/12`. The guardrail is therefore accurately described as zero case-score regression; a project that requires a non-negotiable yield floor must express that separate outcome constraint rather than infer it from aggregate score.
+An exhaustive 3–9-card EDD high/low-watermark search found one release-only setting that preserves both service boundaries: six cards, reopen at five, and no service-age override. Candidate `identity-safe-release-control` removes `serviceLevelAfterTicks` and changes only `reopenAtWip`; immutable review `a6e8489bce16c1f9148cdd07ac6367b43fac8c5df57317abee03dbb1b05148e5` returns `KEEP`, aggregate `+104.763644` versus the locked baseline, and all seven industrial outcome guardrails. The absence of a service age is intentional for this fab: one-for-one EDD replenishment already gives the workload its required service order.
+
+Compatible mixed-quality run `079-simulate` records 12/12 lots complete, 11 on time, 64.556 seconds maximum actual admission delay, six controller-blocked lots / 177.336 lot-seconds, and zero service openings or protected releases. Current Design Run `e7d569b5e824259ec51beef79b22957e611146444fefc4e5c80eb58ce70ec87d` keeps that seed after four exact rejections; it is continuable rather than falsely exhausted.
 
 ## Current boundary
 

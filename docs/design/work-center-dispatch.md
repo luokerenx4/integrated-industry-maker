@@ -1,6 +1,6 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, route-slack-, contract-window-, fixed-batch-, setup-campaign-, sustained-starvation cadence-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.80.0`.
+Status: multi-operation qualification plus operation-, lot-, route-slack-, contract-window-, fixed-batch-, setup-campaign-, sustained-starvation cadence-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.81.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 

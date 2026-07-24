@@ -26,7 +26,7 @@ interface SearchRow {
   maximumWip: number;
   reopenAtWip: number;
   dispatch: LotReleaseDispatchPolicy;
-  maximumReleaseDelayTicks: number | null;
+  serviceLevelAfterTicks: number | null;
   recipeDispatch: RecipeDispatchPolicy | null;
   lotDispatch: LotDispatchPolicy | null;
   aggregateScore: number;
@@ -73,8 +73,8 @@ const allReleaseDispatch: LotReleaseDispatchPolicy[] = ["fifo", "earliest-due-da
 if (requestedReleaseDispatch && !allReleaseDispatch.includes(requestedReleaseDispatch)) throw new Error("Unknown --release-dispatch");
 const dispatchPolicies = requestedReleaseDispatch ? [requestedReleaseDispatch] : allReleaseDispatch;
 const jointSearch = Bun.argv.includes("--joint");
-const maximumDelayIndex = Bun.argv.indexOf("--maximum-delay");
-const maximumReleaseDelayTicks = maximumDelayIndex < 0 ? null : nonNegativeArgument("--maximum-delay", 0);
+const serviceAfterIndex = Bun.argv.indexOf("--service-after");
+const serviceLevelAfterTicks = serviceAfterIndex < 0 ? null : nonNegativeArgument("--service-after", 0);
 const recipePolicies: Array<RecipeDispatchPolicy | null> = jointSearch
   ? ["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "oldest-lot", "earliest-due-date", "least-slack", "highest-lot-priority"]
   : [null];
@@ -105,14 +105,14 @@ function evaluatePolicy(
   maximumWip: number,
   reopenAtWip: number,
   dispatch: LotReleaseDispatchPolicy,
-  maximumReleaseDelayTicks: number | null,
+  serviceLevelAfterTicks: number | null,
   recipeDispatch: RecipeDispatchPolicy | null,
   lotDispatch: LotDispatchPolicy | null,
 ): SearchRow {
   const results = candidateProjects.map((project, index) => {
     project.blueprint.policies.lotRelease = {
       kind: "conwip", maximumWip, reopenAtWip, dispatch,
-      ...(maximumReleaseDelayTicks === null ? {} : { maximumReleaseDelayTicks }),
+      ...(serviceLevelAfterTicks === null ? {} : { serviceLevelAfterTicks }),
     };
     if (recipeDispatch && lotDispatch) for (const id of ["lithography-1", "etch-1"]) {
       const device = project.devices[id];
@@ -127,7 +127,7 @@ function evaluatePolicy(
   const aggregateDelta = aggregateScore - incumbentAggregate;
   const minimumCaseDelta = Math.min(...caseDeltas);
   return {
-    maximumWip, reopenAtWip, dispatch, maximumReleaseDelayTicks, recipeDispatch, lotDispatch, aggregateScore, aggregateDelta, minimumCaseDelta,
+    maximumWip, reopenAtWip, dispatch, serviceLevelAfterTicks, recipeDispatch, lotDispatch, aggregateScore, aggregateDelta, minimumCaseDelta,
     accepted: aggregateDelta >= definition.acceptance.minimumAggregateScoreDelta
       && minimumCaseDelta >= -definition.acceptance.maximumCaseScoreRegression,
     active: results.some((metrics) => metrics.releaseFlow.controlBlockedLots > 0),
@@ -141,7 +141,7 @@ for (const maximumWip of maximumCaps) {
     if (reopenAtWip < minimumReopen || reopenAtWip > maximumReopen) continue;
     for (const dispatch of dispatchPolicies) {
       for (const recipeDispatch of recipePolicies) for (const lotDispatch of lotPolicies) {
-        rows.push(evaluatePolicy(maximumWip, reopenAtWip, dispatch, maximumReleaseDelayTicks, recipeDispatch, lotDispatch));
+        rows.push(evaluatePolicy(maximumWip, reopenAtWip, dispatch, serviceLevelAfterTicks, recipeDispatch, lotDispatch));
         Bun.gc(true);
       }
     }
@@ -158,11 +158,11 @@ const ranked = rows.filter((row) => row.active).sort((left, right) => Number(rig
   || (left.lotDispatch ?? "").localeCompare(right.lotDispatch ?? ""));
 
 console.log(`# incumbent ${definition.candidateBlueprint} aggregate=${incumbentAggregate.toFixed(6)} · case gate remains relative to locked ${definition.baselineBlueprint} · ${rows.length} policies evaluated · ${ranked.length} active`);
-console.log("accepted\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tmax-wip\treopen\tmax-delay\trelease-dispatch\trecipe-dispatch\tlot-dispatch\tcase-scores\tcase-average-wip\tcase-delay-s");
+console.log("accepted\taggregate\tdelta-vs-incumbent\tmin-case-vs-baseline\tmax-wip\treopen\tservice-after\trelease-dispatch\trecipe-dispatch\tlot-dispatch\tcase-scores\tcase-average-wip\tcase-delay-s");
 for (const row of ranked.slice(0, 30)) console.log([
   row.accepted ? "KEEP" : "REJECT",
   row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
-  row.maximumWip, row.reopenAtWip, row.maximumReleaseDelayTicks ?? "none", row.dispatch, row.recipeDispatch ?? "incumbent", row.lotDispatch ?? "incumbent",
+  row.maximumWip, row.reopenAtWip, row.serviceLevelAfterTicks ?? "none", row.dispatch, row.recipeDispatch ?? "incumbent", row.lotDispatch ?? "incumbent",
   row.scores.map((value) => value.toFixed(3)).join(","),
   row.averageWip.map((value) => value.toFixed(3)).join(","),
   row.releaseDelayTicks.map((value) => (value / 1000).toFixed(3)).join(","),

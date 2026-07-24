@@ -73,7 +73,7 @@ function advancedRecovery(source: Blueprint): Blueprint {
     maximumWip: 6,
     reopenAtWip: 3,
     dispatch: "earliest-due-date",
-    maximumReleaseDelayTicks: 18_000,
+    serviceLevelAfterTicks: 18_000,
   };
   return blueprint;
 }

@@ -1340,9 +1340,9 @@ describe("blueprint compiler", () => {
     expect(baseline.metrics.releaseFlow).toEqual(expect.objectContaining({
       scheduled: 12, released: 12, pending: 0, plannedSpanTicks: 66_000, actualSpanTicks: 66_000,
       meanPlannedIntervalTicks: 6_000, meanActualIntervalTicks: 6_000, meanReleaseDelayTicks: 0, maximumReleaseDelayTicks: 0,
-      control: "open-loop", maximumWip: null, reopenAtWip: null, maximumReleaseDelayPolicyTicks: null, dispatch: null, peakActiveLots: 12,
+      control: "open-loop", maximumWip: null, reopenAtWip: null, serviceLevelAfterTicks: null, dispatch: null, peakActiveLots: 12,
       capacityBlockedLots: 0, capacityBlockedTicks: 0, controlBlockedLots: 0, controlBlockedTicks: 0,
-      serviceLevelOpenings: 0,
+      serviceLevelOpenings: 0, serviceProtectedReleases: 0,
     }));
     expect(baseline.metrics.qualityFlow).toEqual(expect.objectContaining({
       inspectedLots: 12, totalInspections: 18, passedInspections: 5, rejectedInspections: 10,
@@ -1488,6 +1488,10 @@ describe("blueprint compiler", () => {
     deadlineSource.blueprint = JSON.parse(
       await readFile(join(memoryFab, "runs/055-simulate/blueprint.json"), "utf8"),
     ) as Blueprint;
+    deadlineSource.blueprint.policies.lotRelease = {
+      kind: "conwip", maximumWip: 8, reopenAtWip: 5,
+      serviceLevelAfterTicks: 18_000, dispatch: "earliest-due-date",
+    };
     const deadlineBurnIn = deadlineSource.blueprint.devices.find((device) => device.id === "burn-in-1")!;
     deadlineBurnIn.policy = { ...deadlineBurnIn.policy, recipeDispatch: "contract-value" };
     const deadlinePortfolio = runUntil(compileFactoryProject(deadlineSource), undefined, { seed: 42 });
@@ -1525,7 +1529,7 @@ describe("blueprint compiler", () => {
     };
     const controlled = runUntil(compileFactoryProject(controlledSource), undefined, { seed: 42 });
     expect(controlled.metrics.releaseFlow).toEqual(expect.objectContaining({
-      control: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayPolicyTicks: null,
+      control: "conwip", maximumWip: 5, reopenAtWip: 2, serviceLevelAfterTicks: null,
       dispatch: "earliest-due-date", peakActiveLots: 5, serviceLevelOpenings: 0,
       released: 8, pending: 4, controlBlockedLots: 7, controlBlockedTicks: 911_700, capacityBlockedLots: 0,
     }));
@@ -1539,14 +1543,20 @@ describe("blueprint compiler", () => {
 
     const serviceProtectedSource = await loadFactoryProject(memoryFab, { blueprint: "tool-search-seed", scenario: "steady-production" });
     serviceProtectedSource.blueprint.policies.lotRelease = {
-      kind: "conwip", maximumWip: 5, reopenAtWip: 2, maximumReleaseDelayTicks: 24_000, dispatch: "earliest-due-date",
+      kind: "conwip", maximumWip: 5, reopenAtWip: 2, serviceLevelAfterTicks: 24_000, dispatch: "earliest-due-date",
     };
     const serviceProtected = runUntil(compileFactoryProject(serviceProtectedSource), undefined, { seed: 42 });
     expect(serviceProtected.metrics.releaseFlow).toEqual(expect.objectContaining({
-      maximumWip: 5, maximumReleaseDelayPolicyTicks: 24_000, peakActiveLots: 5, serviceLevelOpenings: 4,
+      maximumWip: 5, serviceLevelAfterTicks: 24_000, peakActiveLots: 5,
+      serviceLevelOpenings: 4, serviceProtectedReleases: 4,
     }));
-    expect(serviceProtected.events.filter((event) => event.type === "lot.release-control-opened" && event.cause === "maximum-release-delay")).toHaveLength(4);
+    expect(serviceProtected.events.filter((event) => event.type === "lot.release-control-opened" && event.cause === "service-level")).toHaveLength(4);
     expect(serviceProtected.events.filter((event) => event.type === "lot.released").every((event) => event.type === "lot.released" && event.activeWipBeforeRelease < 5)).toBeTrue();
+    expect(serviceProtected.events.find((event) => event.type === "lot.released" && event.tick === 67_800)).toEqual(expect.objectContaining({
+      lot: "dram-lot-08", serviceProtected: true,
+    }));
+    expect(serviceProtected.events.filter((event) => event.type === "lot.released" && event.tick >= 67_800)
+      .every((event) => event.type === "lot.released" && event.serviceProtected)).toBeTrue();
 
     const candidateSource = { ...source, blueprint: structuredClone(source.blueprint) };
     for (const id of ["lithography-1", "etch-1"]) {
@@ -1777,7 +1787,7 @@ describe("blueprint compiler", () => {
       kind: "conwip",
       maximumWip: 6,
       reopenAtWip: 3,
-      maximumReleaseDelayTicks: 18_000,
+      serviceLevelAfterTicks: 18_000,
       dispatch: "earliest-due-date",
     };
 

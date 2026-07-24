@@ -3,14 +3,14 @@
 - Decision: **BASELINE**
 - Blueprint: `xray-cracking-factory`
 - Score: **402.663**
-- Result hash: `1acca20e20e77c3bc24e3a5be1a415cd6ed948456d0e50255bb243cee037cdfa`
+- Result hash: `59105a81a168952194853d9b1c82bf248cc140f48f676b73f5329a25e4bfea22`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 39.000
 - Delivery portfolio: 390.0% demand attainment · 78.000 / 20.000 valued / demanded · 58.000 above demand · 0.000 net value/min
   - Contract `primary`: 78.000 / 20.000 `hydrogen` · 390.0% · 0.000 net value
 - Tracked lots: 0 / 0 / 0 completed / released / scheduled · 0 scrapped
-- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
-- Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
+- Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean / 0.000 s maximum delay · 0 pending
+- Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings / 0 protected releases
 - Lot service: 390.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
 - Quality flow: 0.0% good yield · 0.0% first-pass · 0/0 authored excursion defects prevented · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Lot-derived output: 0 / 0 actual / nominal units · 100.0% realization · 0 lost

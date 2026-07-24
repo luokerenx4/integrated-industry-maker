@@ -1,0 +1,20 @@
+{
+  "baseCandidateHash": "3a168431e7223a3d73a285aa6b5534f7d7785accf7db7ad82d466a486692f79c",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Use one-for-one 6/5 EDD replenishment without an aging override; the locked five-case evaluation improves aggregate score by 104.763644 versus baseline and passes all seven outcome guardrails.",
+  "hypothesis": "The commissioned fab can preserve urgent EDD ordering and hard on-time service with one-for-one replenishment, while omitting service aging because its current six-card workload does not need younger-lot preemption protection.",
+  "id": "identity-safe-release-control",
+  "name": "Identity-safe commissioned release control",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/reopenAtWip",
+      "value": 5
+    },
+    {
+      "op": "remove",
+      "path": "/policies/lotRelease/serviceLevelAfterTicks"
+    }
+  ],
+  "version": 1
+}
