@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, and V6 Objective score causality implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, and V7 control activation causality implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -82,7 +82,7 @@ Long-running industrial design must survive a bounded search invocation without 
 - a human selects the same result in Studio, sees direct source provenance and the next searchable node, chooses the additional budget, and presses `CONTINUE`;
 - a browser-capable Agent may use that same labeled button and inspect the same streamed evidence.
 
-Both surfaces call `continueDesignRun()`. Core verifies the source artifact and current Program/Benchmark/seed/promotion identities, reconstructs retained Blueprints and lineage-local proposal histories from exact patches, and creates a new content-addressed V2 result containing the full verified prefix plus new evidence. It never edits the source, never stores a mutable checkpoint, and never reruns source seed or Candidate cases. Studio's `POST /api/projects/<project>/designs/<program>/runs/<hash>/continue` and the CLI NDJSON channel expose the same progress union, cumulative/additional budget, exhaustion order, decisions, and result hash.
+Both surfaces call `continueDesignRun()`. Core verifies the source artifact and current Program/Benchmark/seed/promotion identities, reconstructs retained Blueprints and lineage-local proposal histories from exact patches, and creates a new content-addressed V3 result containing the full verified prefix plus new evidence. It never edits the source, never stores a mutable checkpoint, and never reruns source seed or Candidate cases. Studio's `POST /api/projects/<project>/designs/<program>/runs/<hash>/continue` and the CLI NDJSON channel expose the same progress union, cumulative/additional budget, exhaustion order, decisions, and result hash.
 
 The human view deliberately distinguishes “new run” from “continue exact frontier.” Ranking rows identify direct lineage, selected results show reused/additional counts, and the continuation control exists only for a verified `budget-exhausted` result with a non-empty search queue. A rejected new Candidate is still a successful continuation result: the product preserves the learned counterexample instead of presenting search as guaranteed improvement.
 
@@ -108,6 +108,12 @@ The same chain now covers iterative optimization of an already commissioned fact
 The evaluator remains the only owner of Objective formulas. Core preserves its ordered fifteen-component `scoreBreakdown` in every Benchmark snapshot and computes the exact `candidate - baseline` delta. Design copies the same evidence into every current-best case and proposal-time promotion boundary. CLI exposes the complete machine-readable objects and a compact leading-driver line; Studio uses a native `<details>` table so humans and browser-capable Agents can expand the same baseline, candidate, and delta values without crowding the primary decision surface.
 
 Component sums are runtime-checked against the reported scores and deltas. Pre-alpha cached Design Runs that lack this evidence are intentionally excluded rather than upgraded, while new Design execution remains available. In the current memory-fab advanced-recovery branch this view explains the `lithography-interruption` regression as WIP `-0.531800`, energy `-0.006040`, build cost `-0.005000`, cycle time `+0.072546`, and tardiness `+0.041035`, totaling `-0.429259`.
+
+## V7 — Control activation causality
+
+`BlueprintMetricSnapshot` preserves the evaluator-owned `cadenceControl.devices` map for both sides of every locked case. Each entry carries the exact Process, normal and recovery modes, downstream Connection, recovery boundary, and measured normal/recovery job counts; no configured control is represented by an empty map. CLI JSON and Studio receive this record unchanged. Human Benchmark output prints the same baseline-to-candidate device split, while Experiment case details use a native `<details>` disclosure rather than deriving activation from score.
+
+Immutable Design Run V3 requires the field in the seed and every successful Candidate evaluation. Studio projects the final leader's per-case activation and each iteration's candidate activation from those stored evaluations. Missing V3 evidence fails closed and remains visible only as excluded invalid evidence; there is no V2 compatibility parser or synthetic zero-fill.
 
 ### Active implementation plan
 

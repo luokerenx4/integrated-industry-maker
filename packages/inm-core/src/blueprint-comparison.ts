@@ -66,6 +66,7 @@ export interface BlueprintMetricSnapshot {
   batchFormationHoldTicks: number;
   batchPreferredReleases: number;
   batchTimeoutReleases: number;
+  cadenceControl: FactoryMetrics["cadenceControl"];
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
@@ -436,6 +437,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     batchFormationHoldTicks: metrics.batchFlow.formationHoldTicks,
     batchPreferredReleases: metrics.batchFlow.preferredReleases,
     batchTimeoutReleases: metrics.batchFlow.timeoutReleases,
+    cadenceControl: structuredClone(metrics.cadenceControl),
     meanCycleTimeTicks: metrics.lotFlow.meanCycleTimeTicks,
     p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
     meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,

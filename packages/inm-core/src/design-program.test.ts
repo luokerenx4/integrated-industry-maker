@@ -188,11 +188,32 @@ test("invalid sibling evidence is indexed without blocking strict Design operati
     .rejects.toMatchObject({ code: "design.invalid-run" });
 
   const result = await runDesignProgram(copy, "commissioned-dram-fab", { maxCandidates: 1 });
+  expect(result.manifest.version).toBe(3);
+  expect(result.manifest.seed.evaluation.cases.every((item) =>
+    item.baselineMetrics.cadenceControl !== undefined && item.candidateMetrics.cadenceControl !== undefined)).toBeTrue();
+  expect(result.manifest.iterations.filter((iteration) => iteration.evaluation).every((iteration) =>
+    iteration.evaluation!.cases.every((item) =>
+      item.baselineMetrics.cadenceControl !== undefined && item.candidateMetrics.cadenceControl !== undefined))).toBeTrue();
   expect((await loadDesignRun(copy, "commissioned-dram-fab", result.manifest.resultHash)).manifest.resultHash)
     .toBe(result.manifest.resultHash);
+  const missingCadenceId = "b".repeat(64);
+  const missingCadencePath = join(copy, "design-runs", "commissioned-dram-fab", missingCadenceId);
+  const missingCadence = structuredClone(result.manifest) as typeof result.manifest & {
+    seed: { evaluation: { cases: Array<{ candidateMetrics: { cadenceControl?: unknown } }> } };
+  };
+  missingCadence.resultHash = missingCadenceId;
+  const missingCandidateMetrics = missingCadence.seed.evaluation.cases[0]!.candidateMetrics as
+    Omit<typeof missingCadence.seed.evaluation.cases[number]["candidateMetrics"], "cadenceControl">
+    & { cadenceControl?: unknown };
+  delete missingCandidateMetrics.cadenceControl;
+  await mkdir(missingCadencePath, { recursive: true });
+  await writeFile(join(missingCadencePath, "manifest.json"), `${JSON.stringify(missingCadence, null, 2)}\n`);
+  await writeFile(join(missingCadencePath, "best.blueprint.json"), `${JSON.stringify(result.bestBlueprint, null, 2)}\n`);
+  await expect(loadDesignRun(copy, "commissioned-dram-fab", missingCadenceId))
+    .rejects.toThrow(`Design run '${missingCadenceId}' manifest structure is invalid`);
   const index = await indexDesignRuns(copy, "commissioned-dram-fab");
   expect(index.runs.map((run) => run.id)).toEqual([result.manifest.resultHash]);
-  expect(index.invalidRuns.map((run) => run.id)).toEqual([invalidId]);
+  expect(index.invalidRuns.map((run) => run.id)).toEqual([invalidId, missingCadenceId]);
   expect(await listDesignRuns(copy, "commissioned-dram-fab")).toEqual(index.runs);
 }, 60_000);
 
@@ -377,7 +398,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(first.artifact).toMatchObject({ created: true });
   expect(first.artifact.path.startsWith(join(copy, "design-runs", "greenfield-dram-fab"))).toBeTrue();
   expect(first.manifest).toMatchObject({
-    version: 2,
+    version: 3,
     status: "completed",
     project: "memory-fab",
     program: {

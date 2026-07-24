@@ -5,7 +5,7 @@ import {
   CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
-  type BlueprintBenchmarkResult, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -40,6 +40,27 @@ function scoreBreakdownLines(
     "    objective score components:",
     ...SCORE_BREAKDOWN_COMPONENTS.map((component) =>
       `      ${component.padEnd(18)} ${baseline[component].toFixed(6).padStart(12)} → ${candidate[component].toFixed(6).padStart(12)}  Δ ${signed(delta[component], 6)}`),
+  ];
+}
+
+function cadenceControlSide(
+  control: BlueprintMetricSnapshot["cadenceControl"]["devices"][string] | undefined,
+): string {
+  if (!control) return "OFF";
+  return `${control.normalJobs} ${control.normalMode} / ${control.recoveryJobs} ${control.recoveryMode} jobs · ${control.process} · recover below ${control.recoverBelowItems} items on ${control.downstreamConnection}`;
+}
+
+function cadenceControlComparisonLines(
+  baseline: BlueprintMetricSnapshot["cadenceControl"],
+  candidate: BlueprintMetricSnapshot["cadenceControl"],
+  indent = "    ",
+): string[] {
+  const devices = [...new Set([...Object.keys(baseline.devices), ...Object.keys(candidate.devices)])].sort();
+  if (!devices.length) return [];
+  return [
+    `${indent}cadence control:`,
+    ...devices.map((device) =>
+      `${indent}  ${device}: ${cadenceControlSide(baseline.devices[device])} → ${cadenceControlSide(candidate.devices[device])}`),
   ];
 }
 
@@ -89,11 +110,21 @@ function designExhaustionLine(exhaustion: DesignSearchExhaustionEvidence): strin
   return `  X${String(exhaustion.sequence).padStart(2, "0")} EXHAUST ${exhaustion.node.role} ${exhaustion.node.nodeId} before iteration ${exhaustion.beforeIteration} · next ${exhaustion.nextNodeId ?? "none"}`;
 }
 
-function designIterationLine(iteration: DesignRunIteration): string {
+function designIterationLines(iteration: DesignRunIteration): string[] {
   const lossChain = iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss";
   const lineage = `${iteration.frontierEvidence.parent.nodeId} → ${iteration.frontierEvidence.candidateNodeId ?? "invalid"} · ${iteration.frontierEvidence.outcome}`;
   const target = iteration.addressedCase ? `repairs ${iteration.addressedCase}` : iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no explicit target";
-  return `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${lineage} · before ${designPromotionBoundaryDetail(iteration.promotionBoundary)} · ${!iteration.decisionEvidence ? iteration.error : `leader ${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · parent ${signed(iteration.frontierEvidence.parentScoreDelta ?? 0, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${target} · observed ${lossChain}`;
+  return [
+    `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${lineage} · before ${designPromotionBoundaryDetail(iteration.promotionBoundary)} · ${!iteration.decisionEvidence ? iteration.error : `leader ${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · parent ${signed(iteration.frontierEvidence.parentScoreDelta ?? 0, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${target} · observed ${lossChain}`,
+    ...(iteration.evaluation?.cases.flatMap((item) => {
+      const lines = cadenceControlComparisonLines(
+        item.baselineMetrics.cadenceControl,
+        item.candidateMetrics.cadenceControl,
+        "      ",
+      );
+      return lines.length ? [`    ${item.id}:`, ...lines] : [];
+    }) ?? []),
+  ];
 }
 
 function sectionResult(command: string, options: OutputOptions, builders: Record<string, () => unknown>): { section: string; result: unknown } {
@@ -909,6 +940,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
         `    qualification crew ${(item.baselineMetrics.totalMaintenanceQualificationCrewTicks / 1000).toFixed(3)} crew-s → ${(item.candidateMetrics.totalMaintenanceQualificationCrewTicks / 1000).toFixed(3)} crew-s`,
         `    drift ${item.baselineMetrics.totalDriftedJobs} jobs / ${item.baselineMetrics.totalDriftedLots} lots / ${item.baselineMetrics.totalDriftDefects} defects → ${item.candidateMetrics.totalDriftedJobs} / ${item.candidateMetrics.totalDriftedLots} / ${item.candidateMetrics.totalDriftDefects}`,
       ] : []),
+      ...cadenceControlComparisonLines(item.baselineMetrics.cadenceControl, item.candidateMetrics.cadenceControl),
     ]),
     "",
     `baseline_score: ${result.baselineScore.toFixed(6)}`,
@@ -1077,7 +1109,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
       `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
       ...result.manifest.exhaustions.map(designExhaustionLine),
-      ...result.manifest.iterations.map(designIterationLine),
+      ...result.manifest.iterations.flatMap(designIterationLines),
       `Artifact: ${result.artifact.path}`, "",
     ].join("\n"), false);
   };
@@ -1158,7 +1190,7 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
       `Frontier: leader ${result.manifest.frontier.leader} · ${result.manifest.frontier.alternatives.length}/${result.manifest.program.frontier.maximumAlternativeBranches} alternatives · ${result.manifest.frontier.scheduler.searchOrder.length} searchable · ${result.manifest.frontier.scheduler.exhausted.length} exhausted · next ${result.manifest.frontier.scheduler.searchOrder[0] ?? "none"}`,
       ...result.manifest.exhaustions.map(designExhaustionLine),
-      ...result.manifest.iterations.map(designIterationLine),
+      ...result.manifest.iterations.flatMap(designIterationLines),
       `Artifact: ${result.artifact.path}`,
       ...(result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length ? ["", `Continue: inm design <path> --program ${programId} --run-id ${options.runId} --continue --max-candidates ${brief.program.budget.maxCandidates}`] : []),
       ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),

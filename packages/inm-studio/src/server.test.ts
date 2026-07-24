@@ -76,6 +76,8 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
     recoverBelowItems: 1,
   };
   await writeFile(join(projectDir, "blueprints/cadence.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
+  await writeFile(sourcePath, `${JSON.stringify(blueprint, null, 2)}\n`);
+  await writeFile(join(projectDir, "blueprints/experiment.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
   const run = await simulateProjectOperation(projectDir, { blueprint: "cadence" }, { seed: 42 });
   const port = 46_000 + process.pid % 1_000;
   const child = Bun.spawn([
@@ -108,11 +110,25 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
     });
     expect(data.metrics.cadenceControl.devices["deposition-1"]!.normalJobs).toBeGreaterThan(0);
     expect(data.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs).toBeGreaterThan(0);
+    const benchmarkResponse = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/experiments/dispatch-research/run`,
+      { method: "POST" },
+    );
+    expect(benchmarkResponse.status).toBe(200);
+    const benchmark = await benchmarkResponse.json() as {
+      cases: Array<{
+        baselineMetrics: { cadenceControl: { devices: Record<string, unknown> } };
+        candidateMetrics: { cadenceControl: { devices: Record<string, { normalJobs: number; recoveryJobs: number }> } };
+      }>;
+    };
+    expect(benchmark.cases.every((item) => Object.keys(item.baselineMetrics.cadenceControl.devices).length === 0)).toBeTrue();
+    expect(benchmark.cases.every((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"] !== undefined)).toBeTrue();
+    expect(benchmark.cases.some((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"]!.recoveryJobs > 0)).toBeTrue();
   } finally {
     child.kill();
     await child.exited;
   }
-}, 30_000);
+}, 60_000);
 
 test("Studio file watching uses WebSockets without occupying project API connections", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-websocket-watch-"));

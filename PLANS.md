@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/cadence-control-evidence-parity]] | Preserve exact per-case cadence policy activation evidence across locked Benchmark, immutable Design, CLI, and Studio. | 2026-07-24 |
 
 ## Proposed plans
 

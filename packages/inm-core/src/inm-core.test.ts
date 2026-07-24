@@ -775,6 +775,13 @@ describe("blueprint compiler", () => {
       normalJobs: starts.filter((event) => event.mode === "qualified").length,
       recoveryJobs: starts.filter((event) => event.mode === "agile-pulse").length,
     });
+    const uncontrolledSource = await cadenceSource();
+    delete uncontrolledSource.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl;
+    const comparison = compareFactoryBlueprints(compileFactoryProject(uncontrolledSource), project, { seed: 42 });
+    expect(comparison.from.metrics.cadenceControl).toEqual({ devices: {} });
+    expect(comparison.to.metrics.cadenceControl.devices["deposition-1"]).toEqual(
+      first.metrics.cadenceControl.devices["deposition-1"],
+    );
 
     const conflicted = await cadenceSource();
     conflicted.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.recipeDispatch = "shortest-cycle";
@@ -788,7 +795,7 @@ describe("blueprint compiler", () => {
     const materialMismatch = await cadenceSource();
     materialMismatch.deviceAssets["ald-deposition-bay"]!.production!.modes.find((mode) => mode.id === "agile-pulse")!.minimumInputTreatmentLevel = 1;
     expect(issueCodes(() => compileFactoryProject(materialMismatch))).toContain("production.cadence-material-mismatch");
-  });
+  }, 15_000);
 
   test("asset limits, planned stops, and opportunistic windows remain physically distinct", async () => {
     const maintenanceSource = async (

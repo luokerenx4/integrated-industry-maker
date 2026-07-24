@@ -158,6 +158,34 @@ export interface BlueprintBenchmarkResult {
   changes: BlueprintSemanticChange[];
 }
 
+function validCadenceControlSnapshot(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const devices = (value as { devices?: unknown }).devices;
+  if (!devices || typeof devices !== "object" || Array.isArray(devices)) return false;
+  return Object.entries(devices).every(([device, entry]) => {
+    if (!device || !entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const control = entry as Record<string, unknown>;
+    return control.kind === "downstream-starvation-recovery"
+      && typeof control.process === "string" && control.process.length > 0
+      && typeof control.normalMode === "string" && control.normalMode.length > 0
+      && typeof control.recoveryMode === "string" && control.recoveryMode.length > 0
+      && typeof control.downstreamConnection === "string" && control.downstreamConnection.length > 0
+      && Number.isSafeInteger(control.recoverBelowItems) && (control.recoverBelowItems as number) >= 0
+      && Number.isSafeInteger(control.normalJobs) && (control.normalJobs as number) >= 0
+      && Number.isSafeInteger(control.recoveryJobs) && (control.recoveryJobs as number) >= 0;
+  });
+}
+
+export function hasBlueprintBenchmarkCadenceEvidence(value: unknown): value is BlueprintBenchmarkResult {
+  if (!value || typeof value !== "object" || !Array.isArray((value as { cases?: unknown }).cases)) return false;
+  return (value as { cases: unknown[] }).cases.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const benchmarkCase = item as { baselineMetrics?: { cadenceControl?: unknown }; candidateMetrics?: { cadenceControl?: unknown } };
+    return validCadenceControlSnapshot(benchmarkCase.baselineMetrics?.cadenceControl)
+      && validCadenceControlSnapshot(benchmarkCase.candidateMetrics?.cadenceControl);
+  });
+}
+
 export interface BlueprintOutcomeGuardrailCaseEvidence {
   id: string;
   name: string;

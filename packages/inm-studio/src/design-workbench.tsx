@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary, InvalidDesignRunSummary, ResearchPromotionBoundary } from "@inm/core";
+import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -126,6 +127,12 @@ export function DesignWorkbench({
   const [promoted, setPromoted] = useState<CandidateChangeSet | null>(null);
   const [commissionedCandidate, setCommissionedCandidate] = useState<CandidateChangeSet | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const selectedBestEvaluation = useMemo(() => {
+    if (!selectedRun) return null;
+    if (selectedRun.manifest.best.iteration === 0) return selectedRun.manifest.seed.evaluation;
+    return selectedRun.manifest.iterations.find((item) =>
+      item.iteration === selectedRun.manifest.best.iteration)?.evaluation ?? null;
+  }, [selectedRun]);
   const selectedRunAccepted = selectedRun?.manifest.best.verdict === "KEEP"
     && selectedRun.manifest.best.promotionPatchOperations > 0;
   const selectedRunBaseCurrent = Boolean(brief && selectedRun
@@ -280,6 +287,20 @@ export function DesignWorkbench({
             <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code>{selectedRun.manifest.continuation && <code>CONTINUED FROM {shortHash(selectedRun.manifest.continuation.sourceResultHash)} · REUSED {selectedRun.manifest.continuation.reusedIterations} · +{selectedRun.manifest.continuation.additionalCandidateBudget}</code>}</div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
             {selectedRunContinuable && <div className="design-continuation"><div><small>SEARCHABLE FRONTIER RETAINED</small><strong>Continue this exact immutable evidence chain</strong><span>Reuses {selectedRun.manifest.iterations.length} verified iterations, starts from {selectedRun.manifest.frontier.scheduler.searchOrder[0]}, and evaluates only up to {budget} new candidate{budget === 1 ? "" : "s"}. The selected source run remains unchanged.</span></div><button data-testid="continue-design" disabled={running} onClick={() => void continueRun()}>{running ? "CONTINUING…" : `CONTINUE · +${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>}
             <div className="design-frontier" data-testid="design-frontier"><div className="design-section-title"><span>FINAL PARETO FRONTIER</span><b>{selectedRun.manifest.frontier.scheduler.searchOrder[0] ? `NEXT ${selectedRun.manifest.frontier.scheduler.searchOrder[0]}` : "SEARCH EXHAUSTED"}</b></div><div>{selectedRun.manifest.frontier.nodes.map((node) => <article key={node.nodeId} className={`${node.role} ${node.searchStatus}`}><small>{node.role === "leader" ? "PROMOTABLE LEADER" : "EXPLORATORY · NOT PROMOTABLE"} · {node.searchStatus.toUpperCase()}</small><strong>{node.nodeId}</strong><code>{node.parentNodeId ? `FROM ${node.parentNodeId}` : "ROOT"} · DEPTH {node.depth}</code><b>{node.candidateScore.toFixed(6)}</b><span>{shortHash(node.blueprintHash)}</span></article>)}</div></div>
+            {selectedBestEvaluation && <section className="design-cadence-evidence" data-testid="design-leader-cadence-control">
+              <div className="design-section-title"><span>FINAL LEADER CONTROL EVIDENCE</span><b>LOCKED CASE ACTIVATION</b></div>
+              {selectedBestEvaluation.cases.some((item) =>
+                Object.keys(item.baselineMetrics.cadenceControl.devices).length > 0
+                || Object.keys(item.candidateMetrics.cadenceControl.devices).length > 0)
+                ? selectedBestEvaluation.cases.map((item) => <CadenceControlEvidence
+                  key={item.id}
+                  baseline={item.baselineMetrics.cadenceControl}
+                  candidate={item.candidateMetrics.cadenceControl}
+                  title={item.id.toUpperCase()}
+                  testId={`design-leader-cadence-${item.id}`}
+                />)
+                : <div className="design-cadence-empty">NO CADENCE CONTROLLER IS CONFIGURED IN THE FINAL LEADER</div>}
+            </section>}
             {selectedRun.manifest.exhaustions.length > 0 && <div className="design-exhaustions" data-testid="design-exhaustions"><div className="design-section-title"><span>SEARCH EXHAUSTION</span><b>{selectedRun.manifest.exhaustions.length} RETIRED</b></div>{selectedRun.manifest.exhaustions.map((exhaustion) => <div key={exhaustion.sequence}><b>X{String(exhaustion.sequence).padStart(2, "0")}</b><strong>{exhaustion.node.nodeId}</strong><span>{exhaustion.node.role.toUpperCase()} · BEFORE ITERATION {exhaustion.beforeIteration}</span><code>NEXT {exhaustion.nextNodeId ?? "NONE"}</code></div>)}</div>}
             <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS / CASE → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><div className="design-iteration-evidence"><strong data-testid={iteration.addressedCase ? "design-repair-target" : undefined}>{iteration.addressedCase ? `REPAIRS ${iteration.addressedCase}` : iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO EXPLICIT TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>BEFORE {promotionBoundaryDetail(iteration.promotionBoundary)}</small><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <><small>{decisionDetail(iteration.decisionEvidence)}</small><ScoreBreakdownDetails
               baseline={scoreDriverCase(iteration.decisionEvidence).previousBestScoreBreakdown}
@@ -289,7 +310,13 @@ export function DesignWorkbench({
               baselineLabel="LEADER"
               candidateLabel="CANDIDATE"
               testId={`design-score-breakdown-${iteration.iteration}`}
-            /></>}<small>{iteration.hypothesis}</small></div><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
+            />{iteration.evaluation?.cases.map((item) => <CadenceControlEvidence
+              key={item.id}
+              baseline={item.baselineMetrics.cadenceControl}
+              candidate={item.candidateMetrics.cadenceControl}
+              title={`${item.id.toUpperCase()} CONTROL ACTIVATION`}
+              testId={`design-iteration-${iteration.iteration}-cadence-${item.id}`}
+            />)}</>}<small>{iteration.hypothesis}</small></div><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
             {selectedRunAlreadyCommissioned ? <div className="design-commissioned" data-testid="design-commissioned">
               <div><small>COMMISSIONING COMPLETE</small><strong>THIS DESIGN IS THE CURRENT FACTORY</strong><span>{selectedRun.manifest.promotionBase.blueprint} matches immutable leader {shortHash(selectedRun.manifest.best.blueprintHash)}. Re-promotion and continuation are intentionally unavailable after the target moved.</span></div>
               {commissionedCandidate

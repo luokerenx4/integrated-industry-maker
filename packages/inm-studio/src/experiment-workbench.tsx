@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type {
   AppliedCandidateChangeSet, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState,
 } from "@inm/core";
+import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 
 interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark" }
@@ -224,6 +225,11 @@ export function ExperimentWorkbench({
                   candidate={item.candidateMetrics.scoreBreakdown}
                   delta={item.scoreBreakdownDelta}
                   testId={`experiment-score-breakdown-${item.id}`}
+                />
+                <CadenceControlEvidence
+                  baseline={item.baselineMetrics.cadenceControl}
+                  candidate={item.candidateMetrics.cadenceControl}
+                  testId={`experiment-cadence-control-${item.id}`}
                 />
               </article>)}
             </section>

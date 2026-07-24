@@ -720,6 +720,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
 
 test("public inspect gives Agents and humans the same continuable memory-fab Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
+  const authorityRunId = "f22de3ca17b6ab6824e69ed684e987f74c502277f7fbeb4dba1da10be5a7ea21";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -733,27 +734,36 @@ test("public inspect gives Agents and humans the same continuable memory-fab Des
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
       state: "continuable",
-      authorityRunId: "0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9",
+      authorityRunId,
       currentRuns: 1,
-      historicalRuns: 2,
-      invalidRuns: 17,
+      historicalRuns: 0,
+      invalidRuns: expect.any(Number),
     }),
   }));
+  expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
     title: "Continue the current Commissioned DRAM Fab Optimization frontier",
     actionLabel: "REVIEW CONTINUATION",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab/runs/0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9",
+    studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${authorityRunId}`,
     target: {
       kind: "design-run",
       phase: "continuable",
       programId: "commissioned-dram-fab",
-      runId: "0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9",
+      runId: authorityRunId,
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · CONTINUABLE · 0366b5e29745");
-  expect(human.stdout).toContain("Current Design Run 0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9 stopped at its 1/1 Candidate budget with searchable frontier evidence.");
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · CONTINUABLE · f22de3ca17b6");
+  expect(human.stdout).toContain(`Current Design Run ${authorityRunId} stopped at its 1/1 Candidate budget with searchable frontier evidence.`);
+  const reopened = await runCli([
+    "design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId,
+  ]);
+  expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(reopened.stdout).toContain("steady-production:");
+  expect(reopened.stdout).toContain("deposition-1: OFF → 5 qualified / 7 agile-pulse jobs");
+  expect(reopened.stdout).toContain("lithography-interruption:");
+  expect(reopened.stdout).toContain("deposition-1: OFF → 8 qualified / 4 agile-pulse jobs");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
@@ -834,7 +844,29 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
   expect(control.normalJobs).toBeGreaterThan(0);
   expect(control.recoveryJobs).toBeGreaterThan(0);
   expect(human.stdout).toContain(`Cadence control deposition-1: deposit-dielectric-stack · ${control.normalJobs} qualified / ${control.recoveryJobs} agile-pulse jobs · recover below 1 items on deposition-to-batch-furnace`);
-}, 15_000);
+
+  await writeFile(join(projectDir, "blueprints/experiment.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
+  const benchmarkMachine = await runCli([
+    "benchmark", projectDir, "--benchmark", "dispatch-research", "--section", "cases", "--json",
+  ]);
+  const benchmarkHuman = await runCli(["benchmark", projectDir, "--benchmark", "dispatch-research"]);
+  expect({
+    machine: benchmarkMachine.exitCode,
+    human: benchmarkHuman.exitCode,
+    machineStderr: benchmarkMachine.stderr,
+    humanStderr: benchmarkHuman.stderr,
+  }).toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+  const benchmarkCases = JSON.parse(benchmarkMachine.stdout).data.result as Array<{
+    baselineMetrics: { cadenceControl: { devices: Record<string, unknown> } };
+    candidateMetrics: { cadenceControl: { devices: Record<string, { normalJobs: number; recoveryJobs: number }> } };
+  }>;
+  expect(benchmarkCases.every((item) => Object.keys(item.baselineMetrics.cadenceControl.devices).length === 0)).toBeTrue();
+  expect(benchmarkCases.every((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"] !== undefined)).toBeTrue();
+  expect(benchmarkCases.some((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"]!.recoveryJobs > 0)).toBeTrue();
+  expect(benchmarkHuman.stdout).toContain("cadence control:");
+  expect(benchmarkHuman.stdout).toContain("deposition-1: OFF →");
+  expect(benchmarkHuman.stdout).toContain("recover below 1 items on deposition-to-batch-furnace");
+}, 60_000);
 
 test("public CLI emits stable JSON errors for invalid section, section mode, schema kind, and usage", async () => {
   const projectDir = join(repository, "examples/ironworks");

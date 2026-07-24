@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint, type ScoreBreakdown } from "./types";
-import type { BlueprintBenchmarkProgress, BlueprintBenchmarkResult } from "./benchmark";
+import { hasBlueprintBenchmarkCadenceEvidence, type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult } from "./benchmark";
 import { evaluatePreparedBlueprintBenchmark, loadBlueprintBenchmark, prepareBlueprintBenchmark } from "./benchmark";
 import { createBlueprintPatch, subtractScoreBreakdown } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
@@ -129,7 +129,7 @@ export interface DesignRunIteration {
 }
 
 export interface DesignRunManifest {
-  version: 2;
+  version: 3;
   status: "completed";
   engineVersion: string;
   project: string;
@@ -320,7 +320,7 @@ function validDesignRunIteration(value: unknown): value is DesignRunIteration {
       || iteration.promotionBoundary.guardrail?.violations.includes(iteration.addressedCase) === true)
     && (iteration.error === undefined
       ? /^[0-9a-f]{64}$/.test(iteration.candidateBlueprintHash ?? "")
-        && typeof iteration.evaluation === "object"
+        && hasBlueprintBenchmarkCadenceEvidence(iteration.evaluation)
         && validDecisionEvidence(iteration.decisionEvidence)
       : typeof iteration.error === "string" && iteration.error.length > 0
         && iteration.decision === "REJECT"
@@ -844,7 +844,7 @@ function designRunPath(projectDir: string, programId: string, resultHash: string
 function parseDesignRunManifest(value: unknown, programId: string, resultHash: string): DesignRunManifest {
   if (!value || typeof value !== "object") throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest must be an object`);
   const manifest = value as DesignRunManifest;
-  if (manifest.version !== 2 || manifest.status !== "completed" || manifest.program?.id !== programId || manifest.resultHash !== resultHash) {
+  if (manifest.version !== 3 || manifest.status !== "completed" || manifest.program?.id !== programId || manifest.resultHash !== resultHash) {
     throw new DesignRunError("design.invalid-run", `Design run '${resultHash}' manifest identity or completion state is invalid`);
   }
   if (!designCurrentBestGuardrailSchema.safeParse(manifest.program?.currentBestGuardrail).success
@@ -852,7 +852,7 @@ function parseDesignRunManifest(value: unknown, programId: string, resultHash: s
     || !designSeedSchema.safeParse(manifest.seed?.source).success
     || !/^[0-9a-f]{64}$/.test(manifest.seed?.sourceBlueprintHash ?? "")
     || !/^[0-9a-f]{64}$/.test(manifest.seed?.blueprintHash ?? "")
-    || typeof manifest.seed?.evaluation !== "object"
+    || !hasBlueprintBenchmarkCadenceEvidence(manifest.seed?.evaluation)
     || typeof manifest.promotionBase?.blueprint !== "string"
     || !/^[0-9a-f]{64}$/.test(manifest.promotionBase?.hash ?? "")
     || !Number.isInteger(manifest.best?.promotionPatchOperations)
@@ -1302,7 +1302,7 @@ export async function runDesignProgram(
   const bestEvaluation = bestNode.evaluation;
 
   const withoutHash: Omit<DesignRunManifest, "resultHash"> = {
-    version: 2,
+    version: 3,
     status: "completed",
     engineVersion: ENGINE_VERSION,
     project: brief.project.id,
