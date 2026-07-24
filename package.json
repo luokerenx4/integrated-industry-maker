@@ -27,6 +27,7 @@
     "memory-fab:research-input-starvation": "bun examples/memory-fab/strategies/research/input-starvation.ts",
     "memory-fab:research-adaptive-cadence": "bun examples/memory-fab/strategies/research/adaptive-cadence.ts",
     "memory-fab:research-route-dispatch": "bun examples/memory-fab/strategies/research/route-dispatch.ts",
+    "memory-fab:research-particle-prevention": "bun examples/memory-fab/strategies/research/particle-prevention.ts",
     "memory-fab:materials": "bun examples/memory-fab/strategies/generate-device-materials.ts",
     "memory-fab:environment-material": "bun examples/memory-fab/strategies/generate-environment-material.ts",
     "ironworks:relock-benchmarks": "bun examples/ironworks/strategies/relock-benchmarks.ts",

@@ -128,6 +128,26 @@
           "latent-electrical"
         ],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "particle-suppression",
+        "name": "Inline particle suppression",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 13,
+          "denominator": 10
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [
+          "latent-electrical",
+          "particle-contamination"
+        ],
+        "minimumInputTreatmentLevel": 0
       }
     ],
     "changeover": {

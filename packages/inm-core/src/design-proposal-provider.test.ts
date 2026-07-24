@@ -560,6 +560,14 @@ test("current commissioned fab prevents latent etch damage without reintroducing
     asset: "closed-loop-plasma-etch-bay",
     recipes: [expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-control" })],
   }));
+  expect(project.deviceAssets["closed-loop-plasma-etch-bay"]?.production?.modes).toContainEqual(
+    expect.objectContaining({
+      id: "particle-suppression",
+      durationMultiplier: { numerator: 1, denominator: 1 },
+      powerMultiplier: { numerator: 13, denominator: 10 },
+      preventsDefects: ["latent-electrical", "particle-contamination"],
+    }),
+  );
   expect(project.blueprint.devices.find((device) => device.id === "inspection-1")?.asset)
     .toBe("continuous-deep-metrology-cell");
   expect(project.blueprint.devices.find((device) => device.id === "maintenance-service-1")?.asset)

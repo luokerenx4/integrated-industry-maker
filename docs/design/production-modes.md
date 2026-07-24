@@ -80,6 +80,8 @@ The current bounded time sweep keeps that one-item boundary and tests `1 ms, 1, 
 
 This separation is intentional. Asset catalogs describe physically available choices; Blueprints declare operation; Benchmark and Design evidence decide whether a choice is robust enough to commission. Every locked per-case metric snapshot preserves a required `cadenceControl.devices` map containing the exact inventory/time policy boundary, measured normal/recovery jobs, recovery activations, starvation episodes, and starvation time; an uncontrolled Blueprint emits `devices: {}`. Immutable Design Run V3 requires this record in its seed and every successful Candidate evaluation. Humans and Agents therefore inspect the same mode, exact patch, activation split, observed trigger pressure, power trade, case deltas, and branch decision instead of treating an unselected option as an upgrade or inferring activation from score.
 
+The memory-fab particle-prevention study exercises the same catalog-versus-operation boundary for quality. `closed-loop-plasma-etch-bay` advertises `particle-suppression` at `13/10` active power with unchanged cycle time; it prevents exact `latent-electrical` and `particle-contamination` excursion classes. The commissioned `etch-l2` recipe remains on `closed-loop-control`. Design Run `5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9` retains the one-field switch as a non-promotable Pareto branch because the rework reduction improves mixed quality but changes return-flow timing enough to regress four current-best cases. An available mode is not a global upgrade and an aggregate gain is not commissioning authority.
+
 ## Source of truth
 
 - Types/schema: `packages/inm-core/src/types.ts`, `packages/inm-core/src/schema.ts`

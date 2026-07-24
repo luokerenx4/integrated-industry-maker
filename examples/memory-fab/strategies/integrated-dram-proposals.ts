@@ -127,6 +127,50 @@ function deviceRecipeModePatch(
   }];
 }
 
+function deviceRecipesModePatch(
+  blueprint: { devices: Array<Record<string, unknown>> },
+  id: string,
+  process: string,
+  mode: string,
+): JsonPatchOperation[] | null {
+  const index = deviceIndex(blueprint, id);
+  if (index < 0) return null;
+  const recipes = blueprint.devices[index]!.recipes;
+  if (!Array.isArray(recipes)) return null;
+  const recipeIndex = recipes.findIndex((recipe) => isRecord(recipe) && recipe.process === process);
+  const recipe = recipes[recipeIndex];
+  if (!isRecord(recipe) || recipe.mode === mode) return null;
+  return [{
+    op: Object.hasOwn(recipe, "mode") ? "replace" : "add",
+    path: `/devices/${index}/recipes/${recipeIndex}/mode`,
+    value: mode,
+  }];
+}
+
+function commissionedParticleSuppressionPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  if (blueprint.revision !== "967aa232816e20e936e6e3e16d63114f52971574e825185f19aa36c9394e0a07") {
+    return null;
+  }
+  const etchIndex = deviceIndex(blueprint, "etch-l2");
+  const recoveryIndex = deviceIndex(blueprint, "rework-1");
+  const lithographyIndex = deviceIndex(blueprint, "lithography-l2");
+  if (etchIndex < 0 || recoveryIndex < 0 || lithographyIndex < 0) return null;
+  const etch = blueprint.devices[etchIndex]!;
+  const recovery = blueprint.devices[recoveryIndex]!;
+  const lithography = blueprint.devices[lithographyIndex]!;
+  if (etch.asset !== "closed-loop-plasma-etch-bay"
+    || recovery.asset !== "advanced-pattern-recovery-cell"
+    || !isRecord(lithography.policy)
+    || lithography.policy.lotDispatch !== "earliest-due-date"
+    || !equalJson(blueprint.policies.lotRelease, {
+      kind: "conwip",
+      maximumWip: 6,
+      reopenAtWip: 5,
+      dispatch: "earliest-due-date",
+    })) return null;
+  return deviceRecipesModePatch(blueprint, "etch-l2", "etch-cell-layer-2", "particle-suppression");
+}
+
 function commissionedAgilePulsePatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
   const requiredAssets = {
     "inspection-1": "continuous-deep-metrology-cell",
@@ -738,6 +782,14 @@ const candidates: Candidate[] = [
     addresses: ["yield-quality", "q-time", "maintenance-qualification", "release-admission", "queue-congestion"],
     subjects: ["inspection-1"],
     patch: continuousDeepMetrologyPatch,
+  },
+  {
+    strategy: "recipe:particle-suppression-layer-two-etch",
+    hypothesis: "The commissioned layer-two etch bay can spend 13/10 active power on inline particle suppression, preventing particle contamination before it consumes inspection, recovery, and re-inspection capacity.",
+    expectedEffect: "Reduce verified rework while preserving the authored excursion and charging the additional active energy; the unchanged five-case zero-regression boundary decides whether changed return-flow timing is safe.",
+    addresses: ["yield-quality"],
+    subjects: ["etch-l2"],
+    patch: commissionedParticleSuppressionPatch,
   },
   {
     strategy: "recipe:advanced-recovery+high-throughput-burn-in",

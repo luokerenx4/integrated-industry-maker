@@ -729,7 +729,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same missing current Design authority after commissioning", async () => {
+test("public inspect gives Agents and humans the same exhausted current Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
@@ -743,29 +743,31 @@ test("public inspect gives Agents and humans the same missing current Design aut
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "missing",
-      authorityRunId: null,
-      currentRuns: 0,
+      state: "exhausted",
+      authorityRunId: "5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9",
+      currentRuns: 1,
       historicalRuns: 2,
       invalidRuns: expect.any(Number),
     }),
   }));
   expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
-    actionLabel: "OPEN DESIGN LOOP",
+    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab/runs/5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9",
     target: {
-      kind: "design-program",
+      kind: "design-run",
       programId: "commissioned-dram-fab",
+      runId: "5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9",
+      phase: "exhausted",
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · EXHAUSTED · 5942a72740b9");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 2 valid immutable runs · 23 invalid runs excluded");
+  expect(brief.stdout).toContain("Evidence: 3 valid immutable runs · 23 invalid runs excluded");
   expect(brief.stdout).toContain("Run: inm design <path> --program commissioned-dram-fab --run");
 });
 
