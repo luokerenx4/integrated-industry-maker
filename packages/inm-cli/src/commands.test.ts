@@ -222,8 +222,8 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
     cases: [
       expect.objectContaining({ id: "steady-production", candidateValue: 12, threshold: 12, candidatePassed: true }),
       expect.objectContaining({ id: "mixed-quality", candidateValue: 11, threshold: 10, candidatePassed: true }),
-      expect.objectContaining({ id: "quality-excursion", candidateValue: 11, threshold: 8, candidatePassed: true }),
-      expect.objectContaining({ id: "lithography-interruption", candidateValue: 8, threshold: 7, candidatePassed: true }),
+      expect.objectContaining({ id: "quality-excursion", candidateValue: 12, threshold: 8, candidatePassed: true }),
+      expect.objectContaining({ id: "lithography-interruption", candidateValue: 9, threshold: 7, candidatePassed: true }),
       expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
     ],
   });
@@ -693,10 +693,10 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(inputStarvation).toMatchObject({
     subjects: [{ kind: "device", id: "furnace-1" }],
     evidence: {
-      rawWaitingInputTicks: 1_666_216,
-      boundaryWaitingInputTicks: 1_174_940,
+      rawWaitingInputTicks: 1_669_016,
+      boundaryWaitingInputTicks: 1_179_140,
       exceptionWaitingInputTicks: 232_000,
-      starvationTicks: 259_276,
+      starvationTicks: 257_876,
     },
   });
   expect(inputStarvation.contributors[0]).toMatchObject({
@@ -705,7 +705,10 @@ test("public inspect gives Agents and humans the same current loss contributors"
     evidence: { starvationTicks: 42_456, opportunityWindowTicks: 114_456 },
   });
   expect(qTime).toBeUndefined();
-  expect(transportBlocking).toBeUndefined();
+  expect(transportBlocking).toMatchObject({
+    evidence: { blockedConnections: 1, blockedItemTicks: 100, connections: 17 },
+    subjects: [{ kind: "connection", id: "etch-to-inspection" }],
+  });
 
   const human = await runCli(["inspect", projectDir]);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -714,13 +717,14 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("Input-starvation contributors:");
   expect(human.stdout).toContain("furnace-1 · inter-job-input-gap · 42.5s input gap / 114.5s opportunity · 12 jobs");
   expect(human.stdout).not.toContain("fab-loss.transport-blocking");
-  expect(human.stdout).not.toContain("Transport-blocking contributors:");
+  expect(human.stdout).toContain("Transport-blocking contributors:");
+  expect(human.stdout).toContain("etch-to-inspection · 0.1 blocked item-s · 0.9% in-flight blocking · 3.0/240.0 items/min · dram-wafer-lot");
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same continuable memory-fab Design authority", async () => {
+test("public inspect gives Agents and humans the same current and historical memory-fab Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
-  const authorityRunId = "f22de3ca17b6ab6824e69ed684e987f74c502277f7fbeb4dba1da10be5a7ea21";
+  const historicalRunId = "1d02449c5551babc43ec542cf1cd374add97f1df5c4628eaf784bf670e43989b";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -733,37 +737,37 @@ test("public inspect gives Agents and humans the same continuable memory-fab Des
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "continuable",
-      authorityRunId,
-      currentRuns: 1,
-      historicalRuns: 0,
+      state: "missing",
+      authorityRunId: null,
+      currentRuns: 0,
+      historicalRuns: 1,
       invalidRuns: expect.any(Number),
     }),
   }));
   expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Continue the current Commissioned DRAM Fab Optimization frontier",
-    actionLabel: "REVIEW CONTINUATION",
+    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
+    actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${authorityRunId}`,
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
     target: {
-      kind: "design-run",
-      phase: "continuable",
+      kind: "design-program",
       programId: "commissioned-dram-fab",
-      runId: authorityRunId,
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · CONTINUABLE · f22de3ca17b6");
-  expect(human.stdout).toContain(`Current Design Run ${authorityRunId} stopped at its 1/1 Candidate budget with searchable frontier evidence.`);
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
   const reopened = await runCli([
-    "design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId,
+    "design", projectDir, "--program", "commissioned-dram-fab", "--run-id", historicalRunId,
   ]);
   expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(reopened.stdout).toContain("steady-production:");
-  expect(reopened.stdout).toContain("deposition-1: OFF → 5 qualified / 7 agile-pulse jobs");
+  expect(reopened.stdout).toContain("deposition-1: OFF → 10 qualified / 2 agile-pulse jobs");
+  expect(reopened.stdout).toContain("recover after 10.0s below 1 items");
   expect(reopened.stdout).toContain("lithography-interruption:");
-  expect(reopened.stdout).toContain("deposition-1: OFF → 8 qualified / 4 agile-pulse jobs");
+  expect(reopened.stdout).toContain("deposition-1: OFF → 10 qualified / 2 agile-pulse jobs");
+  expect(reopened.stdout).toContain("facility-interruption:");
+  expect(reopened.stdout).toContain("deposition-1: OFF → 11 qualified / 1 agile-pulse jobs");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
@@ -816,7 +820,10 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
   const sourcePath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
   const blueprint = JSON.parse(await readFile(sourcePath, "utf8"));
   const deposition = blueprint.devices.find((device: { id: string }) => device.id === "deposition-1");
-  const normal = structuredClone(deposition.recipe);
+  const normal = structuredClone(deposition.recipe
+    ?? deposition.recipes?.find((recipe: { process: string; mode: string }) =>
+      recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified"));
+  if (!normal) throw new Error("Missing qualified deposition recipe");
   delete deposition.recipe;
   deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
   deposition.policy.cadenceControl = {
@@ -826,6 +833,7 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
     recoveryMode: "agile-pulse",
     downstreamConnection: "deposition-to-batch-furnace",
     recoverBelowItems: 1,
+    minimumStarvationTicks: 1,
   };
   const cadencePath = join(projectDir, "blueprints/cadence.blueprint.json");
   await writeFile(cadencePath, `${JSON.stringify(blueprint, null, 2)}\n`);
@@ -840,10 +848,11 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
     recoveryMode: "agile-pulse",
     downstreamConnection: "deposition-to-batch-furnace",
     recoverBelowItems: 1,
+    minimumStarvationTicks: 1,
   }));
   expect(control.normalJobs).toBeGreaterThan(0);
   expect(control.recoveryJobs).toBeGreaterThan(0);
-  expect(human.stdout).toContain(`Cadence control deposition-1: deposit-dielectric-stack · ${control.normalJobs} qualified / ${control.recoveryJobs} agile-pulse jobs · recover below 1 items on deposition-to-batch-furnace`);
+  expect(human.stdout).toContain(`Cadence control deposition-1: deposit-dielectric-stack · ${control.normalJobs} qualified / ${control.recoveryJobs} agile-pulse jobs · ${control.recoveryActivations} recovery activations · recover after 0.0s below 1 items on deposition-to-batch-furnace`);
 
   await writeFile(join(projectDir, "blueprints/experiment.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
   const benchmarkMachine = await runCli([
@@ -865,7 +874,7 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
   expect(benchmarkCases.some((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"]!.recoveryJobs > 0)).toBeTrue();
   expect(benchmarkHuman.stdout).toContain("cadence control:");
   expect(benchmarkHuman.stdout).toContain("deposition-1: OFF →");
-  expect(benchmarkHuman.stdout).toContain("recover below 1 items on deposition-to-batch-furnace");
+  expect(benchmarkHuman.stdout).toContain("recover after 0.0s below 1 items on deposition-to-batch-furnace");
 }, 60_000);
 
 test("public CLI emits stable JSON errors for invalid section, section mode, schema kind, and usage", async () => {

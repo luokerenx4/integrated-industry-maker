@@ -64,7 +64,10 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
   const sourcePath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
   const blueprint = JSON.parse(await readFile(sourcePath, "utf8"));
   const deposition = blueprint.devices.find((device: { id: string }) => device.id === "deposition-1");
-  const normal = structuredClone(deposition.recipe);
+  const normal = structuredClone(deposition.recipe
+    ?? deposition.recipes?.find((recipe: { process: string; mode: string }) =>
+      recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified"));
+  if (!normal) throw new Error("Missing qualified deposition recipe");
   delete deposition.recipe;
   deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
   deposition.policy.cadenceControl = {
@@ -74,6 +77,7 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
     recoveryMode: "agile-pulse",
     downstreamConnection: "deposition-to-batch-furnace",
     recoverBelowItems: 1,
+    minimumStarvationTicks: 1,
   };
   await writeFile(join(projectDir, "blueprints/cadence.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
   await writeFile(sourcePath, `${JSON.stringify(blueprint, null, 2)}\n`);
@@ -107,6 +111,7 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
       recoveryMode: "agile-pulse",
       downstreamConnection: "deposition-to-batch-furnace",
       recoverBelowItems: 1,
+      minimumStarvationTicks: 1,
     });
     expect(data.metrics.cadenceControl.devices["deposition-1"]!.normalJobs).toBeGreaterThan(0);
     expect(data.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs).toBeGreaterThan(0);

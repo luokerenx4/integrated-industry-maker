@@ -63,29 +63,32 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
-    flow: { state: "at-risk", warningCount: 13, infoCount: 11 },
-    evidence: { state: "current", runId: "076-simulate" },
-    review: { state: "stale", pendingCount: 0, staleCount: 10, verifiedCount: 1 },
+    flow: { state: "at-risk", warningCount: 13, infoCount: 12 },
+    evidence: { state: "current", runId: "078-simulate" },
+    review: { state: "stale", pendingCount: 0, staleCount: 11, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "076-simulate",
-    averageWip: 21.793333333333333,
-    averageTotalInventory: 119.14593333333333,
-    averageExcludedInventory: 97.3526,
+    runId: "078-simulate",
+    averageWip: 21.810833333333335,
+    averageTotalInventory: 118.54843333333334,
+    averageExcludedInventory: 96.7376,
     peakWip: 55,
   }));
   expect(snapshot.inventoryAccounting?.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
     includedInWip: false,
-    averageInventory: 40.3624,
+    averageInventory: 39.8024,
   }));
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
     version: 5,
     chain: ["input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification", "release-admission"],
   }));
-  expect(snapshot.lossAttribution?.buckets.some((bucket) => bucket.id === "transport-blocking")).toBeFalse();
+  expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")).toMatchObject({
+    evidence: { blockedConnections: 1, blockedItemTicks: 100, connections: 17 },
+    subjects: [{ kind: "connection", id: "etch-to-inspection" }],
+  });
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
@@ -118,7 +121,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "closed-loop-layer-two-etch", benchmark: "greenfield-dram-design", patchOperations: 2,
       decision: expect.objectContaining({
-        state: "verified", verdict: "KEEP",
+        state: "stale", verdict: "KEEP",
         proposalHash: "b57802197eca94e2238013b2ead200e2f39436ae43ebdf1ec944bedca1dfc2d0",
         proposedCandidateHash: "6ed24bc31d8176104a511777e4e6296f04a623547c8d97c491196e28e00f1c23",
       }),
@@ -133,6 +136,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         state: "stale", verdict: "KEEP",
         proposalHash: "9ccae6b3df3178e9c2794ca06cb5270f6662a42d89b7d1bee02d5bc1bfe8e2e1",
         proposedCandidateHash: "0bc0ef35709a69a92426608cdcdc6350cb109dc88f3caaad48f7e4f3f46a25e3",
+      }),
+    }),
+    expect.objectContaining({
+      id: "commissioned-sustained-starvation-cadence", benchmark: "greenfield-dram-design", patchOperations: 3,
+      decision: expect.objectContaining({
+        state: "verified", verdict: "KEEP",
+        proposalHash: "ed733cbe502e68ea9de2b7616363f5623722cec0aadae384b5a3719714e163bc",
+        proposedCandidateHash: "dea38a4fd312432e153a9de79ddc7de6dc9c44286c08759b0f9f700e446ea71d",
       }),
     }),
     expect.objectContaining({
@@ -287,13 +298,13 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       activeProductiveDevices: 11,
       flowProductiveDevices: 10,
       contributingDevices: 8,
-      rawWaitingInputTicks: 1_666_216,
-      flowRawWaitingInputTicks: 1_434_216,
+      rawWaitingInputTicks: 1_669_016,
+      flowRawWaitingInputTicks: 1_437_016,
       exceptionWaitingInputTicks: 232_000,
-      boundaryWaitingInputTicks: 1_174_940,
-      opportunityWindowTicks: 1_189_060,
+      boundaryWaitingInputTicks: 1_179_140,
+      opportunityWindowTicks: 1_184_860,
       unavailableGapTicks: 76_000,
-      starvationTicks: 259_276,
+      starvationTicks: 257_876,
       subjectStarvationTicks: 42_456,
     },
   });
@@ -399,7 +410,7 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
   const reviewed = await openProjectWorkbenchSnapshot(projectDir);
   expect(reviewed.candidates.find((candidate) => candidate.id === "stable-furnace-sleep")?.decision)
     .toEqual(expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD" }));
-  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 10, verifiedCount: 1 });
+  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 11, verifiedCount: 1 });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
     id: expect.stringContaining("design.inspect:commissioned-dram-fab:fab-loss."),
     target: expect.objectContaining({ kind: "design-program", programId: "commissioned-dram-fab" }),

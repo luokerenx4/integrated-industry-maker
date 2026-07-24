@@ -88,6 +88,14 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
     scenario: "production-window",
     objective: "dram-output",
   });
+  const authoredDeposition = loaded.blueprint.devices.find((device) => device.id === "deposition-1")!;
+  const qualifiedDeposition = authoredDeposition.recipe
+    ?? authoredDeposition.recipes?.find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified");
+  if (!qualifiedDeposition) throw new Error("Missing qualified commissioned ALD recipe");
+  authoredDeposition.recipe = structuredClone(qualifiedDeposition);
+  delete authoredDeposition.recipes;
+  if (authoredDeposition.policy) delete authoredDeposition.policy.cadenceControl;
+  loaded.blueprint.revision = "6ed24bc31d8176104a511777e4e6296f04a623547c8d97c491196e28e00f1c23";
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
   const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
@@ -116,7 +124,7 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
 
   expect(fabLoss.chain[0]).toBe("input-starvation");
   expect(proposal).toMatchObject({
-    strategy: "recipe:adaptive-agile-pulse-deposition-below-1",
+    strategy: "recipe:adaptive-agile-pulse-deposition-after-10000",
     addressedLoss: "input-starvation",
     patch: [
       { op: "remove", path: `/devices/${depositionIndex}/recipe` },
@@ -138,6 +146,7 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
           recoveryMode: "agile-pulse",
           downstreamConnection: "deposition-to-batch-furnace",
           recoverBelowItems: 1,
+          minimumStarvationTicks: 10_000,
         },
       },
     ],

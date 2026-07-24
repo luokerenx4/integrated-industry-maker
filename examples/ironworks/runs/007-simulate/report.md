@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `chemical-factory`
 - Score: **122.943**
-- Result hash: `1081b897c4e4260ab59bc2c5bf4f533e096349337e95134ac49609777f66b5d2`
+- Result hash: `c3c4646cac1eed9702dc04384fe4c96f432634c7410e77826e048c12d648276a`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Delivery portfolio: 130.0% demand attainment · 26.000 / 20.000 valued / demanded · 6.000 above demand · 0.000 net value/min

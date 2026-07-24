@@ -496,6 +496,8 @@ export interface DownstreamStarvationRecoveryPolicy {
   downstreamConnection: ConnectionId;
   /** Select recoveryMode while resident plus in-flight destination items are below this count. */
   recoverBelowItems: number;
+  /** Require continuous below-boundary coverage for this long before selecting recoveryMode. */
+  minimumStarvationTicks: Tick;
 }
 export interface BlueprintDevice {
   id: DeviceInstanceId;
@@ -1114,6 +1116,12 @@ export interface DeviceRuntimeState {
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   /** FIFO-preserving identities for Resources whose tracking kind is lot. */
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
+  cadenceControl?: {
+    /** Start of the current continuous below-boundary interval, or null while coverage is healthy. */
+    starvedSinceTick: Tick | null;
+    starvationEpisodes: number;
+    starvationTicks: Tick;
+  };
   energyManagement?: {
     mode: "awake" | "sleeping";
     idleSinceTick: Tick;
@@ -1598,8 +1606,12 @@ export interface FactoryMetrics {
       recoveryMode: string;
       downstreamConnection: ConnectionId;
       recoverBelowItems: number;
+      minimumStarvationTicks: Tick;
       normalJobs: number;
       recoveryJobs: number;
+      recoveryActivations: number;
+      starvationEpisodes: number;
+      starvationTicks: Tick;
     }>;
   };
   energyConsumedMilliJoules: number;

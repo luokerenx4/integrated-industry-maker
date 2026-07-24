@@ -252,6 +252,7 @@ export const blueprintSchema = z.object({
         recoveryMode: id,
         downstreamConnection: id,
         recoverBelowItems: positiveInt,
+        minimumStarvationTicks: positiveInt,
       }).strict().optional(),
       lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),

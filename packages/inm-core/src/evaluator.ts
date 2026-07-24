@@ -684,12 +684,24 @@ export function evaluateFactory(
     devices: Object.fromEntries(Object.values(project.devices).flatMap((device) => {
       const control = device.policy?.cadenceControl;
       if (!control) return [];
+      const starts = events.filter((event): event is Extract<FactoryEvent, { type: "device.start" }> =>
+        event.type === "device.start" && event.device === device.id
+        && event.operation === control.process && (event.mode === control.normalMode || event.mode === control.recoveryMode));
+      let previousMode: string | undefined;
+      let recoveryActivations = 0;
+      for (const event of starts) {
+        if (event.mode === control.recoveryMode && previousMode !== control.recoveryMode) recoveryActivations++;
+        previousMode = event.mode;
+      }
+      const runtime = state.devices[device.id]!.cadenceControl!;
       return [[device.id, {
         ...control,
-        normalJobs: events.filter((event) => event.type === "device.start" && event.device === device.id
-          && event.operation === control.process && event.mode === control.normalMode).length,
-        recoveryJobs: events.filter((event) => event.type === "device.start" && event.device === device.id
-          && event.operation === control.process && event.mode === control.recoveryMode).length,
+        normalJobs: starts.filter((event) => event.mode === control.normalMode).length,
+        recoveryJobs: starts.filter((event) => event.mode === control.recoveryMode).length,
+        recoveryActivations,
+        starvationEpisodes: runtime.starvationEpisodes,
+        starvationTicks: runtime.starvationTicks
+          + (runtime.starvedSinceTick === null ? 0 : state.tick - runtime.starvedSinceTick),
       }]];
     })),
   };

@@ -1,0 +1,60 @@
+{
+  "baseCandidateHash": "6ed24bc31d8176104a511777e4e6296f04a623547c8d97c491196e28e00f1c23",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 1d02449c5551: aggregate score 30.094967 (+105.070690 versus locked baseline) across 5 cases.",
+  "hypothesis": "The existing ALD bay can use its qualified agile pulse only after the exact furnace-bound lane has remained empty for ten seconds, then return to its normal recipe as soon as downstream coverage recovers.",
+  "id": "commissioned-sustained-starvation-cadence",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "remove",
+      "path": "/devices/4/recipe"
+    },
+    {
+      "op": "add",
+      "path": "/devices/4/recipes",
+      "value": [
+        {
+          "inputs": {
+            "etched-cell-l1-lot": "etch-input"
+          },
+          "mode": "qualified",
+          "outputs": {
+            "dielectric-stack-lot": "return-output"
+          },
+          "process": "deposit-dielectric-stack"
+        },
+        {
+          "inputs": {
+            "etched-cell-l1-lot": "etch-input"
+          },
+          "mode": "agile-pulse",
+          "outputs": {
+            "dielectric-stack-lot": "return-output"
+          },
+          "process": "deposit-dielectric-stack"
+        }
+      ]
+    },
+    {
+      "op": "add",
+      "path": "/devices/4/policy/cadenceControl",
+      "value": {
+        "downstreamConnection": "deposition-to-batch-furnace",
+        "kind": "downstream-starvation-recovery",
+        "minimumStarvationTicks": 10000,
+        "normalMode": "qualified",
+        "process": "deposit-dielectric-stack",
+        "recoverBelowItems": 1,
+        "recoveryMode": "agile-pulse"
+      }
+    }
+  ],
+  "source": {
+    "blueprintHash": "dea38a4fd312432e153a9de79ddc7de6dc9c44286c08759b0f9f700e446ea71d",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "1d02449c5551babc43ec542cf1cd374add97f1df5c4628eaf784bf670e43989b"
+  },
+  "version": 1
+}

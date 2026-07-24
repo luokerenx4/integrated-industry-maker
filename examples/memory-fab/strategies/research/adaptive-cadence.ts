@@ -18,7 +18,7 @@ import type {
 
 interface Variant {
   id: string;
-  recoverBelowItems: number | null;
+  minimumStarvationTicks: number | null;
 }
 
 interface CaseResult {
@@ -35,20 +35,29 @@ const projectDir = resolve(import.meta.dir, "../..");
 const benchmarkId = "greenfield-dram-design";
 const blueprintId = "generated-dram-fab";
 const variants: Variant[] = [
-  { id: "incumbent", recoverBelowItems: null },
-  ...[1, 2, 3, 4, 5, 6].map((recoverBelowItems) => ({
-    id: `adaptive-agile-pulse-below-${recoverBelowItems}`,
-    recoverBelowItems,
+  { id: "incumbent", minimumStarvationTicks: null },
+  ...[1, 1_000, 2_000, 3_000, 5_000, 7_000, 10_000, 15_000, 20_000].map((minimumStarvationTicks) => ({
+    id: `adaptive-agile-pulse-after-${minimumStarvationTicks}`,
+    minimumStarvationTicks,
   })),
 ];
 
-function withCadenceControl(blueprint: Blueprint, recoverBelowItems: number): Blueprint {
+function withoutCadenceControl(blueprint: Blueprint): Blueprint {
   const candidate = structuredClone(blueprint);
   const deposition = candidate.devices.find((device) => device.id === "deposition-1");
-  if (!deposition?.recipe || deposition.recipe.process !== "deposit-dielectric-stack" || deposition.recipe.mode !== "qualified") {
-    throw new Error("deposition-1 is not the expected commissioned qualified ALD Device");
-  }
-  const normal = structuredClone(deposition.recipe);
+  const normal = deposition?.recipe
+    ?? deposition?.recipes?.find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified");
+  if (!deposition || !normal) throw new Error("deposition-1 is missing its qualified ALD recipe");
+  deposition.recipe = structuredClone(normal);
+  delete deposition.recipes;
+  if (deposition.policy) delete deposition.policy.cadenceControl;
+  return candidate;
+}
+
+function withCadenceControl(blueprint: Blueprint, minimumStarvationTicks: number): Blueprint {
+  const candidate = withoutCadenceControl(blueprint);
+  const deposition = candidate.devices.find((device) => device.id === "deposition-1")!;
+  const normal = structuredClone(deposition.recipe!);
   delete deposition.recipe;
   deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
   deposition.policy = {
@@ -59,7 +68,8 @@ function withCadenceControl(blueprint: Blueprint, recoverBelowItems: number): Bl
       normalMode: "qualified",
       recoveryMode: "agile-pulse",
       downstreamConnection: "deposition-to-batch-furnace",
-      recoverBelowItems,
+      recoverBelowItems: 1,
+      minimumStarvationTicks,
     },
   };
   return candidate;
@@ -108,9 +118,9 @@ for (const variant of variants) {
       scenario: item.scenario,
       objective: item.objective,
     });
-    const blueprint = variant.recoverBelowItems === null
-      ? loaded.blueprint
-      : withCadenceControl(loaded.blueprint, variant.recoverBelowItems);
+    const blueprint = variant.minimumStarvationTicks === null
+      ? withoutCadenceControl(loaded.blueprint)
+      : withCadenceControl(loaded.blueprint, variant.minimumStarvationTicks);
     const project = compileFactoryProject({ ...loaded, blueprint });
     const evaluation = evaluateFactoryBlueprint(project, variant.id, item.seed);
     cases.push({
@@ -171,7 +181,8 @@ const rows = variants.map((variant) => {
   const mixed = result.cases.find((item) => item.id === "mixed-quality")!;
   return {
     id: variant.id,
-    recoverBelowItems: variant.recoverBelowItems,
+    recoverBelowItems: variant.minimumStarvationTicks === null ? null : 1,
+    minimumStarvationTicks: variant.minimumStarvationTicks,
     benchmarkAccepted,
     capacityReady,
     hardOutcomesPassed,
@@ -200,12 +211,13 @@ const rows = variants.map((variant) => {
         scrappedLots: item.metrics.scrappedLots,
         qualityEscapes: item.metrics.qualityEscapes,
       },
+      cadenceControl: item.metrics.cadenceControl.devices["deposition-1"] ?? null,
     })),
   };
 }).sort((left, right) => Number(right.promotable) - Number(left.promotable)
   || right.aggregateScore - left.aggregateScore
   || right.minimumCurrentBestCaseDelta - left.minimumCurrentBestCaseDelta
-  || (left.recoverBelowItems ?? 0) - (right.recoverBelowItems ?? 0));
+  || (left.minimumStarvationTicks ?? 0) - (right.minimumStarvationTicks ?? 0));
 
 console.log(stableStringify({
   benchmark: benchmarkId,

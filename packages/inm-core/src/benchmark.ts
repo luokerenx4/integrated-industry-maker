@@ -171,8 +171,12 @@ function validCadenceControlSnapshot(value: unknown): boolean {
       && typeof control.recoveryMode === "string" && control.recoveryMode.length > 0
       && typeof control.downstreamConnection === "string" && control.downstreamConnection.length > 0
       && Number.isSafeInteger(control.recoverBelowItems) && (control.recoverBelowItems as number) >= 0
+      && Number.isSafeInteger(control.minimumStarvationTicks) && (control.minimumStarvationTicks as number) > 0
       && Number.isSafeInteger(control.normalJobs) && (control.normalJobs as number) >= 0
-      && Number.isSafeInteger(control.recoveryJobs) && (control.recoveryJobs as number) >= 0;
+      && Number.isSafeInteger(control.recoveryJobs) && (control.recoveryJobs as number) >= 0
+      && Number.isSafeInteger(control.recoveryActivations) && (control.recoveryActivations as number) >= 0
+      && Number.isSafeInteger(control.starvationEpisodes) && (control.starvationEpisodes as number) >= 0
+      && Number.isSafeInteger(control.starvationTicks) && (control.starvationTicks as number) >= 0;
   });
 }
 

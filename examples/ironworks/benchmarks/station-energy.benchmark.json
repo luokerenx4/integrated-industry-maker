@@ -23,7 +23,7 @@
       "cold-station": {
         "blueprintHash": "bcee904329bb9c02e09e8544f1f98299d8b44cf02ff97c80de7c96ba56cae415",
         "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
-        "engineVersion": "inm-sim/0.79.0",
+        "engineVersion": "inm-sim/0.80.0",
         "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",

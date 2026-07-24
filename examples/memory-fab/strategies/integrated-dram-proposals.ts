@@ -194,6 +194,7 @@ function commissionedAdaptiveCadencePatch(blueprint: ProposalBlueprint): JsonPat
         recoveryMode: "agile-pulse",
         downstreamConnection: "deposition-to-batch-furnace",
         recoverBelowItems: 1,
+        minimumStarvationTicks: 10_000,
       },
     },
   ];
@@ -755,9 +756,9 @@ const candidates: Candidate[] = [
     patch: advancedPatternRecoveryPatch,
   },
   {
-    strategy: "recipe:adaptive-agile-pulse-deposition-below-1",
-    hypothesis: "The existing ALD bay can use its qualified agile pulse only while the exact furnace-bound lane has no resident or in-flight dielectric-stack lot, then return to its normal recipe as soon as downstream coverage recovers.",
-    expectedEffect: "Recover measured furnace input gaps without paying the always-agile power and WIP cost during healthy downstream coverage; every locked case remains authoritative.",
+    strategy: "recipe:adaptive-agile-pulse-deposition-after-10000",
+    hypothesis: "The existing ALD bay can use its qualified agile pulse only after the exact furnace-bound lane has remained empty for ten seconds, then return to its normal recipe as soon as downstream coverage recovers.",
+    expectedEffect: "Debounce ordinary handoff gaps while recovering sustained furnace starvation, preserving steady production and retaining disruption gains under every locked case.",
     addresses: ["input-starvation"],
     subjects: ["deposition-1", "deposition-to-batch-furnace", "furnace-1"],
     patch: commissionedAdaptiveCadencePatch,

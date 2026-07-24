@@ -46,6 +46,7 @@ export type FactoryStateMutation =
   | { kind: "carrier-return" }
   | { kind: "job.start"; device: string; job: ActiveDeviceJob }
   | { kind: "job.finish"; device: string }
+  | { kind: "cadence.coverage"; device: string; starved: boolean }
   | { kind: "energy.sleep"; device: string }
   | { kind: "energy.wake-finish"; device: string; tick: Tick; durationTicks: Tick }
   | { kind: "energy.idle"; device: string; tick: Tick }
@@ -409,6 +410,20 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "carrier-return": state.carrierReturns += 1; return;
     case "job.start": state.devices[mutation.device]!.activeJob = structuredClone(mutation.job); state.devices[mutation.device]!.progressTicks = 0; return;
     case "job.finish": delete state.devices[mutation.device]!.activeJob; delete state.devices[mutation.device]!.progressTicks; return;
+    case "cadence.coverage": {
+      const cadence = state.devices[mutation.device]!.cadenceControl;
+      if (!cadence) throw new Error(`Device '${mutation.device}' does not track cadence control`);
+      if (mutation.starved) {
+        if (cadence.starvedSinceTick === null) {
+          cadence.starvedSinceTick = state.tick;
+          cadence.starvationEpisodes++;
+        }
+      } else if (cadence.starvedSinceTick !== null) {
+        cadence.starvationTicks += state.tick - cadence.starvedSinceTick;
+        cadence.starvedSinceTick = null;
+      }
+      return;
+    }
     case "energy.sleep": {
       const energy = state.devices[mutation.device]!.energyManagement;
       if (!energy) throw new Error(`Device '${mutation.device}' does not support idle-energy control`);

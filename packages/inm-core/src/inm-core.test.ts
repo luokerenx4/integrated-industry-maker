@@ -6,7 +6,7 @@ import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
-  parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
+  parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation, blueprintSchema,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type FactoryEvent, type LoadedFactoryProject,
 } from "./index";
 
@@ -735,10 +735,12 @@ describe("blueprint compiler", () => {
   });
 
   test("cadence control recovers an explicit downstream lane with an auditable qualified mode pair", async () => {
-    const cadenceSource = async () => {
+    const cadenceSource = async (minimumStarvationTicks = 10_000) => {
       const source = await loadFactoryProject(memoryFab);
       const deposition = source.blueprint.devices.find((device) => device.id === "deposition-1")!;
-      const normal = structuredClone(deposition.recipe!);
+      const normal = structuredClone(deposition.recipe
+        ?? deposition.recipes?.find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified"));
+      if (!normal) throw new Error("Missing qualified deposition recipe");
       delete deposition.recipe;
       deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
       deposition.policy = {
@@ -750,6 +752,7 @@ describe("blueprint compiler", () => {
           recoveryMode: "agile-pulse",
           downstreamConnection: "deposition-to-batch-furnace",
           recoverBelowItems: 1,
+          minimumStarvationTicks,
         },
       };
       return source;
@@ -765,16 +768,34 @@ describe("blueprint compiler", () => {
     expect(starts.map((event) => event.mode)).toContain("agile-pulse");
     expect(starts.map((event) => event.mode)).toContain("qualified");
     expect(finishes.map((event) => event.mode)).toEqual(starts.map((event) => event.mode));
-    expect(first.metrics.cadenceControl.devices["deposition-1"]).toEqual({
+    expect(first.metrics.cadenceControl.devices["deposition-1"]).toEqual(expect.objectContaining({
       kind: "downstream-starvation-recovery",
       process: "deposit-dielectric-stack",
       normalMode: "qualified",
       recoveryMode: "agile-pulse",
       downstreamConnection: "deposition-to-batch-furnace",
       recoverBelowItems: 1,
+      minimumStarvationTicks: 10_000,
       normalJobs: starts.filter((event) => event.mode === "qualified").length,
       recoveryJobs: starts.filter((event) => event.mode === "agile-pulse").length,
-    });
+      recoveryActivations: expect.any(Number),
+      starvationEpisodes: expect.any(Number),
+      starvationTicks: expect.any(Number),
+    }));
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.recoveryActivations).toBeGreaterThan(0);
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.starvationEpisodes).toBeGreaterThan(0);
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.starvationTicks).toBeGreaterThan(0);
+    const immediate = runUntil(compileFactoryProject(await cadenceSource(1)), undefined, { seed: 42 });
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs)
+      .toBeLessThan(immediate.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs);
+    expect(first.metrics.cadenceControl.devices["deposition-1"]!.normalJobs)
+      .toBeGreaterThan(immediate.metrics.cadenceControl.devices["deposition-1"]!.normalJobs);
+    const missingInterval = await cadenceSource();
+    delete (missingInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl as Partial<NonNullable<NonNullable<Blueprint["devices"][number]["policy"]>["cadenceControl"]>>).minimumStarvationTicks;
+    expect(blueprintSchema.safeParse(missingInterval.blueprint).success).toBeFalse();
+    const zeroInterval = await cadenceSource();
+    zeroInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.minimumStarvationTicks = 0;
+    expect(blueprintSchema.safeParse(zeroInterval.blueprint).success).toBeFalse();
     const uncontrolledSource = await cadenceSource();
     delete uncontrolledSource.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl;
     const comparison = compareFactoryBlueprints(compileFactoryProject(uncontrolledSource), project, { seed: 42 });
