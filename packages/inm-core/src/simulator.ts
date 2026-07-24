@@ -1907,7 +1907,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       mutateFactoryState(state, { kind: "batch.reset", device: device.id });
       return { plan: selectProcessPlan(device), held: false, changed: true };
     }
-    if (!fallback || policy.maximumWaitTicks === 0) return { plan: fallback ?? selectProcessPlan(device), held: false, changed: false };
+    if (policy.maximumWaitTicks === 0) {
+      return { plan: fallback ?? selectProcessPlan(device, fallbacks), held: false, changed: false };
+    }
+    if (!fallback) return { plan: selectProcessPlan(device), held: false, changed: false };
     const deadlineTick = state.tick + policy.maximumWaitTicks;
     mutateFactoryState(state, { kind: "batch.hold", device: device.id, preferredProcess: preferred.definition.id, deadlineTick });
     emit({

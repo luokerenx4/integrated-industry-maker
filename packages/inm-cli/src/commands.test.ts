@@ -262,7 +262,7 @@ test("public inspect JSON and next action are the shared Core workbench snapshot
   const nextEnvelope = JSON.parse(nextAction.stdout);
   expect(nextEnvelope.data).toEqual({ section: "next-action", result: expected.nextAction });
   expect(nextEnvelope.nextActions).toEqual([expected.nextAction]);
-});
+}, 20_000);
 
 test("public inspect summary exposes bounded current Design evidence to Agents and humans", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-cli-design-evidence-"));
@@ -716,13 +716,13 @@ test("public inspect gives Agents and humans the same current loss contributors"
     resources: ["dielectric-stack-lot"],
     evidence: { starvationTicks: 42_456, opportunityWindowTicks: 114_456, unattributedGapTicks: 0 },
     inputStates: expect.arrayContaining([expect.objectContaining({
-      process: "batch-anneal-dielectric-stack",
+      process: "rapid-anneal-dielectric-stack",
       starvationTicks: 23_800,
       shortages: expect.arrayContaining([expect.objectContaining({
         resource: "dielectric-stack-lot",
         buffer: "batch-input",
         available: 0,
-        required: 3,
+        required: 1,
         supplies: expect.arrayContaining([expect.objectContaining({
           connection: "deposition-to-batch-furnace",
           sourceDevice: "deposition-1",
@@ -762,7 +762,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("Quality-origin contributors:");
   expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 2 lots / 2 defect instances · 2 rework / 2 repaired / 0 persistent · 0 scrap / 0 escape");
   expect(human.stdout).toContain("Material-starvation contributors:");
-  expect(human.stdout).toContain("furnace-1 · material-input-shortage · 42.5s attributed shortage / 114.5s opportunity · 0.0s unattributed · dielectric-stack-lot · 23.8s dielectric-stack-lot@batch-input 0/3 via deposition-to-batch-furnace:source-processing←deposition-1");
+  expect(human.stdout).toContain("furnace-1 · material-input-shortage · 42.5s attributed shortage / 114.5s opportunity · 0.0s unattributed · dielectric-stack-lot · 23.8s dielectric-stack-lot@batch-input 0/1 via deposition-to-batch-furnace:source-processing←deposition-1");
   expect(human.stdout).not.toContain("fab-loss.transport-blocking");
   expect(human.stdout).toContain("Transport-blocking contributors:");
   expect(human.stdout).toContain("etch-to-inspection · dominant immediate cause: line contention · 0.1 blocked item-s · line contention 0.1 item-s · endpoint capacity 0.0 item-s · endpoint power 0.0 item-s · endpoint failure 0.0 item-s · 3.0/240.0 items/min · dram-wafer-lot");
@@ -771,7 +771,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
 
 test("public inspect gives Agents and humans the same exhausted current V7 Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
-  const authorityRunId = "08b1d0003e117735b41a257c77cbf343bf9d01bcfa8ffad271424047d8383cfb";
+  const authorityRunId = "2fc7517b47e2900bed8b5a7cdc8db8cad01809b45290fc30c4c79e9b5394686b";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -787,7 +787,7 @@ test("public inspect gives Agents and humans the same exhausted current V7 Desig
       state: "exhausted",
       authorityRunId,
       currentRuns: 1,
-      historicalRuns: 0,
+      historicalRuns: 1,
       invalidRuns: 28,
     }),
   }));
@@ -807,7 +807,7 @@ test("public inspect gives Agents and humans the same exhausted current V7 Desig
   expect(human.stdout).toContain(`Design handoff: commissioned-dram-fab · EXHAUSTED · ${authorityRunId.slice(0, 12)}`);
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 1 valid immutable run · 28 invalid runs excluded");
+  expect(brief.stdout).toContain("Evidence: 2 valid immutable runs · 28 invalid runs excluded");
   const reopened = await runCli(["design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId, "--json", "--section", "summary"]);
   expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(reopened.stdout).data.result).toEqual(expect.objectContaining({

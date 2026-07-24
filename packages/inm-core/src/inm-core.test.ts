@@ -1646,6 +1646,28 @@ describe("blueprint compiler", () => {
       "preferred-ready", "preferred-ready", "maximum-wait", "preferred-ready",
     ]);
 
+    const zeroWaitBatchSource = await loadFactoryProject(memoryFab);
+    const zeroWaitBatch = runUntil(compileFactoryProject(zeroWaitBatchSource), undefined, { seed: 42 });
+    const furnaceShortages = zeroWaitBatch.events.filter((event) =>
+      event.type === "device.input-starved" && event.device === "furnace-1");
+    expect(furnaceShortages.length).toBeGreaterThan(0);
+    expect(furnaceShortages.every((event) => event.type === "device.input-starved"
+      && event.process === "rapid-anneal-dielectric-stack"
+      && event.shortages.length === 1
+      && event.shortages[0]!.resource === "dielectric-stack-lot"
+      && event.shortages[0]!.required === 1)).toBeTrue();
+    expect(zeroWaitBatch.events.filter((event) => event.type === "device.start" && event.device === "furnace-1")
+      .every((event) => event.type === "device.start" && event.operation === "rapid-anneal-dielectric-stack"
+        && event.lotIds?.length === 1)).toBeTrue();
+
+    const zeroWaitPreferredSource = await loadFactoryProject(memoryFab);
+    zeroWaitPreferredSource.processes["rapid-anneal-dielectric-stack"]!.durationTicks = 30_000;
+    const zeroWaitPreferred = runUntil(compileFactoryProject(zeroWaitPreferredSource), undefined, { seed: 42 });
+    expect(zeroWaitPreferred.events).toContainEqual(expect.objectContaining({
+      type: "device.start", device: "furnace-1", operation: "batch-anneal-dielectric-stack",
+      lotIds: expect.arrayContaining(["dram-lot-02", "dram-lot-03", "dram-lot-04"]),
+    }));
+
     const invalidBatchSource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     invalidBatchSource.blueprint.devices.find((device) => device.id === "furnace-1")!.policy = {
       batchFormation: { preferredProcess: "batch-anneal-dielectric-stack", maximumWaitTicks: 15_000 },

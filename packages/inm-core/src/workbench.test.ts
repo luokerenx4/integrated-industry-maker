@@ -64,14 +64,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
-    evidence: { state: "current", runId: "084-simulate" },
+    evidence: { state: "current", runId: "085-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 14, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "084-simulate",
+    runId: "085-simulate",
     averageWip: 19.738966666666666,
     averageTotalInventory: 116.45466666666667,
     averageExcludedInventory: 96.7157,
@@ -368,11 +368,12 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       unattributedGapTicks: 0,
     },
     inputStates: expect.arrayContaining([expect.objectContaining({
-      process: "batch-anneal-dielectric-stack",
+      process: "rapid-anneal-dielectric-stack",
       starvationTicks: 23_800,
       shortages: expect.arrayContaining([expect.objectContaining({
         resource: "dielectric-stack-lot",
         buffer: "batch-input",
+        required: 1,
         supplies: expect.arrayContaining([expect.objectContaining({
           connection: "deposition-to-batch-furnace",
           sourceDevice: "deposition-1",
