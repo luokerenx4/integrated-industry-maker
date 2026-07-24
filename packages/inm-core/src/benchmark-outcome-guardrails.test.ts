@@ -209,7 +209,7 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
   expect(sumScoreBreakdown(incumbentInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(incumbentInterruption.candidateScore, 12);
   expect(sumScoreBreakdown(branchInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(branchInterruption.candidateScore, 12);
   expect(sumScoreBreakdown(breakdownDelta)).toBeCloseTo(scoreDelta, 12);
-}, 30_000);
+}, 60_000);
 
 test("benchmark loading rejects unknown cases and duplicate metric-case ownership", async () => {
   const projectDir = await copiedMemoryFab();

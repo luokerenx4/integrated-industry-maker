@@ -1,6 +1,6 @@
 # Production modes and exact jobs
 
-Status: treatment-aware, in-situ-quality-aware modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.78.0`.
+Status: treatment-aware, in-situ-quality-aware, and explicit adaptive-cadence modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.79.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
@@ -50,6 +50,12 @@ The TypeScript Device program receives the compiled mode and job fields in `cont
 
 This boundary keeps runtime scripts useful for local scheduling while preventing them from silently inventing productivity, deleting auxiliary costs, under-reporting power, or bypassing physical buffers. Integer jobs also make failure, WIP, backpressure, and replay state unambiguous.
 
+## Downstream-starvation recovery
+
+A Device with exactly two `recipes` for the same Process may declare `policy.cadenceControl.kind: downstream-starvation-recovery`. The policy names the normal mode, recovery mode, one exact outbound physical Connection, and a positive `recoverBelowItems` boundary. Both plans must compile to identical material inputs, outputs, lot transfers, terminations, and output profiles; the Process must have one unambiguous output Resource carried alone by the named Connection. `recipeDispatch`, setup campaigns, and batch formation are intentionally exclusive with this policy.
+
+Selection occurs only before a new non-preemptive job. Destination coverage is the exact output Resource already resident in the Connection's destination buffer plus local or station cargo already in flight to that same Device and buffer. Coverage below the boundary selects the recovery mode; healthy coverage selects the normal mode. Ordinary readiness, output capacity, tooling, utilities, maintenance, and power still decide whether the selected job can physically start.
+
 ## Analysis, planning, and synthesis
 
 Static recipe alternatives enumerate every compatible `(Device instance, Process, mode)` tuple. Their displayed inputs/outputs are effective job quantities, including auxiliary Resources and required treatment level; their rates use compiled duration and their power uses the mode multiplier. See [[docs/design/material-treatment]] for graded lot availability and physical treatment infrastructure.
@@ -60,7 +66,7 @@ Synthesis writes `recipe.mode` into the generated blueprint, routes auxiliary Re
 
 ## Observability
 
-`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates, mode power, and declared prevention capability. Simulation metrics, reports, comparisons, CLI, and Studio separately show measured prevention. Studio exposes both capability in the project-local asset catalog/recipe alternatives and outcomes in the selected Device inspector and performance panel.
+`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates, mode power, and declared prevention capability. Production `device.start` and `device.finish` events record the exact selected mode. Simulation metrics count normal and recovery jobs for every controlled Device; CLI and Studio expose the authored boundary and the measured split without requiring event-log reconstruction. Studio also exposes prevention capability in the project-local asset catalog/recipe alternatives and measured prevention in the selected Device inspector and performance panel.
 
 Engine hashes include asset and blueprint content, so changing a mode or selection invalidates prior run identity. Immutable runs record the compiled blueprint and engine version used for replay.
 
@@ -68,7 +74,7 @@ Engine hashes include asset and blueprint content, so changing a mode or selecti
 
 A project-local mode may be a real qualified option without being the selected operating regime. The memory-fab ALD bay exposes `qualified` and `agile-pulse`; the latter runs the same deposition Process at `4/5` duration and `5/4` active power. Adding the mode changes the Device catalog hash but does not silently change the commissioned Blueprint, which continues to select `qualified`.
 
-The commissioned Design provider may propose the exact one-field mode switch when current compatible evidence ranks `input-starvation`. V5 Run `0ad66de96d35b9a126331acb0e8e7cd81c5b4e8becec8345d13c4fd6d65706c1` retains that proposal only as a non-dominated `BRANCH`: it improves the weighted five-case score by `0.691655`, but loses `0.375853` in steady production and `0.923040` under facility interruption against the current best. Current continuation `83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0` verifies the result and exhausts the branch because no applicable project-local repair removes both regressions. The zero-regression leader boundary therefore emits no Candidate and leaves the live factory on `qualified`.
+The commissioned Design provider may propose either the exact always-agile mode switch or an explicit one-item downstream recovery controller when current compatible evidence ranks `input-starvation`. The bounded `1..6` threshold sweep finds `recoverBelowItems: 1` is the only adaptive variant that actually alternates in the mixed-quality case (`5` normal and `7` recovery jobs). It improves weighted score by `0.960757` and improves four cases, but still regresses steady production by `0.331053`. Larger boundaries collapse to the prior always-agile behavior. The zero-regression leader boundary therefore retains this as evidence rather than silently commissioning it; the live factory remains on `qualified`.
 
 This separation is intentional. Asset catalogs describe physically available choices; Blueprints declare operation; Benchmark and Design evidence decide whether a choice is robust enough to commission. Humans and Agents inspect the same mode, exact patch, power trade, case deltas, and branch decision instead of treating an unselected option as an upgrade.
 

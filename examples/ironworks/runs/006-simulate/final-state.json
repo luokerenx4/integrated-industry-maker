@@ -179,6 +179,7 @@
             "treatmentLevel": 0
           }
         ],
+        "productionMode": "productive",
         "remainingTicks": 4000,
         "resumedAt": 117470,
         "startedAt": 117470,
@@ -618,6 +619,7 @@
             "treatmentLevel": 0
           }
         ],
+        "productionMode": "standard",
         "remainingTicks": 4000,
         "resumedAt": 116700,
         "startedAt": 116700,
@@ -659,6 +661,7 @@
             "treatmentLevel": 0
           }
         ],
+        "productionMode": "standard",
         "remainingTicks": 4000,
         "resumedAt": 117800,
         "startedAt": 117800,

@@ -81,7 +81,7 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
 
-test("commissioned input starvation proposes the bounded agile-pulse ALD control", async () => {
+test("commissioned input starvation proposes the bounded adaptive agile-pulse ALD control", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab",
@@ -112,16 +112,35 @@ test("commissioned input starvation proposes the bounded agile-pulse ALD control
     history: [],
   });
   const depositionIndex = project.blueprint.devices.findIndex((device) => device.id === "deposition-1");
+  const normalRecipe = structuredClone(project.blueprint.devices[depositionIndex]!.recipe!);
 
   expect(fabLoss.chain[0]).toBe("input-starvation");
   expect(proposal).toMatchObject({
-    strategy: "recipe:agile-pulse-deposition",
+    strategy: "recipe:adaptive-agile-pulse-deposition-below-1",
     addressedLoss: "input-starvation",
-    patch: [{
-      op: "replace",
-      path: `/devices/${depositionIndex}/recipe/mode`,
-      value: "agile-pulse",
-    }],
+    patch: [
+      { op: "remove", path: `/devices/${depositionIndex}/recipe` },
+      {
+        op: "add",
+        path: `/devices/${depositionIndex}/recipes`,
+        value: [
+          normalRecipe,
+          { ...structuredClone(normalRecipe), mode: "agile-pulse" },
+        ],
+      },
+      {
+        op: "add",
+        path: `/devices/${depositionIndex}/policy/cadenceControl`,
+        value: {
+          kind: "downstream-starvation-recovery",
+          process: "deposit-dielectric-stack",
+          normalMode: "qualified",
+          recoveryMode: "agile-pulse",
+          downstreamConnection: "deposition-to-batch-furnace",
+          recoverBelowItems: 1,
+        },
+      },
+    ],
   });
   expect(() => compileFactoryProject({
     ...loaded,

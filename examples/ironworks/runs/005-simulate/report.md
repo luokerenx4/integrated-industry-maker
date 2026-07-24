@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `stacked-cargo`
 - Score: **245.595**
-- Result hash: `fd12415b96d472a2f8fedb51ad3258e2377795b9e57c2aff14c29a2643c54a6b`
+- Result hash: `e3e6673d0a55f4c84ff94d8ea2f2742df08082c4c89474b364c781369870ff05`
 - Bottleneck: none
 - Throughput/min: 240.000
 - Delivery portfolio: 100.0% demand attainment · 8.000 / 8.000 valued / demanded · 0.000 above demand · 0.000 net value/min

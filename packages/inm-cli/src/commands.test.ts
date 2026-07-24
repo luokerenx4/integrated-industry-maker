@@ -718,7 +718,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same exhausted memory-fab Design authority", async () => {
+test("public inspect gives Agents and humans the same continuable memory-fab Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
@@ -732,28 +732,28 @@ test("public inspect gives Agents and humans the same exhausted memory-fab Desig
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "exhausted",
-      authorityRunId: "83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0",
-      currentRuns: 2,
-      historicalRuns: 0,
+      state: "continuable",
+      authorityRunId: "0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9",
+      currentRuns: 1,
+      historicalRuns: 2,
       invalidRuns: 17,
     }),
   }));
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
-    actionLabel: "REVIEW EXHAUSTED DESIGN",
+    title: "Continue the current Commissioned DRAM Fab Optimization frontier",
+    actionLabel: "REVIEW CONTINUATION",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab/runs/83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0",
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab/runs/0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9",
     target: {
       kind: "design-run",
-      phase: "exhausted",
+      phase: "continuable",
       programId: "commissioned-dram-fab",
-      runId: "83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0",
+      runId: "0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9",
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · EXHAUSTED · 83adbe849e13");
-  expect(human.stdout).toContain("Current Design Run 83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0 evaluated 5 Candidates, exhausted every eligible intervention, and retained the unchanged seed.");
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · CONTINUABLE · 0366b5e29745");
+  expect(human.stdout).toContain("Current Design Run 0366b5e297454410088735df711d954c90386281ed6faf3b3453e03ef3ab12e9 stopped at its 1/1 Candidate budget with searchable frontier evidence.");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
@@ -795,6 +795,46 @@ test("public industrial commands project shared Core operation metadata", async 
     }));
   }
 });
+
+test("simulate exposes adaptive cadence policy use equally in human and Agent output", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-cadence-cli-"));
+  const projectDir = join(parent, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  const sourcePath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  const blueprint = JSON.parse(await readFile(sourcePath, "utf8"));
+  const deposition = blueprint.devices.find((device: { id: string }) => device.id === "deposition-1");
+  const normal = structuredClone(deposition.recipe);
+  delete deposition.recipe;
+  deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
+  deposition.policy.cadenceControl = {
+    kind: "downstream-starvation-recovery",
+    process: "deposit-dielectric-stack",
+    normalMode: "qualified",
+    recoveryMode: "agile-pulse",
+    downstreamConnection: "deposition-to-batch-furnace",
+    recoverBelowItems: 1,
+  };
+  const cadencePath = join(projectDir, "blueprints/cadence.blueprint.json");
+  await writeFile(cadencePath, `${JSON.stringify(blueprint, null, 2)}\n`);
+
+  const machine = await runCli(["simulate", projectDir, "--blueprint", "cadence", "--json"]);
+  const human = await runCli(["simulate", projectDir, "--blueprint", "cadence"]);
+  expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
+    .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+  const control = JSON.parse(machine.stdout).data.result.metrics.cadenceControl.devices["deposition-1"];
+  expect(control).toEqual(expect.objectContaining({
+    normalMode: "qualified",
+    recoveryMode: "agile-pulse",
+    downstreamConnection: "deposition-to-batch-furnace",
+    recoverBelowItems: 1,
+  }));
+  expect(control.normalJobs).toBeGreaterThan(0);
+  expect(control.recoveryJobs).toBeGreaterThan(0);
+  expect(human.stdout).toContain(`Cadence control deposition-1: deposit-dielectric-stack · ${control.normalJobs} qualified / ${control.recoveryJobs} agile-pulse jobs · recover below 1 items on deposition-to-batch-furnace`);
+}, 15_000);
 
 test("public CLI emits stable JSON errors for invalid section, section mode, schema kind, and usage", async () => {
   const projectDir = join(repository, "examples/ironworks");

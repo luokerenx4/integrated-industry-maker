@@ -1,6 +1,7 @@
 import type { FabLossBucketId, JsonPatchOperation, ProjectProposalProvider } from "./runtime-api";
 
 interface ProposalBlueprint {
+  revision?: string;
   devices: Array<Record<string, unknown>>;
   connections: Array<Record<string, unknown>>;
   policies: Record<string, unknown>;
@@ -159,6 +160,43 @@ function commissionedAgilePulsePatch(blueprint: ProposalBlueprint): JsonPatchOpe
     "deposit-dielectric-stack",
     "agile-pulse",
   );
+}
+
+function commissionedAdaptiveCadencePatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  if (![
+    "5f2852b5c09a5fe68e7ab1a32a52cc401742146caaf51fb8a672ada8a89882fd",
+    "6ed24bc31d8176104a511777e4e6296f04a623547c8d97c491196e28e00f1c23",
+  ].includes(blueprint.revision ?? "")) return null;
+  const index = deviceIndex(blueprint, "deposition-1");
+  if (index < 0) return null;
+  const deposition = blueprint.devices[index]!;
+  const recipe = deposition.recipe;
+  const policy = deposition.policy;
+  if (deposition.asset !== "ald-deposition-bay"
+    || !isRecord(recipe)
+    || recipe.process !== "deposit-dielectric-stack"
+    || recipe.mode !== "qualified"
+    || deposition.recipes !== undefined
+    || !isRecord(policy)
+    || policy.recipeDispatch !== undefined
+    || policy.cadenceControl !== undefined) return null;
+  const normal = structuredClone(recipe);
+  return [
+    { op: "remove", path: `/devices/${index}/recipe` },
+    { op: "add", path: `/devices/${index}/recipes`, value: [normal, { ...structuredClone(normal), mode: "agile-pulse" }] },
+    {
+      op: "add",
+      path: `/devices/${index}/policy/cadenceControl`,
+      value: {
+        kind: "downstream-starvation-recovery",
+        process: "deposit-dielectric-stack",
+        normalMode: "qualified",
+        recoveryMode: "agile-pulse",
+        downstreamConnection: "deposition-to-batch-furnace",
+        recoverBelowItems: 1,
+      },
+    },
+  ];
 }
 
 function lithographyCampaignInterruptionEscapePatch(
@@ -715,6 +753,14 @@ const candidates: Candidate[] = [
     addresses: ["yield-quality", "release-admission", "queue-congestion"],
     subjects: ["etch-l2", "rework-1"],
     patch: advancedPatternRecoveryPatch,
+  },
+  {
+    strategy: "recipe:adaptive-agile-pulse-deposition-below-1",
+    hypothesis: "The existing ALD bay can use its qualified agile pulse only while the exact furnace-bound lane has no resident or in-flight dielectric-stack lot, then return to its normal recipe as soon as downstream coverage recovers.",
+    expectedEffect: "Recover measured furnace input gaps without paying the always-agile power and WIP cost during healthy downstream coverage; every locked case remains authoritative.",
+    addresses: ["input-starvation"],
+    subjects: ["deposition-1", "deposition-to-batch-furnace", "furnace-1"],
+    patch: commissionedAdaptiveCadencePatch,
   },
   {
     strategy: "recipe:agile-pulse-deposition",

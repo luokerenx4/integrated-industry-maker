@@ -1,6 +1,6 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, route-slack-, contract-window-, fixed-batch-, setup-campaign-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.75.0`.
+Status: multi-operation qualification plus operation-, lot-, route-slack-, contract-window-, fixed-batch-, setup-campaign-, cadence-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.79.0`.
 
 Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
@@ -33,6 +33,8 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 
 `lotDispatch` independently chooses the exact identities consumed after an operation wins: `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority`. Operation dispatch and lot dispatch are separate because a shared work center first chooses a route step and then chooses WIP within that step. See [[docs/design/lot-tracking]].
 
+`cadenceControl` is a separate, deliberately narrower controller for exactly two modes of one Process with identical material work. It selects the recovery mode only while resident plus in-flight coverage on one exact downstream Connection is below the authored item boundary. It cannot coexist with `recipeDispatch`, `setupCampaign`, or `batchFormation`; broader operation choice remains owned by those policies rather than an implicit priority stack.
+
 Selection occurs only while the Device is idle. A ready operation has every exact input batch available and enough reserved output capacity. If its Process setup group differs from setup-sensitive equipment state, the host may first apply the Blueprint's bounded setup-campaign rule, then completes the asset's exact directed powered transition before material is consumed. Work is non-preemptive after start. When nothing is ready, the highest-ranked operation is still exposed to the Device program so the normal waiting-input or blocked-output state remains observable. See [[docs/design/equipment-changeover]] and [[docs/design/setup-campaign-control]].
 
 ## Runtime authority and determinism
@@ -43,7 +45,7 @@ For `least-slack`, the current operation contributes its exact compiled duration
 
 For `contract-value`, the runtime projects the number of complete cycles each operation can fit before the Scenario contract window ends after the exact currently required directed setup transition. It values those projected outputs against committed demand, then uses first-completion time, one-job value rate, authored priority, and authored order as deterministic tie-breaks. This is a local equipment-capacity horizon: it assumes continuing feed for the projection, while ordinary readiness still requires the next exact material batch, tooling, utility capacity, output room, and power before physical work starts. See [[docs/design/delivery-contracts]].
 
-The event stream records the selected Process id and tracked lot ids in `device.start` and `device.finish`. A least-slack start additionally records the decisive lot, nominal remaining Route ticks, and computed slack, so a replay can explain the choice without recomputing live state. Existing utilization, waiting, blocking, power, WIP, and transport metrics measure shared-equipment contention because one Device can own only one active job; lot clocks additionally measure the scheduling consequences.
+The event stream records the selected Process id, production mode, and tracked lot ids in `device.start` and `device.finish`. A least-slack start additionally records the decisive lot, nominal remaining Route ticks, and computed slack, so a replay can explain the choice without recomputing live state. Cadence metrics count normal/recovery starts beside the exact control boundary. Existing utilization, waiting, blocking, power, WIP, and transport metrics measure shared-equipment contention because one Device can own only one active job; lot clocks additionally measure the scheduling consequences.
 
 ## Static analysis boundary
 

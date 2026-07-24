@@ -54,6 +54,66 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
   }
 }, 30_000);
 
+test("Studio projects authored adaptive cadence control and measured mode use from one run", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-cadence-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  const sourcePath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  const blueprint = JSON.parse(await readFile(sourcePath, "utf8"));
+  const deposition = blueprint.devices.find((device: { id: string }) => device.id === "deposition-1");
+  const normal = structuredClone(deposition.recipe);
+  delete deposition.recipe;
+  deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
+  deposition.policy.cadenceControl = {
+    kind: "downstream-starvation-recovery",
+    process: "deposit-dielectric-stack",
+    normalMode: "qualified",
+    recoveryMode: "agile-pulse",
+    downstreamConnection: "deposition-to-batch-furnace",
+    recoverBelowItems: 1,
+  };
+  await writeFile(join(projectDir, "blueprints/cadence.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
+  const run = await simulateProjectOperation(projectDir, { blueprint: "cadence" }, { seed: 42 });
+  const port = 46_000 + process.pid % 1_000;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+    const response = await fetch(`http://localhost:${port}/api/projects/memory-fab/data?run=${run.data.run.id}`);
+    expect(response.status).toBe(200);
+    const data = await response.json() as {
+      devices: Array<{ id: string; cadenceControl?: Record<string, unknown> }>;
+      metrics: { cadenceControl: { devices: Record<string, { normalJobs: number; recoveryJobs: number }> } };
+    };
+    expect(data.devices.find((device) => device.id === "deposition-1")?.cadenceControl).toEqual({
+      kind: "downstream-starvation-recovery",
+      process: "deposit-dielectric-stack",
+      normalMode: "qualified",
+      recoveryMode: "agile-pulse",
+      downstreamConnection: "deposition-to-batch-furnace",
+      recoverBelowItems: 1,
+    });
+    expect(data.metrics.cadenceControl.devices["deposition-1"]!.normalJobs).toBeGreaterThan(0);
+    expect(data.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs).toBeGreaterThan(0);
+  } finally {
+    child.kill();
+    await child.exited;
+  }
+}, 30_000);
+
 test("opening a project without runs does not write a Studio baseline", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-readonly-"));
   const projectDir = join(root, "ironworks");

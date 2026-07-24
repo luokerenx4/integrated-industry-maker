@@ -680,11 +680,24 @@ export function evaluateFactory(
     utilization: fleet.count > 0 ? (stats.stationFleetBusyArea[key] ?? 0) / duration / fleet.count : 0,
   }] as const;
   })));
+  const cadenceControl: FactoryMetrics["cadenceControl"] = {
+    devices: Object.fromEntries(Object.values(project.devices).flatMap((device) => {
+      const control = device.policy?.cadenceControl;
+      if (!control) return [];
+      return [[device.id, {
+        ...control,
+        normalJobs: events.filter((event) => event.type === "device.start" && event.device === device.id
+          && event.operation === control.process && event.mode === control.normalMode).length,
+        recoveryJobs: events.filter((event) => event.type === "device.start" && event.device === device.id
+          && event.operation === control.process && event.mode === control.recoveryMode).length,
+      }]];
+    })),
+  };
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, batchFlow, energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, batchFlow, cadenceControl, energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

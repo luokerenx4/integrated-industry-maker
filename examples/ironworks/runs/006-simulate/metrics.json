@@ -73,6 +73,9 @@
     "synth-smelt-iron-2": 0
   },
   "bottleneckEntity": "synth-smelt-iron-1",
+  "cadenceControl": {
+    "devices": {}
+  },
   "carrierMissions": 5,
   "carrierReturns": 4,
   "completedOrders": 40,

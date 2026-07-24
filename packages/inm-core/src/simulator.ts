@@ -1463,6 +1463,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         mode: selectedProcessPlan.mode.id,
         preventsDefects: [...selectedProcessPlan.mode.preventsDefects],
       } } : {}),
+      ...(selectedProcessPlan ? { productionMode: selectedProcessPlan.mode.id } : {}),
       ...(selectedProcessPlan && runtime.maintenance ? { production: true as const } : {}),
       ...(equipmentDrift ? { equipmentDrift: {
         afterJobs: equipmentDrift.afterJobs,
@@ -1489,7 +1490,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const routeDispatchLot = selectedProcessPlan && device.policy?.recipeDispatch === "least-slack" && jobLotIds.length
       ? [...jobLotIds].sort((left, right) => lotSlackTicks(left, selectedProcessPlan) - lotSlackTicks(right, selectedProcessPlan) || left.localeCompare(right))[0]
       : undefined;
-    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: effectiveDurationTicks,
+    emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation,
+      ...(selectedProcessPlan ? { mode: selectedProcessPlan.mode.id } : {}), durationTicks: effectiveDurationTicks,
       ...(jobLotIds.length ? { lotIds: jobLotIds } : {}),
       ...(routeDispatchLot && selectedProcessPlan ? { routeDispatch: {
         policy: "least-slack", lot: routeDispatchLot,
@@ -1580,6 +1582,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     candidates: CompiledDevice["processPlans"] = device.processPlans,
   ): Array<{ plan: CompiledDevice["processPlans"][number]; index: number }> => {
     const ranked = candidates.map((plan) => ({ plan, index: device.processPlans.indexOf(plan) }));
+    const cadence = device.policy?.cadenceControl;
+    if (cadence) {
+      const connection = project.connections[cadence.downstreamConnection]!;
+      const output = device.processPlans.find((plan) =>
+        plan.definition.id === cadence.process && plan.mode.id === cadence.normalMode)!.outputs[0]!;
+      const coverage = materialQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0)
+        + incomingQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0);
+      const preferredMode = coverage < cadence.recoverBelowItems ? cadence.recoveryMode : cadence.normalMode;
+      ranked.sort((left, right) => Number(right.plan.definition.id === cadence.process && right.plan.mode.id === preferredMode)
+        - Number(left.plan.definition.id === cadence.process && left.plan.mode.id === preferredMode)
+        || left.index - right.index);
+      return ranked;
+    }
     const policy = device.policy?.recipeDispatch ?? "authored-order";
     if (policy === "shortest-cycle") ranked.sort((left, right) => left.plan.durationTicks - right.plan.durationTicks || left.index - right.index);
     else if (policy === "highest-priority") ranked.sort((left, right) => right.plan.priority - left.plan.priority || left.index - right.index);
@@ -2709,7 +2724,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         ...(job.equipmentDrift ? { driftedLots: driftLotIds.length, driftDefects: driftDefectsIntroduced } : {}),
       });
       markDeviceIdle(project.devices[event.device]!); mutateFactoryState(state, { kind: "job.finish", device: event.device });
-      emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation, produced: structuredClone(job.produce),
+      emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation,
+        ...(job.productionMode ? { mode: job.productionMode } : {}), produced: structuredClone(job.produce),
         ...(trackedJobLotIds(job).length ? { lotIds: trackedJobLotIds(job) } : {}) });
       }
     } else if (event.kind === "belt-step") {

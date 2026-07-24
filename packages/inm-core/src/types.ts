@@ -484,6 +484,19 @@ export interface BlueprintRecipe {
   /** Exact physical port selected for each Process output Resource. */
   outputs: Record<ResourceId, PortId>;
 }
+export interface DownstreamStarvationRecoveryPolicy {
+  kind: "downstream-starvation-recovery";
+  /** The one material transformation shared by both qualified modes. */
+  process: ProcessId;
+  /** Normal qualified mode used while downstream coverage is healthy. */
+  normalMode: string;
+  /** Recovery-oriented qualified mode used below the authored coverage boundary. */
+  recoveryMode: string;
+  /** Exact physical lane whose destination buffer and Resource define downstream coverage. */
+  downstreamConnection: ConnectionId;
+  /** Select recoveryMode while resident plus in-flight destination items are below this count. */
+  recoverBelowItems: number;
+}
 export interface BlueprintDevice {
   id: DeviceInstanceId;
   asset: DeviceAssetId;
@@ -510,6 +523,8 @@ export interface BlueprintDevice {
     dispatch?: DispatchPolicy;
     /** Deterministic selection among ready qualified operations. */
     recipeDispatch?: RecipeDispatchPolicy;
+    /** Non-preemptive same-Process mode selection from explicit downstream physical coverage. */
+    cadenceControl?: DownstreamStarvationRecoveryPolicy;
     /** Deterministic selection of identity-preserving lots within a ready operation. */
     lotDispatch?: LotDispatchPolicy;
     /** Setup-sensitive work-center campaign formation before switching to another recipe family. */
@@ -1023,6 +1038,8 @@ export interface ActiveDeviceJob {
   utilities?: Array<{ provider: DeviceInstanceId; utility: string; units: number }>;
   /** Only successfully completed jobs with this marker consume the maintenance usage budget. */
   production?: true;
+  /** Exact production mode selected for this material-processing job. */
+  productionMode?: string;
   /** Evaluator-owned wear state captured when this production job started. */
   equipmentDrift?: {
     afterJobs: number;
@@ -1331,8 +1348,8 @@ export type FactoryEvent =
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
   | { type: "device.batch-held"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; preferredLots: number; deadlineTick: Tick }
   | { type: "device.batch-released"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; heldTicks: Tick; cause: "preferred-ready" | "maximum-wait" }
-  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; durationTicks: Tick; lotIds?: string[]; routeDispatch?: { policy: "least-slack"; lot: string; remainingRouteTicks: Tick; slackTicks: Tick } }
-  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
+  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; durationTicks: Tick; lotIds?: string[]; routeDispatch?: { policy: "least-slack"; lot: string; remainingRouteTicks: Tick; slackTicks: Tick } }
+  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
   | { type: "transport.stage-finish"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string }
   | { type: "resource.extracted"; tick: Tick; device: DeviceInstanceId; node: string; resource: ResourceId; count: number; remaining: number }
@@ -1571,6 +1588,18 @@ export interface FactoryMetrics {
       averageLotsPerJob: number;
       maximumLotsPerJob: number;
       meanQueueWaitTicksPerLot: number;
+    }>;
+  };
+  cadenceControl: {
+    devices: Record<DeviceInstanceId, {
+      kind: "downstream-starvation-recovery";
+      process: ProcessId;
+      normalMode: string;
+      recoveryMode: string;
+      downstreamConnection: ConnectionId;
+      recoverBelowItems: number;
+      normalJobs: number;
+      recoveryJobs: number;
     }>;
   };
   energyConsumedMilliJoules: number;

@@ -24,6 +24,9 @@
     "stacked-link-unloader": 0
   },
   "bottleneckEntity": null,
+  "cadenceControl": {
+    "devices": {}
+  },
   "carrierMissions": 0,
   "carrierReturns": 0,
   "completedOrders": 8,

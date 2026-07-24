@@ -1755,6 +1755,63 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     });
   }
 
+  for (const device of Object.values(devices).sort((left, right) => left.id.localeCompare(right.id))) {
+    const control = device.policy?.cadenceControl;
+    if (!control) continue;
+    const deviceIndex = loaded.blueprint.devices.findIndex((candidate) => candidate.id === device.id);
+    const controlPath = `blueprint/devices/${deviceIndex}/policy/cadenceControl`;
+    const controlledPlans = device.processPlans.filter((plan) => plan.definition.id === control.process);
+    const normal = controlledPlans.filter((plan) => plan.mode.id === control.normalMode);
+    const recovery = controlledPlans.filter((plan) => plan.mode.id === control.recoveryMode);
+    if (!device.recipes || device.recipe || device.processPlans.length !== 2 || controlledPlans.length !== 2
+      || normal.length !== 1 || recovery.length !== 1) issues.push({
+      path: controlPath, code: "production.cadence-qualified-pair",
+      message: `Cadence control on '${device.id}' requires exactly two recipes for Process '${control.process}', one each in normal mode '${control.normalMode}' and recovery mode '${control.recoveryMode}'`,
+    });
+    if (control.normalMode === control.recoveryMode) issues.push({
+      path: `${controlPath}/recoveryMode`, code: "production.cadence-distinct-modes",
+      message: `Cadence control on '${device.id}' requires distinct normal and recovery modes`,
+    });
+    if (device.policy?.recipeDispatch || device.policy?.setupCampaign || device.policy?.batchFormation) issues.push({
+      path: controlPath, code: "production.cadence-dispatch-exclusive",
+      message: `Cadence control on '${device.id}' cannot be combined with recipeDispatch, setupCampaign, or batchFormation`,
+    });
+    const normalPlan = normal[0];
+    const recoveryPlan = recovery[0];
+    if (!normalPlan || !recoveryPlan) continue;
+    const materialShape = (plan: typeof normalPlan) => JSON.stringify({
+      inputs: plan.inputs, outputs: plan.outputs, lotTransfers: plan.lotTransfers,
+      lotTerminations: plan.lotTerminations, lotOutputProfiles: plan.lotOutputProfiles,
+    });
+    if (materialShape(normalPlan) !== materialShape(recoveryPlan)) issues.push({
+      path: controlPath, code: "production.cadence-material-mismatch",
+      message: `Cadence modes '${control.normalMode}' and '${control.recoveryMode}' on '${device.id}' must execute identical input, output, and lot material work`,
+    });
+    if (normalPlan.outputs.length !== 1) issues.push({
+      path: controlPath, code: "production.cadence-output-ambiguous",
+      message: `Cadence-controlled Process '${control.process}' on '${device.id}' must have exactly one compiled output Resource`,
+    });
+    const output = normalPlan.outputs[0];
+    const connection = connections[control.downstreamConnection];
+    if (!connection) issues.push({
+      path: `${controlPath}/downstreamConnection`, code: "production.cadence-connection",
+      message: `Cadence control on '${device.id}' references unknown compiled Connection '${control.downstreamConnection}'`,
+    });
+    else if (!output || connection.fromDevice.id !== device.id || connection.fromPort.buffer !== output.buffer
+      || connection.resources.length !== 1 || connection.resources[0] !== output.resource) issues.push({
+      path: `${controlPath}/downstreamConnection`, code: "production.cadence-connection-contract",
+      message: `Cadence Connection '${connection.id}' must originate at '${device.id}' and carry only the controlled Process output through its bound output buffer`,
+    });
+    else {
+      const destinationBuffer = connection.toDevice.buffers[connection.toPort.buffer]!;
+      const destinationCapacity = destinationBuffer.resourceCapacities?.[output.resource] ?? destinationBuffer.capacity;
+      if (control.recoverBelowItems > destinationCapacity) issues.push({
+        path: `${controlPath}/recoverBelowItems`, code: "production.cadence-threshold-capacity",
+        message: `Cadence recovery boundary ${control.recoverBelowItems} exceeds destination capacity ${destinationCapacity} for '${output.resource}'`,
+      });
+    }
+  }
+
   const transportCells: Record<string, CompiledTransportCell> = {};
   for (const connection of Object.values(connections).sort((a, b) => a.id.localeCompare(b.id))) {
     const lineAsset = connection.logisticsStages.find((stage) => stage.stage === "line")!.asset;

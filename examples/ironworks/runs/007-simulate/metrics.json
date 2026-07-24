@@ -33,6 +33,9 @@
     "synth-refined-oil-synth-refine-crude-1-to-synth-make-plastic-1-unloader": 0
   },
   "bottleneckEntity": "synth-refine-crude-1",
+  "cadenceControl": {
+    "devices": {}
+  },
   "carrierMissions": 0,
   "carrierReturns": 0,
   "completedOrders": 26,

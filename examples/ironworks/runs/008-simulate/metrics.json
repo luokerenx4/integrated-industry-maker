@@ -36,6 +36,9 @@
     "synth-xray-crack-oil-1": 0
   },
   "bottleneckEntity": "synth-refine-crude-1",
+  "cadenceControl": {
+    "devices": {}
+  },
   "carrierMissions": 0,
   "carrierReturns": 0,
   "completedOrders": 104,

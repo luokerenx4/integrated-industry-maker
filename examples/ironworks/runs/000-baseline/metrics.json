@@ -48,6 +48,9 @@
     "wind-assembly-recipe-line": 0
   },
   "bottleneckEntity": "smelter-1",
+  "cadenceControl": {
+    "devices": {}
+  },
   "carrierMissions": 5,
   "carrierReturns": 4,
   "completedOrders": 9,

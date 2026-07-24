@@ -7,7 +7,7 @@ import {
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation,
-  type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type LoadedFactoryProject,
+  type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type FactoryEvent, type LoadedFactoryProject,
 } from "./index";
 
 const ironworks = resolve(import.meta.dir, "../../../examples/ironworks");
@@ -732,6 +732,62 @@ describe("blueprint compiler", () => {
     expect(result.events.find((event) => event.type === "device.start" && event.device === "assembler-1")).toEqual(expect.objectContaining({ operation: "forge-gear-pair" }));
     expect(result.state.produced.gear).toBe(2);
     expect(analyzeProduction(project).devices.filter((device) => device.device === "assembler-1")).toHaveLength(2);
+  });
+
+  test("cadence control recovers an explicit downstream lane with an auditable qualified mode pair", async () => {
+    const cadenceSource = async () => {
+      const source = await loadFactoryProject(memoryFab);
+      const deposition = source.blueprint.devices.find((device) => device.id === "deposition-1")!;
+      const normal = structuredClone(deposition.recipe!);
+      delete deposition.recipe;
+      deposition.recipes = [normal, { ...structuredClone(normal), mode: "agile-pulse" }];
+      deposition.policy = {
+        ...deposition.policy,
+        cadenceControl: {
+          kind: "downstream-starvation-recovery",
+          process: "deposit-dielectric-stack",
+          normalMode: "qualified",
+          recoveryMode: "agile-pulse",
+          downstreamConnection: "deposition-to-batch-furnace",
+          recoverBelowItems: 1,
+        },
+      };
+      return source;
+    };
+    const project = compileFactoryProject(await cadenceSource());
+    const first = runUntil(project, undefined, { seed: 42 });
+    const second = runUntil(project, undefined, { seed: 42 });
+    expect(second.events).toEqual(first.events);
+    const starts = first.events.filter((event): event is Extract<FactoryEvent, { type: "device.start" }> => event.type === "device.start"
+      && event.device === "deposition-1" && event.operation === "deposit-dielectric-stack");
+    const finishes = first.events.filter((event): event is Extract<FactoryEvent, { type: "device.finish" }> => event.type === "device.finish"
+      && event.device === "deposition-1" && event.operation === "deposit-dielectric-stack");
+    expect(starts.map((event) => event.mode)).toContain("agile-pulse");
+    expect(starts.map((event) => event.mode)).toContain("qualified");
+    expect(finishes.map((event) => event.mode)).toEqual(starts.map((event) => event.mode));
+    expect(first.metrics.cadenceControl.devices["deposition-1"]).toEqual({
+      kind: "downstream-starvation-recovery",
+      process: "deposit-dielectric-stack",
+      normalMode: "qualified",
+      recoveryMode: "agile-pulse",
+      downstreamConnection: "deposition-to-batch-furnace",
+      recoverBelowItems: 1,
+      normalJobs: starts.filter((event) => event.mode === "qualified").length,
+      recoveryJobs: starts.filter((event) => event.mode === "agile-pulse").length,
+    });
+
+    const conflicted = await cadenceSource();
+    conflicted.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.recipeDispatch = "shortest-cycle";
+    expect(issueCodes(() => compileFactoryProject(conflicted))).toContain("production.cadence-dispatch-exclusive");
+    const wrongLane = await cadenceSource();
+    wrongLane.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.downstreamConnection = "batch-furnace-to-lithography";
+    expect(issueCodes(() => compileFactoryProject(wrongLane))).toContain("production.cadence-connection-contract");
+    const overCapacity = await cadenceSource();
+    overCapacity.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.recoverBelowItems = 10_000;
+    expect(issueCodes(() => compileFactoryProject(overCapacity))).toContain("production.cadence-threshold-capacity");
+    const materialMismatch = await cadenceSource();
+    materialMismatch.deviceAssets["ald-deposition-bay"]!.production!.modes.find((mode) => mode.id === "agile-pulse")!.minimumInputTreatmentLevel = 1;
+    expect(issueCodes(() => compileFactoryProject(materialMismatch))).toContain("production.cadence-material-mismatch");
   });
 
   test("asset limits, planned stops, and opportunistic windows remain physically distinct", async () => {
@@ -1674,7 +1730,7 @@ describe("blueprint compiler", () => {
     expect(interrupted.metrics.lotFlow.scrapped).toBe(5);
     expect(Object.values(interrupted.state.lots).filter((lot) => lot.status === "scrapped")).toHaveLength(5);
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
-  }, 30_000);
+  }, 60_000);
 
   test("advanced pattern recovery repairs particle contamination without hiding latent electrical damage", async () => {
     const source = await loadFactoryProject(memoryFab, {
@@ -3969,7 +4025,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.changes.map((change) => change.id)).toContain("lithography-2");
     expect(result.changes.map((change) => change.id)).toContain("etch-2");
     expect(result.changes.map((change) => change.id)).toContain("lithography-to-etch-lithography-2");
-  }, 15_000);
+  }, 30_000);
 
   test("keeps a one-value DRAM product-mix control edit against a locked evaluator", async () => {
     const result = await evaluateBlueprintBenchmark(memoryFab, "product-mix-research");

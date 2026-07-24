@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/adaptive-cadence-mode-control]] | Let an explicitly qualified Device recover downstream starvation with a bounded alternate production mode and shared human/Agent evidence. | 2026-07-24 |
 | [[plans/current-schema-commissioned-frontier]] | Rebuild a useful current-contract optimization frontier for the commissioned memory fab without reviving incompatible evidence or weakening industrial guards. | 2026-07-24 |
 | [[plans/recoverable-transport-loss-attribution]] | Rank only measured physical-lane blocking as transport loss while preserving necessary transit as context for humans and Agents. | 2026-07-24 |
 | [[plans/commissioned-input-starvation-convergence]] | Investigate the commissioned memory fab's leading front-end input-starvation signal through explicit project-local cadence interventions and the locked Benchmark. | 2026-07-24 |

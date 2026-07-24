@@ -218,6 +218,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       } : {}),
       ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
       ...(device.policy?.batchFormation ? { batchFormation: { ...device.policy.batchFormation } } : {}),
+      ...(device.policy?.cadenceControl ? { cadenceControl: { ...device.policy.cadenceControl } } : {}),
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),
       ...(device.policy?.idleEnergy ? { idleEnergy: { ...device.policy.idleEnergy } } : {}),
       ...(device.assetDef.production?.maintenance ? { maintenance: { ...device.assetDef.production.maintenance } } : {}),

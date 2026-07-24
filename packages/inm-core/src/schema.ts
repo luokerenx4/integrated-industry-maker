@@ -245,6 +245,14 @@ export const blueprintSchema = z.object({
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
       recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "contract-value", "oldest-lot", "earliest-due-date", "least-slack", "highest-lot-priority"]).optional(),
+      cadenceControl: z.object({
+        kind: z.literal("downstream-starvation-recovery"),
+        process: id,
+        normalMode: id,
+        recoveryMode: id,
+        downstreamConnection: id,
+        recoverBelowItems: positiveInt,
+      }).strict().optional(),
       lotDispatch: z.enum(["fifo", "oldest-release", "earliest-due-date", "highest-priority"]).optional(),
       setupCampaign: z.object({ minimumReadyLots: positiveInt, maximumHoldTicks: nonNegativeInt }).strict().optional(),
       batchFormation: z.object({ preferredProcess: id, maximumWaitTicks: nonNegativeInt }).strict().optional(),
