@@ -141,6 +141,23 @@
         "auxiliaryInputs": [],
         "preventsDefects": [],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "agile-screening-5-8",
+        "name": "Agile qualified screening",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 5,
+          "denominator": 8
+        },
+        "powerMultiplier": {
+          "numerator": 8,
+          "denominator": 5
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0
       }
     ],
     "changeover": {

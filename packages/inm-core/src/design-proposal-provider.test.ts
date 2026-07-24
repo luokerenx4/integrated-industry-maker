@@ -168,6 +168,76 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
   })).not.toThrow();
 });
 
+test("commissioned terminal queue proposes the bounded agile screening mode", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const burnIn = loaded.blueprint.devices.find((device) => device.id === "burn-in-1");
+  if (!burnIn?.recipes) {
+    throw new Error("Missing commissioned final-test recipes");
+  }
+  for (const recipe of burnIn.recipes) {
+    recipe.mode = "high-throughput-qualified";
+  }
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const measured = analyzeFabLossProfile(
+    result.metrics,
+    project.scenario.durationTicks,
+    project,
+    result.events,
+  )!;
+  const queue = measured.buckets.find((bucket) => bucket.id === "queue-congestion")!;
+  const proposal = await new ProjectStrategyResearchAgent(
+    root,
+    "strategies/integrated-dram-proposals.ts",
+  ).propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss: { ...measured, primary: queue, chain: ["queue-congestion"] },
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  });
+  const burnInIndex = project.blueprint.devices.findIndex((device) => device.id === "burn-in-1");
+
+  expect(proposal).toMatchObject({
+    strategy: "recipe:agile-qualified-terminal-screening",
+    addressedLoss: "queue-congestion",
+    patch: [
+      {
+        op: "replace",
+        path: `/devices/${burnInIndex}/recipes/0/mode`,
+        value: "agile-screening-5-8",
+      },
+      {
+        op: "replace",
+        path: `/devices/${burnInIndex}/recipes/1/mode`,
+        value: "agile-screening-5-8",
+      },
+    ],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+});
+
 test("commissioned provider proposes only layer-two lithography EDD after cadence control", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
@@ -542,8 +612,8 @@ test("current commissioned fab prevents latent etch damage without reintroducing
       inProgress: 0,
       firstPassYield: 10 / 12,
       deliveryShortfall: 0,
-      deliveryOverflow: 46,
-      portfolioNetValue: 304,
+      deliveryOverflow: 37,
+      portfolioNetValue: 342,
       scrapped: 0,
     },
   });

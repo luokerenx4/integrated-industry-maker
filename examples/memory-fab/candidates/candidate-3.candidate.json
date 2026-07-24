@@ -1,0 +1,27 @@
+{
+  "baseCandidateHash": "967aa232816e20e936e6e3e16d63114f52971574e825185f19aa36c9394e0a07",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 339f3d9f9aaa: aggregate score 41.695698 (+116.671420 versus locked baseline) across 5 cases.",
+  "hypothesis": "The commissioned final-test rack can shorten both already-qualified screening cycles from two-thirds to five-eighths duration by raising active power from 150% to 160%, clearing packaged-device tail inventory without buying another rack.",
+  "id": "candidate-3",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/10/recipes/0/mode",
+      "value": "agile-screening-5-8"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/10/recipes/1/mode",
+      "value": "agile-screening-5-8"
+    }
+  ],
+  "source": {
+    "blueprintHash": "dc9909a63f85966cf52c5b5080159b8e74395080020ae0f79e090ff5a8d006f1",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "339f3d9f9aaac02d5b8884f7bae6062e4238cd3e94e89318558ccb5d9a6fa513"
+  },
+  "version": 1
+}

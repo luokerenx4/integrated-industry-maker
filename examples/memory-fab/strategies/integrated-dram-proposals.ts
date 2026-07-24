@@ -429,6 +429,26 @@ function recoveredOutputHighThroughputPatch(blueprint: ProposalBlueprint): JsonP
   return modePatch.length === requiredProcesses.size ? [...recoveryPatch, ...modePatch] : null;
 }
 
+function burnInAgileScreeningPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
+  const burnInIndex = deviceIndex(blueprint, "burn-in-1");
+  if (burnInIndex < 0) return null;
+  const recipes = blueprint.devices[burnInIndex]!.recipes;
+  if (!Array.isArray(recipes)) return null;
+  const requiredProcesses = new Set(["screen-commercial-dram", "screen-performance-mix"]);
+  const modePatch: JsonPatchOperation[] = [];
+  for (const [recipeIndex, recipe] of recipes.entries()) {
+    if (!isRecord(recipe) || !requiredProcesses.has(String(recipe.process))) continue;
+    if (recipe.mode === "agile-screening-5-8") continue;
+    if (recipe.mode !== "high-throughput-qualified") return null;
+    modePatch.push({
+      op: "replace",
+      path: `/devices/${burnInIndex}/recipes/${recipeIndex}/mode`,
+      value: "agile-screening-5-8",
+    });
+  }
+  return modePatch.length === requiredProcesses.size ? modePatch : null;
+}
+
 function burnInContractValuePatch(blueprint: { devices: Array<Record<string, unknown>> }): JsonPatchOperation[] | null {
   const requiredCommissionedDevices = ["fab-utility-plant-2", "lithography-1", "burn-in-1"];
   if (requiredCommissionedDevices.some((id) => deviceIndex(blueprint, id) < 0)) return null;
@@ -782,6 +802,14 @@ const candidates: Candidate[] = [
     addresses: ["yield-quality", "q-time", "maintenance-qualification", "release-admission", "queue-congestion"],
     subjects: ["inspection-1"],
     patch: continuousDeepMetrologyPatch,
+  },
+  {
+    strategy: "recipe:agile-qualified-terminal-screening",
+    hypothesis: "The commissioned final-test rack can shorten both already-qualified screening cycles from two-thirds to five-eighths duration by raising active power from 150% to 160%, clearing packaged-device tail inventory without buying another rack.",
+    expectedEffect: "Convert terminal packaged-device WIP into paid portfolio output across ordinary and interrupted production while preserving the exact equipment, product bins, release policy, and evaluator-owned demand.",
+    addresses: ["queue-congestion", "delivery-portfolio"],
+    subjects: ["burn-in-1"],
+    patch: burnInAgileScreeningPatch,
   },
   {
     strategy: "recipe:particle-suppression-layer-two-etch",

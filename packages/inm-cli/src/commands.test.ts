@@ -700,8 +700,8 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(inputStarvation).toMatchObject({
     subjects: [{ kind: "device", id: "furnace-1" }],
     evidence: {
-      rawWaitingInputTicks: 1_669_016,
-      boundaryWaitingInputTicks: 1_179_140,
+      rawWaitingInputTicks: 1_658_172,
+      boundaryWaitingInputTicks: 1_168_296,
       exceptionWaitingInputTicks: 232_000,
       starvationTicks: 257_876,
     },
@@ -713,8 +713,8 @@ test("public inspect gives Agents and humans the same current loss contributors"
   });
   expect(qTime).toBeUndefined();
   expect(transportBlocking).toMatchObject({
-    evidence: { blockedConnections: 1, blockedItemTicks: 100, connections: 17 },
-    subjects: [{ kind: "connection", id: "etch-to-inspection" }],
+    evidence: { blockedConnections: 3, blockedItemTicks: 79_200, connections: 17 },
+    subjects: [{ kind: "connection", id: "probe-to-packaging" }],
   });
 
   const human = await runCli(["inspect", projectDir]);
@@ -729,7 +729,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same exhausted current Design authority", async () => {
+test("public inspect gives Agents and humans the same missing current Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
@@ -743,31 +743,29 @@ test("public inspect gives Agents and humans the same exhausted current Design a
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "exhausted",
-      authorityRunId: "5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9",
-      currentRuns: 1,
-      historicalRuns: 2,
+      state: "missing",
+      authorityRunId: null,
+      currentRuns: 0,
+      historicalRuns: 4,
       invalidRuns: expect.any(Number),
     }),
   }));
   expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
-    actionLabel: "REVIEW EXHAUSTED DESIGN",
+    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
+    actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab/runs/5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9",
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
     target: {
-      kind: "design-run",
+      kind: "design-program",
       programId: "commissioned-dram-fab",
-      runId: "5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9",
-      phase: "exhausted",
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · EXHAUSTED · 5942a72740b9");
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 3 valid immutable runs · 23 invalid runs excluded");
+  expect(brief.stdout).toContain("Evidence: 4 valid immutable runs · 23 invalid runs excluded");
   expect(brief.stdout).toContain("Run: inm design <path> --program commissioned-dram-fab --run");
 });
 

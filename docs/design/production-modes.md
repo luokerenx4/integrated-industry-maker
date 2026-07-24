@@ -82,6 +82,10 @@ This separation is intentional. Asset catalogs describe physically available cho
 
 The memory-fab particle-prevention study exercises the same catalog-versus-operation boundary for quality. `closed-loop-plasma-etch-bay` advertises `particle-suppression` at `13/10` active power with unchanged cycle time; it prevents exact `latent-electrical` and `particle-contamination` excursion classes. The commissioned `etch-l2` recipe remains on `closed-loop-control`. Design Run `5942a72740b993ddb9ff3324440b0d6130a0b16d0ff054e0b53605115e0268d9` retains the one-field switch as a non-promotable Pareto branch because the rework reduction improves mixed quality but changes return-flow timing enough to regress four current-best cases. An available mode is not a global upgrade and an aggregate gain is not commissioning authority.
 
+The final-test rack applies the same rule to terminal throughput. Its project-local catalog exposes `agile-screening-5-8`, which shortens both already-qualified screen programs to `5/8` duration while raising active power to `8/5`. Bounded research rejected faster `3/5` and `1/2` variants because peak-power contention breaks hard outcomes, then showed that the `5/8` envelope improves every current-best case without adding equipment or changing product disposition. Design Run `339f3d9f9aaac02d5b8884f7bae6062e4238cd3e94e89318558ccb5d9a6fa513` selected the two-recipe mode patch; Candidate `candidate-3` and review `13d5f06aa3c5df68bfd42c903a38670706a9291c3907d46f23556446cf41505e` commissioned Blueprint `dc9909a63f85966cf52c5b5080159b8e74395080020ae0f79e090ff5a8d006f1`.
+
+This terminal improvement does not make the particle branch safe. A causal trace shows that preventing `dram-lot-08` rework lets it reach the single Probe first and delay the previously on-time `dram-lot-07`; rerunning the branch against the faster final-test incumbent retains the same limiting-case regression. Physical bottlenecks and lot identity therefore remain causal even when the aggregate factory produces more value.
+
 ## Source of truth
 
 - Types/schema: `packages/inm-core/src/types.ts`, `packages/inm-core/src/schema.ts`
