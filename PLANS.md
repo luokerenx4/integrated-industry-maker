@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/current-v6-commissioned-design-authority]] | Rebuild strict current V6 commissioned Design authority and promote only a fully guarded memory-fab improvement. | 2026-07-25 |
 | [[plans/causal-transport-blocking-attribution]] | Separate local transport blocking into exact line, endpoint-capacity, endpoint-power, and endpoint-failure causes for shared human/AI decisions. | 2026-07-25 |
 | [[plans/particle-prevention-branch-repair]] | Conclusively bound the retained particle-prevention branch, trace its Probe identity-order blocker, and commission the independent zero-regression terminal-screening improvement. | 2026-07-25 |
 | [[plans/commissioned-particle-prevention-control]] | Evaluate and commission only a promotion-safe, explicitly costed layer-two particle-prevention mode for the exact memory fab, with identical human and Agent evidence. | 2026-07-25 |

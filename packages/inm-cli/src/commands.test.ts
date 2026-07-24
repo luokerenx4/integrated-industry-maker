@@ -749,8 +749,9 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same missing current Design authority", async () => {
+test("public inspect gives Agents and humans the same exhausted current V6 Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
+  const authorityRunId = "059d9ae5715394ed80c84b70d0fab51640ad0e99aed1e84378b3a7dc6200154a";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -763,29 +764,42 @@ test("public inspect gives Agents and humans the same missing current Design aut
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "missing",
-      authorityRunId: null,
-      currentRuns: 0,
+      state: "exhausted",
+      authorityRunId,
+      currentRuns: 1,
       historicalRuns: 0,
       invalidRuns: 27,
     }),
   }));
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
-    actionLabel: "OPEN DESIGN LOOP",
+    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${authorityRunId}`,
     target: {
-      kind: "design-program",
+      kind: "design-run",
+      phase: "exhausted",
       programId: "commissioned-dram-fab",
+      runId: authorityRunId,
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
+  expect(human.stdout).toContain(`Design handoff: commissioned-dram-fab · EXHAUSTED · ${authorityRunId.slice(0, 12)}`);
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 0 valid immutable runs · 27 invalid runs excluded");
-  expect(brief.stdout).toContain("Run: inm design <path> --program commissioned-dram-fab --run");
+  expect(brief.stdout).toContain("Evidence: 1 valid immutable run · 27 invalid runs excluded");
+  const reopened = await runCli(["design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId, "--json", "--section", "summary"]);
+  expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(reopened.stdout).data.result).toEqual(expect.objectContaining({
+    resultHash: authorityRunId,
+    stopReason: "frontier-exhausted",
+    budget: { maximum: 7, evaluated: 4 },
+    best: expect.objectContaining({
+      iteration: 0,
+      promotionPatchOperations: 0,
+      verdict: "KEEP",
+    }),
+  }));
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
