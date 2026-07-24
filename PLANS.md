@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/post-cadence-commissioned-convergence]] | Convert the commissioned fab's remaining event-backed input gaps into a promotion-safe industrial improvement or an exact bounded blocker. | 2026-07-24 |
 | [[plans/sustained-starvation-cadence-repair]] | Distinguish brief healthy handoff gaps from persistent downstream starvation before using a recovery production mode. | 2026-07-24 |
 | [[plans/cadence-control-evidence-parity]] | Preserve exact per-case cadence policy activation evidence across locked Benchmark, immutable Design, CLI, and Studio. | 2026-07-24 |
 | [[plans/adaptive-cadence-mode-control]] | Let an explicitly qualified Device recover downstream starvation with a bounded alternate production mode and shared human/Agent evidence. | 2026-07-24 |

@@ -722,9 +722,9 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same current and historical memory-fab Design authority", async () => {
+test("public inspect gives Agents and humans the same exhausted current and historical memory-fab Design authority", async () => {
   const projectDir = join(repository, "examples/memory-fab");
-  const historicalRunId = "1d02449c5551babc43ec542cf1cd374add97f1df5c4628eaf784bf670e43989b";
+  const authorityRunId = "fb2f83859df5c22beec4f378ea93ffae4a99756b8ffe3ba94d777cfa975a36d6";
   const [machine, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
     runCli(["inspect", projectDir]),
@@ -737,37 +737,39 @@ test("public inspect gives Agents and humans the same current and historical mem
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "missing",
-      authorityRunId: null,
-      currentRuns: 0,
+      state: "exhausted",
+      authorityRunId,
+      currentRuns: 1,
       historicalRuns: 1,
       invalidRuns: expect.any(Number),
     }),
   }));
   expect(program.evidence.invalidRuns).toBeGreaterThan(0);
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
-    actionLabel: "OPEN DESIGN LOOP",
+    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${authorityRunId}`,
     target: {
-      kind: "design-program",
+      kind: "design-run",
+      phase: "exhausted",
       programId: "commissioned-dram-fab",
+      runId: authorityRunId,
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · EXHAUSTED · fb2f83859df5");
   const reopened = await runCli([
-    "design", projectDir, "--program", "commissioned-dram-fab", "--run-id", historicalRunId,
+    "design", projectDir, "--program", "commissioned-dram-fab", "--run-id", authorityRunId,
   ]);
   expect({ exitCode: reopened.exitCode, stderr: reopened.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(reopened.stdout).toContain("steady-production:");
-  expect(reopened.stdout).toContain("deposition-1: OFF → 10 qualified / 2 agile-pulse jobs");
-  expect(reopened.stdout).toContain("recover after 10.0s below 1 items");
-  expect(reopened.stdout).toContain("lithography-interruption:");
-  expect(reopened.stdout).toContain("deposition-1: OFF → 10 qualified / 2 agile-pulse jobs");
-  expect(reopened.stdout).toContain("facility-interruption:");
-  expect(reopened.stdout).toContain("deposition-1: OFF → 11 qualified / 1 agile-pulse jobs");
+  expect(reopened.stdout).toContain("Evaluated: 4/7 · frontier-exhausted");
+  expect(reopened.stdout).toContain("X01 EXHAUST leader seed");
+  expect(reopened.stdout).toContain("REJECT dispatch:conwip-9-6-edd");
+  expect(reopened.stdout).toContain("REJECT maintenance:inspection-jobs-4");
+  expect(reopened.stdout).toContain("REJECT dispatch:conwip-8-5-edd");
+  expect(reopened.stdout).toContain("REJECT dispatch:conwip-10-7-edd");
+  expect(reopened.stdout).not.toContain("Promote:");
 });
 
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
