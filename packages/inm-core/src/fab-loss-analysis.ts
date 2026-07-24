@@ -26,6 +26,7 @@ export type FabLossContributorMechanism =
   | "maintenance-qualification"
   | "equipment-availability"
   | "inter-job-input-gap"
+  | "physical-lane-blocking"
   | "quality-excursion"
   | "equipment-process-drift"
   | "route-q-time-defect";
@@ -36,6 +37,7 @@ export interface FabLossContributor {
   mechanism: FabLossContributorMechanism;
   route: string | null;
   step: string | null;
+  resources: string[];
   processes: string[];
   defects: string[];
   lots: string[];
@@ -54,7 +56,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 4;
+  version: 5;
   family: string;
   outcome: {
     scheduled: number;
@@ -214,6 +216,7 @@ export function analyzeInputStarvation(
       mechanism: "inter-job-input-gap",
       route: null,
       step: null,
+      resources: [],
       processes: [...processes].sort(),
       defects: [],
       lots: [],
@@ -358,6 +361,7 @@ function qTimeContributors(
     mechanism: group.mechanism,
     route: group.route,
     step: group.step,
+    resources: [],
     processes: [...group.processes].sort(),
     defects: [...group.defects].sort(),
     lots: [...group.lots].sort(),
@@ -508,6 +512,7 @@ export function analyzeQualityContributors(
       mechanism: group.mechanism,
       route: group.route,
       step: group.step,
+      resources: [],
       processes: [group.process],
       defects,
       lots: [...group.lotDefects.keys()].sort(),
@@ -534,6 +539,65 @@ export function analyzeQualityContributors(
     || right.evidence.reworkAttemptedLots! - left.evidence.reworkAttemptedLots!
     || right.evidence.introducedLots! - left.evidence.introducedLots!
     || left.id.localeCompare(right.id));
+}
+
+export function analyzeTransportBlocking(
+  metrics: Pick<FactoryMetrics, "transportFlows">
+    & { lotFlow: Pick<FactoryMetrics["lotFlow"], "family" | "meanTransportTimeTicks"> },
+  durationTicks: number,
+): Omit<FabLossBucket, "id" | "label"> {
+  const flows = Object.entries(metrics.transportFlows)
+    .sort(([left], [right]) => left.localeCompare(right));
+  const contributors: FabLossContributor[] = flows
+    .filter(([, flow]) => flow.blockedItemTicks > 0)
+    .map(([connection, flow]) => ({
+      id: `connection:${connection}:physical-lane-blocking`,
+      label: connection,
+      mechanism: "physical-lane-blocking" as const,
+      route: null,
+      step: null,
+      resources: [...new Set([
+        ...Object.entries(flow.departedByResource)
+          .filter(([, count]) => count > 0)
+          .map(([resource]) => resource),
+        ...Object.entries(flow.deliveredByResource)
+          .filter(([, count]) => count > 0)
+          .map(([resource]) => resource),
+      ])].sort(),
+      processes: [],
+      defects: [],
+      lots: [],
+      subjects: [{ kind: "connection" as const, id: connection }],
+      evidence: {
+        departedItems: flow.departedItems,
+        deliveredItems: flow.deliveredItems,
+        departedItemsPerMinute: flow.departedItemsPerMinute,
+        deliveredItemsPerMinute: flow.deliveredItemsPerMinute,
+        capacityItemsPerMinute: flow.capacityItemsPerMinute,
+        utilization: flow.utilization,
+        averageInFlightItems: flow.averageInFlightItems,
+        blockedItemTicks: flow.blockedItemTicks,
+        blockedFraction: flow.blockedFraction,
+      },
+    }))
+    .sort((left, right) =>
+      right.evidence.blockedItemTicks! - left.evidence.blockedItemTicks!
+      || right.evidence.blockedFraction! - left.evidence.blockedFraction!
+      || left.id.localeCompare(right.id));
+  const blockedItemTicks = contributors
+    .reduce((total, contributor) => total + contributor.evidence.blockedItemTicks!, 0);
+  return {
+    score: ratio(blockedItemTicks, durationTicks * Math.max(1, flows.length)),
+    summary: `Tracked lots averaged ${(metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s in necessary transit (context only); ${contributors.length}/${flows.length} physical lanes accumulated ${(blockedItemTicks / 1000).toFixed(1)} blocked item-s.`,
+    subjects: contributors[0]?.subjects ?? [{ kind: "project", id: metrics.lotFlow.family ?? "tracked-lot" }],
+    evidence: {
+      connections: flows.length,
+      blockedConnections: contributors.length,
+      meanTransportTicks: metrics.lotFlow.meanTransportTimeTicks,
+      blockedItemTicks,
+    },
+    contributors,
+  };
 }
 
 export function analyzeFabLossProfile(
@@ -656,13 +720,10 @@ export function analyzeFabLossProfile(
   const unpoweredDevice = topKey(metrics.unpoweredTime);
   add({ id: "power-interruption", label: "Power interruption", score: ratio(unpoweredTicks, durationTicks * Math.max(1, Object.keys(metrics.unpoweredTime).length)), summary: `Equipment accumulated ${(unpoweredTicks / 1000).toFixed(1)} unpowered device-s across the selected operating window.`, subjects: unpoweredDevice ? [{ kind: "device", id: unpoweredDevice }] : [], evidence: { unpoweredTicks } });
 
-  const blockedTransportTicks = Object.values(metrics.transportFlows).reduce((total, flow) => total + flow.blockedItemTicks, 0);
-  const blockedConnection = topKey(Object.fromEntries(Object.entries(metrics.transportFlows).map(([id, flow]) => [id, flow.blockedItemTicks])));
   add({
-    id: "transport-blocking", label: "Physical transport", score: ratio(metrics.lotFlow.meanTransportTimeTicks, cycleTicks) + ratio(blockedTransportTicks, durationTicks * Math.max(1, Object.keys(metrics.transportFlows).length)),
-    summary: `Tracked lots averaged ${(metrics.lotFlow.meanTransportTimeTicks / 1000).toFixed(1)} s in transport; physical lanes accumulated ${(blockedTransportTicks / 1000).toFixed(1)} blocked item-s.`,
-    subjects: blockedConnection ? [{ kind: "connection", id: blockedConnection }] : [],
-    evidence: { meanTransportTicks: metrics.lotFlow.meanTransportTimeTicks, blockedItemTicks: blockedTransportTicks },
+    id: "transport-blocking",
+    label: "Physical transport blocking",
+    ...analyzeTransportBlocking(metrics, durationTicks),
   });
 
   const qTimeViolations = Object.values(metrics.routeFlow).reduce((total, route) => total + route.queueTimeViolations, 0);
@@ -733,7 +794,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 4,
+    version: 5,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,

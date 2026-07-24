@@ -229,7 +229,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       addressedLoss: "delivery-portfolio",
       driverEvidence: {
         fabLoss: {
-          version: 4,
+          version: 5,
           primary: { id: "delivery-portfolio" },
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
@@ -429,7 +429,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     addressedLoss: "q-time",
     driverEvidence: {
       metricsHash: hashValue(driverMetrics),
-      fabLoss: { version: 4, family: "dram-wafer", primary: { id: "q-time" } },
+      fabLoss: { version: 5, family: "dram-wafer", primary: { id: "q-time" } },
     },
     promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true },
     decisionEvidence: { guardrail: { kind: "uniform", passed: true, violations: [] } },

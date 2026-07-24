@@ -2032,6 +2032,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const recommendation = snapshot.nextAction;
   const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
+  const transportContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   const wipContributors = snapshot.inventoryAccounting
     ? Object.entries(snapshot.inventoryAccounting.resources)
@@ -2043,6 +2044,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
     "inter-job-input-gap": "INTER-JOB INPUT GAP",
+    "physical-lane-blocking": "PHYSICAL LANE BLOCKING",
     "quality-excursion": "AUTHORED QUALITY EXCURSION",
     "equipment-process-drift": "EQUIPMENT PROCESS DRIFT",
     "route-q-time-defect": "ROUTE Q-TIME DEFECT",
@@ -2109,6 +2111,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
             <span><b>{(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s</b><small>OPPORTUNITY</small></span>
             <span><b>{(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s</b><small>OTHER UNAVAILABILITY</small></span>
             <code>{contributor.evidence.jobs} jobs · {(contributor.evidence.utilization! * 100).toFixed(1)}% utilization · {(contributor.evidence.boundaryWaitingInputTicks! / 1000).toFixed(1)}s boundary wait excluded</code>
+          </article>)}</div>
+        </div>}
+        {transportContributors.length > 0 && <div className="q-time-contributors transport-contributors" data-testid="transport-blocking-contributors">
+          <header><span className="eyebrow">TRANSPORT-BLOCKING CONTRIBUTORS</span><small>Only measured physical backpressure is ranked; necessary transit remains context</small></header>
+          <div>{transportContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`transport-blocking-contributor-${contributor.label}`}>
+            <span><small>PHYSICAL LANE BLOCKING</small><strong>{contributor.label}</strong><code>{contributor.resources.join(" + ") || "no delivered resources"}</code></span>
+            <span><b>{(contributor.evidence.blockedItemTicks! / 1000).toFixed(1)}s</b><small>BLOCKED ITEM-TIME</small></span>
+            <span><b>{(contributor.evidence.blockedFraction! * 100).toFixed(1)}%</b><small>IN-FLIGHT BLOCKING</small></span>
+            <span><b>{contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}</b><small>/ {contributor.evidence.capacityItemsPerMinute!.toFixed(1)} ITEMS/MIN</small></span>
+            <code>{contributor.evidence.deliveredItems} delivered · {contributor.evidence.averageInFlightItems!.toFixed(2)} average in flight</code>
           </article>)}</div>
         </div>}
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">

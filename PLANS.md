@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/recoverable-transport-loss-attribution]] | Rank only measured physical-lane blocking as transport loss while preserving necessary transit as context for humans and Agents. | 2026-07-24 |
 | [[plans/commissioned-input-starvation-convergence]] | Investigate the commissioned memory fab's leading front-end input-starvation signal through explicit project-local cadence interventions and the locked Benchmark. | 2026-07-24 |
 | [[plans/design-evidence-aware-workbench]] | Make shared Workbench next actions reflect current promotable, continuable, exhausted, stale, and invalid Design evidence. | 2026-07-24 |
 | [[plans/loss-guided-design-handoff]] | Connect compatible measured fab loss to the current Blueprint's bounded project-local Design Program through one shared human/AI handoff. | 2026-07-24 |

@@ -292,6 +292,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "q-time")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
+  const transportContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   if (options.json) {
@@ -381,6 +383,12 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         ...inputStarvationContributors.slice(0, 5).map((contributor) =>
           `  ${contributor.label} · ${contributor.mechanism} · ${(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s input gap / ${(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s opportunity · ${contributor.evidence.jobs} jobs · ${(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s separately unavailable · ${contributor.processes.join("+")}`),
         ...(inputStarvationContributors.length > 5 ? [`  … ${inputStarvationContributors.length - 5} more in --section losses --json`] : []),
+      ] : []),
+      ...(transportContributors.length ? [
+        "Transport-blocking contributors:",
+        ...transportContributors.slice(0, 5).map((contributor) =>
+          `  ${contributor.label} · ${(contributor.evidence.blockedItemTicks! / 1000).toFixed(1)} blocked item-s · ${(contributor.evidence.blockedFraction! * 100).toFixed(1)}% in-flight blocking · ${contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}/${contributor.evidence.capacityItemsPerMinute!.toFixed(1)} items/min · ${contributor.resources.join("+") || "no delivered resources"}`),
+        ...(transportContributors.length > 5 ? [`  … ${transportContributors.length - 5} more in --section losses --json`] : []),
       ] : []),
       ...(qTimeContributors.length ? [
         "Q-time contributors:",

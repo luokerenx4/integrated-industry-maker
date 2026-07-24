@@ -81,6 +81,12 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     includedInWip: false,
     averageInventory: 40.3624,
   }));
+  expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
+    version: 5,
+    chain: ["input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification", "release-admission"],
+  }));
+  expect(snapshot.lossAttribution?.buckets.some((bucket) => bucket.id === "transport-blocking")).toBeFalse();
+  expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
   expect(snapshot.counts.designPrograms).toBe(3);

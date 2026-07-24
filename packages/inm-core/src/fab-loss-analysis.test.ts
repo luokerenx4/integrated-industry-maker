@@ -1,9 +1,86 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
-import { analyzeInputStarvation, analyzeQualityContributors } from "./fab-loss-analysis";
+import { analyzeInputStarvation, analyzeQualityContributors, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics } from "./types";
+
+const clearTransportFlow = {
+  departedItems: 12,
+  deliveredItems: 12,
+  departedByResource: { "dram-wafer-lot": 12 },
+  deliveredByResource: { "dram-wafer-lot": 12 },
+  departedItemsPerMinute: 72,
+  deliveredItemsPerMinute: 72,
+  capacityItemsPerMinute: 240,
+  utilization: .3,
+  averageInFlightItems: .6,
+  blockedItemTicks: 0,
+  blockedFraction: 0,
+} satisfies FactoryMetrics["transportFlows"][string];
+
+test("necessary tracked-lot transit is context rather than recoverable transport loss", () => {
+  const bucket = analyzeTransportBlocking({
+    lotFlow: { family: "dram-wafer", meanTransportTimeTicks: 9_000 },
+    transportFlows: {
+      "clear-lane": clearTransportFlow,
+    },
+  }, 100_000);
+
+  expect(bucket).toMatchObject({
+    score: 0,
+    summary: "Tracked lots averaged 9.0 s in necessary transit (context only); 0/1 physical lanes accumulated 0.0 blocked item-s.",
+    subjects: [{ kind: "project", id: "dram-wafer" }],
+    evidence: {
+      connections: 1,
+      blockedConnections: 0,
+      meanTransportTicks: 9_000,
+      blockedItemTicks: 0,
+    },
+    contributors: [],
+  });
+});
+
+test("physical transport blocking identifies only positive connection contributors", () => {
+  const bucket = analyzeTransportBlocking({
+    lotFlow: { family: "dram-wafer", meanTransportTimeTicks: 9_000 },
+    transportFlows: {
+      "clear-lane": clearTransportFlow,
+      "blocked-lane": {
+        ...clearTransportFlow,
+        departedByResource: { "blank-dram-wafer-lot": 8, "process-gas": 0 },
+        deliveredByResource: { "blank-dram-wafer-lot": 7 },
+        blockedItemTicks: 6_000,
+        blockedFraction: .25,
+      },
+    },
+  }, 100_000);
+
+  expect(bucket).toMatchObject({
+    score: .03,
+    subjects: [{ kind: "connection", id: "blocked-lane" }],
+    evidence: {
+      connections: 2,
+      blockedConnections: 1,
+      meanTransportTicks: 9_000,
+      blockedItemTicks: 6_000,
+    },
+    contributors: [{
+      id: "connection:blocked-lane:physical-lane-blocking",
+      label: "blocked-lane",
+      mechanism: "physical-lane-blocking",
+      resources: ["blank-dram-wafer-lot"],
+      subjects: [{ kind: "connection", id: "blocked-lane" }],
+      evidence: {
+        blockedItemTicks: 6_000,
+        blockedFraction: .25,
+        utilization: .3,
+        deliveredItemsPerMinute: 72,
+        capacityItemsPerMinute: 240,
+      },
+    }],
+  });
+});
 
 test("input starvation counts only available gaps between repeated productive jobs", async () => {
   const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));

@@ -656,12 +656,16 @@ test("public inspect gives Agents and humans the same current loss contributors"
   const projectDir = join(repository, "examples/memory-fab");
   const machine = await runCli(["inspect", projectDir, "--section", "losses", "--json"]);
   expect({ exitCode: machine.exitCode, stderr: machine.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  const qTime = JSON.parse(machine.stdout).data.result.buckets
+  const lossProfile = JSON.parse(machine.stdout).data.result;
+  const qTime = lossProfile.buckets
     .find((bucket: { id: string }) => bucket.id === "q-time");
-  const inputStarvation = JSON.parse(machine.stdout).data.result.buckets
+  const inputStarvation = lossProfile.buckets
     .find((bucket: { id: string }) => bucket.id === "input-starvation");
-  const yieldQuality = JSON.parse(machine.stdout).data.result.buckets
+  const yieldQuality = lossProfile.buckets
     .find((bucket: { id: string }) => bucket.id === "yield-quality");
+  const transportBlocking = lossProfile.buckets
+    .find((bucket: { id: string }) => bucket.id === "transport-blocking");
+  expect(lossProfile.version).toBe(5);
   expect(yieldQuality).toMatchObject({
     subjects: [
       { kind: "device", id: "etch-l2" },
@@ -701,6 +705,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
     evidence: { starvationTicks: 42_456, opportunityWindowTicks: 114_456 },
   });
   expect(qTime).toBeUndefined();
+  expect(transportBlocking).toBeUndefined();
 
   const human = await runCli(["inspect", projectDir]);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -708,6 +713,8 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 2 lots / 2 defect instances · 2 rework / 2 repaired / 0 persistent · 0 scrap / 0 escape");
   expect(human.stdout).toContain("Input-starvation contributors:");
   expect(human.stdout).toContain("furnace-1 · inter-job-input-gap · 42.5s input gap / 114.5s opportunity · 12 jobs");
+  expect(human.stdout).not.toContain("fab-loss.transport-blocking");
+  expect(human.stdout).not.toContain("Transport-blocking contributors:");
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
