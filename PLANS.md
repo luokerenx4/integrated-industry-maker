@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/commissioned-route-identity-dispatch]] | Determine and commission only a promotion-safe lot-identity dispatch policy for the exact memory fab while keeping project guidance, CLI, and Studio aligned. | 2026-07-24 |
 | [[plans/release-service-level-arbitration]] | Make release-service aging protect the exact overdue lot identities and expose configured versus actual delay consistently to humans and Coding Agents. | 2026-07-24 |
 | [[plans/post-cadence-commissioned-convergence]] | Convert the commissioned fab's remaining event-backed input gaps into a promotion-safe industrial improvement or an exact bounded blocker. | 2026-07-24 |
 | [[plans/sustained-starvation-cadence-repair]] | Distinguish brief healthy handoff gaps from persistent downstream starvation before using a recovery production mode. | 2026-07-24 |

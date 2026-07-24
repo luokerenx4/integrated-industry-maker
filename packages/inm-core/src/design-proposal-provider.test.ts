@@ -168,6 +168,56 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
   })).not.toThrow();
 });
 
+test("commissioned provider proposes only layer-two lithography EDD after cadence control", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const lithography = loaded.blueprint.devices.find((device) => device.id === "lithography-l2")!;
+  lithography.policy!.lotDispatch = "fifo";
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
+  const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform", passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  });
+  const lithographyIndex = project.blueprint.devices.findIndex((device) => device.id === "lithography-l2");
+
+  expect(fabLoss.chain[0]).toBe("input-starvation");
+  expect(proposal).toMatchObject({
+    strategy: "dispatch:lithography-l2-earliest-due-date",
+    addressedLoss: "input-starvation",
+    patch: [{
+      op: "replace",
+      path: `/devices/${lithographyIndex}/policy/lotDispatch`,
+      value: "earliest-due-date",
+    }],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+});
+
 test("pre-intervention memory-fab yield loss proposes recovered-output delivery conversion", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {

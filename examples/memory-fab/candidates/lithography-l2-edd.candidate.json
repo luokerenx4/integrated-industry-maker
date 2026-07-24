@@ -1,0 +1,22 @@
+{
+  "baseCandidateHash": "c4177e82f758ab0704e8b17fc5213714d7bda6164d3375b03804d3c361ac9891",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run c0d09455644c: aggregate score 29.795541 (+104.771263 versus locked baseline) across 5 cases.",
+  "hypothesis": "The independently qualified layer-two lithography bay can sequence ready re-entrant lots by contract due date, protecting interrupted campaigns without disturbing the FIFO discipline of the shared front-end route.",
+  "id": "lithography-l2-edd",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/57/policy/lotDispatch",
+      "value": "earliest-due-date"
+    }
+  ],
+  "source": {
+    "blueprintHash": "967aa232816e20e936e6e3e16d63114f52971574e825185f19aa36c9394e0a07",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "c0d09455644c712e60daa78dceded85e39cd7587d3c09019003558497499a56a"
+  },
+  "version": 1
+}

@@ -1,0 +1,27 @@
+{
+  "createdAt": "2026-07-24T15:20:09.126Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.81.0",
+  "hashes": {
+    "blueprintHash": "967aa232816e20e936e6e3e16d63114f52971574e825185f19aa36c9394e0a07",
+    "deviceCatalogHash": "b01357e1944ff43786e23b6f54de13ab9fc00dc96b7d906aa697c8f91be2d30e",
+    "engineVersion": "inm-sim/0.81.0",
+    "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+    "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
+    "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
+    "routeCatalogHash": "e706d898f2cdc31b0abb456f7da04cdac5d9839ff93b160cb14c54c3c6b1c6d2",
+    "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "resultHash": "2cb4695b8dc703b2d592b405479bb9bca0440eb849f410786c2998604a17c1a5",
+  "runKey": "e507ad8584f73865225ac476e1b349ba2f4f9f45e595e976547108b9da298939",
+  "seed": 42,
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "status": "completed",
+  "version": 1
+}
