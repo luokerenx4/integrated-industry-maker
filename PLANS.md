@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/design-evidence-aware-workbench]] | Make shared Workbench next actions reflect current promotable, continuable, exhausted, stale, and invalid Design evidence. | 2026-07-24 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/design-evidence-aware-workbench]] | Make shared Workbench next actions reflect current promotable, continuable, exhausted, stale, and invalid Design evidence. | 2026-07-24 |
 | [[plans/loss-guided-design-handoff]] | Connect compatible measured fab loss to the current Blueprint's bounded project-local Design Program through one shared human/AI handoff. | 2026-07-24 |
 | [[plans/commissioned-in-situ-quality-control]] | Let an explicitly costed production mode prevent fixed quality-excursion defects with auditable evidence, then evaluate and commission a closed-loop layer-two etch intervention. | 2026-07-24 |
 | [[plans/factory-environment-depth]] | Make the memory-fab floor and distant cleanroom read as one spatial exhibit at both overview and work-cell scales. | 2026-07-24 |
