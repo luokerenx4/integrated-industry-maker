@@ -718,6 +718,44 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
+test("public inspect gives Agents and humans the same exhausted memory-fab Design authority", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const [machine, human] = await Promise.all([
+    runCli(["inspect", projectDir, "--json"]),
+    runCli(["inspect", projectDir]),
+  ]);
+  expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
+    .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+
+  const result = JSON.parse(machine.stdout).data.result;
+  const program = result.designPrograms.find((item: { id: string }) => item.id === "commissioned-dram-fab");
+  expect(program).toEqual(expect.objectContaining({
+    alignment: { state: "aligned", reasons: [] },
+    evidence: expect.objectContaining({
+      state: "exhausted",
+      authorityRunId: "83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0",
+      currentRuns: 2,
+      historicalRuns: 0,
+      invalidRuns: 17,
+    }),
+  }));
+  expect(result.nextAction).toEqual(expect.objectContaining({
+    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
+    effect: "read-only",
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab/runs/83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0",
+    target: {
+      kind: "design-run",
+      phase: "exhausted",
+      programId: "commissioned-dram-fab",
+      runId: "83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    },
+  }));
+  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · EXHAUSTED · 83adbe849e13");
+  expect(human.stdout).toContain("Current Design Run 83adbe849e1322b171dcedb4e7df6328c2bfc49f4c1e84d23c995cadcfdfa0f0 evaluated 5 Candidates, exhausted every eligible intervention, and retained the unchanged seed.");
+});
+
 test("dense public JSON defaults to compact summary and selects one explicit section", async () => {
   const projectDir = join(repository, "examples/ironworks");
   const [summaryResult, catalogResult, allResult] = await Promise.all([
