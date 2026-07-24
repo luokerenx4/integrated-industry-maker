@@ -56,9 +56,24 @@ export type FabLossBucketId =
   | "transport-blocking"
   | "q-time"
   | "yield-quality";
+export type InputSupplyState =
+  | "no-local-supply"
+  | "transport-blocked"
+  | "transport-in-flight"
+  | "loader-unpowered"
+  | "loader-failed"
+  | "unloader-unpowered"
+  | "unloader-failed"
+  | "source-ready"
+  | "source-processing"
+  | "source-waiting-input"
+  | "source-blocked-output"
+  | "source-unpowered"
+  | "source-failed"
+  | "source-empty";
 
 export interface FabLossProfile {
-  version: 6;
+  version: 7;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;
@@ -84,7 +99,7 @@ export interface FabLossContributor {
     | "batch-companion-wait"
     | "maintenance-qualification"
     | "equipment-availability"
-    | "inter-job-input-gap"
+    | "material-input-shortage"
     | "transport-line-contention"
     | "transport-endpoint-capacity"
     | "transport-endpoint-power"
@@ -100,10 +115,35 @@ export interface FabLossContributor {
   lots: string[];
   subjects: Array<{ kind: "project" | "device" | "connection" | "route"; id: string }>;
   evidence: Record<string, number>;
+  inputStates: Array<{
+    process: string;
+    starvationTicks: number;
+    shortages: Array<{
+      buffer: string;
+      resource: string;
+      required: number;
+      available: number;
+      missing: number;
+      minimumTreatmentLevel: number;
+      supplies: Array<{
+        connection: string | null;
+        sourceDevice: string | null;
+        sourceBuffer: string | null;
+        sourceAvailable: number;
+        inFlight: number;
+        sourceStatus: "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed" | null;
+        loaderDevice: string | null;
+        loaderStatus: "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed" | null;
+        unloaderDevice: string | null;
+        unloaderStatus: "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed" | null;
+        state: InputSupplyState;
+      }>;
+    }>;
+  }>;
 }
 
 export interface ProjectProposalContext {
-  apiVersion: 6;
+  apiVersion: 7;
   iteration: number;
   branch: {
     nodeId: string;
@@ -160,7 +200,7 @@ type ScoreBreakdown = Record<
 >;
 
 export interface ProjectProposalProvider {
-  apiVersion: 6;
+  apiVersion: 7;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;

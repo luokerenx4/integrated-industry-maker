@@ -4,7 +4,8 @@ import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
   ActiveDeviceJob, BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
-  MaintenanceCause, MaintenanceTrigger, ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
+  InputSupplyObservation, MaintenanceCause, MaintenanceTrigger, MaterialInputShortage, ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick,
+  TransportBlockCause, TransportBlockStage,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
@@ -298,6 +299,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     route.id, stationRouteDispatchProfile(project, route, criticalDepths),
   ])));
   const events: FactoryEvent[] = [];
+  const inputStarvations: Record<string, {
+    process: string;
+    signature: string;
+    shortages: MaterialInputShortage[];
+  }> = {};
   const queue = new DeterministicPriorityQueue<InternalEvent>();
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
@@ -375,6 +381,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (event.type === "power.shortage") unmetPowerDemand[event.device] = event.requiredMilliWatts;
     events.push(event); publicEventCount++;
   };
+  const closeInputStarvation = (
+    device: string,
+    cause: Extract<FactoryEvent, { type: "device.input-restored" }>["cause"],
+  ): boolean => {
+    const previous = inputStarvations[device];
+    if (!previous) return false;
+    emit({
+      type: "device.input-restored",
+      tick: state.tick,
+      device,
+      process: previous.process,
+      cause,
+    });
+    delete inputStarvations[device];
+    return true;
+  };
   const setReleaseControlOpen = (open: boolean, cause?: "reopen-threshold" | "service-level"): boolean => {
     if (!releasePolicy || state.lotReleaseControl.open === open) return false;
     mutateFactoryState(state, { kind: "lot.release-control", open });
@@ -393,6 +415,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const setStatus = (device: string, status: DeviceRuntimeState["status"]) => {
     const runtime = state.devices[device]!;
+    if (status !== "waiting-input") {
+      closeInputStarvation(device, status === "processing" ? "ready" : "unavailable");
+    }
     if (status === "unpowered") unmetPowerDemand[device] ??= runtime.activeJob?.powerMilliWatts
       ?? project.devices[device]!.processPlan?.powerMilliWatts
       ?? project.devices[device]!.assetDef.power.activeMilliWatts;
@@ -1624,6 +1649,113 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       && outputFits(device, plan.quality?.kind === "inspection"
         ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput]
         : resolveLotOutputExecution(device, plan)?.outputs ?? plan.outputs);
+  const inputSupplyState = (
+    observation: Omit<InputSupplyObservation, "state">,
+    blocked: boolean,
+  ): InputSupplyObservation["state"] => {
+    if (observation.loaderStatus === "failed") return "loader-failed";
+    if (observation.loaderStatus === "unpowered") return "loader-unpowered";
+    if (observation.unloaderStatus === "failed") return "unloader-failed";
+    if (observation.unloaderStatus === "unpowered") return "unloader-unpowered";
+    if (blocked) return "transport-blocked";
+    if (observation.inFlight > 0) return "transport-in-flight";
+    if (observation.sourceAvailable > 0) {
+      return observation.sourceStatus === "blocked-output" ? "source-blocked-output" : "source-ready";
+    }
+    if (observation.sourceStatus === "processing") return "source-processing";
+    if (observation.sourceStatus === "waiting-input") return "source-waiting-input";
+    if (observation.sourceStatus === "blocked-output") return "source-blocked-output";
+    if (observation.sourceStatus === "unpowered") return "source-unpowered";
+    if (observation.sourceStatus === "failed") return "source-failed";
+    return "source-empty";
+  };
+  const processInputShortages = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+  ): MaterialInputShortage[] => plan.inputs.flatMap((amount) => {
+    const minimumTreatmentLevel = amount.minimumTreatmentLevel ?? 0;
+    const available = isTracked(amount.resource)
+      ? rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, minimumTreatmentLevel).length
+      : materialQuantity(device.id, amount.buffer, amount.resource, minimumTreatmentLevel);
+    if (available >= amount.count) return [];
+    const connections = Object.values(project.connections)
+      .filter((connection) => connection.to.device === device.id
+        && connection.toPort.buffer === amount.buffer
+        && connection.resources.includes(amount.resource))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const supplies: InputSupplyObservation[] = connections.length ? connections.map((connection) => {
+      const loader = transportStage(connection, "loader").device!;
+      const unloader = transportStage(connection, "unloader").device!;
+      const matchingTransits = state.transports[connection.id]!.filter((transit) =>
+        transit.resource === amount.resource && transit.treatmentLevel >= minimumTreatmentLevel);
+      const observation = {
+        connection: connection.id,
+        sourceDevice: connection.from.device,
+        sourceBuffer: connection.fromPort.buffer,
+        sourceAvailable: materialQuantity(
+          connection.from.device,
+          connection.fromPort.buffer,
+          amount.resource,
+          minimumTreatmentLevel,
+        ),
+        inFlight: matchingTransits.reduce((sum, transit) => sum + transit.count, 0),
+        sourceStatus: state.devices[connection.from.device]!.status,
+        loaderDevice: loader.id,
+        loaderStatus: state.devices[loader.id]!.status,
+        unloaderDevice: unloader.id,
+        unloaderStatus: state.devices[unloader.id]!.status,
+      } satisfies Omit<InputSupplyObservation, "state">;
+      return {
+        ...observation,
+        state: inputSupplyState(observation, matchingTransits.some((transit) => Boolean(transit.blockedBy))),
+      };
+    }) : [{
+      connection: null,
+      sourceDevice: null,
+      sourceBuffer: null,
+      sourceAvailable: 0,
+      inFlight: 0,
+      sourceStatus: null,
+      loaderDevice: null,
+      loaderStatus: null,
+      unloaderDevice: null,
+      unloaderStatus: null,
+      state: "no-local-supply" as const,
+    }];
+    return [{
+      buffer: amount.buffer,
+      resource: amount.resource,
+      required: amount.count,
+      available,
+      missing: amount.count - available,
+      minimumTreatmentLevel,
+      supplies,
+    }];
+  }).sort((left, right) => left.buffer.localeCompare(right.buffer) || left.resource.localeCompare(right.resource));
+  const setProcessInputStarvation = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number] | undefined,
+  ): boolean => {
+    const shortages = plan ? processInputShortages(device, plan) : [];
+    if (!plan || shortages.length === 0) return closeInputStarvation(device.id, "ready");
+    const signature = JSON.stringify({ process: plan.definition.id, shortages });
+    const previous = inputStarvations[device.id];
+    if (previous?.signature === signature) return false;
+    if (previous) closeInputStarvation(device.id, "changed");
+    inputStarvations[device.id] = {
+      process: plan.definition.id,
+      signature,
+      shortages: structuredClone(shortages),
+    };
+    emit({
+      type: "device.input-starved",
+      tick: state.tick,
+      device: device.id,
+      process: plan.definition.id,
+      shortages: structuredClone(shortages),
+    });
+    return true;
+  };
   const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     processPlanMaterialReady(device, plan)
       && (!plan.tooling.length || Boolean(toolingProviderFor(device, plan)))
@@ -2065,8 +2197,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const runtime = state.devices[device.id]!;
     if (runtime.status === "failed" || runtime.activeJob || device.transportEndpoint || device.assetDef.capabilities.includes("station") || device.assetDef.maintenanceProvider || device.assetDef.utilityProvider
       || (!runtime.idlePowered && standbyRequirement(device) > 0)) return false;
-    if (runtime.maintenance?.qualificationPending) return runtime.energyManagement?.mode === "sleeping"
-      ? tryStartWake(device) : tryStartQualification(device);
+    if (runtime.maintenance?.qualificationPending) {
+      closeInputStarvation(device.id, "unavailable");
+      return runtime.energyManagement?.mode === "sleeping" ? tryStartWake(device) : tryStartQualification(device);
+    }
     const campaignSelection = selectCampaignProcessPlan(device);
     const selectedProcessPlan = campaignSelection.plan;
     const toolingBlockedPlan = selectedProcessPlan?.tooling.length
@@ -2103,6 +2237,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       return tryStartMaintenance(device, opportunisticMaintenance);
     }
     if (toolingBlockedPlan) {
+      closeInputStarvation(device.id, "unavailable");
       if (previousUtilityWait) mutateFactoryState(state, {
         kind: "utility.wait", device: device.id, process: previousUtilityWait.process, waiting: false,
       });
@@ -2118,6 +2253,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       kind: "tooling.wait", device: device.id, process: previousToolingWait.process, waiting: false,
     });
     if (utilityBlockedPlan) {
+      closeInputStarvation(device.id, "unavailable");
       mutateFactoryState(state, { kind: "utility.wait", device: device.id, process: utilityBlockedPlan.definition.id, waiting: true });
       setStatus(device.id, "waiting-input");
       if (!previousUtilityWait || previousUtilityWait.process !== utilityBlockedPlan.definition.id) emit({
@@ -2133,11 +2269,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       kind: "maintenance.wait", device: device.id, phase: runtime.maintenance.wait.phase, reason: null,
     });
     if (campaignSelection.held) {
+      closeInputStarvation(device.id, "unavailable");
       const previousStatus = runtime.status;
       setStatus(device.id, "waiting-input");
       return campaignSelection.changed || previousStatus !== runtime.status;
     }
     if (selectedProcessPlan && requiresChangeover(device, selectedProcessPlan)) return tryStartChangeover(device, selectedProcessPlan);
+    const inputStarvationChanged = setProcessInputStarvation(device, selectedProcessPlan);
     const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
       apiVersion: 1, tick: state.tick,
       device: { id: device.id, asset: device.asset, config: device.config ?? {} },
@@ -2190,7 +2328,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         fuels: device.generationPlan.fuels,
       } } : {}),
     });
-    return tryDecision(device, decision, selectedProcessPlan);
+    return tryDecision(device, decision, selectedProcessPlan) || inputStarvationChanged;
   };
   const rebalanceActivePower = (): boolean => {
     let changed = false;

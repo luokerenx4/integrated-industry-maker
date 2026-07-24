@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
 import { analyzeInputStarvation, analyzeQualityContributors, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
-import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, TransportBlockTicks } from "./types";
+import { runUntil } from "./simulator";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, InputSupplyState, MaterialInputShortage, TransportBlockTicks } from "./types";
 
 const transportBlockTicks = (
   values: Partial<Record<keyof TransportBlockTicks, Partial<TransportBlockTicks[keyof TransportBlockTicks]>>> = {},
@@ -131,9 +132,31 @@ test("input starvation counts only available gaps between repeated productive jo
     lotFlow: { family: "dram-wafer" },
   } satisfies Pick<FactoryMetrics, "waitingInputTime" | "machineUtilization">
     & { lotFlow: Pick<FactoryMetrics["lotFlow"], "family"> };
+  const shortage = (state: InputSupplyState, inFlight = 0): MaterialInputShortage[] => [{
+    buffer: "release-input",
+    resource: "blank-dram-wafer-lot",
+    required: 1,
+    available: 0,
+    missing: 1,
+    minimumTreatmentLevel: 0,
+    supplies: [{
+      connection: "release-to-lithography",
+      sourceDevice: "lot-release",
+      sourceBuffer: "storage",
+      sourceAvailable: 0,
+      inFlight,
+      sourceStatus: state === "source-processing" ? "processing" : "idle",
+      loaderDevice: "release-to-lithography-loader",
+      loaderStatus: "idle",
+      unloaderDevice: "release-to-lithography-unloader",
+      unloaderStatus: "idle",
+      state,
+    }],
+  }];
   const events = [
     { type: "device.start", tick: 0, device: "lithography-1", operation: "pattern-cell-layer-1", durationTicks: 10 },
     { type: "device.finish", tick: 10, device: "lithography-1", operation: "pattern-cell-layer-1", produced: [] },
+    { type: "device.input-starved", tick: 10, device: "lithography-1", process: "pattern-cell-layer-1", shortages: shortage("source-processing") },
     { type: "device.maintenance-start", tick: 20, device: "lithography-1" },
     { type: "device.maintenance-finish", tick: 30, device: "lithography-1" },
     { type: "device.changeover-start", tick: 30, device: "lithography-1" },
@@ -154,8 +177,13 @@ test("input starvation counts only available gaps between repeated productive jo
     { type: "device.wake-finish", tick: 110, device: "lithography-1" },
     { type: "power.shortage", tick: 110, device: "lithography-1" },
     { type: "power.restored", tick: 120, device: "lithography-1" },
+    { type: "device.input-restored", tick: 125, device: "lithography-1", process: "pattern-cell-layer-1", cause: "changed" },
+    { type: "device.input-starved", tick: 125, device: "lithography-1", process: "pattern-cell-layer-1", shortages: shortage("transport-in-flight", 1) },
+    { type: "device.input-restored", tick: 130, device: "lithography-1", process: "pattern-cell-layer-1", cause: "ready" },
     { type: "device.start", tick: 130, device: "lithography-1", operation: "pattern-cell-layer-1", durationTicks: 10 },
     { type: "device.finish", tick: 140, device: "lithography-1", operation: "pattern-cell-layer-1", produced: [] },
+    { type: "device.input-starved", tick: 140, device: "lithography-1", process: "pattern-cell-layer-1", shortages: shortage("source-empty") },
+    { type: "device.input-restored", tick: 160, device: "lithography-1", process: "pattern-cell-layer-1", cause: "ready" },
     { type: "device.start", tick: 160, device: "lithography-1", operation: "pattern-cell-layer-1", durationTicks: 10 },
     { type: "device.finish", tick: 170, device: "lithography-1", operation: "pattern-cell-layer-1", produced: [] },
     { type: "device.start", tick: 50, device: "lithography-l2", operation: "pattern-cell-layer-2", durationTicks: 10 },
@@ -170,7 +198,11 @@ test("input starvation counts only available gaps between repeated productive jo
 
   expect(bucket).toMatchObject({
     score: 40 / 170,
-    subjects: [{ kind: "device", id: "lithography-1" }],
+    subjects: [
+      { kind: "device", id: "lithography-1" },
+      { kind: "connection", id: "release-to-lithography" },
+      { kind: "device", id: "lot-release" },
+    ],
     evidence: {
       activeProductiveDevices: 3,
       flowProductiveDevices: 2,
@@ -185,8 +217,9 @@ test("input starvation counts only available gaps between repeated productive jo
       starvationTicks: 40,
     },
     contributors: [{
-      id: "device:lithography-1:inter-job-input-gap",
-      mechanism: "inter-job-input-gap",
+      id: "device:lithography-1:material-input-shortage",
+      mechanism: "material-input-shortage",
+      resources: ["blank-dram-wafer-lot"],
       processes: ["pattern-cell-layer-1"],
       evidence: {
         jobs: 3,
@@ -194,9 +227,72 @@ test("input starvation counts only available gaps between repeated productive jo
         interJobGapTicks: 140,
         unavailableGapTicks: 100,
         starvationTicks: 40,
+        unattributedGapTicks: 0,
       },
+      inputStates: [
+        {
+          process: "pattern-cell-layer-1",
+          starvationTicks: 20,
+          shortages: [{ resource: "blank-dram-wafer-lot", supplies: [{ state: "source-empty" }] }],
+        },
+        {
+          process: "pattern-cell-layer-1",
+          starvationTicks: 15,
+          shortages: [{ resource: "blank-dram-wafer-lot", supplies: [{ state: "source-processing" }] }],
+        },
+        {
+          process: "pattern-cell-layer-1",
+          starvationTicks: 5,
+          shortages: [{ resource: "blank-dram-wafer-lot", supplies: [{ state: "transport-in-flight" }] }],
+        },
+      ],
     }],
   });
+});
+
+test("runtime material starvation records multi-input shortages, state changes, restoration, and conserved attribution", async () => {
+  const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
+  const result = runUntil(project);
+  const opened = result.events.filter((event): event is Extract<FactoryEvent, { type: "device.input-starved" }> =>
+    event.type === "device.input-starved");
+  const restored = result.events.filter((event): event is Extract<FactoryEvent, { type: "device.input-restored" }> =>
+    event.type === "device.input-restored");
+  const packaging = opened.find((event) => event.device === "packaging-1" && event.shortages.length === 2);
+  expect(packaging).toMatchObject({
+    process: "package-known-good-dram",
+    shortages: [
+      {
+        buffer: "die-input",
+        resource: "known-good-dram-die",
+        required: 1,
+        available: 0,
+        missing: 1,
+        supplies: [{ connection: "probe-to-packaging", sourceDevice: "probe-1" }],
+      },
+      {
+        buffer: "substrate-input",
+        resource: "dram-package-substrate",
+        required: 1,
+        available: 0,
+        missing: 1,
+        supplies: [{ connection: "substrate-receiving-to-packaging", sourceDevice: "substrate-receiving" }],
+      },
+    ],
+  });
+  const changed = restored.find((event) => event.cause === "changed");
+  expect(changed).toBeDefined();
+  expect(opened.some((event) => event.device === changed!.device && event.tick === changed!.tick)).toBeTrue();
+  expect(restored.some((event) => event.cause === "ready")).toBeTrue();
+
+  const bucket = analyzeInputStarvation(result.metrics, project.scenario.durationTicks, project, result.events);
+  expect(bucket.contributors.length).toBeGreaterThan(0);
+  for (const contributor of bucket.contributors) {
+    expect(contributor.inputStates.reduce((sum, state) => sum + state.starvationTicks, 0))
+      .toBe(contributor.evidence.starvationTicks!);
+    expect(contributor.resources.length).toBeGreaterThan(0);
+    expect(contributor.inputStates.every((state) => state.shortages.every((shortage) =>
+      shortage.supplies.length > 0))).toBeTrue();
+  }
 });
 
 test("quality contributors trace authored, drift, and Q-time defects to separate outcomes", async () => {

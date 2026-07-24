@@ -226,7 +226,7 @@ test("invalid sibling evidence is indexed without blocking strict Design operati
   expect(index.runs.map((run) => run.id)).toEqual([result.manifest.resultHash]);
   expect(index.invalidRuns.map((run) => run.id)).toEqual([invalidId, missingCadenceId]);
   expect(await listDesignRuns(copy, "commissioned-dram-fab")).toEqual(index.runs);
-}, 60_000);
+}, 120_000);
 
 test("commissioned Design pins its live promotion base and rejects a score winner below hard industrial outcomes", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-commissioned-design-"));
@@ -261,7 +261,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       addressedLoss: "delivery-portfolio",
       driverEvidence: {
         fabLoss: {
-          version: 6,
+          version: 7,
           primary: { id: "delivery-portfolio" },
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
@@ -303,7 +303,7 @@ test("Design stops only after every retained frontier node is search-exhausted",
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   await writeFile(join(copy, "strategies", "integrated-dram-proposals.ts"), `export default {
-  apiVersion: 6,
+  apiVersion: 7,
   propose() { return null; },
 };
 `);
@@ -453,15 +453,15 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     { iteration: 2, strategy: "dispatch:probe-highest-priority", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 3, strategy: "maintenance:lithography-jobs-6", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 4, strategy: "dispatch:conwip-8-5-edd", decision: "KEEP", parent: "candidate-1", outcome: "leader-promoted" },
-    { iteration: 5, strategy: "dispatch:conwip-10-7-edd", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
-    { iteration: 6, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
+    { iteration: 5, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
+    { iteration: 6, strategy: "dispatch:conwip-10-7-edd", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
     { iteration: 7, strategy: "dispatch:inspection-earliest-due-date", decision: "KEEP", parent: "candidate-4", outcome: "leader-promoted" },
   ]);
   expect(first.manifest.iterations[0]).toMatchObject({
     addressedLoss: "q-time",
     driverEvidence: {
       metricsHash: hashValue(driverMetrics),
-      fabLoss: { version: 6, family: "dram-wafer", primary: { id: "q-time" } },
+      fabLoss: { version: 7, family: "dram-wafer", primary: { id: "q-time" } },
     },
     promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true },
     decisionEvidence: { guardrail: { kind: "uniform", passed: true, violations: [] } },

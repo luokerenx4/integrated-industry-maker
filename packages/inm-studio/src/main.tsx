@@ -2062,7 +2062,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     "batch-companion-wait": "BATCH COMPANION WAIT",
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
-    "inter-job-input-gap": "INTER-JOB INPUT GAP",
+    "material-input-shortage": "MATERIAL INPUT SHORTAGE",
     "transport-line-contention": "TRANSPORT LINE CONTENTION",
     "transport-endpoint-capacity": "TRANSPORT ENDPOINT CAPACITY",
     "transport-endpoint-power": "TRANSPORT ENDPOINT POWER",
@@ -2077,6 +2077,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     ["endpoint power", evidence.endpointPowerTicks],
     ["endpoint failure", evidence.endpointFailureTicks],
   ].map(([label, ticks]) => `${label} ${((ticks as number) / 1000).toFixed(1)} item-s`).join(" · ");
+  const inputStateSummary = (contributor: (typeof inputStarvationContributors)[number]) => contributor.inputStates
+    .slice(0, 3)
+    .map((state) => {
+      const shortages = state.shortages.map((shortage) => {
+        const supplies = shortage.supplies.map((supply) =>
+          `${supply.connection ?? "no local path"}:${supply.state}${supply.sourceDevice ? `←${supply.sourceDevice}` : ""}`).join(" + ");
+        return `${shortage.resource}@${shortage.buffer} ${shortage.available}/${shortage.required} · ${supplies}`;
+      }).join(" + ");
+      return `${(state.starvationTicks / 1000).toFixed(1)}s ${shortages}`;
+    }).join(" · ");
   const followRecommendation = (target: WorkbenchNextActionTarget) => {
     if (target.kind === "diagnostic") {
       onDiagnosticFocus(target.diagnosticId);
@@ -2132,13 +2142,13 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           </article>)}</div>
         </div>}
         {inputStarvationContributors.length > 0 && <div className="q-time-contributors starvation-contributors" data-testid="input-starvation-contributors">
-          <header><span className="eyebrow">INPUT-GAP CONTRIBUTORS</span><small>Event-backed gaps inside repeated production opportunity · top {Math.min(5, inputStarvationContributors.length)} of {inputStarvationContributors.length}</small></header>
+          <header><span className="eyebrow">MATERIAL-SHORTAGE CONTRIBUTORS</span><small>Exact Resource, Buffer, immediate supply path, and observed state inside repeated production opportunity · top {Math.min(5, inputStarvationContributors.length)} of {inputStarvationContributors.length}</small></header>
           <div>{inputStarvationContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`input-starvation-contributor-${contributor.label}`}>
-            <span><small>INTER-JOB INPUT GAP</small><strong>{contributor.label}</strong><code>{contributor.processes.join(" + ")}</code></span>
-            <span><b>{(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s</b><small>INPUT GAP</small></span>
+            <span><small>MATERIAL INPUT SHORTAGE</small><strong>{contributor.label}</strong><code>{contributor.resources.join(" + ")} · {contributor.processes.join(" + ")}</code></span>
+            <span><b>{(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s</b><small>ATTRIBUTED SHORTAGE</small></span>
             <span><b>{(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s</b><small>OPPORTUNITY</small></span>
-            <span><b>{(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s</b><small>OTHER UNAVAILABILITY</small></span>
-            <code>{contributor.evidence.jobs} jobs · {(contributor.evidence.utilization! * 100).toFixed(1)}% utilization · {(contributor.evidence.boundaryWaitingInputTicks! / 1000).toFixed(1)}s boundary wait excluded</code>
+            <span><b>{(contributor.evidence.unattributedGapTicks! / 1000).toFixed(1)}s</b><small>UNATTRIBUTED GAP</small></span>
+            <code>{inputStateSummary(contributor)} · {contributor.evidence.jobs} jobs · {(contributor.evidence.utilization! * 100).toFixed(1)}% utilization · {(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s separately unavailable</code>
           </article>)}</div>
         </div>}
         {transportContributors.length > 0 && <div className="q-time-contributors transport-contributors" data-testid="transport-blocking-contributors">

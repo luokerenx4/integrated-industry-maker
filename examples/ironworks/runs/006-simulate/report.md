@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `scaled-factory`
 - Score: **129.731**
-- Result hash: `a9d2eafe85662d9012566328ddce5eff340965b05164687c08a72f40e306c293`
+- Result hash: `7baa1d2c92202456a71b6b3ce933f5869acf63d88faa3280841f976064bcacd6`
 - Bottleneck: synth-smelt-iron-1
 - Throughput/min: 20.000
 - Delivery portfolio: 83.3% demand attainment · 40.000 / 48.000 valued / demanded · 0.000 above demand · 0.000 net value/min

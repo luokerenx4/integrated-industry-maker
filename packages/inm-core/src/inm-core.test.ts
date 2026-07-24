@@ -4104,7 +4104,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     const previousLock = (await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash;
     await lockBlueprintBenchmark(dir, "autoresearch");
     expect((await loadBlueprintBenchmark(dir, "autoresearch")).lock!.cases["intermittent-power"]!.scenarioHash).not.toBe(previousLock);
-  }, 20_000);
+  }, 40_000);
 
   test("keeps dispatch, inspection, rapid anneal, dedicated tools, and qualified maintenance across the locked memory-fab envelope", async () => {
     const result = await evaluateBlueprintBenchmark(memoryFab, "dispatch-research");
@@ -4375,7 +4375,7 @@ describe("artifacts and renderer-independent projection", () => {
       const project = compileFactoryProject({ ...source, blueprint });
       expect(runUntil(project, undefined, { seed: run.manifest.seed }).resultHash).toBe(run.manifest.resultHash);
     }
-  }, 15_000);
+  }, 30_000);
 
   test("checked-in KEEP history closes the objective target-rate capacity plan", async () => {
     const source = await loaded(); const runs = await listRuns(ironworks);

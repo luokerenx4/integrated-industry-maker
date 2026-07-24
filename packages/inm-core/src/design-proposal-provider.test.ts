@@ -238,7 +238,7 @@ test("commissioned terminal queue proposes the bounded agile screening mode", as
   })).not.toThrow();
 });
 
-test("commissioned provider proposes only layer-two lithography EDD after cadence control", async () => {
+test("commissioned provider does not mislabel layer-two EDD as an input-path intervention", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab",
@@ -270,16 +270,15 @@ test("commissioned provider proposes only layer-two lithography EDD after cadenc
     capacityPlan: planProductionCapacity(project),
     history: [],
   });
-  const lithographyIndex = project.blueprint.devices.findIndex((device) => device.id === "lithography-l2");
-
+  const inspectionIndex = project.blueprint.devices.findIndex((device) => device.id === "inspection-1");
   expect(fabLoss.chain[0]).toBe("input-starvation");
   expect(proposal).toMatchObject({
-    strategy: "dispatch:lithography-l2-earliest-due-date",
-    addressedLoss: "input-starvation",
+    strategy: "maintenance:inspection-jobs-4",
+    addressedLoss: "yield-quality",
     patch: [{
-      op: "replace",
-      path: `/devices/${lithographyIndex}/policy/lotDispatch`,
-      value: "earliest-due-date",
+      op: "add",
+      path: `/devices/${inspectionIndex}/policy/preventiveMaintenance`,
+      value: { opportunistic: { afterJobs: 4 } },
     }],
   });
   expect(() => compileFactoryProject({
@@ -380,7 +379,7 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const metrics = result.metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
-    version: 6,
+    version: 7,
     outcome: { deliveryShortfall: 18, deliveryOverflow: 8, portfolioNetValue: -64 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
@@ -441,7 +440,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 6,
+    version: 7,
     outcome: {
       completed: 5,
       inProgress: 5,
@@ -529,7 +528,11 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
     evidence: { meanQueueTicks: 24_760, bottleneckUtilization: 0.5525 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "input-starvation")).toMatchObject({
-    subjects: [{ kind: "device", id: "etch-1" }],
+    subjects: [
+      { kind: "device", id: "etch-1" },
+      { kind: "connection", id: "lithography-to-etch" },
+      { kind: "device", id: "lithography-1" },
+    ],
     evidence: {
       activeProductiveDevices: 11,
       flowProductiveDevices: 10,
@@ -606,7 +609,7 @@ test("current commissioned fab prevents latent etch damage without reintroducing
   const qTime = fabLoss.buckets.find((bucket) => bucket.id === "q-time");
 
   expect(fabLoss).toMatchObject({
-    version: 6,
+    version: 7,
     outcome: {
       completed: 12,
       inProgress: 0,
@@ -659,7 +662,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 6,
+    version: 7,
     outcome: {
       completed: 6,
       inProgress: 4,
@@ -879,7 +882,7 @@ test("memory-fab project provider diversifies measured loss targets from immutab
   }] });
   expect(release).toMatchObject({ strategy: "dispatch:conwip-8-5-edd", addressedLoss: "queue-congestion" });
 
-  const starvation = await agent.propose({ ...guided, iteration: 4, history: [...history, {
+  const batch = await agent.propose({ ...guided, iteration: 4, history: [...history, {
     iteration: 2,
     strategy: maintenance.strategy!,
     hypothesis: maintenance.hypothesis,
@@ -892,33 +895,6 @@ test("memory-fab project provider diversifies measured loss targets from immutab
     strategy: release.strategy!,
     hypothesis: release.hypothesis,
     addressedLoss: release.addressedLoss,
-    decision: "REVERT" as const,
-    score: 1,
-    scoreDelta: -1,
-  }] });
-  expect(starvation).toMatchObject({ strategy: "dispatch:conwip-10-7-edd", addressedLoss: "input-starvation" });
-
-  const batch = await agent.propose({ ...guided, iteration: 5, history: [...history, {
-    iteration: 2,
-    strategy: maintenance.strategy!,
-    hypothesis: maintenance.hypothesis,
-    addressedLoss: maintenance.addressedLoss,
-    decision: "KEEP" as const,
-    score: 2,
-    scoreDelta: 1,
-  }, {
-    iteration: 3,
-    strategy: release.strategy!,
-    hypothesis: release.hypothesis,
-    addressedLoss: release.addressedLoss,
-    decision: "REVERT" as const,
-    score: 1,
-    scoreDelta: -1,
-  }, {
-    iteration: 4,
-    strategy: starvation.strategy!,
-    hypothesis: starvation.hypothesis,
-    addressedLoss: starvation.addressedLoss,
     decision: "REVERT" as const,
     score: 1,
     scoreDelta: -1,
@@ -929,7 +905,7 @@ test("memory-fab project provider diversifies measured loss targets from immutab
   });
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(blueprint, batch.patch) })).not.toThrow();
 
-  const campaign = await agent.propose({ ...guided, iteration: 6, history: [...history, {
+  const campaign = await agent.propose({ ...guided, iteration: 5, history: [...history, {
     iteration: 2,
     strategy: maintenance.strategy!,
     hypothesis: maintenance.hypothesis,
@@ -947,14 +923,6 @@ test("memory-fab project provider diversifies measured loss targets from immutab
     scoreDelta: -1,
   }, {
     iteration: 4,
-    strategy: starvation.strategy!,
-    hypothesis: starvation.hypothesis,
-    addressedLoss: starvation.addressedLoss,
-    decision: "REVERT" as const,
-    score: 1,
-    scoreDelta: -1,
-  }, {
-    iteration: 5,
     strategy: batch.strategy!,
     hypothesis: batch.hypothesis,
     addressedLoss: batch.addressedLoss,
@@ -1085,6 +1053,7 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
         endpointPowerTicks: 2,
         endpointFailureTicks: 1,
       },
+      inputStates: [],
     }],
   } satisfies FabLossBucket;
   const unmatched = {
@@ -1109,19 +1078,19 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
   await mkdir(resolve(providerRoot, "strategies"));
   const proposal = `{ strategy: "dispatch:test", hypothesis: "test", patch: [{ op: "add", path: "/policies/lotRelease", value: {} }] }`;
   await writeFile(resolve(providerRoot, "strategies/causal-transport.ts"), `export default {
-    apiVersion: 6,
+    apiVersion: 7,
     propose(context) {
       const contributor = context.fabLoss?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors[0];
-      if (context.fabLoss?.version !== 6 || !contributor?.mechanism.startsWith("transport-")
+      if (context.fabLoss?.version !== 7 || !contributor?.mechanism.startsWith("transport-")
         || contributor.evidence.blockedItemTicks !== contributor.evidence.lineContentionTicks
           + contributor.evidence.endpointCapacityTicks + contributor.evidence.endpointPowerTicks
           + contributor.evidence.endpointFailureTicks) throw new Error("missing exact causal transport profile");
       return { ...${proposal}, addressedLoss: "transport-blocking" };
     },
   };\n`);
-  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 6, propose() { return ${proposal}; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 6, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 6, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 7, propose() { return ${proposal}; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/causal-transport.ts").propose(unmatched))
     .resolves.toMatchObject({ addressedLoss: "transport-blocking" });
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/missing.ts").propose(input)).rejects.toThrow("must name addressedLoss");

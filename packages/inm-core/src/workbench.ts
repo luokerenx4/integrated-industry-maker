@@ -129,7 +129,7 @@ export interface WorkbenchDesignProgramEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 6;
+  version: 7;
   project: {
     id: string;
     name: string;
@@ -760,7 +760,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 6 as const,
+    version: 7 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

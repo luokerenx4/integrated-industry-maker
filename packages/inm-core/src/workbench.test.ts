@@ -11,7 +11,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(6);
+  expect(snapshot.version).toBe(7);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -64,14 +64,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
-    evidence: { state: "current", runId: "083-simulate" },
+    evidence: { state: "current", runId: "084-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 14, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "083-simulate",
+    runId: "084-simulate",
     averageWip: 19.738966666666666,
     averageTotalInventory: 116.45466666666667,
     averageExcludedInventory: 96.7157,
@@ -82,7 +82,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 39.8024,
   }));
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
-    version: 6,
+    version: 7,
     chain: ["input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification", "release-admission"],
   }));
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")).toMatchObject({
@@ -333,7 +333,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   });
   const inputStarvation = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation");
   expect(inputStarvation).toMatchObject({
-    subjects: [{ kind: "device", id: "furnace-1" }],
+    subjects: [
+      { kind: "device", id: "furnace-1" },
+      { kind: "connection", id: "deposition-to-batch-furnace" },
+      { kind: "device", id: "deposition-1" },
+    ],
     evidence: {
       activeProductiveDevices: 11,
       flowProductiveDevices: 10,
@@ -349,9 +353,33 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     },
   });
   expect(inputStarvation?.contributors[0]).toMatchObject({
-    id: "device:furnace-1:inter-job-input-gap",
-    mechanism: "inter-job-input-gap",
-    evidence: { jobs: 12, starvationTicks: 42_456, opportunityWindowTicks: 114_456 },
+    id: "device:furnace-1:material-input-shortage",
+    mechanism: "material-input-shortage",
+    resources: ["dielectric-stack-lot"],
+    subjects: [
+      { kind: "device", id: "furnace-1" },
+      { kind: "connection", id: "deposition-to-batch-furnace" },
+      { kind: "device", id: "deposition-1" },
+    ],
+    evidence: {
+      jobs: 12,
+      starvationTicks: 42_456,
+      opportunityWindowTicks: 114_456,
+      unattributedGapTicks: 0,
+    },
+    inputStates: expect.arrayContaining([expect.objectContaining({
+      process: "batch-anneal-dielectric-stack",
+      starvationTicks: 23_800,
+      shortages: expect.arrayContaining([expect.objectContaining({
+        resource: "dielectric-stack-lot",
+        buffer: "batch-input",
+        supplies: expect.arrayContaining([expect.objectContaining({
+          connection: "deposition-to-batch-furnace",
+          sourceDevice: "deposition-1",
+          state: "source-processing",
+        })]),
+      })]),
+    })]),
   });
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")).toBeUndefined();
   expect(snapshot.operations.find((operation) => operation.id === "candidate.preview")?.availability.state).toBe("conditional");

@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V6 shared decision status, Objective-owned inventory accounting, hash-compatible tracked-lot loss attribution, current-Blueprint Design evidence authority, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
+Status: V7 shared decision status, Objective-owned inventory accounting, hash-compatible tracked-lot loss attribution with exact material-shortage supply states, current-Blueprint Design evidence authority, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
@@ -28,7 +28,7 @@ Opening a snapshot is read-only. It does not create cache directories, runs, Ben
 
 ## Snapshot contract
 
-The V6 snapshot contains:
+The V7 snapshot contains:
 
 - project id, display name, and resolved project root;
 - the effective World, Blueprint, Scenario, and Objective ids/names plus complete input hashes;
@@ -40,7 +40,7 @@ The V6 snapshot contains:
 - locked Benchmark summaries and Candidate summaries with cheap `proposed`, reviewed-verdict, `verified`, or `stale` decisions reconstructed from hashes and immutable review receipts without running their evaluators;
 - project-local Design Program summaries with their seed, locked Benchmark promotion target, bounded policy, explicit alignment result against the effective Blueprint, and valid/invalid/historical/current Design evidence state;
 - prioritized diagnostics and operation descriptors.
-- optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, ordered quality-origin, input-gap Device, positive transport-blocking connection with V6 immediate-cause evidence, and Q-time step/Device contributors, and interpretation caveat;
+- optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, ordered quality-origin, material-shortage Resource/Buffer/immediate-path-state, positive transport-blocking connection with immediate-cause evidence, and Q-time step/Device contributors, and interpretation caveat;
 - optional compatible-run Objective inventory accounting with average/peak total inventory, scored WIP, excluded inventory, and per-Resource averages, peaks, final quantities, and inclusion state;
 - exactly one shared next action with stable identity, reason, effect, confirmation requirement, exact CLI argv, project-qualified Studio route, and typed target.
 
@@ -70,7 +70,7 @@ The three operation effects are `read-only`, `creates-artifact`, and `mutates-bl
 
 ## CLI and Studio projections
 
-For transport, CLI and Studio consume the same ordered V6 contributors, dominant mechanism, total blocked item-time, and four immediate-cause shares. Neither converts endpoint service or power evidence into a line-speed recommendation. Studio also exposes the same per-cause metrics in the selected Factory connection inspector.
+For input starvation, CLI and Studio consume the same ordered V7 contributors, Resources, Buffers, exact quantity gaps, immediate authored connection/source subjects, and conserved supply-state intervals. Neither infers a recursive root cause or converts ordinary in-flight material into a lane-capacity recommendation. For transport, both consume the same ordered contributors, dominant mechanism, total blocked item-time, and four immediate-cause shares. Neither converts endpoint service or power evidence into a line-speed recommendation. Studio also exposes the same per-cause metrics in the selected Factory connection inspector.
 
 `inm inspect --json` emits a compact summary inside the versioned CLI envelope. Its bounded `designPrograms` projection includes alignment, evidence state, authority run id, and current/historical/invalid counts without embedding dense run histories. `inm inspect --section next-action --json` returns the exact Core next-action object, `--section losses --json` returns compatible-run attribution, and `inm inspect --section all --json` places the exact Core snapshot in `data.result`; the envelope's `nextActions` contains that same one object. Human `inm inspect` renders effective selection/hashes, Objective, the four explicit status facets, aligned Design evidence state/authority, the shared next action, topology/catalog/evidence counts, the primary realized loss/chain and any measured quality-origin, input-gap, positive transport-blocking, and Q-time contributor rows even when those buckets are not rank one, highest-priority diagnostics, and operation effects. Studio renders the same structured contributor evidence in the Fab Loss panel. Dense analysis remains in `inm analyze` and `inm plan`. See [[docs/design/agent-cli-contract]].
 
@@ -93,7 +93,7 @@ For an aligned Program, Core classifies strict valid Design Runs against the exa
 
 No current evidence opens the read-only Program brief with exact `inm design ... --program ... --json` argv. A promotable, continuable, or exhausted authority instead opens the exact immutable result with `--run-id <hash> --json`, a typed `design-run` target, and a project-qualified `/designs/<program>/runs/<hash>` route. Exhausted evidence explicitly moves the engineering boundary to the project-local intervention portfolio; orientation never starts a Design Run on page load or claims that another unchanged invocation is productive.
 
-For the current memory fab, strict V6 authority is exhausted Run `059d9ae5715394ed80c84b70d0fab51640ad0e99aed1e84378b3a7dc6200154a`: one current run, zero historical compatible runs, and `27` quarantined invalid V5 artifacts. It evaluated four exact V6 loss-targeted proposals and retained the unchanged seed with zero promotion operations. CLI and Studio therefore expose `REVIEW EXHAUSTED DESIGN`, the same run id, and the same instruction to expand the project-local intervention portfolio; neither surface falls back to the generic Program brief or presents the invalid artifacts as usable history.
+For the current memory fab, strict V7 authority is exhausted Run `08b1d0003e117735b41a257c77cbf343bf9d01bcfa8ffad271424047d8383cfb`: one current run, zero historical compatible runs, and `28` quarantined older artifacts. It evaluated four exact V7 loss-targeted proposals and retained the unchanged seed with zero promotion operations. The three generic release candidates target queue or release evidence rather than falsely claiming the leading input shortage. CLI and Studio therefore expose `REVIEW EXHAUSTED DESIGN`, the same run id, and the same instruction to add a project-local intervention that matches the observed Resource/path/state; neither surface falls back to the generic Program brief or presents invalid artifacts as usable history.
 
 Every target already exists in the snapshot and carries exact CLI argv plus a Studio route. CLI returns the object unchanged and Studio renders it unchanged; neither surface chooses priority locally. Orientation never executes a Benchmark, creates a review receipt, mutates a Blueprint, or claims that a non-matching run proves the selected selection.
 

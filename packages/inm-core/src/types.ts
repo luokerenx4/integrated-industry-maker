@@ -996,6 +996,43 @@ export interface ProjectHashes {
 }
 
 export type DeviceStatus = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
+export type InputSupplyState =
+  | "no-local-supply"
+  | "transport-blocked"
+  | "transport-in-flight"
+  | "loader-unpowered"
+  | "loader-failed"
+  | "unloader-unpowered"
+  | "unloader-failed"
+  | "source-ready"
+  | "source-processing"
+  | "source-waiting-input"
+  | "source-blocked-output"
+  | "source-unpowered"
+  | "source-failed"
+  | "source-empty";
+export interface InputSupplyObservation {
+  connection: ConnectionId | null;
+  sourceDevice: DeviceInstanceId | null;
+  sourceBuffer: BufferId | null;
+  sourceAvailable: number;
+  inFlight: number;
+  sourceStatus: DeviceStatus | null;
+  loaderDevice: DeviceInstanceId | null;
+  loaderStatus: DeviceStatus | null;
+  unloaderDevice: DeviceInstanceId | null;
+  unloaderStatus: DeviceStatus | null;
+  state: InputSupplyState;
+}
+export interface MaterialInputShortage {
+  buffer: BufferId;
+  resource: ResourceId;
+  required: number;
+  available: number;
+  missing: number;
+  minimumTreatmentLevel: number;
+  supplies: InputSupplyObservation[];
+}
 export interface ActiveDeviceJob {
   operation: string;
   startedAt: Tick;
@@ -1360,6 +1397,8 @@ export type FactoryEvent =
   | { type: "device.utility-acquired"; tick: Tick; device: DeviceInstanceId; process: ProcessId; allocations: Array<{ provider: DeviceInstanceId; utility: string; units: number }> }
   | { type: "device.utility-released"; tick: Tick; device: DeviceInstanceId; process: ProcessId; allocations: Array<{ provider: DeviceInstanceId; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { type: "device.utility-interrupted"; tick: Tick; device: DeviceInstanceId; process: ProcessId; provider: DeviceInstanceId; failedUtilities: Array<{ utility: string; units: number }>; occupiedTicks: Tick }
+  | { type: "device.input-starved"; tick: Tick; device: DeviceInstanceId; process: ProcessId; shortages: MaterialInputShortage[] }
+  | { type: "device.input-restored"; tick: Tick; device: DeviceInstanceId; process: ProcessId; cause: "ready" | "changed" | "unavailable" }
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }

@@ -47,6 +47,23 @@ function transportMechanismLabel(mechanism: FabLossContributorMechanism): string
   } as Partial<Record<FabLossContributorMechanism, string>>)[mechanism] ?? mechanism;
 }
 
+function inputShortageStateSummary(inputStates: Array<{
+  starvationTicks: number;
+  shortages: Array<{
+    resource: string;
+    buffer: string;
+    required: number;
+    available: number;
+    supplies: Array<{ connection: string | null; sourceDevice: string | null; state: string }>;
+  }>;
+}>): string {
+  return inputStates.slice(0, 3).map((state) =>
+    `${(state.starvationTicks / 1000).toFixed(1)}s ${state.shortages.map((shortage) =>
+      `${shortage.resource}@${shortage.buffer} ${shortage.available}/${shortage.required} via ${shortage.supplies.map((supply) =>
+        `${supply.connection ?? "no-local-path"}:${supply.state}${supply.sourceDevice ? `←${supply.sourceDevice}` : ""}`).join("+")}`).join("+")}`
+  ).join(" · ");
+}
+
 function leadingScoreDrivers(delta: ScoreBreakdown, maximum = 3): string {
   const entries = SCORE_BREAKDOWN_COMPONENTS
     .filter((component) => Math.abs(delta[component]) > 1e-9)
@@ -436,9 +453,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         ...(qualityContributors.length > 5 ? [`  … ${qualityContributors.length - 5} more in --section losses --json`] : []),
       ] : []),
       ...(inputStarvationContributors.length ? [
-        "Input-starvation contributors:",
+        "Material-starvation contributors:",
         ...inputStarvationContributors.slice(0, 5).map((contributor) =>
-          `  ${contributor.label} · ${contributor.mechanism} · ${(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s input gap / ${(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s opportunity · ${contributor.evidence.jobs} jobs · ${(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s separately unavailable · ${contributor.processes.join("+")}`),
+          `  ${contributor.label} · ${contributor.mechanism} · ${(contributor.evidence.starvationTicks! / 1000).toFixed(1)}s attributed shortage / ${(contributor.evidence.opportunityWindowTicks! / 1000).toFixed(1)}s opportunity · ${(contributor.evidence.unattributedGapTicks! / 1000).toFixed(1)}s unattributed · ${contributor.resources.join("+")} · ${inputShortageStateSummary(contributor.inputStates)} · ${contributor.evidence.jobs} jobs · ${(contributor.evidence.unavailableGapTicks! / 1000).toFixed(1)}s separately unavailable`),
         ...(inputStarvationContributors.length > 5 ? [`  … ${inputStarvationContributors.length - 5} more in --section losses --json`] : []),
       ] : []),
       ...(transportContributors.length ? [

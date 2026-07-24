@@ -1,4 +1,4 @@
-import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics } from "./types";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, MaterialInputShortage } from "./types";
 import { totalTransportBlockTicks, transportBlockCauseTotals } from "./transport-blocking";
 
 export type FabLossBucketId =
@@ -26,7 +26,7 @@ export type FabLossContributorMechanism =
   | "batch-companion-wait"
   | "maintenance-qualification"
   | "equipment-availability"
-  | "inter-job-input-gap"
+  | "material-input-shortage"
   | "transport-line-contention"
   | "transport-endpoint-capacity"
   | "transport-endpoint-power"
@@ -47,6 +47,11 @@ export interface FabLossContributor {
   lots: string[];
   subjects: FabLossSubject[];
   evidence: Record<string, number>;
+  inputStates: Array<{
+    process: string;
+    starvationTicks: number;
+    shortages: MaterialInputShortage[];
+  }>;
 }
 
 export interface FabLossBucket {
@@ -60,7 +65,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 6;
+  version: 7;
   family: string;
   outcome: {
     scheduled: number;
@@ -158,6 +163,36 @@ function intervalOverlap(intervals: readonly TickInterval[], start: number, end:
     total + Math.max(0, Math.min(end, interval.end) - Math.max(start, interval.start)), 0);
 }
 
+interface MaterialStarvationInterval extends TickInterval {
+  process: string;
+  shortages: MaterialInputShortage[];
+}
+
+function materialStarvationIntervals(
+  events: readonly FactoryEvent[],
+  device: string,
+  durationTicks: number,
+): MaterialStarvationInterval[] {
+  const intervals: MaterialStarvationInterval[] = [];
+  let open: Omit<MaterialStarvationInterval, "end"> | null = null;
+  for (const event of events) {
+    if (!("device" in event) || event.device !== device) continue;
+    if (event.type === "device.input-starved") {
+      if (open && event.tick > open.start) intervals.push({ ...open, end: event.tick });
+      open = {
+        start: event.tick,
+        process: event.process,
+        shortages: structuredClone(event.shortages),
+      };
+    } else if (event.type === "device.input-restored" && open) {
+      if (event.tick > open.start) intervals.push({ ...open, end: event.tick });
+      open = null;
+    }
+  }
+  if (open && durationTicks > open.start) intervals.push({ ...open, end: durationTicks });
+  return intervals;
+}
+
 export function analyzeInputStarvation(
   metrics: Pick<FactoryMetrics, "waitingInputTime" | "machineUtilization">
     & { lotFlow: Pick<FactoryMetrics["lotFlow"], "family"> },
@@ -179,6 +214,7 @@ export function analyzeInputStarvation(
   let interJobGapTicks = 0;
   let unavailableGapTicks = 0;
   let starvationTicks = 0;
+  let unattributedGapTicks = 0;
 
   for (const device of flowProductiveDevices) {
     const starts = events.filter((event): event is Extract<FactoryEvent, { type: "device.start" }> =>
@@ -191,52 +227,99 @@ export function analyzeInputStarvation(
     const opportunityTicks = Math.max(0, lastFinish.tick - starts[0]!.tick);
     if (opportunityTicks === 0) continue;
     const unavailable = unavailableIntervals(events, device, durationTicks);
+    const materialIntervals = materialStarvationIntervals(events, device, durationTicks);
     const processes = new Set<string>();
+    const resources = new Set<string>();
+    const subjects = new Map<string, FabLossSubject>([
+      [`device:${device}`, { kind: "device", id: device }],
+    ]);
+    const inputStates = new Map<string, {
+      process: string;
+      starvationTicks: number;
+      shortages: MaterialInputShortage[];
+    }>();
     let deviceGapTicks = 0;
     let deviceUnavailableTicks = 0;
     let deviceStarvationTicks = 0;
+    let deviceUnattributedGapTicks = 0;
     for (let index = 0; index < pairedGaps; index++) {
       const gapStart = finishes[index]!.tick;
-      const nextStart = starts[index + 1]!;
-      const gapEnd = nextStart.tick;
+      const gapEnd = starts[index + 1]!.tick;
       const gapTicks = Math.max(0, gapEnd - gapStart);
       const excludedTicks = Math.min(gapTicks, intervalOverlap(unavailable, gapStart, gapEnd));
-      const observedStarvationTicks = Math.max(0, gapTicks - excludedTicks);
+      let attributedTicks = 0;
+      for (const interval of materialIntervals) {
+        const start = Math.max(gapStart, interval.start);
+        const end = Math.min(gapEnd, interval.end);
+        if (end <= start) continue;
+        const ticks = Math.max(0, end - start - intervalOverlap(unavailable, start, end));
+        if (ticks === 0) continue;
+        attributedTicks += ticks;
+        processes.add(interval.process);
+        for (const shortage of interval.shortages) {
+          resources.add(shortage.resource);
+          for (const supply of shortage.supplies) {
+            if (supply.connection) {
+              subjects.set(`connection:${supply.connection}`, { kind: "connection", id: supply.connection });
+            }
+            if (supply.sourceDevice) {
+              subjects.set(`device:${supply.sourceDevice}`, { kind: "device", id: supply.sourceDevice });
+            }
+          }
+        }
+        const key = JSON.stringify({ process: interval.process, shortages: interval.shortages });
+        const state = inputStates.get(key) ?? {
+          process: interval.process,
+          starvationTicks: 0,
+          shortages: structuredClone(interval.shortages),
+        };
+        state.starvationTicks += ticks;
+        inputStates.set(key, state);
+      }
+      const eligibleGapTicks = Math.max(0, gapTicks - excludedTicks);
+      const gapStarvationTicks = Math.min(eligibleGapTicks, attributedTicks);
       deviceGapTicks += gapTicks;
       deviceUnavailableTicks += excludedTicks;
-      deviceStarvationTicks += observedStarvationTicks;
-      if (observedStarvationTicks > 0) processes.add(nextStart.operation);
+      deviceStarvationTicks += gapStarvationTicks;
+      deviceUnattributedGapTicks += Math.max(0, eligibleGapTicks - gapStarvationTicks);
     }
     opportunityWindowTicks += opportunityTicks;
     interJobGapTicks += deviceGapTicks;
     unavailableGapTicks += deviceUnavailableTicks;
     starvationTicks += deviceStarvationTicks;
+    unattributedGapTicks += deviceUnattributedGapTicks;
     if (deviceStarvationTicks === 0) continue;
     const utilization = metrics.machineUtilization[device] ?? 0;
     const deviceRawWaitingInputTicks = metrics.waitingInputTime[device] ?? 0;
     contributors.push({
-      id: `device:${device}:inter-job-input-gap`,
+      id: `device:${device}:material-input-shortage`,
       label: device,
-      mechanism: "inter-job-input-gap",
+      mechanism: "material-input-shortage",
       route: null,
       step: null,
-      resources: [],
+      resources: [...resources].sort(),
       processes: [...processes].sort(),
       defects: [],
       lots: [],
-      subjects: [{ kind: "device", id: device }],
+      subjects: [...subjects.values()],
       evidence: {
         jobs: starts.length,
         completedJobs: finishes.length,
         opportunityWindowTicks: opportunityTicks,
         interJobGapTicks: deviceGapTicks,
         unavailableGapTicks: deviceUnavailableTicks,
+        eligibleInterJobGapTicks: Math.max(0, deviceGapTicks - deviceUnavailableTicks),
         starvationTicks: deviceStarvationTicks,
+        unattributedGapTicks: deviceUnattributedGapTicks,
         rawWaitingInputTicks: deviceRawWaitingInputTicks,
         boundaryWaitingInputTicks: Math.max(0, deviceRawWaitingInputTicks - deviceStarvationTicks),
         utilization,
         weightedStarvationTicks: deviceStarvationTicks * utilization,
       },
+      inputStates: [...inputStates.values()].sort((left, right) =>
+        right.starvationTicks - left.starvationTicks
+        || left.process.localeCompare(right.process)
+        || JSON.stringify(left.shortages).localeCompare(JSON.stringify(right.shortages))),
     });
   }
   contributors.sort((left, right) =>
@@ -247,7 +330,7 @@ export function analyzeInputStarvation(
   const boundaryWaitingInputTicks = Math.max(0, flowRawWaitingInputTicks - starvationTicks);
   return {
     score: ratio(starvationTicks, opportunityWindowTicks),
-    summary: `${contributors.length}/${flowProductiveDevices.length} active flow Devices accumulated ${(starvationTicks / 1000).toFixed(1)} event-backed inter-job input-gap device-s inside ${(opportunityWindowTicks / 1000).toFixed(1)} device-s of observed production opportunity; ${(boundaryWaitingInputTicks / 1000).toFixed(1)} of ${(flowRawWaitingInputTicks / 1000).toFixed(1)} flow input-wait device-s lay outside those ranked gaps${exceptionWaitingInputTicks > 0 ? `, with ${(exceptionWaitingInputTicks / 1000).toFixed(1)} additional exception-only device-s excluded from ranking` : ""}.`,
+    summary: `${contributors.length}/${flowProductiveDevices.length} active flow Devices accumulated ${(starvationTicks / 1000).toFixed(1)} explicit material-shortage device-s inside ${(opportunityWindowTicks / 1000).toFixed(1)} device-s of repeated production opportunity; ${(unattributedGapTicks / 1000).toFixed(1)} eligible inter-job device-s remained unattributed rather than being guessed as material loss, and ${(boundaryWaitingInputTicks / 1000).toFixed(1)} of ${(flowRawWaitingInputTicks / 1000).toFixed(1)} flow input-wait device-s remained outside ranked shortage intervals${exceptionWaitingInputTicks > 0 ? `, with ${(exceptionWaitingInputTicks / 1000).toFixed(1)} additional exception-only device-s excluded from ranking` : ""}.`,
     subjects: subject ? subject.subjects : [{ kind: "project", id: metrics.lotFlow.family! }],
     evidence: {
       activeProductiveDevices: activeProductiveDevices.length,
@@ -261,6 +344,7 @@ export function analyzeInputStarvation(
       interJobGapTicks,
       unavailableGapTicks,
       starvationTicks,
+      unattributedGapTicks,
       subjectStarvationTicks: subject?.evidence.starvationTicks ?? 0,
       subjectOpportunityWindowTicks: subject?.evidence.opportunityWindowTicks ?? 0,
       subjectUtilization: subject?.evidence.utilization ?? 0,
@@ -383,6 +467,7 @@ function qTimeContributors(
       totalOverrunTicks: group.totalOverrunTicks,
       maximumOverrunTicks: group.maximumOverrunTicks,
     },
+    inputStates: [],
   })).sort((left, right) =>
     right.evidence.violations! - left.evidence.violations!
     || right.evidence.totalOverrunTicks! - left.evidence.totalOverrunTicks!
@@ -535,6 +620,7 @@ export function analyzeQualityContributors(
         scrappedLots: scrappedLots.size,
         escapedLots: escapedLots.size,
       },
+      inputStates: [],
     };
   }).sort((left, right) =>
     right.evidence.scrappedLots! - left.evidence.scrappedLots!
@@ -608,6 +694,7 @@ export function analyzeTransportBlocking(
           loaderFailureTicks: flow.blockedItemTicksByCause["endpoint-failure"].loader,
           unloaderFailureTicks: flow.blockedItemTicksByCause["endpoint-failure"].unloader,
         },
+        inputStates: [],
       };
     })
     .sort((left, right) =>
@@ -836,7 +923,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 6,
+    version: 7,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,

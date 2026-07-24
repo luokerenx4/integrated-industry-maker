@@ -442,7 +442,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const campaignProgress = campaignRecords.filter((record) => record.type === "progress");
     expect(campaignProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
     expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
-      phase: "proposal-completed", iteration: 7, strategy: "dispatch:inspection-earliest-due-date", addressedLoss: "queue-congestion",
+      phase: "proposal-completed", iteration: 7, strategy: "dispatch:inspection-earliest-due-date", addressedLoss: "q-time",
     }) }));
     expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "candidate-completed", iteration: 7, strategy: "dispatch:inspection-earliest-due-date", decision: "KEEP",
@@ -466,7 +466,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       iterations: expect.arrayContaining([expect.objectContaining({
         iteration: 7,
         strategy: "dispatch:inspection-earliest-due-date",
-        addressedLoss: "queue-congestion",
+        addressedLoss: "q-time",
         promotionBoundary: expect.objectContaining({ limitingCase: null, guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
         decision: "KEEP",
         decisionEvidence: expect.objectContaining({ basis: "current-best-improvement", guardrail: expect.objectContaining({ passed: true, violations: [] }) }),

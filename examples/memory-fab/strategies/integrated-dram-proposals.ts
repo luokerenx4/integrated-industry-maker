@@ -1,4 +1,4 @@
-import type { FabLossBucketId, JsonPatchOperation, ProjectProposalProvider } from "./runtime-api";
+import type { FabLossBucketId, InputSupplyState, JsonPatchOperation, ProjectProposalProvider } from "./runtime-api";
 
 interface ProposalBlueprint {
   revision?: string;
@@ -14,6 +14,7 @@ interface Candidate {
   addresses: FabLossBucketId[];
   addressesCases?: string[];
   subjects?: string[];
+  inputSupplyStates?: InputSupplyState[];
   patch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null;
 }
 
@@ -841,6 +842,7 @@ const candidates: Candidate[] = [
     expectedEffect: "Debounce ordinary handoff gaps while recovering sustained furnace starvation, preserving steady production and retaining disruption gains under every locked case.",
     addresses: ["input-starvation"],
     subjects: ["deposition-1", "deposition-to-batch-furnace", "furnace-1"],
+    inputSupplyStates: ["source-processing", "source-waiting-input"],
     patch: commissionedAdaptiveCadencePatch,
   },
   {
@@ -849,6 +851,7 @@ const candidates: Candidate[] = [
     expectedEffect: "Reduce the measured deposition-to-furnace input-gap chain if faster deposition becomes useful delivery rather than merely moving idle time upstream; every locked case remains authoritative.",
     addresses: ["input-starvation"],
     subjects: ["deposition-1", "furnace-1"],
+    inputSupplyStates: ["source-processing"],
     patch: commissionedAgilePulsePatch,
   },
   {
@@ -921,7 +924,7 @@ const candidates: Candidate[] = [
 ];
 
 export default {
-  apiVersion: 6,
+  apiVersion: 7,
   propose(context) {
     const used = new Set(context.history.map((item) => item.strategy));
     const blockingCases = context.promotionBoundary.guardrail.violations;
@@ -948,7 +951,20 @@ export default {
     }
     const ranked = lossChain.length
       ? candidates.map((candidate, index) => {
-        const targets = lossChain.filter((loss) => candidate.addresses.includes(loss)).sort((left, right) =>
+        const targets = lossChain.filter((loss) => {
+          if (!candidate.addresses.includes(loss)) return false;
+          if (loss !== "input-starvation") return true;
+          const inputBucket = context.fabLoss?.buckets.find((bucket) => bucket.id === "input-starvation");
+          const observedSubjects = inputBucket
+            ? [...inputBucket.subjects, ...inputBucket.contributors.flatMap((contributor) => contributor.subjects)]
+              .map((subject) => subject.id)
+            : [];
+          const observedStates = new Set(inputBucket?.contributors.flatMap((contributor) =>
+            contributor.inputStates.flatMap((state) =>
+              state.shortages.flatMap((shortage) => shortage.supplies.map((supply) => supply.state)))) ?? []);
+          return Boolean(candidate.subjects?.some((subject) => observedSubjects.includes(subject))
+            && candidate.inputSupplyStates?.some((state) => observedStates.has(state)));
+        }).sort((left, right) =>
           (attempts.get(left) ?? 0) - (attempts.get(right) ?? 0)
           || lossChain.indexOf(left) - lossChain.indexOf(right));
         const addressedLoss = targets[0];
