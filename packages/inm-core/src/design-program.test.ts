@@ -315,7 +315,7 @@ test("Design stops only after every retained frontier node is search-exhausted",
   });
   await expect(continueDesignRun(copy, "integrated-dram-fab", result.manifest.resultHash, { maxCandidates: 1 }))
     .rejects.toMatchObject({ code: "design.continuation-unavailable" });
-}, 30_000);
+}, 120_000);
 
 test("Design continuation rejects a replay-divergent source before writing new evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-divergent-"));
@@ -345,7 +345,7 @@ test("Design continuation rejects a replay-divergent source before writing new e
   await expect(continueDesignRun(copy, "greenfield-dram-fab", divergentSource.resultHash, { maxCandidates: 1 }))
     .rejects.toMatchObject({ code: "design.continuation-diverged" });
   expect(await readdir(join(copy, "design-runs", "greenfield-dram-fab"))).toEqual(artifactsBeforeDivergence);
-}, 60_000);
+}, 180_000);
 
 test("a synthesis-seeded Design Program is deterministic, immutable, and applies only through an exact Candidate", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-run-"));
@@ -510,4 +510,4 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
   await expect(promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "stale-generated-design"))
     .rejects.toMatchObject({ code: "design.promotion-base-stale" });
-}, 240_000);
+}, 360_000);

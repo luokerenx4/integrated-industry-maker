@@ -49,6 +49,9 @@ export interface BlueprintMetricSnapshot {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  authoredDefectInstances: number;
+  preventedDefectInstances: number;
+  appliedDefectInstances: number;
   lotOutputJobs: number;
   lotOutputRatio: number;
   lotOutputLostUnits: number;
@@ -159,6 +162,9 @@ export interface BlueprintMetricDelta {
   firstPassYield: number;
   qualityEscapes: number;
   reworkCycles: number;
+  authoredDefectInstances: number;
+  preventedDefectInstances: number;
+  appliedDefectInstances: number;
   lotOutputJobs: number;
   lotOutputRatio: number;
   lotOutputLostUnits: number;
@@ -412,6 +418,9 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     firstPassYield: metrics.qualityFlow.firstPassYield,
     qualityEscapes: metrics.qualityFlow.escapedDefects,
     reworkCycles: metrics.qualityFlow.totalReworkCycles,
+    authoredDefectInstances: metrics.qualityFlow.qualityControl.authoredDefectInstances,
+    preventedDefectInstances: metrics.qualityFlow.qualityControl.preventedDefectInstances,
+    appliedDefectInstances: metrics.qualityFlow.qualityControl.appliedDefectInstances,
     lotOutputJobs: metrics.lotOutputFlow.jobs,
     lotOutputRatio: metrics.lotOutputFlow.outputRatio,
     lotOutputLostUnits: metrics.lotOutputFlow.lostUnits,
@@ -549,6 +558,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     firstPassYield: after.firstPassYield - before.firstPassYield,
     qualityEscapes: after.qualityEscapes - before.qualityEscapes,
     reworkCycles: after.reworkCycles - before.reworkCycles,
+    authoredDefectInstances: after.authoredDefectInstances - before.authoredDefectInstances,
+    preventedDefectInstances: after.preventedDefectInstances - before.preventedDefectInstances,
+    appliedDefectInstances: after.appliedDefectInstances - before.appliedDefectInstances,
     lotOutputJobs: after.lotOutputJobs - before.lotOutputJobs,
     lotOutputRatio: after.lotOutputRatio - before.lotOutputRatio,
     lotOutputLostUnits: after.lotOutputLostUnits - before.lotOutputLostUnits,

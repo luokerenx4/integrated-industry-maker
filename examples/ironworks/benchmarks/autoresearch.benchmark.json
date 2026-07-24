@@ -40,8 +40,8 @@
     "cases": {
       "intermittent-power": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "deviceCatalogHash": "a524a9e6198c8033e8db9f71f7b675958160668a52914340fc09ebc2ad68faa7",
-        "engineVersion": "inm-sim/0.77.0",
+        "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
+        "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
@@ -51,8 +51,8 @@
       },
       "normal-production": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "deviceCatalogHash": "a524a9e6198c8033e8db9f71f7b675958160668a52914340fc09ebc2ad68faa7",
-        "engineVersion": "inm-sim/0.77.0",
+        "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
+        "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
@@ -62,8 +62,8 @@
       },
       "smelter-outage": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "deviceCatalogHash": "a524a9e6198c8033e8db9f71f7b675958160668a52914340fc09ebc2ad68faa7",
-        "engineVersion": "inm-sim/0.77.0",
+        "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
+        "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",

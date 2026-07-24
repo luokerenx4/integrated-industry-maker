@@ -202,6 +202,8 @@ export interface ProductionModeDefinition {
   powerMultiplier: { numerator: number; denominator: number };
   /** Extra project Resources consumed once per mode job through fixed physical ports. */
   auxiliaryInputs: Array<{ resource: ResourceId; count: number; port: PortId }>;
+  /** Fixed Scenario excursion defect classes prevented while this exact mode performs the challenged Process. */
+  preventsDefects: string[];
   /** Every Process input batch must have at least this treatment level. Zero accepts untreated material. */
   minimumInputTreatmentLevel: number;
 }
@@ -373,7 +375,7 @@ export interface DeviceProgramContext {
     name: string;
     category: string;
     durationTicks: Tick;
-    mode: Readonly<{ id: string; name: string; inputCycles: number; outputCycles: number }>;
+    mode: Readonly<{ id: string; name: string; inputCycles: number; outputCycles: number; preventsDefects: readonly string[] }>;
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];
     tooling: ProcessAmount[];
@@ -1029,6 +1031,8 @@ export interface ActiveDeviceJob {
     powerMultiplier: { numerator: number; denominator: number };
     defects: string[];
   };
+  /** Exact mode-level control active while this job faces fixed Scenario excursions. */
+  qualityControl?: { mode: string; preventsDefects: string[] };
   quality?:
     | { kind: "inspection"; lotIds: string[]; detectedDefects: string[]; result: "pass" | "reject" | "scrap" }
     | { kind: "rework"; lotIds: string[]; repairs: string[] };
@@ -1347,7 +1351,18 @@ export type FactoryEvent =
   | { type: "logistics.energy-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
   | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; lotIds?: string[] }
   | { type: "lot.completed"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; cycleTicks: Tick; tardinessTicks: Tick }
-  | { type: "lot.quality-excursion"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; excursion: string; defects: string[] }
+  | {
+    type: "lot.quality-excursion";
+    tick: Tick;
+    device: DeviceInstanceId;
+    lot: string;
+    process: ProcessId;
+    mode: string;
+    excursion: string;
+    authoredDefects: string[];
+    preventedDefects: string[];
+    defects: string[];
+  }
   | { type: "lot.output-profile"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; profile: string; defects: string[]; nominalOutputs: ProcessAmount[]; actualOutputs: ProcessAmount[] }
   | { type: "lot.inspected"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; result: "pass" | "reject" | "scrap"; detectedDefects: string[]; reworkCycles: number }
   | { type: "lot.reworked"; tick: Tick; device: DeviceInstanceId; lot: string; process: ProcessId; repairedDefects: string[]; remainingDefects: string[]; reworkCycles: number }
@@ -1498,6 +1513,21 @@ export interface FactoryMetrics {
     activeDefects: number;
     goodYield: number;
     firstPassYield: number;
+    qualityControl: {
+      authoredExcursions: number;
+      authoredDefectInstances: number;
+      preventedDefectInstances: number;
+      appliedDefectInstances: number;
+      preventedLots: number;
+      devices: Record<DeviceInstanceId, {
+        mode: string;
+        authoredDefectInstances: number;
+        preventedDefectInstances: number;
+        appliedDefectInstances: number;
+        lots: string[];
+        preventedByClass: Record<string, number>;
+      }>;
+    };
   };
   lotOutputFlow: {
     jobs: number;

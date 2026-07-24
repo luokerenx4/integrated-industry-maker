@@ -697,9 +697,12 @@ export function analyzeFabLossProfile(
   const contributorContext = qualitySubject
     ? ` ${qualityDetails.length} defect-origin contributors are traceable; ${qualitySubject.label} leads with ${qualitySubject.evidence.scrappedLots} scrap dispositions.`
     : "";
+  const qualityControlContext = metrics.qualityFlow.qualityControl.authoredDefectInstances
+    ? ` Mode controls prevented ${metrics.qualityFlow.qualityControl.preventedDefectInstances}/${metrics.qualityFlow.qualityControl.authoredDefectInstances} authored defect instances across ${metrics.qualityFlow.qualityControl.preventedLots} lots.`
+    : "";
   add({
     id: "yield-quality", label: "Verified yield and quality loss", score: ratio(affectedLots, inspectedLots) + ratio(metrics.lotOutputFlow.lostUnits, metrics.lotOutputFlow.nominalUnits),
-    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.${driftContext}${contributorContext}`,
+    summary: `${metrics.qualityFlow.firstPassCompleted}/${inspectedLots} inspected lots passed first inspection; ${metrics.qualityFlow.reworkedLots} reworked, ${metrics.qualityFlow.scrapDispositions} scrapped, ${metrics.qualityFlow.escapedDefects} escaped, and ${metrics.lotOutputFlow.lostUnits} lot-derived output units were lost.${qualityControlContext}${driftContext}${contributorContext}`,
     subjects: [
       ...(qualitySubject?.subjects ?? (driftDevice ? [{ kind: "device" as const, id: driftDevice }] : [])),
       { kind: "project", id: metrics.lotFlow.family },
@@ -711,6 +714,10 @@ export function analyzeFabLossProfile(
       reworkedLots: metrics.qualityFlow.reworkedLots,
       scrapDispositions: metrics.qualityFlow.scrapDispositions,
       escapedDefects: metrics.qualityFlow.escapedDefects,
+      authoredDefectInstances: metrics.qualityFlow.qualityControl.authoredDefectInstances,
+      preventedDefectInstances: metrics.qualityFlow.qualityControl.preventedDefectInstances,
+      appliedDefectInstances: metrics.qualityFlow.qualityControl.appliedDefectInstances,
+      preventedLots: metrics.qualityFlow.qualityControl.preventedLots,
       lostOutputUnits: metrics.lotOutputFlow.lostUnits,
       equipmentDriftedLots: driftedLots,
       equipmentDriftDefects: driftDefectCount,

@@ -1,0 +1,222 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "closed-loop-plasma-etch-bay",
+  "name": "Closed-loop Plasma Etch Bay",
+  "description": "A sensor-rich etch work center with endpoint control that can prevent latent electrical damage during a fixed process excursion.",
+  "tags": [
+    "semiconductor",
+    "work-center",
+    "etch",
+    "closed-loop-control",
+    "quality-control"
+  ],
+  "capabilities": [
+    "process"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 3,
+      "height": 3
+    },
+    "rotatable": true,
+    "ports": [
+      {
+        "id": "pattern-input",
+        "direction": "input",
+        "side": "west",
+        "offset": 1,
+        "buffer": "pattern-input",
+        "kind": "resource"
+      },
+      {
+        "id": "loop-output",
+        "direction": "output",
+        "side": "east",
+        "offset": 1,
+        "buffer": "loop-output",
+        "kind": "resource"
+      },
+      {
+        "id": "final-output",
+        "direction": "output",
+        "side": "south",
+        "offset": 1,
+        "buffer": "final-output",
+        "kind": "resource"
+      }
+    ]
+  },
+  "buffers": [
+    {
+      "id": "pattern-input",
+      "role": "input",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "loop-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "final-output",
+      "role": "output",
+      "capacity": 24,
+      "accepts": [
+        "*"
+      ]
+    }
+  ],
+  "production": {
+    "processes": [
+      "etch-cell-layer-1",
+      "etch-cell-layer-2"
+    ],
+    "categories": [
+      "etch"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "pattern-input"
+    ],
+    "outputPorts": [
+      "loop-output",
+      "final-output"
+    ],
+    "modes": [
+      {
+        "id": "qualified",
+        "name": "Qualified production recipe",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "closed-loop-control",
+        "name": "Closed-loop endpoint control",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 6,
+          "denominator": 5
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [
+          "latent-electrical"
+        ],
+        "minimumInputTreatmentLevel": 0
+      }
+    ],
+    "changeover": {
+      "transitions": [
+        {
+          "from": null,
+          "to": "etch-recipe-l1",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": null,
+          "to": "etch-recipe-l2",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "etch-recipe-l1",
+          "to": "etch-recipe-l2",
+          "durationTicks": 3000,
+          "powerMilliWatts": 180000
+        },
+        {
+          "from": "etch-recipe-l2",
+          "to": "etch-recipe-l1",
+          "durationTicks": 35000,
+          "powerMilliWatts": 180000
+        }
+      ]
+    },
+    "maintenance": {
+      "maximumJobs": 8,
+      "maximumQualificationTicks": 165000,
+      "durationTicks": 7000,
+      "powerMilliWatts": 200000,
+      "service": {
+        "skill": "vacuum-process",
+        "crews": 1,
+        "inputs": [
+          {
+            "resource": "chamber-clean-kit",
+            "count": 1
+          }
+        ]
+      },
+      "qualification": {
+        "durationTicks": 3500,
+        "powerMilliWatts": 220000,
+        "service": {
+          "skill": "equipment-qualification",
+          "crews": 1,
+          "inputs": [
+            {
+              "resource": "tool-qualification-wafer",
+              "count": 1
+            }
+          ]
+        }
+      },
+      "drift": [
+        {
+          "afterJobs": 6,
+          "durationMultiplier": {
+            "numerator": 6,
+            "denominator": 5
+          },
+          "powerMultiplier": {
+            "numerator": 6,
+            "denominator": 5
+          },
+          "defects": [
+            "particle-contamination"
+          ]
+        }
+      ]
+    }
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 20000,
+    "activeMilliWatts": 235000
+  },
+  "economics": {
+    "buildCost": 12050
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

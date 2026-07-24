@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/commissioned-in-situ-quality-control]] | Let an explicitly costed production mode prevent fixed quality-excursion defects with auditable evidence, then evaluate and commission a closed-loop layer-two etch intervention. | 2026-07-24 |
 | [[plans/factory-environment-depth]] | Make the memory-fab floor and distant cleanroom read as one spatial exhibit at both overview and work-cell scales. | 2026-07-24 |
 | [[plans/objective-owned-wip-accounting]] | Make Objective-scoped industrial WIP explicit and equally inspectable by humans and Coding Agents. | 2026-07-24 |
 | [[plans/commissioned-recovery-delivery-conversion]] | Convert advanced-recovery yield into paid DRAM delivery inside the locked interruption window through explicit back-end equipment and control. | 2026-07-24 |

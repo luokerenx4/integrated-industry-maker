@@ -16,6 +16,7 @@ export interface DeviceProductionRate {
   inputCycles: number;
   outputCycles: number;
   minimumInputTreatmentLevel: number;
+  preventsDefects: string[];
   category: string;
   cycleTicks: number;
   cyclesPerMinute: number;
@@ -64,6 +65,7 @@ export interface RecipeOptionAnalysis {
   mode: string;
   modeName: string;
   minimumInputTreatmentLevel: number;
+  preventsDefects: string[];
   name: string;
   category: string;
   selected: boolean;
@@ -435,6 +437,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
         inputCycles: processPlan.mode.inputCycles,
         outputCycles: processPlan.mode.outputCycles,
         minimumInputTreatmentLevel: processPlan.mode.minimumInputTreatmentLevel,
+        preventsDefects: [...processPlan.mode.preventsDefects],
         category: processPlan.definition.category,
         cycleTicks: processPlan.durationTicks,
         cyclesPerMinute,
@@ -510,7 +513,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       for (const input of mode.auxiliaryInputs) inputPorts[input.resource] = input.port;
       return [{
         device: device.id, asset: device.asset, process: process.id, mode: mode.id, modeName: mode.name,
-        minimumInputTreatmentLevel: mode.minimumInputTreatmentLevel, name: process.name, category: process.category,
+        minimumInputTreatmentLevel: mode.minimumInputTreatmentLevel, preventsDefects: [...mode.preventsDefects],
+        name: process.name, category: process.category,
         selected: device.processPlans.some((plan) => plan.definition.id === process.id && plan.mode.id === mode.id), cycleTicks, cyclesPerMinute,
         inputs: amounts.inputs, outputs: amounts.outputs,
         inputPorts, outputPorts: bindings.outputs,

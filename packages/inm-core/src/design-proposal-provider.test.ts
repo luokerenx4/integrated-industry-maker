@@ -381,7 +381,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   });
 });
 
-test("current commissioned fab removes final-inspection Q-time with continuous metrology", async () => {
+test("current commissioned fab prevents latent etch damage without reintroducing final-inspection Q-time", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
@@ -399,16 +399,28 @@ test("current commissioned fab removes final-inspection Q-time with continuous m
   expect(fabLoss).toMatchObject({
     version: 4,
     outcome: {
-      completed: 11,
+      completed: 12,
       inProgress: 0,
-      firstPassYield: 3 / 4,
+      firstPassYield: 10 / 12,
       deliveryShortfall: 0,
-      deliveryOverflow: 38,
-      portfolioNetValue: 288,
-      scrapped: 1,
+      deliveryOverflow: 46,
+      portfolioNetValue: 304,
+      scrapped: 0,
     },
   });
   expect(qTime).toBeUndefined();
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toEqual(expect.objectContaining({
+    evidence: expect.objectContaining({
+      authoredDefectInstances: 3,
+      preventedDefectInstances: 1,
+      appliedDefectInstances: 2,
+      preventedLots: 1,
+    }),
+  }));
+  expect(project.blueprint.devices.find((device) => device.id === "etch-l2")).toEqual(expect.objectContaining({
+    asset: "closed-loop-plasma-etch-bay",
+    recipes: [expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-control" })],
+  }));
   expect(project.blueprint.devices.find((device) => device.id === "inspection-1")?.asset)
     .toBe("continuous-deep-metrology-cell");
   expect(project.blueprint.devices.find((device) => device.id === "maintenance-service-1")?.asset)

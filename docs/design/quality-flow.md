@@ -1,6 +1,6 @@
 # Identity-preserving quality flow
 
-Status: deterministic process excursions, latent lot defects, inline inspection, selective rework, terminal scrap, quality metrics, and Blueprint benchmarking implemented in engine version `inm-sim/0.50.0`.
+Status: deterministic authored process excursions, mode-level in-situ prevention, latent lot defects, inline inspection, selective rework, terminal scrap, quality metrics, and Blueprint benchmarking implemented through engine version `inm-sim/0.78.0`.
 
 Related: [[docs/design/lot-tracking]], [[docs/design/lot-derived-output]], [[docs/design/material-contracts]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
@@ -15,6 +15,7 @@ This mirrors the industrial role of inline inspection and yield management. KLA 
 Quality behavior belongs to fixed project inputs:
 
 - `Scenario.qualityExcursions` names a Process, lot, and latent defect classes. An excursion is applied exactly once when that lot first completes that Process.
+- `Device.production.modes[].preventsDefects` names exact fixed-excursion defect classes that the selected physical operating mode prevents while it executes that same challenged Process.
 - `Process.quality.kind: inspection` declares detected defect classes, pass output, rework output, optional scrap output, and a rework-cycle limit.
 - `Process.quality.kind: rework` declares the defect classes one successful cycle repairs.
 - a Device with capability `discard` is a terminal material sink that marks tracked lots scrapped and never counts target delivery.
@@ -22,7 +23,9 @@ Quality behavior belongs to fixed project inputs:
 
 No random draw occurs inside the simulator. The Scenario already owns the fixed workload, so named excursions make every candidate Blueprint replay the same quality challenge. This keeps benchmark scores comparable and makes an event-level result independently auditable.
 
-The Blueprint remains the editable program. It may select standard or deep inspection recipes, duplicate inspection/rework equipment, alter topology and buffers, change lot dispatch, or rebalance power. It cannot edit which fixed lots experience excursions, what each inspector detects, or what a rework recipe repairs.
+The Blueprint remains the editable program. It may select standard or deep inspection recipes, duplicate inspection/rework equipment, alter topology and buffers, change lot dispatch, rebalance power, or buy an explicitly costed preventive equipment mode. It cannot edit which fixed lots experience excursions, what each inspector detects, or what a rework recipe repairs. Renaming or replacing the Process does not count as prevention: the Scenario challenge remains Process-scoped, and a valid intervention must execute that same Process.
+
+When a challenged job completes, the immutable `lot.quality-excursion` event retains `authoredDefects` and partitions them into `preventedDefects` and residual `defects`. The excursion id is marked applied even when every defect is prevented, so replay cannot silently retry or erase the authored challenge.
 
 ## Runtime lifecycle
 
@@ -63,6 +66,7 @@ Inspection disposition is also distinct from lot-derived quantity. A lot may pas
 - defect-free and first-pass target completions;
 - active latent defects and completed quality escapes;
 - good yield and first-pass yield over released target-family lots.
+- authored excursions and defect instances, prevented/applied instances, affected lots, and per-Device mode/class evidence.
 
 Good yield counts defect-free target completions divided by releases. First-pass yield further requires zero rework cycles. A completed target lot with remaining latent defects is an escape: it still consumed real factory capacity and reached the delivery boundary, but `weights.qualityEscapes` can make that result unacceptable. `weights.rework` prices recovery effort independently from its natural cycle-time, WIP, energy, and capacity cost.
 
@@ -86,6 +90,10 @@ Candidate `continuous-deep-metrology` couples that asset replacement to `7/4 EDD
 
 The project catalog now makes the next physical choice explicit. `recover-final-pattern-advanced` repairs both critical dimension and particle contamination but never latent electrical damage, and only `advanced-pattern-recovery-cell` qualifies that Process. Selecting it with bounded `6/3 EDD` admission completes the particle-contaminated lot and leaves only the latent-electrical lot scrapped, raising good yield to `11/12` without escapes or Q-time violations. That local quality gain is not commissioning authority: Design Run `648dbe35b34b2fbe11a70766a73070f8cf55512da3e58cebdb0125e9db43dfc7` records four positive current-best case deltas but a `-0.429259` lithography-interruption delta. It retains the technology as a Pareto branch, creates no Candidate, and leaves the selected recovery line unchanged.
 
+The commissioned `closed-loop-plasma-etch-bay` closes the remaining prevention gap without changing the challenged `etch-cell-layer-2` Process. Its `closed-loop-control` mode prevents only `latent-electrical`; critical-dimension and particle-contamination excursions remain applied and flow through the existing inspection/recovery system. The selected tool costs 50 more than the ordinary etch bay, draws 282 W during the mode instead of 280 W, and saves standby power. Against the exact current-best Blueprint, all five locked cases are non-regressing; the three challenged cases prevent one, two, and one defect instances and recover the same number of otherwise scrapped lots. Candidate `closed-loop-layer-two-etch` is the reviewed commissioning authority.
+
+Compatible run `074-simulate` is the commissioned after state. It completes all twelve lots, delivers 96 devices, records ten first-pass and two reworked lots, and has zero scrap or quality escapes. The fixed Scenario still visibly authors three defect instances: the selected mode prevents the latent-electrical instance on `dram-lot-11`, while critical-dimension and particle-contamination remain applied to their original lots and are repaired by the existing recovery path. The resulting loss chain therefore ranks productive-equipment input starvation first and residual verified yield second instead of claiming that the authored challenge disappeared.
+
 These values are synthetic test parameters. Their purpose is to make inspection coverage, rework capability, yield, and escape risk executable optimization dimensions.
 
 ## Verification
@@ -98,4 +106,4 @@ bun run inm test examples/memory-fab
 bun run inm benchmark examples/memory-fab --benchmark dispatch-research
 ```
 
-Tests prove fixed excursion application, identity preservation, pass/rework/scrap branching, selective repair, terminal discard, escaped-defect scoring, compiler rejection, and the standard-versus-deep inspection optimization path.
+Tests prove fixed excursion application, mode-level authored/prevented/applied partitioning, identity preservation, pass/rework/scrap branching, selective repair, terminal discard, escaped-defect scoring, compiler rejection, and the standard-versus-deep inspection optimization path.

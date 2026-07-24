@@ -1,4 +1,4 @@
-import type { CompiledFactoryProject, FactoryMetrics, FactoryState, ScoreBreakdown, Tick } from "./types";
+import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, FactoryState, ScoreBreakdown, Tick } from "./types";
 
 export interface SimulationStats {
   durations: Record<string, Record<string, Tick>>;
@@ -49,7 +49,12 @@ export interface SimulationStats {
   elapsedTicks: number;
 }
 
-export function evaluateFactory(project: CompiledFactoryProject, state: FactoryState, stats: SimulationStats): FactoryMetrics {
+export function evaluateFactory(
+  project: CompiledFactoryProject,
+  state: FactoryState,
+  stats: SimulationStats,
+  events: readonly FactoryEvent[],
+): FactoryMetrics {
   const duration = Math.max(1, state.tick);
   const occupiedArea = Object.values(project.devices).reduce((sum, device) => sum + (device.transportEndpoint ? 0 : device.footprint.width * device.footprint.height), 0) + Object.keys(project.transportCells).length;
   const totalBuildCost = Object.values(project.devices).reduce((sum, device) => sum + (device.assetDef.economics?.buildCost ?? 0), 0)
@@ -178,6 +183,30 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
   };
   const defectFreeCompleted = completedTargetLots.filter((lot) => lot.quality.defects.length === 0).length;
   const firstPassCompleted = completedTargetLots.filter((lot) => lot.quality.reworkCycles === 0 && lot.quality.defects.length === 0).length;
+  const qualityExcursions = events.filter((event): event is Extract<FactoryEvent, { type: "lot.quality-excursion" }> =>
+    event.type === "lot.quality-excursion");
+  const qualityControlDevices: FactoryMetrics["qualityFlow"]["qualityControl"]["devices"] = {};
+  for (const event of qualityExcursions) {
+    const measured = qualityControlDevices[event.device] ??= {
+      mode: event.mode,
+      authoredDefectInstances: 0,
+      preventedDefectInstances: 0,
+      appliedDefectInstances: 0,
+      lots: [],
+      preventedByClass: {},
+    };
+    if (measured.mode !== event.mode) measured.mode = "mixed";
+    measured.authoredDefectInstances += event.authoredDefects.length;
+    measured.preventedDefectInstances += event.preventedDefects.length;
+    measured.appliedDefectInstances += event.defects.length;
+    if (!measured.lots.includes(event.lot)) measured.lots.push(event.lot);
+    for (const defect of event.preventedDefects) {
+      measured.preventedByClass[defect] = (measured.preventedByClass[defect] ?? 0) + 1;
+    }
+  }
+  for (const measured of Object.values(qualityControlDevices)) measured.lots.sort();
+  const authoredDefectInstances = qualityExcursions.reduce((sum, event) => sum + event.authoredDefects.length, 0);
+  const preventedDefectInstances = qualityExcursions.reduce((sum, event) => sum + event.preventedDefects.length, 0);
   const qualityFlow: FactoryMetrics["qualityFlow"] = {
     inspectedLots: releasedTargetLots.filter((lot) => lot.quality.inspections > 0).length,
     totalInspections: releasedTargetLots.reduce((sum, lot) => sum + lot.quality.inspections, 0),
@@ -193,6 +222,14 @@ export function evaluateFactory(project: CompiledFactoryProject, state: FactoryS
       .reduce((sum, lot) => sum + lot.quality.defects.length, 0),
     goodYield: releasedTargetLots.length ? defectFreeCompleted / releasedTargetLots.length : 0,
     firstPassYield: releasedTargetLots.length ? firstPassCompleted / releasedTargetLots.length : 0,
+    qualityControl: {
+      authoredExcursions: qualityExcursions.length,
+      authoredDefectInstances,
+      preventedDefectInstances,
+      appliedDefectInstances: authoredDefectInstances - preventedDefectInstances,
+      preventedLots: new Set(qualityExcursions.filter((event) => event.preventedDefects.length).map((event) => event.lot)).size,
+      devices: Object.fromEntries(Object.entries(qualityControlDevices).sort(([left], [right]) => left.localeCompare(right))),
+    },
   };
   const batchOperations = Object.fromEntries(Object.entries(stats.lotProcessBatches)
     .filter(([, operation]) => operation.expectedLotsPerJob > 1)

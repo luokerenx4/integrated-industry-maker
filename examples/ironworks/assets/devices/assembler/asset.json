@@ -4,57 +4,157 @@
   "id": "assembler",
   "name": "Assembler",
   "description": "A programmable assembly cell whose recipe assigns each material to a physical input port.",
-  "tags": ["assembly", "processing"],
-  "capabilities": ["process"],
+  "tags": [
+    "assembly",
+    "processing"
+  ],
+  "capabilities": [
+    "process"
+  ],
   "geometry": {
-    "footprint": { "width": 2, "height": 2 },
+    "footprint": {
+      "width": 2,
+      "height": 2
+    },
     "rotatable": true,
     "ports": [
-      { "id": "input-primary", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input-primary" },
-      { "id": "input-secondary", "direction": "input", "kind": "resource", "side": "north", "offset": 1, "buffer": "input-secondary" },
-      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
+      {
+        "id": "input-primary",
+        "direction": "input",
+        "kind": "resource",
+        "side": "west",
+        "offset": 0,
+        "buffer": "input-primary"
+      },
+      {
+        "id": "input-secondary",
+        "direction": "input",
+        "kind": "resource",
+        "side": "north",
+        "offset": 1,
+        "buffer": "input-secondary"
+      },
+      {
+        "id": "output",
+        "direction": "output",
+        "kind": "resource",
+        "side": "east",
+        "offset": 0,
+        "buffer": "output"
+      }
     ]
   },
   "buffers": [
-    { "id": "input-primary", "role": "input", "capacity": 8, "accepts": ["*"] },
-    { "id": "input-secondary", "role": "input", "capacity": 8, "accepts": ["*"] },
-    { "id": "output", "role": "output", "capacity": 8, "accepts": ["*"] }
+    {
+      "id": "input-primary",
+      "role": "input",
+      "capacity": 8,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "input-secondary",
+      "role": "input",
+      "capacity": 8,
+      "accepts": [
+        "*"
+      ]
+    },
+    {
+      "id": "output",
+      "role": "output",
+      "capacity": 8,
+      "accepts": [
+        "*"
+      ]
+    }
   ],
   "production": {
-    "processes": ["assemble-gear", "forge-gear-pair"],
-    "categories": ["assembling"],
-    "speed": { "numerator": 1, "denominator": 1 },
-    "inputPorts": ["input-primary", "input-secondary"],
-    "outputPorts": ["output"],
+    "processes": [
+      "assemble-gear",
+      "forge-gear-pair"
+    ],
+    "categories": [
+      "assembling"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "input-primary",
+      "input-secondary"
+    ],
+    "outputPorts": [
+      "output"
+    ],
     "modes": [
       {
-        "id": "standard", "name": "Standard",
-        "inputCycles": 1, "outputCycles": 1,
-        "durationMultiplier": { "numerator": 1, "denominator": 1 },
-        "powerMultiplier": { "numerator": 1, "denominator": 1 },
+        "id": "standard",
+        "name": "Standard",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "preventsDefects": [],
         "minimumInputTreatmentLevel": 0,
         "auxiliaryInputs": []
       },
       {
-        "id": "accelerated", "name": "Accelerated",
-        "inputCycles": 1, "outputCycles": 1,
-        "durationMultiplier": { "numerator": 1, "denominator": 2 },
-        "powerMultiplier": { "numerator": 2, "denominator": 1 },
+        "id": "accelerated",
+        "name": "Accelerated",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 2
+        },
+        "powerMultiplier": {
+          "numerator": 2,
+          "denominator": 1
+        },
+        "preventsDefects": [],
         "minimumInputTreatmentLevel": 1,
         "auxiliaryInputs": []
       },
       {
-        "id": "productive", "name": "Productive",
-        "inputCycles": 1, "outputCycles": 2,
-        "durationMultiplier": { "numerator": 1, "denominator": 1 },
-        "powerMultiplier": { "numerator": 3, "denominator": 2 },
+        "id": "productive",
+        "name": "Productive",
+        "inputCycles": 1,
+        "outputCycles": 2,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 3,
+          "denominator": 2
+        },
+        "preventsDefects": [],
         "minimumInputTreatmentLevel": 2,
         "auxiliaryInputs": []
       }
     ]
   },
-  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "idleMilliWatts": 12000, "activeMilliWatts": 220000 },
-  "economics": { "buildCost": 1600 },
-  "files": { "visual": "visual.json" }
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 12000,
+    "activeMilliWatts": 220000
+  },
+  "economics": {
+    "buildCost": 1600
+  },
+  "files": {
+    "visual": "visual.json"
+  }
 }

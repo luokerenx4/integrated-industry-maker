@@ -17,7 +17,7 @@ export interface DeviceProgramContext {
     id: string;
     name: string;
     category: string;
-    mode: { id: string; name: string };
+    mode: { id: string; name: string; preventsDefects: readonly string[] };
     durationTicks: number;
     powerMilliWatts: number;
     inputs: ResourceBufferQuantity[];

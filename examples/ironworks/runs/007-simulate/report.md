@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `chemical-factory`
 - Score: **122.943**
-- Result hash: `9dc9a3fee445fdb6cea9afb08053cb330ce2018e656fd95329389ff190b1803e`
+- Result hash: `a3c1f26947760bd26ae1a59e5c753c6c7aa63fdaeef50008e22805fd133d0f6f`
 - Bottleneck: synth-refine-crude-1
 - Throughput/min: 13.000
 - Delivery portfolio: 130.0% demand attainment · 26.000 / 20.000 valued / demanded · 6.000 above demand · 0.000 net value/min
@@ -12,7 +12,7 @@
 - Release flow: 0.000 s planned interval · 0.000 s actual interval · 0.000 s mean delay · 0 pending
 - Release control: open-loop · peak 0 active lots · 0 control-blocked / 0.000 lot-s · 0 capacity-blocked / 0.000 lot-s · 0 service openings
 - Lot service: 130.0% on time · mean cycle 0.000 s · p95 0.000 s · mean tardiness 0.000 s
-- Quality flow: 0.0% good yield · 0.0% first-pass · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
+- Quality flow: 0.0% good yield · 0.0% first-pass · 0/0 authored excursion defects prevented · 0 inspections · 0 rework cycles · 0 scrap dispositions · 0 escapes
 - Lot-derived output: 0 / 0 actual / nominal units · 100.0% realization · 0 lost
 - Route Q-time: 0 violations across 0 lots · 0.000 s maximum overrun
 - Batch processing: 0 jobs · 0 lots · 0.000 lots/job · 0.000 s mean device wait/lot · 0 formation holds / 0.000 s (0 full-batch / 0 timeout)

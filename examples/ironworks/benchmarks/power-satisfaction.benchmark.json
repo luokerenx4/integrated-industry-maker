@@ -22,8 +22,8 @@
     "cases": {
       "undersupplied-grid": {
         "blueprintHash": "7bc6ded712aa74e41edb448ec506c0663e699f12c3bcc5f65b0868c41e374864",
-        "deviceCatalogHash": "a524a9e6198c8033e8db9f71f7b675958160668a52914340fc09ebc2ad68faa7",
-        "engineVersion": "inm-sim/0.77.0",
+        "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
+        "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "fb0e6a7fc5f199a0f11a3f9fd61da0e9727535ad0ec07331147152daba2b3911",
         "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
         "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",

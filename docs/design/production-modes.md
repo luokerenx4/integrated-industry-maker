@@ -1,6 +1,6 @@
 # Production modes and exact jobs
 
-Status: treatment-aware modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.49.0`.
+Status: treatment-aware, in-situ-quality-aware modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.78.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
@@ -20,8 +20,11 @@ A mode declares:
 - `powerMultiplier`: an exact positive rational applied to Device base consumption;
 - `minimumInputTreatmentLevel`: the minimum grade accepted for every Process input;
 - `auxiliaryInputs`: project Resource quantities consumed once per job through named physical input ports.
+- `preventsDefects`: exact fixed Scenario excursion defect classes prevented while this mode executes the challenged Process.
 
 Modes belong to the Device asset because they describe what that machine can do. Processes remain project-local material transformations and do not know which machines or operating regimes execute them.
+
+`preventsDefects` is capability, not a hidden yield multiplier. The fixed Scenario excursion remains evaluator-owned and visible; runtime records the authored, prevented, and applied defect sets. Cost, power, time, auxiliary inputs, equipment qualification, and Blueprint selection price the capability through the ordinary industrial model. See [[docs/design/quality-flow]].
 
 ## Compilation
 
@@ -57,7 +60,7 @@ Synthesis writes `recipe.mode` into the generated blueprint, routes auxiliary Re
 
 ## Observability
 
-`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates and mode power. Studio shows mode definitions in the project-local asset catalog, selected modes in configured jobs and the production graph, and mode-aware alternatives and capacity rows.
+`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates, mode power, and declared prevention capability. Simulation metrics, reports, comparisons, CLI, and Studio separately show measured prevention. Studio exposes both capability in the project-local asset catalog/recipe alternatives and outcomes in the selected Device inspector and performance panel.
 
 Engine hashes include asset and blueprint content, so changing a mode or selection invalidates prior run identity. Immutable runs record the compiled blueprint and engine version used for replay.
 
@@ -74,7 +77,7 @@ Engine hashes include asset and blueprint content, so changing a mode or selecti
 
 ## Verification
 
-Tests must cover an unknown mode, an auxiliary Resource rejected by an instance filter, a job that exceeds physical buffer capacity, exact compiled arithmetic, runtime production, power enforcement, mode-aware analysis, and synthesis choosing a mode through the material objective.
+Tests must cover an unknown mode, duplicate prevention declarations, an auxiliary Resource rejected by an instance filter, a job that exceeds physical buffer capacity, exact compiled arithmetic, runtime authored/prevented/applied partitioning, power enforcement, mode-aware analysis, and synthesis choosing a mode through the material objective.
 
 ```bash
 bun run inm validate examples/ironworks

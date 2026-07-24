@@ -502,6 +502,14 @@
     "goodYield": 0,
     "inspectedLots": 0,
     "passedInspections": 0,
+    "qualityControl": {
+      "appliedDefectInstances": 0,
+      "authoredDefectInstances": 0,
+      "authoredExcursions": 0,
+      "devices": {},
+      "preventedDefectInstances": 0,
+      "preventedLots": 0
+    },
     "rejectedInspections": 0,
     "reworkedLots": 0,
     "scrapDispositions": 0,

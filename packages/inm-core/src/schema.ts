@@ -117,6 +117,7 @@ export const deviceAssetSchema = z.object({
       durationMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
       powerMultiplier: z.object({ numerator: positiveInt, denominator: positiveInt }).strict(),
       auxiliaryInputs: z.array(z.object({ resource: id, count: positiveInt, port: id }).strict()),
+      preventsDefects: z.array(id),
       minimumInputTreatmentLevel: nonNegativeInt,
     }).strict()).min(1),
     changeover: z.object({

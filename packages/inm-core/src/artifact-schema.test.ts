@@ -40,6 +40,27 @@ test("Device visual schema exposes only the strict PBR material contract", () =>
   expect(JSON.stringify(root.properties.material)).toContain("emissiveIntensity");
 });
 
+test("Device production modes require an explicit defect-prevention declaration", () => {
+  const schema = projectArtifactJsonSchema("device-asset");
+  const root = (schema.definitions as Record<string, {
+    properties: {
+      production: {
+        properties: {
+          modes: {
+            items: {
+              properties: Record<string, unknown>;
+              required: string[];
+            };
+          };
+        };
+      };
+    };
+  }>)["device-asset"]!;
+  const mode = root.properties.production.properties.modes.items;
+  expect(mode.required).toContain("preventsDefects");
+  expect(mode.properties.preventsDefects).toEqual(expect.objectContaining({ type: "array" }));
+});
+
 test("project manifest schema exposes the strict project-local Factory environment", () => {
   const schema = projectArtifactJsonSchema("manifest");
   const root = (schema.definitions as Record<string, {

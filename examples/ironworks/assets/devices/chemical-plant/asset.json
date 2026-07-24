@@ -4,35 +4,122 @@
   "id": "chemical-plant",
   "name": "Chemical Plant",
   "description": "A recipe-configurable reactor with independent liquid and gas input contracts.",
-  "tags": ["chemical", "multi-input"],
-  "capabilities": ["process"],
+  "tags": [
+    "chemical",
+    "multi-input"
+  ],
+  "capabilities": [
+    "process"
+  ],
   "geometry": {
-    "footprint": { "width": 3, "height": 2 },
+    "footprint": {
+      "width": 3,
+      "height": 2
+    },
     "rotatable": true,
     "ports": [
-      { "id": "liquid-input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "liquid-input" },
-      { "id": "gas-input", "direction": "input", "kind": "resource", "side": "north", "offset": 1, "buffer": "gas-input" },
-      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
+      {
+        "id": "liquid-input",
+        "direction": "input",
+        "kind": "resource",
+        "side": "west",
+        "offset": 0,
+        "buffer": "liquid-input"
+      },
+      {
+        "id": "gas-input",
+        "direction": "input",
+        "kind": "resource",
+        "side": "north",
+        "offset": 1,
+        "buffer": "gas-input"
+      },
+      {
+        "id": "output",
+        "direction": "output",
+        "kind": "resource",
+        "side": "east",
+        "offset": 0,
+        "buffer": "output"
+      }
     ]
   },
   "buffers": [
-    { "id": "liquid-input", "role": "input", "capacity": 12, "accepts": ["refined-oil"] },
-    { "id": "gas-input", "role": "input", "capacity": 12, "accepts": ["hydrogen"] },
-    { "id": "output", "role": "output", "capacity": 12, "accepts": ["plastic"] }
+    {
+      "id": "liquid-input",
+      "role": "input",
+      "capacity": 12,
+      "accepts": [
+        "refined-oil"
+      ]
+    },
+    {
+      "id": "gas-input",
+      "role": "input",
+      "capacity": 12,
+      "accepts": [
+        "hydrogen"
+      ]
+    },
+    {
+      "id": "output",
+      "role": "output",
+      "capacity": 12,
+      "accepts": [
+        "plastic"
+      ]
+    }
   ],
   "production": {
-    "processes": ["make-plastic"],
-    "categories": ["chemical"], "speed": { "numerator": 1, "denominator": 1 },
-    "inputPorts": ["liquid-input", "gas-input"], "outputPorts": ["output"],
-    "modes": [{
-      "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
-      "durationMultiplier": { "numerator": 1, "denominator": 1 },
-      "powerMultiplier": { "numerator": 1, "denominator": 1 },
-      "minimumInputTreatmentLevel": 0, "auxiliaryInputs": []
-    }]
+    "processes": [
+      "make-plastic"
+    ],
+    "categories": [
+      "chemical"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "liquid-input",
+      "gas-input"
+    ],
+    "outputPorts": [
+      "output"
+    ],
+    "modes": [
+      {
+        "id": "standard",
+        "name": "Standard",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0,
+        "auxiliaryInputs": []
+      }
+    ]
   },
-  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "idleMilliWatts": 12000, "activeMilliWatts": 240000 },
-  "economics": { "buildCost": 2000 },
-  "files": { "visual": "visual.json" }
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 12000,
+    "activeMilliWatts": 240000
+  },
+  "economics": {
+    "buildCost": 2000
+  },
+  "files": {
+    "visual": "visual.json"
+  }
 }

@@ -1459,6 +1459,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ...(lotTerminations.length ? { lotTerminations } : {}),
       ...(lotOutput ? { lotOutput } : {}),
       ...(quality ? { quality } : {}),
+      ...(selectedProcessPlan?.mode.preventsDefects.length ? { qualityControl: {
+        mode: selectedProcessPlan.mode.id,
+        preventsDefects: [...selectedProcessPlan.mode.preventsDefects],
+      } } : {}),
       ...(selectedProcessPlan && runtime.maintenance ? { production: true as const } : {}),
       ...(equipmentDrift ? { equipmentDrift: {
         afterJobs: equipmentDrift.afterJobs,
@@ -2078,6 +2082,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           name: selectedProcessPlan.mode.name,
           inputCycles: selectedProcessPlan.mode.inputCycles,
           outputCycles: selectedProcessPlan.mode.outputCycles,
+          preventsDefects: [...selectedProcessPlan.mode.preventsDefects],
         },
         powerMilliWatts: selectedProcessPlan.powerMilliWatts,
         inputs: selectedProcessPlan.inputs,
@@ -2628,10 +2633,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       for (const id of trackedJobLotIds(job)) {
         for (const excursion of (project.scenario.qualityExcursions ?? []).filter((candidate) => candidate.process === job.operation && candidate.lot === id)) {
           if (state.lots[id]!.quality.appliedExcursions.includes(excursion.id)) continue;
-          mutateFactoryState(state, { kind: "lot.quality-excursion", lotIds: [id], excursion: excursion.id, defects: excursion.defects });
+          const preventedDefects = excursion.defects.filter((defect) => job.qualityControl?.preventsDefects.includes(defect));
+          const defects = excursion.defects.filter((defect) => !preventedDefects.includes(defect));
+          mutateFactoryState(state, { kind: "lot.quality-excursion", lotIds: [id], excursion: excursion.id, defects });
           emit({
             type: "lot.quality-excursion", tick: state.tick, device: event.device, lot: id, process: job.operation,
-            excursion: excursion.id, defects: [...excursion.defects],
+            mode: job.qualityControl?.mode ?? "uncontrolled",
+            excursion: excursion.id,
+            authoredDefects: [...excursion.defects],
+            preventedDefects,
+            defects,
           });
         }
       }
@@ -3048,7 +3059,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   mutateFactoryState(state, { kind: "lot.checkpoint", lotIds: Object.keys(state.lots).sort() });
   const reason = publicEventCount >= maxEvents ? "max-events" : "until-tick";
   emit({ type: "simulation.completed", tick: state.tick, reason });
-  const metrics = evaluateFactory(project, state, stats);
+  const metrics = evaluateFactory(project, state, stats, events);
   const runKey = hashValue({ ...project.hashes, seed, untilTick, maxEvents });
   const resultHash = hashValue({ runKey, events, state, metrics });
   return { state, events, metrics, resultHash, runKey };

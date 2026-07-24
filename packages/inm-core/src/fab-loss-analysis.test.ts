@@ -91,7 +91,8 @@ test("quality contributors trace authored, drift, and Q-time defects to separate
   const events = [
     {
       type: "lot.quality-excursion", tick: 10, device: "etch-l2", lot: "lot-a",
-      process: "etch-cell-layer-2", excursion: "authored-cd", defects: ["critical-dimension"],
+      process: "etch-cell-layer-2", mode: "qualified", excursion: "authored-cd",
+      authoredDefects: ["critical-dimension"], preventedDefects: [], defects: ["critical-dimension"],
     },
     {
       type: "lot.inspected", tick: 20, device: "inspection-1", lot: "lot-a",

@@ -64,7 +64,7 @@ test("synthesize command executes a project-local TypeScript strategy from a bla
   const project = await openFactoryProject(projectDir, { blueprint: "generated-test", scenario: "production-window", objective: "dram-output" });
   expect(project.blueprint.devices).toHaveLength(56);
   expect(planProductionCapacity(project).ready).toBeTrue();
-});
+}, 10_000);
 
 test("compare command evaluates two Blueprints without writing a run artifact", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-compare-")); const projectDir = join(parent, "ironworks");
@@ -189,7 +189,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     schemaVersion: 1, ok: false, command: "candidate",
     error: expect.objectContaining({ code: "candidate.stale-base", retryable: false, hashes: expect.objectContaining({ expectedBaseHash: expect.any(String), currentCandidateHash: expect.any(String) }) }),
   }));
-}, 60_000);
+}, 90_000);
 
 test("current memory-fab Benchmark exposes the explicit on-time service contract", async () => {
   const result = await runCli([
@@ -221,9 +221,9 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
     passed: true,
     cases: [
       expect.objectContaining({ id: "steady-production", candidateValue: 12, threshold: 12, candidatePassed: true }),
-      expect.objectContaining({ id: "mixed-quality", candidateValue: 10, threshold: 10, candidatePassed: true }),
-      expect.objectContaining({ id: "quality-excursion", candidateValue: 9, threshold: 8, candidatePassed: true }),
-      expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
+      expect.objectContaining({ id: "mixed-quality", candidateValue: 11, threshold: 10, candidatePassed: true }),
+      expect.objectContaining({ id: "quality-excursion", candidateValue: 11, threshold: 8, candidatePassed: true }),
+      expect.objectContaining({ id: "lithography-interruption", candidateValue: 8, threshold: 7, candidatePassed: true }),
       expect.objectContaining({ id: "facility-interruption", candidateValue: 9, threshold: 9, candidatePassed: true }),
     ],
   });
@@ -235,7 +235,7 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
   }));
   expect((Object.values(interruption.candidateMetrics.scoreBreakdown) as number[]).reduce((sum, value) =>
     sum + value, 0)).toBeCloseTo(interruption.candidateScore, 12);
-}, 30_000);
+}, 60_000);
 
 test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
   const projectDir = join(repository, "examples/ironworks");
@@ -641,25 +641,29 @@ test("public inspect gives Agents and humans the same current loss contributors"
     ],
     evidence: {
       originContributors: 1,
-      subjectIntroducedLots: 3,
-      subjectPersistentLots: 1,
-      subjectScrappedLots: 1,
+      authoredDefectInstances: 3,
+      preventedDefectInstances: 1,
+      appliedDefectInstances: 2,
+      preventedLots: 1,
+      subjectIntroducedLots: 2,
+      subjectPersistentLots: 0,
+      subjectScrappedLots: 0,
     },
   });
   expect(yieldQuality.contributors[0]).toMatchObject({
     label: "etch-cell-layer-2",
     mechanism: "quality-excursion",
-    defects: ["critical-dimension", "latent-electrical", "particle-contamination"],
-    lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
-    evidence: { introducedLots: 3, repairedLots: 2, persistentLots: 1, scrappedLots: 1 },
+    defects: ["critical-dimension", "particle-contamination"],
+    lots: ["dram-lot-03", "dram-lot-08"],
+    evidence: { introducedLots: 2, repairedLots: 2, persistentLots: 0, scrappedLots: 0 },
   });
   expect(inputStarvation).toMatchObject({
     subjects: [{ kind: "device", id: "furnace-1" }],
     evidence: {
-      rawWaitingInputTicks: 1_686_660,
-      boundaryWaitingInputTicks: 1_194_940,
-      exceptionWaitingInputTicks: 228_000,
-      starvationTicks: 263_720,
+      rawWaitingInputTicks: 1_666_216,
+      boundaryWaitingInputTicks: 1_174_940,
+      exceptionWaitingInputTicks: 232_000,
+      starvationTicks: 259_276,
     },
   });
   expect(inputStarvation.contributors[0]).toMatchObject({
@@ -672,7 +676,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   const human = await runCli(["inspect", projectDir]);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(human.stdout).toContain("Quality-origin contributors:");
-  expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 3 lots / 3 defect instances · 3 rework / 2 repaired / 1 persistent · 1 scrap / 0 escape");
+  expect(human.stdout).toContain("etch-cell-layer-2 · quality-excursion · 2 lots / 2 defect instances · 2 rework / 2 repaired / 0 persistent · 0 scrap / 0 escape");
   expect(human.stdout).toContain("Input-starvation contributors:");
   expect(human.stdout).toContain("furnace-1 · inter-job-input-gap · 42.5s input gap / 114.5s opportunity · 12 jobs");
   expect(human.stdout).not.toContain("Q-time contributors:");

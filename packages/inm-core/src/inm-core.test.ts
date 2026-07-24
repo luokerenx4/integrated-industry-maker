@@ -1683,6 +1683,9 @@ describe("blueprint compiler", () => {
       objective: "dram-output",
     });
     const blueprint = structuredClone(source.blueprint);
+    const etch = blueprint.devices.find((device) => device.id === "etch-l2")!;
+    etch.asset = "plasma-etch-bay";
+    etch.recipes![0]!.mode = "qualified";
     const recovery = blueprint.devices.find((device) => device.id === "rework-1")!;
     recovery.asset = "advanced-pattern-recovery-cell";
     recovery.recipe!.process = "recover-final-pattern-advanced";
@@ -1722,6 +1725,56 @@ describe("blueprint compiler", () => {
     }));
   }, 30_000);
 
+  test("closed-loop production mode preserves authored excursions while preventing exact defects", async () => {
+    const source = await loadFactoryProject(memoryFab, {
+      blueprint: "generated-dram-fab",
+      scenario: "production-window",
+      objective: "dram-output",
+    });
+    const project = compileFactoryProject(source);
+    const plan = project.devices["etch-l2"]!.processPlans[0]!;
+    expect(plan.mode).toEqual(expect.objectContaining({
+      id: "closed-loop-control",
+      preventsDefects: ["latent-electrical"],
+    }));
+    expect(analyzeProduction(project).devices.find((device) => device.device === "etch-l2")).toEqual(expect.objectContaining({
+      preventsDefects: ["latent-electrical"],
+    }));
+
+    const result = runUntil(project, undefined, { seed: 42 });
+    const excursions = result.events.filter((event) => event.type === "lot.quality-excursion");
+    expect(excursions).toHaveLength(3);
+    expect(excursions.find((event) => event.lot === "dram-lot-11")).toEqual(expect.objectContaining({
+      process: "etch-cell-layer-2",
+      mode: "closed-loop-control",
+      authoredDefects: ["latent-electrical"],
+      preventedDefects: ["latent-electrical"],
+      defects: [],
+    }));
+    expect(result.metrics.qualityFlow.qualityControl).toEqual({
+      authoredExcursions: 3,
+      authoredDefectInstances: 3,
+      preventedDefectInstances: 1,
+      appliedDefectInstances: 2,
+      preventedLots: 1,
+      devices: {
+        "etch-l2": {
+          mode: "closed-loop-control",
+          authoredDefectInstances: 3,
+          preventedDefectInstances: 1,
+          appliedDefectInstances: 2,
+          lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
+          preventedByClass: { "latent-electrical": 1 },
+        },
+      },
+    });
+    expect(result.metrics.lotFlow).toEqual(expect.objectContaining({ completed: 12, scrapped: 0 }));
+    expect(result.state.lots["dram-lot-11"]).toEqual(expect.objectContaining({
+      status: "completed",
+      quality: expect.objectContaining({ defects: [], scrapDispositions: 0 }),
+    }));
+  }, 30_000);
+
   test("production modes are explicit and validate treatment levels, auxiliary inputs, and physical job capacity", async () => {
     const unknown = await loaded(); unknown.blueprint.devices[2]!.recipe!.mode = "missing-mode";
     expect(issueCodes(() => compileFactoryProject(unknown))).toContain("production-mode.unknown");
@@ -1738,6 +1791,10 @@ describe("blueprint compiler", () => {
     oversized.blueprint.devices[2]!.recipe!.mode = "productive";
     oversized.deviceAssets.assembler!.production!.modes.find((mode) => mode.id === "productive")!.outputCycles = 9;
     expect(issueCodes(() => compileFactoryProject(oversized))).toContain("production-mode.job-capacity");
+
+    const duplicatePrevention = await loaded();
+    duplicatePrevention.deviceAssets.assembler!.production!.modes[0]!.preventsDefects = ["critical-dimension", "critical-dimension"];
+    expect(issueCodes(() => compileFactoryProject(duplicatePrevention))).toContain("production-mode.duplicate-prevented-defect");
   });
 
   test("instance buffer filters narrow wildcard assets and constrain recipes, extraction, stations, and initial inventory", async () => {

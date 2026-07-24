@@ -4,35 +4,105 @@
   "id": "compounder",
   "name": "Compounder",
   "description": "A dedicated treatment-agent production cell.",
-  "tags": ["treatment-agent", "processing"],
-  "capabilities": ["process"],
+  "tags": [
+    "treatment-agent",
+    "processing"
+  ],
+  "capabilities": [
+    "process"
+  ],
   "geometry": {
-    "footprint": { "width": 2, "height": 2 },
+    "footprint": {
+      "width": 2,
+      "height": 2
+    },
     "rotatable": true,
     "ports": [
-      { "id": "input", "direction": "input", "kind": "resource", "side": "west", "offset": 0, "buffer": "input" },
-      { "id": "output", "direction": "output", "kind": "resource", "side": "east", "offset": 0, "buffer": "output" }
+      {
+        "id": "input",
+        "direction": "input",
+        "kind": "resource",
+        "side": "west",
+        "offset": 0,
+        "buffer": "input"
+      },
+      {
+        "id": "output",
+        "direction": "output",
+        "kind": "resource",
+        "side": "east",
+        "offset": 0,
+        "buffer": "output"
+      }
     ]
   },
   "buffers": [
-    { "id": "input", "role": "input", "capacity": 8, "accepts": ["coal"] },
-    { "id": "output", "role": "output", "capacity": 16, "accepts": ["proliferator"] }
+    {
+      "id": "input",
+      "role": "input",
+      "capacity": 8,
+      "accepts": [
+        "coal"
+      ]
+    },
+    {
+      "id": "output",
+      "role": "output",
+      "capacity": 16,
+      "accepts": [
+        "proliferator"
+      ]
+    }
   ],
   "production": {
-    "processes": ["make-proliferator"],
-    "categories": ["treatment-agent"],
-    "speed": { "numerator": 1, "denominator": 1 },
-    "inputPorts": ["input"],
-    "outputPorts": ["output"],
-    "modes": [{
-      "id": "standard", "name": "Standard", "inputCycles": 1, "outputCycles": 1,
-      "durationMultiplier": { "numerator": 1, "denominator": 1 },
-      "powerMultiplier": { "numerator": 1, "denominator": 1 },
-      "minimumInputTreatmentLevel": 0, "auxiliaryInputs": []
-    }]
+    "processes": [
+      "make-proliferator"
+    ],
+    "categories": [
+      "treatment-agent"
+    ],
+    "speed": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "inputPorts": [
+      "input"
+    ],
+    "outputPorts": [
+      "output"
+    ],
+    "modes": [
+      {
+        "id": "standard",
+        "name": "Standard",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0,
+        "auxiliaryInputs": []
+      }
+    ]
   },
-  "runtime": { "apiVersion": 1, "entry": "runtime.ts" },
-  "power": { "idleMilliWatts": 8000, "activeMilliWatts": 160000 },
-  "economics": { "buildCost": 1200 },
-  "files": { "visual": "visual.json" }
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 8000,
+    "activeMilliWatts": 160000
+  },
+  "economics": {
+    "buildCost": 1200
+  },
+  "files": {
+    "visual": "visual.json"
+  }
 }

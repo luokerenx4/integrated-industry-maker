@@ -31,8 +31,8 @@
     "cases": {
       "yield-excursion": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "deviceCatalogHash": "7ddeb38ff5370787b265416e4b40a0b3f2f188777e261a0d45ce2998adcbdf41",
-        "engineVersion": "inm-sim/0.77.0",
+        "deviceCatalogHash": "2b94884eca03f89d587d00a48c772f4b353d0f7143dab48e8536b61d98a09bc7",
+        "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
@@ -42,8 +42,8 @@
       },
       "yield-window": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "deviceCatalogHash": "7ddeb38ff5370787b265416e4b40a0b3f2f188777e261a0d45ce2998adcbdf41",
-        "engineVersion": "inm-sim/0.77.0",
+        "deviceCatalogHash": "2b94884eca03f89d587d00a48c772f4b353d0f7143dab48e8536b61d98a09bc7",
+        "engineVersion": "inm-sim/0.78.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",

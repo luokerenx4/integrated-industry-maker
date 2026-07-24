@@ -390,6 +390,11 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
         const modePath = `assets/devices/${id}/asset.json/production/modes/${modeIndex}`;
         if (modeIds.has(mode.id)) issues.push({ path: `${modePath}/id`, code: "production-mode.duplicate", message: `Production mode '${mode.id}' is declared more than once` });
         modeIds.add(mode.id);
+        if (new Set(mode.preventsDefects).size !== mode.preventsDefects.length) issues.push({
+          path: `${modePath}/preventsDefects`,
+          code: "production-mode.duplicate-prevented-defect",
+          message: `Production mode '${mode.id}' declares one prevented defect class more than once`,
+        });
         const auxiliaryResources = new Set<string>();
         for (const [inputIndex, input] of mode.auxiliaryInputs.entries()) {
           const inputPath = `${modePath}/auxiliaryInputs/${inputIndex}`;

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "closed-loop-layer-two-etch",
+  "name": "Closed-loop layer-two etch control",
+  "benchmark": "greenfield-dram-design",
+  "hypothesis": "Replacing only the dedicated layer-two etch bay with a slightly higher-cost, higher-power inline closed-loop tool will prevent fixed latent-electrical damage without evading the authored process excursion, recovering the remaining scrapped lot without adding a separate process stage.",
+  "expectedEffect": "Keep every current-best locked case non-regressing while preventing one, two, and one latent-electrical defect instances in the three challenged cases; recover the same number of otherwise scrapped lots for 50 additional build cost.",
+  "baseCandidateHash": "5f2852b5c09a5fe68e7ab1a32a52cc401742146caaf51fb8a672ada8a89882fd",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/61/asset",
+      "value": "closed-loop-plasma-etch-bay"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/61/recipes/0/mode",
+      "value": "closed-loop-control"
+    }
+  ]
+}

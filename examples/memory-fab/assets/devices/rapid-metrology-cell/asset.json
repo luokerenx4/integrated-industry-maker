@@ -121,6 +121,7 @@
           "denominator": 1
         },
         "auxiliaryInputs": [],
+        "preventsDefects": [],
         "minimumInputTreatmentLevel": 0
       }
     ],
