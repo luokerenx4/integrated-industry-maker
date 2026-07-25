@@ -32,7 +32,7 @@
       "yield-excursion": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
         "deviceCatalogHash": "e9ab7d3630c23ccd818aa55c537593b959e3911c3c59e654c0d1958a17d6b0d6",
-        "engineVersion": "inm-sim/0.85.0",
+        "engineVersion": "inm-sim/0.86.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
@@ -43,7 +43,7 @@
       "yield-window": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
         "deviceCatalogHash": "e9ab7d3630c23ccd818aa55c537593b959e3911c3c59e654c0d1958a17d6b0d6",
-        "engineVersion": "inm-sim/0.85.0",
+        "engineVersion": "inm-sim/0.86.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
         "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",

@@ -64,14 +64,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
-    evidence: { state: "current", runId: "087-simulate" },
+    evidence: { state: "current", runId: "088-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "087-simulate",
+    runId: "088-simulate",
     averageWip: 19.872825,
     averageTotalInventory: 116.16841666666667,
     averageExcludedInventory: 96.29559166666667,
@@ -351,10 +351,10 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       activeProductiveDevices: 11,
       flowProductiveDevices: 10,
       contributingDevices: 8,
-      rawWaitingInputTicks: 1_661_438,
-      flowRawWaitingInputTicks: 1_429_438,
+      rawWaitingInputTicks: 1_588_215,
+      flowRawWaitingInputTicks: 1_356_215,
       exceptionWaitingInputTicks: 232_000,
-      boundaryWaitingInputTicks: 1_180_162,
+      boundaryWaitingInputTicks: 1_106_939,
       opportunityWindowTicks: 1_181_061,
       unavailableGapTicks: 79_000,
       starvationTicks: 249_276,

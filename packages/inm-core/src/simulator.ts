@@ -1625,6 +1625,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const remaining = Math.max(0, demand - contractCommitted(contract.resource, contract.region));
       return sum + output * contract.valuePerItem + Math.min(output, remaining) * contract.shortfallPenaltyPerItem;
     }, 0);
+  const contractDeliveryLeadTicks = (
+    device: CompiledDevice,
+    resource: string,
+    region: string,
+  ): Tick => {
+    if (device.assetDef.capabilities.includes("consume")) return 0;
+    const directDeliveryTicks = Object.values(project.connections)
+      .filter((connection) =>
+        connection.fromDevice.id === device.id
+        && connection.toDevice.region === region
+        && connection.resources.includes(resource)
+        && connection.toDevice.assetDef.capabilities.includes("consume"))
+      .map((connection) => connection.travelTicks);
+    return directDeliveryTicks.length ? Math.min(...directDeliveryTicks) : 0;
+  };
   const contractWindowContribution = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
@@ -1634,10 +1649,32 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ? device.assetDef.production?.changeover?.transitions.find((transition) =>
         transition.from === setup.group && transition.to === plan.setupGroup)?.durationTicks ?? 0
       : 0;
-    const firstDeliveryTicks = changeoverTicks + plan.durationTicks;
     const remainingTicks = Math.max(0, project.scenario.durationTicks - state.tick);
-    const timeExecutions = Math.max(0, Math.floor((remainingTicks - changeoverTicks) / plan.durationTicks));
-    return { value: contractContribution(device, plan, timeExecutions), firstDeliveryTicks };
+    let value = 0;
+    let firstDeliveryTicks = Number.MAX_SAFE_INTEGER;
+    for (const contract of project.objective.deliveryContracts ?? []) {
+      if (contract.region !== device.region) continue;
+      const outputPerExecution = plan.outputs.find((amount) => amount.resource === contract.resource)?.count ?? 0;
+      if (outputPerExecution <= 0) continue;
+      const deliveryLeadTicks = contractDeliveryLeadTicks(device, contract.resource, contract.region);
+      const deliveryTicks = changeoverTicks + plan.durationTicks + deliveryLeadTicks;
+      firstDeliveryTicks = Math.min(firstDeliveryTicks, deliveryTicks);
+      const timeExecutions = Math.max(
+        0,
+        Math.floor((remainingTicks - changeoverTicks - deliveryLeadTicks) / plan.durationTicks),
+      );
+      const output = outputPerExecution * timeExecutions;
+      const demand = contract.demandPerMinute * project.scenario.durationTicks / 60_000;
+      const remaining = Math.max(0, demand - contractCommitted(contract.resource, contract.region));
+      value += output * contract.valuePerItem
+        + Math.min(output, remaining) * contract.shortfallPenaltyPerItem;
+    }
+    return {
+      value,
+      firstDeliveryTicks: firstDeliveryTicks === Number.MAX_SAFE_INTEGER
+        ? changeoverTicks + plan.durationTicks
+        : firstDeliveryTicks,
+    };
   };
   const isContractDispatchDevice = (device: CompiledDevice): boolean => device.policy?.recipeDispatch === "contract-value"
     && device.processPlans.some((plan) => plan.outputs.some((output) => (project.objective.deliveryContracts ?? [])
@@ -1645,7 +1682,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const processPlanMaterialReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
     plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
       || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count))
-      && (!isContractDispatchDevice(device) || contractContribution(device, plan) > 0)
+      && (!isContractDispatchDevice(device) || contractWindowContribution(device, plan).value > 0)
       && outputFits(device, plan.quality?.kind === "inspection"
         ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput]
         : resolveLotOutputExecution(device, plan)?.outputs ?? plan.outputs);
@@ -1834,7 +1871,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   ): CompiledDevice["processPlans"][number] | undefined => {
     const ranked = rankProcessPlans(device, candidates);
     const ready = ranked.find(({ plan }) => processPlanReady(device, plan));
-    return (ready ?? (fallback ? ranked[0] : undefined))?.plan;
+    return (ready ?? (fallback && !isContractDispatchDevice(device) ? ranked[0] : undefined))?.plan;
   };
   const readyLotsForSetupGroup = (device: CompiledDevice, setupGroup: string): number => {
     const ids = new Set<string>();

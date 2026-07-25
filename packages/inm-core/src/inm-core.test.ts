@@ -9,6 +9,7 @@ import {
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation, blueprintSchema,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type FactoryEvent, type LoadedFactoryProject,
 } from "./index";
+import { ENGINE_VERSION } from "./utils";
 
 const ironworks = resolve(import.meta.dir, "../../../examples/ironworks");
 const memoryFab = resolve(import.meta.dir, "../../../examples/memory-fab");
@@ -1487,6 +1488,24 @@ describe("blueprint compiler", () => {
     expect(portfolio.metrics.inventoryAccounting.resources["reticle-mask-set-l1"]).toEqual(expect.objectContaining({
       includedInWip: false,
       finalInventory: 1,
+    }));
+
+    const deliveryWindowProject = compileFactoryProject(
+      await loadFactoryProject(memoryFab, { blueprint: "generated-dram-fab" }),
+    );
+    const deliveryWindowPortfolio = runUntil(deliveryWindowProject, undefined, { seed: 42 });
+    const deliveryWindowBurnInStarts = deliveryWindowPortfolio.events.filter((event) =>
+      event.type === "device.start" && event.device === "burn-in-1");
+    expect(deliveryWindowBurnInStarts).toHaveLength(11);
+    expect(deliveryWindowBurnInStarts.at(-1)).toEqual(expect.objectContaining({
+      operation: "screen-performance-mix",
+      tick: 218_473,
+    }));
+    expect(deliveryWindowPortfolio.events.some((event) =>
+      event.type === "device.start" && event.device === "burn-in-1" && event.tick === 237_223)).toBeFalse();
+    expect(deliveryWindowPortfolio.metrics.deliveryPortfolio).toEqual(expect.objectContaining({
+      delivered: 88,
+      netValue: 344,
     }));
 
     const deadlineSource = await loadFactoryProject(memoryFab, {
@@ -4232,10 +4251,10 @@ describe("coding-agent Blueprint benchmarks", () => {
       .toBeLessThan(benchmarkCase.baselineMetrics.deliveryNetValuePerMinute);
     expect(benchmarkCase.candidateMetrics.averageWip)
       .toBeGreaterThan(benchmarkCase.baselineMetrics.averageWip);
-    expect(result.scoreDelta).toBeCloseTo(-0.905583, 5);
+    expect(result.scoreDelta).toBeCloseTo(-0.913917, 5);
     expect(result.reasons).toEqual([
-      "aggregate score delta -0.905583 is below required 0.001000",
-      "case 'equipment-energy-window' regressed by 0.905583, above allowed 0.000000",
+      "aggregate score delta -0.913917 is below required 0.001000",
+      "case 'equipment-energy-window' regressed by 0.913917, above allowed 0.000000",
     ]);
   }, 15_000);
 
@@ -4395,10 +4414,12 @@ describe("coding-agent Blueprint benchmarks", () => {
 });
 
 describe("artifacts and renderer-independent projection", () => {
-  test("every checked-in demonstration run replays to its recorded result hash", async () => {
+  test("every current-engine demonstration run replays to its recorded result hash", async () => {
     const runs = await listRuns(ironworks);
-    expect(runs.length).toBeGreaterThanOrEqual(4);
-    for (const run of runs) {
+    const compatibleRuns = runs.filter((run) => run.manifest.engineVersion === ENGINE_VERSION);
+    expect(compatibleRuns.length).toBeGreaterThanOrEqual(1);
+    expect(runs.length).toBeGreaterThan(compatibleRuns.length);
+    for (const run of compatibleRuns) {
       const source = await loadFactoryProject(ironworks, run.manifest.selection);
       const blueprint = JSON.parse(await readFile(join(run.path, "blueprint.json"), "utf8"));
       const project = compileFactoryProject({ ...source, blueprint });

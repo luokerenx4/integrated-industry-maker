@@ -269,7 +269,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       decision: "REJECT",
       decisionEvidence: {
         basis: "benchmark-gate",
-        guardrail: { kind: "uniform", passed: true, violations: [] },
+        guardrail: { kind: "uniform", passed: false, violations: ["lithography-interruption"] },
         gateReasons: expect.arrayContaining([
           expect.stringContaining("outcome guardrail 'preserve-contract-fulfillment' failed"),
         ]),
@@ -279,9 +279,15 @@ test("commissioned Design pins its live promotion base and rejects a score winne
   });
   const iteration = result.manifest.iterations[0]!;
   const evidence = iteration.decisionEvidence!;
-  expect(evidence.aggregate.scoreDelta).toBeCloseTo(22.93091048214286, 6);
-  expect(evidence.cases.every((item) =>
+  expect(evidence.aggregate.scoreDelta).toBeCloseTo(22.878825125, 6);
+  expect(evidence.cases.filter((item) => item.id !== "lithography-interruption").every((item) =>
     item.maximumScoreRegression === 0 && item.guardrailPassed && item.scoreDelta >= 0)).toBeTrue();
+  const lithographyInterruption = evidence.cases.find((item) => item.id === "lithography-interruption")!;
+  expect(lithographyInterruption).toEqual(expect.objectContaining({
+    maximumScoreRegression: 0,
+    guardrailPassed: false,
+  }));
+  expect(lithographyInterruption.scoreDelta).toBeCloseTo(-0.37221, 5);
   expect(iteration.evaluation!.scoreDelta).toBeGreaterThan(0);
   expect(iteration.evaluation!.outcomeGuardrails).toEqual(expect.arrayContaining([
     expect.objectContaining({

@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/inspection-supply-path-convergence]] | Reduce the current inspection input shortage through a five-case-safe physical main-line or return-flow intervention. | 2026-07-25 |
 | [[plans/furnace-supply-path-recovery]] | Reduce the exact commissioned furnace supply-path shortage through a five-case-safe physical intervention or record its bounded blockers. | 2026-07-25 |
 | [[plans/coverage-deficit-cadence-contract]] | Separate predictive downstream coverage deficit from event-backed equipment input starvation across every human and Agent surface. | 2026-07-25 |
 | [[plans/policy-resolved-material-shortage-demand]] | Make every shortage Process and quantity match the authored scheduling policy's exact next resumption condition. | 2026-07-25 |

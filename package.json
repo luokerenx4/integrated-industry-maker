@@ -25,6 +25,7 @@
     "memory-fab:research-recovery-delivery": "bun examples/memory-fab/strategies/research/recovery-delivery.ts",
     "memory-fab:research-planned-maintenance": "bun examples/memory-fab/strategies/research/commissioned-planned-maintenance.ts",
     "memory-fab:research-input-starvation": "bun examples/memory-fab/strategies/research/input-starvation.ts",
+    "memory-fab:research-inspection-starvation": "bun examples/memory-fab/strategies/research/inspection-starvation.ts",
     "memory-fab:research-adaptive-cadence": "bun examples/memory-fab/strategies/research/adaptive-cadence.ts",
     "memory-fab:research-route-dispatch": "bun examples/memory-fab/strategies/research/route-dispatch.ts",
     "memory-fab:research-particle-prevention": "bun examples/memory-fab/strategies/research/particle-prevention.ts",

@@ -706,8 +706,8 @@ test("public inspect gives Agents and humans the same current loss contributors"
       { kind: "device", id: "rework-1" },
     ],
     evidence: {
-      rawWaitingInputTicks: 1_661_438,
-      boundaryWaitingInputTicks: 1_180_162,
+      rawWaitingInputTicks: 1_588_215,
+      boundaryWaitingInputTicks: 1_106_939,
       exceptionWaitingInputTicks: 232_000,
       starvationTicks: 249_276,
     },
