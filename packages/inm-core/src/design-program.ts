@@ -9,6 +9,7 @@ import { analyzeProduction } from "./production-analysis";
 import { synthesizeProjectBlueprint, type ProjectBlueprintSynthesis } from "./project-synthesis";
 import { manifestSchema } from "./schema";
 import type { Blueprint } from "./types";
+import type { FabLossBucketId } from "./fab-loss-analysis";
 import { hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -44,6 +45,36 @@ const decisionFamiliesSchema = z.array(designDecisionFamilySchema).min(1).superR
   }
 });
 
+const fabLossBucketIdSchema = z.enum([
+  "delivery-portfolio",
+  "release-admission",
+  "queue-congestion",
+  "input-starvation",
+  "batch-formation",
+  "setup-campaign",
+  "maintenance-qualification",
+  "tooling-contention",
+  "facility-contention",
+  "equipment-failure",
+  "power-interruption",
+  "transport-blocking",
+  "q-time",
+  "yield-quality",
+] satisfies [FabLossBucketId, ...FabLossBucketId[]]);
+
+const designProgramLossesSchema = z.array(fabLossBucketIdSchema).min(1).superRefine((losses, context) => {
+  const seen = new Set<FabLossBucketId>();
+  for (const [index, loss] of losses.entries()) {
+    if (seen.has(loss)) context.addIssue({ code: "custom", path: [index], message: `duplicates fab loss '${loss}'` });
+    seen.add(loss);
+  }
+});
+
+export const designProgramFocusSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("broad") }).strict(),
+  z.object({ kind: z.literal("losses"), losses: designProgramLossesSchema }).strict(),
+]);
+
 export const designSeedSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("blueprint"), blueprint: id }).strict(),
   z.object({ kind: z.literal("synthesis"), inputBlueprint: id }).strict(),
@@ -74,6 +105,7 @@ export const designProgramSchema = z.object({
   description: z.string().min(1),
   benchmark: id,
   seed: designSeedSchema,
+  focus: designProgramFocusSchema.optional(),
   driverCase: id,
   currentBestGuardrail: designCurrentBestGuardrailSchema,
   frontier: designFrontierPolicySchema,
@@ -88,6 +120,7 @@ export const designProgramSchema = z.object({
 
 export type DesignDecisionFamily = z.infer<typeof designDecisionFamilySchema>;
 export type DesignSeed = z.infer<typeof designSeedSchema>;
+export type DesignProgramFocus = z.infer<typeof designProgramFocusSchema>;
 export type DesignCurrentBestGuardrail = z.infer<typeof designCurrentBestGuardrailSchema>;
 export type DesignFrontierPolicy = z.infer<typeof designFrontierPolicySchema>;
 export type DesignProgramManifest = z.infer<typeof designProgramSchema>;
@@ -139,6 +172,7 @@ export interface DesignProgramSummary {
   description: string;
   benchmark: string;
   seed: DesignSeed;
+  focus: DesignProgramFocus;
   driverCase: string;
   currentBestGuardrail: DesignCurrentBestGuardrail;
   frontier: DesignFrontierPolicy;
@@ -241,6 +275,7 @@ export async function listDesignPrograms(projectDir: string): Promise<DesignProg
       description: program.description,
       benchmark: program.benchmark,
       seed: structuredClone(program.seed),
+      focus: program.focus ? structuredClone(program.focus) : { kind: "broad" },
       driverCase: program.driverCase,
       currentBestGuardrail: structuredClone(program.currentBestGuardrail),
       frontier: { ...program.frontier },
@@ -308,6 +343,7 @@ export async function prepareDesignProgram(projectDir: string, programId: string
     description: program.description,
     benchmark: program.benchmark,
     seed: structuredClone(program.seed),
+    focus: program.focus ? structuredClone(program.focus) : { kind: "broad" },
     driverCase: program.driverCase,
     currentBestGuardrail: structuredClone(program.currentBestGuardrail),
     frontier: { ...program.frontier },

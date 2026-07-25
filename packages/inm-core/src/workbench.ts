@@ -184,7 +184,7 @@ export interface WorkbenchLossDisposition {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 8;
+  version: 9;
   project: {
     id: string;
     name: string;
@@ -260,6 +260,7 @@ export interface ProjectWorkbenchSnapshot {
     description: string;
     benchmark: string;
     seed: DesignProgramSummary["seed"];
+    focus: DesignProgramSummary["focus"];
     driverCase: string;
     currentBestGuardrail: DesignProgramSummary["currentBestGuardrail"];
     frontier: DesignProgramSummary["frontier"];
@@ -773,12 +774,17 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     if (program.evidence.state === "promotable") return 0;
     const addressesSelectedLoss = selectedLoss !== null
       && program.evidence.authorityAddressedLosses.includes(selectedLoss);
+    const focusesSelectedLoss = selectedLoss !== null
+      && program.focus.kind === "losses"
+      && program.focus.losses.includes(selectedLoss);
     if (addressesSelectedLoss && program.evidence.state === "continuable") return 1;
     if (addressesSelectedLoss && program.evidence.state === "exhausted") return 2;
-    if (program.evidence.state === "missing") return 3;
-    if (program.evidence.state === "continuable") return 4;
-    if (program.evidence.state === "exhausted") return 5;
-    return 6;
+    if (focusesSelectedLoss && program.evidence.state === "missing") return 3;
+    if (program.focus.kind === "broad" && program.evidence.state === "missing") return 4;
+    if (program.evidence.state === "continuable") return 5;
+    if (program.evidence.state === "exhausted") return 6;
+    if (program.evidence.state === "missing") return 7;
+    return 8;
   };
   const alignedProgram = context.designPrograms
     .filter((program) => program.alignment.state === "aligned")
@@ -961,6 +967,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       description: program.description,
       benchmark: program.benchmark,
       seed: structuredClone(program.seed),
+      focus: structuredClone(program.focus),
       driverCase: program.driverCase,
       currentBestGuardrail: structuredClone(program.currentBestGuardrail),
       frontier: { ...program.frontier },
@@ -1030,7 +1037,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 8 as const,
+    version: 9 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

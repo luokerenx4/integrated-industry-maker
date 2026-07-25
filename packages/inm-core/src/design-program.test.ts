@@ -47,6 +47,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "commissioned-dram-fab",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "broad" },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 1 },
@@ -57,6 +58,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "greenfield-dram-fab",
       benchmark: "greenfield-dram-design",
       seed: { kind: "synthesis", inputBlueprint: "greenfield" },
+      focus: { kind: "broad" },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 1 },
@@ -67,6 +69,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "inspection-supply-path",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "broad" },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -82,11 +85,28 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "integrated-dram-fab",
       benchmark: "dispatch-research",
       seed: { kind: "blueprint", blueprint: "experiment" },
+      focus: { kind: "broad" },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 1 },
       locked: true,
       budget: { maxCandidates: 7 },
+    }),
+    expect.objectContaining({
+      id: "layer-two-particle-control",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["yield-quality"] },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/layer-two-particle-control-proposals.ts",
+        decisionFamilies: ["recipe"],
+      },
+      locked: true,
+      budget: { maxCandidates: 2 },
     }),
   ]);
   const before = await readFile(join(projectDir, "design-programs", "integrated-dram-fab.design.json"), "utf8");
@@ -204,6 +224,13 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   await writeFile(path, `${JSON.stringify({ ...program, surprise: true }, null, 2)}\n`);
   await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("Unrecognized key");
   delete program.surprise;
+  program.focus = { kind: "losses", losses: ["yield-quality", "yield-quality"] };
+  await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("duplicates fab loss 'yield-quality'");
+  program.focus = { kind: "losses", losses: ["not-a-loss"] };
+  await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("focus/losses/0");
+  delete program.focus;
   program.seedBlueprint = "experiment";
   delete program.seed;
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);

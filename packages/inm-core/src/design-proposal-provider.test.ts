@@ -1031,6 +1031,75 @@ test("memory-fab project provider gives a retained setup campaign an exact inter
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(blueprint, repair.patch) })).not.toThrow();
 });
 
+test("focused layer-two control targets the current etch-origin defect count exactly once", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
+  const input = {
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader" as const, depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform" as const, passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  };
+  const agent = new ProjectStrategyResearchAgent(root, "strategies/layer-two-particle-control-proposals.ts");
+  const proposal = await agent.propose(input);
+  const etchIndex = project.blueprint.devices.findIndex((device) => device.id === "etch-l2");
+
+  expect(fabLoss.chain).toContain("yield-quality");
+  expect(proposal).toEqual({
+    strategy: "recipe:particle-suppression-layer-two-etch",
+    hypothesis: "Selecting the catalogued layer-two particle-suppression mode can prevent the observed particle-contamination instance before inspection and rework.",
+    expectedEffect: "Reduce exact etch-origin introduced defect instances while charging the mode's authored 13/10 active-power envelope across every locked case.",
+    addressedLoss: "yield-quality",
+    addressedLossTarget: {
+      contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2",
+      metric: "introducedDefectInstances",
+      direction: "decrease",
+    },
+    patch: [{
+      op: "replace",
+      path: `/devices/${etchIndex}/recipes/0/mode`,
+      value: "particle-suppression",
+    }],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+  await expect(agent.propose({
+    ...input,
+    history: [{
+      iteration: 1,
+      strategy: proposal.strategy!,
+      hypothesis: proposal.hypothesis,
+      addressedLoss: proposal.addressedLoss,
+      decision: "REVERT",
+      score: 0,
+      scoreDelta: -1,
+    }],
+  })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
+});
+
 test("project proposal providers cannot ignore or fabricate Core-owned loss evidence", async () => {
   const { root, input } = await memoryFabInput();
   const transport = {

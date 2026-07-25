@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "layer-two-particle-control",
+  "name": "Layer-two Particle Control",
+  "description": "Evaluate the commissioned layer-two etch particle-suppression mode against its exact observed defect-origin target while preserving every locked operating case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "focus": {
+    "kind": "losses",
+    "losses": [
+      "yield-quality"
+    ]
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 0
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/layer-two-particle-control-proposals.ts",
+    "decisionFamilies": [
+      "recipe"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 2
+  }
+}

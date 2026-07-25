@@ -18,7 +18,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(8);
+  expect(snapshot.version).toBe(9);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -119,7 +119,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(4);
+  expect(snapshot.counts.designPrograms).toBe(5);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "commissioned-dram-fab",
@@ -149,6 +149,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       promotionTarget: "experiment",
       alignment: { state: "not-aligned", reasons: ["seed-blueprint-mismatch", "promotion-target-mismatch"] },
       evidence: expect.objectContaining({ state: "not-applicable", authorityRunId: null }),
+    }),
+    expect.objectContaining({
+      id: "layer-two-particle-control",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["yield-quality"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
     }),
   ]);
   expect(snapshot.candidates).toEqual([
@@ -274,6 +282,19 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       kind: "design-program",
       programId: "commissioned-dram-fab",
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    }),
+  }));
+  expect(buildWorkbenchNextAction({
+    ...snapshot,
+    diagnostics: snapshot.diagnostics.filter((diagnostic) => diagnostic.code !== "fab-loss.input-starvation"),
+  })).toEqual(expect.objectContaining({
+    title: "Investigate the leading loss with Layer-two Particle Control",
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "layer-two-particle-control", "--json"],
+    studioRoute: "/memory-fab/designs/layer-two-particle-control",
+    target: expect.objectContaining({
+      kind: "design-program",
+      programId: "layer-two-particle-control",
+      diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
     }),
   }));
   const exhaustedId = "f".repeat(64);
@@ -413,53 +434,81 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
 
-test("current memory-fab evidence bounds the exhausted inspection target and advances to yield quality", async () => {
+test("current memory-fab evidence bounds exhausted inspection and yield targets then advances to terminal queue", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(8);
+  expect(snapshot.version).toBe(9);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
-  expect(snapshot.lossDispositions).toEqual([expect.objectContaining({
-    state: "bounded-deferred",
-    diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
-    loss: "input-starvation",
-    target: {
-      contributor: "device:inspection-1:material-input-shortage",
-      metric: "starvationTicks",
-      direction: "decrease",
-      currentValue: 59_584,
-    },
-    source: expect.objectContaining({
-      programId: "inspection-supply-path",
-      benchmarkId: "greenfield-dram-design",
-      runId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
-    }),
-    observed: expect.objectContaining({ runId: "089-simulate" }),
-    evidence: expect.objectContaining({
-      attemptedCandidates: 6,
-      improvedCandidates: 6,
-      rejectedCandidates: 6,
-      bestObservedValue: 57_084,
-      largestReduction: 2_500,
-      decisionBases: {
-        "current-best-improvement": 0,
-        "benchmark-gate": 1,
-        "no-current-best-improvement": 5,
-        "current-best-case-guardrail": 0,
-        "addressed-loss-not-improved": 0,
+  expect(snapshot.lossDispositions).toEqual([
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      loss: "input-starvation",
+      target: {
+        contributor: "device:inspection-1:material-input-shortage",
+        metric: "starvationTicks",
+        direction: "decrease",
+        currentValue: 59_584,
       },
+      source: expect.objectContaining({
+        programId: "inspection-supply-path",
+        benchmarkId: "greenfield-dram-design",
+        runId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+      }),
+      observed: expect.objectContaining({ runId: "089-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 6,
+        improvedCandidates: 6,
+        rejectedCandidates: 6,
+        bestObservedValue: 57_084,
+        largestReduction: 2_500,
+      }),
     }),
-  })]);
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
+      loss: "yield-quality",
+      target: {
+        contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2",
+        metric: "introducedDefectInstances",
+        direction: "decrease",
+        currentValue: 2,
+      },
+      source: expect.objectContaining({
+        programId: "layer-two-particle-control",
+        benchmarkId: "greenfield-dram-design",
+        runId: "220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190",
+      }),
+      observed: expect.objectContaining({ runId: "089-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 1,
+        improvedCandidates: 1,
+        rejectedCandidates: 1,
+        bestObservedValue: 1,
+        largestReduction: 1,
+        decisionBases: expect.objectContaining({ "no-current-best-improvement": 1 }),
+      }),
+    }),
+  ]);
   expect(snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence.authorityAddressedLosses)
     .toEqual(["input-starvation"]);
+  expect(snapshot.designPrograms.find((program) => program.id === "layer-two-particle-control")).toEqual(expect.objectContaining({
+    focus: { kind: "losses", losses: ["yield-quality"] },
+    evidence: expect.objectContaining({
+      state: "exhausted",
+      authorityRunId: "220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190",
+      authorityAddressedLosses: ["yield-quality"],
+    }),
+  }));
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:commissioned-dram-fab:fab-loss\.yield-quality:/),
+    id: expect.stringMatching(/^design\.inspect:commissioned-dram-fab:fab-loss\.queue-congestion:/),
     title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
     argv: ["inm", "design", projectDir, "--program", "commissioned-dram-fab", "--json"],
     studioRoute: "/memory-fab/designs/commissioned-dram-fab",
     target: expect.objectContaining({
       kind: "design-program",
       programId: "commissioned-dram-fab",
-      diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
 }, 20_000);
