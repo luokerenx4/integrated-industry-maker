@@ -207,40 +207,48 @@ function commissionedAgilePulsePatch(blueprint: ProposalBlueprint): JsonPatchOpe
   );
 }
 
-function commissionedAdaptiveCadencePatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
-  if (![
-    "5f2852b5c09a5fe68e7ab1a32a52cc401742146caaf51fb8a672ada8a89882fd",
-    "6ed24bc31d8176104a511777e4e6296f04a623547c8d97c491196e28e00f1c23",
-  ].includes(blueprint.revision ?? "")) return null;
+function commissionedFurnaceSupplyRecoveryPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
   const index = deviceIndex(blueprint, "deposition-1");
   if (index < 0) return null;
   const deposition = blueprint.devices[index]!;
-  const recipe = deposition.recipe;
+  const recipes = deposition.recipes;
   const policy = deposition.policy;
+  const cadence = isRecord(policy) ? policy.cadenceControl : undefined;
+  if (!Array.isArray(recipes)) return null;
+  const normalIndex = recipes.findIndex((recipe) =>
+    isRecord(recipe) && recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified");
+  const recoveryIndex = recipes.findIndex((recipe) =>
+    isRecord(recipe) && recipe.process === "deposit-dielectric-stack" && recipe.mode === "agile-pulse");
   if (deposition.asset !== "ald-deposition-bay"
-    || !isRecord(recipe)
-    || recipe.process !== "deposit-dielectric-stack"
-    || recipe.mode !== "qualified"
-    || deposition.recipes !== undefined
     || !isRecord(policy)
-    || policy.recipeDispatch !== undefined
-    || policy.cadenceControl !== undefined) return null;
-  const normal = structuredClone(recipe);
+    || deposition.recipe !== undefined
+    || recipes.length !== 2
+    || normalIndex < 0
+    || recoveryIndex < 0
+    || !equalJson(cadence, {
+      kind: "downstream-coverage-recovery",
+      process: "deposit-dielectric-stack",
+      normalMode: "qualified",
+      recoveryMode: "agile-pulse",
+      downstreamConnection: "deposition-to-batch-furnace",
+      recoverBelowItems: 1,
+      minimumCoverageDeficitTicks: 10_000,
+    })) return null;
   return [
-    { op: "remove", path: `/devices/${index}/recipe` },
-    { op: "add", path: `/devices/${index}/recipes`, value: [normal, { ...structuredClone(normal), mode: "agile-pulse" }] },
     {
-      op: "add",
-      path: `/devices/${index}/policy/cadenceControl`,
-      value: {
-        kind: "downstream-coverage-recovery",
-        process: "deposit-dielectric-stack",
-        normalMode: "qualified",
-        recoveryMode: "agile-pulse",
-        downstreamConnection: "deposition-to-batch-furnace",
-        recoverBelowItems: 1,
-        minimumCoverageDeficitTicks: 10_000,
-      },
+      op: "replace",
+      path: `/devices/${index}/recipes/${recoveryIndex}/mode`,
+      value: "agile-pulse-fast",
+    },
+    {
+      op: "replace",
+      path: `/devices/${index}/policy/cadenceControl/recoveryMode`,
+      value: "agile-pulse-fast",
+    },
+    {
+      op: "replace",
+      path: `/devices/${index}/policy/cadenceControl/minimumCoverageDeficitTicks`,
+      value: 5_000,
     },
   ];
 }
@@ -837,13 +845,13 @@ const candidates: Candidate[] = [
     patch: advancedPatternRecoveryPatch,
   },
   {
-    strategy: "recipe:adaptive-agile-pulse-deposition-after-10000",
-    hypothesis: "The existing ALD bay can use its qualified agile pulse only after the exact furnace-bound lane has remained empty for ten seconds, then return to its normal recipe as soon as downstream coverage recovers.",
-    expectedEffect: "Debounce ordinary handoff gaps while recovering sustained furnace starvation, preserving steady production and retaining disruption gains under every locked case.",
+    strategy: "recipe:adaptive-agile-pulse-fast-deposition-after-5000",
+    hypothesis: "The existing ALD bay can qualify a 2/3-duration, 3/2-active-power pulse sequence and invoke it only after the exact furnace-bound coverage deficit persists for five seconds, then return to the normal recipe as soon as one resident-or-in-flight lot restores coverage.",
+    expectedEffect: "Reduce the measured furnace material-shortage interval rather than only changing controller activations: project research measures 42.456 s down to 40.456 s through 1.067 s less source-processing wait and 0.933 s less source-input wait, with unchanged lane time and no locked-case regression.",
     addresses: ["input-starvation"],
     subjects: ["deposition-1", "deposition-to-batch-furnace", "furnace-1"],
     inputSupplyStates: ["source-processing", "source-waiting-input"],
-    patch: commissionedAdaptiveCadencePatch,
+    patch: commissionedFurnaceSupplyRecoveryPatch,
   },
   {
     strategy: "recipe:agile-pulse-deposition",

@@ -147,12 +147,12 @@ test("memory-fab on-time service rejects score-positive inspection maintenance",
         expect.objectContaining({ id: "mixed-quality", candidateValue: 10, threshold: 10, candidatePassed: true }),
         expect.objectContaining({ id: "quality-excursion", candidateValue: 10, threshold: 8, candidatePassed: true }),
         expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
-        expect.objectContaining({ id: "facility-interruption", candidateValue: 7, threshold: 9, candidatePassed: false }),
+        expect.objectContaining({ id: "facility-interruption", candidateValue: 6, threshold: 9, candidatePassed: false }),
       ],
     }),
   ]);
   expect(result.reasons).toEqual([
-    "outcome guardrail 'preserve-on-time-service' failed in case 'facility-interruption': onTimeLots 7.000000 must be >= 9.000000",
+    "outcome guardrail 'preserve-on-time-service' failed in case 'facility-interruption': onTimeLots 6.000000 must be >= 9.000000",
   ]);
 }, 30_000);
 
@@ -199,13 +199,13 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
     incumbentInterruption.candidateMetrics.scoreBreakdown,
     branchInterruption.candidateMetrics.scoreBreakdown,
   );
-  expect(scoreDelta).toBeCloseTo(-0.898787121212123, 12);
-  expect(breakdownDelta.onTimeDelivery).toBeCloseTo(1.6666666666666679, 12);
-  expect(breakdownDelta.wip).toBeCloseTo(-2.6942750000000046, 12);
+  expect(scoreDelta).toBeCloseTo(-2.950158333333332, 12);
+  expect(breakdownDelta.onTimeDelivery).toBeCloseTo(0, 12);
+  expect(breakdownDelta.wip).toBeCloseTo(-2.9106749999999977, 12);
   expect(breakdownDelta.energy).toBeCloseTo(-0.00604, 12);
   expect(breakdownDelta.buildCost).toBeCloseTo(-0.005, 12);
-  expect(breakdownDelta.cycleTime).toBeCloseTo(0.0380357575757575, 12);
-  expect(breakdownDelta.tardiness).toBeCloseTo(0.10182545454545452, 12);
+  expect(breakdownDelta.cycleTime).toBeCloseTo(0.06737969696969737, 12);
+  expect(breakdownDelta.tardiness).toBeCloseTo(-0.09582303030303035, 12);
   expect(sumScoreBreakdown(incumbentInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(incumbentInterruption.candidateScore, 12);
   expect(sumScoreBreakdown(branchInterruption.candidateMetrics.scoreBreakdown)).toBeCloseTo(branchInterruption.candidateScore, 12);
   expect(sumScoreBreakdown(breakdownDelta)).toBeCloseTo(scoreDelta, 12);

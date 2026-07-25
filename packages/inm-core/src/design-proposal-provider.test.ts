@@ -92,7 +92,7 @@ test("memory-fab project provider returns one deterministic loss-guided proposal
   expect(() => compileFactoryProject({ ...loaded, blueprint: applyResearchPatch(loaded.blueprint, first.patch) })).not.toThrow();
 });
 
-test("commissioned input starvation proposes the bounded adaptive agile-pulse ALD control", async () => {
+test("commissioned input starvation proposes the measured fast-pulse furnace recovery control", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab",
@@ -100,13 +100,12 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
     objective: "dram-output",
   });
   const authoredDeposition = loaded.blueprint.devices.find((device) => device.id === "deposition-1")!;
-  const qualifiedDeposition = authoredDeposition.recipe
-    ?? authoredDeposition.recipes?.find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "qualified");
-  if (!qualifiedDeposition) throw new Error("Missing qualified commissioned ALD recipe");
-  authoredDeposition.recipe = structuredClone(qualifiedDeposition);
-  delete authoredDeposition.recipes;
-  if (authoredDeposition.policy) delete authoredDeposition.policy.cadenceControl;
-  loaded.blueprint.revision = "6ed24bc31d8176104a511777e4e6296f04a623547c8d97c491196e28e00f1c23";
+  const authoredRecoveryRecipe = authoredDeposition.recipes!
+    .find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "agile-pulse-fast")!;
+  authoredRecoveryRecipe.mode = "agile-pulse";
+  authoredDeposition.policy!.cadenceControl!.recoveryMode = "agile-pulse";
+  authoredDeposition.policy!.cadenceControl!.minimumCoverageDeficitTicks = 10_000;
+  loaded.blueprint.revision = "design-normalized-source-hash";
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
   const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
@@ -131,34 +130,28 @@ test("commissioned input starvation proposes the bounded adaptive agile-pulse AL
     history: [],
   });
   const depositionIndex = project.blueprint.devices.findIndex((device) => device.id === "deposition-1");
-  const normalRecipe = structuredClone(project.blueprint.devices[depositionIndex]!.recipe!);
+  const deposition = project.blueprint.devices[depositionIndex]!;
+  const recoveryIndex = deposition.recipes!.findIndex((recipe) => recipe.mode === "agile-pulse");
 
   expect(fabLoss.chain[0]).toBe("input-starvation");
   expect(proposal).toMatchObject({
-    strategy: "recipe:adaptive-agile-pulse-deposition-after-10000",
+    strategy: "recipe:adaptive-agile-pulse-fast-deposition-after-5000",
     addressedLoss: "input-starvation",
     patch: [
-      { op: "remove", path: `/devices/${depositionIndex}/recipe` },
       {
-        op: "add",
-        path: `/devices/${depositionIndex}/recipes`,
-        value: [
-          normalRecipe,
-          { ...structuredClone(normalRecipe), mode: "agile-pulse" },
-        ],
+        op: "replace",
+        path: `/devices/${depositionIndex}/recipes/${recoveryIndex}/mode`,
+        value: "agile-pulse-fast",
       },
       {
-        op: "add",
-        path: `/devices/${depositionIndex}/policy/cadenceControl`,
-        value: {
-          kind: "downstream-coverage-recovery",
-          process: "deposit-dielectric-stack",
-          normalMode: "qualified",
-          recoveryMode: "agile-pulse",
-          downstreamConnection: "deposition-to-batch-furnace",
-          recoverBelowItems: 1,
-          minimumCoverageDeficitTicks: 10_000,
-        },
+        op: "replace",
+        path: `/devices/${depositionIndex}/policy/cadenceControl/recoveryMode`,
+        value: "agile-pulse-fast",
+      },
+      {
+        op: "replace",
+        path: `/devices/${depositionIndex}/policy/cadenceControl/minimumCoverageDeficitTicks`,
+        value: 5_000,
       },
     ],
   });
@@ -238,13 +231,19 @@ test("commissioned terminal queue proposes the bounded agile screening mode", as
   })).not.toThrow();
 });
 
-test("commissioned provider does not mislabel layer-two EDD as an input-path intervention", async () => {
+test("commissioned provider uses causal ALD recovery rather than mislabeling layer-two EDD", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab",
     scenario: "production-window",
     objective: "dram-output",
   });
+  const authoredDeposition = loaded.blueprint.devices.find((device) => device.id === "deposition-1")!;
+  const authoredRecoveryRecipe = authoredDeposition.recipes!
+    .find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "agile-pulse-fast")!;
+  authoredRecoveryRecipe.mode = "agile-pulse";
+  authoredDeposition.policy!.cadenceControl!.recoveryMode = "agile-pulse";
+  authoredDeposition.policy!.cadenceControl!.minimumCoverageDeficitTicks = 10_000;
   const lithography = loaded.blueprint.devices.find((device) => device.id === "lithography-l2")!;
   lithography.policy!.lotDispatch = "fifo";
   const project = compileFactoryProject(loaded);
@@ -270,16 +269,30 @@ test("commissioned provider does not mislabel layer-two EDD as an input-path int
     capacityPlan: planProductionCapacity(project),
     history: [],
   });
-  const inspectionIndex = project.blueprint.devices.findIndex((device) => device.id === "inspection-1");
+  const depositionIndex = project.blueprint.devices.findIndex((device) => device.id === "deposition-1");
+  const recoveryIndex = project.blueprint.devices[depositionIndex]!.recipes!
+    .findIndex((recipe) => recipe.mode === "agile-pulse");
   expect(fabLoss.chain[0]).toBe("input-starvation");
   expect(proposal).toMatchObject({
-    strategy: "maintenance:inspection-jobs-4",
-    addressedLoss: "yield-quality",
-    patch: [{
-      op: "add",
-      path: `/devices/${inspectionIndex}/policy/preventiveMaintenance`,
-      value: { opportunistic: { afterJobs: 4 } },
-    }],
+    strategy: "recipe:adaptive-agile-pulse-fast-deposition-after-5000",
+    addressedLoss: "input-starvation",
+    patch: [
+      {
+        op: "replace",
+        path: `/devices/${depositionIndex}/recipes/${recoveryIndex}/mode`,
+        value: "agile-pulse-fast",
+      },
+      {
+        op: "replace",
+        path: `/devices/${depositionIndex}/policy/cadenceControl/recoveryMode`,
+        value: "agile-pulse-fast",
+      },
+      {
+        op: "replace",
+        path: `/devices/${depositionIndex}/policy/cadenceControl/minimumCoverageDeficitTicks`,
+        value: 5_000,
+      },
+    ],
   });
   expect(() => compileFactoryProject({
     ...loaded,
@@ -615,8 +628,8 @@ test("current commissioned fab prevents latent etch damage without reintroducing
       inProgress: 0,
       firstPassYield: 10 / 12,
       deliveryShortfall: 0,
-      deliveryOverflow: 37,
-      portfolioNetValue: 342,
+      deliveryOverflow: 38,
+      portfolioNetValue: 344,
       scrapped: 0,
     },
   });

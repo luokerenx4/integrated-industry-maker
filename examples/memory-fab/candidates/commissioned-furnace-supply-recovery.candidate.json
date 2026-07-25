@@ -1,0 +1,32 @@
+{
+  "baseCandidateHash": "929cc857e8141812673d9aee29b2530293cf274c102524d204930daa5a14eb99",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 206067de7d35: aggregate score 42.780458 (+117.756180 versus locked baseline) across 5 cases.",
+  "hypothesis": "The existing ALD bay can qualify a 2/3-duration, 3/2-active-power pulse sequence and invoke it only after the exact furnace-bound coverage deficit persists for five seconds, then return to the normal recipe as soon as one resident-or-in-flight lot restores coverage.",
+  "id": "commissioned-furnace-supply-recovery",
+  "name": "Commissioned DRAM Fab Optimization leading design",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/4/policy/cadenceControl/minimumCoverageDeficitTicks",
+      "value": 5000
+    },
+    {
+      "op": "replace",
+      "path": "/devices/4/policy/cadenceControl/recoveryMode",
+      "value": "agile-pulse-fast"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/4/recipes/1/mode",
+      "value": "agile-pulse-fast"
+    }
+  ],
+  "source": {
+    "blueprintHash": "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144",
+    "kind": "design-run",
+    "program": "commissioned-dram-fab",
+    "resultHash": "206067de7d3566d5793d078f2db05ecbceb3b2ccdd0122ecec70b8b0d5c8a217"
+  },
+  "version": 1
+}

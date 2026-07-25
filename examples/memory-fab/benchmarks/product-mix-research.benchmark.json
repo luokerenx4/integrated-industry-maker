@@ -31,7 +31,7 @@
     "cases": {
       "mixed-quality": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "deviceCatalogHash": "a8c85af07c421a3103538c2f1f2bc6303f3fabf7aa871fbc465940721d62faa8",
+        "deviceCatalogHash": "e9ab7d3630c23ccd818aa55c537593b959e3911c3c59e654c0d1958a17d6b0d6",
         "engineVersion": "inm-sim/0.85.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
@@ -42,7 +42,7 @@
       },
       "steady-production": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "deviceCatalogHash": "a8c85af07c421a3103538c2f1f2bc6303f3fabf7aa871fbc465940721d62faa8",
+        "deviceCatalogHash": "e9ab7d3630c23ccd818aa55c537593b959e3911c3c59e654c0d1958a17d6b0d6",
         "engineVersion": "inm-sim/0.85.0",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
         "processCatalogHash": "5fe189360ca9fdb2bb6ca6dc7486fedc28fc39e890447c0bb5ca4c61b8ebfdf5",
