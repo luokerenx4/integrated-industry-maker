@@ -435,6 +435,13 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       runs: [],
       invalidRuns: [expect.objectContaining({ id: invalidRunId, code: "design.invalid-run" })],
     }));
+    const invalidRunResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${invalidRunId}`);
+    expect(invalidRunResponse.status).toBe(400);
+    expect(await invalidRunResponse.json()).toEqual({
+      code: "design.invalid-run",
+      error: `Design run '${invalidRunId}' manifest identity or completion state is invalid`,
+      hashes: {},
+    });
     const campaignRunResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/run`, {
       method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 7 }),
     });

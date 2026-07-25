@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/graceful-invalid-design-route]] | Keep a strict invalid Design Run deep link local to its historical selection instead of presenting it as a failed current Design operation. | 2026-07-25 |
 | [[plans/inspection-frontier-design-handoff]] | Persist the closed inspection supply-path frontier as current immutable Design evidence shared by humans and Agents. | 2026-07-25 |
 | [[plans/inspection-supply-path-convergence]] | Reduce the current inspection input shortage through a five-case-safe physical main-line or return-flow intervention. | 2026-07-25 |
 | [[plans/furnace-supply-path-recovery]] | Reduce the exact commissioned furnace supply-path shortage through a five-case-safe physical intervention or record its bounded blockers. | 2026-07-25 |

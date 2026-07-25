@@ -3,10 +3,31 @@ import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, De
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 
+class DesignResponseError extends Error {
+  constructor(public readonly code: string | null, public readonly detail: string) {
+    super(`${code ? `[${code}] ` : ""}${detail}`);
+    this.name = "DesignResponseError";
+  }
+}
+
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
-  if (!response.ok) throw new Error(`${value.code ? `[${value.code}] ` : ""}${value.error ?? `Request failed (${response.status})`}`);
+  if (!response.ok) throw new DesignResponseError(
+    typeof value.code === "string" ? value.code : null,
+    value.error ?? `Request failed (${response.status})`,
+  );
   return value;
+}
+
+export interface DesignRunSelectionIssue {
+  runId: string;
+  code: string;
+  message: string;
+}
+
+export function designRunSelectionIssue(code: string | null, message: string, runId: string): DesignRunSelectionIssue | null {
+  if (code !== "design.invalid-run" && code !== "design.run-not-found") return null;
+  return { runId, code, message };
 }
 
 function scoreDriverCase(evidence: DesignDecisionEvidence) {
@@ -127,6 +148,7 @@ export function DesignWorkbench({
   const [runs, setRuns] = useState<DesignRunSummary[]>([]);
   const [invalidRuns, setInvalidRuns] = useState<InvalidDesignRunSummary[]>([]);
   const [selectedRun, setSelectedRun] = useState<DesignRunResult | null>(null);
+  const [selectedRunIssue, setSelectedRunIssue] = useState<DesignRunSelectionIssue | null>(null);
   const [budget, setBudget] = useState(1);
   const [running, setRunning] = useState(false);
   const [runProgress, setRunProgress] = useState<DesignRunProgress | null>(null);
@@ -171,7 +193,7 @@ export function DesignWorkbench({
   };
 
   useEffect(() => {
-    setBrief(null); setRuns([]); setInvalidRuns([]); setSelectedRun(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setError(null);
+    setBrief(null); setRuns([]); setInvalidRuns([]); setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setError(null);
     if (!selectedProgramId) return;
     let active = true;
     void loadProgram(selectedProgramId).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
@@ -179,7 +201,7 @@ export function DesignWorkbench({
   }, [projectId, selectedProgramId]);
 
   useEffect(() => {
-    setSelectedRun(null); setPromoted(null); setCommissionedCandidate(null); setError(null);
+    setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setError(null);
     if (!selectedProgramId || !selectedRunId) return;
     let active = true;
     void (async () => {
@@ -199,7 +221,15 @@ export function DesignWorkbench({
           && candidate.source.resultHash === selectedRunId
           && candidate.source.blueprintHash === value.manifest.best.blueprintHash) ?? null);
       } catch (nextError) {
-        if (active) setError(nextError instanceof Error ? nextError.message : String(nextError));
+        if (!active) return;
+        const message = nextError instanceof Error ? nextError.message : String(nextError);
+        const issue = designRunSelectionIssue(
+          nextError instanceof DesignResponseError ? nextError.code : null,
+          nextError instanceof DesignResponseError ? nextError.detail : message,
+          selectedRunId,
+        );
+        if (issue) setSelectedRunIssue(issue);
+        else setError(message);
       }
     })();
     return () => { active = false; };
@@ -291,6 +321,18 @@ export function DesignWorkbench({
               <code>{shortHash(run.id)}</code><strong>{run.code}</strong><span>{run.message}</span>
             </article>)}</div>
           </details>}
+          {selectedRunIssue && <section className="design-run-issue" data-testid="design-run-issue" role="status">
+            <div>
+              <small>HISTORICAL RESULT EXCLUDED</small>
+              <strong>THIS RUN IS NOT CURRENT EVIDENCE</strong>
+              <code>{selectedRunIssue.runId}</code>
+              <span>{selectedRunIssue.code} · {selectedRunIssue.message}</span>
+              <p>The copied route remains intact, but this result cannot enter ranking, continuation, or promotion. The Design Program and its current valid evidence remain usable.</p>
+            </div>
+            <button data-testid="open-current-design-run" onClick={() => onSelectRun(runs[0]?.id ?? null)}>
+              {runs.length > 0 ? "OPEN CURRENT RESULT →" : "BACK TO PROGRAM →"}
+            </button>
+          </section>}
           {selectedRun && <section className="design-result" data-testid="design-result">
             <header><div><span className="eyebrow">SELECTED RESULT</span><h3>{shortHash(selectedRun.manifest.resultHash)}</h3><code>BLUEPRINT {shortHash(selectedRun.manifest.best.blueprintHash)}</code>{selectedRun.manifest.continuation && <code>CONTINUED FROM {shortHash(selectedRun.manifest.continuation.sourceResultHash)} · REUSED {selectedRun.manifest.continuation.reusedIterations} · +{selectedRun.manifest.continuation.additionalCandidateBudget}</code>}</div><strong>{selectedRun.manifest.best.candidateScore.toFixed(6)}<small>{signed(selectedRun.manifest.best.scoreDelta)} VS LOCKED BASELINE</small></strong></header>
             {selectedRunContinuable && <div className="design-continuation"><div><small>SEARCHABLE FRONTIER RETAINED</small><strong>Continue this exact immutable evidence chain</strong><span>Reuses {selectedRun.manifest.iterations.length} verified iterations, starts from {selectedRun.manifest.frontier.scheduler.searchOrder[0]}, and evaluates only up to {budget} new candidate{budget === 1 ? "" : "s"}. The selected source run remains unchanged.</span></div><button data-testid="continue-design" disabled={running} onClick={() => void continueRun()}>{running ? "CONTINUING…" : `CONTINUE · +${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>}
