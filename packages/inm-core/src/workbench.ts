@@ -5,8 +5,15 @@ import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./bench
 import { listCandidateChangeSets } from "./candidate-change-set";
 import { inspectCandidateDecision, type CandidateDecisionState } from "./candidate-review";
 import { listDesignPrograms, type DesignProgramSummary } from "./design-program";
-import { indexDesignRuns, type DesignRunSummary, type InvalidDesignRunSummary } from "./design-run";
-import { analyzeFabLosses, type FabLossAttribution } from "./fab-loss-analysis";
+import {
+  indexDesignRuns,
+  loadDesignRun,
+  type DesignDecisionEvidence,
+  type DesignRunManifest,
+  type DesignRunSummary,
+  type InvalidDesignRunSummary,
+} from "./design-run";
+import { analyzeFabLosses, type FabLossAttribution, type FabLossBucketId } from "./fab-loss-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
@@ -121,6 +128,7 @@ export interface WorkbenchDesignRunEvidence {
 export interface WorkbenchDesignProgramEvidence {
   state: WorkbenchDesignEvidenceState;
   authorityRunId: string | null;
+  authorityAddressedLosses: FabLossBucketId[];
   currentRuns: number;
   historicalRuns: number;
   invalidRuns: number;
@@ -128,8 +136,55 @@ export interface WorkbenchDesignProgramEvidence {
   invalid: Array<Pick<InvalidDesignRunSummary, "id" | "code" | "message">>;
 }
 
+export interface WorkbenchLossDisposition {
+  id: string;
+  state: "bounded-deferred";
+  diagnosticId: string;
+  loss: FabLossBucketId;
+  target: {
+    contributor: string;
+    metric: string;
+    direction: "decrease";
+    currentValue: number;
+  };
+  source: {
+    programId: string;
+    programName: string;
+    programHash: string;
+    benchmarkId: string;
+    benchmarkContractHash: string;
+    runId: string;
+  };
+  observed: {
+    runId: string;
+    resultHash: string;
+  };
+  evidence: {
+    attemptedCandidates: number;
+    improvedCandidates: number;
+    rejectedCandidates: number;
+    bestObservedValue: number;
+    largestReduction: number;
+    driverMetricsHash: string;
+    decisionBases: Record<DesignDecisionEvidence["basis"], number>;
+  };
+  reason: string;
+  invalidation: {
+    summary: string;
+    bindings: Array<
+      | "program"
+      | "benchmark"
+      | "driver-selection"
+      | "driver-hashes"
+      | "compatible-run"
+      | "loss-target"
+      | "current-value"
+    >;
+  };
+}
+
 export interface ProjectWorkbenchSnapshot {
-  version: 7;
+  version: 8;
   project: {
     id: string;
     name: string;
@@ -236,6 +291,7 @@ export interface ProjectWorkbenchSnapshot {
   }>;
   diagnostics: WorkbenchDiagnostic[];
   lossAttribution: FabLossAttribution | null;
+  lossDispositions: WorkbenchLossDisposition[];
   operations: WorkbenchOperationDescriptor[];
   nextAction: WorkbenchNextAction;
 }
@@ -390,11 +446,168 @@ export function classifyDesignProgramEvidence(
   return {
     state: authority?.outcome ?? "missing",
     authorityRunId: authority?.id ?? null,
+    authorityAddressedLosses: [],
     currentRuns: current.length,
     historicalRuns: projected.length - current.length,
     invalidRuns: invalidRuns.length,
     runs: projected,
     invalid: invalidRuns.map(({ id, code, message }) => ({ id, code, message })).sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
+const emptyDecisionBases = (): WorkbenchLossDisposition["evidence"]["decisionBases"] => ({
+  "current-best-improvement": 0,
+  "benchmark-gate": 0,
+  "no-current-best-improvement": 0,
+  "current-best-case-guardrail": 0,
+  "addressed-loss-not-improved": 0,
+});
+
+export function deriveWorkbenchLossDisposition(
+  program: Pick<DesignProgramSummary, "id" | "name" | "benchmark" | "programHash"> & {
+    benchmarkContractHash: string;
+    authorityRunId: string;
+  },
+  manifest: DesignRunManifest,
+  context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "hashes" | "diagnostics" | "lossAttribution">,
+): WorkbenchLossDisposition | null {
+  if (!context.lossAttribution
+    || program.authorityRunId !== manifest.resultHash
+    || manifest.project !== context.project.id
+    || manifest.engineVersion !== context.hashes.engineVersion
+    || manifest.program.id !== program.id
+    || manifest.program.hash !== program.programHash
+    || manifest.benchmark.id !== program.benchmark
+    || manifest.benchmark.contractHash !== program.benchmarkContractHash
+    || manifest.seed.sourceBlueprintHash !== context.hashes.blueprintHash
+    || manifest.promotionBase.hash !== context.hashes.blueprintHash
+    || stableStringify(manifest.driver.selection) !== stableStringify({
+      world: context.selection.world.id,
+      blueprint: context.selection.blueprint.id,
+      scenario: context.selection.scenario.id,
+      objective: context.selection.objective.id,
+    })
+    || stableStringify(manifest.driver.hashes) !== stableStringify({
+      ...context.hashes,
+      blueprintHash: manifest.seed.blueprintHash,
+    })
+    || manifest.stopReason !== "frontier-exhausted"
+    || manifest.budget.evaluated <= 0
+    || manifest.iterations.length !== manifest.budget.evaluated
+    || manifest.best.iteration !== 0
+    || manifest.best.promotionPatchOperations !== 0
+    || manifest.best.verdict !== "KEEP"
+    || manifest.best.blueprintHash !== manifest.seed.blueprintHash
+    || manifest.frontier.leader !== "seed"
+    || manifest.frontier.alternatives.length !== 0
+    || manifest.frontier.scheduler.searchOrder.length !== 0
+    || stableStringify(manifest.frontier.scheduler.exhausted) !== stableStringify(["seed"])
+    || manifest.frontier.nodes.length !== 1
+    || manifest.frontier.nodes[0]?.nodeId !== "seed"
+    || manifest.frontier.nodes[0].role !== "leader"
+    || manifest.frontier.nodes[0].depth !== 0
+    || manifest.frontier.nodes[0].searchStatus !== "exhausted"
+    || manifest.exhaustions.length !== 1
+    || manifest.exhaustions[0]?.node.nodeId !== "seed"
+    || manifest.exhaustions[0].reason !== "proposal-exhausted"
+    || manifest.exhaustions[0].searchOrderAfter.length !== 0
+    || stableStringify(manifest.exhaustions[0].exhaustedAfter) !== stableStringify(["seed"])
+    || manifest.exhaustions[0].nextNodeId !== null) return null;
+
+  const first = manifest.iterations[0]!;
+  if (!first.addressedLoss || !first.addressedLossTarget || !first.lossTargetEvidence) return null;
+  const loss = first.addressedLoss;
+  const target = first.addressedLossTarget;
+  const currentBucket = context.lossAttribution.buckets.find((bucket) => bucket.id === loss);
+  const currentContributor = currentBucket?.contributors.find((contributor) => contributor.id === target.contributor);
+  const currentValue = currentContributor?.evidence[target.metric];
+  const diagnostic = context.diagnostics.find((item) =>
+    item.code === `fab-loss.${loss}`
+    && item.evidence.source === "compatible-run"
+    && item.evidence.runId === context.lossAttribution!.run.id);
+  const driverMetricsHash = first.driverEvidence.metricsHash;
+  const driverLossProfile = first.driverEvidence.fabLoss;
+  if (!diagnostic
+    || target.direction !== "decrease"
+    || typeof currentValue !== "number"
+    || !Number.isFinite(currentValue)
+    || !driverMetricsHash
+    || !driverLossProfile) return null;
+
+  const exactIterations = manifest.iterations.every((iteration) =>
+    iteration.error === undefined
+    && iteration.decision === "REJECT"
+    && iteration.evaluation !== undefined
+    && iteration.decisionEvidence !== undefined
+    && iteration.decisionEvidence.basis !== "addressed-loss-not-improved"
+    && iteration.addressedLoss === loss
+    && stableStringify(iteration.addressedLossTarget) === stableStringify(target)
+    && iteration.driverEvidence.metricsHash === driverMetricsHash
+    && stableStringify(iteration.driverEvidence.fabLoss) === stableStringify(driverLossProfile)
+    && iteration.driverEvidence.fabLoss?.buckets
+      .find((bucket) => bucket.id === loss)?.contributors
+      .find((contributor) => contributor.id === target.contributor)?.evidence[target.metric] === currentValue
+    && iteration.lossTargetEvidence !== undefined
+    && stableStringify(iteration.lossTargetEvidence.target) === stableStringify(target)
+    && iteration.lossTargetEvidence.before === currentValue
+    && iteration.lossTargetEvidence.improved
+    && iteration.lossTargetEvidence.after < currentValue
+    && iteration.lossTargetEvidence.delta === iteration.lossTargetEvidence.after - currentValue
+    && iteration.frontierEvidence.outcome === "rejected"
+    && iteration.frontierEvidence.leaderAfter === "seed"
+    && iteration.frontierEvidence.alternativesAfter.length === 0);
+  if (!exactIterations) return null;
+
+  const decisionBases = emptyDecisionBases();
+  for (const iteration of manifest.iterations) decisionBases[iteration.decisionEvidence!.basis] += 1;
+  const bestObservedValue = Math.min(...manifest.iterations.map((iteration) => iteration.lossTargetEvidence!.after));
+  const largestReduction = currentValue - bestObservedValue;
+  const bindings: WorkbenchLossDisposition["invalidation"]["bindings"] = [
+    "program",
+    "benchmark",
+    "driver-selection",
+    "driver-hashes",
+    "compatible-run",
+    "loss-target",
+    "current-value",
+  ];
+  return {
+    id: `bounded-deferred:${hashValue({
+      diagnosticId: diagnostic.id,
+      program: program.id,
+      run: manifest.resultHash,
+      observed: context.lossAttribution.run,
+      loss,
+      target,
+      currentValue,
+    })}`,
+    state: "bounded-deferred",
+    diagnosticId: diagnostic.id,
+    loss,
+    target: { ...target, currentValue },
+    source: {
+      programId: program.id,
+      programName: program.name,
+      programHash: program.programHash,
+      benchmarkId: program.benchmark,
+      benchmarkContractHash: program.benchmarkContractHash,
+      runId: manifest.resultHash,
+    },
+    observed: { runId: context.lossAttribution.run.id, resultHash: context.lossAttribution.run.resultHash },
+    evidence: {
+      attemptedCandidates: manifest.iterations.length,
+      improvedCandidates: manifest.iterations.length,
+      rejectedCandidates: manifest.iterations.length,
+      bestObservedValue,
+      largestReduction,
+      driverMetricsHash,
+      decisionBases,
+    },
+    reason: `${manifest.iterations.length}/${manifest.iterations.length} bounded Candidates reduced ${target.contributor}.${target.metric} from ${currentValue}, but every Candidate was rejected by the locked industrial authority and the unchanged seed frontier is exhausted.`,
+    invalidation: {
+      summary: "Deferred only while the exact Program, Benchmark, driver selection and hashes, compatible run, loss target, and current observed value remain unchanged.",
+      bindings,
+    },
   };
 }
 
@@ -486,7 +699,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   ];
 }
 
-export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms">): WorkbenchNextAction {
+export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossDispositions">): WorkbenchNextAction {
   const projectRoute = `/${encodeURIComponent(context.project.id)}`;
   const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
   if (blocking) return {
@@ -550,18 +763,27 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     target: { kind: "operation", operationId: "simulate" },
   };
 
-  const warning = context.diagnostics.find((diagnostic) => diagnostic.severity === "warning");
-  const designEvidencePriority: Record<WorkbenchDesignEvidenceState, number> = {
-    promotable: 0,
-    continuable: 1,
-    exhausted: 2,
-    missing: 3,
-    "not-applicable": 4,
+  const disposedDiagnosticIds = new Set(context.lossDispositions.map((disposition) => disposition.diagnosticId));
+  const warning = context.diagnostics.find((diagnostic) =>
+    diagnostic.severity === "warning" && !disposedDiagnosticIds.has(diagnostic.id));
+  const selectedLoss = warning?.code.startsWith("fab-loss.")
+    ? warning.code.slice("fab-loss.".length) as FabLossBucketId
+    : null;
+  const designEvidencePriority = (program: ProjectWorkbenchSnapshot["designPrograms"][number]): number => {
+    if (program.evidence.state === "promotable") return 0;
+    const addressesSelectedLoss = selectedLoss !== null
+      && program.evidence.authorityAddressedLosses.includes(selectedLoss);
+    if (addressesSelectedLoss && program.evidence.state === "continuable") return 1;
+    if (addressesSelectedLoss && program.evidence.state === "exhausted") return 2;
+    if (program.evidence.state === "missing") return 3;
+    if (program.evidence.state === "continuable") return 4;
+    if (program.evidence.state === "exhausted") return 5;
+    return 6;
   };
   const alignedProgram = context.designPrograms
     .filter((program) => program.alignment.state === "aligned")
     .sort((left, right) =>
-      designEvidencePriority[left.evidence.state] - designEvidencePriority[right.evidence.state]
+      designEvidencePriority(left) - designEvidencePriority(right)
       || left.id.localeCompare(right.id))[0];
   const designAuthority = alignedProgram?.evidence.authorityRunId
     ? alignedProgram.evidence.runs.find((run) => run.id === alignedProgram.evidence.authorityRunId)
@@ -698,7 +920,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     };
   });
   const experimentsById = new Map(experiments.map((experiment) => [experiment.id, experiment]));
-  const designPrograms: ProjectWorkbenchSnapshot["designPrograms"] = await Promise.all(programs.map(async (program) => {
+  const classifiedDesignPrograms: ProjectWorkbenchSnapshot["designPrograms"] = await Promise.all(programs.map(async (program) => {
     const benchmark = experimentsById.get(program.benchmark)!;
     const promotionTarget = benchmark.candidateBlueprint;
     const reasons: ProjectWorkbenchSnapshot["designPrograms"][number]["alignment"]["reasons"] = [];
@@ -709,6 +931,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     let evidence: WorkbenchDesignProgramEvidence = {
       state: "not-applicable",
       authorityRunId: null,
+      authorityAddressedLosses: [],
       currentRuns: 0,
       historicalRuns: 0,
       invalidRuns: 0,
@@ -763,6 +986,42 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     )
     : null;
   const diagnostics = projectDiagnostics(project, analysis, capacity, lossAttribution);
+  const designProgramsWithDispositions = await Promise.all(classifiedDesignPrograms.map(async (projectedProgram) => {
+    const sourceProgram = programs.find((program) => program.id === projectedProgram.id)!;
+    const benchmark = experimentsById.get(projectedProgram.benchmark)!;
+    const authorityRunId = projectedProgram.evidence.authorityRunId;
+    if (projectedProgram.alignment.state !== "aligned" || !authorityRunId || !benchmark.contractHash) {
+      return { program: projectedProgram, disposition: null };
+    }
+    const authority = await loadDesignRun(project.rootDir, projectedProgram.id, authorityRunId);
+    const authorityAddressedLosses = [...new Set(authority.manifest.iterations.flatMap((iteration) =>
+      iteration.addressedLoss ? [iteration.addressedLoss] : []))].sort();
+    const disposition = deriveWorkbenchLossDisposition({
+      id: sourceProgram.id,
+      name: sourceProgram.name,
+      benchmark: sourceProgram.benchmark,
+      programHash: sourceProgram.programHash,
+      benchmarkContractHash: benchmark.contractHash,
+      authorityRunId,
+    }, authority.manifest, {
+      project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
+      selection,
+      hashes: project.hashes,
+      diagnostics,
+      lossAttribution,
+    });
+    return {
+      program: {
+        ...projectedProgram,
+        evidence: { ...projectedProgram.evidence, authorityAddressedLosses },
+      },
+      disposition,
+    };
+  }));
+  const designPrograms = designProgramsWithDispositions.map((item) => item.program);
+  const lossDispositions = designProgramsWithDispositions.flatMap((item) =>
+    item.disposition ? [item.disposition] : []).sort((left, right) =>
+    left.diagnosticId.localeCompare(right.diagnosticId) || left.id.localeCompare(right.id));
   const operations = operationDescriptors(experiments, candidateSummaries, designPrograms);
   const flowWarnings = diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
   const flowInfo = diagnostics.filter((diagnostic) => diagnostic.severity === "info").length;
@@ -771,7 +1030,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 7 as const,
+    version: 8 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -830,6 +1089,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     candidates: candidateSummaries,
     diagnostics,
     lossAttribution,
+    lossDispositions,
     operations,
   } satisfies Omit<ProjectWorkbenchSnapshot, "nextAction">;
   return { ...snapshot, nextAction: buildWorkbenchNextAction(snapshot) };

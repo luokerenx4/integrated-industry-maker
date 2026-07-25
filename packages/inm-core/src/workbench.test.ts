@@ -2,16 +2,23 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import type { DesignRunSummary } from "./design-run";
+import { loadDesignRun, type DesignRunManifest, type DesignRunSummary } from "./design-run";
 import { previewCandidateOperation } from "./operation";
-import { buildWorkbenchNextAction, classifyDesignProgramEvidence, openProjectWorkbenchSnapshot, type WorkbenchDesignEvidenceIdentity } from "./workbench";
+import {
+  buildWorkbenchNextAction,
+  classifyDesignProgramEvidence,
+  deriveWorkbenchLossDisposition,
+  openProjectWorkbenchSnapshot,
+  type ProjectWorkbenchSnapshot,
+  type WorkbenchDesignEvidenceIdentity,
+} from "./workbench";
 import { pathExists, stableStringify } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(7);
+  expect(snapshot.version).toBe(8);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -275,6 +282,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     evidence: {
       state: "exhausted" as const,
       authorityRunId: exhaustedId,
+      authorityAddressedLosses: ["input-starvation" as const],
       currentRuns: 1,
       historicalRuns: 0,
       invalidRuns: 0,
@@ -404,6 +412,104 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.guards).toContain("keep-verdict");
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
+
+test("current memory-fab evidence bounds the exhausted inspection target and advances to yield quality", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const snapshot = await openProjectWorkbenchSnapshot(projectDir);
+  expect(snapshot.version).toBe(8);
+  expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
+  expect(snapshot.lossDispositions).toEqual([expect.objectContaining({
+    state: "bounded-deferred",
+    diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    loss: "input-starvation",
+    target: {
+      contributor: "device:inspection-1:material-input-shortage",
+      metric: "starvationTicks",
+      direction: "decrease",
+      currentValue: 59_584,
+    },
+    source: expect.objectContaining({
+      programId: "inspection-supply-path",
+      benchmarkId: "greenfield-dram-design",
+      runId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+    }),
+    observed: expect.objectContaining({ runId: "089-simulate" }),
+    evidence: expect.objectContaining({
+      attemptedCandidates: 6,
+      improvedCandidates: 6,
+      rejectedCandidates: 6,
+      bestObservedValue: 57_084,
+      largestReduction: 2_500,
+      decisionBases: {
+        "current-best-improvement": 0,
+        "benchmark-gate": 1,
+        "no-current-best-improvement": 5,
+        "current-best-case-guardrail": 0,
+        "addressed-loss-not-improved": 0,
+      },
+    }),
+  })]);
+  expect(snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence.authorityAddressedLosses)
+    .toEqual(["input-starvation"]);
+  expect(snapshot.nextAction).toEqual(expect.objectContaining({
+    id: expect.stringMatching(/^design\.inspect:commissioned-dram-fab:fab-loss\.yield-quality:/),
+    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
+    argv: ["inm", "design", projectDir, "--program", "commissioned-dram-fab", "--json"],
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    target: expect.objectContaining({
+      kind: "design-program",
+      programId: "commissioned-dram-fab",
+      diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
+    }),
+  }));
+}, 20_000);
+
+test("bounded loss disposition expires on any changed authority, target evidence, or frontier", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const snapshot = await openProjectWorkbenchSnapshot(projectDir);
+  const disposition = snapshot.lossDispositions[0]!;
+  const loaded = await loadDesignRun(projectDir, disposition.source.programId, disposition.source.runId);
+  const program = {
+    id: disposition.source.programId,
+    name: disposition.source.programName,
+    benchmark: disposition.source.benchmarkId,
+    programHash: disposition.source.programHash,
+    benchmarkContractHash: disposition.source.benchmarkContractHash,
+    authorityRunId: disposition.source.runId,
+  };
+  const context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "hashes" | "diagnostics" | "lossAttribution"> = {
+    project: snapshot.project,
+    selection: snapshot.selection,
+    hashes: snapshot.hashes,
+    diagnostics: snapshot.diagnostics,
+    lossAttribution: snapshot.lossAttribution,
+  };
+  const derive = (
+    mutateManifest?: (manifest: DesignRunManifest) => void,
+    mutateContext?: (value: typeof context) => void,
+  ) => {
+    const manifest = structuredClone(loaded.manifest);
+    const scoped = structuredClone(context);
+    mutateManifest?.(manifest);
+    mutateContext?.(scoped);
+    return deriveWorkbenchLossDisposition(program, manifest, scoped);
+  };
+  expect(derive()).toEqual(expect.objectContaining({ id: disposition.id }));
+  expect(derive((manifest) => { manifest.program.hash = "0".repeat(64); })).toBeNull();
+  expect(derive((manifest) => { manifest.benchmark.contractHash = "0".repeat(64); })).toBeNull();
+  expect(derive((manifest) => { manifest.driver.selection.scenario = "changed"; })).toBeNull();
+  expect(derive((manifest) => { manifest.driver.hashes.deviceCatalogHash = "0".repeat(64); })).toBeNull();
+  expect(derive((manifest) => { manifest.iterations[1]!.addressedLossTarget!.metric = "changed"; })).toBeNull();
+  expect(derive(undefined, (value) => {
+    const bucket = value.lossAttribution!.buckets.find((item) => item.id === "input-starvation")!;
+    const contributor = bucket.contributors.find((item) => item.id === disposition.target.contributor)!;
+    contributor.evidence.starvationTicks = disposition.target.currentValue + 1;
+  })).toBeNull();
+  expect(derive((manifest) => { manifest.iterations[0]!.lossTargetEvidence!.improved = false; })).toBeNull();
+  expect(derive((manifest) => { manifest.iterations[0]!.decision = "KEEP"; })).toBeNull();
+  expect(derive((manifest) => { manifest.best.verdict = "DISCARD"; })).toBeNull();
+  expect(derive((manifest) => { manifest.frontier.scheduler.searchOrder = ["seed"]; })).toBeNull();
+}, 20_000);
 
 test("Design evidence classification chooses current leaf authority without timestamp or hash recency", () => {
   const hash = (value: string) => value.repeat(64);

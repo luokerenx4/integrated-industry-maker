@@ -400,17 +400,20 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
           evidence: {
             state: program.evidence.state,
             authorityRunId: program.evidence.authorityRunId,
+            authorityAddressedLosses: program.evidence.authorityAddressedLosses,
             currentRuns: program.evidence.currentRuns,
             historicalRuns: program.evidence.historicalRuns,
             invalidRuns: program.evidence.invalidRuns,
           },
         })),
+        lossDispositions: snapshot.lossDispositions,
         nextAction: snapshot.nextAction,
         counts: snapshot.counts,
       }),
       "next-action": () => snapshot.nextAction,
       diagnostics: () => snapshot.diagnostics,
       losses: () => snapshot.lossAttribution,
+      dispositions: () => snapshot.lossDispositions,
       catalog: () => snapshot.catalog,
       runs: () => snapshot.runs,
       experiments: () => snapshot.experiments,
@@ -447,6 +450,20 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Design handoff: ${snapshot.designPrograms.filter((program) => program.alignment.state === "aligned").map((program) =>
       `${program.id} · ${program.evidence.state.toUpperCase()}${program.evidence.authorityRunId ? ` · ${program.evidence.authorityRunId.slice(0, 12)}` : ""}`
     ).join(", ") || "no program aligned to the effective Blueprint"}`,
+    ...(snapshot.lossDispositions.length ? [
+      "Bounded deferred loss evidence:",
+      ...snapshot.lossDispositions.flatMap((disposition) => {
+        const bases = Object.entries(disposition.evidence.decisionBases)
+          .filter(([, count]) => count > 0)
+          .map(([basis, count]) => `${basis}=${count}`)
+          .join(", ");
+        return [
+          `  [${disposition.loss}] ${disposition.target.contributor}.${disposition.target.metric}=${disposition.target.currentValue} · ${disposition.evidence.improvedCandidates}/${disposition.evidence.attemptedCandidates} improved, ${disposition.evidence.rejectedCandidates}/${disposition.evidence.attemptedCandidates} rejected · best ${disposition.evidence.bestObservedValue} (−${disposition.evidence.largestReduction})`,
+          `    authority ${disposition.source.programId} / ${disposition.source.runId} · observed ${disposition.observed.runId} / ${disposition.observed.resultHash} · ${bases}`,
+          `    invalidation: ${disposition.invalidation.summary}`,
+        ];
+      }),
+    ] : []),
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
@@ -490,7 +507,10 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `  Studio: ${snapshot.nextAction.studioRoute}`,
     "",
     `Priority diagnostics (${snapshot.diagnostics.length})`,
-    ...(snapshot.diagnostics.length ? snapshot.diagnostics.slice(0, 12).map((diagnostic) => `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}] ${diagnostic.message}`) : ["  none"]),
+    ...(snapshot.diagnostics.length ? snapshot.diagnostics.slice(0, 12).map((diagnostic) => {
+      const deferred = snapshot.lossDispositions.some((disposition) => disposition.diagnosticId === diagnostic.id);
+      return `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}]${deferred ? " [BOUNDED DEFERRED]" : ""} ${diagnostic.message}`;
+    }) : ["  none"]),
     ...(snapshot.diagnostics.length > 12 ? [`  … ${snapshot.diagnostics.length - 12} more; use --json for the complete set`] : []),
     "",
     "Available operations",

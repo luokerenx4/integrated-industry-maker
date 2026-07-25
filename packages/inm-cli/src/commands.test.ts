@@ -282,11 +282,11 @@ test("public inspect summary exposes bounded current Design evidence to Agents a
     expect.objectContaining({
       id: "commissioned-dram-fab",
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "greenfield-dram-fab",
-      evidence: { state: "not-applicable", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "not-applicable", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
   ]));
   expect(programs[0].evidence.runs).toBeUndefined();
@@ -312,7 +312,7 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   expect(commands.map((command) => command.id)).toContain("candidate");
   expect(commands.map((command) => command.id)).toContain("design");
   expect(commands.find((command) => command.id === "design")!.outputSections).toEqual(["summary", "static", "iterations", "frontier", "best", "runs", "all"]);
-  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "next-action", "diagnostics", "losses", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
+  expect(commands.find((command) => command.id === "inspect")!.outputSections).toEqual(["summary", "next-action", "diagnostics", "losses", "dispositions", "catalog", "runs", "experiments", "candidates", "operations", "all"]);
   expect(commands.find((command) => command.id === "simulate")!.effect).toBe("creates-artifact");
   expect(commands.find((command) => command.id === "compare")!.arguments.find((argument) => argument.name === "seed")!.default).toBe(42);
   expect(commands.find((command) => command.id === "inspect")!.exitCodes).toEqual({ success: 0, failure: [1], usage: 2 });
@@ -773,15 +773,22 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("Q-time contributors:");
 });
 
-test("public inspect gives Agents and humans the same post-commissioning Design handoff", async () => {
+test("public inspect gives Agents and humans the same bounded loss disposition and yield handoff", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const commissionedRunId = "206067de7d3566d5793d078f2db05ecbceb3b2ccdd0122ecec70b8b0d5c8a217";
-  const [machine, human] = await Promise.all([
+  const [machine, dispositions, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
+    runCli(["inspect", projectDir, "--section", "dispositions", "--json"]),
     runCli(["inspect", projectDir]),
   ]);
-  expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
-    .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+  expect({
+    machine: machine.exitCode,
+    dispositions: dispositions.exitCode,
+    human: human.exitCode,
+    machineStderr: machine.stderr,
+    dispositionsStderr: dispositions.stderr,
+    humanStderr: human.stderr,
+  }).toEqual({ machine: 0, dispositions: 0, human: 0, machineStderr: "", dispositionsStderr: "", humanStderr: "" });
 
   const result = JSON.parse(machine.stdout).data.result;
   const program = result.designPrograms.find((item: { id: string }) => item.id === "commissioned-dram-fab");
@@ -790,6 +797,7 @@ test("public inspect gives Agents and humans the same post-commissioning Design 
     evidence: expect.objectContaining({
       state: "missing",
       authorityRunId: null,
+      authorityAddressedLosses: [],
       currentRuns: 0,
       historicalRuns: 2,
       invalidRuns: 30,
@@ -801,25 +809,58 @@ test("public inspect gives Agents and humans the same post-commissioning Design 
     evidence: expect.objectContaining({
       state: "exhausted",
       authorityRunId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+      authorityAddressedLosses: ["input-starvation"],
       currentRuns: 1,
       historicalRuns: 0,
       invalidRuns: 0,
     }),
   }));
-  expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Expand Inspection Supply Path Convergence's intervention portfolio",
-    actionLabel: "REVIEW EXHAUSTED DESIGN",
-    effect: "read-only",
-    studioRoute: "/memory-fab/designs/inspection-supply-path/runs/c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+  expect(result.lossDispositions).toEqual([expect.objectContaining({
+    state: "bounded-deferred",
+    diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    loss: "input-starvation",
     target: {
-      kind: "design-run",
+      contributor: "device:inspection-1:material-input-shortage",
+      metric: "starvationTicks",
+      direction: "decrease",
+      currentValue: 59_584,
+    },
+    source: expect.objectContaining({
       programId: "inspection-supply-path",
       runId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
-      phase: "exhausted",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    }),
+    observed: expect.objectContaining({ runId: "089-simulate" }),
+    evidence: expect.objectContaining({
+      attemptedCandidates: 6,
+      improvedCandidates: 6,
+      rejectedCandidates: 6,
+      bestObservedValue: 57_084,
+      largestReduction: 2_500,
+      decisionBases: expect.objectContaining({
+        "no-current-best-improvement": 5,
+        "benchmark-gate": 1,
+      }),
+    }),
+  })]);
+  expect(JSON.parse(dispositions.stdout).data).toEqual({ section: "dispositions", result: result.lossDispositions });
+  expect(result.nextAction).toEqual(expect.objectContaining({
+    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
+    actionLabel: "OPEN DESIGN LOOP",
+    effect: "read-only",
+    argv: ["inm", "design", projectDir, "--program", "commissioned-dram-fab", "--json"],
+    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    target: {
+      kind: "design-program",
+      programId: "commissioned-dram-fab",
+      diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
     },
   }));
   expect(human.stdout).toContain("inspection-supply-path · EXHAUSTED · c7fbffa62599");
+  expect(human.stdout).toContain("Bounded deferred loss evidence:");
+  expect(human.stdout).toContain("[input-starvation] device:inspection-1:material-input-shortage.starvationTicks=59584 · 6/6 improved, 6/6 rejected · best 57084 (−2500)");
+  expect(human.stdout).toContain("benchmark-gate=1, no-current-best-improvement=5");
+  expect(human.stdout).toContain("[fab-loss.input-starvation] [BOUNDED DEFERRED]");
+  expect(human.stdout).toContain("Next action: Investigate the leading loss with Commissioned DRAM Fab Optimization");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 2 valid immutable runs · 30 invalid runs excluded");

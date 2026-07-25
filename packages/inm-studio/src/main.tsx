@@ -2046,7 +2046,9 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
   const latestRun = snapshot.runs.at(-1);
-  const priority = snapshot.diagnostics.slice(0, 4);
+  const disposedDiagnosticIds = new Set(snapshot.lossDispositions.map((disposition) => disposition.diagnosticId));
+  const activeDiagnostics = snapshot.diagnostics.filter((diagnostic) => !disposedDiagnosticIds.has(diagnostic.id));
+  const priority = activeDiagnostics.slice(0, 4);
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
   const recommendation = snapshot.nextAction;
   const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
@@ -2121,16 +2123,36 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         <div><small>INPUT IDENTITY</small><strong>{snapshot.hashes.engineVersion}</strong><code>{snapshot.hashes.blueprintHash.slice(0, 12)} · {snapshot.hashes.objectiveHash.slice(0, 12)}</code></div>
       </div>
     </details>
+    {snapshot.lossDispositions.length > 0 && <section className="loss-disposition-panel" data-testid="loss-dispositions" aria-label="Bounded deferred loss evidence">
+      <header><div><span className="eyebrow">CURRENT BOUNDED EVIDENCE</span><h3>Deferred under unchanged authority</h3><p>The physical loss remains measured. It leaves the active queue only while every exact evidence binding below stays current.</p></div><b>{snapshot.lossDispositions.length}<small> DEFERRED</small></b></header>
+      <div>{snapshot.lossDispositions.map((disposition) => {
+        const decisionBases = Object.entries(disposition.evidence.decisionBases)
+          .filter(([, count]) => count > 0)
+          .map(([basis, count]) => `${basis} ×${count}`)
+          .join(" · ");
+        return <article key={disposition.id} data-testid={`loss-disposition-${disposition.loss}`}>
+          <span className="disposition-state">BOUNDED DEFERRED</span>
+          <div className="disposition-target"><small>{disposition.loss}</small><strong>{disposition.target.contributor}</strong><code>{disposition.target.metric} = {disposition.target.currentValue}</code></div>
+          <div className="disposition-counts"><span><b>{disposition.evidence.improvedCandidates}/{disposition.evidence.attemptedCandidates}</b><small>IMPROVED</small></span><span><b>{disposition.evidence.rejectedCandidates}/{disposition.evidence.attemptedCandidates}</b><small>REJECTED</small></span><span><b>−{disposition.evidence.largestReduction}</b><small>BEST REDUCTION</small></span></div>
+          <div className="disposition-authority"><small>LOCKED AUTHORITY</small><strong>{disposition.source.programName}</strong><code>{disposition.source.programId} · {disposition.source.runId}</code><p>{decisionBases}</p></div>
+          <div className="disposition-boundary"><small>INVALIDATION BOUNDARY</small><p>{disposition.invalidation.summary}</p><code>observed {disposition.observed.runId} · {disposition.observed.resultHash}</code></div>
+          <button onClick={() => onDesign(disposition.source.programId, disposition.source.runId)}>REVIEW EXACT EVIDENCE →</button>
+        </article>;
+      })}</div>
+    </section>}
     <div className="overview-grid">
       <section className="overview-panel priority-panel">
-        <header><div><span className="eyebrow">ACTIVE WORK QUEUE</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>ALL {snapshot.diagnostics.length} →</button></header>
+        <header><div><span className="eyebrow">ACTIVE WORK QUEUE</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>ACTIVE {activeDiagnostics.length} →</button></header>
         <div className="overview-diagnostics">{priority.length ? priority.map((diagnostic) => <button key={diagnostic.id} className={diagnostic.severity} data-diagnostic-id={diagnostic.id} data-testid={`diagnostic-${diagnostic.id}`} onClick={() => onDiagnostic(diagnostic)}>
           <span>{diagnostic.severity === "blocking" ? "!" : diagnostic.severity === "warning" ? "△" : "·"}</span><div><code>{diagnostic.code}</code><strong>{diagnostic.message}</strong><small>{diagnostic.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</small></div><b>→</b>
         </button>) : <div className="overview-empty positive"><b>✓</b><span>No static readiness or analysis issue is open.</span></div>}</div>
       </section>
       {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
-        <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => <div key={bucket.id} className={index === 0 ? "primary" : ""}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong><small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>)}</div>
+        <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => {
+          const disposition = snapshot.lossDispositions.find((item) => item.loss === bucket.id);
+          return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${disposition ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
+        })}</div>
         {qualityContributors.length > 0 && <div className="q-time-contributors quality-contributors" data-testid="quality-origin-contributors">
           <header><span className="eyebrow">QUALITY-ORIGIN CONTRIBUTORS</span><small>Observed defect origins followed through inspection, rework, persistence, scrap, and escape</small></header>
           <div>{qualityContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`quality-origin-contributor-${contributor.label}`}>
