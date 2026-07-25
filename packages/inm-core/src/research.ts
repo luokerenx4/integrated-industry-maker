@@ -68,12 +68,18 @@ export interface ResearchHistoryEntry {
   score: number;
   scoreDelta: number;
 }
+export interface ResearchLossTarget {
+  contributor: string;
+  metric: string;
+  direction: "decrease";
+}
 export interface ResearchProposal {
   hypothesis: string;
   patch: JsonPatchOperation[];
   expectedEffect?: string;
   strategy?: string;
   addressedLoss?: FabLossBucketId;
+  addressedLossTarget?: ResearchLossTarget;
   addressedCase?: string;
 }
 export interface BlueprintResearchAgent { propose(input: ResearchInput): Promise<ResearchProposal> }

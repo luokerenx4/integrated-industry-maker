@@ -48,12 +48,23 @@ function freezeDeep<T>(value: T): Readonly<T> {
 
 function proposalOf(value: unknown, entry: string): ResearchProposal | null {
   if (value === null) return null;
+  const lossTarget = isRecord(value) && isRecord(value.addressedLossTarget)
+    ? value.addressedLossTarget
+    : null;
   if (!isRecord(value) || typeof value.hypothesis !== "string" || !value.hypothesis
     || typeof value.strategy !== "string" || !value.strategy || !Array.isArray(value.patch)
     || (value.expectedEffect !== undefined && typeof value.expectedEffect !== "string")
     || (value.addressedLoss !== undefined && typeof value.addressedLoss !== "string")
+    || (value.addressedLossTarget !== undefined && (
+      !lossTarget
+      || typeof lossTarget.contributor !== "string"
+      || !lossTarget.contributor
+      || typeof lossTarget.metric !== "string"
+      || !lossTarget.metric
+      || lossTarget.direction !== "decrease"
+    ))
     || (value.addressedCase !== undefined && typeof value.addressedCase !== "string")) {
-    throw new Error(`Project proposal provider '${entry}' must return null or { strategy, hypothesis, expectedEffect?, addressedLoss?, addressedCase?, patch[] }`);
+    throw new Error(`Project proposal provider '${entry}' must return null or { strategy, hypothesis, expectedEffect?, addressedLoss?, addressedLossTarget?, addressedCase?, patch[] }`);
   }
   return {
     strategy: value.strategy,
@@ -61,6 +72,13 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
     patch: value.patch as ResearchProposal["patch"],
     ...(value.expectedEffect === undefined ? {} : { expectedEffect: value.expectedEffect }),
     ...(value.addressedLoss === undefined ? {} : { addressedLoss: value.addressedLoss as NonNullable<ResearchProposal["addressedLoss"]> }),
+    ...(lossTarget === null ? {} : {
+      addressedLossTarget: {
+        contributor: lossTarget.contributor as string,
+        metric: lossTarget.metric as string,
+        direction: "decrease" as const,
+      },
+    }),
     ...(value.addressedCase === undefined ? {} : { addressedCase: value.addressedCase }),
   };
 }
@@ -128,6 +146,17 @@ export class ProjectStrategyResearchAgent {
     if (first.addressedLoss && !observedLosses.includes(first.addressedLoss)) throw new Error(
       `Project proposal provider '${this.entry}' addressed unobserved loss '${first.addressedLoss}'; expected one of: ${observedLosses.join(", ") || "none"}`,
     );
+    if (first.addressedLossTarget && !first.addressedLoss) throw new Error(
+      `Project proposal provider '${this.entry}' named an addressedLossTarget without addressedLoss`,
+    );
+    if (first.addressedLossTarget) {
+      const bucket = input.fabLoss?.buckets.find((item) => item.id === first.addressedLoss);
+      const contributor = bucket?.contributors.find((item) => item.id === first.addressedLossTarget!.contributor);
+      const value = contributor?.evidence[first.addressedLossTarget.metric];
+      if (!contributor || typeof value !== "number" || !Number.isFinite(value)) throw new Error(
+        `Project proposal provider '${this.entry}' targeted missing evidence '${first.addressedLossTarget.contributor}.${first.addressedLossTarget.metric}' in ${first.addressedLoss}`,
+      );
+    }
     return first;
   }
 }

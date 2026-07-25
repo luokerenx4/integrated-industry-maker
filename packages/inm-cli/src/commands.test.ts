@@ -363,6 +363,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
       programs: [
         expect.objectContaining({ id: "commissioned-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
         expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
+        expect.objectContaining({ id: "inspection-supply-path", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
       ],
     },
@@ -794,18 +795,31 @@ test("public inspect gives Agents and humans the same post-commissioning Design 
       invalidRuns: 30,
     }),
   }));
+  const focusedProgram = result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path");
+  expect(focusedProgram).toEqual(expect.objectContaining({
+    alignment: { state: "aligned", reasons: [] },
+    evidence: expect.objectContaining({
+      state: "exhausted",
+      authorityRunId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+      currentRuns: 1,
+      historicalRuns: 0,
+      invalidRuns: 0,
+    }),
+  }));
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
-    actionLabel: "OPEN DESIGN LOOP",
+    title: "Expand Inspection Supply Path Convergence's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    studioRoute: "/memory-fab/designs/inspection-supply-path/runs/c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
     target: {
-      kind: "design-program",
-      programId: "commissioned-dram-fab",
+      kind: "design-run",
+      programId: "inspection-supply-path",
+      runId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+      phase: "exhausted",
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     },
   }));
-  expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
+  expect(human.stdout).toContain("inspection-supply-path · EXHAUSTED · c7fbffa62599");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 2 valid immutable runs · 30 invalid runs excluded");

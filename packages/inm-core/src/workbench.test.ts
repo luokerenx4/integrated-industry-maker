@@ -64,14 +64,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
-    evidence: { state: "current", runId: "088-simulate" },
+    evidence: { state: "current", runId: "089-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "088-simulate",
+    runId: "089-simulate",
     averageWip: 19.872825,
     averageTotalInventory: 116.16841666666667,
     averageExcludedInventory: 96.29559166666667,
@@ -112,7 +112,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(3);
+  expect(snapshot.counts.designPrograms).toBe(4);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "commissioned-dram-fab",
@@ -128,6 +128,13 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       promotionTarget: "generated-dram-fab",
       alignment: { state: "not-aligned", reasons: ["synthesis-seed"] },
       evidence: expect.objectContaining({ state: "not-applicable", authorityRunId: null }),
+    }),
+    expect.objectContaining({
+      id: "inspection-supply-path",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
     }),
     expect.objectContaining({
       id: "integrated-dram-fab",
@@ -263,7 +270,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     }),
   }));
   const exhaustedId = "f".repeat(64);
-  const withExhaustedEvidence = snapshot.designPrograms.map((program) => program.id === "commissioned-dram-fab" ? {
+  const withExhaustedEvidence = snapshot.designPrograms.map((program) => program.id === "inspection-supply-path" ? {
     ...program,
     evidence: {
       state: "exhausted" as const,
@@ -291,12 +298,12 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     },
   } : program);
   expect(buildWorkbenchNextAction({ ...snapshot, designPrograms: withExhaustedEvidence })).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.run\.inspect:commissioned-dram-fab:/),
-    title: "Expand Commissioned DRAM Fab Optimization's intervention portfolio",
+    id: expect.stringMatching(/^design\.run\.inspect:inspection-supply-path:/),
+    title: "Expand Inspection Supply Path Convergence's intervention portfolio",
     actionLabel: "REVIEW EXHAUSTED DESIGN",
-    argv: ["inm", "design", snapshot.project.rootDir, "--program", "commissioned-dram-fab", "--run-id", exhaustedId, "--json"],
-    studioRoute: `/memory-fab/designs/commissioned-dram-fab/runs/${exhaustedId}`,
-    target: expect.objectContaining({ kind: "design-run", programId: "commissioned-dram-fab", runId: exhaustedId, phase: "exhausted" }),
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "inspection-supply-path", "--run-id", exhaustedId, "--json"],
+    studioRoute: `/memory-fab/designs/inspection-supply-path/runs/${exhaustedId}`,
+    target: expect.objectContaining({ kind: "design-run", programId: "inspection-supply-path", runId: exhaustedId, phase: "exhausted" }),
   }));
   expect(snapshot.operations.find((operation) => operation.id === "design.run")).toEqual(expect.objectContaining({
     effect: "creates-artifact",

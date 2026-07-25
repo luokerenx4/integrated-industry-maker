@@ -14,8 +14,6 @@ import type {
   BlueprintMetricSnapshot,
   CompiledFactoryProject,
   DeviceAsset,
-  DeviceTransportContext,
-  DeviceTransportPlan,
   FabLossProfile,
   InputSupplyState,
   LoadedFactoryProject,
@@ -267,7 +265,7 @@ const fiveSecondFourFifths = recoveryModeVariant(4, 5, 3, 2, 5_000)
 
 const variants: Variant[] = [
   { id: "incumbent", technology: null },
-  ...[0, 2_000, 5_000, 10_000].map((ticks) => recoveryModeVariant(4, 5, 3, 2, ticks)),
+  ...[1, 2_000, 5_000, 10_000].map((ticks) => recoveryModeVariant(4, 5, 3, 2, ticks)),
   ...[2_000, 5_000, 10_000].map((ticks) => recoveryModeVariant(3, 4, 8, 5, ticks)),
   ...[5_000, 10_000].map((ticks) => recoveryModeVariant(2, 3, 9, 5, ticks)),
   alwaysModeVariant(4, 5, 3, 2),
@@ -295,7 +293,7 @@ for (const etchLotDispatch of dispatchPolicies) {
     technology: null,
     etchLotDispatch,
   });
-  for (const minimumCoverageDeficitTicks of [0, 2_000, 5_000]) {
+  for (const minimumCoverageDeficitTicks of [1, 2_000, 5_000]) {
     const recovery = recoveryModeVariant(4, 5, 3, 2, minimumCoverageDeficitTicks);
     variants.push({
       ...recovery,
@@ -332,6 +330,17 @@ function researchModeAsset(source: DeviceAsset, technology: ModeTechnologyEnvelo
   if (!source.production) throw new Error(`${etchAssetId} has no production contract`);
   if (!technology.preventsDefects.includes("latent-electrical")) {
     throw new Error(`${technology.id} must preserve latent-electrical prevention`);
+  }
+  const existing = source.production.modes.find((mode) => mode.id === technology.id);
+  if (existing) {
+    if (
+      stableStringify(existing.durationMultiplier) !== stableStringify(technology.durationMultiplier)
+      || stableStringify(existing.powerMultiplier) !== stableStringify(technology.powerMultiplier)
+      || !technology.preventsDefects.every((defect) => existing.preventsDefects.includes(defect))
+    ) {
+      throw new Error(`${technology.id} does not match the project-local qualified mode contract`);
+    }
+    return source;
   }
   return {
     ...source,
@@ -389,7 +398,7 @@ function withModeTechnology(
         recoveryMode: technology.id,
         downstreamConnection: mainConnectionId,
         recoverBelowItems: technology.recoverBelowItems ?? 1,
-        minimumCoverageDeficitTicks: technology.minimumCoverageDeficitTicks ?? 0,
+        minimumCoverageDeficitTicks: technology.minimumCoverageDeficitTicks ?? 1,
       },
     };
   } else {
@@ -401,69 +410,6 @@ function withModeTechnology(
     deviceAssets: {
       ...loaded.deviceAssets,
       [etchAssetId]: researchModeAsset(source, technology),
-    },
-  };
-}
-
-function requireTransportPlan(value: unknown, assetId: string): DeviceTransportPlan {
-  if (
-    typeof value !== "object"
-    || value === null
-    || !Number.isInteger((value as Partial<DeviceTransportPlan>).capacity)
-    || !Number.isInteger((value as Partial<DeviceTransportPlan>).durationTicks)
-    || !Number.isInteger((value as Partial<DeviceTransportPlan>).stackCapacity)
-  ) {
-    throw new Error(`${assetId} returned an invalid transport plan`);
-  }
-  return value as DeviceTransportPlan;
-}
-
-function researchTransportAsset(
-  source: DeviceAsset,
-  id: string,
-  name: string,
-  technology: TransportTechnologyEnvelope,
-  stage: "line" | "endpoint",
-): DeviceAsset {
-  const sourcePlan = source.program.planTransport;
-  if (!sourcePlan) throw new Error(`${source.id} has no physical transport program`);
-  const buildCost = stage === "line" ? technology.lineBuildCost : technology.endpointBuildCost;
-  const power = stage === "line" ? source.power : { ...source.power, ...technology.endpointPower };
-  return {
-    ...source,
-    id,
-    name,
-    description: stage === "line"
-      ? "Vacuum-compatible wafer-lot lane researched against the inspection supply path."
-      : "Vacuum-compatible wafer-lot endpoint researched against the inspection supply path.",
-    tags: [...new Set([...source.tags, "vacuum-handoff", "wafer-lot"])],
-    power,
-    economics: { buildCost },
-    contentHash: hashValue({
-      source: source.contentHash,
-      id,
-      buildCost,
-      power,
-      durationMultiplier: technology.durationMultiplier,
-    }),
-    runtimeSourceHash: hashValue({
-      source: source.runtimeSourceHash,
-      id,
-      durationMultiplier: technology.durationMultiplier,
-    }),
-    program: {
-      ...source.program,
-      planTransport(context: Readonly<DeviceTransportContext>) {
-        const planned = requireTransportPlan(sourcePlan(context), source.id);
-        return {
-          ...planned,
-          durationTicks: Math.max(1, Math.ceil(
-            planned.durationTicks
-            * technology.durationMultiplier.numerator
-            / technology.durationMultiplier.denominator,
-          )),
-        } satisfies DeviceTransportPlan;
-      },
     },
   };
 }
@@ -487,7 +433,19 @@ function withTransportTechnology(
 ): LoadedFactoryProject {
   const lineSource = loaded.deviceAssets[conveyorAssetId];
   const endpointSource = loaded.deviceAssets[sorterAssetId];
-  if (!lineSource || !endpointSource) throw new Error("Missing incumbent conveyor or sorter asset");
+  const fastLine = loaded.deviceAssets[fastConveyorAssetId];
+  const fastEndpoint = loaded.deviceAssets[fastSorterAssetId];
+  if (!lineSource || !endpointSource || !fastLine || !fastEndpoint) {
+    throw new Error("Missing incumbent or project-local vacuum wafer transport asset");
+  }
+  if (
+    fastLine.economics.buildCost !== technology.lineBuildCost
+    || fastEndpoint.economics.buildCost !== technology.endpointBuildCost
+    || fastEndpoint.power.idleMilliWatts !== technology.endpointPower.idleMilliWatts
+    || fastEndpoint.power.activeMilliWatts !== technology.endpointPower.activeMilliWatts
+  ) {
+    throw new Error(`${technology.id} does not match the project-local vacuum transport contract`);
+  }
   const blueprint = structuredClone(loaded.blueprint);
   for (const targetId of technology.targets) {
     const target = transportTargets[targetId];
@@ -512,27 +470,7 @@ function withTransportTechnology(
     loader.asset = fastSorterAssetId;
     unloader.asset = fastSorterAssetId;
   }
-  return {
-    ...loaded,
-    blueprint,
-    deviceAssets: {
-      ...loaded.deviceAssets,
-      [fastConveyorAssetId]: researchTransportAsset(
-        lineSource,
-        fastConveyorAssetId,
-        "Vacuum Wafer Conveyor",
-        technology,
-        "line",
-      ),
-      [fastSorterAssetId]: researchTransportAsset(
-        endpointSource,
-        fastSorterAssetId,
-        "Vacuum Wafer Sorter",
-        technology,
-        "endpoint",
-      ),
-    },
-  };
+  return { ...loaded, blueprint };
 }
 
 function withTechnology(loaded: LoadedFactoryProject, variant: Variant): LoadedFactoryProject {
@@ -868,9 +806,9 @@ for (const variant of variants) {
 process.stdout.write(`${stableStringify({
   benchmark: benchmarkId,
   blueprint: blueprintId,
-  sourceEvidence: "088-simulate",
+  sourceEvidence: "089-simulate",
   referenceEvidence: {
-    run: "088-simulate",
+    run: "089-simulate",
     inspectionMainPath: referenceInspectionMainPath,
     inspectionReworkContext: referenceInspectionReworkContext,
   },

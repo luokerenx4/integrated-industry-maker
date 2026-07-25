@@ -130,6 +130,44 @@
         "minimumInputTreatmentLevel": 0
       },
       {
+        "id": "closed-loop-fast-4-5",
+        "name": "Closed-loop fast etch 4/5",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 4,
+          "denominator": 5
+        },
+        "powerMultiplier": {
+          "numerator": 3,
+          "denominator": 2
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [
+          "latent-electrical"
+        ],
+        "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "closed-loop-fast-3-4",
+        "name": "Closed-loop fast etch 3/4",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 3,
+          "denominator": 4
+        },
+        "powerMultiplier": {
+          "numerator": 8,
+          "denominator": 5
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [
+          "latent-electrical"
+        ],
+        "minimumInputTreatmentLevel": 0
+      },
+      {
         "id": "particle-suppression",
         "name": "Inline particle suppression",
         "inputCycles": 1,

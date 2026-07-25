@@ -116,7 +116,11 @@ function designDecisionDetail(evidence: NonNullable<DesignRunIteration["decision
     ? "improves current best"
     : evidence.basis === "benchmark-gate"
       ? "fails locked gate"
-      : evidence.basis === "current-best-case-guardrail" ? "fails current-best case guardrail" : "does not improve current best";
+      : evidence.basis === "current-best-case-guardrail"
+        ? "fails current-best case guardrail"
+        : evidence.basis === "addressed-loss-not-improved"
+          ? "does not improve addressed loss"
+          : "does not improve current best";
   const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
   if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta, 6)} · allowed regression ${violation.maximumScoreRegression!.toFixed(6)} · drivers ${leadingScoreDrivers(violation.scoreBreakdownDelta)}`;
   return `${basis}${gate} · limiting ${limiting.id} ${signed(limiting.scoreDelta, 6)} · drivers ${leadingScoreDrivers(limiting.scoreBreakdownDelta)}`;
@@ -142,6 +146,7 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
   else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.branch.role} ${progress.branch.nodeId} · ${designPromotionBoundaryDetail(progress.promotionBoundary)} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
   else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
+  else if (progress.phase === "loss-target-completed") line = `CAUSE   ${work}  ${progress.lossTargetEvidence.target.contributor}.${progress.lossTargetEvidence.target.metric} ${progress.lossTargetEvidence.before} → ${progress.lossTargetEvidence.after} · Δ ${signed(progress.lossTargetEvidence.delta, 3)} · ${progress.lossTargetEvidence.improved ? "improved" : "not improved"}`;
   else if (progress.phase === "node-exhausted") line = `EXHAUST ${work}  ${progress.exhaustion.node.role} ${progress.exhaustion.node.nodeId} · proposal portfolio exhausted · next ${progress.exhaustion.nextNodeId ?? "none"}`;
   else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision} · ${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${progress.addressedCase ? ` · repaired ${progress.addressedCase}` : ""}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · leader Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
@@ -159,6 +164,9 @@ function designIterationLines(iteration: DesignRunIteration): string[] {
   const target = iteration.addressedCase ? `repairs ${iteration.addressedCase}` : iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no explicit target";
   return [
     `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${lineage} · before ${designPromotionBoundaryDetail(iteration.promotionBoundary)} · ${!iteration.decisionEvidence ? iteration.error : `leader ${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · parent ${signed(iteration.frontierEvidence.parentScoreDelta ?? 0, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${target} · observed ${lossChain}`,
+    ...(iteration.lossTargetEvidence ? [
+      `      causal target: ${iteration.lossTargetEvidence.target.contributor}.${iteration.lossTargetEvidence.target.metric} ${iteration.lossTargetEvidence.before} → ${iteration.lossTargetEvidence.after} · Δ ${signed(iteration.lossTargetEvidence.delta, 3)} · ${iteration.lossTargetEvidence.improved ? "improved" : "not improved"}`,
+    ] : []),
     ...(iteration.evaluation?.cases.flatMap((item) => {
       const lines = cadenceControlComparisonLines(
         item.baselineMetrics.cadenceControl,

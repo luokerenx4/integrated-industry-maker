@@ -64,6 +64,21 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       budget: { maxCandidates: 7 },
     }),
     expect.objectContaining({
+      id: "inspection-supply-path",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/inspection-supply-path-proposals.ts",
+        decisionFamilies: ["recipe", "logistics"],
+      },
+      locked: true,
+      budget: { maxCandidates: 7 },
+    }),
+    expect.objectContaining({
       id: "integrated-dram-fab",
       benchmark: "dispatch-research",
       seed: { kind: "blueprint", blueprint: "experiment" },
@@ -126,6 +141,58 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
     staticEvidence: { capacity: { state: "ready", gapCount: 0 }, devices: { total: 56 }, topology: { connections: 16, trackedRoutes: 1 } },
   });
 });
+
+test("inspection supply Design closes one exact causal frontier without changing the commissioned Blueprint", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-design-inspection-supply-"));
+  temporaryDirectories.push(root);
+  const cleanProject = join(root, "memory-fab");
+  await cp(projectDir, cleanProject, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const seedPath = join(cleanProject, "blueprints", "generated-dram-fab.blueprint.json");
+  const seedBefore = await readFile(seedPath, "utf8");
+  const progress: DesignRunProgress[] = [];
+  const result = await runDesignProgram(cleanProject, "inspection-supply-path", {
+    maxCandidates: 7,
+    onProgress: (event) => progress.push(event),
+  });
+
+  expect(result.artifact).toEqual(expect.objectContaining({
+    id: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+    created: true,
+  }));
+  expect(result.manifest).toMatchObject({
+    stopReason: "frontier-exhausted",
+    budget: { maximum: 7, evaluated: 6 },
+    best: { iteration: 0, promotionPatchOperations: 0 },
+    frontier: { leader: "seed", alternatives: [], scheduler: { searchOrder: [], exhausted: ["seed"] } },
+  });
+  expect(result.manifest.iterations.map((iteration) => iteration.strategy)).toEqual([
+    "recipe:closed-loop-fast-4-5-after-1-tick",
+    "recipe:closed-loop-fast-4-5-after-2000",
+    "recipe:closed-loop-fast-3-4-after-2000",
+    "recipe:closed-loop-fast-4-5-always",
+    "recipe:closed-loop-fast-3-4-always",
+    "logistics:vacuum-dual-wafer-handoff",
+  ]);
+  expect(result.manifest.iterations.map((iteration) => iteration.lossTargetEvidence?.delta))
+    .toEqual([-1_000, -667, -667, -2_000, -2_500, -1_750]);
+  expect(result.manifest.iterations.every((iteration) =>
+    iteration.addressedLoss === "input-starvation"
+    && iteration.addressedLossTarget?.contributor === "device:inspection-1:material-input-shortage"
+    && iteration.addressedLossTarget.metric === "starvationTicks"
+    && iteration.lossTargetEvidence?.improved === true
+    && iteration.decision === "REJECT")).toBeTrue();
+  expect(progress.filter((event) => event.phase === "loss-target-completed")).toHaveLength(6);
+  expect(progress.at(-1)).toEqual(expect.objectContaining({
+    phase: "run-completed",
+    work: { completedSimulations: 46, plannedSimulations: 46 },
+  }));
+  expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
+  expect((await loadDesignRun(cleanProject, "inspection-supply-path", result.manifest.resultHash)).manifest.resultHash)
+    .toBe(result.manifest.resultHash);
+}, 180_000);
 
 test("Design Program validation rejects unknown fields and the removed legacy seed contract", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-program-"));

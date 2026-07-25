@@ -199,6 +199,12 @@ type ScoreBreakdown = Record<
   number
 >;
 
+export interface ResearchLossTarget {
+  contributor: string;
+  metric: string;
+  direction: "decrease";
+}
+
 export interface ProjectProposalProvider {
   apiVersion: 7;
   propose(context: Readonly<ProjectProposalContext>): {
@@ -206,6 +212,7 @@ export interface ProjectProposalProvider {
     hypothesis: string;
     expectedEffect?: string;
     addressedLoss?: FabLossBucketId;
+    addressedLossTarget?: ResearchLossTarget;
     addressedCase?: string;
     patch: JsonPatchOperation[];
   } | null;

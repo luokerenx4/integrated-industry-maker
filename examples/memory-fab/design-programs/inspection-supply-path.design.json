@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "id": "inspection-supply-path",
+  "name": "Inspection Supply Path Convergence",
+  "description": "Close the current inspection input-starvation frontier with physically qualified etch and wafer-handoff interventions while preserving every commissioned operating case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 0
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/inspection-supply-path-proposals.ts",
+    "decisionFamilies": [
+      "recipe",
+      "logistics"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 7
+  }
+}

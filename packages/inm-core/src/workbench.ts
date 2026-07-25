@@ -551,7 +551,18 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
   };
 
   const warning = context.diagnostics.find((diagnostic) => diagnostic.severity === "warning");
-  const alignedProgram = context.designPrograms.find((program) => program.alignment.state === "aligned");
+  const designEvidencePriority: Record<WorkbenchDesignEvidenceState, number> = {
+    promotable: 0,
+    continuable: 1,
+    exhausted: 2,
+    missing: 3,
+    "not-applicable": 4,
+  };
+  const alignedProgram = context.designPrograms
+    .filter((program) => program.alignment.state === "aligned")
+    .sort((left, right) =>
+      designEvidencePriority[left.evidence.state] - designEvidencePriority[right.evidence.state]
+      || left.id.localeCompare(right.id))[0];
   const designAuthority = alignedProgram?.evidence.authorityRunId
     ? alignedProgram.evidence.runs.find((run) => run.id === alignedProgram.evidence.authorityRunId)
     : null;

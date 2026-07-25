@@ -1,0 +1,50 @@
+{
+  "assetVersion": 1,
+  "type": "device",
+  "id": "vacuum-wafer-sorter",
+  "name": "Vacuum Wafer Sorter",
+  "description": "A powered vacuum-compatible endpoint that halves wafer-lot loading and unloading time.",
+  "tags": [
+    "logistics",
+    "transfer",
+    "sorter",
+    "vacuum-handoff",
+    "wafer-lot"
+  ],
+  "capabilities": [
+    "transport"
+  ],
+  "geometry": {
+    "footprint": {
+      "width": 1,
+      "height": 1
+    },
+    "rotatable": true,
+    "ports": []
+  },
+  "buffers": [],
+  "logistics": {
+    "roles": [
+      "loader",
+      "unloader"
+    ],
+    "endpointRange": {
+      "minimum": 1,
+      "maximum": 3
+    }
+  },
+  "runtime": {
+    "apiVersion": 1,
+    "entry": "runtime.ts"
+  },
+  "power": {
+    "idleMilliWatts": 750,
+    "activeMilliWatts": 3000
+  },
+  "economics": {
+    "buildCost": 80
+  },
+  "files": {
+    "visual": "visual.json"
+  }
+}

@@ -1104,10 +1104,14 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
   await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 7, propose() { return ${proposal}; } };\n`);
   await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
   await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/target-without-loss.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-target.ts"), `export default { apiVersion: 7, propose(context) { return { ...${proposal}, addressedLoss: context.fabLoss.chain[0], addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/causal-transport.ts").propose(unmatched))
     .resolves.toMatchObject({ addressedLoss: "transport-blocking" });
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/missing.ts").propose(input)).rejects.toThrow("must name addressedLoss");
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/fabricated.ts").propose(input)).rejects.toThrow("addressed unobserved loss 'release-admission'");
+  await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/target-without-loss.ts").propose({ ...input, fabLoss: null })).rejects.toThrow("named an addressedLossTarget without addressedLoss");
+  await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/fabricated-target.ts").propose(input)).rejects.toThrow("targeted missing evidence 'missing.starvationTicks'");
   const blocked = {
     ...input,
     branch: { ...input.branch, nodeId: "candidate-1", role: "alternative" as const },

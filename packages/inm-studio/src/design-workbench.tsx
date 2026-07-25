@@ -57,7 +57,11 @@ function decisionDetail(evidence: DesignDecisionEvidence): string {
     ? "IMPROVES CURRENT BEST"
     : evidence.basis === "benchmark-gate"
       ? "FAILS LOCKED GATE"
-      : evidence.basis === "current-best-case-guardrail" ? "FAILS CURRENT-BEST CASE GUARDRAIL" : "NO CURRENT-BEST IMPROVEMENT";
+      : evidence.basis === "current-best-case-guardrail"
+        ? "FAILS CURRENT-BEST CASE GUARDRAIL"
+        : evidence.basis === "addressed-loss-not-improved"
+          ? "DOES NOT IMPROVE ADDRESSED LOSS"
+          : "NO CURRENT-BEST IMPROVEMENT";
   const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
   if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta)} · ALLOWED REGRESSION ${violation.maximumScoreRegression!.toFixed(6)}`;
   return `${basis}${gate} · LIMITING ${limiting.id} ${signed(limiting.scoreDelta)}`;
@@ -92,6 +96,10 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
   if (progress.phase === "proposal-completed") return {
     title: `PROPOSAL ${progress.iteration} READY`,
     detail: `${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`,
+  };
+  if (progress.phase === "loss-target-completed") return {
+    title: `CAUSAL TARGET ${progress.lossTargetEvidence.improved ? "IMPROVED" : "NOT IMPROVED"}`,
+    detail: `${progress.lossTargetEvidence.target.contributor}.${progress.lossTargetEvidence.target.metric} · ${progress.lossTargetEvidence.before} → ${progress.lossTargetEvidence.after} · Δ ${signed(progress.lossTargetEvidence.delta)}`,
   };
   if (progress.phase === "node-exhausted") return {
     title: `${progress.exhaustion.node.nodeId.toUpperCase()} SEARCH EXHAUSTED`,
@@ -302,7 +310,7 @@ export function DesignWorkbench({
                 : <div className="design-cadence-empty">NO CADENCE CONTROLLER IS CONFIGURED IN THE FINAL LEADER</div>}
             </section>}
             {selectedRun.manifest.exhaustions.length > 0 && <div className="design-exhaustions" data-testid="design-exhaustions"><div className="design-section-title"><span>SEARCH EXHAUSTION</span><b>{selectedRun.manifest.exhaustions.length} RETIRED</b></div>{selectedRun.manifest.exhaustions.map((exhaustion) => <div key={exhaustion.sequence}><b>X{String(exhaustion.sequence).padStart(2, "0")}</b><strong>{exhaustion.node.nodeId}</strong><span>{exhaustion.node.role.toUpperCase()} · BEFORE ITERATION {exhaustion.beforeIteration}</span><code>NEXT {exhaustion.nextNodeId ?? "NONE"}</code></div>)}</div>}
-            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS / CASE → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><div className="design-iteration-evidence"><strong data-testid={iteration.addressedCase ? "design-repair-target" : undefined}>{iteration.addressedCase ? `REPAIRS ${iteration.addressedCase}` : iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO EXPLICIT TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>BEFORE {promotionBoundaryDetail(iteration.promotionBoundary)}</small><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.decisionEvidence && <><small>{decisionDetail(iteration.decisionEvidence)}</small><ScoreBreakdownDetails
+            <div className="design-iterations"><div className="design-iteration-head"><span>#</span><span>DECISION</span><span>LOSS / CASE → FAMILY / STRATEGY</span><span>SCORE EFFECT</span></div>{selectedRun.manifest.iterations.map((iteration) => <div key={iteration.iteration}><b>{iteration.iteration}</b><i className={iteration.decision.toLowerCase()}>{iteration.decision}</i><div className="design-iteration-evidence"><strong data-testid={iteration.addressedCase ? "design-repair-target" : undefined}>{iteration.addressedCase ? `REPAIRS ${iteration.addressedCase}` : iteration.addressedLoss ? `ADDRESSES ${iteration.addressedLoss}` : "NO EXPLICIT TARGET"} · {iteration.decisionFamily}</strong><code>{iteration.strategy}</code><small>BEFORE {promotionBoundaryDetail(iteration.promotionBoundary)}</small><small>FROM {iteration.frontierEvidence.parent.role.toUpperCase()} {iteration.frontierEvidence.parent.nodeId} → {iteration.frontierEvidence.outcome.toUpperCase()}{iteration.frontierEvidence.pruned.length ? ` · PRUNED ${iteration.frontierEvidence.pruned.map((item) => item.nodeId).join(", ")}` : ""}</small><small>OBSERVED {iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}</small>{iteration.lossTargetEvidence && <small data-testid="design-loss-target">CAUSAL TARGET {iteration.lossTargetEvidence.target.contributor}.{iteration.lossTargetEvidence.target.metric} · {iteration.lossTargetEvidence.before} → {iteration.lossTargetEvidence.after} · Δ {signed(iteration.lossTargetEvidence.delta)} · {iteration.lossTargetEvidence.improved ? "IMPROVED" : "NOT IMPROVED"}</small>}{iteration.decisionEvidence && <><small>{decisionDetail(iteration.decisionEvidence)}</small><ScoreBreakdownDetails
               baseline={scoreDriverCase(iteration.decisionEvidence).previousBestScoreBreakdown}
               candidate={scoreDriverCase(iteration.decisionEvidence).candidateScoreBreakdown}
               delta={scoreDriverCase(iteration.decisionEvidence).scoreBreakdownDelta}

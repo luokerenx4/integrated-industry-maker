@@ -1,0 +1,25 @@
+{
+  "shape": "plane",
+  "height": 0.25,
+  "model": null,
+  "material": {
+    "baseColor": "#d9b15f",
+    "maps": {
+      "baseColor": null,
+      "normal": null,
+      "roughness": null,
+      "metalness": null,
+      "emissive": null
+    },
+    "metalness": 0.65,
+    "roughness": 0.3,
+    "normalScale": 1,
+    "emissiveColor": "#65f4d2",
+    "emissiveIntensity": 0.25,
+    "repeat": {
+      "x": 1,
+      "y": 1
+    }
+  },
+  "label": "V-SORT"
+}
