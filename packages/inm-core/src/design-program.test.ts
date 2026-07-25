@@ -179,7 +179,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   });
 
   expect(result.artifact).toEqual(expect.objectContaining({
-    id: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+    id: "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
     created: true,
   }));
   expect(result.manifest).toMatchObject({
@@ -355,7 +355,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       addressedLoss: "delivery-portfolio",
       driverEvidence: {
         fabLoss: {
-          version: 7,
+          version: 8,
           primary: { id: "delivery-portfolio" },
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
@@ -561,7 +561,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     addressedLoss: "q-time",
     driverEvidence: {
       metricsHash: hashValue(driverMetrics),
-      fabLoss: { version: 7, family: "dram-wafer", primary: { id: "q-time" } },
+      fabLoss: { version: 8, family: "dram-wafer", primary: { id: "q-time" } },
     },
     promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true },
     decisionEvidence: { guardrail: { kind: "uniform", passed: true, violations: [] } },

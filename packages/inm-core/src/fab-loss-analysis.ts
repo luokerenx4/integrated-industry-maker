@@ -23,6 +23,8 @@ export interface FabLossSubject {
 }
 
 export type FabLossContributorMechanism =
+  | "process-queue-wait"
+  | "transport-dispatch-wait"
   | "batch-companion-wait"
   | "maintenance-qualification"
   | "equipment-availability"
@@ -65,7 +67,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 7;
+  version: 8;
   family: string;
   outcome: {
     scheduled: number;
@@ -107,6 +109,257 @@ const isFlowProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">
 interface TickInterval {
   start: number;
   end: number;
+}
+
+interface TrackedQueueContext {
+  route: string;
+  step: string | null;
+  resource: string;
+  terminal: boolean;
+  queued: {
+    tick: number;
+    device: string;
+  } | null;
+}
+
+interface QueueContributorAccumulator {
+  id: string;
+  label: string;
+  mechanism: "process-queue-wait" | "transport-dispatch-wait";
+  route: string;
+  step: string;
+  resources: Set<string>;
+  processes: Set<string>;
+  lots: Set<string>;
+  subjects: Map<string, FabLossSubject>;
+  queueTicks: number;
+  maximumQueueTicks: number;
+  segments: number;
+}
+
+export function analyzeQueueCongestion(
+  metrics: Pick<FactoryMetrics, "bottleneckEntity" | "machineUtilization">
+    & { lotFlow: Pick<FactoryMetrics["lotFlow"], "family" | "completed" | "meanQueueTimeTicks" | "meanCycleTimeTicks" | "meanProcessTimeTicks" | "meanTransportTimeTicks"> },
+  project: Pick<CompiledFactoryProject, "routes">,
+  events: readonly FactoryEvent[],
+): Omit<FabLossBucket, "id" | "label"> {
+  const family = metrics.lotFlow.family;
+  const completedLots = new Set(events
+    .filter((event): event is Extract<FactoryEvent, { type: "lot.completed" }> =>
+      event.type === "lot.completed" && event.family === family)
+    .map((event) => event.lot));
+  if (completedLots.size !== metrics.lotFlow.completed) {
+    throw new Error(
+      `Tracked-lot queue attribution expected ${metrics.lotFlow.completed} completed '${family}' lots but found ${completedLots.size} completion events`,
+    );
+  }
+
+  const contexts = new Map<string, TrackedQueueContext>();
+  const accumulators = new Map<string, QueueContributorAccumulator>();
+  const add = (
+    context: TrackedQueueContext,
+    lot: string,
+    endTick: number,
+    definition: {
+      id: string;
+      label: string;
+      mechanism: QueueContributorAccumulator["mechanism"];
+      process?: string;
+      subjects: FabLossSubject[];
+    },
+  ) => {
+    if (!context.queued) return;
+    const ticks = endTick - context.queued.tick;
+    if (ticks < 0) throw new Error(`Tracked lot '${lot}' has a negative queue interval`);
+    if (ticks === 0) return;
+    if (!context.step) throw new Error(`Tracked lot '${lot}' queued without an active Route step`);
+    const accumulator = accumulators.get(definition.id) ?? {
+      id: definition.id,
+      label: definition.label,
+      mechanism: definition.mechanism,
+      route: context.route,
+      step: context.step,
+      resources: new Set<string>(),
+      processes: new Set<string>(),
+      lots: new Set<string>(),
+      subjects: new Map<string, FabLossSubject>(),
+      queueTicks: 0,
+      maximumQueueTicks: 0,
+      segments: 0,
+    };
+    if (accumulator.route !== context.route || accumulator.step !== context.step) {
+      throw new Error(`Queue contributor '${definition.id}' crosses Route-step identity`);
+    }
+    accumulator.resources.add(context.resource);
+    if (definition.process) accumulator.processes.add(definition.process);
+    accumulator.lots.add(lot);
+    for (const subject of definition.subjects) accumulator.subjects.set(`${subject.kind}:${subject.id}`, subject);
+    accumulator.queueTicks += ticks;
+    accumulator.maximumQueueTicks = Math.max(accumulator.maximumQueueTicks, ticks);
+    accumulator.segments += 1;
+    accumulators.set(definition.id, accumulator);
+  };
+
+  for (const event of events) {
+    if (event.type === "lot.released" && completedLots.has(event.lot)) {
+      const routes = Object.values(project.routes).filter((route) =>
+        route.family === event.family && route.entry.resource === event.resource);
+      if (routes.length !== 1) {
+        throw new Error(
+          `Tracked lot '${event.lot}' release must resolve one '${event.family}' Route for Resource '${event.resource}', found ${routes.length}`,
+        );
+      }
+      const route = routes[0]!;
+      contexts.set(event.lot, {
+        route: route.id,
+        step: route.entry.step,
+        resource: event.resource,
+        terminal: false,
+        queued: { tick: event.tick, device: event.device },
+      });
+      continue;
+    }
+
+    if (event.type === "lot.route-advanced" && completedLots.has(event.lot)) {
+      const context = contexts.get(event.lot);
+      if (!context) throw new Error(`Tracked lot '${event.lot}' advanced before queue attribution observed its release`);
+      context.route = event.route;
+      context.step = event.toStep;
+      context.resource = event.outputResource;
+      context.terminal = event.terminal !== null;
+      if (context.terminal) context.queued = null;
+      continue;
+    }
+
+    if (event.type === "lot.route-terminated" && completedLots.has(event.lot)) {
+      const context = contexts.get(event.lot);
+      if (context) {
+        context.terminal = true;
+        context.queued = null;
+      }
+      continue;
+    }
+
+    if (event.type === "device.finish" && event.lotIds) {
+      for (const lot of event.lotIds) {
+        if (!completedLots.has(lot)) continue;
+        const context = contexts.get(lot);
+        if (!context || context.terminal) continue;
+        context.queued = { tick: event.tick, device: event.device };
+      }
+      continue;
+    }
+
+    if (event.type === "resource.depart" && event.transit.lotIds) {
+      for (const lot of event.transit.lotIds) {
+        if (!completedLots.has(lot)) continue;
+        const context = contexts.get(lot);
+        if (!context) throw new Error(`Tracked lot '${lot}' departed before queue attribution observed its release`);
+        add(context, lot, event.tick, {
+          id: `connection:${event.connection}:transport-dispatch-wait:${context.route}:${context.step}`,
+          label: event.connection,
+          mechanism: "transport-dispatch-wait",
+          subjects: [
+            { kind: "connection", id: event.connection },
+            { kind: "device", id: event.transit.from },
+            { kind: "route", id: context.route },
+          ],
+        });
+        context.queued = null;
+        context.resource = event.transit.resource;
+      }
+      continue;
+    }
+
+    if (event.type === "resource.arrive" && event.transit.lotIds) {
+      for (const lot of event.transit.lotIds) {
+        if (!completedLots.has(lot)) continue;
+        const context = contexts.get(lot);
+        if (!context) throw new Error(`Tracked lot '${lot}' arrived before queue attribution observed its release`);
+        context.resource = event.transit.resource;
+        context.queued = { tick: event.tick, device: event.transit.to };
+      }
+      continue;
+    }
+
+    if (event.type === "device.start" && event.lotIds) {
+      for (const lot of event.lotIds) {
+        if (!completedLots.has(lot)) continue;
+        const context = contexts.get(lot);
+        if (!context) throw new Error(`Tracked lot '${lot}' started before queue attribution observed its release`);
+        add(context, lot, event.tick, {
+          id: `device:${event.device}:process-queue-wait:${context.route}:${context.step}:${event.operation}`,
+          label: event.device,
+          mechanism: "process-queue-wait",
+          process: event.operation,
+          subjects: [
+            { kind: "device", id: event.device },
+            { kind: "route", id: context.route },
+          ],
+        });
+        context.queued = null;
+      }
+    }
+  }
+
+  const expectedQueueTicks = metrics.lotFlow.meanQueueTimeTicks * metrics.lotFlow.completed;
+  const attributedQueueTicks = [...accumulators.values()].reduce((total, contributor) => total + contributor.queueTicks, 0);
+  if (Math.abs(expectedQueueTicks - attributedQueueTicks) > 1e-6) {
+    throw new Error(
+      `Tracked-lot queue attribution does not conserve completed-lot queue time: ${attributedQueueTicks} attributed vs ${expectedQueueTicks} expected`,
+    );
+  }
+  const contributors: FabLossContributor[] = [...accumulators.values()]
+    .map((contributor) => ({
+      id: contributor.id,
+      label: contributor.label,
+      mechanism: contributor.mechanism,
+      route: contributor.route,
+      step: contributor.step,
+      resources: [...contributor.resources].sort(),
+      processes: [...contributor.processes].sort(),
+      defects: [],
+      lots: [...contributor.lots].sort(),
+      subjects: [...contributor.subjects.values()],
+      evidence: {
+        queueTicks: contributor.queueTicks,
+        queueShare: ratio(contributor.queueTicks, expectedQueueTicks),
+        segments: contributor.segments,
+        contributingLots: contributor.lots.size,
+        meanQueueTicksPerSegment: ratio(contributor.queueTicks, contributor.segments),
+        maximumQueueTicks: contributor.maximumQueueTicks,
+      },
+      inputStates: [],
+    }))
+    .sort((left, right) =>
+      right.evidence.queueTicks! - left.evidence.queueTicks!
+      || right.evidence.maximumQueueTicks! - left.evidence.maximumQueueTicks!
+      || left.id.localeCompare(right.id));
+  const primary = contributors[0] ?? null;
+  const cycleTicks = Math.max(1, metrics.lotFlow.meanCycleTimeTicks);
+  const bottleneck = metrics.bottleneckEntity;
+  return {
+    score: ratio(metrics.lotFlow.meanQueueTimeTicks, cycleTicks),
+    summary: primary
+      ? `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued in a ${(cycleTicks / 1000).toFixed(1)} s cycle; ${primary.label}/${primary.processes[0] ?? primary.mechanism} accounts for ${(primary.evidence.queueTicks! / 1000).toFixed(1)} s across ${primary.evidence.contributingLots} lots (${(primary.evidence.queueShare! * 100).toFixed(1)}%).`
+      : `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued in a ${(cycleTicks / 1000).toFixed(1)} s cycle.`,
+    subjects: primary?.subjects ?? [{ kind: "project", id: family! }],
+    evidence: {
+      completedLots: metrics.lotFlow.completed,
+      meanQueueTicks: metrics.lotFlow.meanQueueTimeTicks,
+      totalQueueTicks: expectedQueueTicks,
+      attributedQueueTicks,
+      unattributedQueueTicks: 0,
+      meanCycleTicks: cycleTicks,
+      meanProcessTicks: metrics.lotFlow.meanProcessTimeTicks,
+      meanTransportTicks: metrics.lotFlow.meanTransportTimeTicks,
+      contributors: contributors.length,
+      subjectQueueTicks: primary?.evidence.queueTicks ?? 0,
+      subjectQueueShare: primary?.evidence.queueShare ?? 0,
+      bottleneckUtilization: bottleneck ? metrics.machineUtilization[bottleneck] ?? 0 : 0,
+    },
+    contributors,
+  };
 }
 
 const unavailableEventPairs: Array<{ opens: Set<string>; closes: Set<string> }> = [
@@ -775,25 +1028,9 @@ export function analyzeFabLossProfile(
     evidence: { pendingLots: metrics.releaseFlow.pending, capacityBlockedLots: metrics.releaseFlow.capacityBlockedLots, controlBlockedLots: metrics.releaseFlow.controlBlockedLots, blockedTicks: releaseBlockedTicks },
   });
 
-  const queueShare = ratio(metrics.lotFlow.meanQueueTimeTicks, cycleTicks);
-  const bottleneckDevice = metrics.bottleneckEntity && isProductiveDevice(project, metrics.bottleneckEntity)
-    ? metrics.bottleneckEntity
-    : null;
-  const queueRoute = topKey(Object.fromEntries(Object.entries(metrics.routeFlow).map(([id, route]) =>
-    [id, Object.values(route.steps).reduce((total, step) => total + step.meanQueueTicks * step.visits, 0)])));
   add({
-    id: "queue-congestion", label: "Tracked-lot queue congestion", score: queueShare,
-    summary: `Tracked lots averaged ${(metrics.lotFlow.meanQueueTimeTicks / 1000).toFixed(1)} s queued in a ${(cycleTicks / 1000).toFixed(1)} s cycle; ${bottleneckDevice ?? queueRoute ?? metrics.lotFlow.family} is the measured bottleneck context.`,
-    subjects: bottleneckDevice
-      ? [{ kind: "device", id: bottleneckDevice }]
-      : queueRoute ? [{ kind: "route", id: queueRoute }] : [{ kind: "project", id: metrics.lotFlow.family }],
-    evidence: {
-      meanQueueTicks: metrics.lotFlow.meanQueueTimeTicks,
-      meanCycleTicks: cycleTicks,
-      meanProcessTicks: metrics.lotFlow.meanProcessTimeTicks,
-      meanTransportTicks: metrics.lotFlow.meanTransportTimeTicks,
-      bottleneckUtilization: bottleneckDevice ? metrics.machineUtilization[bottleneckDevice] ?? 0 : 0,
-    },
+    id: "queue-congestion", label: "Tracked-lot queue congestion",
+    ...analyzeQueueCongestion(metrics, project, events),
   });
 
   add({
@@ -923,7 +1160,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 7,
+    version: 8,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,

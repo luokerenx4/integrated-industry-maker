@@ -67,15 +67,15 @@ INM already has the correct durable contract: a project-local Design Program, cu
 - `bun run inm test examples/memory-fab` — both project-local industrial tests pass.
 - `bun run memory-fab:research-inspection-starvation` — `24` rows, zero promotable candidates, exact six representative shortage reductions reproduced against `089-simulate`.
 - `bun run test` — `239` tests and `2019` assertions pass, followed by all eight Ironworks project tests.
-- Browser acceptance on `http://localhost:4176/`, `/memory-fab`, `/memory-fab/factory`, `/memory-fab/catalog`, and `/memory-fab/designs/inspection-supply-path/runs/c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee` — project open, current Run `089-simulate`, both vacuum assets, exact six causal target rows, exhausted frontier, and zero failed resources/error overlays/alerts verified.
+- Browser acceptance on `http://localhost:4176/`, `/memory-fab`, `/memory-fab/factory`, `/memory-fab/catalog`, and `/memory-fab/designs/inspection-supply-path/runs/26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d` — project open, current Run `089-simulate`, both vacuum assets, exact six causal target rows, exhausted frontier, and zero failed resources/error overlays/alerts verified.
 
 ## Progress log
 
 - 2026-07-25 — Plan created after CLI inspection showed current Run `088-simulate` paired with `design.inspect:commissioned-dram-fab` and no current Design authority.
 - 2026-07-25 — Added project-local fast closed-loop modes and vacuum wafer transport assets without selecting them in the commissioned Blueprint; relocked the five-case Benchmark contract against the expanded local catalog.
-- 2026-07-25 — Focused immutable Design Run `c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee` evaluated six exact causal repairs, rejected all six, exhausted the seed portfolio, and retained zero promotion operations.
+- 2026-07-25 — Focused immutable V8 Design Run `26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d` evaluated six exact causal repairs, rejected all six, exhausted the seed portfolio, and retained zero promotion operations. It supersedes the pre-V8 evidence artifact after the driver contract intentionally changed without compatibility.
 - 2026-07-25 — Current operating Run `089-simulate` restores exact catalog-compatible fab-loss and inventory authority.
 
 ## Completion
 
-Completed on `2026-07-25`. Focused Program `inspection-supply-path`, immutable Design Run `c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee`, and operating Run `089-simulate` now preserve the exact closed inspection frontier. Core, CLI, and Studio share the same causal before/after evidence and reopen that exhausted authority ahead of the broader missing-evidence Program. The commissioned Blueprint remains hash `35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144`; no Candidate or promotion was created.
+Completed on `2026-07-25`. Focused Program `inspection-supply-path`, immutable V8 Design Run `26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d`, and operating Run `089-simulate` now preserve the exact closed inspection frontier. Core, CLI, and Studio share the same causal before/after evidence and reopen that exhausted authority ahead of the broader missing-evidence Program. The commissioned Blueprint remains hash `35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144`; no Candidate or promotion was created.

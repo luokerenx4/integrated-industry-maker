@@ -2665,24 +2665,267 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.34037298546686506,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2724567013899883,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 2136,
+                    "queueShare": 0.13526264129436721,
+                    "queueTicks": 8544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 1833.25,
+                    "queueShare": 0.11609093499667543,
+                    "queueTicks": 7333,
+                    "segments": 4
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09498780989772979,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.040828926954374185,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 63166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 60862.583333333336,
                 "meanProcessTicks": 46565.416666666664,
                 "meanQueueTicks": 5263.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.34037298546686506,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 63166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.086487182190481,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.3 s queued in a 60.9 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.3 s queued in a 60.9 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (34.0%)."
             },
             {
               "contributors": [],
@@ -5350,7 +5593,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 248.3 explicit material-shortage device-s inside 1172.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1115.9 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "2f4d14eed24c3cf31121e30cd151fe92680e3075d1c9dd2564bb508783923ae1"
       },
@@ -8171,24 +8414,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.32494030166550797,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2601033763564368,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.1712813227337303,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1886,
+                    "queueShare": 0.11401626212858568,
+                    "queueTicks": 7544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09068101441828129,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.03897772269745791,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 66166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61779.25,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5513.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.32494030166550797,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 66166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.0892505709171499,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (32.5%)."
             },
             {
               "contributors": [],
@@ -10798,7 +11285,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.3 explicit material-shortage device-s inside 1181.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1106.9 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "c5cbef045fc516f7290eff7adf6445196f3696b420c04d508ce67e074988928d"
       },
@@ -18901,24 +19388,266 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.33859334152256765,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 7421,
+                    "meanQueueTicksPerSegment": 3508.4,
+                    "queueShare": 0.2762606696273898,
+                    "queueTicks": 17542,
+                    "segments": 5
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 2136,
+                    "queueShare": 0.1345554190683171,
+                    "queueTicks": 8544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2083.25,
+                    "queueShare": 0.13123247976314215,
+                    "queueTicks": 8333,
+                    "segments": 4
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09449116507606539,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 1579,
+                    "meanQueueTicksPerSegment": 1579,
+                    "queueShare": 0.024866924942517875,
+                    "queueTicks": 1579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 63498,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61140.25,
                 "meanProcessTicks": 46815.416666666664,
                 "meanQueueTicks": 5291.5,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.33859334152256765,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 63498,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.08654691467568419,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.3 s queued in a 61.1 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.3 s queued in a 61.1 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (33.9%)."
             },
             {
               "contributors": [],
@@ -21544,7 +22273,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.9 explicit material-shortage device-s inside 1176.7 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1111.3 of 1361.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "2d3dd3d21156e3dbbf73e0472b50540d770ab72513c9e52bf604a56ddd38269d"
       },
@@ -24364,24 +25093,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.32494030166550797,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2601033763564368,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.1712813227337303,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1886,
+                    "queueShare": 0.11401626212858568,
+                    "queueTicks": 7544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09068101441828129,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.03897772269745791,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 66166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61779.25,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5513.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.32494030166550797,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 66166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.0892505709171499,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (32.5%)."
             },
             {
               "contributors": [],
@@ -26991,7 +27964,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.3 explicit material-shortage device-s inside 1181.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1106.9 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "c5cbef045fc516f7290eff7adf6445196f3696b420c04d508ce67e074988928d"
       },
@@ -35092,24 +36065,267 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.3379174852652259,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7421,
+                    "meanQueueTicksPerSegment": 2986.5,
+                    "queueShare": 0.2816345776031434,
+                    "queueTicks": 17919,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08",
+                    "dram-lot-12"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 2198.5,
+                    "queueShare": 0.13821611001964637,
+                    "queueTicks": 8794,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 1958.25,
+                    "queueShare": 0.12311198428290766,
+                    "queueTicks": 7833,
+                    "segments": 4
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09430255402750491,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 1579,
+                    "meanQueueTicksPerSegment": 1579,
+                    "queueShare": 0.024817288801571708,
+                    "queueTicks": 1579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 63625,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61046.666666666664,
                 "meanProcessTicks": 46711.25,
                 "meanQueueTicks": 5302.083333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.3379174852652259,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 63625,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.08685295402424374,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.3 s queued in a 61.0 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.3 s queued in a 61.0 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (33.8%)."
             },
             {
               "contributors": [],
@@ -37735,7 +38951,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 251.4 explicit material-shortage device-s inside 1177.0 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1111.0 of 1362.5 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "cbdac74dae755518f2f5f285d4055b391dfbb743a0355ef62cd432c041902067"
       },
@@ -40554,24 +41770,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.32494030166550797,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2601033763564368,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.1712813227337303,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1886,
+                    "queueShare": 0.11401626212858568,
+                    "queueTicks": 7544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09068101441828129,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.03897772269745791,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 66166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61779.25,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5513.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.32494030166550797,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 66166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.0892505709171499,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (32.5%)."
             },
             {
               "contributors": [],
@@ -43181,7 +44641,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.3 explicit material-shortage device-s inside 1181.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1106.9 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "c5cbef045fc516f7290eff7adf6445196f3696b420c04d508ce67e074988928d"
       },
@@ -51282,24 +52742,267 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 11644,
+                    "meanQueueTicksPerSegment": 3701.6666666666665,
+                    "queueShare": 0.330673257302802,
+                    "queueTicks": 22210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.3201024327784891,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 2136,
+                    "queueShare": 0.12720721793764703,
+                    "queueTicks": 8544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 1833.25,
+                    "queueShare": 0.10917726230533306,
+                    "queueTicks": 7333,
+                    "segments": 4
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.08933091147306672,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 1579,
+                    "meanQueueTicksPerSegment": 1579,
+                    "queueShare": 0.02350891820266206,
+                    "queueTicks": 1579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 67166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 60862.583333333336,
                 "meanProcessTicks": 46232.083333333336,
                 "meanQueueTicks": 5597.166666666667,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.330673257302802,
+                "subjectQueueTicks": 22210,
+                "totalQueueTicks": 67166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.09196400087081417,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "probe-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.6 s queued in a 60.9 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.6 s queued in a 60.9 s cycle; probe-1/probe-sort-dram-standard accounts for 22.2 s across 6 lots (33.1%)."
             },
             {
               "contributors": [],
@@ -53925,7 +55628,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 251.3 explicit material-shortage device-s inside 1171.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1116.9 of 1368.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "edda8c805a6ed7e8a94eeca6662a38638150542d98fc2fa4d18a696d5f0b23d6"
       },
@@ -56746,24 +58449,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.32494030166550797,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2601033763564368,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.1712813227337303,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1886,
+                    "queueShare": 0.11401626212858568,
+                    "queueTicks": 7544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09068101441828129,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.03897772269745791,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 66166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61779.25,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5513.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.32494030166550797,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 66166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.0892505709171499,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (32.5%)."
             },
             {
               "contributors": [],
@@ -59373,7 +61320,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.3 explicit material-shortage device-s inside 1181.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1106.9 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "c5cbef045fc516f7290eff7adf6445196f3696b420c04d508ce67e074988928d"
       },
@@ -67328,24 +69275,270 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 9,
+                    "maximumQueueTicks": 11644,
+                    "meanQueueTicksPerSegment": 2593.4444444444443,
+                    "queueShare": 0.3442777704028202,
+                    "queueTicks": 23341,
+                    "segments": 9
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08",
+                    "dram-lot-09",
+                    "dram-lot-11",
+                    "dram-lot-12"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.3171231765417349,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 2198.5,
+                    "queueShare": 0.12971075416316355,
+                    "queueTicks": 8794,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 1645.75,
+                    "queueShare": 0.09709869168252283,
+                    "queueTicks": 6583,
+                    "segments": 4
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.08849949112792602,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 1579,
+                    "meanQueueTicksPerSegment": 1579,
+                    "queueShare": 0.02329011608183253,
+                    "queueTicks": 1579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 67797,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 60665.166666666664,
                 "meanProcessTicks": 45982.083333333336,
                 "meanQueueTicks": 5649.75,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.3442777704028202,
+                "subjectQueueTicks": 23341,
+                "totalQueueTicks": 67797,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.09313004991881668,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "probe-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.6 s queued in a 60.7 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.6 s queued in a 60.7 s cycle; probe-1/probe-sort-dram-standard accounts for 23.3 s across 9 lots (34.4%)."
             },
             {
               "contributors": [],
@@ -69971,7 +72164,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 251.8 explicit material-shortage device-s inside 1168.6 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1119.4 of 1371.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "dcef7c9cac47a196085bfdde6408f8aacd683d75aa478cf644de07c16d9fc068"
       },
@@ -72792,24 +74985,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.32494030166550797,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2601033763564368,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.1712813227337303,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1886,
+                    "queueShare": 0.11401626212858568,
+                    "queueTicks": 7544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09068101441828129,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.03897772269745791,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 66166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61779.25,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5513.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.32494030166550797,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 66166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.0892505709171499,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (32.5%)."
             },
             {
               "contributors": [],
@@ -75419,7 +77856,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.3 explicit material-shortage device-s inside 1181.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1106.9 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "c5cbef045fc516f7290eff7adf6445196f3696b420c04d508ce67e074988928d"
       },
@@ -83392,24 +85829,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.31062182154415163,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 11944,
+                    "meanQueueTicksPerSegment": 3518.3333333333335,
+                    "queueShare": 0.3049872861766066,
+                    "queueTicks": 21110,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.16373381877022652,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1998.5,
+                    "queueShare": 0.11549352750809061,
+                    "queueTicks": 7994,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.08668515950069348,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 1279,
+                    "meanQueueTicksPerSegment": 1279,
+                    "queueShare": 0.01847838650023116,
+                    "queueTicks": 1279,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 69216,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61366.75,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5768,
-                "meanTransportTicks": 8366.666666666666
+                "meanTransportTicks": 8366.666666666666,
+                "subjectQueueShare": 0.31062182154415163,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 69216,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.09399226779974497,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.8 s queued in a 61.4 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.8 s queued in a 61.4 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (31.1%)."
             },
             {
               "contributors": [],
@@ -86053,7 +88734,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 244.4 explicit material-shortage device-s inside 1176.2 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1111.8 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "3793baacd2e5fee1a1d748249bb9f7760107f57db7b025f9eec8e92caa16f2f9"
       },
@@ -88883,24 +91564,268 @@
               "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
             },
             {
-              "contributors": [],
+              "contributors": [
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 9500,
+                    "meanQueueTicksPerSegment": 7166.666666666667,
+                    "queueShare": 0.32494030166550797,
+                    "queueTicks": 21500,
+                    "segments": 3
+                  },
+                  "id": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+                  "inputStates": [],
+                  "label": "etch-1",
+                  "lots": [
+                    "dram-lot-06",
+                    "dram-lot-07",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-1"
+                  ],
+                  "resources": [
+                    "patterned-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-1",
+                  "subjects": [
+                    {
+                      "id": "etch-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 6,
+                    "maximumQueueTicks": 7088,
+                    "meanQueueTicksPerSegment": 2868.3333333333335,
+                    "queueShare": 0.2601033763564368,
+                    "queueTicks": 17210,
+                    "segments": 6
+                  },
+                  "id": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard",
+                  "inputStates": [],
+                  "label": "probe-1",
+                  "lots": [
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "probe-sort-dram-standard"
+                  ],
+                  "resources": [
+                    "qualified-dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "probe-dram",
+                  "subjects": [
+                    {
+                      "id": "probe-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 5,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2266.6,
+                    "queueShare": 0.1712813227337303,
+                    "queueTicks": 11333,
+                    "segments": 5
+                  },
+                  "id": "device:etch-l2:process-queue-wait:dram-front-end:etch-cell-layer-2:etch-cell-layer-2",
+                  "inputStates": [],
+                  "label": "etch-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-06",
+                    "dram-lot-08"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "etch-cell-layer-2"
+                  ],
+                  "resources": [
+                    "patterned-cell-l2-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "etch-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "etch-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 4,
+                    "maximumQueueTicks": 4000,
+                    "meanQueueTicksPerSegment": 1886,
+                    "queueShare": 0.11401626212858568,
+                    "queueTicks": 7544,
+                    "segments": 4
+                  },
+                  "id": "device:lithography-l2:process-queue-wait:dram-front-end:pattern-cell-layer-2:pattern-cell-layer-2",
+                  "inputStates": [],
+                  "label": "lithography-l2",
+                  "lots": [
+                    "dram-lot-01",
+                    "dram-lot-02",
+                    "dram-lot-03",
+                    "dram-lot-10"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "pattern-cell-layer-2"
+                  ],
+                  "resources": [
+                    "annealed-dielectric-stack-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "pattern-cell-layer-2",
+                  "subjects": [
+                    {
+                      "id": "lithography-l2",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 3,
+                    "maximumQueueTicks": 3000,
+                    "meanQueueTicksPerSegment": 2000,
+                    "queueShare": 0.09068101441828129,
+                    "queueTicks": 6000,
+                    "segments": 3
+                  },
+                  "id": "device:deposition-1:process-queue-wait:dram-front-end:deposit-dielectric-stack:deposit-dielectric-stack",
+                  "inputStates": [],
+                  "label": "deposition-1",
+                  "lots": [
+                    "dram-lot-03",
+                    "dram-lot-04",
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "deposit-dielectric-stack"
+                  ],
+                  "resources": [
+                    "etched-cell-l1-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "deposit-dielectric-stack",
+                  "subjects": [
+                    {
+                      "id": "deposition-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                },
+                {
+                  "defects": [],
+                  "evidence": {
+                    "contributingLots": 1,
+                    "maximumQueueTicks": 2579,
+                    "meanQueueTicksPerSegment": 2579,
+                    "queueShare": 0.03897772269745791,
+                    "queueTicks": 2579,
+                    "segments": 1
+                  },
+                  "id": "device:inspection-1:process-queue-wait:dram-front-end:final-inspection:inspect-final-pattern-deep",
+                  "inputStates": [],
+                  "label": "inspection-1",
+                  "lots": [
+                    "dram-lot-05"
+                  ],
+                  "mechanism": "process-queue-wait",
+                  "processes": [
+                    "inspect-final-pattern-deep"
+                  ],
+                  "resources": [
+                    "dram-wafer-lot"
+                  ],
+                  "route": "dram-front-end",
+                  "step": "final-inspection",
+                  "subjects": [
+                    {
+                      "id": "inspection-1",
+                      "kind": "device"
+                    },
+                    {
+                      "id": "dram-front-end",
+                      "kind": "route"
+                    }
+                  ]
+                }
+              ],
               "evidence": {
+                "attributedQueueTicks": 66166,
                 "bottleneckUtilization": 0.6833333333333333,
+                "completedLots": 12,
+                "contributors": 6,
                 "meanCycleTicks": 61779.25,
                 "meanProcessTicks": 47232.083333333336,
                 "meanQueueTicks": 5513.833333333333,
-                "meanTransportTicks": 9033.333333333334
+                "meanTransportTicks": 9033.333333333334,
+                "subjectQueueShare": 0.32494030166550797,
+                "subjectQueueTicks": 21500,
+                "totalQueueTicks": 66166,
+                "unattributedQueueTicks": 0
               },
               "id": "queue-congestion",
               "label": "Tracked-lot queue congestion",
               "score": 0.0892505709171499,
               "subjects": [
                 {
-                  "id": "burn-in-1",
+                  "id": "etch-1",
                   "kind": "device"
+                },
+                {
+                  "id": "dram-front-end",
+                  "kind": "route"
                 }
               ],
-              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; burn-in-1 is the measured bottleneck context."
+              "summary": "Tracked lots averaged 5.5 s queued in a 61.8 s cycle; etch-1/etch-cell-layer-1 accounts for 21.5 s across 3 lots (32.5%)."
             },
             {
               "contributors": [],
@@ -91510,7 +94435,7 @@
             ],
             "summary": "8/10 active flow Devices accumulated 249.3 explicit material-shortage device-s inside 1181.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1106.9 of 1356.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
           },
-          "version": 7
+          "version": 8
         },
         "metricsHash": "c5cbef045fc516f7290eff7adf6445196f3696b420c04d508ce67e074988928d"
       },
@@ -97374,7 +100299,7 @@
     "blueprint": "generated-dram-fab",
     "hash": "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144"
   },
-  "resultHash": "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+  "resultHash": "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
   "seed": {
     "blueprintHash": "43fa024dc4ca34d9685776ed4ea6530dbc98e8d2a0a3e7bc4ec3add3f3923457",
     "evaluation": {

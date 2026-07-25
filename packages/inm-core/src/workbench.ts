@@ -184,7 +184,7 @@ export interface WorkbenchLossDisposition {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 9;
+  version: 10;
   project: {
     id: string;
     name: string;
@@ -1037,7 +1037,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 9 as const,
+    version: 10 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

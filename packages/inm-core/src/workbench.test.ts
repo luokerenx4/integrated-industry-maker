@@ -18,7 +18,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(9);
+  expect(snapshot.version).toBe(10);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -89,7 +89,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 39.4292,
   }));
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
-    version: 7,
+    version: 8,
     chain: ["input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification", "release-admission"],
   }));
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")).toMatchObject({
@@ -437,7 +437,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
 test("current memory-fab evidence bounds exhausted inspection and yield targets then advances to terminal queue", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(9);
+  expect(snapshot.version).toBe(10);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   expect(snapshot.lossDispositions).toEqual([
     expect.objectContaining({
@@ -453,7 +453,7 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
       source: expect.objectContaining({
         programId: "inspection-supply-path",
         benchmarkId: "greenfield-dram-design",
-        runId: "c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee",
+        runId: "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
       }),
       observed: expect.objectContaining({ runId: "089-simulate" }),
       evidence: expect.objectContaining({
@@ -477,7 +477,7 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
       source: expect.objectContaining({
         programId: "layer-two-particle-control",
         benchmarkId: "greenfield-dram-design",
-        runId: "220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190",
+        runId: "47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7",
       }),
       observed: expect.objectContaining({ runId: "089-simulate" }),
       evidence: expect.objectContaining({
@@ -496,7 +496,7 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
     focus: { kind: "losses", losses: ["yield-quality"] },
     evidence: expect.objectContaining({
       state: "exhausted",
-      authorityRunId: "220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190",
+      authorityRunId: "47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7",
       authorityAddressedLosses: ["yield-quality"],
     }),
   }));
@@ -511,6 +511,34 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
       diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
+  const queue = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "queue-congestion");
+  expect(queue).toEqual(expect.objectContaining({
+    subjects: [
+      { kind: "device", id: "etch-1" },
+      { kind: "route", id: "dram-front-end" },
+    ],
+    evidence: expect.objectContaining({
+      totalQueueTicks: 66_166,
+      attributedQueueTicks: 66_166,
+      unattributedQueueTicks: 0,
+    }),
+  }));
+  expect(queue?.contributors[0]).toEqual(expect.objectContaining({
+    label: "etch-1",
+    mechanism: "process-queue-wait",
+    route: "dram-front-end",
+    step: "etch-cell-layer-1",
+    processes: ["etch-cell-layer-1"],
+    resources: ["patterned-cell-l1-lot"],
+    evidence: expect.objectContaining({
+      queueTicks: 21_500,
+      queueShare: 21_500 / 66_166,
+      contributingLots: 3,
+      segments: 3,
+      maximumQueueTicks: 9_500,
+    }),
+  }));
+  expect(queue?.subjects).not.toContainEqual({ kind: "device", id: "burn-in-1" });
 }, 20_000);
 
 test("bounded loss disposition expires on any changed authority, target evidence, or frontier", async () => {

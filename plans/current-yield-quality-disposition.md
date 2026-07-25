@@ -57,20 +57,20 @@ Those numbers are useful research, but an ad-hoc script is not current immutable
 - 2026-07-25 — The same current-envelope result is not promotion-safe: aggregate delta is `-0.451773`; quality-excursion is `-0.861116`; lithography interruption is `-1.541480` with eight rather than nine on-time lots; steady and facility cases also pay explicit energy.
 - 2026-07-25 — Historical negative evidence remains useful context but is not current authority. The focused Program will bind its result to the current Program, Benchmark, driver selection/hashes, authored Blueprint, compatible run, exact contributor, and exact before value.
 - 2026-07-25 — A missing Program previously carried no machine-readable loss scope, so Workbench could only choose among missing aligned Programs by id. Optional `focus` now normalizes to broad or an exact unique loss list; exact matching focus outranks broad only for the active diagnostic, while proposal-time Core evidence remains authoritative.
-- 2026-07-25 — The shared public projection advances directly to Workbench V9 because Program focus changes the current snapshot contract; CLI and Studio consume that version together with no V8 alias.
-- 2026-07-25 — Design Run `220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190` records one exact `REJECT`, target `2 → 1`, aggregate current-best delta `-0.451773`, four case regressions, unchanged seed leader, no alternatives, and a fully exhausted frontier.
+- 2026-07-25 — The shared public projection originally advanced directly to Workbench V9 for Program focus, then to V10 when the V8 loss-evidence contract added causal tracked-lot queue contributors; CLI and Studio consume the current version together with no compatibility alias.
+- 2026-07-25 — V8 Design Run `47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7` records one exact `REJECT`, target `2 → 1`, aggregate current-best delta `-0.451773`, four case regressions, unchanged seed leader, no alternatives, and a fully exhausted frontier. It supersedes the pre-V8 evidence artifact after the driver contract intentionally changed.
 - 2026-07-25 — Workbench derives the second bounded disposition from that exact Run and advances the active queue to `fab-loss.queue-congestion` at `burn-in-1`; input starvation and yield remain ranked and visible rather than being relabeled as solved.
 
 ## Verification
 
 - `bun run memory-fab:research-particle-prevention` — current seven-envelope sweep reproduced the local quality gain and cross-case regressions above.
 - `bun test packages/inm-core/src/design-proposal-provider.test.ts --max-concurrency=1` — focused provider is deterministic, physically guarded, exact-targeted, compileable, and exhausts after one strategy.
-- Design Run `220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190` — one evaluated Candidate, target `introducedDefectInstances 2 → 1`, `REJECT`, unchanged seed, and `frontier-exhausted`.
+- Design Run `47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7` — one evaluated Candidate, target `introducedDefectInstances 2 → 1`, `REJECT`, unchanged seed, and `frontier-exhausted`.
 - Focused Core Workbench tests — both current dispositions, focused missing-Program routing, current authority, and queue-congestion progression pass.
 - Focused CLI test — compact Program focus, both exact dispositions, human rendering, and the shared next action pass.
 - `bun run typecheck`, `bun run docs:check`, and `git diff --check` pass.
 - `bun run test` — 243 repository tests pass with 2,060 expectations and zero failures; the Ironworks public project smoke suite also passes.
-- Public project loop — `inm validate`, `inm analyze`, and both memory-fab project tests pass; strict Design reopen verifies Run `220378460b16c5eefdf12ef787b4e494ba810ee9b56da010c5ef7596978c7190`.
+- Public project loop — `inm validate`, `inm analyze`, and both memory-fab project tests pass; strict Design reopen verifies V8 Run `47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7`.
 - Browser acceptance — a fresh project-selector click opens `/memory-fab`; Overview displays both bounded dispositions and advances to `fab-loss.queue-congestion`; the focused Program and exact Run routes display `yield-quality`, target evidence, rejection, and zero promotion operations with no console errors.
 
 ## Progress log

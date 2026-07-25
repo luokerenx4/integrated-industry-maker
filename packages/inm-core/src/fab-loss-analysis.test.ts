@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
-import { analyzeInputStarvation, analyzeQualityContributors, analyzeTransportBlocking } from "./fab-loss-analysis";
+import { analyzeInputStarvation, analyzeQualityContributors, analyzeQueueCongestion, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
 import { runUntil } from "./simulator";
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, InputSupplyState, MaterialInputShortage, TransportBlockTicks } from "./types";
@@ -117,6 +118,49 @@ test("transport blocking rejects a total that disagrees with its strict physical
       },
     },
   }, 100_000)).toThrow("physical-cause partition sums to 0");
+});
+
+test("tracked-lot queue attribution conserves completed-lot wait at exact upstream locations", async () => {
+  const projectDir = resolve("examples/memory-fab");
+  const project = compileFactoryProject(await loadFactoryProject(projectDir));
+  const metrics = JSON.parse(await readFile(resolve(projectDir, "runs/089-simulate/metrics.json"), "utf8")) as FactoryMetrics;
+  const events = (await readFile(resolve(projectDir, "runs/089-simulate/events.ndjson"), "utf8"))
+    .trim().split("\n").map((line) => JSON.parse(line) as FactoryEvent);
+  const bucket = analyzeQueueCongestion(metrics, project, events);
+
+  expect(bucket).toMatchObject({
+    subjects: [
+      { kind: "device", id: "etch-1" },
+      { kind: "route", id: "dram-front-end" },
+    ],
+    evidence: {
+      completedLots: 12,
+      meanQueueTicks: 5_513.833333333333,
+      totalQueueTicks: 66_166,
+      attributedQueueTicks: 66_166,
+      unattributedQueueTicks: 0,
+      contributors: 6,
+      subjectQueueTicks: 21_500,
+    },
+  });
+  expect(bucket.contributors.map((contributor) => ({
+    label: contributor.label,
+    mechanism: contributor.mechanism,
+    step: contributor.step,
+    process: contributor.processes[0],
+    ticks: contributor.evidence.queueTicks,
+  }))).toEqual([
+    { label: "etch-1", mechanism: "process-queue-wait", step: "etch-cell-layer-1", process: "etch-cell-layer-1", ticks: 21_500 },
+    { label: "probe-1", mechanism: "process-queue-wait", step: "probe-dram", process: "probe-sort-dram-standard", ticks: 17_210 },
+    { label: "etch-l2", mechanism: "process-queue-wait", step: "etch-cell-layer-2", process: "etch-cell-layer-2", ticks: 11_333 },
+    { label: "lithography-l2", mechanism: "process-queue-wait", step: "pattern-cell-layer-2", process: "pattern-cell-layer-2", ticks: 7_544 },
+    { label: "deposition-1", mechanism: "process-queue-wait", step: "deposit-dielectric-stack", process: "deposit-dielectric-stack", ticks: 6_000 },
+    { label: "inspection-1", mechanism: "process-queue-wait", step: "final-inspection", process: "inspect-final-pattern-deep", ticks: 2_579 },
+  ]);
+  expect(bucket.contributors.flatMap((contributor) => contributor.subjects)
+    .some((subject) => subject.kind === "device" && subject.id === "burn-in-1")).toBeFalse();
+  expect(bucket.contributors.reduce((total, contributor) => total + contributor.evidence.queueTicks!, 0))
+    .toBe(bucket.evidence.totalQueueTicks!);
 });
 
 test("input starvation counts only available gaps between repeated productive jobs", async () => {

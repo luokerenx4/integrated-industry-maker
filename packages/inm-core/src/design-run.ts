@@ -286,7 +286,7 @@ function validDriverEvidence(value: unknown): value is DesignDriverEvidence {
   const evidence = value as DesignDriverEvidence;
   if (!/^[0-9a-f]{64}$/.test(evidence.metricsHash ?? "")) return false;
   if (evidence.fabLoss === null) return true;
-  return evidence.fabLoss?.version === 7
+  return evidence.fabLoss?.version === 8
     && typeof evidence.fabLoss.family === "string"
     && !Object.hasOwn(evidence.fabLoss, "run")
     && Array.isArray(evidence.fabLoss.chain)

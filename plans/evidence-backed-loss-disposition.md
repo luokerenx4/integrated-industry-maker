@@ -10,7 +10,7 @@ When current immutable Design evidence proves that every eligible intervention i
 
 ## Context
 
-The current memory-fab run ranks `device:inspection-1:material-input-shortage.starvationTicks` first. Focused Design Run `c7fbffa625997a667f6e8b831119522e3e94aa666eef103ed65c999c0cf86cee` evaluates six distinct project-local interventions. Every Candidate reduces the exact contributor from the same measured `59,584` ticks; all six are rejected by locked score, case, or hard-outcome authority; the seed remains unchanged; and the only frontier node is exhausted.
+The current memory-fab run ranks `device:inspection-1:material-input-shortage.starvationTicks` first. Focused V8 Design Run `26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d` evaluates six distinct project-local interventions. Every Candidate reduces the exact contributor from the same measured `59,584` ticks; all six are rejected by locked score, case, or hard-outcome authority; the seed remains unchanged; and the only frontier node is exhausted.
 
 Workbench currently treats any exhausted aligned Program as universal authority for the first warning. It therefore keeps telling both the human and Agent to expand the inspection portfolio even though the current evidence says the bounded route has negative marginal value. The second ranked issue, verified yield and quality loss, never becomes the handoff.
 

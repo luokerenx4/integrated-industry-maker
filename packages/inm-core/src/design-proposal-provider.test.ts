@@ -392,7 +392,7 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const metrics = result.metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
-    version: 7,
+    version: 8,
     outcome: { deliveryShortfall: 18, deliveryOverflow: 8, portfolioNetValue: -64 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
@@ -453,7 +453,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 7,
+    version: 8,
     outcome: {
       completed: 5,
       inProgress: 5,
@@ -536,9 +536,43 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
       scrappedLots: 2,
     },
   });
-  expect(fabLoss.buckets.find((bucket) => bucket.id === "queue-congestion")).toMatchObject({
-    subjects: [{ kind: "device", id: "inspection-1" }],
-    evidence: { meanQueueTicks: 24_760, bottleneckUtilization: 0.5525 },
+  const queueCongestion = fabLoss.buckets.find((bucket) => bucket.id === "queue-congestion")!;
+  expect(queueCongestion.subjects).toEqual([
+    { kind: "device", id: "furnace-1" },
+    { kind: "route", id: "dram-front-end" },
+  ]);
+  expect({
+    meanQueueTicks: queueCongestion.evidence.meanQueueTicks,
+    bottleneckUtilization: queueCongestion.evidence.bottleneckUtilization,
+    totalQueueTicks: queueCongestion.evidence.totalQueueTicks,
+    attributedQueueTicks: queueCongestion.evidence.attributedQueueTicks,
+    unattributedQueueTicks: queueCongestion.evidence.unattributedQueueTicks,
+  }).toEqual({
+    meanQueueTicks: 24_760,
+    bottleneckUtilization: 0.5525,
+    totalQueueTicks: 123_800,
+    attributedQueueTicks: 123_800,
+    unattributedQueueTicks: 0,
+  });
+  expect({
+    label: queueCongestion.contributors[0]?.label,
+    mechanism: queueCongestion.contributors[0]?.mechanism,
+    step: queueCongestion.contributors[0]?.step,
+    queueTicks: queueCongestion.contributors[0]?.evidence.queueTicks,
+  }).toEqual({
+    label: "furnace-1",
+    mechanism: "process-queue-wait",
+    step: "anneal-dielectric-stack",
+    queueTicks: 39_500,
+  });
+  expect({
+    label: queueCongestion.contributors.at(-1)?.label,
+    mechanism: queueCongestion.contributors.at(-1)?.mechanism,
+    queueTicks: queueCongestion.contributors.at(-1)?.evidence.queueTicks,
+  }).toEqual({
+    label: "batch-furnace-to-lithography",
+    mechanism: "transport-dispatch-wait",
+    queueTicks: 1_250,
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "input-starvation")).toMatchObject({
     subjects: [
@@ -622,7 +656,7 @@ test("current commissioned fab prevents latent etch damage without reintroducing
   const qTime = fabLoss.buckets.find((bucket) => bucket.id === "q-time");
 
   expect(fabLoss).toMatchObject({
-    version: 7,
+    version: 8,
     outcome: {
       completed: 12,
       inProgress: 0,
@@ -675,7 +709,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 7,
+    version: 8,
     outcome: {
       completed: 6,
       inProgress: 4,
@@ -1163,7 +1197,7 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
     apiVersion: 7,
     propose(context) {
       const contributor = context.fabLoss?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors[0];
-      if (context.fabLoss?.version !== 7 || !contributor?.mechanism.startsWith("transport-")
+      if (context.fabLoss?.version !== 8 || !contributor?.mechanism.startsWith("transport-")
         || contributor.evidence.blockedItemTicks !== contributor.evidence.lineContentionTicks
           + contributor.evidence.endpointCapacityTicks + contributor.evidence.endpointPowerTicks
           + contributor.evidence.endpointFailureTicks) throw new Error("missing exact causal transport profile");

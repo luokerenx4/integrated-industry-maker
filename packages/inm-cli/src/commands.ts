@@ -372,6 +372,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   const snapshot = await openProjectWorkbenchSnapshot(projectDir, selection);
   const qTimeContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "q-time")?.contributors ?? [];
+  const queueContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "queue-congestion")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   const transportContributors = snapshot.lossAttribution?.buckets
@@ -468,6 +470,12 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
+      ...(queueContributors.length ? [
+        "Tracked-lot queue contributors:",
+        ...queueContributors.slice(0, 5).map((contributor) =>
+          `  ${contributor.label} · ${contributor.mechanism} · ${(contributor.evidence.queueTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.queueShare! * 100).toFixed(1)}% · ${contributor.evidence.contributingLots} lots / ${contributor.evidence.segments} segments · max ${(contributor.evidence.maximumQueueTicks! / 1000).toFixed(1)}s · ${[contributor.route, contributor.step, contributor.processes.join("+"), contributor.resources.join("+")].filter(Boolean).join(" · ")}`),
+        ...(queueContributors.length > 5 ? [`  … ${queueContributors.length - 5} more in --section losses --json`] : []),
+      ] : []),
       ...(qualityContributors.length ? [
         "Quality-origin contributors:",
         ...qualityContributors.slice(0, 5).map((contributor) => {

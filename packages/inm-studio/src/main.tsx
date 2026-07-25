@@ -2052,6 +2052,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
   const recommendation = snapshot.nextAction;
   const qTimeContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "q-time")?.contributors ?? [];
+  const queueContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "queue-congestion")?.contributors ?? [];
   const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   const transportContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
@@ -2061,6 +2062,8 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
     : [];
   const contributorMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
+    "process-queue-wait": "PROCESS INPUT QUEUE",
+    "transport-dispatch-wait": "TRANSPORT DISPATCH QUEUE",
     "batch-companion-wait": "BATCH COMPANION WAIT",
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
@@ -2153,6 +2156,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           const disposition = snapshot.lossDispositions.find((item) => item.loss === bucket.id);
           return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${disposition ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
         })}</div>
+        {queueContributors.length > 0 && <div className="q-time-contributors queue-contributors" data-testid="queue-congestion-contributors">
+          <header><span className="eyebrow">TRACKED-LOT QUEUE CONTRIBUTORS</span><small>Completed-lot queue time conserved across exact process input and transport dispatch locations · top {Math.min(5, queueContributors.length)} of {queueContributors.length}</small></header>
+          <div>{queueContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`queue-congestion-contributor-${contributor.label}`}>
+            <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.label}</strong><code>{[contributor.route, contributor.step, contributor.processes.join(" + ")].filter(Boolean).join(" · ")}</code></span>
+            <span><b>{(contributor.evidence.queueTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.queueShare! * 100).toFixed(1)}% OF QUEUE</small></span>
+            <span><b>{contributor.evidence.contributingLots}</b><small>LOTS / {contributor.evidence.segments} SEGMENTS</small></span>
+            <span><b>{(contributor.evidence.maximumQueueTicks! / 1000).toFixed(1)}s</b><small>MAX SEGMENT</small></span>
+            <code>{contributor.resources.join(" · ")} · {contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" · ")}</code>
+          </article>)}</div>
+        </div>}
         {qualityContributors.length > 0 && <div className="q-time-contributors quality-contributors" data-testid="quality-origin-contributors">
           <header><span className="eyebrow">QUALITY-ORIGIN CONTRIBUTORS</span><small>Observed defect origins followed through inspection, rework, persistence, scrap, and escape</small></header>
           <div>{qualityContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`quality-origin-contributor-${contributor.label}`}>
