@@ -1149,6 +1149,74 @@ test("focused layer-two control targets the current etch-origin defect count exa
   })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
 });
 
+test("focused back-end handoff provider batches the exact blocked die lane with explicit power priority", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
+  const input = {
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader" as const, depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform" as const, passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  };
+  const agent = new ProjectStrategyResearchAgent(root, "strategies/back-end-die-handoff-proposals.ts");
+  const proposal = await agent.propose(input);
+  const loaderIndex = project.blueprint.devices.findIndex((device) => device.id === "probe-to-packaging-loader");
+  const unloaderIndex = project.blueprint.devices.findIndex((device) => device.id === "probe-to-packaging-unloader");
+
+  expect(proposal).toMatchObject({
+    strategy: "logistics:priority-four-position-die-tray-handoff",
+    addressedLoss: "transport-blocking",
+    addressedLossTarget: {
+      contributor: "connection:probe-to-packaging:transport-line-contention",
+      metric: "blockedItemTicks",
+      direction: "decrease",
+    },
+    patch: [
+      { op: "replace", path: `/devices/${loaderIndex}/asset`, value: "die-tray-handler" },
+      { op: "add", path: `/devices/${loaderIndex}/policy`, value: { powerPriority: 8 } },
+      { op: "replace", path: `/devices/${unloaderIndex}/asset`, value: "die-tray-handler" },
+      { op: "add", path: `/devices/${unloaderIndex}/policy`, value: { powerPriority: 8 } },
+    ],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+  await expect(agent.propose({
+    ...input,
+    history: [{
+      iteration: 1,
+      strategy: proposal.strategy!,
+      hypothesis: proposal.hypothesis,
+      addressedLoss: proposal.addressedLoss,
+      decision: "REVERT",
+      score: 0,
+      scoreDelta: -1,
+    }],
+  })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
+}, 15_000);
+
 test("focused front-end queue provider binds every intervention to the exact layer-one wait contributor", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {

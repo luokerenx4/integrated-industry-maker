@@ -71,14 +71,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 15, infoCount: 12 },
-    evidence: { state: "current", runId: "090-simulate" },
+    evidence: { state: "current", runId: "091-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "090-simulate",
+    runId: "091-simulate",
     averageWip: 19.872825,
     averageTotalInventory: 116.16841666666667,
     averageExcludedInventory: 96.29559166666667,
@@ -260,8 +260,16 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeTrue();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(10);
+  expect(snapshot.counts.designPrograms).toBe(11);
   expect(snapshot.designPrograms).toEqual([
+    expect.objectContaining({
+      id: "back-end-die-handoff",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["transport-blocking"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
     expect.objectContaining({
       id: "burn-in-changeover-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
@@ -296,6 +304,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "inspection-supply-path",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["input-starvation"] },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -454,14 +463,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:commissioned-dram-fab:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
     effect: "read-only",
     requiresConfirmation: false,
-    argv: ["inm", "design", snapshot.project.rootDir, "--program", "commissioned-dram-fab", "--json"],
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "inspection-supply-path", "--json"],
+    studioRoute: "/memory-fab/designs/inspection-supply-path",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "commissioned-dram-fab",
+      programId: "inspection-supply-path",
       diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     }),
   }));
@@ -637,9 +646,9 @@ test("current inspection and yield evidence advances the shared handoff to the f
       source: expect.objectContaining({
         programId: "inspection-supply-path",
         benchmarkId: "greenfield-dram-design",
-        runId: "9ede1fd47e7006179f29e5ca9434762d7fa098c81139d15340626ee4faf0d269",
+        runId: "df85fdd774f34544e9598dd7868ca0b99457e98abc6f939c047fd0c3211939a2",
       }),
-      observed: expect.objectContaining({ runId: "090-simulate" }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 6,
         improvedCandidates: 6,
@@ -661,9 +670,9 @@ test("current inspection and yield evidence advances the shared handoff to the f
       source: expect.objectContaining({
         programId: "lithography-maintenance-convergence",
         benchmarkId: "greenfield-dram-design",
-        runId: "630b46d261c21a6c31a39d1d0ea345eebdc73d2100224e64fb01eac2fd27dde2",
+        runId: "b74253a284862a7569e943b8a3b436823f3f7d390b2b09373554486687c71414",
       }),
-      observed: expect.objectContaining({ runId: "090-simulate" }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -686,9 +695,9 @@ test("current inspection and yield evidence advances the shared handoff to the f
       source: expect.objectContaining({
         programId: "shipping-power-convergence",
         benchmarkId: "greenfield-dram-design",
-        runId: "efdf2963a73292a245dc9c562f1e6642785b7dfeec10bbf258aa5e6d6fce6227",
+        runId: "53b3a0eddf272358284e736fa86187a0f868bf992fc28ee3166ab0e604d77039",
       }),
-      observed: expect.objectContaining({ runId: "090-simulate" }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -711,9 +720,9 @@ test("current inspection and yield evidence advances the shared handoff to the f
       source: expect.objectContaining({
         programId: "release-admission-convergence",
         benchmarkId: "greenfield-dram-design",
-        runId: "1a23962af0674431da235210d017fa8cba39c296ecca06d4f61ff2e5a67ed49d",
+        runId: "f85f4cc3769246c53239e08070618d8b2e2177ab75cb36912197544be90fd859",
       }),
-      observed: expect.objectContaining({ runId: "090-simulate" }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -736,15 +745,40 @@ test("current inspection and yield evidence advances the shared handoff to the f
       source: expect.objectContaining({
         programId: "burn-in-changeover-convergence",
         benchmarkId: "greenfield-dram-design",
-        runId: "6a7626c73bf85cace72571fcd155c631d600000416841a519829eee5e9b91c12",
+        runId: "7e530131290764610d16e3b253749c7792e8dfff935841f22d6480cb4245ad59",
       }),
-      observed: expect.objectContaining({ runId: "090-simulate" }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
         rejectedCandidates: 1,
         bestObservedValue: 0,
         largestReduction: 8_000,
+        decisionBases: expect.objectContaining({ "no-current-best-improvement": 1 }),
+      }),
+    }),
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
+      loss: "transport-blocking",
+      target: {
+        contributor: "connection:probe-to-packaging:transport-line-contention",
+        metric: "blockedItemTicks",
+        direction: "decrease",
+        currentValue: 46_800,
+      },
+      source: expect.objectContaining({
+        programId: "back-end-die-handoff",
+        benchmarkId: "greenfield-dram-design",
+        runId: "f380b7f17083275669bf571a89a1c675a4bf11f88fd61b7528fcadbcc80b62ad",
+      }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 1,
+        improvedCandidates: 1,
+        rejectedCandidates: 1,
+        bestObservedValue: 0,
+        largestReduction: 46_800,
         decisionBases: expect.objectContaining({ "no-current-best-improvement": 1 }),
       }),
     }),
@@ -761,9 +795,9 @@ test("current inspection and yield evidence advances the shared handoff to the f
       source: expect.objectContaining({
         programId: "layer-two-particle-control",
         benchmarkId: "greenfield-dram-design",
-        runId: "eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb",
+        runId: "f373ce6d778faea79cc2dfee70ea36125be23a10b642178c943d700bb32b6310",
       }),
-      observed: expect.objectContaining({ runId: "090-simulate" }),
+      observed: expect.objectContaining({ runId: "091-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -780,7 +814,7 @@ test("current inspection and yield evidence advances the shared handoff to the f
     focus: { kind: "losses", losses: ["yield-quality"] },
     evidence: expect.objectContaining({
       state: "exhausted",
-      authorityRunId: "eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb",
+      authorityRunId: "f373ce6d778faea79cc2dfee70ea36125be23a10b642178c943d700bb32b6310",
       authorityAddressedLosses: ["yield-quality"],
     }),
   }));
@@ -1001,8 +1035,8 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     .toEqual(expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD" }));
   expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringContaining("design.inspect:commissioned-dram-fab:fab-loss."),
-    target: expect.objectContaining({ kind: "design-program", programId: "commissioned-dram-fab" }),
+    id: expect.stringContaining("design.inspect:inspection-supply-path:fab-loss."),
+    target: expect.objectContaining({ kind: "design-program", programId: "inspection-supply-path" }),
   }));
 }, 20_000);
 

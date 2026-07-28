@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "id": "inspection-supply-path",
-  "name": "Inspection Supply Path Convergence",
-  "description": "Close the current inspection input-starvation frontier with physically qualified etch and wafer-handoff interventions while preserving every commissioned operating case.",
+  "id": "back-end-die-handoff",
+  "name": "Back-end Die Handoff Convergence",
+  "description": "Evaluate explicit four-die tray handling with endpoint power priority against the exact Probe-to-packaging transport-blocking contributor while preserving every commissioned operating case.",
   "benchmark": "greenfield-dram-design",
   "seed": {
     "kind": "blueprint",
@@ -11,7 +11,7 @@
   "focus": {
     "kind": "losses",
     "losses": [
-      "input-starvation"
+      "transport-blocking"
     ]
   },
   "driverCase": "mixed-quality",
@@ -24,13 +24,12 @@
   },
   "proposal": {
     "kind": "project-strategy",
-    "entry": "strategies/inspection-supply-path-proposals.ts",
+    "entry": "strategies/back-end-die-handoff-proposals.ts",
     "decisionFamilies": [
-      "recipe",
       "logistics"
     ]
   },
   "budget": {
-    "maxCandidates": 7
+    "maxCandidates": 1
   }
 }

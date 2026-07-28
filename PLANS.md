@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/back-end-die-handoff-convergence]] | Turn the current Probe-to-packaging transport blocking into a focused locked Design decision using explicit die-handling equipment. | 2026-07-28 |
 | [[plans/single-pass-design-evidence]] | Reuse each locked driver-case simulation for causal Design evidence and expose honest timed case progress. | 2026-07-28 |
 | [[plans/causal-setup-changeover-design-handoff]] | Separate commissioning from recurring setup work and turn the leading burn-in transition into an exact locked-case decision. | 2026-07-28 |
 | [[plans/continuous-loss-queue-power-handoff]] | Keep the realized-loss queue continuous beyond five dispositions and turn power interruption into an exact locked-case decision. | 2026-07-28 |

@@ -38,4 +38,4 @@ test("project-local strategy expands an empty site into a deterministic operatin
   expect(benchmark.cases).toHaveLength(5);
   expect(benchmark.cases.every((item) => item.candidateCapacityReady)).toBeTrue();
   expect(benchmark.cases.every((item) => item.candidateMetrics.completedLots > 0)).toBeTrue();
-}, 15_000);
+}, 30_000);

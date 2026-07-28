@@ -21,28 +21,28 @@ test("observation brief advances past every current bounded memory-fab loss", as
   });
   expect(brief.evidence.state).toBe("compatible");
   expect(brief.evidence.run).toEqual(expect.objectContaining({
-    id: "090-simulate",
+    id: "091-simulate",
     resultHash: expect.any(String),
     decision: "BASELINE",
   }));
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "fab-loss.transport-blocking",
-    subjects: [{ kind: "connection", id: "probe-to-packaging" }],
+    code: "analysis.material-deficit",
+    subjects: [{ kind: "resource", id: "dielectric-stack-lot" }],
   }));
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
     id: "factory-overview",
     kind: "factory-overview",
-    studioRoute: "/memory-fab/factory?run=090-simulate",
+    studioRoute: "/memory-fab/factory?run=091-simulate",
     required: true,
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/connections/probe-to-packaging?run=090-simulate" }),
+    expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/resources/dielectric-stack-lot" }),
     expect.objectContaining({ kind: "analysis-evidence", studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/") }),
   ]));
-  expect(brief.views.some((view) => view.kind === "factory-focus")).toBeTrue();
+  expect(brief.views.some((view) => view.kind === "catalog-focus")).toBeTrue();
   expect(brief.handoff.requiredStatements).toHaveLength(4);
-  expect(await openFactoryObservationBrief(projectDir, {}, "090-simulate")).toEqual(brief);
+  expect(await openFactoryObservationBrief(projectDir, {}, "091-simulate")).toEqual(brief);
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
 });
 
@@ -54,7 +54,7 @@ test("observation brief exposes the exact shipping grid before power interruptio
     recursive: true,
     filter: (source) => !source.includes(powerRuns) && !source.split("/").includes(".inm"),
   });
-  const brief = await openFactoryObservationBrief(projectDir, {}, "090-simulate");
+  const brief = await openFactoryObservationBrief(projectDir, {}, "091-simulate");
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.power-interruption",
     subjects: [
@@ -64,9 +64,9 @@ test("observation brief exposes the exact shipping grid before power interruptio
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=090-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/connections/substrate-receiving-to-packaging?run=090-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/shipping-power?run=090-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=091-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/connections/substrate-receiving-to-packaging?run=091-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/shipping-power?run=091-simulate" }),
   ]));
 });
 
@@ -78,7 +78,7 @@ test("observation brief exposes the exact release boundary before release admiss
     recursive: true,
     filter: (source) => !source.includes(releaseRuns) && !source.split("/").includes(".inm"),
   });
-  const brief = await openFactoryObservationBrief(projectDir, {}, "090-simulate");
+  const brief = await openFactoryObservationBrief(projectDir, {}, "091-simulate");
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.release-admission",
     subjects: [
@@ -87,7 +87,7 @@ test("observation brief exposes the exact release boundary before release admiss
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/lot-release?run=090-simulate" }),
+    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/lot-release?run=091-simulate" }),
     expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/routes/dram-front-end" }),
   ]));
 });
@@ -100,7 +100,7 @@ test("observation brief exposes the exact equipment and service path before main
     recursive: true,
     filter: (source) => !source.includes(maintenanceRuns) && !source.split("/").includes(".inm"),
   });
-  const brief = await openFactoryObservationBrief(projectDir, {}, "090-simulate");
+  const brief = await openFactoryObservationBrief(projectDir, {}, "091-simulate");
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.maintenance-qualification",
     subjects: [
@@ -109,8 +109,8 @@ test("observation brief exposes the exact equipment and service path before main
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/lithography-1?run=090-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/maintenance-service-1?run=090-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/lithography-1?run=091-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/maintenance-service-1?run=091-simulate" }),
   ]));
 });
 
