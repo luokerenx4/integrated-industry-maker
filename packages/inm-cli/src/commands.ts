@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
@@ -13,6 +13,7 @@ import {
   CliCommandError, cliError, cliProgress, cliSuccess, compiledProjectContext, manifestProjectContext, operationProjectContext, workbenchContext, workspaceContext,
   type CliNextAction, type CliSuccessOptions,
 } from "./contract";
+import { CliExecutionFailure, CliOperationExecution } from "./execution";
 
 export interface OutputOptions { json?: boolean; section?: string }
 const write = (value: unknown, json: boolean) => process.stdout.write(json ? `${stableStringify(value, 2)}\n` : String(value));
@@ -136,10 +137,17 @@ function designPromotionBoundaryDetail(boundary: DesignRunIteration["promotionBo
   return `alternative vs leader ${signed(boundary.aggregate.scoreDelta, 6)}`;
 }
 
-function writeDesignProgress(progress: DesignRunProgress, mode: ProgressMode): void {
+function announceOperation(execution: CliOperationExecution, mode: ProgressMode): void {
+  if (mode !== "human") return;
+  const state = execution.snapshot();
+  process.stderr.write(`OPERATION ${state.id} · ${state.kind} · ${state.projectId}\n`);
+}
+
+function writeDesignProgress(progress: DesignRunProgress, mode: ProgressMode, execution: CliOperationExecution): void {
+  execution.report(progress);
   if (mode === "off") return;
   if (mode === "ndjson") {
-    process.stderr.write(`${stableStringify(cliProgress("design", progress))}\n`);
+    process.stderr.write(`${stableStringify(cliProgress("design", execution.snapshot(), progress))}\n`);
     return;
   }
   const work = `${progress.work.completedCases}/${progress.work.plannedCases}`;
@@ -167,10 +175,16 @@ function evaluationProgressMode(command: "benchmark" | "candidate", options: { j
   return (options.progress ?? (options.json ? "off" : "human")) as ProgressMode;
 }
 
-function writeBenchmarkProgress(command: "benchmark" | "candidate", progress: BlueprintBenchmarkProgress, mode: ProgressMode): void {
+function writeBenchmarkProgress(
+  command: "benchmark" | "candidate",
+  progress: BlueprintBenchmarkProgress,
+  mode: ProgressMode,
+  execution: CliOperationExecution,
+): void {
+  execution.report(progress);
   if (mode === "off") return;
   if (mode === "ndjson") {
-    process.stderr.write(`${stableStringify(cliProgress(command, progress))}\n`);
+    process.stderr.write(`${stableStringify(cliProgress(command, execution.snapshot(), progress))}\n`);
     return;
   }
   const stage = progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE";
@@ -1094,7 +1108,7 @@ export async function runsCommand(projectDir: string, options: OutputOptions): P
   else write(`${runs.map((run) => `${run.name.padEnd(52)} ${run.manifest.decision.padEnd(8)} score ${run.score.toFixed(3)}`).join("\n")}\n`, false);
 }
 
-export async function benchmarkCommand(projectDir: string, benchmarkId: string, options: { json: boolean; lock: boolean; progress?: string; section?: string }): Promise<void> {
+export async function benchmarkCommand(projectDir: string, benchmarkId: string, options: { json: boolean; lock: boolean; progress?: string; section?: string; signal?: AbortSignal }): Promise<void> {
   requireJsonSection("benchmark", options);
   const progressMode = evaluationProgressMode("benchmark", options);
   if (options.lock) {
@@ -1108,9 +1122,20 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     else write(`Locked Blueprint benchmark '${benchmark.id}' across ${benchmark.cases.length} deterministic case(s).\n`, false);
     return;
   }
-  const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, {
-    onProgress: (progress) => writeBenchmarkProgress("benchmark", progress, progressMode),
-  });
+  const projectContext = await projectDirectoryContext(projectDir);
+  if (projectContext.scope !== "project") throw new Error("Benchmark execution requires a project context");
+  const execution = new CliOperationExecution(projectContext.project.id, { kind: "benchmark", benchmarkId }, options.signal);
+  announceOperation(execution, progressMode);
+  let operation: Awaited<ReturnType<typeof evaluateBenchmarkOperation>>;
+  try {
+    operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, {
+      onProgress: (progress) => writeBenchmarkProgress("benchmark", progress, progressMode, execution),
+      signal: options.signal,
+    });
+  } catch (error) {
+    throw execution.fail(error, options.signal);
+  }
+  const executionState = execution.complete(operation.artifacts);
   const result = operation.data;
   if (options.json) {
     const data = sectionResult("benchmark", options, {
@@ -1119,7 +1144,11 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
       changes: () => ({ patch: result.patch, changes: result.changes }),
       all: () => ({ action: "evaluate", ...result }),
     });
-    writeSuccess("benchmark", { ...data, operation: operationMetadata(operation) }, { context: operationProjectContext(operation.context), diagnostics: result.reasons }); return;
+    writeSuccess("benchmark", { ...data, operation: operationMetadata(operation) }, {
+      context: operationProjectContext(operation.context),
+      diagnostics: result.reasons,
+      execution: executionState,
+    }); return;
   }
   write([
     `${result.name} · coding-agent Blueprint benchmark`,
@@ -1172,14 +1201,39 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   ].join("\n"), false);
 }
 
-export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean; progress?: string; section?: string }): Promise<void> {
+export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean; progress?: string; section?: string; signal?: AbortSignal }): Promise<void> {
   requireJsonSection("candidate", options);
   const progressMode = evaluationProgressMode("candidate", options);
-  const progress = { onProgress: (event: BlueprintBenchmarkProgress) => writeBenchmarkProgress("candidate", event, progressMode) };
-  const previewOperation = await previewCandidateOperation(projectDir, candidateId, progress);
+  const [candidate, projectContext] = await Promise.all([
+    loadCandidateChangeSet(projectDir, candidateId),
+    projectDirectoryContext(projectDir),
+  ]);
+  if (projectContext.scope !== "project") throw new Error("Candidate execution requires a project context");
+  const execution = new CliOperationExecution(projectContext.project.id, {
+    kind: options.apply ? "candidate-apply" : "candidate-preview",
+    benchmarkId: candidate.benchmark,
+    candidateId,
+  }, options.signal);
+  announceOperation(execution, progressMode);
+  const progress = {
+    onProgress: (event: BlueprintBenchmarkProgress) => writeBenchmarkProgress("candidate", event, progressMode, execution),
+    signal: options.signal,
+  };
+  let previewOperation: Awaited<ReturnType<typeof previewCandidateOperation>>;
+  try {
+    previewOperation = await previewCandidateOperation(projectDir, candidateId, progress);
+  } catch (error) {
+    throw execution.fail(error, options.signal);
+  }
   const preview = previewOperation.data;
   if (options.apply) {
-    const operation = await applyCandidateOperation(projectDir, candidateId, preview, progress);
+    let operation: Awaited<ReturnType<typeof applyCandidateOperation>>;
+    try {
+      operation = await applyCandidateOperation(projectDir, candidateId, preview, progress);
+    } catch (error) {
+      throw execution.fail(error, options.signal);
+    }
+    const executionState = execution.complete([...previewOperation.artifacts, ...operation.artifacts]);
     const applied = operation.data;
     if (options.json) { const data = sectionResult("candidate", options, {
       summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, scoreDelta: applied.result.scoreDelta, outcomeGuardrails: outcomeGuardrailSummary(applied.result), applied: true, blueprintPath: applied.blueprintPath }),
@@ -1192,6 +1246,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
         ...previewOperation.artifacts.map((artifact) => ({ kind: "candidate-review" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
         ...operation.artifacts.map((artifact) => ({ kind: "blueprint" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
       ],
+      execution: executionState,
     }); return; }
     write([
       `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
@@ -1201,6 +1256,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     ].join("\n"), false);
     return;
   }
+  const executionState = execution.complete(previewOperation.artifacts);
   if (options.json) { const data = sectionResult("candidate", options, {
     summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, scoreDelta: preview.result.scoreDelta, reasons: preview.result.reasons, outcomeGuardrails: outcomeGuardrailSummary(preview.result), patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
     proposal: () => ({ action: "preview", candidate: preview.candidate, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
@@ -1213,6 +1269,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       "candidate.apply", "Re-evaluate and apply this exact Candidate under all hash guards.",
       ["inm", "candidate", resolve(projectDir), "--candidate", preview.candidate.id, "--apply", "--json"], "mutates-project",
     )] : [],
+    execution: executionState,
   }); return; }
   write([
     `${preview.candidate.name} · candidate change set`,
@@ -1251,7 +1308,7 @@ export async function researchCommand(projectDir: string, selection: ProjectSele
   ].join("\n"), false);
 }
 
-export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; continue: boolean; promote?: string; maxCandidates?: number; progress?: string; json: boolean; section?: string }): Promise<void> {
+export async function designCommand(projectDir: string, programId: string | undefined, options: { run: boolean; runId?: string; continue: boolean; promote?: string; maxCandidates?: number; progress?: string; json: boolean; section?: string; signal?: AbortSignal }): Promise<void> {
   requireJsonSection("design", options);
   if (options.progress !== undefined && !["off", "human", "ndjson"].includes(options.progress)) throw new CliCommandError(
     "design.invalid-progress",
@@ -1288,7 +1345,11 @@ export async function designCommand(projectDir: string, programId: string | unde
     selection: { ...brief.driver.selection },
     hashes: { ...brief.driver.hashes },
   };
-  const emitExecutedRun = (result: DesignRunResult, action: "run" | "continue"): void => {
+  const emitExecutedRun = (
+    result: DesignRunResult,
+    action: "run" | "continue",
+    executionState: ReturnType<CliOperationExecution["complete"]>,
+  ): void => {
     const data = sectionResult("design", options, {
       summary: () => ({
         action,
@@ -1311,6 +1372,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     if (options.json) writeSuccess("design", data, {
       context,
       artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
+      execution: executionState,
       nextActions: [nextAction(
         `design.open:${result.manifest.resultHash}`,
         "Reopen this immutable Design Run by its content hash.",
@@ -1332,11 +1394,28 @@ export async function designCommand(projectDir: string, programId: string | unde
   if (options.runId) {
     if (options.continue) {
       const progressMode = (options.progress ?? (options.json ? "off" : "human")) as ProgressMode;
-      const result = await continueDesignRun(projectDir, programId, options.runId, {
-        ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
-        onProgress: (progress) => writeDesignProgress(progress, progressMode),
-      });
-      emitExecutedRun(result, "continue");
+      const maxCandidates = options.maxCandidates ?? brief.program.budget.maxCandidates;
+      const execution = new CliOperationExecution(brief.project.id, {
+        kind: "design-continue",
+        programId,
+        sourceResultHash: options.runId,
+        maxCandidates,
+      }, options.signal);
+      announceOperation(execution, progressMode);
+      let result: DesignRunResult;
+      try {
+        result = await continueDesignRun(projectDir, programId, options.runId, {
+          maxCandidates,
+          onProgress: (progress) => writeDesignProgress(progress, progressMode, execution),
+          signal: options.signal,
+        });
+      } catch (error) {
+        throw execution.fail(error, options.signal);
+      }
+      const executionState = execution.complete([
+        { kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true },
+      ]);
+      emitExecutedRun(result, "continue", executionState);
       return;
     }
     const result = await loadDesignRun(projectDir, programId, options.runId);
@@ -1456,33 +1535,63 @@ export async function designCommand(projectDir: string, programId: string | unde
     return;
   }
   const progressMode = (options.progress ?? (options.json ? "off" : "human")) as ProgressMode;
-  const result = await runDesignProgram(projectDir, programId, {
-    ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
-    onProgress: (progress) => writeDesignProgress(progress, progressMode),
-  });
-  emitExecutedRun(result, "run");
+  const maxCandidates = options.maxCandidates ?? brief.program.budget.maxCandidates;
+  const execution = new CliOperationExecution(brief.project.id, {
+    kind: "design-run",
+    programId,
+    maxCandidates,
+  }, options.signal);
+  announceOperation(execution, progressMode);
+  let result: DesignRunResult;
+  try {
+    result = await runDesignProgram(projectDir, programId, {
+      maxCandidates,
+      onProgress: (progress) => writeDesignProgress(progress, progressMode, execution),
+      signal: options.signal,
+    });
+  } catch (error) {
+    throw execution.fail(error, options.signal);
+  }
+  const executionState = execution.complete([
+    { kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true },
+  ]);
+  emitExecutedRun(result, "run", executionState);
 }
 
-export function formatCliError(error: unknown, json: boolean, command = "unknown"): string {
+export function formatCliError(
+  error: unknown,
+  json: boolean,
+  command = "unknown",
+  execution?: CliExecutionFailure["execution"],
+): string {
+  if (error instanceof CliExecutionFailure) return formatCliError(error.original, json, command, error.execution);
+  if (execution?.status === "cancelled") return json
+    ? `${stableStringify(cliError(command, "operation.cancelled", execution.error?.message ?? "Operation cancelled by the operator.", { execution }))}\n`
+    : `Operation cancelled [${execution.id}].\n`;
   if (error instanceof CliCommandError) return json
-    ? `${stableStringify(cliError(command, error.code, error.message, error.options), 2)}\n`
+    ? `${stableStringify(cliError(command, error.code, error.message, { ...error.options, execution: execution ?? error.options.execution }))}\n`
     : `Error [${error.code}]: ${error.message}\n`;
   if (error instanceof CandidateChangeSetError) return json
-    ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes }), 2)}\n`
+    ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes, execution }))}\n`
     : `Candidate error [${error.code}]: ${error.message}\n`;
   if (error instanceof DesignRunError) return json
-    ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes }), 2)}\n`
+    ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes, execution }))}\n`
     : `Design error [${error.code}]: ${error.message}\n`;
   if (error instanceof InmValidationError) return json
-    ? `${stableStringify(cliError(command, "validation.failed", "Project validation failed.", { issues: error.issues }), 2)}\n`
+    ? `${stableStringify(cliError(command, "validation.failed", "Project validation failed.", { issues: error.issues, execution }))}\n`
     : `Validation failed:\n${error.issues.map((issue) => `  ${issue.path} [${issue.code}] ${issue.message}`).join("\n")}\n`;
   const message = error instanceof Error ? error.message : String(error);
-  const code = isCliUsageError(error) ? "cli.usage" : "runtime.failed";
-  return json ? `${stableStringify(cliError(command, code, message), 2)}\n` : `Error: ${message}\n`;
+  const code = execution?.error?.code ?? (isCliUsageError(error) ? "cli.usage" : "runtime.failed");
+  return json ? `${stableStringify(cliError(command, code, message, { execution }))}\n` : `Error: ${message}\n`;
 }
 
 export function isCliUsageError(error: unknown): boolean {
+  if (error instanceof CliExecutionFailure) return isCliUsageError(error.original);
   const message = error instanceof Error ? error.message : String(error);
   const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
   return message.startsWith("Usage:") || message.startsWith("Unknown command '") || code.startsWith("ERR_PARSE_ARGS_");
+}
+
+export function isCliCancellationError(error: unknown): boolean {
+  return error instanceof CliExecutionFailure && error.execution.status === "cancelled";
 }

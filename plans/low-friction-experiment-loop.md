@@ -1,6 +1,6 @@
 # Low-friction experiment loop
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-28`
 - Related design: [[docs/design/development-operations]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], and [[docs/design/agent-cli-contract]].
 
@@ -41,17 +41,17 @@ This plan improves execution and feedback. It does not automate design judgment 
 - [x] `inm studio start` either serves current source or reports an exact safe blocker; it never silently reuses a stale same-project bundle.
 - [x] `inm studio status` and `/api/health` expose the same current/stale source identity for humans and Agents.
 - [x] A Studio experiment or Design operation can be left, refreshed, and reopened without losing its operation identity, completed progress, or immutable result.
-- [ ] CLI and Studio report the same phase timings, cache reuse, completion artifact, failure, and cancellation semantics.
-- [ ] The documented daily loop avoids the `836.55s` checkpoint boundary while targeted, fast, lifecycle, operation, and full checkpoint tests retain their explicit roles.
+- [x] CLI and Studio report the same phase timings, cache reuse, completion artifact, failure, and cancellation semantics.
+- [x] The documented daily loop avoids the `836.55s` checkpoint boundary while targeted, fast, lifecycle, operation, and full checkpoint tests retain their explicit roles.
 
 ## Work
 
 - [x] Add source-fresh managed Studio identity, automatic verified stale replacement, and lifecycle tests.
 - [x] Measure one cold/warm Benchmark and one focused Design invocation end to end; record compilation, cache, simulation, comparison, artifact, and UI overhead.
 - [x] Add a bounded project-local operation registry and reconnectable Studio API for experiment/Design execution.
-- [ ] Project retained operation state and resume/cancel controls in Studio and equivalent operation identity in CLI output. Studio is complete; CLI identity remains.
+- [x] Project retained operation state and resume/cancel controls in Studio and equivalent operation identity in CLI output.
 - [x] Update lifecycle, operation, CLI, and contributor documentation.
-- [ ] Complete browser lifecycle/reconnect QA, targeted checks, full checkpoint verification, commit, and push.
+- [x] Complete browser lifecycle/reconnect QA, targeted checks, full checkpoint verification, commit, and push.
 
 ## Findings and decisions
 
@@ -65,6 +65,11 @@ This plan improves execution and feedback. It does not automate design judgment 
 - 2026-07-28 — Studio now owns Benchmark, Candidate preview, Design run, and continuation work by project-local operation id. Ignored snapshots retain up to `256` Core progress events plus result/error, explicitly cancel at a safe case boundary, mark unfinished work interrupted after server restart, and retain only the newest `16` terminal operations per project.
 - 2026-07-28 — Recovery discovery must not transfer every retained result. The first implementation made `/operations` a `1,792,711`-byte payload after three real operations; lightweight summaries reduced it to `1,458` bytes, and one hard Experiment navigation reached its recovered result in `1.52s`.
 - 2026-07-28 — Operation ordering uses a monotonic `createdOrder`, not wall-clock milliseconds plus random UUID. This makes “recover newest exact subject” deterministic when several requests start inside one millisecond.
+- 2026-07-28 — The lifecycle shape now lives in Core rather than Studio. CLI V2 and Studio share exact subjects, status, progress, timing, artifact, error, and cancellation fields while CLI remains an in-process invocation that does not pretend it can resume after its process exits.
+- 2026-07-28 — Candidate Apply was still a long response-bound re-evaluation plus guarded write after Preview had become reconnectable. It is now a retained `candidate-apply` operation too; cancellation remains before the atomic Blueprint write boundary.
+- 2026-07-28 — One CLI `SIGINT`/`SIGTERM` is cooperative and exits `130`; a second signal is immediate termination. NDJSON progress and the compact terminal error retain one operation id, stdout remains empty, and cancelled Design writes no partial immutable evidence.
+- 2026-07-28 — Browser code imports the execution contract through the explicit `@inm/core/operation-execution` subpath. Importing its runtime helper through the Core aggregate entry pulled Node-only Device runtime exports into the browser build and was rejected rather than hidden behind bundler configuration.
+- 2026-07-28 — Cancellation authority ends at Core's commit boundary. A final audit found that an outer post-run signal check could label an already-written Candidate/Design artifact cancelled; the registry now accepts Core completion as terminal authority and retains a late cancellation timestamp without denying the committed result.
 
 ## Verification
 
@@ -86,6 +91,18 @@ This plan improves execution and feedback. It does not automate design judgment 
 - Live Benchmark recovery — operation `ms4ovg4z-40b…` completed independently with four retained progress events and `DISCARD`; a newly opened Experiment route recovered the same id and full result.
 - Live Design cancellation — operation `ms4oxptr-7e6…` was recovered in Studio at `21/45`, explicitly cancelled, stopped at `24/45`, retained `58` progress events, returned no result, and displayed `studio.operation-cancelled`.
 - Live managed Studio — port `4176`, PID `42007`, source `current`; `/operations` is `1,458` bytes and recovered Experiment navigation completed in approximately `1.52s`.
+- `bun test packages/inm-cli/src/commands.test.ts --test-name-pattern "public CLI cancellation"` — one real memory-fab Benchmark process accepted `SIGINT`, retained its id across progress/error records, returned `operation.cancelled`, exited `130`, emitted no stdout, and wrote no artifact in `0.17s`.
+- `bun test packages/inm-cli/src/commands.test.ts --test-name-pattern "current memory-fab Benchmark exposes"` — the public ten-case Benchmark path retained one execution id across `20` timed/cache-aware progress events and the completed V2 envelope in `8.18s`.
+- `bun test packages/inm-cli/src/commands.test.ts --test-name-pattern "CLI-only operator discovers"` — public Candidate preview/apply/stale-replay behavior passed with completed execution artifacts in `29.73s`.
+- `bun test packages/inm-cli/src/commands.test.ts --test-name-pattern "public Design Program workflow"` — initial Design, continuation, immutable artifact, and execution/progress identity passed `71` assertions in `71.72s`.
+- `bun test packages/inm-studio/src/server.test.ts` — all `5` Studio server suites and `451` assertions passed in `84.83s`, including reconnectable Candidate Apply and the complete memory-fab Design chain.
+- `bun run check:fast` — documentation, all TypeScript contracts, and `26` short tests / `167` assertions passed in `11.9s`.
+- Final-audit `bun run check:fast` — documentation, all TypeScript contracts, and `27` short tests / `168` assertions passed in `12.5s`, including the late-cancellation/committed-result race.
+- Live managed Studio V2 — stale PID `42007` was safely replaced by source-current PID `51594`; status reports matching source hash `4f6c6187bd03…`.
+- Browser QA — `/memory-fab/factory` opened current immutable run `091-simulate`; a new `equipment-energy-research` operation showed RUNNING as `ms4q2ekq-421…`, and immediate route navigation recovered the same id as COMPLETED with its verdict.
+- Pre-audit `bun run test` — documentation, all TypeScript projects, `276` tests / `2608` assertions, and all eight public Ironworks fixtures passed in `730.40s` plus fixture execution.
+- Final exact-source `bun run test` — after the late-cancellation commit-boundary fix, documentation, all TypeScript projects, `277` tests / `2585` assertions, and all eight public Ironworks fixtures passed in `654.84s` plus fixture execution.
+- Final managed Studio restart/status — port `4176`, PID `60036`, protocol V2, expected/running hash `e1cb7c98119b…`, source `current`.
 
 ## Progress log
 
@@ -93,7 +110,11 @@ This plan improves execution and feedback. It does not automate design judgment 
 - 2026-07-28 — Completed the source-current lifecycle slice. The plan remains active for measured experiment-loop profiling and reconnectable long operations.
 - 2026-07-28 — Completed isolated cold/warm Benchmark and focused Design profiling. Selected the bounded project-local operation registry and reconnectable API as the next implementation slice.
 - 2026-07-28 — Completed the Studio reconnect/cancel slice and real memory-fab browser QA. CLI execution identity/parity and the intentional full checkpoint remain before plan completion.
+- 2026-07-28 — Completed shared Core execution identity, CLI V2 progress/success/failure projection, signal cancellation, reconnectable Candidate Apply, targeted public-binary verification, and live browser recovery. Only the intentional full repository checkpoint and saved commit remain.
+- 2026-07-28 — Completed the intentional exact-source repository checkpoint with `277` tests, `2585` assertions, and eight public fixtures. All acceptance items are satisfied and the plan is complete.
 
 ## Completion
 
-Complete this section only when status becomes `completed`. Record the source-fresh lifecycle behavior, measured experiment-loop timing, reconnect/cancel semantics, verification evidence, and any measured performance follow-up that deserves a separate plan.
+Managed Studio now binds one safe PID/port owner to the exact runtime-source fingerprint and replaces only a verified stale same-project process. Studio Benchmark, Candidate preview/apply, Design run, and continuation work are bounded project-local operations that survive navigation, recover exact progress/results, and cancel only through an explicit safe Core boundary. CLI V2 uses the same lifecycle state, timing/cache progress, terminal artifacts, errors, and cancellation semantics without depending on Studio; one signal returns `130` and no partial result.
+
+The daily boundary remains `bun run check:fast` at roughly twelve seconds, while the full repository checkpoint is an intentional save/ship boundary. Profiling still identifies fresh deterministic simulation as more than 94% of a warm focused Design run. Reconnectability removes operator blockage without weakening candidate evaluation; any further simulator improvement should start from a separate measured plan rather than speculative caching or autonomous optimization.

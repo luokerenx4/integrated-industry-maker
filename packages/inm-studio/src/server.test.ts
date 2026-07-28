@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
 import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
-import { isTerminalStudioOperation, type StudioOperationSnapshot, type StudioOperationStartResponse } from "./studio-operation-contract";
+import { isTerminalOperationExecution, type OperationExecutionSnapshot, type OperationExecutionStartResponse } from "@inm/core";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
@@ -12,17 +12,17 @@ async function terminalStudioOperation<TResult>(
   port: number,
   projectId: string,
   response: Response,
-): Promise<StudioOperationSnapshot<TResult>> {
+): Promise<OperationExecutionSnapshot<TResult>> {
   expect([200, 202]).toContain(response.status);
-  const started = await response.json() as StudioOperationStartResponse<TResult>;
+  const started = await response.json() as OperationExecutionStartResponse<TResult>;
   expect(started.operation.id).toMatch(/^[0-9a-z-]{12,80}$/);
   for (let attempt = 0; attempt < 2_000; attempt++) {
     const current = await fetch(
       `http://localhost:${port}/api/projects/${encodeURIComponent(projectId)}/operations/${encodeURIComponent(started.operation.id)}`,
     );
     expect(current.status).toBe(200);
-    const snapshot = (await current.json() as { operation: StudioOperationSnapshot<TResult> }).operation;
-    if (isTerminalStudioOperation(snapshot.status)) return snapshot;
+    const snapshot = (await current.json() as { operation: OperationExecutionSnapshot<TResult> }).operation;
+    if (isTerminalOperationExecution(snapshot.status)) return snapshot;
     await Bun.sleep(10);
   }
   throw new Error(`Studio operation '${started.operation.id}' did not complete`);
@@ -32,7 +32,7 @@ async function completedStudioOperation<TResult>(
   port: number,
   projectId: string,
   response: Response,
-): Promise<StudioOperationSnapshot<TResult>> {
+): Promise<OperationExecutionSnapshot<TResult>> {
   const snapshot = await terminalStudioOperation<TResult>(port, projectId, response);
   if (snapshot.status !== "completed") throw new Error(`${snapshot.error?.code}: ${snapshot.error?.message}`);
   return snapshot;
@@ -419,7 +419,18 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const applyResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/apply`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preview),
     });
-    expect(applyResponse.status).toBe(200);
+    const applyOperation = await completedStudioOperation<{
+      applied: boolean;
+      operation: { operation: string; effect: string };
+    }>(port, "ironworks", applyResponse);
+    expect(applyOperation).toEqual(expect.objectContaining({
+      kind: "candidate-apply",
+      artifacts: [expect.objectContaining({ kind: "blueprint", immutable: false })],
+      result: expect.objectContaining({
+        applied: true,
+        operation: expect.objectContaining({ operation: "candidate.apply", effect: "mutates-blueprint" }),
+      }),
+    }));
     expect(await readFile(candidateBlueprintPath, "utf8")).not.toBe(beforePreview);
     const verifiedReview = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/review`);
     expect(await verifiedReview.json()).toEqual(expect.objectContaining({ state: "verified" }));
@@ -634,8 +645,12 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const commissioningApplyResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${commissionedCandidate}/apply`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(commissioningPreview),
     });
-    expect(commissioningApplyResponse.status).toBe(200);
-    expect(await commissioningApplyResponse.json()).toEqual(expect.objectContaining({
+    const commissioningApply = await completedStudioOperation<{
+      applied: boolean;
+      proposedCandidateHash: string;
+      operation: { operation: string; effect: string };
+    }>(port, "memory-fab", commissioningApplyResponse);
+    expect(commissioningApply.result).toEqual(expect.objectContaining({
       applied: true,
       proposedCandidateHash: commissioningPreview.proposedCandidateHash,
       operation: expect.objectContaining({ operation: "candidate.apply", effect: "mutates-blueprint" }),

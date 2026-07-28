@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
 import { StudioOperationRegistry } from "./operation-registry";
-import { isTerminalStudioOperation } from "./studio-operation-contract";
+import { isTerminalOperationExecution } from "@inm/core";
 
 async function project(): Promise<string> {
   return mkdtemp(join(tmpdir(), "inm-studio-operation-"));
@@ -12,7 +12,7 @@ async function project(): Promise<string> {
 async function completed(registry: StudioOperationRegistry, root: string, id: string) {
   for (let attempt = 0; attempt < 100; attempt++) {
     const snapshot = await registry.get(root, id);
-    if (snapshot && isTerminalStudioOperation(snapshot.status)) return snapshot;
+    if (snapshot && isTerminalOperationExecution(snapshot.status)) return snapshot;
     await Bun.sleep(5);
   }
   throw new Error(`Operation '${id}' did not complete`);
@@ -27,7 +27,7 @@ test("Studio operation registry retains progress and result independently of the
       case: { id: "base", name: "Base", index: 1, total: 1 },
       work: { completed: 0, total: 2 }, evaluationId: "benchmark:bounded", timing: {},
     });
-    return { verdict: "KEEP" };
+    return { result: { verdict: "KEEP" }, artifacts: [] };
   });
   expect(started.reused).toBeFalse();
 
@@ -54,9 +54,12 @@ test("Studio operation registry deduplicates active exact subjects and cancels t
     await new Promise<void>((resolve, reject) => {
       signal.addEventListener("abort", () => reject(signal.reason), { once: true });
     });
-    return { completed: true };
+    return { result: { completed: true }, artifacts: [] };
   });
-  const reused = await registry.start(root, "test-project", subject, async () => ({ unreachable: true }));
+  const reused = await registry.start(root, "test-project", subject, async () => ({
+    result: { unreachable: true },
+    artifacts: [],
+  }));
   expect(reused.reused).toBeTrue();
   expect(reused.operation.id).toBe(started.operation.id);
 
@@ -65,7 +68,33 @@ test("Studio operation registry deduplicates active exact subjects and cancels t
   const cancelled = await completed(registry, root, started.operation.id);
   expect(cancelled).toEqual(expect.objectContaining({
     status: "cancelled",
-    error: { code: "studio.operation-cancelled", message: "Operation cancelled by the operator." },
+    error: { code: "operation.cancelled", message: "Operation cancelled by the operator." },
+  }));
+});
+
+test("Studio operation completion wins when cancellation arrives after the runner's commit boundary", async () => {
+  const root = await project();
+  const registry = new StudioOperationRegistry();
+  let release!: () => void;
+  const committed = new Promise<void>((resolve) => { release = resolve; });
+  const started = await registry.start(root, "test-project", {
+    kind: "candidate-apply", benchmarkId: "bounded", candidateId: "accepted",
+  }, async () => {
+    await committed;
+    return {
+      result: { applied: true },
+      artifacts: [{ kind: "blueprint", id: "candidate", path: "/tmp/candidate.json", immutable: false }],
+    };
+  });
+  await registry.cancel(root, started.operation.id);
+  release();
+  const finished = await completed(registry, root, started.operation.id);
+  expect(finished).toEqual(expect.objectContaining({
+    status: "completed",
+    cancelRequestedAt: expect.any(String),
+    result: { applied: true },
+    artifacts: [{ kind: "blueprint", id: "candidate", path: "/tmp/candidate.json", immutable: false }],
+    error: null,
   }));
 });
 
@@ -78,7 +107,7 @@ test("Studio operation registry reports an orphaned running snapshot as interrup
   const reopened = await new StudioOperationRegistry().get(root, started.operation.id);
   expect(reopened).toEqual(expect.objectContaining({
     status: "interrupted",
-    error: expect.objectContaining({ code: "studio.operation-interrupted" }),
+    error: expect.objectContaining({ code: "operation.interrupted" }),
   }));
 });
 
@@ -86,7 +115,10 @@ test("Studio operation registry bounds retained terminal snapshots per project",
   const root = await project();
   const registry = new StudioOperationRegistry(2);
   for (const benchmarkId of ["one", "two", "three"]) {
-    const started = await registry.start(root, "test-project", { kind: "benchmark", benchmarkId }, async () => ({ benchmarkId }));
+    const started = await registry.start(root, "test-project", { kind: "benchmark", benchmarkId }, async () => ({
+      result: { benchmarkId },
+      artifacts: [],
+    }));
     await completed(registry, root, started.operation.id);
   }
   const snapshots = await registry.list(root);

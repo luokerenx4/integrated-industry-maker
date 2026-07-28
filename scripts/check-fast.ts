@@ -15,6 +15,7 @@ const checks: Check[] = [
     argv: [
       "test",
       "packages/inm-core/src/artifact-schema.test.ts",
+      "packages/inm-cli/src/execution.test.ts",
       "packages/inm-studio/src/design-workbench.test.ts",
       "packages/inm-studio/src/factory-presentation.test.ts",
       "packages/inm-studio/src/operation-registry.test.ts",

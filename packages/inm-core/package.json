@@ -7,6 +7,7 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./operation-execution": "./src/operation-execution.ts",
     "./transport-blocking": "./src/transport-blocking.ts"
   },
   "dependencies": {

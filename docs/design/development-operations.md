@@ -1,6 +1,6 @@
 # Development operations
 
-Status: managed lifecycle, bounded feedback loops, observable evaluation, and single-pass Design driver evidence implemented.
+Status: managed lifecycle, bounded feedback loops, reconnectable Studio work, and cooperative CLI execution implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/agent-cli-contract]], [[docs/design/operator-workbench]], [[docs/CLI]], [[plans/low-friction-development-operations]].
 
@@ -44,9 +44,11 @@ Design execution likewise avoids duplicate work without caching Candidate decisi
 
 Studio Benchmark, Candidate preview, Design run, and Design continuation are server-owned operations rather than response-owned streams. Starting work returns a project-local operation id; closing the modal, navigating, refreshing, or losing a browser connection only detaches the observer. Reopening the same Experiment or Design Program discovers the newest exact-subject operation and resumes progress/result polling.
 
-Cancellation is explicit and cooperative. The registry records the request, aborts the running evaluator, and Core checks the signal between exact locked case evaluations. A cancelled Design writes no partial immutable run. A server restart cannot recover process memory, so an unfinished persisted snapshot becomes `interrupted` with an exact error while any already completed immutable evidence remains independently reopenable.
+Cancellation is explicit and cooperative. The registry records the request, aborts the running evaluator, and Core checks the signal between exact locked case evaluations. A cancelled Design writes no partial immutable run. Once Core has crossed its atomic write/artifact boundary and returned completion, that result wins even if the request raced with completion; the registry retains the late `cancelRequestedAt` but does not invent a cancelled state around committed work. A server restart cannot recover process memory, so an unfinished persisted snapshot becomes `interrupted` with an exact error while any already completed immutable evidence remains independently reopenable.
 
 Operational snapshots live below ignored `.inm/operations/`, retain a bounded progress log and result, and are limited to sixteen terminal records per project. They are recovery aids, not factory evidence and not a substitute for immutable Runs, Design Runs, or Candidate review receipts.
+
+CLI Benchmark, Candidate preview/apply, Design run, and Design continuation do not depend on Studio persistence, but they use the same execution state and Core cancellation boundary. Human progress prints the operation id first. NDJSON progress repeats that id with timing/cache state, and the final success or failure envelope closes it. One `SIGINT`/`SIGTERM` requests cooperative cancellation and returns `130`; a second signal terminates immediately. This keeps terminal and headless Agent use honest without inventing resumability after the CLI process itself exits.
 
 ## Source of truth
 

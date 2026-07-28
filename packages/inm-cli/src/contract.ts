@@ -1,6 +1,6 @@
-import type { CompiledFactoryProject, InmManifest, ProjectHashes, ProjectOperationContext, ProjectWorkbenchSnapshot } from "@inm/core";
+import type { CompiledFactoryProject, InmManifest, OperationExecutionState, ProjectHashes, ProjectOperationContext, ProjectWorkbenchSnapshot } from "@inm/core";
 
-export const CLI_SCHEMA_VERSION = 1 as const;
+export const CLI_SCHEMA_VERSION = 2 as const;
 
 export interface CliProjectIdentity {
   id: string;
@@ -47,6 +47,7 @@ export interface CliSuccessEnvelope<T = unknown> {
   diagnostics: unknown[];
   artifacts: CliArtifact[];
   nextActions: CliNextAction[];
+  execution: OperationExecutionState | null;
 }
 
 export interface CliErrorIssue {
@@ -67,12 +68,14 @@ export interface CliErrorEnvelope {
     issues: CliErrorIssue[];
     hashes: Record<string, string>;
   };
+  execution: OperationExecutionState | null;
 }
 
 export interface CliProgressEnvelope<T = unknown> {
   schemaVersion: typeof CLI_SCHEMA_VERSION;
   type: "progress";
   command: string;
+  execution: OperationExecutionState;
   progress: T;
 }
 
@@ -81,13 +84,14 @@ export interface CliSuccessOptions {
   diagnostics?: unknown[];
   artifacts?: CliArtifact[];
   nextActions?: CliNextAction[];
+  execution?: OperationExecutionState;
 }
 
 export class CliCommandError extends Error {
   constructor(
     public readonly code: string,
     message: string,
-    public readonly options: { context?: CliContext; retryable?: boolean; issues?: CliErrorIssue[]; hashes?: Record<string, string> } = {},
+    public readonly options: { context?: CliContext; retryable?: boolean; issues?: CliErrorIssue[]; hashes?: Record<string, string>; execution?: OperationExecutionState } = {},
   ) {
     super(message);
     this.name = "CliCommandError";
@@ -104,11 +108,12 @@ export function cliSuccess<T>(command: string, data: T, options: CliSuccessOptio
     diagnostics: options.diagnostics ?? [],
     artifacts: options.artifacts ?? [],
     nextActions: options.nextActions ?? [],
+    execution: options.execution ?? null,
   };
 }
 
-export function cliProgress<T>(command: string, progress: T): CliProgressEnvelope<T> {
-  return { schemaVersion: CLI_SCHEMA_VERSION, type: "progress", command, progress };
+export function cliProgress<T>(command: string, execution: OperationExecutionState, progress: T): CliProgressEnvelope<T> {
+  return { schemaVersion: CLI_SCHEMA_VERSION, type: "progress", command, execution, progress };
 }
 
 export function cliError(command: string, code: string, message: string, options: {
@@ -116,6 +121,7 @@ export function cliError(command: string, code: string, message: string, options
   retryable?: boolean;
   issues?: CliErrorIssue[];
   hashes?: Record<string, string>;
+  execution?: OperationExecutionState;
 } = {}): CliErrorEnvelope {
   return {
     schemaVersion: CLI_SCHEMA_VERSION,
@@ -123,6 +129,7 @@ export function cliError(command: string, code: string, message: string, options
     command,
     context: options.context ?? { scope: "global" },
     error: { code, message, retryable: options.retryable ?? false, issues: options.issues ?? [], hashes: options.hashes ?? {} },
+    execution: options.execution ?? null,
   };
 }
 

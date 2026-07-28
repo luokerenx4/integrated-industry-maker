@@ -22,7 +22,7 @@ Factory design nevertheless requires both projections. Before authoring a substa
 
 Fixed baseline evaluation is content-addressed below the project's ignored `.inm/cache/benchmark-baselines/` directory. Its identity binds engine version, Benchmark contract, exact case/seed, and every locked project hash. Core still loads, compiles, and lock-checks the baseline before reading the cache; a missing, malformed, corrupted, or identity-mismatched entry is recomputed and atomically replaced. Candidate evaluation, acceptance, patches, and decisions are always recomputed. The operation projection's `baselineCache` reports hits and misses through CLI and Studio so reduced wall time is visible rather than implicit; operational cache state never enters immutable Benchmark/Design evidence or its result hash.
 
-Core also owns one operational `BlueprintBenchmarkProgress` V2 stream. Every baseline and Candidate case has ordered start/completion events, completed/total work, explicit cache reuse, and separate compilation, cache-read, simulation, and comparison timings. CLI projects it on stderr; Studio requests `application/x-ndjson` and renders the same event before the final result exists. Timings and transport envelopes are diagnostic state only and never enter the evaluator verdict or immutable evidence.
+Core also owns one operational `BlueprintBenchmarkProgress` V2 stream. Every baseline and Candidate case has ordered start/completion events, completed/total work, explicit cache reuse, and separate compilation, cache-read, simulation, and comparison timings. CLI projects it beside the shared execution identity on stderr; Studio retains it in the project-local operation registry and polls the same identity independently of page lifetime. Timings and transport envelopes are diagnostic state only and never enter the evaluator verdict or immutable evidence.
 
 Design wraps that same stream as `DesignRunProgress` V3 without discarding its timing or cache evidence. It reports completed/planned case evaluations rather than simulations, because a hash-checked baseline cache hit is real evaluation work but not a fresh physical run. The already evaluated driver case supplies an ephemeral exact trace for proposal diagnosis and causal-target comparison. A continuation-only driver replay is named as its own progress phase instead of appearing as invisible work. CLI and Studio project this identical contract; none of it enters immutable Design identity.
 
@@ -134,7 +134,8 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 - [x] Immutable review receipt, reload-safe decision phase, and post-write verification.
 - [x] Core, CLI, API, and browser tests against `examples/memory-fab`.
 - [x] Exact immutable Design continuation through Core, CLI discovery/NDJSON, Studio API/control, and real memory-fab evidence.
-- [x] Reconnectable Studio Benchmark, Candidate preview, Design run, and continuation operations with bounded retained progress/result state and explicit cancellation.
+- [x] Reconnectable Studio Benchmark, Candidate preview/apply, Design run, and continuation operations with bounded retained progress/result state and explicit cancellation.
+- [x] Shared CLI/Studio execution identity, phase timing/cache projection, terminal artifacts, failure codes, and safe cancellation semantics.
 - [x] Greenfield Candidate commissioning, checked-in receipt/provenance, proposed-context compilation, and honest post-apply Studio state.
 - [x] Exact-factory commissioned optimization, value-aware burn-in Candidate, five-case review receipt, and verified apply.
 - [x] Shared Objective-component causality across Core, CLI, Studio, and project-local Design providers.

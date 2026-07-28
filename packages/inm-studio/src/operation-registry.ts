@@ -3,24 +3,28 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promise
 import { join } from "node:path";
 import { stableStringify } from "@inm/core";
 import {
-  isTerminalStudioOperation,
-  type StudioOperationError,
-  type StudioOperationProgress,
-  type StudioOperationSnapshot,
-  type StudioOperationStartResponse,
-  type StudioOperationSubject,
-} from "./studio-operation-contract";
+  createOperationExecutionState,
+  isTerminalOperationExecution,
+  isOperationExecutionCancellation,
+  operationExecutionError,
+  type OperationExecutionCompletion,
+  type OperationExecutionProgress,
+  type OperationExecutionSnapshot,
+  type OperationExecutionStartResponse,
+  type OperationExecutionSubject,
+} from "@inm/core";
 
 interface RuntimeOperation {
   projectDir: string;
   controller: AbortController;
-  snapshot: StudioOperationSnapshot;
+  snapshot: OperationExecutionSnapshot;
   persistence: Promise<void>;
+  startedPerformanceMs: number;
 }
 
 export interface StudioOperationRunnerContext {
   signal: AbortSignal;
-  report: (progress: StudioOperationProgress) => void;
+  report: (progress: OperationExecutionProgress) => void;
 }
 
 const OPERATION_ID = /^[0-9a-z-]{12,80}$/;
@@ -34,32 +38,21 @@ function operationPath(projectDir: string, operationId: string): string {
   return join(operationDirectory(projectDir), `${operationId}.json`);
 }
 
-function snapshotError(error: unknown): StudioOperationError {
-  const value = error as { code?: unknown; message?: unknown };
-  return {
-    code: typeof value?.code === "string" ? value.code : "studio.operation-failed",
-    message: typeof value?.message === "string" ? value.message : String(error),
-  };
-}
-
-function aborted(error: unknown, signal: AbortSignal): boolean {
-  return signal.aborted || (error instanceof DOMException && error.name === "AbortError")
-    || (error instanceof Error && error.name === "AbortError");
-}
-
-function parseSnapshot(value: unknown): StudioOperationSnapshot | null {
+function parseSnapshot(value: unknown): OperationExecutionSnapshot | null {
   if (!value || typeof value !== "object") return null;
-  const snapshot = value as Partial<StudioOperationSnapshot>;
+  const snapshot = value as Partial<OperationExecutionSnapshot>;
   if (snapshot.version !== 1 || typeof snapshot.id !== "string" || !OPERATION_ID.test(snapshot.id)
     || typeof snapshot.projectId !== "string" || typeof snapshot.kind !== "string"
     || typeof snapshot.status !== "string" || !snapshot.subject || typeof snapshot.subject !== "object"
     || typeof snapshot.createdOrder !== "number" || !Number.isSafeInteger(snapshot.createdOrder)
     || typeof snapshot.createdAt !== "string" || typeof snapshot.updatedAt !== "string"
-    || !Array.isArray(snapshot.progressLog)) return null;
-  return snapshot as StudioOperationSnapshot;
+    || typeof snapshot.progressEvents !== "number" || !Number.isSafeInteger(snapshot.progressEvents)
+    || !Array.isArray(snapshot.progressLog) || !Array.isArray(snapshot.artifacts)
+    || (snapshot.durationMs !== null && typeof snapshot.durationMs !== "number")) return null;
+  return snapshot as OperationExecutionSnapshot;
 }
 
-function operationKey(projectDir: string, subject: StudioOperationSubject): string {
+function operationKey(projectDir: string, subject: OperationExecutionSubject): string {
   return `${projectDir}\0${stableStringify(subject)}`;
 }
 
@@ -74,41 +67,30 @@ export class StudioOperationRegistry {
   async start<TResult>(
     projectDir: string,
     projectId: string,
-    subject: StudioOperationSubject,
-    runner: (context: StudioOperationRunnerContext) => Promise<TResult>,
-  ): Promise<StudioOperationStartResponse<TResult>> {
+    subject: OperationExecutionSubject,
+    runner: (context: StudioOperationRunnerContext) => Promise<OperationExecutionCompletion<TResult>>,
+  ): Promise<OperationExecutionStartResponse<TResult>> {
     const key = operationKey(projectDir, subject);
     const active = [...this.runtime.values()].find((entry) =>
       operationKey(entry.projectDir, entry.snapshot.subject) === key
-      && !isTerminalStudioOperation(entry.snapshot.status));
-    if (active) return { operation: structuredClone(active.snapshot) as StudioOperationSnapshot<TResult>, reused: true };
+      && !isTerminalOperationExecution(entry.snapshot.status));
+    if (active) return { operation: structuredClone(active.snapshot) as OperationExecutionSnapshot<TResult>, reused: true };
 
-    const now = new Date().toISOString();
+    const now = new Date();
     const createdOrder = Math.max(Date.now() * 1_000, this.lastCreatedOrder + 1);
     this.lastCreatedOrder = createdOrder;
-    const snapshot: StudioOperationSnapshot<TResult> = {
-      version: 1,
-      id: `${Date.now().toString(36)}-${randomUUID()}`,
-      projectId,
-      kind: subject.kind,
-      subject,
-      status: "running",
+    const snapshot: OperationExecutionSnapshot<TResult> = {
+      ...createOperationExecutionState(projectId, subject, now),
       createdOrder,
-      createdAt: now,
-      startedAt: now,
-      updatedAt: now,
-      completedAt: null,
-      cancelRequestedAt: null,
-      progress: null,
       progressLog: [],
       result: null,
-      error: null,
     };
     const entry: RuntimeOperation = {
       projectDir,
       controller: new AbortController(),
       snapshot,
       persistence: Promise.resolve(),
+      startedPerformanceMs: performance.now(),
     };
     this.runtime.set(snapshot.id, entry);
     await this.persist(entry);
@@ -116,20 +98,20 @@ export class StudioOperationRegistry {
     return { operation: structuredClone(snapshot), reused: false };
   }
 
-  async list(projectDir: string): Promise<StudioOperationSnapshot[]> {
+  async list(projectDir: string): Promise<OperationExecutionSnapshot[]> {
     const snapshots = await this.loadAll(projectDir);
-    const retained: StudioOperationSnapshot[] = [];
+    const retained: OperationExecutionSnapshot[] = [];
     let terminalCount = 0;
     for (const snapshot of snapshots) {
-      if (isTerminalStudioOperation(snapshot.status) && ++terminalCount > this.retention) continue;
+      if (isTerminalOperationExecution(snapshot.status) && ++terminalCount > this.retention) continue;
       retained.push(snapshot);
     }
     return retained;
   }
 
-  private async loadAll(projectDir: string): Promise<StudioOperationSnapshot[]> {
+  private async loadAll(projectDir: string): Promise<OperationExecutionSnapshot[]> {
     await mkdir(operationDirectory(projectDir), { recursive: true });
-    const disk = new Map<string, StudioOperationSnapshot>();
+    const disk = new Map<string, OperationExecutionSnapshot>();
     for (const entry of await readdir(operationDirectory(projectDir), { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
       const snapshot = await this.get(projectDir, entry.name.slice(0, -5));
@@ -142,10 +124,10 @@ export class StudioOperationRegistry {
       right.createdOrder - left.createdOrder || right.id.localeCompare(left.id));
   }
 
-  async get(projectDir: string, operationId: string): Promise<StudioOperationSnapshot | null> {
+  async get(projectDir: string, operationId: string): Promise<OperationExecutionSnapshot | null> {
     const active = this.runtime.get(operationId);
     if (active?.projectDir === projectDir) {
-      if (isTerminalStudioOperation(active.snapshot.status)) await active.persistence;
+      if (isTerminalOperationExecution(active.snapshot.status)) await active.persistence;
       return structuredClone(active.snapshot);
     }
     const snapshot = await this.read(projectDir, operationId);
@@ -156,56 +138,60 @@ export class StudioOperationRegistry {
       snapshot.updatedAt = now;
       snapshot.completedAt = now;
       snapshot.error = {
-        code: "studio.operation-interrupted",
+        code: "operation.interrupted",
         message: "Studio restarted before this operation reached an immutable result.",
       };
+      snapshot.durationMs = snapshot.startedAt === null
+        ? null
+        : Math.max(0, Date.parse(now) - Date.parse(snapshot.startedAt));
       await this.write(projectDir, snapshot);
     }
     return snapshot;
   }
 
-  async cancel(projectDir: string, operationId: string): Promise<StudioOperationSnapshot | null> {
+  async cancel(projectDir: string, operationId: string): Promise<OperationExecutionSnapshot | null> {
     const entry = this.runtime.get(operationId);
     if (!entry || entry.projectDir !== projectDir) return this.get(projectDir, operationId);
-    if (isTerminalStudioOperation(entry.snapshot.status)) return structuredClone(entry.snapshot);
+    if (isTerminalOperationExecution(entry.snapshot.status)) return structuredClone(entry.snapshot);
     const now = new Date().toISOString();
     entry.snapshot.cancelRequestedAt = now;
     entry.snapshot.updatedAt = now;
-    entry.controller.abort(new DOMException("Studio operation cancelled", "AbortError"));
+    entry.controller.abort(new DOMException("Operation cancelled by the operator", "AbortError"));
     await this.persist(entry);
     return structuredClone(entry.snapshot);
   }
 
   private async execute<TResult>(
     entry: RuntimeOperation,
-    runner: (context: StudioOperationRunnerContext) => Promise<TResult>,
+    runner: (context: StudioOperationRunnerContext) => Promise<OperationExecutionCompletion<TResult>>,
   ): Promise<void> {
     try {
-      const result = await runner({
+      const completion = await runner({
         signal: entry.controller.signal,
         report: (progress) => {
           entry.snapshot.progress = structuredClone(progress);
           entry.snapshot.progressLog.push(structuredClone(progress));
+          entry.snapshot.progressEvents += 1;
           if (entry.snapshot.progressLog.length > 256) entry.snapshot.progressLog.splice(0, entry.snapshot.progressLog.length - 256);
           entry.snapshot.updatedAt = new Date().toISOString();
           void this.persist(entry);
         },
       });
-      entry.controller.signal.throwIfAborted();
       const now = new Date().toISOString();
       entry.snapshot.status = "completed";
-      entry.snapshot.result = result;
+      entry.snapshot.result = completion.result;
+      entry.snapshot.artifacts = structuredClone(completion.artifacts);
       entry.snapshot.error = null;
       entry.snapshot.updatedAt = now;
       entry.snapshot.completedAt = now;
+      entry.snapshot.durationMs = Math.max(0, performance.now() - entry.startedPerformanceMs);
     } catch (error) {
       const now = new Date().toISOString();
-      entry.snapshot.status = aborted(error, entry.controller.signal) ? "cancelled" : "failed";
-      entry.snapshot.error = entry.snapshot.status === "cancelled"
-        ? { code: "studio.operation-cancelled", message: "Operation cancelled by the operator." }
-        : snapshotError(error);
+      entry.snapshot.status = isOperationExecutionCancellation(error, entry.controller.signal) ? "cancelled" : "failed";
+      entry.snapshot.error = operationExecutionError(error, entry.controller.signal);
       entry.snapshot.updatedAt = now;
       entry.snapshot.completedAt = now;
+      entry.snapshot.durationMs = Math.max(0, performance.now() - entry.startedPerformanceMs);
     }
     await this.persist(entry);
     this.runtime.delete(entry.snapshot.id);
@@ -218,7 +204,7 @@ export class StudioOperationRegistry {
     return entry.persistence;
   }
 
-  private async write(projectDir: string, snapshot: StudioOperationSnapshot): Promise<void> {
+  private async write(projectDir: string, snapshot: OperationExecutionSnapshot): Promise<void> {
     const directory = operationDirectory(projectDir);
     await mkdir(directory, { recursive: true });
     const target = operationPath(projectDir, snapshot.id);
@@ -227,7 +213,7 @@ export class StudioOperationRegistry {
     await rename(temporary, target);
   }
 
-  private async read(projectDir: string, operationId: string): Promise<StudioOperationSnapshot | null> {
+  private async read(projectDir: string, operationId: string): Promise<OperationExecutionSnapshot | null> {
     try {
       return parseSnapshot(JSON.parse(await readFile(operationPath(projectDir, operationId), "utf8")));
     } catch {
@@ -238,7 +224,7 @@ export class StudioOperationRegistry {
   private async prune(projectDir: string): Promise<void> {
     const snapshots = await this.loadAll(projectDir);
     const removable = snapshots.filter((snapshot) =>
-      isTerminalStudioOperation(snapshot.status) && !this.runtime.has(snapshot.id));
+      isTerminalOperationExecution(snapshot.status) && !this.runtime.has(snapshot.id));
     for (const snapshot of removable.slice(this.retention)) {
       await rm(operationPath(projectDir, snapshot.id), { force: true });
     }

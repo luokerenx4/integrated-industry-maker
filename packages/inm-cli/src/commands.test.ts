@@ -141,7 +141,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   const { stdout, stderr, exitCode } = await runCandidate();
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const result = JSON.parse(stdout);
-  expect(result).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "candidate" }));
+  expect(result).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "candidate" }));
   expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
     result: expect.objectContaining({
@@ -155,6 +155,13 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     }),
   }));
   expect(result.artifacts).toEqual([expect.objectContaining({ kind: "candidate-review", immutable: true })]);
+  expect(result.execution).toEqual(expect.objectContaining({
+    kind: "candidate-preview",
+    subject: { kind: "candidate-preview", benchmarkId: "greenfield-dram-design", candidateId: "commissioned-release-control" },
+    status: "completed",
+    progressEvents: expect.any(Number),
+    artifacts: [expect.objectContaining({ kind: "candidate-review", immutable: true })],
+  }));
   expect(result.nextActions).toEqual([expect.objectContaining({ id: "candidate.apply", effect: "mutates-project" })]);
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
   const reviewedAction = await runCli(["inspect", projectDir, "--section", "next-action", "--json"]);
@@ -165,7 +172,15 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   const applied = await runCandidate(true);
   expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
-    schemaVersion: 1, ok: true, command: "candidate",
+    schemaVersion: 2, ok: true, command: "candidate",
+    execution: expect.objectContaining({
+      kind: "candidate-apply",
+      status: "completed",
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({ kind: "candidate-review" }),
+        expect.objectContaining({ kind: "blueprint", immutable: false }),
+      ]),
+    }),
     data: expect.objectContaining({
       section: "summary", result: expect.objectContaining({
         action: "apply", applied: true,
@@ -193,7 +208,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   const replay = await runCandidate(true);
   expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });
   expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({
-    schemaVersion: 1, ok: false, command: "candidate",
+    schemaVersion: 2, ok: false, command: "candidate",
     error: expect.objectContaining({ code: "candidate.stale-base", retryable: false, hashes: expect.objectContaining({ expectedBaseHash: expect.any(String), currentCandidateHash: expect.any(String) }) }),
   }));
 }, 90_000);
@@ -220,7 +235,20 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     progress: expect.objectContaining({ sequence: 20, phase: "candidate-case-completed", work: { completed: 10, total: 10 } }),
   }));
-  const evaluation = JSON.parse(result.stdout).data.result;
+  const operationIds = new Set(progress.map((event) => event.execution.id));
+  expect(operationIds.size).toBe(1);
+  expect(progress.map((event) => event.execution.progressEvents)).toEqual(Array.from({ length: 20 }, (_, index) => index + 1));
+  const benchmarkEnvelope = JSON.parse(result.stdout);
+  expect(benchmarkEnvelope.execution).toEqual(expect.objectContaining({
+    id: progress[0].execution.id,
+    kind: "benchmark",
+    subject: { kind: "benchmark", benchmarkId: "greenfield-dram-design" },
+    status: "completed",
+    progressEvents: 20,
+    durationMs: expect.any(Number),
+    artifacts: [],
+  }));
+  const evaluation = benchmarkEnvelope.data.result;
   expect(evaluation).toEqual(expect.objectContaining({
     verdict: "KEEP",
     accepted: true,
@@ -255,6 +283,58 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
     sum + value, 0)).toBeCloseTo(interruption.candidateScore, 12);
 }, 60_000);
 
+test("public CLI cancellation retains one operation identity and exits without a partial result", async () => {
+  const child = Bun.spawn([
+    process.execPath,
+    join(repository, "packages/inm-cli/src/bin.ts"),
+    "benchmark",
+    join(repository, "examples/memory-fab"),
+    "--benchmark",
+    "equipment-energy-research",
+    "--progress",
+    "ndjson",
+    "--json",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  const stdoutPromise = new Response(child.stdout).text();
+  const reader = child.stderr.getReader();
+  const decoder = new TextDecoder();
+  let stderr = "";
+  let cancellationRequested = false;
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    stderr += decoder.decode(chunk.value, { stream: true });
+    if (!cancellationRequested && stderr.includes("\n")) {
+      cancellationRequested = true;
+      child.kill("SIGINT");
+    }
+  }
+  stderr += decoder.decode();
+  const [stdout, exitCode] = await Promise.all([stdoutPromise, child.exited]);
+  expect(cancellationRequested).toBeTrue();
+  expect({ stdout, exitCode }).toEqual({ stdout: "", exitCode: 130 });
+  const records = stderr.trim().split("\n").map((line) => JSON.parse(line));
+  const progress = records.filter((record) => record.type === "progress");
+  const failure = records.at(-1);
+  expect(progress.length).toBeGreaterThan(0);
+  expect(failure).toEqual(expect.objectContaining({
+    schemaVersion: 2,
+    ok: false,
+    command: "benchmark",
+    error: expect.objectContaining({ code: "operation.cancelled", retryable: false }),
+    execution: expect.objectContaining({
+      id: progress[0].execution.id,
+      kind: "benchmark",
+      status: "cancelled",
+      cancelRequestedAt: expect.any(String),
+      completedAt: expect.any(String),
+      progressEvents: progress.length,
+      artifacts: [],
+    }),
+  }));
+  expect(new Set(progress.map((event) => event.execution.id))).toEqual(new Set([failure.execution.id]));
+}, 20_000);
+
 test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
   const projectDir = join(repository, "examples/ironworks");
   const [{ stdout, stderr, exitCode }, nextAction, expected] = await Promise.all([
@@ -264,7 +344,7 @@ test("public inspect JSON and next action are the shared Core workbench snapshot
   ]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const envelope = JSON.parse(stdout);
-  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "inspect" }));
+  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "inspect" }));
   expect(envelope.context).toEqual(expect.objectContaining({ scope: "project", selection: expected.selection && {
     world: expected.selection.world.id, blueprint: expected.selection.blueprint.id,
     scenario: expected.selection.scenario.id, objective: expected.selection.objective.id,
@@ -333,7 +413,7 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
   const envelope = JSON.parse(machine.stdout);
   expect(envelope).toEqual(expect.objectContaining({
-    schemaVersion: 1,
+    schemaVersion: 2,
     ok: true,
     command: "observe",
     context: expect.objectContaining({
@@ -384,7 +464,7 @@ test("public inspect rejects an invalid explicit selection", async () => {
   const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);
   expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
   expect(JSON.parse(stderr)).toEqual(expect.objectContaining({
-    schemaVersion: 1, ok: false, command: "inspect",
+    schemaVersion: 2, ok: false, command: "inspect",
     error: expect.objectContaining({ code: "runtime.failed", message: expect.stringContaining("missing-blueprint.blueprint.json"), retryable: false, issues: [] }),
   }));
 });
@@ -393,7 +473,7 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   const { stdout, stderr, exitCode } = await runCli(["help", "--json"]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const envelope = JSON.parse(stdout);
-  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "help", context: { scope: "global" } }));
+  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "help", context: { scope: "global" } }));
   const commands = envelope.data.commands as Array<{ id: string; effect: string; exitCodes: { success: number; failure: number[]; usage: number }; arguments: Array<{ name: string; default?: unknown }>; outputSections: string[] }>;
   expect(commands.map((command) => command.id)).toContain("candidate");
   expect(commands.map((command) => command.id)).toContain("design");
@@ -402,6 +482,7 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   expect(commands.find((command) => command.id === "simulate")!.effect).toBe("creates-artifact");
   expect(commands.find((command) => command.id === "compare")!.arguments.find((argument) => argument.name === "seed")!.default).toBe(42);
   expect(commands.find((command) => command.id === "inspect")!.exitCodes).toEqual({ success: 0, failure: [1], usage: 2 });
+  expect(commands.find((command) => command.id === "design")!.exitCodes).toEqual({ success: 0, failure: [1, 130], usage: 2 });
 });
 
 test("public schema discovery lists and emits every project artifact JSON Schema", async () => {
@@ -413,7 +494,7 @@ test("public schema discovery lists and emits every project artifact JSON Schema
     const emitted = await runCli(["schema", kind, "--json"]);
     expect({ kind, exitCode: emitted.exitCode, stderr: emitted.stderr }).toEqual({ kind, exitCode: 0, stderr: "" });
     const envelope = JSON.parse(emitted.stdout);
-    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: true, command: "schema" }));
+    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "schema" }));
     expect(envelope.data.kind).toBe(kind);
     expect(envelope.data.schema).toEqual(expect.objectContaining({ $schema: "http://json-schema.org/draft-07/schema#" }));
     expect(Object.keys(envelope.data.schema).length).toBeGreaterThan(2);
@@ -495,7 +576,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const executed = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run", "--max-candidates", "1", "--progress", "ndjson", "--json"]);
   expect(executed.exitCode).toBe(0);
   const progress = executed.stderr.trim().split("\n").map((line) => JSON.parse(line));
-  expect(progress[0]).toEqual(expect.objectContaining({ schemaVersion: 1, type: "progress", command: "design", progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
+  expect(progress[0]).toEqual(expect.objectContaining({ schemaVersion: 2, type: "progress", command: "design", progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
@@ -547,6 +628,14 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const run = JSON.parse(executed.stdout);
   expect(run).toEqual(expect.objectContaining({
     command: "design",
+    execution: expect.objectContaining({
+      id: progress[0].execution.id,
+      kind: "design-run",
+      subject: { kind: "design-run", programId: "integrated-dram-fab", maxCandidates: 1 },
+      status: "completed",
+      progressEvents: progress.length,
+      artifacts: [expect.objectContaining({ kind: "design-run", immutable: true })],
+    }),
     data: expect.objectContaining({ section: "summary", result: expect.objectContaining({ action: "run", budget: { maximum: 1, evaluated: 1 }, resultHash: expect.any(String) }) }),
     artifacts: [expect.objectContaining({ kind: "design-run", immutable: true })],
   }));
@@ -1382,7 +1471,7 @@ test("public CLI emits stable JSON errors for invalid section, section mode, sch
     const result = await runCli(item.args);
     expect({ stdout: result.stdout, exitCode: result.exitCode }).toEqual({ stdout: "", exitCode: item.exitCode });
     const envelope = JSON.parse(result.stderr);
-    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 1, ok: false, command: item.command, error: expect.objectContaining({ code: item.code, retryable: false, issues: expect.any(Array), hashes: expect.any(Object) }) }));
+    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: false, command: item.command, error: expect.objectContaining({ code: item.code, retryable: false, issues: expect.any(Array), hashes: expect.any(Object) }) }));
   }
   const humanOnly = await runCli(["inspect", projectDir, "--section", "catalog"]);
   expect({ stdout: humanOnly.stdout, exitCode: humanOnly.exitCode }).toEqual({ stdout: "", exitCode: 1 });

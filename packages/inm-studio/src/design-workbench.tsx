@@ -3,7 +3,7 @@ import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, De
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 import { cancelStudioOperation, followStudioOperation, listStudioOperations, readStudioOperation, startStudioOperation } from "./studio-operation-client";
-import { isTerminalStudioOperation, type StudioOperationSnapshot } from "./studio-operation-contract";
+import { isTerminalOperationExecution, type OperationExecutionSnapshot } from "@inm/core/operation-execution";
 
 class DesignResponseError extends Error {
   constructor(public readonly code: string | null, public readonly detail: string) {
@@ -136,7 +136,7 @@ export function DesignWorkbench({
   const [running, setRunning] = useState(false);
   const [runProgress, setRunProgress] = useState<DesignRunProgress | null>(null);
   const [lastCompletedCase, setLastCompletedCase] = useState<CompletedDesignCaseProgress | null>(null);
-  const [activeOperation, setActiveOperation] = useState<StudioOperationSnapshot<DesignRunResult> | null>(null);
+  const [activeOperation, setActiveOperation] = useState<OperationExecutionSnapshot<DesignRunResult> | null>(null);
   const pollAbort = useRef<AbortController | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [candidateId, setCandidateId] = useState("");
@@ -227,9 +227,9 @@ export function DesignWorkbench({
     if (progress.phase === "case-completed") setLastCompletedCase(progress as CompletedDesignCaseProgress);
   };
 
-  const applyOperationSnapshot = (snapshot: StudioOperationSnapshot<DesignRunResult>) => {
+  const applyOperationSnapshot = (snapshot: OperationExecutionSnapshot<DesignRunResult>) => {
     setActiveOperation(snapshot);
-    setRunning(!isTerminalStudioOperation(snapshot.status));
+    setRunning(!isTerminalOperationExecution(snapshot.status));
     if (snapshot.progress && "program" in snapshot.progress) recordRunProgress(snapshot.progress as DesignRunProgress);
     if (snapshot.status === "completed" && snapshot.result) {
       setSelectedRun(snapshot.result);
@@ -241,7 +241,7 @@ export function DesignWorkbench({
     }
   };
 
-  const follow = async (initial: StudioOperationSnapshot<DesignRunResult>) => {
+  const follow = async (initial: OperationExecutionSnapshot<DesignRunResult>) => {
     pollAbort.current?.abort();
     const abort = new AbortController();
     pollAbort.current = abort;
@@ -308,9 +308,9 @@ export function DesignWorkbench({
   };
 
   const cancelRun = async () => {
-    if (!activeOperation || isTerminalStudioOperation(activeOperation.status)) return;
+    if (!activeOperation || isTerminalOperationExecution(activeOperation.status)) return;
     try {
-      applyOperationSnapshot(await cancelStudioOperation(projectId, activeOperation.id) as StudioOperationSnapshot<DesignRunResult>);
+      applyOperationSnapshot(await cancelStudioOperation(projectId, activeOperation.id) as OperationExecutionSnapshot<DesignRunResult>);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
     }
@@ -352,7 +352,7 @@ export function DesignWorkbench({
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>PROGRAM FOCUS</i><strong>{selectedProgram.focus.kind === "broad" ? "BROAD INDUSTRIAL SEARCH" : selectedProgram.focus.losses.join(" + ")}</strong><span>{selectedProgram.focus.kind === "broad" ? "eligible for any measured loss" : "preferred for matching Workbench diagnostics"}</span><i>HARD INDUSTRIAL OUTCOMES</i><strong>{brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} ABSOLUTE GUARDRAILS</strong><span>{brief.benchmark.acceptance.outcomeGuardrails?.reduce((total, guardrail) => total + Object.keys(guardrail.thresholds).length, 0) ?? 0} case thresholds · Benchmark-owned</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>CURRENT PROMOTION TARGET</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
             <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : running ? "STARTING…" : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
-          {activeOperation && <section className={`design-live-progress ${activeOperation.status}`} aria-live="polite" data-testid="design-progress"><div><span>RECONNECTABLE OPERATION · {activeOperation.status.toUpperCase()}</span><strong>{runProgress ? progressLabel(runProgress).title : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING DESIGN CONTRACT"}</strong><code>OP {shortHash(activeOperation.id)} · {runProgress ? progressLabel(runProgress).detail : selectedProgram.id}</code>{lastCompletedCase && runProgress?.phase !== "case-completed" && <code data-testid="design-last-completed-case">{completedCaseLabel(lastCompletedCase)}</code>}{activeOperation.error && <code>{activeOperation.error.code} · {activeOperation.error.message}</code>}</div><div><b>{runProgress ? `${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : "0/—"}</b><small>CASES</small><progress value={runProgress?.work.completedCases ?? 0} max={runProgress?.work.plannedCases ?? 1}/></div>{!isTerminalStudioOperation(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-design">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}</section>}
+          {activeOperation && <section className={`design-live-progress ${activeOperation.status}`} aria-live="polite" data-testid="design-progress"><div><span>RECONNECTABLE OPERATION · {activeOperation.status.toUpperCase()}</span><strong>{runProgress ? progressLabel(runProgress).title : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING DESIGN CONTRACT"}</strong><code>OP {shortHash(activeOperation.id)} · {runProgress ? progressLabel(runProgress).detail : selectedProgram.id}</code>{lastCompletedCase && runProgress?.phase !== "case-completed" && <code data-testid="design-last-completed-case">{completedCaseLabel(lastCompletedCase)}</code>}{activeOperation.error && <code>{activeOperation.error.code} · {activeOperation.error.message}</code>}</div><div><b>{runProgress ? `${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : "0/—"}</b><small>CASES</small><progress value={runProgress?.work.completedCases ?? 0} max={runProgress?.work.plannedCases ?? 1}/></div>{!isTerminalOperationExecution(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-design">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}</section>}
           <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
           <section className="design-readiness">
             <span><small>CAPACITY</small><b className={brief.staticEvidence.capacity.state}>{brief.staticEvidence.capacity.state.toUpperCase()}</b><em>{brief.staticEvidence.capacity.gapCount} gaps</em></span>

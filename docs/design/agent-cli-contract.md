@@ -1,6 +1,6 @@
 # Agent-facing CLI contract
 
-Status: V1 implemented.
+Status: V2 implemented.
 
 Related: [[docs/CLI]], [[docs/design/development-operations]], [[docs/design/operator-workbench]], [[docs/design/coding-agent-optimization]], [[docs/design/experiment-workbench]], [[docs/PROJECT_FORMAT]], [[plans/human-ai-workbench]].
 
@@ -16,14 +16,15 @@ Every successful `--json` invocation writes exactly one JSON value to stdout:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "ok": true,
   "command": "inspect",
   "context": { "scope": "project", "project": {}, "selection": {}, "hashes": {} },
   "data": {},
   "diagnostics": [],
   "artifacts": [],
-  "nextActions": []
+  "nextActions": [],
+  "execution": null
 }
 ```
 
@@ -33,7 +34,7 @@ Every failed `--json` invocation writes no stdout and exactly one error envelope
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "ok": false,
   "command": "candidate",
   "context": { "scope": "global" },
@@ -43,17 +44,22 @@ Every failed `--json` invocation writes no stdout and exactly one error envelope
     "retryable": false,
     "issues": [],
     "hashes": { "expectedBaseHash": "...", "currentCandidateHash": "..." }
-  }
+  },
+  "execution": null
 }
 ```
 
-Error codes and structured issue paths are stable machine contracts. Display messages may improve. Exit `0` means success, `1` means an operation/validation/test failure, and `2` means invalid CLI usage. JSON stdout is reserved for the result.
+Error codes and structured issue paths are stable machine contracts. Display messages may improve. Exit `0` means success, `1` means an operation/validation/test failure, `2` means invalid CLI usage, and `130` means an operator cancelled a cooperative long operation. JSON stdout is reserved for the result.
+
+Every V2 envelope has `execution`. Ordinary bounded commands use `null`. Benchmark evaluation, Candidate preview/apply, Design run, and Design continuation use the same Core `OperationExecutionState` as Studio: one id, exact subject, project, running/terminal status, timestamps, cancellation request, duration, latest Core progress, progress-event count, completion artifacts, and error. The CLI creates this identity locally and does not require a Studio server. The execution handle is operational state; the completed Core result, Candidate receipt, Blueprint, or immutable Design Run remains industrial authority.
 
 Strict Design Run reopen is one such contract: obsolete evidence returns `design.invalid-run` and never becomes rankable, continuable, or promotable. Studio consumes the same project-qualified API code/message. Its visual projection may keep the copied hash selected and explain that it is historical, but it does not reinterpret or suppress the strict machine failure and does not describe the read as though an effectful Design operation failed.
 
-Long-running Design execution has one explicit secondary channel. `inm design --run --progress ndjson --json` writes compact versioned progress envelopes to stderr and exactly one ordinary success envelope to stdout at completion. Each progress record is `{ "schemaVersion": 1, "type": "progress", "command": "design", "progress": ... }`; the nested V3 value is the same Core `DesignRunProgress` projected by Studio. Case completion preserves Benchmark cache reuse and operational timing. Proposal diagnosis names the selected branch and carries its exact proposal-time promotion boundary plus driver evidence; proposal completion retains that branch identity and the Core-validated addressed loss or repair case; a continuation-only driver replay is an explicit start/completion phase; node exhaustion identifies the retained node and exact next searchable node without pretending an evaluation occurred; candidate completion carries KEEP/BRANCH/REJECT, leader comparison, parent and candidate nodes, pruning, leader-after, and exact searchable/exhausted state later stored in immutable evidence. The stream is ordered and reports actual named phases plus completed/planned case evaluations rather than calling cache hits or hidden work “simulations.” Its semantic phases, identities, and work counts are deterministic for locked inputs; cache reuse and elapsed timings are operational and may vary between executions, and are not immutable evidence. `--progress human` formats the same cache/timing, branch lineage, promotion blocker, loss chain, target, replay, exhaustion, decision basis, parent/leader deltas, and frontier outcome for a terminal, while `--progress off` disables the channel. No other stderr text may be mixed into NDJSON mode.
+Long-running Design execution has one explicit secondary channel. `inm design --run --progress ndjson --json` writes compact versioned progress envelopes to stderr and exactly one ordinary success envelope to stdout at completion. Each V2 record is `{ "schemaVersion": 2, "type": "progress", "command": "design", "execution": ..., "progress": ... }`; every record advances the same execution id and embeds the current shared lifecycle state beside the exact Core `DesignRunProgress` projected by Studio. Case completion preserves Benchmark cache reuse and operational timing. Proposal diagnosis names the selected branch and carries its exact proposal-time promotion boundary plus driver evidence; proposal completion retains that branch identity and the Core-validated addressed loss or repair case; a continuation-only driver replay is an explicit start/completion phase; node exhaustion identifies the retained node and exact next searchable node without pretending an evaluation occurred; candidate completion carries KEEP/BRANCH/REJECT, leader comparison, parent and candidate nodes, pruning, leader-after, and exact searchable/exhausted state later stored in immutable evidence. The stream is ordered and reports actual named phases plus completed/planned case evaluations rather than calling cache hits or hidden work “simulations.” Its semantic phases, identities, and work counts are deterministic for locked inputs; cache reuse and elapsed timings are operational and may vary between executions, and are not immutable evidence. `--progress human` starts with the operation id and formats the same cache/timing, branch lineage, promotion blocker, loss chain, target, replay, exhaustion, decision basis, parent/leader deltas, and frontier outcome for a terminal, while `--progress off` disables the channel.
 
 Standalone Benchmark and Candidate evaluation use the same secondary-channel rule. `--progress ndjson --json` emits one `benchmark` or `candidate` progress envelope per Core case event on stderr and reserves stdout for the single final result. `BlueprintBenchmarkProgress` V2 identifies the exact locked case, baseline/candidate phase, monotonic sequence, completed/total case evaluations, baseline-cache reuse, and operational compilation/cache/evaluation/comparison timings. Timings diagnose runtime cost but are never copied into a Benchmark result, Candidate receipt, Design Run, or content hash. Human mode is the default only for non-JSON evaluation; JSON mode defaults to `off`. `--progress off` remains available for pipelines that want no secondary channel.
+
+`SIGINT` and `SIGTERM` request cancellation through the same `AbortSignal` used by Studio. Core observes it between exact case evaluations. A cancelled Design writes no partial immutable run; a cancelled Candidate Apply does not cross its guarded write boundary. If the request arrives only after Core has atomically committed and returned, the completed result wins rather than being falsely relabelled. JSON/NDJSON mode emits no prose: any earlier progress lines are followed by one compact V2 error envelope with `error.code: operation.cancelled`, the same execution id, terminal `cancelled` status, and no invented completion artifact. A second signal is the explicit immediate-termination escape hatch.
 
 INM is pre-alpha. An envelope/schema version change replaces commands, documentation, and public-binary tests together; it does not add legacy output aliases.
 
@@ -94,6 +100,7 @@ Reopening a `budget-exhausted` result with a searchable node returns an exact `d
 ## Source of truth
 
 - Envelope types and builders: `packages/inm-cli/src/contract.ts`
+- Shared lifecycle contract and CLI tracker: `packages/inm-core/src/operation-execution.ts`, `packages/inm-cli/src/execution.ts`
 - Command capability descriptors: `packages/inm-cli/src/capabilities.ts`
 - JSON Schema projection: `packages/inm-core/src/artifact-schema.ts`
 - Command result sections, progress projection, and formatting: `packages/inm-cli/src/commands.ts`
@@ -101,7 +108,7 @@ Reopening a `budget-exhausted` result with a searchable node returns an exact `d
 
 ## Verification
 
-Tests invoke the public TypeScript binary and capture its real stdout, stderr, and exit code. They prove machine help including `--continue` and Benchmark/Candidate progress discovery, every advertised artifact schema, compact/default/all sections, exact Core snapshot parity through `inspect --section all`, stable success/error envelopes, deliberate Candidate mutation, stale replay rejection, no extra stdout logging, exact continuation next-action argv, and exact NDJSON parity with Core Design and Benchmark progress.
+Tests invoke the public TypeScript binary and capture its real stdout, stderr, signal handling, and exit code. They prove machine help including `--continue`, cancellation exit `130`, and Benchmark/Candidate progress discovery; every advertised artifact schema; compact/default/all sections; exact Core snapshot parity through `inspect --section all`; stable success/error envelopes; deliberate Candidate mutation; stale replay rejection; no partial stdout on cancellation; one retained execution id across NDJSON and the terminal envelope; exact continuation next-action argv; and exact progress parity with Core Design and Benchmark execution.
 
 ```bash
 bun test packages/inm-core/src/artifact-schema.test.ts packages/inm-cli/src/commands.test.ts

@@ -1,6 +1,6 @@
 # Shared industrial operation result
 
-Status: V1 Core operation contract, CLI projection, Studio execution/result dialog, immutable simulation artifacts, and guarded Candidate application implemented.
+Status: V1 Core industrial result contract and shared V1 CLI/Studio execution lifecycle implemented.
 
 Related: [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/simulation-runtime]], [[docs/CLI]], [[plans/human-ai-workbench]].
 
@@ -35,7 +35,9 @@ Candidate operations deliberately do not compile the pre-patch base as their ope
 
 Refresh and a new process reconstruct industrial evidence from project files. Read-only results can be deterministically invoked again; simulation results reopen from the immutable run; Candidate decisions reopen from the receipt plus current Blueprint hash. An exact reviewed KEEP Blueprint is `verified`; a moved Blueprint that matches neither reviewed base nor proposal is `stale`.
 
-Long-running Studio execution has a separate, explicitly non-authoritative operation handle. Starting a Benchmark, Candidate preview, Design run, or Design continuation returns one project-qualified operation id immediately. Its ignored `.inm/operations/<id>.json` snapshot retains the exact subject, status, latest and bounded progress log, result or error, timestamps, and cancellation request. Page navigation and client disconnect only stop observation; they do not cancel industrial work. `DELETE` is the explicit cancellation boundary, observed by Core between exact case evaluations so no partial Design Run is written.
+Long-running execution has a separate, explicitly non-authoritative Core-owned operation handle. Benchmark, Candidate preview/apply, Design run, and Design continuation share one subject/status/progress/artifact/error contract across CLI and Studio. Studio returns a project-qualified operation id immediately and persists its ignored `.inm/operations/<id>.json` snapshot with the result and bounded progress log. CLI creates the same kind of identity in-process and projects it into progress, success, and failure envelopes without requiring a Studio server. Page navigation and client disconnect only stop Studio observation; they do not cancel industrial work. Studio `DELETE` or CLI `SIGINT`/`SIGTERM` is the explicit cancellation boundary, observed by Core between exact case evaluations so no partial Design Run is written.
+
+Core owns the point of no return. If it observes cancellation before the artifact/write boundary, execution terminates as `cancelled`. If a cancellation request arrives after Core has committed and returned a complete result, completion and its artifacts win; the handle may retain `cancelRequestedAt`, but an outer registry may not relabel committed industrial work as cancelled.
 
 The registry retains sixteen newest terminal operations per project plus any live operations. A Studio restart marks a previously running snapshot `interrupted`; it never invents a result or resumes from incomplete process memory. Immutable Design Runs and Candidate review receipts remain the evidence authority. The registry is execution/recovery state and may be pruned without changing the factory.
 
@@ -45,14 +47,17 @@ CLI `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` comm
 
 Studio exposes project-qualified POST operations at `/api/projects/<project-id>/operations/{validate,analyze,plan,simulate}`. The Overview states effect, selection scope, guards, and an exact equivalent CLI command before execution. The result dialog exposes context/hashes, duration, diagnostics, artifacts, actual writes, verification, and CLI reproduction.
 
-Benchmark, Candidate preview, Design run, and Design continuation start from their domain routes and return `StudioOperationStartResponse`. `GET /api/projects/<project-id>/operations` lists lightweight bounded summaries only; complete results and progress logs are fetched from `GET .../operations/<operation-id>` after selecting one exact identity. `DELETE` requests cancellation. Experiments and Design display the operation id and recover the newest exact subject after reopening their stable route. The list cost therefore scales with retained operation count, not historical result size.
+Benchmark, Candidate preview/apply, Design run, and Design continuation start from their domain routes and return `OperationExecutionStartResponse`. `GET /api/projects/<project-id>/operations` lists lightweight bounded summaries only; complete results and progress logs are fetched from `GET .../operations/<operation-id>` after selecting one exact identity. `DELETE` requests cancellation. Experiments and Design display the operation id and recover the newest exact subject after reopening their stable route. The list cost therefore scales with retained operation count, not historical result size.
+
+CLI V2 success/error envelopes always carry `execution`; ordinary commands use `null`. Long-operation NDJSON carries the same evolving state and id on every Core progress event. Completion records exact artifacts, duration, and event count. Cooperative cancellation returns exit `130`, `operation.cancelled`, no success value on stdout, and no partial immutable evidence.
 
 ## Source of truth
 
-- Operation contract and executors: `packages/inm-core/src/operation.ts`
+- Industrial result contract and executors: `packages/inm-core/src/operation.ts`
+- Cross-surface execution lifecycle: `packages/inm-core/src/operation-execution.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio HTTP projection: `packages/inm-studio/src/server.ts`
-- Studio execution registry and shared browser contract: `packages/inm-studio/src/operation-registry.ts`, `packages/inm-studio/src/studio-operation-contract.ts`
+- Studio execution registry and browser client: `packages/inm-studio/src/operation-registry.ts`, `packages/inm-studio/src/studio-operation-client.ts`
 - Studio operation/result UI: `packages/inm-studio/src/main.tsx`
 
 ## Verification
@@ -62,4 +67,3 @@ Tests must prove a common serializable result shape, read-only empty write sets,
 ## Known next gaps
 
 - Move synthesis behind the same typed input/result protocol.
-- Project CLI invocation still reports synchronous Core operation results rather than the Studio execution id; align the two without making the CLI depend on a running Studio.

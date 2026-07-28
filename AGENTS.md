@@ -8,6 +8,8 @@ Use the cheapest honest verification boundary while iterating: start with the af
 
 Do not bind long Studio Benchmark or Design work to one browser request. Use the project-local operation registry, retain Core progress/result state, and treat page close or navigation as observer detachment. Cancellation must be an explicit operation action and must stop at a safe Core case boundary without writing partial immutable evidence. The contract is defined in [[docs/design/operation-workbench]] and [[docs/design/development-operations]].
 
+Long CLI Benchmark, Candidate, and Design work uses the same Core execution lifecycle without depending on Studio. Preserve one operation id across progress and terminal envelopes, pass `SIGINT`/`SIGTERM` through `AbortSignal`, return `130` for cooperative cancellation, and never emit a partial success result or immutable Design artifact.
+
 ## Observation-led design
 
 INM is a Harness for human/Agent industrial reasoning, not an autonomous factory optimizer. A human or reasoning Agent owns the design hypothesis and commissioning judgment. RL, black-box search, or automatic layout generation must not become the product design loop.

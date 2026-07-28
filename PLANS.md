@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/low-friction-experiment-loop]] | Make the memory-fab start, experiment, progress, reopen, and recovery loop source-current and interruption-tolerant. | 2026-07-28 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/low-friction-experiment-loop]] | Make the memory-fab start, experiment, progress, reopen, and recovery loop source-current and interruption-tolerant. | 2026-07-28 |
 | [[plans/back-end-die-handoff-convergence]] | Turn the current Probe-to-packaging transport blocking into a focused locked Design decision using explicit die-handling equipment. | 2026-07-28 |
 | [[plans/single-pass-design-evidence]] | Reuse each locked driver-case simulation for causal Design evidence and expose honest timed case progress. | 2026-07-28 |
 | [[plans/causal-setup-changeover-design-handoff]] | Separate commissioning from recurring setup work and turn the leading burn-in transition into an exact locked-case decision. | 2026-07-28 |

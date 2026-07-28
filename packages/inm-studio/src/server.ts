@@ -45,7 +45,7 @@ import {
   type ProjectSelection,
 } from "@inm/core";
 import { StudioOperationRegistry } from "./operation-registry";
-import { summarizeStudioOperation } from "./studio-operation-contract";
+import { summarizeOperationExecution } from "@inm/core";
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -572,7 +572,7 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectId = decoded(operationsMatch[1]!);
         const projectDir = await projectDirectory(projectId);
-        return Response.json({ operations: (await operationRegistry.list(projectDir)).map(summarizeStudioOperation) });
+        return Response.json({ operations: (await operationRegistry.list(projectDir)).map(summarizeOperationExecution) });
       }
 
       const retainedOperationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/([^/]+)$/);
@@ -615,7 +615,13 @@ const server = Bun.serve({
         const maxCandidates = body.maxCandidates === undefined ? brief.program.budget.maxCandidates : body.maxCandidates as number;
         const started = await operationRegistry.start(projectDir, decoded(designExecuteMatch[1]!), {
           kind: "design-run", programId, maxCandidates,
-        }, ({ signal, report }) => runDesignProgram(projectDir, programId, { maxCandidates, signal, onProgress: report }));
+        }, async ({ signal, report }) => {
+          const result = await runDesignProgram(projectDir, programId, { maxCandidates, signal, onProgress: report });
+          return {
+            result,
+            artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
+          };
+        });
         return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
@@ -638,7 +644,13 @@ const server = Bun.serve({
         const maxCandidates = body.maxCandidates === undefined ? brief.program.budget.maxCandidates : body.maxCandidates as number;
         const started = await operationRegistry.start(projectDir, decoded(designContinueMatch[1]!), {
           kind: "design-continue", programId, sourceResultHash, maxCandidates,
-        }, ({ signal, report }) => continueDesignRun(projectDir, programId, sourceResultHash, { maxCandidates, signal, onProgress: report }));
+        }, async ({ signal, report }) => {
+          const result = await continueDesignRun(projectDir, programId, sourceResultHash, { maxCandidates, signal, onProgress: report });
+          return {
+            result,
+            artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
+          };
+        });
         return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
@@ -660,7 +672,10 @@ const server = Bun.serve({
           kind: "benchmark", benchmarkId,
         }, async ({ signal, report }) => {
           const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, { signal, onProgress: report });
-          return { command: "benchmark", ...operation.data, operation };
+          return {
+            result: { command: "benchmark", ...operation.data, operation },
+            artifacts: operation.artifacts,
+          };
         });
         return Response.json(started, { status: started.reused ? 200 : 202 });
       }
@@ -702,23 +717,36 @@ const server = Bun.serve({
           }, async ({ signal, report }) => {
             const operation = await previewCandidateOperation(projectDir, candidateId, { signal, onProgress: report });
             return {
-              command: "candidate",
-              action,
-              decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`,
-              ...operation.data,
-              operation,
+              result: {
+                command: "candidate",
+                action,
+                decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`,
+                ...operation.data,
+                operation,
+              },
+              artifacts: operation.artifacts,
             };
           });
           return Response.json(started, { status: started.reused ? 200 : 202 });
         }
         const reviewed = await request.json() as { proposalHash?: unknown; currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
         if (typeof reviewed.proposalHash !== "string" || typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed proposalHash, currentCandidateHash, and proposedCandidateHash");
-        const operation = await applyCandidateOperation(projectDir, candidateId, {
-          proposalHash: reviewed.proposalHash,
-          currentCandidateHash: reviewed.currentCandidateHash,
-          proposedCandidateHash: reviewed.proposedCandidateHash,
+        const started = await operationRegistry.start(projectDir, decoded(candidateActionMatch[1]!), {
+          kind: "candidate-apply",
+          benchmarkId,
+          candidateId,
+        }, async ({ signal, report }) => {
+          const operation = await applyCandidateOperation(projectDir, candidateId, {
+            proposalHash: reviewed.proposalHash as string,
+            currentCandidateHash: reviewed.currentCandidateHash as string,
+            proposedCandidateHash: reviewed.proposedCandidateHash as string,
+          }, { signal, onProgress: report });
+          return {
+            result: { command: "candidate", action, decisionState: "verified", ...operation.data, operation },
+            artifacts: operation.artifacts,
+          };
         });
-        return Response.json({ command: "candidate", action, decisionState: "verified", ...operation.data, operation });
+        return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
       const fileMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)$/);

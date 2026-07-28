@@ -1,10 +1,10 @@
 import {
-  isTerminalStudioOperation,
-  type StudioOperationListResponse,
-  type StudioOperationSnapshot,
-  type StudioOperationStartResponse,
-  type StudioOperationSummary,
-} from "./studio-operation-contract";
+  isTerminalOperationExecution,
+  type OperationExecutionListResponse,
+  type OperationExecutionSnapshot,
+  type OperationExecutionStartResponse,
+  type OperationExecutionSummary,
+} from "@inm/core/operation-execution";
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
@@ -19,23 +19,23 @@ function operationRoot(projectId: string): string {
 export async function startStudioOperation<TResult>(
   url: string,
   body?: unknown,
-): Promise<StudioOperationStartResponse<TResult>> {
-  return responseJson<StudioOperationStartResponse<TResult>>(await fetch(url, {
+): Promise<OperationExecutionStartResponse<TResult>> {
+  return responseJson<OperationExecutionStartResponse<TResult>>(await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body ?? {}),
   }));
 }
 
-export async function listStudioOperations(projectId: string): Promise<StudioOperationSummary[]> {
-  return (await responseJson<StudioOperationListResponse>(await fetch(operationRoot(projectId)))).operations;
+export async function listStudioOperations(projectId: string): Promise<OperationExecutionSummary[]> {
+  return (await responseJson<OperationExecutionListResponse>(await fetch(operationRoot(projectId)))).operations;
 }
 
 export async function readStudioOperation<TResult>(
   projectId: string,
   operationId: string,
-): Promise<StudioOperationSnapshot<TResult>> {
-  return (await responseJson<{ operation: StudioOperationSnapshot<TResult> }>(await fetch(
+): Promise<OperationExecutionSnapshot<TResult>> {
+  return (await responseJson<{ operation: OperationExecutionSnapshot<TResult> }>(await fetch(
     `${operationRoot(projectId)}/${encodeURIComponent(operationId)}`,
   ))).operation;
 }
@@ -43,8 +43,8 @@ export async function readStudioOperation<TResult>(
 export async function cancelStudioOperation(
   projectId: string,
   operationId: string,
-): Promise<StudioOperationSnapshot> {
-  return (await responseJson<{ operation: StudioOperationSnapshot }>(await fetch(
+): Promise<OperationExecutionSnapshot> {
+  return (await responseJson<{ operation: OperationExecutionSnapshot }>(await fetch(
     `${operationRoot(projectId)}/${encodeURIComponent(operationId)}`,
     { method: "DELETE" },
   ))).operation;
@@ -62,13 +62,13 @@ function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
 
 export async function followStudioOperation<TResult>(
   projectId: string,
-  initial: StudioOperationSnapshot<TResult>,
-  onSnapshot: (snapshot: StudioOperationSnapshot<TResult>) => void,
+  initial: OperationExecutionSnapshot<TResult>,
+  onSnapshot: (snapshot: OperationExecutionSnapshot<TResult>) => void,
   signal: AbortSignal,
-): Promise<StudioOperationSnapshot<TResult>> {
+): Promise<OperationExecutionSnapshot<TResult>> {
   let snapshot = initial;
   onSnapshot(snapshot);
-  while (!isTerminalStudioOperation(snapshot.status)) {
+  while (!isTerminalOperationExecution(snapshot.status)) {
     await delay(250, signal);
     signal.throwIfAborted();
     snapshot = await readStudioOperation<TResult>(projectId, snapshot.id);

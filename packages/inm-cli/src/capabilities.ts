@@ -19,7 +19,11 @@ export interface CliCommandDescriptor {
   outputSections: string[];
 }
 
-const exitCodes = { success: 0 as const, failure: [1], usage: 2 as const };
+const exitCodes = (command: string) => ({
+  success: 0 as const,
+  failure: ["benchmark", "candidate", "design"].includes(command) ? [1, 130] : [1],
+  usage: 2 as const,
+});
 
 const path: CliArgumentDescriptor = {
   name: "path", form: "positional", value: "string", required: true,
@@ -191,4 +195,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
   })),
 ];
 
-export const CLI_COMMANDS: CliCommandDescriptor[] = COMMANDS.map((command) => ({ ...command, exitCodes }));
+export const CLI_COMMANDS: CliCommandDescriptor[] = COMMANDS.map((command) => ({
+  ...command,
+  exitCodes: exitCodes(command.id),
+}));

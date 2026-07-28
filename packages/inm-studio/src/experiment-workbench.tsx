@@ -5,7 +5,7 @@ import type {
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 import { cancelStudioOperation, followStudioOperation, listStudioOperations, readStudioOperation, startStudioOperation } from "./studio-operation-client";
-import { isTerminalStudioOperation, type StudioOperationSnapshot } from "./studio-operation-contract";
+import { isTerminalOperationExecution, type OperationExecutionSnapshot } from "@inm/core/operation-execution";
 
 interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark"; baselineCache: { hits: number; misses: number } }
 interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
@@ -45,7 +45,7 @@ export function ExperimentWorkbench({
   const [decisionState, setDecisionState] = useState<CandidateDecisionState | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<BlueprintBenchmarkProgress | null>(null);
-  const [activeOperation, setActiveOperation] = useState<StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse> | null>(null);
+  const [activeOperation, setActiveOperation] = useState<OperationExecutionSnapshot<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse> | null>(null);
   const pollAbort = useRef<AbortController | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyArmed, setApplyArmed] = useState(false);
@@ -92,12 +92,19 @@ export function ExperimentWorkbench({
     return () => { active = false; };
   }, [activeCandidate, projectId]);
 
-  const applyOperationSnapshot = (snapshot: StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse>) => {
+  const applyOperationSnapshot = (snapshot: OperationExecutionSnapshot<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse>) => {
     setActiveOperation(snapshot);
-    setRunning(!isTerminalStudioOperation(snapshot.status));
+    setRunning(!isTerminalOperationExecution(snapshot.status));
+    setApplying(snapshot.kind === "candidate-apply" && !isTerminalOperationExecution(snapshot.status));
     if (snapshot.progress && "benchmark" in snapshot.progress) setProgress(snapshot.progress as BlueprintBenchmarkProgress);
     if (snapshot.status === "completed" && snapshot.result) {
       if (snapshot.kind === "benchmark") setBenchmarkResult(snapshot.result as BenchmarkResponse);
+      else if (snapshot.kind === "candidate-apply") {
+        const appliedResult = snapshot.result as CandidateApplyResponse;
+        setApplied(appliedResult);
+        setDecisionState(appliedResult.decisionState ?? "verified");
+        setApplyArmed(false);
+      }
       else {
         const reviewed = snapshot.result as CandidatePreviewResponse;
         setCandidatePreview(reviewed);
@@ -108,7 +115,7 @@ export function ExperimentWorkbench({
     }
   };
 
-  const follow = async (initial: StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse>) => {
+  const follow = async (initial: OperationExecutionSnapshot<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse>) => {
     pollAbort.current?.abort();
     const abort = new AbortController();
     pollAbort.current = abort;
@@ -130,11 +137,11 @@ export function ExperimentWorkbench({
     void listStudioOperations(projectId).then(async (operations) => {
       if (abort.signal.aborted) return;
       const operation = operations.find((item) => selectedCandidateId
-        ? item.kind === "candidate-preview" && item.subject.kind === "candidate-preview"
+        ? (item.subject.kind === "candidate-preview" || item.subject.kind === "candidate-apply")
           && item.subject.benchmarkId === selectedId && item.subject.candidateId === selectedCandidateId
         : item.kind === "benchmark" && item.subject.kind === "benchmark" && item.subject.benchmarkId === selectedId);
       if (!operation) return;
-      const snapshot = await readStudioOperation<BenchmarkResponse | CandidatePreviewResponse>(projectId, operation.id);
+      const snapshot = await readStudioOperation<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse>(projectId, operation.id);
       await followStudioOperation(projectId, snapshot, applyOperationSnapshot, abort.signal);
     }).catch((nextError) => {
       if (!abort.signal.aborted) setError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -167,9 +174,9 @@ export function ExperimentWorkbench({
   };
 
   const cancelRun = async () => {
-    if (!activeOperation || isTerminalStudioOperation(activeOperation.status)) return;
+    if (!activeOperation || isTerminalOperationExecution(activeOperation.status)) return;
     try {
-      applyOperationSnapshot(await cancelStudioOperation(projectId, activeOperation.id) as StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse>);
+      applyOperationSnapshot(await cancelStudioOperation(projectId, activeOperation.id) as OperationExecutionSnapshot<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse>);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
     }
@@ -179,18 +186,15 @@ export function ExperimentWorkbench({
     if (!selected || !activeCandidate || !candidatePreview || applying || candidatePreview.result.verdict !== "KEEP") return;
     setApplying(true); setError(null);
     try {
-      const response = await responseJson<CandidateApplyResponse>(await fetch(
+      const started = await startStudioOperation<CandidateApplyResponse>(
         `/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selected.id)}/candidates/${encodeURIComponent(activeCandidate.id)}/apply`,
         {
-          method: "POST", headers: { accept: "application/json", "content-type": "application/json" },
-          body: JSON.stringify({
-            proposalHash: candidatePreview.proposalHash,
-            currentCandidateHash: candidatePreview.currentCandidateHash,
-            proposedCandidateHash: candidatePreview.proposedCandidateHash,
-          }),
+          proposalHash: candidatePreview.proposalHash,
+          currentCandidateHash: candidatePreview.currentCandidateHash,
+          proposedCandidateHash: candidatePreview.proposedCandidateHash,
         },
-      ));
-      setApplied(response); setDecisionState(response.decisionState ?? "verified"); setApplyArmed(false);
+      );
+      await follow(started.operation);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
     } finally { setApplying(false); }
@@ -228,7 +232,7 @@ export function ExperimentWorkbench({
               <span>{progress ? progress.phase.endsWith("completed") ? `${progress.cached ? "REUSED" : "EVALUATED"} · ${((progress.timing.durationMs ?? 0) / 1000).toFixed(2)}s` : "RUNNING EXACT LOCKED CASE" : activeOperation.error?.message ?? "LOADING PROJECT-LOCAL CASES"}</span>
             </div>
             <div><b>{progress ? `${progress.work.completed}/${progress.work.total}` : `0/${selected.cases.length * 2}`}</b><small>CASE EVALUATIONS</small><progress value={progress?.work.completed ?? 0} max={progress?.work.total ?? selected.cases.length * 2}/></div>
-            {!isTerminalStudioOperation(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-experiment">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}
+            {!isTerminalOperationExecution(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-experiment">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}
           </section>}
           <section className="candidate-selector" aria-label="Candidate change sets">
             <div className="experiment-section-title"><span>REVIEW TARGET</span><b>{candidates.length} PROJECT-LOCAL PROPOSALS</b></div>

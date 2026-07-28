@@ -2,7 +2,7 @@
 import { parseArgs } from "node:util";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 import { studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
@@ -82,7 +82,7 @@ async function selectedProject(positionals: string[], usage: string, project?: s
   return resolveProjectDirectory(oneArg(positionals, usage), project);
 }
 
-async function main(): Promise<void> {
+async function main(signal: AbortSignal): Promise<void> {
   if (!subcommand || subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
     if (!subcommand) { process.stdout.write(HELP); return; }
     const { values, positionals } = parseArgs({ args, options: { json: common.json }, allowPositionals: true });
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
       ...projectOption, benchmark: { type: "string", default: "autoresearch" }, lock: { type: "boolean", default: false }, progress: { type: "string" }, json: common.json, ...section,
     }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm benchmark <project-or-workspace-dir> [--project ID] [--benchmark ID] [--lock]", values.project);
-    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock, progress: values.progress, section: values.section });
+    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock, progress: values.progress, section: values.section, signal });
   }
   if (subcommand === "candidate") {
     const { values, positionals } = parseArgs({ args, options: {
@@ -166,7 +166,7 @@ async function main(): Promise<void> {
     }, allowPositionals: true });
     if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--apply] [--json]");
     const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--apply]", values.project);
-    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, progress: values.progress, section: values.section });
+    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, progress: values.progress, section: values.section, signal });
   }
   if (subcommand === "design") {
     const { values, positionals } = parseArgs({ args, options: {
@@ -182,6 +182,7 @@ async function main(): Promise<void> {
       ...(values["max-candidates"] !== undefined ? { maxCandidates: Number(values["max-candidates"]) } : {}),
       json: values.json,
       section: values.section,
+      signal,
     });
   }
   if (subcommand === "simulate") {
@@ -222,4 +223,24 @@ async function main(): Promise<void> {
   throw new Error(`Unknown command '${subcommand}'\n\n${HELP}`);
 }
 
-main().catch((error) => { process.stderr.write(formatCliError(error, wantsJson, commandId)); process.exitCode = isCliUsageError(error) ? 2 : 1; });
+const operationController = new AbortController();
+let receivedSignals = 0;
+const requestCancellation = (signalName: NodeJS.Signals) => {
+  receivedSignals += 1;
+  if (receivedSignals > 1) process.exit(130);
+  operationController.abort(new DOMException(`Received ${signalName}`, "AbortError"));
+};
+const onSigint = () => requestCancellation("SIGINT");
+const onSigterm = () => requestCancellation("SIGTERM");
+process.on("SIGINT", onSigint);
+process.on("SIGTERM", onSigterm);
+
+void main(operationController.signal)
+  .catch((error) => {
+    process.stderr.write(formatCliError(error, wantsJson, commandId));
+    process.exitCode = isCliCancellationError(error) ? 130 : isCliUsageError(error) ? 2 : 1;
+  })
+  .finally(() => {
+    process.off("SIGINT", onSigint);
+    process.off("SIGTERM", onSigterm);
+  });
