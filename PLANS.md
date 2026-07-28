@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/lazy-input-starvation-evidence]] | Materialize immutable shortage evidence only when exact live observations change. | 2026-07-29 |
 | [[plans/compiled-contract-commitment-sources]] | Build exact contract-value snapshots from compiled Resource-specific live-state sources. | 2026-07-29 |
 | [[plans/single-pass-runtime-measurement]] | Observe authoritative inventory, transport, and mission state once per deterministic metric boundary. | 2026-07-29 |
 | [[plans/prepared-device-program-context]] | Reuse immutable Device Program descriptions while constructing a fresh invocation root around exact live simulator state. | 2026-07-29 |

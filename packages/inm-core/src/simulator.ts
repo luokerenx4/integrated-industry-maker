@@ -41,6 +41,21 @@ type PreparedDeviceProgramDescription = {
 
 type ContractCommitments = Readonly<Record<string, number>>;
 
+type PreparedInputSupplyDescription = {
+  connection: CompiledConnection;
+  loaderDevice: string;
+  unloaderDevice: string;
+};
+
+type PreparedInputShortageDescription = {
+  buffer: string;
+  resource: string;
+  required: number;
+  minimumTreatmentLevel: number;
+  tracked: boolean;
+  supplies: PreparedInputSupplyDescription[];
+};
+
 export interface RunOptions { untilTick?: number; maxEvents?: number; seed?: number }
 
 const POWER_SATISFACTION_SCALE = 1_000_000;
@@ -48,37 +63,6 @@ const scaledCeil = (value: number, multiplier: { numerator: number; denominator:
   Math.ceil(value * multiplier.numerator / multiplier.denominator);
 
 function quantity(inventory: Record<string, number>): number { return Object.values(inventory).reduce((sum, count) => sum + count, 0); }
-function sameInputSupplyObservation(left: InputSupplyObservation, right: InputSupplyObservation): boolean {
-  return left.connection === right.connection
-    && left.sourceDevice === right.sourceDevice
-    && left.sourceBuffer === right.sourceBuffer
-    && left.sourceAvailable === right.sourceAvailable
-    && left.inFlight === right.inFlight
-    && left.sourceStatus === right.sourceStatus
-    && left.loaderDevice === right.loaderDevice
-    && left.loaderStatus === right.loaderStatus
-    && left.unloaderDevice === right.unloaderDevice
-    && left.unloaderStatus === right.unloaderStatus
-    && left.state === right.state;
-}
-function sameMaterialInputShortages(left: MaterialInputShortage[], right: MaterialInputShortage[]): boolean {
-  if (left.length !== right.length) return false;
-  for (let shortageIndex = 0; shortageIndex < left.length; shortageIndex++) {
-    const leftShortage = left[shortageIndex]!;
-    const rightShortage = right[shortageIndex]!;
-    if (leftShortage.buffer !== rightShortage.buffer
-      || leftShortage.resource !== rightShortage.resource
-      || leftShortage.required !== rightShortage.required
-      || leftShortage.available !== rightShortage.available
-      || leftShortage.missing !== rightShortage.missing
-      || leftShortage.minimumTreatmentLevel !== rightShortage.minimumTreatmentLevel
-      || leftShortage.supplies.length !== rightShortage.supplies.length) return false;
-    for (let supplyIndex = 0; supplyIndex < leftShortage.supplies.length; supplyIndex++) {
-      if (!sameInputSupplyObservation(leftShortage.supplies[supplyIndex]!, rightShortage.supplies[supplyIndex]!)) return false;
-    }
-  }
-  return true;
-}
 function stationFleetKey(network: string, station: string): string { return `${network}:${station}`; }
 
 function renewableProfileFor(project: CompiledFactoryProject, deviceId: string) {
@@ -418,6 +402,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const byResource = byBuffer[connection.toPort.buffer] ??= {};
     for (const resource of connection.resources) (byResource[resource] ??= []).push(connection);
     if (project.devices[connection.to.device]!.policy?.inputPriority === connection.to.port) inputPriorityConnectionIds.add(connection.id);
+  }
+  const inputShortageDescriptions = new Map<
+    NonNullable<CompiledDevice["processPlan"]>,
+    PreparedInputShortageDescription[]
+  >();
+  for (const device of devices) for (const plan of device.processPlans) {
+    inputShortageDescriptions.set(plan, plan.inputs.map((amount) => ({
+      buffer: amount.buffer,
+      resource: amount.resource,
+      required: amount.count,
+      minimumTreatmentLevel: amount.minimumTreatmentLevel ?? 0,
+      tracked: Boolean(project.resources[amount.resource]!.tracking),
+      supplies: (incomingConnectionsByDeviceBufferResource[device.id]?.[amount.buffer]?.[amount.resource] ?? [])
+        .map((connection) => ({
+          connection,
+          loaderDevice: connection.logisticsStages.find((stage) => stage.stage === "loader")!.device!.id,
+          unloaderDevice: connection.logisticsStages.find((stage) => stage.stage === "unloader")!.device!.id,
+        })),
+    })).sort((left, right) => left.buffer.localeCompare(right.buffer) || left.resource.localeCompare(right.resource)));
   }
   const localDispatchSources = Object.keys(outgoingConnectionsBySource).sort().map((source) => {
     const outgoing = outgoingConnectionsBySource[source]!;
@@ -2034,92 +2037,195 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput]
         : resolveLotOutputExecution(device, plan)?.outputs ?? plan.outputs);
   const inputSupplyState = (
-    observation: Omit<InputSupplyObservation, "state">,
+    sourceAvailable: number,
+    inFlight: number,
+    sourceStatus: InputSupplyObservation["sourceStatus"],
+    loaderStatus: InputSupplyObservation["loaderStatus"],
+    unloaderStatus: InputSupplyObservation["unloaderStatus"],
     blocked: boolean,
   ): InputSupplyObservation["state"] => {
-    if (observation.loaderStatus === "failed") return "loader-failed";
-    if (observation.loaderStatus === "unpowered") return "loader-unpowered";
-    if (observation.unloaderStatus === "failed") return "unloader-failed";
-    if (observation.unloaderStatus === "unpowered") return "unloader-unpowered";
+    if (loaderStatus === "failed") return "loader-failed";
+    if (loaderStatus === "unpowered") return "loader-unpowered";
+    if (unloaderStatus === "failed") return "unloader-failed";
+    if (unloaderStatus === "unpowered") return "unloader-unpowered";
     if (blocked) return "transport-blocked";
-    if (observation.inFlight > 0) return "transport-in-flight";
-    if (observation.sourceAvailable > 0) {
-      return observation.sourceStatus === "blocked-output" ? "source-blocked-output" : "source-ready";
+    if (inFlight > 0) return "transport-in-flight";
+    if (sourceAvailable > 0) {
+      return sourceStatus === "blocked-output" ? "source-blocked-output" : "source-ready";
     }
-    if (observation.sourceStatus === "processing") return "source-processing";
-    if (observation.sourceStatus === "waiting-input") return "source-waiting-input";
-    if (observation.sourceStatus === "blocked-output") return "source-blocked-output";
-    if (observation.sourceStatus === "unpowered") return "source-unpowered";
-    if (observation.sourceStatus === "failed") return "source-failed";
+    if (sourceStatus === "processing") return "source-processing";
+    if (sourceStatus === "waiting-input") return "source-waiting-input";
+    if (sourceStatus === "blocked-output") return "source-blocked-output";
+    if (sourceStatus === "unpowered") return "source-unpowered";
+    if (sourceStatus === "failed") return "source-failed";
     return "source-empty";
   };
-  const processInputShortages = (
+  const shortageAvailable = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
-  ): MaterialInputShortage[] => plan.inputs.flatMap((amount) => {
-    const minimumTreatmentLevel = amount.minimumTreatmentLevel ?? 0;
-    const available = isTracked(amount.resource)
-      ? rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, minimumTreatmentLevel).length
-      : materialQuantity(device.id, amount.buffer, amount.resource, minimumTreatmentLevel);
-    if (available >= amount.count) return [];
-    const connections = incomingConnectionsByDeviceBufferResource[device.id]?.[amount.buffer]?.[amount.resource] ?? [];
-    const supplies: InputSupplyObservation[] = connections.length ? connections.map((connection) => {
-      const loader = transportStage(connection, "loader").device!;
-      const unloader = transportStage(connection, "unloader").device!;
-      const matchingTransits = state.transports[connection.id]!.filter((transit) =>
-        transit.resource === amount.resource && transit.treatmentLevel >= minimumTreatmentLevel);
-      const observation = {
-        connection: connection.id,
-        sourceDevice: connection.from.device,
-        sourceBuffer: connection.fromPort.buffer,
-        sourceAvailable: materialQuantity(
-          connection.from.device,
-          connection.fromPort.buffer,
-          amount.resource,
-          minimumTreatmentLevel,
-        ),
-        inFlight: matchingTransits.reduce((sum, transit) => sum + transit.count, 0),
-        sourceStatus: state.devices[connection.from.device]!.status,
-        loaderDevice: loader.id,
-        loaderStatus: state.devices[loader.id]!.status,
-        unloaderDevice: unloader.id,
-        unloaderStatus: state.devices[unloader.id]!.status,
-      } satisfies Omit<InputSupplyObservation, "state">;
-      return {
-        ...observation,
-        state: inputSupplyState(observation, matchingTransits.some((transit) => Boolean(transit.blockedBy))),
-      };
-    }) : [{
-      connection: null,
-      sourceDevice: null,
-      sourceBuffer: null,
-      sourceAvailable: 0,
-      inFlight: 0,
-      sourceStatus: null,
-      loaderDevice: null,
-      loaderStatus: null,
-      unloaderDevice: null,
-      unloaderStatus: null,
-      state: "no-local-supply" as const,
-    }];
-    return [{
-      buffer: amount.buffer,
-      resource: amount.resource,
-      required: amount.count,
-      available,
-      missing: amount.count - available,
-      minimumTreatmentLevel,
-      supplies,
-    }];
-  }).sort((left, right) => left.buffer.localeCompare(right.buffer) || left.resource.localeCompare(right.resource));
+    description: PreparedInputShortageDescription,
+  ): number => description.tracked
+    ? rankedProcessLotIds(
+      device,
+      description.buffer,
+      description.resource,
+      plan.definition.id,
+      description.minimumTreatmentLevel,
+    ).length
+    : materialQuantity(device.id, description.buffer, description.resource, description.minimumTreatmentLevel);
+  const materializeProcessInputShortages = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+  ): MaterialInputShortage[] => {
+    const shortages: MaterialInputShortage[] = [];
+    for (const description of inputShortageDescriptions.get(plan)!) {
+      const available = shortageAvailable(device, plan, description);
+      if (available >= description.required) continue;
+      const supplies: InputSupplyObservation[] = [];
+      for (const source of description.supplies) {
+        let inFlight = 0;
+        let blocked = false;
+        for (const transit of state.transports[source.connection.id]!) {
+          if (transit.resource !== description.resource
+            || transit.treatmentLevel < description.minimumTreatmentLevel) continue;
+          inFlight += transit.count;
+          if (transit.blockedBy) blocked = true;
+        }
+        const sourceAvailable = materialQuantity(
+          source.connection.from.device,
+          source.connection.fromPort.buffer,
+          description.resource,
+          description.minimumTreatmentLevel,
+        );
+        const sourceStatus = state.devices[source.connection.from.device]!.status;
+        const loaderStatus = state.devices[source.loaderDevice]!.status;
+        const unloaderStatus = state.devices[source.unloaderDevice]!.status;
+        supplies.push({
+          connection: source.connection.id,
+          sourceDevice: source.connection.from.device,
+          sourceBuffer: source.connection.fromPort.buffer,
+          sourceAvailable,
+          inFlight,
+          sourceStatus,
+          loaderDevice: source.loaderDevice,
+          loaderStatus,
+          unloaderDevice: source.unloaderDevice,
+          unloaderStatus,
+          state: inputSupplyState(sourceAvailable, inFlight, sourceStatus, loaderStatus, unloaderStatus, blocked),
+        });
+      }
+      if (!supplies.length) supplies.push({
+        connection: null,
+        sourceDevice: null,
+        sourceBuffer: null,
+        sourceAvailable: 0,
+        inFlight: 0,
+        sourceStatus: null,
+        loaderDevice: null,
+        loaderStatus: null,
+        unloaderDevice: null,
+        unloaderStatus: null,
+        state: "no-local-supply",
+      });
+      shortages.push({
+        buffer: description.buffer,
+        resource: description.resource,
+        required: description.required,
+        available,
+        missing: description.required - available,
+        minimumTreatmentLevel: description.minimumTreatmentLevel,
+        supplies,
+      });
+    }
+    return shortages;
+  };
+  const processInputShortagesMatch = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+    previous: MaterialInputShortage[],
+  ): boolean => {
+    let shortageIndex = 0;
+    for (const description of inputShortageDescriptions.get(plan)!) {
+      const available = shortageAvailable(device, plan, description);
+      if (available >= description.required) continue;
+      const expected = previous[shortageIndex++];
+      if (!expected
+        || expected.buffer !== description.buffer
+        || expected.resource !== description.resource
+        || expected.required !== description.required
+        || expected.available !== available
+        || expected.missing !== description.required - available
+        || expected.minimumTreatmentLevel !== description.minimumTreatmentLevel) return false;
+      if (!description.supplies.length) {
+        const supply = expected.supplies[0];
+        if (expected.supplies.length !== 1
+          || !supply
+          || supply.connection !== null
+          || supply.sourceDevice !== null
+          || supply.sourceBuffer !== null
+          || supply.sourceAvailable !== 0
+          || supply.inFlight !== 0
+          || supply.sourceStatus !== null
+          || supply.loaderDevice !== null
+          || supply.loaderStatus !== null
+          || supply.unloaderDevice !== null
+          || supply.unloaderStatus !== null
+          || supply.state !== "no-local-supply") return false;
+        continue;
+      }
+      if (expected.supplies.length !== description.supplies.length) return false;
+      for (let supplyIndex = 0; supplyIndex < description.supplies.length; supplyIndex++) {
+        const source = description.supplies[supplyIndex]!;
+        const supply = expected.supplies[supplyIndex]!;
+        let inFlight = 0;
+        let blocked = false;
+        for (const transit of state.transports[source.connection.id]!) {
+          if (transit.resource !== description.resource
+            || transit.treatmentLevel < description.minimumTreatmentLevel) continue;
+          inFlight += transit.count;
+          if (transit.blockedBy) blocked = true;
+        }
+        const sourceAvailable = materialQuantity(
+          source.connection.from.device,
+          source.connection.fromPort.buffer,
+          description.resource,
+          description.minimumTreatmentLevel,
+        );
+        const sourceStatus = state.devices[source.connection.from.device]!.status;
+        const loaderStatus = state.devices[source.loaderDevice]!.status;
+        const unloaderStatus = state.devices[source.unloaderDevice]!.status;
+        if (supply.connection !== source.connection.id
+          || supply.sourceDevice !== source.connection.from.device
+          || supply.sourceBuffer !== source.connection.fromPort.buffer
+          || supply.sourceAvailable !== sourceAvailable
+          || supply.inFlight !== inFlight
+          || supply.sourceStatus !== sourceStatus
+          || supply.loaderDevice !== source.loaderDevice
+          || supply.loaderStatus !== loaderStatus
+          || supply.unloaderDevice !== source.unloaderDevice
+          || supply.unloaderStatus !== unloaderStatus
+          || supply.state !== inputSupplyState(
+            sourceAvailable,
+            inFlight,
+            sourceStatus,
+            loaderStatus,
+            unloaderStatus,
+            blocked,
+          )) return false;
+      }
+    }
+    return shortageIndex === previous.length;
+  };
   const setProcessInputStarvation = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number] | undefined,
   ): boolean => {
-    const shortages = plan ? processInputShortages(device, plan) : [];
-    if (!plan || shortages.length === 0) return closeInputStarvation(device.id, "ready");
     const previous = inputStarvations[device.id];
-    if (previous?.process === plan.definition.id && sameMaterialInputShortages(previous.shortages, shortages)) return false;
+    if (!plan) return closeInputStarvation(device.id, "ready");
+    if (previous?.process === plan.definition.id
+      && processInputShortagesMatch(device, plan, previous.shortages)) return false;
+    const shortages = materializeProcessInputShortages(device, plan);
+    if (shortages.length === 0) return closeInputStarvation(device.id, "ready");
     if (previous) closeInputStarvation(device.id, "changed");
     inputStarvations[device.id] = {
       process: plan.definition.id,
