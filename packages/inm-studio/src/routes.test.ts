@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, studioRoute, viewPath } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath } from "./routes";
 
 test("Studio builds and parses every stable project-qualified route", () => {
   const cases = [
@@ -55,4 +55,11 @@ test("route-backed surfaces return only to a path owned by the same project", ()
   expect(overlayReturnPath("memory-fab", { inmOverlayFrom: "/memory-fab-other" })).toBeNull();
   expect(overlayReturnPath("memory-fab", { inmOverlayFrom: "/ironworks" })).toBeNull();
   expect(overlayReturnPath("memory-fab", null)).toBeNull();
+});
+
+test("direct Experiment routes use the lightweight project surface", () => {
+  expect(requiresFullProjectData("experiments")).toBeFalse();
+  for (const view of ["overview", "factory", "runs", "designs", "catalog", "analysis"] as const) {
+    expect(requiresFullProjectData(view)).toBeTrue();
+  }
 });

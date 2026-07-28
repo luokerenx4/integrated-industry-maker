@@ -8,7 +8,7 @@ import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 import { factoryPresentation, type FactoryLabelDensity, type FactoryPresentation as FactoryPresentationPolicy, type FactoryPresentationRequest } from "./factory-presentation";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 import { DesignWorkbench } from "./design-workbench";
 
@@ -2361,6 +2361,8 @@ function App() {
   const [routeDiagnostic, setRouteDiagnostic] = useState<string | null>(initialRoute.diagnosticId);
   const [index, setIndex] = useState<ProjectIndex | null>(null);
   const [data, setData] = useState<StudioData | null>(null);
+  const [experimentCatalog, setExperimentCatalog] = useState<{ projectId: string; experiments: BlueprintBenchmarkSummary[] } | null>(null);
+  const [routeSurfaceError, setRouteSurfaceError] = useState<string | null>(null);
   const [overview, setOverview] = useState<ProjectWorkbenchSnapshot | null>(null);
   const [observation, setObservation] = useState<FactoryObservationBrief | null>(null);
   const [run, setRun] = useState<string | null>(null);
@@ -2378,11 +2380,29 @@ function App() {
   const [factoryPresentationMode, setFactoryPresentationMode] = useState<FactoryPresentationPolicy["mode"]>(initialRoute.selection ? "selection" : "overview");
   const runRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
+  const viewRef = useRef<StudioView>(routeView);
   const requestSequence = useRef(0);
+  const routeSurfaceRequestSequence = useRef(0);
+  viewRef.current = routeView;
 
   const loadIndex = useCallback(async () => {
     try { setIndex(await responseJson<ProjectIndex>(await fetch("/api/projects"))); }
     catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
+  }, []);
+
+  const loadExperimentCatalog = useCallback(async (projectId: string) => {
+    const sequence = ++routeSurfaceRequestSequence.current;
+    setRouteSurfaceError(null);
+    try {
+      const next = await responseJson<{ experiments: BlueprintBenchmarkSummary[] }>(await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/experiments`,
+      ));
+      if (sequence === routeSurfaceRequestSequence.current) setExperimentCatalog({ projectId, experiments: next.experiments });
+    } catch (nextError) {
+      if (sequence === routeSurfaceRequestSequence.current) {
+        setRouteSurfaceError(nextError instanceof Error ? nextError.message : String(nextError));
+      }
+    }
   }, []);
 
   const loadProject = useCallback(async (projectId: string, selectedRun?: string | null) => {
@@ -2432,9 +2452,12 @@ function App() {
     setRouteDiagnostic(null);
     setSelection(null);
     setError(null);
+    setRouteSurfaceError(null);
     if (!projectId) {
       requestSequence.current += 1;
+      routeSurfaceRequestSequence.current += 1;
       setData(null);
+      setExperimentCatalog(null);
       setOverview(null);
       setObservation(null);
       setLoading(false);
@@ -2571,9 +2594,13 @@ function App() {
     window.addEventListener("popstate", popstate);
     return () => window.removeEventListener("popstate", popstate);
   }, []);
+  const fullProjectSurface = requiresFullProjectData(routeView);
   useEffect(() => {
-    if (routeProject) void loadProject(routeProject, routeRun);
-  }, [routeProject, routeRun, loadProject]);
+    if (routeProject && fullProjectSurface) void loadProject(routeProject, routeRun);
+  }, [routeProject, routeRun, fullProjectSurface, loadProject]);
+  useEffect(() => {
+    if (routeProject && routeView === "experiments") void loadExperimentCatalog(routeProject);
+  }, [routeProject, routeView, loadExperimentCatalog]);
   useEffect(() => {
     if (routeView !== "factory" || !data || !run || factoryRunId() === run) return;
     window.history.replaceState(window.history.state, "", factoryObjectPath(data.projectId, selection, run));
@@ -2588,7 +2615,9 @@ function App() {
       source.onmessage = (event) => {
         if (event.data !== "refresh") return;
         void loadIndex();
-        if (projectRef.current) void loadProject(projectRef.current, runRef.current);
+        if (!projectRef.current) return;
+        if (viewRef.current === "experiments") void loadExperimentCatalog(projectRef.current);
+        else void loadProject(projectRef.current, runRef.current);
       };
       source.onclose = () => {
         if (!closed) reconnectTimer = window.setTimeout(connect, 1_000);
@@ -2600,13 +2629,19 @@ function App() {
       if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
       source?.close();
     };
-  }, [loadIndex, loadProject]);
+  }, [loadExperimentCatalog, loadIndex, loadProject]);
   useEffect(() => {
-    const experiment = routeExperiment && data?.experiments.find((item) => item.id === routeExperiment);
+    const experiments = experimentCatalog?.projectId === routeProject ? experimentCatalog.experiments : data?.experiments;
+    const experiment = routeExperiment && experiments?.find((item) => item.id === routeExperiment);
     const design = routeDesignProgram && data?.designPrograms.find((item) => item.id === routeDesignProgram);
+    const projectName = data?.name ?? index?.projects.find((item) => item.id === routeProject)?.name;
     const viewLabel = routeView === "overview" ? "" : `${routeView[0]!.toUpperCase()}${routeView.slice(1)} · `;
-    document.title = experiment ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${data!.name} · INM Studio` : design ? `${routeDesignRun ? `${routeDesignRun.slice(0, 8)} · ` : ""}${design.name} · ${data!.name} · INM Studio` : data ? `${viewLabel}${data.name} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
-  }, [data, index, routeCandidate, routeDesignProgram, routeDesignRun, routeExperiment, routeView]);
+    document.title = experiment && projectName
+      ? `${routeCandidate ? `${routeCandidate} · ` : ""}${experiment.name} · ${projectName} · INM Studio`
+      : design && projectName
+        ? `${routeDesignRun ? `${routeDesignRun.slice(0, 8)} · ` : ""}${design.name} · ${projectName} · INM Studio`
+        : projectName ? `${viewLabel}${projectName} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
+  }, [data, experimentCatalog, index, routeCandidate, routeDesignProgram, routeDesignRun, routeExperiment, routeProject, routeView]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -2642,6 +2677,19 @@ function App() {
     if (!index && !error) return <div className="loading">DISCOVERING PROJECTS…</div>;
     if (error && !index) return <div className="route-state error-state"><span>WORKSPACE ERROR</span><strong>{error}</strong><button onClick={() => window.location.reload()}>RETRY</button></div>;
     return <ProjectLauncher index={index!} />;
+  }
+  if (routeView === "experiments") {
+    const experiments = experimentCatalog?.projectId === routeProject
+      ? experimentCatalog.experiments
+      : data?.projectId === routeProject ? data.experiments : null;
+    if (!experiments && !routeSurfaceError) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
+    if (!experiments || routeSurfaceError) return <div className="route-state error-state"><div className="route-mark">!</div><span>EXPERIMENTS UNAVAILABLE</span><strong>{routeSurfaceError ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
+    return <main className="project-shell experiment-route-shell">
+      <ExperimentWorkbench
+        projectId={routeProject} experiments={experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
+        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource} onClose={closeRouteSurface}
+      />
+    </main>;
   }
   if ((!data || !overview || !observation) && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
   if (!data || !overview || !observation || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
@@ -2699,10 +2747,6 @@ function App() {
       <div className="workbench-content">{routeView === "runs" ? <RunsOverview snapshot={overview} onOpenFactory={openRun} /> : overviewContent}</div>
       {routeView === "catalog" && <AssetBrowser data={data} initialKind={routeAssetKind ?? "devices"} initialId={routeAssetId} onNavigate={navigateCatalog} onClose={closeRouteSurface} />}
       {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={closeRouteSurface} />}
-      {routeView === "experiments" && <ExperimentWorkbench
-        projectId={data.projectId} experiments={data.experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
-        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource} onClose={closeRouteSurface}
-      />}
       {routeView === "designs" && <DesignWorkbench
         projectId={data.projectId} programs={data.designPrograms} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}
         onSelectProgram={navigateDesignProgram} onSelectRun={navigateDesignRun} onCandidate={navigateCandidateDirect} onClose={closeRouteSurface}

@@ -62,6 +62,18 @@ if (positionals.length !== 1) {
 
 const inputDir = resolve(positionals[0]!);
 const port = Number(values.port);
+const configuredIdleExitMs = process.env.INM_STUDIO_IDLE_EXIT_MS === undefined
+  ? null
+  : Number(process.env.INM_STUDIO_IDLE_EXIT_MS);
+if (configuredIdleExitMs !== null && (!Number.isSafeInteger(configuredIdleExitMs) || configuredIdleExitMs < 100)) {
+  throw new Error("INM_STUDIO_IDLE_EXIT_MS must be an integer of at least 100 milliseconds");
+}
+let idleExitTimer: ReturnType<typeof setTimeout> | null = null;
+function renewIdleExitLease(): void {
+  if (configuredIdleExitMs === null) return;
+  if (idleExitTimer) clearTimeout(idleExitTimer);
+  idleExitTimer = setTimeout(() => process.exit(0), configuredIdleExitMs);
+}
 const sourceHash = await studioSourceHash();
 const workspaceMode = await pathExists(join(inputDir, "inm-workspace.json"));
 const cacheDir = join(inputDir, ".inm", "cache", "studio");
@@ -491,6 +503,7 @@ const server = Bun.serve({
   port,
   idleTimeout: 255,
   async fetch(request, server) {
+    renewIdleExitLease();
     const url = new URL(request.url);
     try {
       if (url.pathname === "/api/health") {
@@ -780,11 +793,12 @@ const server = Bun.serve({
     }
   },
   websocket: {
-    open(socket) { socket.subscribe(WATCH_TOPIC); },
-    message() {},
+    open(socket) { renewIdleExitLease(); socket.subscribe(WATCH_TOPIC); },
+    message() { renewIdleExitLease(); },
     close(socket) { socket.unsubscribe(WATCH_TOPIC); },
   },
 });
+renewIdleExitLease();
 
 (async () => {
   try {

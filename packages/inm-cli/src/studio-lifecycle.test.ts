@@ -9,7 +9,7 @@ const ironworks = join(repository, "examples/ironworks");
 async function runCli(args: string[], environment: Record<string, string> = {}) {
   const child = Bun.spawn([process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), ...args], {
     cwd: repository,
-    env: { ...process.env, INM_STUDIO_BACKEND: "detached", ...environment },
+    env: { ...process.env, INM_STUDIO_BACKEND: "detached", INM_STUDIO_IDLE_EXIT_MS: "10000", ...environment },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -123,6 +123,29 @@ test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact pr
   expect(status.exitCode).toBe(0);
   expect(data(status.stdout).data.state).toBe("not-running");
 }, 60_000);
+
+test("an abandoned detached test Studio exits when its idle lease expires", async () => {
+  const project = await temporaryProject("leased");
+  const port = 52_500 + process.pid % 400;
+  const environment = { INM_STUDIO_IDLE_EXIT_MS: "250" };
+  try {
+    const started = await runCli([
+      "studio", "start", project, "--port", String(port), "--no-open", "--json",
+    ], environment);
+    expect(started.exitCode).toBe(0);
+    expect(await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.status)).toBe(200);
+    await Bun.sleep(600);
+    expect(await fetch(`http://127.0.0.1:${port}/api/health`).then(
+      () => "running",
+      () => "stopped",
+    )).toBe("stopped");
+    const status = await runCli(["studio", "status", project, "--port", String(port), "--json"], environment);
+    expect(status.exitCode).toBe(0);
+    expect(data(status.stdout).data.state).toBe("not-running");
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"], environment);
+  }
+}, 30_000);
 
 test("portless Studio lifecycle allocates once and rediscovers the exact managed service", async () => {
   const first = await temporaryProject("portless-first");
