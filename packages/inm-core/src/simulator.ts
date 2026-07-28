@@ -291,6 +291,42 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return [route.id, remaining];
   }));
   const proportionalPower = project.blueprint.policies.powerAllocation === "proportional";
+  const powerGridIds = Object.keys(project.powerGrids).sort();
+  const devices = Object.values(project.devices);
+  const connectedDevices = devices.filter((device) => device.powerGrid !== undefined);
+  const devicesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    project.powerGrids[grid]!.members.map((id) => project.devices[id]!),
+  ]));
+  const generationDevices = devices.filter((device) => device.generationPlan !== undefined);
+  const generationDevicesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    generationDevices.filter((device) => device.powerGrid === grid),
+  ]));
+  const storageDevices = devices.filter((device) => device.storagePlan !== undefined);
+  const storageDevicesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    project.powerGrids[grid]!.storageDevices.map((id) => project.devices[id]!),
+  ]));
+  const transportEndpointDevices = devices.filter((device) => device.transportEndpoint !== undefined);
+  const transportEndpointDevicesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    transportEndpointDevices.filter((device) => device.powerGrid === grid),
+  ]));
+  const transportPowerStages = Object.values(project.connections).flatMap((connection) => connection.logisticsStages.flatMap((stage) => (
+    stage.stage === "line" ? [] : [{
+      connection: connection.id,
+      stage: stage.stage,
+      phase: stage.stage === "loader" ? "loading" as const : "unloading" as const,
+      device: stage.device!.id,
+      powerGrid: stage.powerGrid,
+      activeDeltaMilliWatts: Math.max(0, stage.asset.power.activeMilliWatts - stage.asset.power.idleMilliWatts),
+    }]
+  )));
+  const transportPowerStagesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    transportPowerStages.filter((stage) => stage.powerGrid === grid),
+  ]));
   const criticalDepths = resourceCriticalDepth(project);
   const dispatchProfiles = Object.fromEntries(Object.values(project.connections).map((connection) => [
     connection.id, connectionDispatchProfiles(project, connection, criticalDepths),
@@ -432,6 +468,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const powerPriority = (device: CompiledDevice) => device.policy?.powerPriority ?? 0;
   const comparePowerRank = (left: CompiledDevice, right: CompiledDevice) => powerPriority(right) - powerPriority(left) || left.id.localeCompare(right.id);
   const outranksForPower = (candidate: CompiledDevice, incumbent: CompiledDevice) => comparePowerRank(candidate, incumbent) < 0;
+  const evaluationOrder = [...devices].sort((left, right) => Number(Boolean(right.generationPlan)) - Number(Boolean(left.generationPlan)) || comparePowerRank(left, right));
+  const generationEvaluationOrder = evaluationOrder.filter((device) => device.generationPlan);
+  const consumerEvaluationOrder = evaluationOrder.filter((device) => !device.generationPlan);
+  const powerRankedDevicesByGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    [...devicesByPowerGrid[grid]!].sort(comparePowerRank),
+  ]));
+  const devicesForPowerGrid = (grid?: string) => grid === undefined ? devices : devicesByPowerGrid[grid] ?? [];
+  const generationDevicesForPowerGrid = (grid?: string) => grid === undefined ? generationDevices : generationDevicesByPowerGrid[grid] ?? [];
+  const storageDevicesForPowerGrid = (grid?: string) => grid === undefined ? storageDevices : storageDevicesByPowerGrid[grid] ?? [];
+  const transportEndpointDevicesForPowerGrid = (grid?: string) => grid === undefined ? transportEndpointDevices : transportEndpointDevicesByPowerGrid[grid] ?? [];
+  const transportPowerStagesForPowerGrid = (grid?: string) => grid === undefined ? transportPowerStages : transportPowerStagesByPowerGrid[grid] ?? [];
   const transportStage = (connection: CompiledFactoryProject["connections"][string], stage: "loader" | "unloader") => connection.logisticsStages.find((item) => item.stage === stage)!;
   const transportPhase = (stage: "loader" | "unloader") => stage === "loader" ? "loading" : "unloading";
   const transportWorkKey = (connection: string, stage: "loader" | "unloader", transitId: string) => `${connection}:${stage}:${transitId}`;
@@ -455,41 +503,50 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const key = `${connection.id}:${stageName}`;
     setStatus(stage.device!.id, transportPowerBlocked[key] ? "unpowered" : active ? "processing" : "idle");
   };
-  const standbyPower = (grid?: string) => Object.entries(state.devices).reduce((sum, [id, runtime]) => {
-    const device = project.devices[id]!;
-    if (!runtime.idlePowered || runtime.status === "failed" || (grid !== undefined && device.powerGrid !== grid)) return sum;
-    return sum + standbyRequirement(device);
-  }, 0);
-  const requestedStandbyPower = (grid?: string) => Object.entries(state.devices).reduce((sum, [id, runtime]) => {
-    const device = project.devices[id]!;
-    if (runtime.status === "failed" || !device.powerGrid || (grid !== undefined && device.powerGrid !== grid)) return sum;
-    return sum + standbyRequirement(device);
-  }, 0);
-  const activeTransportPowerDelta = (grid?: string) => Object.entries(state.transports).reduce((sum, [connectionId, transits]) => {
-    const connection = project.connections[connectionId]!;
-    return sum + (["loader", "unloader"] as const).reduce((stageSum, stageName) => {
-      const stage = transportStage(connection, stageName);
-      if (!transits.some((transit) => transit.phase === transportPhase(stageName))
-        || (!proportionalPower && state.devices[stage.device!.id]!.status !== "processing")) return stageSum;
-      if (grid !== undefined && stage.powerGrid !== grid) return stageSum;
-      return stageSum + Math.max(0, stage.asset.power.activeMilliWatts - stage.asset.power.idleMilliWatts);
-    }, 0);
-  }, 0);
-  const transportStandbyPower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
-    const runtime = state.devices[device.id]!;
-    if (!device.transportEndpoint || !runtime.idlePowered || runtime.status === "failed" || (grid !== undefined && device.powerGrid !== grid)) return sum;
-    return sum + device.assetDef.power.idleMilliWatts;
-  }, 0);
+  const standbyPower = (grid?: string) => {
+    let sum = 0;
+    for (const device of devicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (runtime.idlePowered && runtime.status !== "failed") sum += standbyRequirement(device);
+    }
+    return sum;
+  };
+  const requestedStandbyPower = (grid?: string) => {
+    let sum = 0;
+    for (const device of grid === undefined ? connectedDevices : devicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (runtime.status !== "failed") sum += standbyRequirement(device);
+    }
+    return sum;
+  };
+  const activeTransportPowerDelta = (grid?: string) => {
+    let sum = 0;
+    for (const stage of transportPowerStagesForPowerGrid(grid)) {
+      if (!state.transports[stage.connection]!.some((transit) => transit.phase === stage.phase)
+        || (!proportionalPower && state.devices[stage.device]!.status !== "processing")) continue;
+      sum += stage.activeDeltaMilliWatts;
+    }
+    return sum;
+  };
+  const transportStandbyPower = (grid?: string) => {
+    let sum = 0;
+    for (const device of transportEndpointDevicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (runtime.idlePowered && runtime.status !== "failed") sum += device.assetDef.power.idleMilliWatts;
+    }
+    return sum;
+  };
   const activeTransportPower = (grid?: string) => transportStandbyPower(grid) + activeTransportPowerDelta(grid);
-  const requestedTransportPowerDelta = (grid?: string) => Object.entries(state.transports).reduce((sum, [connectionId, transits]) => {
-    const connection = project.connections[connectionId]!;
-    return sum + (["loader", "unloader"] as const).reduce((stageSum, stageName) => {
-      const stage = transportStage(connection, stageName); const runtime = state.devices[stage.device!.id]!;
-      if (runtime.status === "failed" || (grid !== undefined && stage.powerGrid !== grid)) return stageSum;
-      const requested = transits.some((transit) => transit.phase === transportPhase(stageName)) || transportPowerBlocked[`${connectionId}:${stageName}`];
-      return stageSum + (requested ? Math.max(0, stage.asset.power.activeMilliWatts - stage.asset.power.idleMilliWatts) : 0);
-    }, 0);
-  }, 0);
+  const requestedTransportPowerDelta = (grid?: string) => {
+    let sum = 0;
+    for (const stage of transportPowerStagesForPowerGrid(grid)) {
+      if (state.devices[stage.device]!.status === "failed") continue;
+      const requested = state.transports[stage.connection]!.some((transit) => transit.phase === stage.phase)
+        || transportPowerBlocked[`${stage.connection}:${stage.stage}`];
+      if (requested) sum += stage.activeDeltaMilliWatts;
+    }
+    return sum;
+  };
   const hasActiveTransportWork = (device: CompiledDevice): boolean => {
     if (!device.transportEndpoint) return false;
     const attachment = device.transportEndpoint;
@@ -513,36 +570,63 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return hasActiveTransportWork(device)
       ? Math.max(0, device.assetDef.power.activeMilliWatts - device.assetDef.power.idleMilliWatts) : 0;
   };
-  const activePower = (grid?: string) => standbyPower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
-    if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
-    if (project.devices[id]!.stationEnergyPlan) return sum + stationChargePower(project.devices[id]!);
-    if (!runtime.idlePowered || runtime.status !== "processing" || !runtime.activeJob || runtime.activeJob.generationMilliWatts) return sum;
-    return sum + Math.max(0, runtime.activeJob.powerMilliWatts - standbyRequirement(project.devices[id]!));
-  }, 0) + activeTransportPowerDelta(grid);
-  const requestedPower = (grid?: string) => requestedStandbyPower(grid) + Object.entries(state.devices).reduce((sum, [id, runtime]) => {
-    if (grid !== undefined && project.devices[id]!.powerGrid !== grid) return sum;
-    if (runtime.status === "failed" || runtime.activeJob?.generationMilliWatts) return sum;
-    if (project.devices[id]!.stationEnergyPlan) return sum + stationChargeRequestedDelta(project.devices[id]!);
-    const baseline = standbyRequirement(project.devices[id]!);
-    const requested = runtime.activeJob?.powerMilliWatts
-      ?? (!project.devices[id]!.transportEndpoint && runtime.status === "unpowered" ? unmetPowerDemand[id] ?? baseline : baseline);
-    return sum + Math.max(0, requested - baseline);
-  }, 0) + requestedTransportPowerDelta(grid);
-  const requestedTransportPower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
-    const runtime = state.devices[device.id]!;
-    if (!device.transportEndpoint || runtime.status === "failed" || (grid !== undefined && device.powerGrid !== grid)) return sum;
-    return sum + device.assetDef.power.idleMilliWatts;
-  }, 0) + requestedTransportPowerDelta(grid);
-  const generationPower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
-    if (grid !== undefined && device.powerGrid !== grid) return sum;
-    if (state.devices[device.id]!.status === "failed") return sum;
-    if (device.generationPlan?.kind === "renewable") return sum + generatorOutputAt(project, device.id, state.tick).outputMilliWatts;
-    return sum + (state.devices[device.id]!.activeJob?.generationMilliWatts ?? 0);
-  }, 0);
-  const storageDischargePower = (grid?: string) => Object.values(project.devices).reduce((sum, device) => {
-    if (!device.storagePlan || (grid !== undefined && device.powerGrid !== grid) || state.devices[device.id]!.status === "failed") return sum;
-    return sum + ((state.devices[device.id]!.energyStorage?.storedMilliJoules ?? 0) > 1e-9 ? device.storagePlan.dischargeMilliWatts : 0);
-  }, 0);
+  const activePower = (grid?: string) => {
+    let sum = standbyPower(grid);
+    for (const device of devicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (device.stationEnergyPlan) {
+        sum += stationChargePower(device);
+        continue;
+      }
+      if (!runtime.idlePowered || runtime.status !== "processing" || !runtime.activeJob || runtime.activeJob.generationMilliWatts) continue;
+      sum += Math.max(0, runtime.activeJob.powerMilliWatts - standbyRequirement(device));
+    }
+    return sum + activeTransportPowerDelta(grid);
+  };
+  const requestedPower = (grid?: string) => {
+    let sum = requestedStandbyPower(grid);
+    for (const device of devicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (runtime.status === "failed" || runtime.activeJob?.generationMilliWatts) continue;
+      if (device.stationEnergyPlan) {
+        sum += stationChargeRequestedDelta(device);
+        continue;
+      }
+      const baseline = standbyRequirement(device);
+      const requested = runtime.activeJob?.powerMilliWatts
+        ?? (!device.transportEndpoint && runtime.status === "unpowered" ? unmetPowerDemand[device.id] ?? baseline : baseline);
+      sum += Math.max(0, requested - baseline);
+    }
+    return sum + requestedTransportPowerDelta(grid);
+  };
+  const requestedTransportPower = (grid?: string) => {
+    let sum = 0;
+    for (const device of transportEndpointDevicesForPowerGrid(grid)) {
+      if (state.devices[device.id]!.status !== "failed") sum += device.assetDef.power.idleMilliWatts;
+    }
+    return sum + requestedTransportPowerDelta(grid);
+  };
+  const generationPower = (grid?: string) => {
+    let sum = 0;
+    for (const device of generationDevicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (runtime.status === "failed") continue;
+      sum += device.generationPlan!.kind === "renewable"
+        ? generatorOutputAt(project, device.id, state.tick).outputMilliWatts
+        : runtime.activeJob?.generationMilliWatts ?? 0;
+    }
+    return sum;
+  };
+  const storageDischargePower = (grid?: string) => {
+    let sum = 0;
+    for (const device of storageDevicesForPowerGrid(grid)) {
+      const runtime = state.devices[device.id]!;
+      if (runtime.status !== "failed" && (runtime.energyStorage?.storedMilliJoules ?? 0) > 1e-9) {
+        sum += device.storagePlan!.dischargeMilliWatts;
+      }
+    }
+    return sum;
+  };
   const availablePower = (grid?: string) => generationPower(grid) + storageDischargePower(grid);
   const gridSatisfactionPpm = (grid: string): number => {
     if (!proportionalPower) return POWER_SATISFACTION_SCALE;
@@ -553,7 +637,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const gridLoad = (grid: string): number => proportionalPower ? requestedPower(grid) : activePower(grid);
   const canClaimActivePower = (device: CompiledDevice, requiredDelta: number, grid: string): boolean => {
     let claimable = Math.max(0, availablePower(grid) - activePower(grid));
-    for (const incumbent of project.powerGrids[grid]!.members.map((id) => project.devices[id]!).sort(comparePowerRank)) {
+    for (const incumbent of powerRankedDevicesByGrid[grid]!) {
       if (!outranksForPower(device, incumbent)) continue;
       const runtime = state.devices[incumbent.id]!;
       if (runtime.idlePowered) claimable += standbyRequirement(incumbent);
@@ -579,7 +663,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       : canClaimActivePower(device, Math.max(0, requiredMilliWatts - standbyRequirement(device)), grid);
   };
   const syncPowerAvailability = () => {
-    for (const grid of Object.keys(project.powerGrids)) state.energy.grids[grid]!.availableMilliWatts = availablePower(grid);
+    for (const grid of powerGridIds) state.energy.grids[grid]!.availableMilliWatts = availablePower(grid);
     state.energy.availableMilliWatts = availablePower();
   };
   const measureUntil = (tick: number) => {
@@ -634,7 +718,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
     }
     const regionalMeteredPower: Record<string, number> = {};
-    for (const grid of Object.keys(project.powerGrids).sort()) {
+    for (const grid of powerGridIds) {
       const generated = generationPower(grid); const load = gridLoad(grid); const requestedLoad = requestedPower(grid);
       const powerStats = stats.powerGrids[grid]!;
       const satisfactionPpm = proportionalPower ? state.energy.grids[grid]!.satisfactionPpm : POWER_SATISFACTION_SCALE;
@@ -740,7 +824,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return Number.isFinite(delay) ? delay : undefined;
   };
   const schedulePowerBoundaries = () => {
-    for (const grid of Object.keys(project.powerGrids).sort()) {
+    for (const grid of powerGridIds) {
       const delay = nextPowerBoundaryDelay(grid); const target = delay === undefined ? undefined : state.tick + delay;
       if (scheduledPowerBoundaryTick[grid] === target) continue;
       powerBoundaryGenerations[grid]!++;
@@ -1016,7 +1100,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const refreshStandbyPower = (): boolean => {
     let changed = false;
     const connected = new Set<string>();
-    for (const grid of Object.keys(project.powerGrids).sort()) {
+    for (const grid of powerGridIds) {
       let remaining = availablePower(grid);
       const members = project.powerGrids[grid]!.members.map((id) => project.devices[id]!)
         .sort(proportionalPower ? (left, right) => left.id.localeCompare(right.id) : comparePowerRank);
@@ -2387,7 +2471,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const rebalanceActivePower = (): boolean => {
     let changed = false;
-    for (const grid of Object.keys(project.powerGrids).sort()) {
+    for (const grid of powerGridIds) {
       let remainingPower = Math.max(0, availablePower(grid) - standbyPower(grid));
       const consumers: Array<{
         kind: "job" | "station-charge" | "transport"; device: CompiledDevice;
@@ -2501,7 +2585,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const rebalanceProportionalPower = (): boolean => {
     if (!proportionalPower) return false;
     let changed = false;
-    for (const grid of Object.keys(project.powerGrids).sort()) {
+    for (const grid of powerGridIds) {
       const satisfactionPpm = gridSatisfactionPpm(grid);
       const previousGridSatisfaction = state.energy.grids[grid]!.satisfactionPpm;
       if (previousGridSatisfaction !== satisfactionPpm) {
@@ -2672,16 +2756,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         });
         materialDelivered = true;
       }
-      const evaluationOrder = Object.values(project.devices).sort((a, b) => Number(Boolean(b.generationPlan)) - Number(Boolean(a.generationPlan)) || comparePowerRank(a, b));
       let generationChanged = false;
-      for (const device of evaluationOrder.filter((item) => item.generationPlan)) if (tryEvaluate(device)) generationChanged = true;
+      for (const device of generationEvaluationOrder) if (tryEvaluate(device)) generationChanged = true;
       syncPowerAvailability();
       const standbyPowerChanged = refreshStandbyPower();
       const jobPowerChanged = proportionalPower ? rebalanceProportionalPower() : rebalanceActivePower();
       const physicalMoved = dispatch();
       const stationMoved = dispatchStations();
       changed = releaseControlChanged || lotsReleased || materialDelivered || generationChanged || standbyPowerChanged || jobPowerChanged || physicalMoved || stationMoved;
-      for (const device of evaluationOrder.filter((item) => !item.generationPlan)) if (tryEvaluate(device)) changed = true;
+      for (const device of consumerEvaluationOrder) if (tryEvaluate(device)) changed = true;
     }
     syncPowerAvailability();
     schedulePowerBoundaries();
