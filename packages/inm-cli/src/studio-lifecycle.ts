@@ -4,11 +4,11 @@ import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
-import { manifestSchema, readJson, resolveProjectDirectory, stableStringify } from "@inm/core";
+import { manifestSchema, readJson, resolveProjectDirectory, stableStringify, studioSourceHash } from "@inm/core";
 import { CliCommandError, cliSuccess, manifestProjectContext } from "./contract";
 
 const STUDIO_PROTOCOL = "inm-studio";
-const STUDIO_PROTOCOL_VERSION = 1;
+const STUDIO_PROTOCOL_VERSION = 2;
 const START_TIMEOUT_MS = 15_000;
 const repository = resolve(import.meta.dir, "../../..");
 const serverEntry = join(repository, "packages/inm-studio/src/server.ts");
@@ -29,12 +29,13 @@ export interface StudioHealth {
   pid: number;
   inputDir: string;
   project: string | null;
+  sourceHash: string;
   startedAt: string;
   url: string;
 }
 
 interface StudioState {
-  version: 1;
+  version: 2;
   backend: "launchd" | "detached";
   inputDir: string;
   project: string | null;
@@ -43,6 +44,7 @@ interface StudioState {
   logPath: string;
   plistPath: string | null;
   pid: number | null;
+  sourceHash: string;
   startedAt: string;
 }
 
@@ -56,6 +58,11 @@ export interface StudioLifecycleResult {
   url: string;
   pid: number | null;
   logPath: string;
+  source: {
+    state: "current" | "stale" | "not-running";
+    expectedHash: string;
+    runningHash: string | null;
+  };
 }
 
 function runtimeDirectory(inputDir: string, port: number): string {
@@ -112,9 +119,10 @@ ${args.map((argument) => `    <string>${xml(argument)}</string>`).join("\n")}
 async function readState(inputDir: string, port: number): Promise<StudioState | null> {
   try {
     const state = JSON.parse(await readFile(statePath(inputDir, port), "utf8")) as Partial<StudioState>;
-    if (state.version !== 1 || state.inputDir !== inputDir || state.port !== port
+    if (state.version !== 2 || state.inputDir !== inputDir || state.port !== port
       || (state.backend !== "launchd" && state.backend !== "detached")
-      || typeof state.label !== "string" || typeof state.logPath !== "string") return null;
+      || typeof state.label !== "string" || typeof state.logPath !== "string"
+      || !/^[0-9a-f]{64}$/.test(state.sourceHash ?? "")) return null;
     return state as StudioState;
   } catch {
     return null;
@@ -137,7 +145,8 @@ async function probeHealth(port: number): Promise<{ kind: "free" } | { kind: "st
     const value = await response.json() as Partial<StudioHealth>;
     if (value.service !== STUDIO_PROTOCOL || value.protocolVersion !== STUDIO_PROTOCOL_VERSION
       || typeof value.pid !== "number" || typeof value.inputDir !== "string"
-      || typeof value.startedAt !== "string" || typeof value.url !== "string") return { kind: "foreign" };
+      || typeof value.startedAt !== "string" || typeof value.url !== "string"
+      || !/^[0-9a-f]{64}$/.test(value.sourceHash ?? "")) return { kind: "foreign" };
     return { kind: "studio", health: value as StudioHealth };
   } catch (error) {
     const code = error instanceof Error && "cause" in error
@@ -158,7 +167,7 @@ async function probeHealth(port: number): Promise<{ kind: "free" } | { kind: "st
   }
 }
 
-async function waitForHealth(inputDir: string, project: string | null, port: number): Promise<StudioHealth> {
+async function waitForHealth(inputDir: string, project: string | null, port: number, sourceHash: string): Promise<StudioHealth> {
   const deadline = Date.now() + START_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const probe = await probeHealth(port);
@@ -166,6 +175,10 @@ async function waitForHealth(inputDir: string, project: string | null, port: num
       if (probe.health.inputDir !== inputDir || probe.health.project !== project) throw new CliCommandError(
         "studio.port-owned-by-other-project",
         `Port ${port} started an INM Studio for '${probe.health.inputDir}'${probe.health.project ? ` project '${probe.health.project}'` : ""}, not the requested target.`,
+      );
+      if (probe.health.sourceHash !== sourceHash) throw new CliCommandError(
+        "studio.source-mismatch",
+        `Studio on port ${port} started with source ${probe.health.sourceHash.slice(0, 12)}, expected ${sourceHash.slice(0, 12)}.`,
       );
       return probe.health;
     }
@@ -202,7 +215,17 @@ async function unload(state: StudioState, health: StudioHealth | null): Promise<
   await rm(statePath(state.inputDir, state.port), { force: true });
 }
 
+async function waitForFreePort(port: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if ((await probeHealth(port)).kind === "free") return;
+    await Bun.sleep(50);
+  }
+  throw new CliCommandError("studio.stop-timeout", `Studio did not release port ${port} within 5s.`);
+}
+
 async function startManaged(inputDir: string, options: StudioLifecycleOptions): Promise<StudioLifecycleResult> {
+  const sourceHash = await studioSourceHash();
   const existing = await probeHealth(options.port);
   const logPath = join(runtimeDirectory(inputDir, options.port), "studio.log");
   if (existing.kind === "studio") {
@@ -210,7 +233,14 @@ async function startManaged(inputDir: string, options: StudioLifecycleOptions): 
       "studio.port-owned-by-other-project",
       `Port ${options.port} already serves '${existing.health.inputDir}'${existing.health.project ? ` project '${existing.health.project}'` : ""}.`,
     );
-    return result("start", "reused", inputDir, options, existing.health, logPath);
+    if (existing.health.sourceHash === sourceHash) return result("start", "reused", inputDir, options, existing.health, sourceHash, logPath);
+    const localState = await readState(inputDir, options.port);
+    if (!localState || localState.pid !== existing.health.pid || localState.sourceHash !== existing.health.sourceHash) throw new CliCommandError(
+      "studio.stale-unmanaged-instance",
+      `Port ${options.port} serves stale source ${existing.health.sourceHash.slice(0, 12)}, but matching managed ownership could not be verified. Stop its owning foreground process explicitly.`,
+    );
+    await unload(localState, existing.health);
+    await waitForFreePort(options.port);
   }
   if (existing.kind === "foreign") throw new CliCommandError(
     "studio.port-owned-by-unknown-service",
@@ -221,7 +251,7 @@ async function startManaged(inputDir: string, options: StudioLifecycleOptions): 
   await mkdir(runtimeDir, { recursive: true });
   const useLaunchd = platform() === "darwin" && process.env.INM_STUDIO_BACKEND !== "detached";
   const state: StudioState = {
-    version: 1,
+    version: 2,
     backend: useLaunchd ? "launchd" : "detached",
     inputDir,
     project: options.project ?? null,
@@ -230,6 +260,7 @@ async function startManaged(inputDir: string, options: StudioLifecycleOptions): 
     logPath,
     plistPath: useLaunchd ? join(runtimeDir, "service.plist") : null,
     pid: null,
+    sourceHash,
     startedAt: new Date().toISOString(),
   };
   await writeState(state);
@@ -264,11 +295,11 @@ async function startManaged(inputDir: string, options: StudioLifecycleOptions): 
         closeSync(logFd);
       }
     }
-    const health = await waitForHealth(inputDir, options.project ?? null, options.port);
+    const health = await waitForHealth(inputDir, options.project ?? null, options.port, sourceHash);
     state.pid = health.pid;
     state.startedAt = health.startedAt;
     await writeState(state);
-    return result("start", "running", inputDir, options, health, logPath);
+    return result("start", "running", inputDir, options, health, sourceHash, logPath);
   } catch (error) {
     await unload(state, null).catch(() => undefined);
     throw error;
@@ -281,6 +312,7 @@ function result(
   inputDir: string,
   options: StudioLifecycleOptions,
   health: StudioHealth | null,
+  expectedSourceHash: string,
   logPath = join(runtimeDirectory(inputDir, options.port), "studio.log"),
 ): StudioLifecycleResult {
   return {
@@ -293,10 +325,16 @@ function result(
     url: health?.url ?? `http://127.0.0.1:${options.port}${options.project ? `/${encodeURIComponent(options.project)}` : ""}`,
     pid: health?.pid ?? null,
     logPath,
+    source: {
+      state: health ? (health.sourceHash === expectedSourceHash ? "current" : "stale") : "not-running",
+      expectedHash: expectedSourceHash,
+      runningHash: health?.sourceHash ?? null,
+    },
   };
 }
 
 async function currentStatus(inputDir: string, options: StudioLifecycleOptions): Promise<StudioLifecycleResult> {
+  const sourceHash = await studioSourceHash();
   const probe = await probeHealth(options.port);
   const localState = await readState(inputDir, options.port);
   if (probe.kind === "foreign") throw new CliCommandError(
@@ -308,12 +346,13 @@ async function currentStatus(inputDir: string, options: StudioLifecycleOptions):
       "studio.port-owned-by-other-project",
       `Port ${options.port} serves '${probe.health.inputDir}'${probe.health.project ? ` project '${probe.health.project}'` : ""}, not this target.`,
     );
-    return result("status", "running", inputDir, options, probe.health, localState?.logPath);
+    return result("status", "running", inputDir, options, probe.health, sourceHash, localState?.logPath);
   }
-  return result("status", "not-running", inputDir, options, null, localState?.logPath);
+  return result("status", "not-running", inputDir, options, null, sourceHash, localState?.logPath);
 }
 
 async function stopManaged(inputDir: string, options: StudioLifecycleOptions): Promise<StudioLifecycleResult> {
+  const sourceHash = await studioSourceHash();
   const localState = await readState(inputDir, options.port);
   const probe = await probeHealth(options.port);
   if (probe.kind === "studio" && (probe.health.inputDir !== inputDir || probe.health.project !== (options.project ?? null))) throw new CliCommandError(
@@ -329,16 +368,11 @@ async function stopManaged(inputDir: string, options: StudioLifecycleOptions): P
       "studio.unmanaged-instance",
       `Port ${options.port} serves this project but has no matching managed state; stop its owning foreground process explicitly.`,
     );
-    return result("stop", "not-running", inputDir, options, null);
+    return result("stop", "not-running", inputDir, options, null, sourceHash);
   }
   await unload(localState, probe.kind === "studio" ? probe.health : null);
-  const deadline = Date.now() + 5_000;
-  while (Date.now() < deadline) {
-    const after = await probeHealth(options.port);
-    if (after.kind === "free") return result("stop", "stopped", inputDir, options, null, localState.logPath);
-    await Bun.sleep(50);
-  }
-  throw new CliCommandError("studio.stop-timeout", `Studio did not release port ${options.port} within 5s.`);
+  await waitForFreePort(options.port);
+  return result("stop", "stopped", inputDir, options, null, sourceHash, localState.logPath);
 }
 
 function openBrowser(url: string): void {
@@ -365,6 +399,7 @@ function emit(lifecycle: StudioLifecycleResult, context: ReturnType<typeof manif
     `URL: ${lifecycle.url}`,
     `Port: ${lifecycle.port}`,
     `PID: ${lifecycle.pid ?? "—"}`,
+    `Source: ${lifecycle.source.state.toUpperCase()} · ${lifecycle.source.runningHash?.slice(0, 12) ?? "—"} / expected ${lifecycle.source.expectedHash.slice(0, 12)}`,
     `Project root: ${lifecycle.inputDir}`,
     `Log: ${lifecycle.logPath}`,
     "",

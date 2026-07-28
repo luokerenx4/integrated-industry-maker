@@ -34,6 +34,7 @@ export * from "./workbench";
 export * from "./observation";
 export * from "./artifact-schema";
 export * from "./operation";
+export * from "./studio-source-identity";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

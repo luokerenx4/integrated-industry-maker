@@ -40,6 +40,7 @@ import {
   runDesignProgram,
   simulateProjectOperation,
   stableStringify,
+  studioSourceHash,
   validateProjectOperation,
   type BlueprintBenchmarkProgress,
   type DesignRunProgress,
@@ -62,6 +63,7 @@ if (positionals.length !== 1) {
 
 const inputDir = resolve(positionals[0]!);
 const port = Number(values.port);
+const sourceHash = await studioSourceHash();
 const workspaceMode = await pathExists(join(inputDir, "inm-workspace.json"));
 const cacheDir = join(inputDir, ".inm", "cache", "studio");
 await mkdir(cacheDir, { recursive: true });
@@ -566,11 +568,12 @@ const server = Bun.serve({
         const rootUrl = `http://127.0.0.1:${port}`;
         return Response.json({
           service: "inm-studio",
-          protocolVersion: 1,
+          protocolVersion: 2,
           engineVersion: ENGINE_VERSION,
           pid: process.pid,
           inputDir,
           project: values.project ?? null,
+          sourceHash,
           startedAt,
           url: values.project ? `${rootUrl}/${encodeURIComponent(values.project)}` : rootUrl,
         });

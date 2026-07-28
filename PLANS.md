@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/low-friction-experiment-loop]] | Make the memory-fab start, experiment, progress, reopen, and recovery loop source-current and interruption-tolerant. | 2026-07-28 |
 
 ## Proposed plans
 

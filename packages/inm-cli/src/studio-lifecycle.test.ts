@@ -6,10 +6,10 @@ import { expect, test } from "bun:test";
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
 
-async function runCli(args: string[]) {
+async function runCli(args: string[], environment: Record<string, string> = {}) {
   const child = Bun.spawn([process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), ...args], {
     cwd: repository,
-    env: { ...process.env, INM_STUDIO_BACKEND: "detached" },
+    env: { ...process.env, INM_STUDIO_BACKEND: "detached", ...environment },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -37,8 +37,9 @@ function data(stdout: string) {
     command: string;
     data: {
       state: string;
-      health: { pid: number; inputDir: string; url: string; service: string };
+      health: { pid: number; inputDir: string; url: string; service: string; sourceHash: string };
       logPath: string;
+      source: { state: string; expectedHash: string; runningHash: string | null };
     };
   };
 }
@@ -71,6 +72,7 @@ test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact pr
       data: expect.objectContaining({
         state: "running",
         health: expect.objectContaining({ inputDir: project, service: "inm-studio" }),
+        source: expect.objectContaining({ state: "current" }),
       }),
     }));
     const firstPid = data(started.stdout).data.health.pid;
@@ -80,6 +82,7 @@ test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact pr
     expect(data(status.stdout).data).toEqual(expect.objectContaining({
       state: "running",
       health: expect.objectContaining({ pid: firstPid, inputDir: project }),
+      source: expect.objectContaining({ state: "current" }),
     }));
 
     const reused = await runCli(["studio", "start", ...args]);
@@ -87,6 +90,7 @@ test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact pr
     expect(data(reused.stdout).data).toEqual(expect.objectContaining({
       state: "reused",
       health: expect.objectContaining({ pid: firstPid }),
+      source: expect.objectContaining({ state: "current" }),
     }));
 
     const restarted = await runCli(["studio", "restart", ...args]);
@@ -103,6 +107,48 @@ test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact pr
   expect(status.exitCode).toBe(0);
   expect(data(status.stdout).data.state).toBe("not-running");
 }, 60_000);
+
+test("Studio start safely replaces a verified same-project process built from stale source", async () => {
+  const project = await temporaryProject("stale-source");
+  const port = 53_000 + process.pid % 1_000;
+  const args = [project, "--port", String(port), "--no-open", "--json"];
+  const firstHash = "a".repeat(64);
+  const secondHash = "b".repeat(64);
+
+  try {
+    const started = await runCli(["studio", "start", ...args], { INM_STUDIO_SOURCE_HASH_OVERRIDE: firstHash });
+    expect(started.exitCode).toBe(0);
+    const firstPid = data(started.stdout).data.health.pid;
+    expect(data(started.stdout).data.source).toEqual({
+      state: "current",
+      expectedHash: firstHash,
+      runningHash: firstHash,
+    });
+
+    const stale = await runCli([
+      "studio", "status", project, "--port", String(port), "--json",
+    ], { INM_STUDIO_SOURCE_HASH_OVERRIDE: secondHash });
+    expect(stale.exitCode).toBe(0);
+    expect(data(stale.stdout).data).toEqual(expect.objectContaining({
+      state: "running",
+      health: expect.objectContaining({ pid: firstPid, sourceHash: firstHash }),
+      source: { state: "stale", expectedHash: secondHash, runningHash: firstHash },
+    }));
+
+    const replaced = await runCli(["studio", "start", ...args], { INM_STUDIO_SOURCE_HASH_OVERRIDE: secondHash });
+    expect(replaced.exitCode).toBe(0);
+    expect(data(replaced.stdout).data).toEqual(expect.objectContaining({
+      state: "running",
+      health: expect.objectContaining({ sourceHash: secondHash }),
+      source: { state: "current", expectedHash: secondHash, runningHash: secondHash },
+    }));
+    expect(data(replaced.stdout).data.health.pid).not.toBe(firstPid);
+  } finally {
+    await runCli([
+      "studio", "stop", project, "--port", String(port), "--json",
+    ], { INM_STUDIO_SOURCE_HASH_OVERRIDE: secondHash });
+  }
+}, 30_000);
 
 test("Studio lifecycle refuses an unknown service without terminating it", async () => {
   const project = await temporaryProject("foreign");
