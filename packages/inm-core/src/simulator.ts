@@ -672,7 +672,43 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     : powerRankedDevicesByGrid;
   const powerGridMemberIds = new Set(powerGridIds.flatMap((grid) => devicesByPowerGrid[grid]!.map((device) => device.id)));
   const disconnectedDevices = devices.filter((device) => !powerGridMemberIds.has(device.id)).sort((left, right) => left.id.localeCompare(right.id));
-  const priorityPowerConsumerKinds = ["job", "station-charge", "transport"] as const;
+  type PriorityPowerConsumer = {
+    kind: "job";
+    device: CompiledDevice;
+  } | {
+    kind: "station-charge";
+    device: CompiledDevice;
+  } | {
+    kind: "transport";
+    device: CompiledDevice;
+    connection: CompiledFactoryProject["connections"][string];
+    stage: "loader" | "unloader";
+    phase: "loading" | "unloading";
+  };
+  const canOwnActiveJob = (device: CompiledDevice): boolean =>
+    !device.transportEndpoint
+    && !device.assetDef.capabilities.includes("station")
+    && !device.assetDef.maintenanceProvider
+    && !device.assetDef.utilityProvider;
+  const priorityPowerConsumersByGrid = Object.fromEntries(powerGridIds.map((grid) => [
+    grid,
+    powerRankedDevicesByGrid[grid]!.flatMap((device): PriorityPowerConsumer[] => {
+      const consumers: PriorityPowerConsumer[] = [];
+      if (canOwnActiveJob(device)) consumers.push({ kind: "job", device });
+      if (device.stationEnergyPlan) consumers.push({ kind: "station-charge", device });
+      if (device.transportEndpoint) {
+        const stage = device.transportEndpoint.stage;
+        consumers.push({
+          kind: "transport",
+          device,
+          connection: project.connections[device.transportEndpoint.connection]!,
+          stage,
+          phase: stage === "loader" ? "loading" : "unloading",
+        });
+      }
+      return consumers;
+    }),
+  ]));
   const devicesForPowerGrid = (grid?: string) => grid === undefined ? devices : devicesByPowerGrid[grid] ?? [];
   const generationDevicesForPowerGrid = (grid?: string) => grid === undefined ? generationDevices : generationDevicesByPowerGrid[grid] ?? [];
   const storageDevicesForPowerGrid = (grid?: string) => grid === undefined ? storageDevices : storageDevicesByPowerGrid[grid] ?? [];
@@ -2880,107 +2916,102 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     let changed = false;
     for (const grid of powerGridIds) {
       let remainingPower = Math.max(0, availablePower(grid) - standbyPower(grid));
-      for (const device of devicesByPowerGrid[grid]!) {
+      for (const device of stationEnergyDevicesByPowerGrid[grid]!) {
         const runtime = state.devices[device.id]!;
-        if (device.stationEnergyPlan && stationChargeRequestedDelta(device) <= 0 && runtime.stationEnergy!.chargeSatisfactionPpm !== 0) {
+        if (stationChargeRequestedDelta(device) <= 0 && runtime.stationEnergy!.chargeSatisfactionPpm !== 0) {
           mutateFactoryState(state, { kind: "station.charge-satisfaction", device: device.id, satisfactionPpm: 0 });
           changed = true;
         }
       }
-      for (const device of powerRankedDevicesByGrid[grid]!) {
-        const runtime = state.devices[device.id]!; const job = runtime.activeJob;
-        const jobConsumer = Boolean(job && runtime.status !== "failed" && !job.generationMilliWatts);
-        const stationChargeConsumer = Boolean(device.stationEnergyPlan && stationChargeRequestedDelta(device) > 0);
-        const transportStageName = device.transportEndpoint?.stage;
-        const transportConnection = device.transportEndpoint ? project.connections[device.transportEndpoint.connection]! : undefined;
-        const transportConsumer = Boolean(transportConnection && transportStageName && runtime.status !== "failed"
-          && state.transports[transportConnection.id]!.some((transit) => transit.phase === transportPhase(transportStageName)));
-        for (const kind of priorityPowerConsumerKinds) {
-          if ((kind === "job" && !jobConsumer)
-            || (kind === "station-charge" && !stationChargeConsumer)
-            || (kind === "transport" && !transportConsumer)) continue;
-          const activeRequired = kind === "job" ? job!.powerMilliWatts
-            : kind === "station-charge" ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan!.chargeMilliWatts
-            : device.assetDef.power.activeMilliWatts;
-          const requiredDelta = Math.max(0, activeRequired - standbyRequirement(device));
-          if (runtime.idlePowered && requiredDelta <= remainingPower) {
-            remainingPower -= requiredDelta;
-            if (kind === "station-charge" && runtime.stationEnergy!.chargeSatisfactionPpm !== POWER_SATISFACTION_SCALE) {
-              mutateFactoryState(state, { kind: "station.charge-satisfaction", device: device.id, satisfactionPpm: POWER_SATISFACTION_SCALE });
-              changed = true;
-            } else if (kind === "job" && runtime.status === "unpowered") {
-              mutateFactoryState(state, { kind: "job.power", device: device.id, remainingTicks: job!.remainingTicks, workedTicks: job!.workedTicks, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE });
-              setStatus(device.id, "processing");
-              emit({ type: "power.restored", tick: state.tick, device: device.id, grid, remainingTicks: job!.remainingTicks });
-              schedule(state.tick + job!.remainingTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
-              changed = true;
-            } else if (kind === "transport" && runtime.status === "unpowered") {
-              const works = Object.entries(pausedTransportWork).filter(([, work]) => work.reason === "power"
-                && work.connection === transportConnection!.id && work.stage === transportStageName).sort(([left], [right]) => left.localeCompare(right));
-              if (works.length) {
-                for (const [key, work] of works) {
-                  const transit = state.transports[work.connection]!.find((item) => item.id === work.transitId);
-                  if (!transit || transit.phase !== transportPhase(work.stage)) { delete pausedTransportWork[key]; continue; }
-                  const readyTick = state.tick + work.remainingTicks;
-                  mutateFactoryState(state, {
-                    kind: "transport.update", connection: work.connection, transitId: work.transitId,
-                    changes: { readyTick, ...(work.stage === "unloader" ? { arriveTick: readyTick } : {}) },
-                  });
-                  schedule(readyTick, work.stage === "loader" ? 8 : 7, work.stage === "loader"
-                    ? { kind: "belt-step", connection: work.connection, transitId: work.transitId }
-                    : { kind: "arrive", connection: work.connection, transitId: work.transitId });
-                  delete pausedTransportWork[key];
-                }
-                delete transportPowerBlocked[`${transportConnection!.id}:${transportStageName}`];
-                syncTransportEndpointStatus(transportConnection!, transportStageName!);
-                emit({ type: "transport.power-restored", tick: state.tick, device: device.id, connection: transportConnection!.id, stage: transportStageName!, grid });
-                changed = true;
-              }
-            }
-            continue;
-          }
-          if (kind === "station-charge") {
-            if (runtime.stationEnergy!.chargeSatisfactionPpm !== 0) {
-              mutateFactoryState(state, { kind: "station.charge-satisfaction", device: device.id, satisfactionPpm: 0 });
-              changed = true;
-            }
-            continue;
-          }
-          if (runtime.status !== "processing") continue;
-          if (kind === "transport") {
-            for (const transit of state.transports[transportConnection!.id]!.filter((item) => item.phase === transportPhase(transportStageName!))) {
-              const key = transportWorkKey(transportConnection!.id, transportStageName!, transit.id);
-              if (pausedTransportWork[key]) continue;
-              pausedTransportWork[key] = {
-                connection: transportConnection!.id, device: device.id, stage: transportStageName!, transitId: transit.id,
-                remainingTicks: Math.max(1, transit.readyTick - state.tick), reason: "power",
-              };
-              mutateFactoryState(state, {
-                kind: "transport.update", connection: transportConnection!.id, transitId: transit.id,
-                changes: { readyTick: Number.MAX_SAFE_INTEGER, ...(transportStageName === "unloader" ? { arriveTick: Number.MAX_SAFE_INTEGER } : {}) },
-              });
-            }
-            transportPowerBlocked[`${transportConnection!.id}:${transportStageName}`] = true;
-            setStatus(device.id, "unpowered");
-            emit({
-              type: "transport.power-shortage", tick: state.tick, device: device.id, connection: transportConnection!.id, stage: transportStageName!, grid,
-              requiredMilliWatts: activeRequired, availableMilliWatts: runtime.idlePowered ? remainingPower + standbyRequirement(device) : 0,
-            });
+      for (const consumer of priorityPowerConsumersByGrid[grid]!) {
+        const { device, kind } = consumer;
+        const runtime = state.devices[device.id]!;
+        const job = runtime.activeJob;
+        if (kind === "job" && (!job || runtime.status === "failed" || job.generationMilliWatts)) continue;
+        if (kind === "station-charge" && stationChargeRequestedDelta(device) <= 0) continue;
+        if (kind === "transport" && (runtime.status === "failed"
+          || !state.transports[consumer.connection.id]!.some((transit) => transit.phase === consumer.phase))) continue;
+        const activeRequired = kind === "job" ? job!.powerMilliWatts
+          : kind === "station-charge" ? device.assetDef.power.idleMilliWatts + device.stationEnergyPlan!.chargeMilliWatts
+          : device.assetDef.power.activeMilliWatts;
+        const requiredDelta = Math.max(0, activeRequired - standbyRequirement(device));
+        if (runtime.idlePowered && requiredDelta <= remainingPower) {
+          remainingPower -= requiredDelta;
+          if (kind === "station-charge" && runtime.stationEnergy!.chargeSatisfactionPpm !== POWER_SATISFACTION_SCALE) {
+            mutateFactoryState(state, { kind: "station.charge-satisfaction", device: device.id, satisfactionPpm: POWER_SATISFACTION_SCALE });
             changed = true;
-            continue;
+          } else if (kind === "job" && runtime.status === "unpowered") {
+            mutateFactoryState(state, { kind: "job.power", device: device.id, remainingTicks: job!.remainingTicks, workedTicks: job!.workedTicks, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE });
+            setStatus(device.id, "processing");
+            emit({ type: "power.restored", tick: state.tick, device: device.id, grid, remainingTicks: job!.remainingTicks });
+            schedule(state.tick + job!.remainingTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
+            changed = true;
+          } else if (kind === "transport" && runtime.status === "unpowered") {
+            const works = Object.entries(pausedTransportWork).filter(([, work]) => work.reason === "power"
+              && work.connection === consumer.connection.id && work.stage === consumer.stage).sort(([left], [right]) => left.localeCompare(right));
+            if (works.length) {
+              for (const [key, work] of works) {
+                const transit = state.transports[work.connection]!.find((item) => item.id === work.transitId);
+                if (!transit || transit.phase !== transportPhase(work.stage)) { delete pausedTransportWork[key]; continue; }
+                const readyTick = state.tick + work.remainingTicks;
+                mutateFactoryState(state, {
+                  kind: "transport.update", connection: work.connection, transitId: work.transitId,
+                  changes: { readyTick, ...(work.stage === "unloader" ? { arriveTick: readyTick } : {}) },
+                });
+                schedule(readyTick, work.stage === "loader" ? 8 : 7, work.stage === "loader"
+                  ? { kind: "belt-step", connection: work.connection, transitId: work.transitId }
+                  : { kind: "arrive", connection: work.connection, transitId: work.transitId });
+                delete pausedTransportWork[key];
+              }
+              delete transportPowerBlocked[`${consumer.connection.id}:${consumer.stage}`];
+              syncTransportEndpointStatus(consumer.connection, consumer.stage);
+              emit({ type: "transport.power-restored", tick: state.tick, device: device.id, connection: consumer.connection.id, stage: consumer.stage, grid });
+              changed = true;
+            }
           }
-          const elapsed = Math.min(job!.remainingTicks, Math.max(0, state.tick - job!.resumedAt));
-          if (elapsed >= job!.remainingTicks) continue;
-          const remainingTicks = job!.remainingTicks - elapsed; const workedTicks = job!.workedTicks + elapsed;
-          mutateFactoryState(state, { kind: "job.power", device: device.id, remainingTicks, workedTicks, resumedAt: state.tick, powerSatisfactionPpm: 0 });
-          generations[device.id]!++;
+          continue;
+        }
+        if (kind === "station-charge") {
+          if (runtime.stationEnergy!.chargeSatisfactionPpm !== 0) {
+            mutateFactoryState(state, { kind: "station.charge-satisfaction", device: device.id, satisfactionPpm: 0 });
+            changed = true;
+          }
+          continue;
+        }
+        if (runtime.status !== "processing") continue;
+        if (kind === "transport") {
+          for (const transit of state.transports[consumer.connection.id]!.filter((item) => item.phase === consumer.phase)) {
+            const key = transportWorkKey(consumer.connection.id, consumer.stage, transit.id);
+            if (pausedTransportWork[key]) continue;
+            pausedTransportWork[key] = {
+              connection: consumer.connection.id, device: device.id, stage: consumer.stage, transitId: transit.id,
+              remainingTicks: Math.max(1, transit.readyTick - state.tick), reason: "power",
+            };
+            mutateFactoryState(state, {
+              kind: "transport.update", connection: consumer.connection.id, transitId: transit.id,
+              changes: { readyTick: Number.MAX_SAFE_INTEGER, ...(consumer.stage === "unloader" ? { arriveTick: Number.MAX_SAFE_INTEGER } : {}) },
+            });
+          }
+          transportPowerBlocked[`${consumer.connection.id}:${consumer.stage}`] = true;
           setStatus(device.id, "unpowered");
           emit({
-            type: "power.shortage", tick: state.tick, device: device.id, grid,
-            requiredMilliWatts: activeRequired, availableMilliWatts: runtime.idlePowered ? remainingPower + standbyRequirement(device) : 0, remainingTicks, workedTicks,
+            type: "transport.power-shortage", tick: state.tick, device: device.id, connection: consumer.connection.id, stage: consumer.stage, grid,
+            requiredMilliWatts: activeRequired, availableMilliWatts: runtime.idlePowered ? remainingPower + standbyRequirement(device) : 0,
           });
           changed = true;
+          continue;
         }
+        const elapsed = Math.min(job!.remainingTicks, Math.max(0, state.tick - job!.resumedAt));
+        if (elapsed >= job!.remainingTicks) continue;
+        const remainingTicks = job!.remainingTicks - elapsed; const workedTicks = job!.workedTicks + elapsed;
+        mutateFactoryState(state, { kind: "job.power", device: device.id, remainingTicks, workedTicks, resumedAt: state.tick, powerSatisfactionPpm: 0 });
+        generations[device.id]!++;
+        setStatus(device.id, "unpowered");
+        emit({
+          type: "power.shortage", tick: state.tick, device: device.id, grid,
+          requiredMilliWatts: activeRequired, availableMilliWatts: runtime.idlePowered ? remainingPower + standbyRequirement(device) : 0, remainingTicks, workedTicks,
+        });
+        changed = true;
       }
     }
     return changed;
