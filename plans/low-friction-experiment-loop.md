@@ -47,7 +47,7 @@ This plan improves execution and feedback. It does not automate design judgment 
 ## Work
 
 - [x] Add source-fresh managed Studio identity, automatic verified stale replacement, and lifecycle tests.
-- [ ] Measure one cold/warm Benchmark and one focused Design invocation end to end; record compilation, cache, simulation, comparison, artifact, and UI overhead.
+- [x] Measure one cold/warm Benchmark and one focused Design invocation end to end; record compilation, cache, simulation, comparison, artifact, and UI overhead.
 - [ ] Add a bounded project-local operation registry and reconnectable Studio API for experiment/Design execution.
 - [ ] Project retained operation state and resume/cancel controls in Studio and equivalent operation identity in CLI output.
 - [ ] Update lifecycle, operation, CLI, and contributor documentation.
@@ -59,6 +59,9 @@ This plan improves execution and feedback. It does not automate design judgment 
 - 2026-07-28 — The live port `4176` process reported project, PID, engine, and start time but no source/build identity. It had remained healthy across substantial Studio/Core edits, so successful health and current behavior were observably different facts.
 - 2026-07-28 — Source freshness is the first slice because it removes stale-bundle and occupied-port ambiguity without changing industrial semantics or long-operation architecture.
 - 2026-07-28 — Protocol V2 binds health and ignored lifecycle state to one SHA-256 over package/lock identity and non-test Core, CLI, and Studio runtime source. `status` reports expected/running identity; `start` reuses only a current process and automatically replaces stale source only when the root, project, PID, and prior source hash all match managed state.
+- 2026-07-28 — A clean `equipment-energy-research` Benchmark took `3.05s` wall / `2.994s` operation cold and `1.54s` wall / `1.479s` operation warm. Warm baseline work fell from `1.526s` evaluation to zero; the fresh Candidate still spent `1.351s` evaluating versus `30ms` compiling and `1.8ms` comparing.
+- 2026-07-28 — A focused one-Candidate `back-end-die-handoff` Design took `22.34s` cold and `16.61s` warm across fifteen cases. Exact warm baseline reuse covered five cases; the remaining case evaluations consumed `15.752s`, while compilation consumed `0.480s`, comparison `23ms`, and cache reads `2ms`. Simulation is more than `94%` of the warm wall boundary; bundling, JSON, and cache I/O are not the next bottleneck.
+- 2026-07-28 — The next intervention is reconnectability, not unsafe Candidate-result caching or speculative simulator parallelism. A five-Candidate Program can legitimately require roughly a minute, but it must not require one uninterrupted browser request or operator attention for that minute.
 
 ## Verification
 
@@ -70,11 +73,14 @@ This plan improves execution and feedback. It does not automate design judgment 
 - `bun run check:fast` — `19` tests and `153` assertions passed with documentation and all repository TypeScript contracts in `13.4s`.
 - Live managed `studio start`/`status`/`GET /api/health` — port `4176`, PID `32735`, protocol V2, expected/running hash `f3d300993d48…`, source `current`.
 - Browser QA — `/memory-fab/factory` loaded current Blueprint `35ef45f0eb`, immutable run `091-simulate`, `28` machines, `34` sorters, and the run-bound observation/evidence panels.
+- Isolated cold/warm `equipment-energy-research` profile — `3.05s` / `1.54s` wall; warm Candidate evaluation remained `1.351s` and dominated its phase.
+- Isolated cold/warm one-Candidate `back-end-die-handoff` Design profile — `22.34s` / `16.61s` wall; warm run reused five fixed baselines and spent `15.752s` evaluating the ten fresh current/candidate cases.
 
 ## Progress log
 
 - 2026-07-28 — Plan created from the real memory-fab Design checkpoint and live managed-service audit; the old V1 service was stopped cleanly before changing lifecycle identity.
 - 2026-07-28 — Completed the source-current lifecycle slice. The plan remains active for measured experiment-loop profiling and reconnectable long operations.
+- 2026-07-28 — Completed isolated cold/warm Benchmark and focused Design profiling. Selected the bounded project-local operation registry and reconnectable API as the next implementation slice.
 
 ## Completion
 
