@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/structural-input-starvation-evidence]] | Detect exact material-shortage evidence changes structurally and use compiled incoming supply paths instead of serializing and rescanning topology. | 2026-07-29 |
 | [[plans/compiled-power-allocation-order]] | Allocate standby and active power from compiled Device/kind order instead of rebuilding and sorting equivalent collections every settle pass. | 2026-07-29 |
 | [[plans/allocation-free-material-grade-queries]] | Read and consume exact graded material directly from its authoritative ledger without rebuilding and sorting temporary level arrays. | 2026-07-29 |
 | [[plans/shared-revocation-device-context]] | Preserve strict invocation-scoped Device context isolation with one shared lifetime instead of one native revocation handle per visited object. | 2026-07-29 |

@@ -3,9 +3,9 @@ import { evaluateFactory, type SimulationStats } from "./evaluator";
 import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
-  ActiveDeviceJob, BeltTransit, CarrierMission, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState, FactoryEvent, FactoryState,
-  InputSupplyObservation, MaintenanceCause, MaintenanceTrigger, MaterialInputShortage, ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick,
-  TransportBlockCause, TransportBlockStage,
+  ActiveDeviceJob, BeltTransit, CarrierMission, CompiledConnection, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState,
+  FactoryEvent, FactoryState, InputSupplyObservation, MaintenanceCause, MaintenanceTrigger, MaterialInputShortage, ResourceBufferQuantity, ResourceTransit,
+  SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
@@ -37,6 +37,37 @@ const scaledCeil = (value: number, multiplier: { numerator: number; denominator:
   Math.ceil(value * multiplier.numerator / multiplier.denominator);
 
 function quantity(inventory: Record<string, number>): number { return Object.values(inventory).reduce((sum, count) => sum + count, 0); }
+function sameInputSupplyObservation(left: InputSupplyObservation, right: InputSupplyObservation): boolean {
+  return left.connection === right.connection
+    && left.sourceDevice === right.sourceDevice
+    && left.sourceBuffer === right.sourceBuffer
+    && left.sourceAvailable === right.sourceAvailable
+    && left.inFlight === right.inFlight
+    && left.sourceStatus === right.sourceStatus
+    && left.loaderDevice === right.loaderDevice
+    && left.loaderStatus === right.loaderStatus
+    && left.unloaderDevice === right.unloaderDevice
+    && left.unloaderStatus === right.unloaderStatus
+    && left.state === right.state;
+}
+function sameMaterialInputShortages(left: MaterialInputShortage[], right: MaterialInputShortage[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let shortageIndex = 0; shortageIndex < left.length; shortageIndex++) {
+    const leftShortage = left[shortageIndex]!;
+    const rightShortage = right[shortageIndex]!;
+    if (leftShortage.buffer !== rightShortage.buffer
+      || leftShortage.resource !== rightShortage.resource
+      || leftShortage.required !== rightShortage.required
+      || leftShortage.available !== rightShortage.available
+      || leftShortage.missing !== rightShortage.missing
+      || leftShortage.minimumTreatmentLevel !== rightShortage.minimumTreatmentLevel
+      || leftShortage.supplies.length !== rightShortage.supplies.length) return false;
+    for (let supplyIndex = 0; supplyIndex < leftShortage.supplies.length; supplyIndex++) {
+      if (!sameInputSupplyObservation(leftShortage.supplies[supplyIndex]!, rightShortage.supplies[supplyIndex]!)) return false;
+    }
+  }
+  return true;
+}
 function inventoryByResource(state: FactoryState): Record<string, number> {
   const result: Record<string, number> = {};
   const add = (resource: string, count: number) => {
@@ -300,6 +331,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const bufferIdsByDevice = Object.fromEntries(devices.map((device) => [device.id, Object.keys(device.buffers)]));
   const connectionIds = Object.keys(project.connections);
   const logisticsNetworkIds = Object.keys(project.logisticsNetworks);
+  const incomingConnectionsByDeviceBufferResource: Record<string, Record<string, Record<string, CompiledConnection[]>>> = {};
+  for (const connection of Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id))) {
+    const byBuffer = incomingConnectionsByDeviceBufferResource[connection.to.device] ??= {};
+    const byResource = byBuffer[connection.toPort.buffer] ??= {};
+    for (const resource of connection.resources) (byResource[resource] ??= []).push(connection);
+  }
   const deliveryContractResourcesByRegion = Object.fromEntries(Object.keys(project.regions).map((region) => [
     region,
     [...new Set((project.objective.deliveryContracts ?? [])
@@ -350,7 +387,6 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const events: FactoryEvent[] = [];
   const inputStarvations: Record<string, {
     process: string;
-    signature: string;
     shortages: MaterialInputShortage[];
   }> = {};
   const queue = new DeterministicPriorityQueue<InternalEvent>();
@@ -1869,11 +1905,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ? rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, minimumTreatmentLevel).length
       : materialQuantity(device.id, amount.buffer, amount.resource, minimumTreatmentLevel);
     if (available >= amount.count) return [];
-    const connections = Object.values(project.connections)
-      .filter((connection) => connection.to.device === device.id
-        && connection.toPort.buffer === amount.buffer
-        && connection.resources.includes(amount.resource))
-      .sort((left, right) => left.id.localeCompare(right.id));
+    const connections = incomingConnectionsByDeviceBufferResource[device.id]?.[amount.buffer]?.[amount.resource] ?? [];
     const supplies: InputSupplyObservation[] = connections.length ? connections.map((connection) => {
       const loader = transportStage(connection, "loader").device!;
       const unloader = transportStage(connection, "unloader").device!;
@@ -1929,21 +1961,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   ): boolean => {
     const shortages = plan ? processInputShortages(device, plan) : [];
     if (!plan || shortages.length === 0) return closeInputStarvation(device.id, "ready");
-    const signature = JSON.stringify({ process: plan.definition.id, shortages });
     const previous = inputStarvations[device.id];
-    if (previous?.signature === signature) return false;
+    if (previous?.process === plan.definition.id && sameMaterialInputShortages(previous.shortages, shortages)) return false;
     if (previous) closeInputStarvation(device.id, "changed");
     inputStarvations[device.id] = {
       process: plan.definition.id,
-      signature,
-      shortages: structuredClone(shortages),
+      shortages,
     };
     emit({
       type: "device.input-starved",
       tick: state.tick,
       device: device.id,
       process: plan.definition.id,
-      shortages: structuredClone(shortages),
+      shortages,
     });
     return true;
   };
