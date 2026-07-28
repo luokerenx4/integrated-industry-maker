@@ -88,7 +88,7 @@ test("Device evaluation rejects context mutation before simulator-owned state ch
   }
 });
 
-test("Device evaluation revokes a context retained after the synchronous invocation", () => {
+test("Device evaluation expires every retained context view after the synchronous invocation", () => {
   const context: DeviceProgramContext = {
     apiVersion: 1,
     tick: 42,
@@ -97,14 +97,28 @@ test("Device evaluation revokes a context retained after the synchronous invocat
     materialBatches: { input: { wafer: { "0": 2 } } },
   };
   let retained: Readonly<DeviceProgramContext> | undefined;
+  let retainedInput: Readonly<Record<string, number>> | undefined;
   const program: DeviceProgram = {
     apiVersion: 1,
     evaluate(snapshot) {
       retained = snapshot;
+      retainedInput = snapshot.buffers.input;
       return { kind: "none" };
     },
   };
 
   expect(evaluateDeviceProgram("tool", program, context)).toEqual({ kind: "none" });
-  expect(() => retained!.buffers).toThrow("revoked");
+  const expiredOperations = [
+    () => retained!.buffers,
+    () => "buffers" in retained!,
+    () => Object.keys(retained!),
+    () => Object.getOwnPropertyDescriptor(retained!, "buffers"),
+    () => Object.getPrototypeOf(retained!),
+    () => Object.isExtensible(retained!),
+    () => Reflect.set(retained!, "tick", 0),
+    () => Object.defineProperty(retained!, "tick", { value: 0 }),
+    () => retainedInput!.wafer,
+    () => Object.keys(retainedInput!),
+  ];
+  for (const operation of expiredOperations) expect(operation).toThrow("Device program context has expired");
 });

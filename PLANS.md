@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/shared-revocation-device-context]] | Preserve strict invocation-scoped Device context isolation with one shared lifetime instead of one native revocation handle per visited object. | 2026-07-29 |
 | [[plans/contract-value-dispatch-performance]] | Evaluate each contract-value Device against one exact same-state commitment snapshot instead of rescanning the factory inside sort comparisons. | 2026-07-29 |
 | [[plans/current-simulator-settle-loop-performance]] | Re-profile the current warm memory-fab simulator and remove its next exact settle/event hot-path cost. | 2026-07-29 |
 | [[plans/reusable-benchmark-worker-pool]] | Reuse one bounded worker set across seed and Candidate waves inside a single operation. | 2026-07-28 |

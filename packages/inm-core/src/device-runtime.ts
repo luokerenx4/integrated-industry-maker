@@ -23,39 +23,61 @@ function freezeDeep<T>(value: T): Readonly<T> {
   return value;
 }
 
-function revocableReadonlyView<T extends object>(value: T): { value: Readonly<T>; revoke: () => void } {
+function invocationReadonlyView<T extends object>(value: T): { value: Readonly<T>; expire: () => void } {
   const proxies = new WeakMap<object, object>();
-  const revocations: Array<() => void> = [];
+  let active = true;
+  const ensureActive = () => {
+    if (!active) throw new TypeError("Device program context has expired");
+  };
   const mutationError = () => {
+    ensureActive();
     throw new TypeError("Device program context is read-only");
   };
-  const view = (current: unknown): unknown => {
+  function view(current: unknown): unknown {
     if (!current || typeof current !== "object") return current;
     const existing = proxies.get(current);
     if (existing) return existing;
-    const revocable = Proxy.revocable(current, {
-      get(target, property, receiver) {
-        return view(Reflect.get(target, property, receiver));
-      },
-      getOwnPropertyDescriptor(target, property) {
-        const descriptor = Reflect.getOwnPropertyDescriptor(target, property);
-        if (!descriptor || !("value" in descriptor) || (!descriptor.configurable && !descriptor.writable)) return descriptor;
-        return { ...descriptor, value: view(descriptor.value) };
-      },
-      set: mutationError,
-      deleteProperty: mutationError,
-      defineProperty: mutationError,
-      setPrototypeOf: mutationError,
-      preventExtensions: mutationError,
-    });
-    proxies.set(current, revocable.proxy);
-    revocations.push(revocable.revoke);
-    return revocable.proxy;
+    const proxy = new Proxy(current, handler);
+    proxies.set(current, proxy);
+    return proxy;
+  }
+  const handler: ProxyHandler<object> = {
+    get(target, property, receiver) {
+      ensureActive();
+      return view(Reflect.get(target, property, receiver));
+    },
+    has(target, property) {
+      ensureActive();
+      return Reflect.has(target, property);
+    },
+    ownKeys(target) {
+      ensureActive();
+      return Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor(target, property) {
+      ensureActive();
+      const descriptor = Reflect.getOwnPropertyDescriptor(target, property);
+      if (!descriptor || !("value" in descriptor) || (!descriptor.configurable && !descriptor.writable)) return descriptor;
+      return { ...descriptor, value: view(descriptor.value) };
+    },
+    getPrototypeOf(target) {
+      ensureActive();
+      return Reflect.getPrototypeOf(target);
+    },
+    isExtensible(target) {
+      ensureActive();
+      return Reflect.isExtensible(target);
+    },
+    set: mutationError,
+    deleteProperty: mutationError,
+    defineProperty: mutationError,
+    setPrototypeOf: mutationError,
+    preventExtensions: mutationError,
   };
   return {
     value: view(value) as Readonly<T>,
-    revoke() {
-      for (let index = revocations.length - 1; index >= 0; index--) revocations[index]!();
+    expire() {
+      active = false;
     },
   };
 }
@@ -157,7 +179,7 @@ function assertSynchronous(assetId: string, value: unknown, hook: string): unkno
 }
 
 export function evaluateDeviceProgram(assetId: string, program: DeviceProgram, context: DeviceProgramContext): DeviceProgramDecision {
-  const invocation = revocableReadonlyView(context);
+  const invocation = invocationReadonlyView(context);
   try {
     const value = assertSynchronous(assetId, program.evaluate(invocation.value), "evaluate");
     return parseDeviceDecision(assetId, value);
@@ -165,7 +187,7 @@ export function evaluateDeviceProgram(assetId: string, program: DeviceProgram, c
     if (error instanceof DeviceProgramError) throw error;
     throw new DeviceProgramError(assetId, `evaluate() failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
-    invocation.revoke();
+    invocation.expire();
   }
 }
 
