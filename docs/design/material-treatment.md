@@ -32,6 +32,12 @@ Every production mode declares `minimumInputTreatmentLevel`. The requirement app
 
 Availability and consumption select only lots at or above the minimum, taking the lowest eligible level first. This preserves scarce higher-grade inventory for jobs that need it. A level-0 job may consume any level, also lowest first.
 
+## Runtime query invariant
+
+Runtime availability, readiness, dispatch, and consumption read the live `materialBatches` grade ledger directly. A minimum-level quantity query sums eligible ledger counts, an exact-level query reads that level's count, and source selection compares numeric levels to choose the lowest eligible lot. Untracked-material consumption repeats that lowest-level selection after each mutation until the requested count is satisfied.
+
+These queries must not rebuild a sorted grade projection or maintain a parallel cache. The exact grade ledger remains authoritative, aggregate Resource quantities remain its conserved total, and lowest-eligible behavior must not depend on JavaScript property enumeration order.
+
 ## Dispatch and capacity
 
 Connection and station shortage profiles carry the downstream minimum level. Coverage counts only resident and inbound lots that satisfy that leaf contract. Dispatch selects the lowest eligible source lot and places its exact level on the transit. Thus a full buffer of untreated plate does not satisfy or block replenishment for a productive assembler waiting for level 2 plate.

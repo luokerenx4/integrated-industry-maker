@@ -3776,11 +3776,12 @@ describe("deterministic discrete-event simulation", () => {
     source.blueprint.logisticsNetworks = [];
     source.scenario.durationTicks = 3100;
     source.scenario.initialBuffers = {
-      "assembler-1": { "input-primary": { "iron-plate": 2 }, "input-secondary": { coal: 1 } },
+      "assembler-1": { "input-primary": { "iron-plate": 3 }, "input-secondary": { coal: 1 } },
       "generator-2": { fuel: { coal: 1 } },
     };
     source.scenario.initialTreatments = [
-      { device: "assembler-1", buffer: "input-primary", resource: "iron-plate", level: 2, count: 2 },
+      { device: "assembler-1", buffer: "input-primary", resource: "iron-plate", level: 2, count: 1 },
+      { device: "assembler-1", buffer: "input-primary", resource: "iron-plate", level: 3, count: 2 },
       { device: "assembler-1", buffer: "input-secondary", resource: "coal", level: 2, count: 1 },
     ];
     const project = compileFactoryProject(source);
@@ -3795,6 +3796,7 @@ describe("deterministic discrete-event simulation", () => {
     const result = runUntil(project);
     expect(result.metrics.produced.gear).toBe(2);
     expect(result.events).toContainEqual(expect.objectContaining({ type: "device.start", device: "assembler-1", durationTicks: 3000 }));
+    expect(result.state.devices["assembler-1"]!.materialBatches["input-primary"]!["iron-plate"]).toEqual({ "3": 1 });
 
     source.deviceAssets.assembler!.program = {
       apiVersion: 1,

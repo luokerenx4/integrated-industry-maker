@@ -849,13 +849,32 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const contract = device.buffers[buffer]!.accepts;
     return contract.includes("*") || contract.includes(resource);
   };
-  const materialLevels = (device: string, buffer: string, resource: string): Array<[number, number]> => Object.entries(
-    state.devices[device]!.materialBatches[buffer]?.[resource] ?? {},
-  ).map(([level, count]): [number, number] => [Number(level), count]).filter(([, count]) => count > 0).sort((a, b) => a[0] - b[0]);
-  const materialQuantity = (device: string, buffer: string, resource: string, minimumTreatmentLevel = 0): number => materialLevels(device, buffer, resource)
-    .filter(([level]) => level >= minimumTreatmentLevel).reduce((sum, [, count]) => sum + count, 0);
-  const sourceTreatmentLevel = (device: string, buffer: string, resource: string, minimumTreatmentLevel = 0): number | undefined => materialLevels(device, buffer, resource)
-    .find(([level]) => level >= minimumTreatmentLevel)?.[0];
+  const materialLedger = (device: string, buffer: string, resource: string): Readonly<Record<string, number>> =>
+    state.devices[device]!.materialBatches[buffer]?.[resource] ?? {};
+  const materialLevelQuantity = (device: string, buffer: string, resource: string, treatmentLevel: number): number => {
+    const count = materialLedger(device, buffer, resource)[String(treatmentLevel)] ?? 0;
+    return count > 0 ? count : 0;
+  };
+  const materialQuantity = (device: string, buffer: string, resource: string, minimumTreatmentLevel = 0): number => {
+    let total = 0;
+    const ledger = materialLedger(device, buffer, resource);
+    for (const level in ledger) {
+      if (!Object.hasOwn(ledger, level)) continue;
+      const count = ledger[level]!;
+      if (count > 0 && Number(level) >= minimumTreatmentLevel) total += count;
+    }
+    return total;
+  };
+  const sourceTreatmentLevel = (device: string, buffer: string, resource: string, minimumTreatmentLevel = 0): number | undefined => {
+    let selected: number | undefined;
+    const ledger = materialLedger(device, buffer, resource);
+    for (const level in ledger) {
+      if (!Object.hasOwn(ledger, level) || ledger[level]! <= 0) continue;
+      const numericLevel = Number(level);
+      if (numericLevel >= minimumTreatmentLevel && (selected === undefined || numericLevel < selected)) selected = numericLevel;
+    }
+    return selected;
+  };
   const isTracked = (resource: string): boolean => Boolean(project.resources[resource]?.tracking);
   const trackedJobLotIds = (job: ActiveDeviceJob): string[] => [
     ...(job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? []),
@@ -1072,7 +1091,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
       if (!transportStagePowered(connection, "loader")) continue;
       const freeCapacity = freeBufferCapacity(connection.to.device, connection.toPort.buffer, resource);
-      const count = Math.min(materialLevels(connection.from.device, connection.fromPort.buffer, resource).find(([level]) => level === sourceLevel)?.[1] ?? 0,
+      const count = Math.min(materialLevelQuantity(connection.from.device, connection.fromPort.buffer, resource, sourceLevel),
         freeCapacity, connection.stackSizeByResource[resource] ?? 1);
       if (count <= 0) continue;
       const transitId = `transit-${String(transitSequence++).padStart(6, "0")}`;
@@ -1179,7 +1198,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           const profile = stationDispatchProfiles[route.id]!;
           const sourceLevel = sourceTreatmentLevel(route.from, route.fromBuffer, route.resource, profile.minimumTreatmentLevel);
           if (sourceLevel === undefined) continue;
-          const levelAvailable = materialLevels(route.from, route.fromBuffer, route.resource).find(([level]) => level === sourceLevel)?.[1] ?? 0;
+          const levelAvailable = materialLevelQuantity(route.from, route.fromBuffer, route.resource, sourceLevel);
           const available = Math.min(levelAvailable, Math.max(0, (sourceState.buffers[route.fromBuffer]![route.resource] ?? 0) - route.supplyReserve));
           const targetFree = route.demandTarget - residentTarget - incomingQuantity(route.to, route.toBuffer, route.resource);
           const free = Math.max(0, Math.min(freeBufferCapacity(route.to, route.toBuffer, route.resource), targetFree));
@@ -1353,16 +1372,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           nextStatus: "processing", nextLocation: { kind: "device", device: device.id },
         });
       } else {
-      let remaining = amount.count;
-      for (const [level, count] of materialLevels(device.id, amount.buffer, amount.resource).filter(([level]) => level >= (amount.minimumTreatmentLevel ?? 0))) {
-        const consumed = Math.min(remaining, count);
-        if (consumed > 0) mutateFactoryState(state, {
-          kind: "buffer", device: device.id, buffer: amount.buffer, resource: amount.resource, delta: -consumed, treatmentLevel: level,
-        });
-        remaining -= consumed;
-        if (remaining === 0) break;
-      }
-      if (remaining > 0) throw new Error(`Insufficient eligible material for ${device.id}/${amount.buffer}/${amount.resource}`);
+        let remaining = amount.count;
+        let minimumTreatmentLevel = amount.minimumTreatmentLevel ?? 0;
+        while (remaining > 0) {
+          const level = sourceTreatmentLevel(device.id, amount.buffer, amount.resource, minimumTreatmentLevel);
+          if (level === undefined) break;
+          const consumed = Math.min(remaining, materialLevelQuantity(device.id, amount.buffer, amount.resource, level));
+          mutateFactoryState(state, {
+            kind: "buffer", device: device.id, buffer: amount.buffer, resource: amount.resource, delta: -consumed, treatmentLevel: level,
+          });
+          remaining -= consumed;
+          minimumTreatmentLevel = level + 1;
+        }
+        if (remaining > 0) throw new Error(`Insufficient eligible material for ${device.id}/${amount.buffer}/${amount.resource}`);
       }
       if (disposition === "deliver") {
         mutateFactoryState(state, { kind: "consumed", resource: amount.resource, count: amount.count });
@@ -1446,8 +1468,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (!project.resources[decision.resource] || !accepts(device, plan.inputBuffer, decision.resource) || !accepts(device, plan.outputBuffer, decision.resource)) {
         throw new Error(`Treatment Device '${device.id}' cannot process Resource '${decision.resource}'`);
       }
-      const availableMaterial = materialLevels(device.id, plan.inputBuffer, decision.resource)
-        .find(([level]) => level === decision.inputTreatmentLevel)?.[1] ?? 0;
+      const availableMaterial = materialLevelQuantity(device.id, plan.inputBuffer, decision.resource, decision.inputTreatmentLevel);
       const agent = { buffer: plan.agentBuffer, resource: plan.mode.agent.resource, count: plan.mode.agent.count };
       if (availableMaterial < decision.count || !amountAvailable(device, agent)) { setStatus(device.id, "waiting-input"); return false; }
       const produce = [{ buffer: plan.outputBuffer, resource: decision.resource, count: decision.count, treatmentLevel: plan.mode.level }];
