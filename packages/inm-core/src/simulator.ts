@@ -39,6 +39,8 @@ type PreparedDeviceProgramDescription = {
   generation?: NonNullable<DeviceProgramContext["generation"]>;
 };
 
+type ContractCommitments = Readonly<Record<string, number>>;
+
 export interface RunOptions { untilTick?: number; maxEvents?: number; seed?: number }
 
 const POWER_SATISFACTION_SCALE = 1_000_000;
@@ -436,6 +438,32 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       .filter((contract) => contract.region === region)
       .map((contract) => contract.resource))],
   ]));
+  const contractCommitmentSourcesByRegion = Object.fromEntries(Object.entries(deliveryContractResourcesByRegion)
+    .map(([region, resources]) => {
+      const selected = new Set(resources);
+      const bufferSourcesByResource = Object.fromEntries(resources.map((resource) => [
+        resource,
+        devicesByRegion[region]!.flatMap((device) => bufferIdsByDevice[device.id]!
+          .filter((buffer) => {
+            const accepts = device.buffers[buffer]!.accepts;
+            return accepts.includes("*") || accepts.includes(resource);
+          })
+          .map((buffer) => ({ device: device.id, buffer }))),
+      ]));
+      const activeOutputDevices = devicesByRegion[region]!.filter((device) =>
+        bufferIdsByDevice[device.id]!.some((buffer) => {
+          const accepts = device.buffers[buffer]!.accepts;
+          return accepts.includes("*") || accepts.some((resource) => selected.has(resource));
+        })).map((device) => device.id);
+      const connections = connectionIds.filter((connectionId) => {
+        const connection = project.connections[connectionId]!;
+        return connection.toDevice.region === region && connection.resources.some((resource) => selected.has(resource));
+      });
+      const logisticsNetworks = logisticsNetworkIds.filter((networkId) =>
+        project.logisticsNetworks[networkId]!.routes.some((route) =>
+          route.toRegion === region && selected.has(route.resource)));
+      return [region, { bufferSourcesByResource, activeOutputDevices, connections, logisticsNetworks }];
+    }));
   const connectedDevices = devices.filter((device) => device.powerGrid !== undefined);
   const devicesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
     grid,
@@ -1892,44 +1920,40 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return allocations;
   };
-  const contractCommitmentKey = (resource: string, region: string) => `${region}\0${resource}`;
-  const captureContractCommitments = (resources: readonly string[], region: string): ReadonlyMap<string, number> => {
-    const selected = new Set(resources);
-    const commitments = new Map(resources.map((resource) => [
-      contractCommitmentKey(resource, region),
-      stats.consumedByRegion[region]?.[resource] ?? 0,
-    ]));
-    if (!selected.size) return commitments;
-    const addCommitment = (resource: string, count: number) => {
-      if (!selected.has(resource) || count === 0) return;
-      const key = contractCommitmentKey(resource, region);
-      commitments.set(key, commitments.get(key)! + count);
-    };
-    for (const candidate of devicesByRegion[region] ?? []) {
-      const runtime = state.devices[candidate.id]!;
-      for (const buffer of bufferIdsByDevice[candidate.id]!) {
-        const inventory = runtime.buffers[buffer]!;
-        for (const resource of resources) addCommitment(resource, inventory[resource] ?? 0);
+  const captureContractCommitments = (resources: readonly string[], region: string): ContractCommitments => {
+    const commitments: Record<string, number> = {};
+    const sources = contractCommitmentSourcesByRegion[region]!;
+    for (const resource of resources) {
+      let committed = stats.consumedByRegion[region]?.[resource] ?? 0;
+      for (const source of sources.bufferSourcesByResource[resource] ?? []) {
+        committed += state.devices[source.device]!.buffers[source.buffer]![resource] ?? 0;
       }
-      for (const output of runtime.activeJob?.produce ?? []) addCommitment(output.resource, output.count);
+      commitments[resource] = committed;
     }
-    for (const connection of connectionIds) for (const transit of state.transports[connection]!) {
-      if (project.devices[transit.to]?.region === region) addCommitment(transit.resource, transit.count);
+    for (const deviceId of sources.activeOutputDevices) {
+      for (const output of state.devices[deviceId]!.activeJob?.produce ?? []) {
+        if (commitments[output.resource] !== undefined) commitments[output.resource]! += output.count;
+      }
     }
-    for (const network of logisticsNetworkIds) for (const transit of state.logisticsTransports[network]!) {
-      if (project.devices[transit.to]?.region === region) addCommitment(transit.resource, transit.count);
+    for (const connection of sources.connections) for (const transit of state.transports[connection]!) {
+      if (commitments[transit.resource] !== undefined) commitments[transit.resource]! += transit.count;
+    }
+    for (const network of sources.logisticsNetworks) for (const transit of state.logisticsTransports[network]!) {
+      if (project.devices[transit.to]?.region === region && commitments[transit.resource] !== undefined) {
+        commitments[transit.resource]! += transit.count;
+      }
     }
     return commitments;
   };
   const contractCommitted = (resource: string, region: string): number =>
-    captureContractCommitments([resource], region).get(contractCommitmentKey(resource, region)) ?? 0;
-  const committedFrom = (commitments: ReadonlyMap<string, number> | undefined, resource: string, region: string): number =>
-    commitments?.get(contractCommitmentKey(resource, region)) ?? contractCommitted(resource, region);
+    captureContractCommitments([resource], region)[resource] ?? 0;
+  const committedFrom = (commitments: ContractCommitments | undefined, resource: string, region: string): number =>
+    commitments?.[resource] ?? contractCommitted(resource, region);
   const contractContribution = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
     executions = 1,
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): number =>
     (project.objective.deliveryContracts ?? []).reduce((sum, contract) => {
       if (contract.region !== device.region) return sum;
@@ -1957,7 +1981,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const contractWindowContribution = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): { value: number; firstDeliveryTicks: number } => {
     const setup = state.devices[device.id]!.setup;
     const changeoverTicks = setup && plan.setupGroup && setup.group !== plan.setupGroup
@@ -1994,14 +2018,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const isContractDispatchDevice = (device: CompiledDevice): boolean => device.policy?.recipeDispatch === "contract-value"
     && device.processPlans.some((plan) => plan.outputs.some((output) => (project.objective.deliveryContracts ?? [])
       .some((contract) => contract.resource === output.resource && contract.region === device.region)));
-  const captureDeviceContractCommitments = (device: CompiledDevice): ReadonlyMap<string, number> | undefined =>
+  const captureDeviceContractCommitments = (device: CompiledDevice): ContractCommitments | undefined =>
     isContractDispatchDevice(device)
       ? captureContractCommitments(deliveryContractResourcesByRegion[device.region] ?? [], device.region)
       : undefined;
   const processPlanMaterialReady = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): boolean =>
     plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
       || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count))
@@ -2113,7 +2137,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const processPlanReady = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): boolean =>
     processPlanMaterialReady(device, plan, commitments)
       && (!plan.tooling.length || Boolean(toolingProviderFor(device, plan)))
@@ -2121,7 +2145,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const rankProcessPlans = (
     device: CompiledDevice,
     candidates: CompiledDevice["processPlans"] = device.processPlans,
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): Array<{ plan: CompiledDevice["processPlans"][number]; index: number }> => {
     const ranked = candidates.map((plan) => ({ plan, index: device.processPlans.indexOf(plan) }));
     const cadence = device.policy?.cadenceControl;
@@ -2204,7 +2228,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     device: CompiledDevice,
     candidates: CompiledDevice["processPlans"] = device.processPlans,
     fallback = true,
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): CompiledDevice["processPlans"][number] | undefined => {
     const ranked = rankProcessPlans(device, candidates, commitments);
     const ready = ranked.find(({ plan }) => processPlanReady(device, plan, commitments));
@@ -2238,7 +2262,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return ids.size;
   };
-  const selectBatchFormationProcessPlan = (device: CompiledDevice, commitments?: ReadonlyMap<string, number>): {
+  const selectBatchFormationProcessPlan = (device: CompiledDevice, commitments?: ContractCommitments): {
     plan?: CompiledDevice["processPlans"][number]; held: boolean; changed: boolean;
   } => {
     const policy = device.policy?.batchFormation;
@@ -2295,7 +2319,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(deadlineTick, 3, { kind: "batch-timeout", device: device.id, preferredProcess: preferred.definition.id, deadlineTick });
     return { held: true, changed: true };
   };
-  const selectCampaignProcessPlan = (device: CompiledDevice, commitments?: ReadonlyMap<string, number>): {
+  const selectCampaignProcessPlan = (device: CompiledDevice, commitments?: ContractCommitments): {
     plan?: CompiledDevice["processPlans"][number];
     held: boolean;
     changed: boolean;
@@ -2350,7 +2374,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const requiresChangeover = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
-    commitments?: ReadonlyMap<string, number>,
+    commitments?: ContractCommitments,
   ): boolean => {
     const setup = state.devices[device.id]!.setup;
     return Boolean(setup && plan.setupGroup && setup.group !== plan.setupGroup
