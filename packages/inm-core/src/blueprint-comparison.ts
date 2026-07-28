@@ -256,6 +256,7 @@ export interface BlueprintMetricDelta {
       peakInventory: number;
       finalInventory: number;
     }>;
+    locations: FactoryMetrics["inventoryAccounting"]["locations"];
   };
   averageBlockedBeltItems: number;
   beltCellUtilization: number;
@@ -524,6 +525,10 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     ...Object.keys(before.inventoryAccounting.resources),
     ...Object.keys(after.inventoryAccounting.resources),
   ])].sort();
+  const inventoryLocationIds = [...new Set([
+    ...Object.keys(before.inventoryAccounting.locations),
+    ...Object.keys(after.inventoryAccounting.locations),
+  ])].sort();
   const inventoryAccounting: BlueprintMetricDelta["inventoryAccounting"] = {
     averageTotalInventory: after.inventoryAccounting.averageTotalInventory - before.inventoryAccounting.averageTotalInventory,
     averageWip: after.inventoryAccounting.averageWip - before.inventoryAccounting.averageWip,
@@ -535,6 +540,18 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
       const candidate = after.inventoryAccounting.resources[resource];
       return [resource, {
         includedInWip: candidate?.includedInWip ?? baseline?.includedInWip ?? false,
+        averageInventory: (candidate?.averageInventory ?? 0) - (baseline?.averageInventory ?? 0),
+        peakInventory: (candidate?.peakInventory ?? 0) - (baseline?.peakInventory ?? 0),
+        finalInventory: (candidate?.finalInventory ?? 0) - (baseline?.finalInventory ?? 0),
+      }];
+    })),
+    locations: Object.fromEntries(inventoryLocationIds.map((id) => {
+      const baseline = before.inventoryAccounting.locations[id];
+      const candidate = after.inventoryAccounting.locations[id];
+      const identity = candidate ?? baseline;
+      if (!identity) throw new Error(`Inventory location '${id}' has no baseline or candidate identity`);
+      return [id, {
+        ...identity,
         averageInventory: (candidate?.averageInventory ?? 0) - (baseline?.averageInventory ?? 0),
         peakInventory: (candidate?.peakInventory ?? 0) - (baseline?.peakInventory ?? 0),
         finalInventory: (candidate?.finalInventory ?? 0) - (baseline?.finalInventory ?? 0),

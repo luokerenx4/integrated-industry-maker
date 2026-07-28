@@ -36,6 +36,8 @@ Structured and visual evidence are complementary:
 - A CLI-only Agent may open the returned Studio routes through Playwright, MCP, or another screenshot-capable browser. The Harness does not require one browser vendor.
 - A human may use Studio while an Agent authors and evaluates the corresponding project-local TypeScript or JSON change. Both must remain bound to the same hashes and run.
 
+Objective WIP evidence follows the same rule. A Resource total names the material but does not identify the industrial mechanism. The shared workbench therefore projects Core's conserved Device-Buffer, local-transport-stage, and station-route quantities and gives selectable Device or connection locations a direct immutable Factory route. High contribution is an observation target, not proof of avoidable inventory or authority to shrink a Buffer.
+
 ## Observation brief
 
 Core owns one deterministic `FactoryObservationBrief`. It is read-only and contains:

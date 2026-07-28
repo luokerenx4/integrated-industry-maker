@@ -4,6 +4,7 @@ import type { Blueprint, CompiledFactoryProject, FactoryEvent, SimulationResult 
 import { atomicWrite, atomicWriteJson, hashValue, pathExists, stableStringify } from "./utils";
 import { planProductionCapacity } from "./capacity-plan";
 import { transportBlockCauseTotals } from "./transport-blocking";
+import { describeWipInventoryLocation } from "./inventory-location";
 
 export interface RunArtifactOptions {
   label: string;
@@ -93,6 +94,10 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     .sort(([, left], [, right]) => Number(right.includedInWip) - Number(left.includedInWip)
       || right.averageInventory - left.averageInventory)
     .map(([resource, accounting]) => `| ${resource} | ${accounting.includedInWip ? "WIP" : "excluded"} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} |`);
+  const wipLocationRows = Object.entries(result.metrics.inventoryAccounting.locations)
+    .filter(([, accounting]) => accounting.averageInventory > 0 || accounting.peakInventory > 0 || accounting.finalInventory > 0)
+    .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
+    .map(([id, accounting]) => `| ${id} | ${accounting.resource} | ${accounting.kind} | ${describeWipInventoryLocation(accounting)} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} |`);
   const totalUnpoweredTicks = Object.values(result.metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0);
   const treatedMaterials = Object.entries(result.metrics.materialTreatment.treated)
     .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
@@ -153,6 +158,11 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     "| --- | --- | ---: | ---: | ---: |",
     ...inventoryRows,
     "", "Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.",
+    "", "### Physical WIP locations", "",
+    "| Location ID | Resource | Kind | Physical location | Average inventory | Peak inventory | Final inventory |",
+    "| --- | --- | --- | --- | ---: | ---: | ---: |",
+    ...wipLocationRows,
+    "", "Location averages and final quantities conserve to Objective WIP. Per-location peaks are exact but not additive because locations can peak at different times.",
     "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",
   ].join("\n");

@@ -1,0 +1,21 @@
+{
+  "baseCandidateHash": "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Preserve all 12 completed wafer lots, 88 delivered DRAM devices, contract value, service, and quality while reducing average known-good-die exposure at packaging-1.die-input by approximately four units.",
+  "hypothesis": "A five-card CONWIP loop reopening at four lots will preserve the fixed twelve-lot memory-fab workload while reducing concurrent die batches waiting at packaging, without hiding inventory in smaller Buffers or changing physical transport capacity.",
+  "id": "back-end-wip-conwip-5-4",
+  "name": "Five-card back-end WIP cadence",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumWip",
+      "value": 5
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/reopenAtWip",
+      "value": 4
+    }
+  ],
+  "version": 1
+}

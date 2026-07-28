@@ -286,7 +286,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   });
 
   expect(result.artifact).toEqual(expect.objectContaining({
-    id: "df85fdd774f34544e9598dd7868ca0b99457e98abc6f939c047fd0c3211939a2",
+    id: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
     created: true,
   }));
   expect(result.manifest).toMatchObject({

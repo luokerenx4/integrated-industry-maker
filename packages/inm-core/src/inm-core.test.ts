@@ -1578,6 +1578,26 @@ describe("blueprint compiler", () => {
       includedInWip: false,
       finalInventory: 1,
     }));
+    expect(Object.values(portfolio.metrics.inventoryAccounting.locations)
+      .reduce((sum, location) => sum + location.averageInventory, 0))
+      .toBeCloseTo(portfolio.metrics.averageWip, 12);
+    for (const [resource, accounting] of Object.entries(portfolio.metrics.inventoryAccounting.resources)
+      .filter(([, accounting]) => accounting.includedInWip)) {
+      expect(Object.values(portfolio.metrics.inventoryAccounting.locations)
+        .filter((location) => location.resource === resource)
+        .reduce((sum, location) => sum + location.averageInventory, 0))
+        .toBeCloseTo(accounting.averageInventory, 12);
+    }
+    expect(portfolio.metrics.inventoryAccounting.locations["buffer:burn-in-1:package-input:packaged-dram-device"])
+      .toEqual(expect.objectContaining({
+        kind: "buffer",
+        resource: "packaged-dram-device",
+        device: "burn-in-1",
+        buffer: "package-input",
+      }));
+    expect(new Set(Object.values(portfolio.metrics.inventoryAccounting.locations)
+      .filter((location) => location.kind === "local-transit")
+      .map((location) => location.phase))).toEqual(new Set(["loading", "belt", "unloading"]));
 
     const deliveryWindowProject = compileFactoryProject(
       await loadFactoryProject(memoryFab, { blueprint: "generated-dram-fab" }),
@@ -3031,7 +3051,9 @@ describe("deterministic discrete-event simulation", () => {
   });
 
   test("station networks batch resources through a finite station-owned round-trip fleet", async () => {
-    const project = compileFactoryProject(await stationProjectSource());
+    const source = await stationProjectSource();
+    source.objective.wipResources = ["iron-ore"];
+    const project = compileFactoryProject(source);
     expect(project.devices["station-supply"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
     expect(project.devices["station-demand"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
     const result = runUntil(project, undefined, { untilTick: 13_600 });
@@ -3043,6 +3065,21 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.state.logisticsTransports["local-main"]).toHaveLength(0);
     expect(result.state.logisticsMissions["local-main"]).toHaveLength(0);
     expect(result.metrics.stationFleets["local-main:station-supply"]).toEqual(expect.objectContaining({ configuredCarriers: 1, activeMissions: 0, completedReturns: 2, utilization: 1 }));
+    expect(result.metrics.inventoryAccounting).toEqual(expect.objectContaining({
+      averageWip: 25,
+      averageTotalInventory: 25,
+    }));
+    expect(result.metrics.inventoryAccounting.locations["station-transit:local-main:local-main%3Airon-ore%3Astation-supply-%3Estation-demand:iron-ore"]).toEqual({
+      kind: "station-transit",
+      resource: "iron-ore",
+      network: "local-main",
+      route: "local-main:iron-ore:station-supply->station-demand",
+      averageInventory: 5,
+      peakInventory: 10,
+      finalInventory: 0,
+    });
+    expect(Object.values(result.metrics.inventoryAccounting.locations)
+      .reduce((sum, location) => sum + location.finalInventory, 0)).toBe(25);
     expect(result.metrics.totalBuildCost).toBe(6_500);
   });
 
@@ -4061,6 +4098,14 @@ describe("research boundary and experiment decisions", () => {
     expect(comparison.to.capacityPlan.processes.some((process) => process.mode === "accelerated")).toBeTrue();
     expect(comparison.to.capacityPlan.gaps.some((gap) => gap.kind === "treatment")).toBeTrue();
     expect(comparison.delta.score).toBeLessThan(0);
+    expect(Object.keys(comparison.delta.inventoryAccounting.locations).length).toBeGreaterThan(0);
+    for (const [id, delta] of Object.entries(comparison.delta.inventoryAccounting.locations)) {
+      expect(delta.averageInventory).toBeCloseTo(
+        (comparison.to.metrics.inventoryAccounting.locations[id]?.averageInventory ?? 0)
+          - (comparison.from.metrics.inventoryAccounting.locations[id]?.averageInventory ?? 0),
+        12,
+      );
+    }
     expect(comparison.verdict).toBe("REGRESSED");
     expect(compareFactoryBlueprints(before, after, { seed: 42 }).delta).toEqual(comparison.delta);
   });
@@ -4648,6 +4693,9 @@ describe("artifacts and renderer-independent projection", () => {
     expect(run.manifest.selection).toEqual({ world: "main", blueprint: "main", scenario: "baseline", objective: "default" });
     expect((await listRuns(dir))[0]!.manifest.status).toBe("completed");
     expect(JSON.parse(await readFile(join(run.path, "metrics.json"), "utf8")).scoreBreakdown).toBeDefined();
+    const report = await readFile(join(run.path, "report.md"), "utf8");
+    expect(report).toContain("### Physical WIP locations");
+    expect(report).toContain("| Location ID | Resource | Kind | Physical location |");
   });
 
   test("FactorySceneModel is pure serializable data and replays transit", async () => {

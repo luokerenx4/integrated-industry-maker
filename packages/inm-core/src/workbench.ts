@@ -28,6 +28,7 @@ import {
   type ScoreBreakdownComponent,
 } from "./types";
 import { ENGINE_VERSION, hashValue, readJson, stableStringify } from "./utils";
+import { describeWipInventoryLocation } from "./inventory-location";
 
 export type WorkbenchDiagnosticSeverity = "blocking" | "warning" | "info";
 export type WorkbenchSubjectKind =
@@ -220,11 +221,23 @@ export interface WorkbenchObjectiveEvidence {
       shareOfAverageWip: number;
       scoreContribution: number;
     }>;
+    locations: Array<{
+      id: string;
+      resource: string;
+      kind: "buffer" | "local-transit" | "station-transit";
+      physicalLocation: string;
+      subject: { kind: "device" | "connection"; id: string } | null;
+      averageInventory: number;
+      peakInventory: number;
+      finalInventory: number;
+      shareOfAverageWip: number;
+      scoreContribution: number;
+    }>;
   };
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 11;
+  version: 12;
   project: {
     id: string;
     name: string;
@@ -969,6 +982,28 @@ function buildWorkbenchObjectiveEvidence(
     }))
     .sort((left, right) =>
       right.averageInventory - left.averageInventory || left.resource.localeCompare(right.resource));
+  const wipLocations = Object.entries(metrics.inventoryAccounting.locations)
+    .filter(([, accounting]) => accounting.averageInventory > 0)
+    .map(([id, accounting]) => ({
+      id,
+      resource: accounting.resource,
+      kind: accounting.kind,
+      physicalLocation: describeWipInventoryLocation(accounting),
+      subject: accounting.kind === "buffer"
+        ? { kind: "device" as const, id: accounting.device }
+        : accounting.kind === "local-transit"
+          ? { kind: "connection" as const, id: accounting.connection }
+          : null,
+      averageInventory: accounting.averageInventory,
+      peakInventory: accounting.peakInventory,
+      finalInventory: accounting.finalInventory,
+      shareOfAverageWip: metrics.inventoryAccounting.averageWip > 0
+        ? accounting.averageInventory / metrics.inventoryAccounting.averageWip
+        : 0,
+      scoreContribution: -accounting.averageInventory * wipWeight,
+    }))
+    .sort((left, right) =>
+      right.averageInventory - left.averageInventory || left.id.localeCompare(right.id));
   return {
     runId,
     finalScore: metrics.finalScore,
@@ -981,6 +1016,7 @@ function buildWorkbenchObjectiveEvidence(
       averageWip: metrics.inventoryAccounting.averageWip,
       peakWip: metrics.inventoryAccounting.peakWip,
       resources: wipResources,
+      locations: wipLocations,
     },
   };
 }
@@ -1163,7 +1199,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 11 as const,
+    version: 12 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

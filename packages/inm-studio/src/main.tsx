@@ -434,6 +434,12 @@ interface Metrics {
     resources: Record<string, {
       includedInWip: boolean; averageInventory: number; peakInventory: number; finalInventory: number;
     }>;
+    locations: Record<string, {
+      resource: string;
+      kind: "buffer" | "local-transit" | "station-transit";
+      device?: string; buffer?: string; connection?: string; phase?: "loading" | "belt" | "unloading"; network?: string; route?: string;
+      averageInventory: number; peakInventory: number; finalInventory: number;
+    }>;
   };
   averageBeltItems: number;
   averageBlockedBeltItems: number;
@@ -2063,7 +2069,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   onCandidate: (benchmarkId: string, candidateId: string) => void;
   onDesign: (programId: string, runId?: string) => void;
   onRun: (runId: string) => void;
-  onObjectiveTradeoff: (runId: string) => void;
+  onObjectiveTradeoff: (runId: string, subject?: { kind: "device" | "connection"; id: string } | null) => void;
   onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
   const latestRun = snapshot.runs.at(-1);
@@ -2286,6 +2292,15 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         {snapshot.objectiveEvidence && snapshot.inventoryAccounting ? <>
           <div className="objective-component-list" data-testid="objective-score-components">{snapshot.objectiveEvidence.components.slice(0, 6).map((component) => <div key={component.id} className={component.role}><span>{component.id}</span><b>{component.contribution > 0 ? "+" : ""}{component.contribution.toFixed(2)}</b></div>)}</div>
           <div className="contract-list">{wipContributors.slice(0, 6).map((resource) => <div key={resource.resource}><span><strong>{resource.resource}</strong><code>{resource.finalInventory.toFixed(2)} final · {resource.peakInventory.toFixed(2)} peak · {(resource.shareOfAverageWip * 100).toFixed(1)}%</code></span><b>{resource.averageInventory.toFixed(2)}<small> AVG · {resource.scoreContribution.toFixed(2)} SCORE</small></b></div>)}</div>
+          <div className="contract-list" data-testid="objective-wip-locations">{snapshot.objectiveEvidence.wip.locations.slice(0, 8).map((location) => <a
+            key={location.id}
+            href={factoryObjectPath(snapshot.project.id, location.subject, snapshot.objectiveEvidence!.runId)}
+            onClick={(event) => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              onObjectiveTradeoff(snapshot.objectiveEvidence!.runId, location.subject);
+            }}
+          ><span><strong>{location.physicalLocation}</strong><code>{location.resource} · {location.kind} · {(location.shareOfAverageWip * 100).toFixed(1)}%</code></span><b>{location.averageInventory.toFixed(2)}<small> AVG · {location.peakInventory.toFixed(2)} PEAK</small></b></a>)}</div>
           <footer><span>{snapshot.inventoryAccounting.averageTotalInventory.toFixed(2)} average total inventory</span><span>{snapshot.inventoryAccounting.averageExcludedInventory.toFixed(2)} excluded</span><span>{snapshot.inventoryAccounting.peakWip.toFixed(2)} peak WIP</span></footer>
           <p className="objective-interpretation">Objective accounting evidence, not proof that the inventory is avoidable.</p>
         </> : <div className="overview-empty"><span>Create a compatible immutable run to measure the Objective's WIP scope.</span></div>}
@@ -2559,11 +2574,11 @@ function App() {
     setRouteView("factory"); setSelection(next);
   }, [routeProject, run]);
 
-  const navigateObjectiveTradeoff = useCallback((runId: string) => {
+  const navigateObjectiveTradeoff = useCallback((runId: string, subject?: { kind: "device" | "connection"; id: string } | null) => {
     if (!routeProject) return;
-    window.history.pushState({}, "", factoryObjectPath(routeProject, null, runId));
+    window.history.pushState({}, "", factoryObjectPath(routeProject, subject, runId));
     setRouteView("factory");
-    setSelection(null);
+    setSelection(subject ?? null);
     setRouteRun(runId);
   }, [routeProject]);
 
@@ -2997,6 +3012,17 @@ function App() {
                       key={resource}
                       label={resource.toUpperCase()}
                       value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.peakInventory.toFixed(0)} peak`}
+                    />
+                  ))}
+                {Object.values(data.metrics.inventoryAccounting.locations)
+                  .filter((accounting) => accounting.averageInventory > 0)
+                  .sort((left, right) => right.averageInventory - left.averageInventory)
+                  .slice(0, 8)
+                  .map((accounting) => (
+                    <Metric
+                      key={`${accounting.kind}:${accounting.device ?? accounting.connection ?? accounting.network}:${accounting.buffer ?? accounting.phase ?? accounting.route}:${accounting.resource}`}
+                      label={`${accounting.device && accounting.buffer ? `${accounting.device}.${accounting.buffer}` : accounting.connection && accounting.phase ? `${accounting.connection}.${accounting.phase}` : `${accounting.network}.${accounting.route}`}`.toUpperCase()}
+                      value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.resource}`}
                     />
                   ))}
               </div>

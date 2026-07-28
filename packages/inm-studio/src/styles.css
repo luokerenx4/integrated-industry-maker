@@ -388,13 +388,14 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .overview-diagnostics small { margin-top: 4px; color: #49656d; font: 6px var(--mono); }
 .overview-diagnostics > button > b { color: #42636b; font: 12px var(--mono); }
 .contract-list, .experiment-shortlist { padding: 8px; }
-.contract-list > div, .experiment-shortlist button, .latest-run, .candidate-short { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; padding: 10px 11px; border: 0; border-top: 1px solid #142c32; border-radius: 0; text-align: left; background: transparent; }
-.contract-list > div:first-child, .experiment-shortlist button:first-child { border-top: 0; }
+.contract-list > div, .contract-list > a, .experiment-shortlist button, .latest-run, .candidate-short { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; padding: 10px 11px; border: 0; border-top: 1px solid #142c32; border-radius: 0; text-align: left; text-decoration: none; background: transparent; }
+.contract-list > div:first-child, .contract-list > a:first-child, .experiment-shortlist button:first-child { border-top: 0; }
+.contract-list > a:hover { background: #0b1c20; }
 .contract-list strong, .contract-list code, .experiment-shortlist strong, .experiment-shortlist code, .latest-run small, .latest-run strong, .latest-run code { display: block; }
 .contract-list strong, .experiment-shortlist strong, .latest-run strong { color: #aec3c7; font: 9px var(--mono); }
 .contract-list code, .experiment-shortlist code, .latest-run code { margin-top: 5px; color: #4e7077; font: 7px var(--mono); }
-.contract-list > div > b { color: #65d9b9; font: 18px var(--mono); }
-.contract-list > div > b small { margin-left: 3px; color: #4c796d; font-size: 6px; }
+.contract-list > div > b, .contract-list > a > b { color: #65d9b9; font: 18px var(--mono); }
+.contract-list > div > b small, .contract-list > a > b small { margin-left: 3px; color: #4c796d; font-size: 6px; }
 .contracts-panel > footer { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border-top: 1px solid #173138; background: #173138; }
 .contracts-panel > footer span { padding: 9px 12px; color: #56737a; background: #071216; font: 7px var(--mono); }
 .latest-run { padding: 15px 18px; color: inherit; border-top: 0; border-bottom: 1px solid #173138; background: linear-gradient(90deg, #0e2b24, #09171b); }

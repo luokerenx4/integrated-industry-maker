@@ -1,11 +1,29 @@
-import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, FactoryState, ScoreBreakdown, Tick, TransportBlockTicks } from "./types";
+import type {
+  CompiledFactoryProject,
+  FactoryEvent,
+  FactoryMetrics,
+  FactoryState,
+  ScoreBreakdown,
+  Tick,
+  TransportBlockTicks,
+  WipInventoryLocationIdentity,
+} from "./types";
 import { emptyTransportBlockTicks, totalTransportBlockTicks } from "./transport-blocking";
+import {
+  bufferInventoryLocation,
+  localTransitInventoryLocation,
+  stationTransitInventoryLocation,
+  wipInventoryLocationId,
+} from "./inventory-location";
 
 export interface SimulationStats {
   durations: Record<string, Record<string, Tick>>;
   wipArea: number;
   inventoryArea: Record<string, number>;
   inventoryPeak: Record<string, number>;
+  wipLocationArea: Record<string, number>;
+  wipLocationPeak: Record<string, number>;
+  wipLocationIdentities: Record<string, WipInventoryLocationIdentity>;
   peakTotalInventory: number;
   peakWip: number;
   congestionArea: number;
@@ -329,18 +347,43 @@ export function evaluateFactory(
   for (const contract of contractMetrics) if (contract.minimumFulfillment !== undefined && contract.fulfillment + 1e-12 < contract.minimumFulfillment) violations.push(
     `delivery contract ${contract.id} fulfillment ${(contract.fulfillment * 100).toFixed(1)}% is below ${(contract.minimumFulfillment * 100).toFixed(1)}%`,
   );
+  const wipResources = new Set(project.objective.wipResources);
   const finalInventory: Record<string, number> = {};
+  const finalWipLocations: Record<string, number> = {};
+  const finalWipLocationIdentities: Record<string, WipInventoryLocationIdentity> = {};
   const addFinalInventory = (resource: string, count: number) => {
     finalInventory[resource] = (finalInventory[resource] ?? 0) + count;
   };
-  for (const runtime of Object.values(state.devices)) {
-    for (const inventory of Object.values(runtime.buffers)) {
-      for (const [resource, count] of Object.entries(inventory)) addFinalInventory(resource, count);
+  const addFinalWipLocation = (location: WipInventoryLocationIdentity, count: number) => {
+    const id = wipInventoryLocationId(location);
+    finalWipLocations[id] = (finalWipLocations[id] ?? 0) + count;
+    finalWipLocationIdentities[id] ??= location;
+  };
+  for (const [device, runtime] of Object.entries(state.devices)) {
+    for (const [buffer, inventory] of Object.entries(runtime.buffers)) {
+      for (const [resource, count] of Object.entries(inventory)) {
+        addFinalInventory(resource, count);
+        if (wipResources.has(resource)) addFinalWipLocation(bufferInventoryLocation(resource, device, buffer), count);
+      }
     }
   }
-  for (const transit of Object.values(state.transports).flat()) addFinalInventory(transit.resource, transit.count);
-  for (const transit of Object.values(state.logisticsTransports).flat()) addFinalInventory(transit.resource, transit.count);
-  const wipResources = new Set(project.objective.wipResources);
+  for (const [connection, transits] of Object.entries(state.transports)) {
+    for (const transit of transits) {
+      addFinalInventory(transit.resource, transit.count);
+      if (wipResources.has(transit.resource)) {
+        addFinalWipLocation(localTransitInventoryLocation(transit.resource, connection, transit.phase), transit.count);
+      }
+    }
+  }
+  for (const [network, transits] of Object.entries(state.logisticsTransports)) {
+    for (const transit of transits) {
+      addFinalInventory(transit.resource, transit.count);
+      if (wipResources.has(transit.resource)) {
+        if (!transit.logisticsRoute) throw new Error(`Station transit '${transit.id}' has no logistics route`);
+        addFinalWipLocation(stationTransitInventoryLocation(transit.resource, network, transit.logisticsRoute), transit.count);
+      }
+    }
+  }
   const accountedResources = [...new Set([
     ...project.objective.wipResources,
     ...Object.keys(stats.inventoryArea),
@@ -358,6 +401,32 @@ export function evaluateFactory(
   ]));
   const averageWip = stats.wipArea / duration;
   const averageTotalInventory = Object.values(stats.inventoryArea).reduce((sum, area) => sum + area, 0) / duration;
+  const wipLocationIds = [...new Set([
+    ...Object.keys(stats.wipLocationArea),
+    ...Object.keys(stats.wipLocationPeak),
+    ...Object.keys(finalWipLocations),
+  ])].sort();
+  const wipLocations: FactoryMetrics["inventoryAccounting"]["locations"] = Object.fromEntries(wipLocationIds.map((id) => {
+    const identity = stats.wipLocationIdentities[id] ?? finalWipLocationIdentities[id];
+    if (!identity) throw new Error(`WIP inventory location '${id}' has measurements without an identity`);
+    return [id, {
+      ...identity,
+      averageInventory: (stats.wipLocationArea[id] ?? 0) / duration,
+      peakInventory: stats.wipLocationPeak[id] ?? 0,
+      finalInventory: finalWipLocations[id] ?? 0,
+    }];
+  }));
+  const locatedAverageWip = Object.values(wipLocations).reduce((sum, location) => sum + location.averageInventory, 0);
+  const locatedFinalWip = Object.values(wipLocations).reduce((sum, location) => sum + location.finalInventory, 0);
+  const resourceFinalWip = Object.values(inventoryResources)
+    .filter((resource) => resource.includedInWip)
+    .reduce((sum, resource) => sum + resource.finalInventory, 0);
+  if (Math.abs(locatedAverageWip - averageWip) > 1e-9) {
+    throw new Error(`WIP location average ${locatedAverageWip} does not reconcile with Objective WIP ${averageWip}`);
+  }
+  if (Math.abs(locatedFinalWip - resourceFinalWip) > 1e-9) {
+    throw new Error(`WIP location final inventory ${locatedFinalWip} does not reconcile with Objective WIP ${resourceFinalWip}`);
+  }
   const inventoryAccounting: FactoryMetrics["inventoryAccounting"] = {
     averageTotalInventory,
     averageWip,
@@ -365,6 +434,7 @@ export function evaluateFactory(
     peakTotalInventory: stats.peakTotalInventory,
     peakWip: stats.peakWip,
     resources: inventoryResources,
+    locations: wipLocations,
   };
   const averageBeltItems = stats.beltItemArea / duration;
   const averageBlockedBeltItems = stats.beltBlockedArea / duration;

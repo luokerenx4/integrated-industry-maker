@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V11 shared decision status, explicit Design Program focus, Objective-owned score/tradeoff evidence, hash-compatible tracked-lot loss attribution with exact material-shortage supply states, current-Blueprint Design evidence authority, evidence-backed bounded loss disposition, Objective-authoritative diagnostic boundary, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
+Status: V12 shared decision status, explicit Design Program focus, Objective-owned Resource and physical-location score/tradeoff evidence, hash-compatible tracked-lot loss attribution with exact material-shortage supply states, current-Blueprint Design evidence authority, evidence-backed bounded loss disposition, Objective-authoritative diagnostic boundary, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/observation-led-design]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
@@ -28,7 +28,7 @@ Opening a snapshot is read-only. It does not create cache directories, runs, Ben
 
 ## Snapshot contract
 
-The V11 snapshot contains:
+The V12 snapshot contains:
 
 - project id, display name, and resolved project root;
 - the effective World, Blueprint, Scenario, and Objective ids/names plus complete input hashes;
@@ -42,7 +42,7 @@ The V11 snapshot contains:
 - prioritized diagnostics and operation descriptors.
 - optional compatible-run tracked-lot loss attribution with exact run identity, outcome, primary signal, ranked chain, named buckets, ordered quality-origin, material-shortage Resource/Buffer/immediate-path-state, positive transport-blocking connection with immediate-cause evidence, and Q-time step/Device contributors, and interpretation caveat;
 - zero or more `bounded-deferred` loss dispositions, each binding one still-visible diagnostic to an exact current contributor/metric/value, Program/Benchmark/Design Run authority, compatible observed run, attempt/improvement/rejection counts, decision bases, and explicit invalidation boundary;
-- optional compatible-run Objective inventory accounting with average/peak total inventory, scored WIP, excluded inventory, and per-Resource averages, peaks, final quantities, and inclusion state;
+- optional compatible-run Objective inventory accounting with average/peak total inventory, scored WIP, excluded inventory, per-Resource averages/peaks/final quantities/inclusion state, and ranked conserved Device-Buffer, local-transport-stage, or station-route locations;
 - optional compatible-run Objective evidence with an exactly reconciled score breakdown, deterministic component roles/ranking, the dominant negative component, and WIP weight plus per-Resource score contributions and shares;
 - exactly one shared next action with stable identity, reason, effect, confirmation requirement, exact CLI argv, project-qualified Studio route, and typed target.
 
@@ -74,7 +74,7 @@ The three operation effects are `read-only`, `creates-artifact`, and `mutates-bl
 
 ## CLI and Studio projections
 
-For tracked-lot queue congestion, CLI and Studio consume the same ordered V8 contributors: exact Device or connection, Route step, Process, Resource, lots, segment count, tick total, share, and maximum interval. Contributors must conserve the evaluator-owned completed-lot total; global utilization context cannot become queue ownership. For input starvation, both surfaces consume the same ordered contributors, Resources, Buffers, exact quantity gaps, immediate authored connection/source subjects, and conserved supply-state intervals. Neither infers a recursive root cause or converts ordinary in-flight material into a lane-capacity recommendation. For transport, both consume the same ordered contributors, dominant mechanism, total blocked item-time, and four immediate-cause shares. Neither converts endpoint service or power evidence into a line-speed recommendation. Studio also exposes the same per-cause metrics in the selected Factory connection inspector. Workbench V11 may additionally project a bounded decision disposition over one exact contributor; that projection never removes or rescales the underlying physical bucket.
+For tracked-lot queue congestion, CLI and Studio consume the same ordered V8 contributors: exact Device or connection, Route step, Process, Resource, lots, segment count, tick total, share, and maximum interval. Contributors must conserve the evaluator-owned completed-lot total; global utilization context cannot become queue ownership. For input starvation, both surfaces consume the same ordered contributors, Resources, Buffers, exact quantity gaps, immediate authored connection/source subjects, and conserved supply-state intervals. Neither infers a recursive root cause or converts ordinary in-flight material into a lane-capacity recommendation. For transport, both consume the same ordered contributors, dominant mechanism, total blocked item-time, and four immediate-cause shares. Neither converts endpoint service or power evidence into a line-speed recommendation. Studio also exposes the same per-cause metrics in the selected Factory connection inspector. Workbench V12 may additionally project a bounded decision disposition over one exact contributor; that projection never removes or rescales the underlying physical bucket.
 
 ## Objective tradeoff handoff
 

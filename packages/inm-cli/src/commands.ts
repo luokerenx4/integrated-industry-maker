@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, describeWipInventoryLocation, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
@@ -519,6 +519,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
       `  WIP: weight ${snapshot.objectiveEvidence.wip.weight} × ${snapshot.objectiveEvidence.wip.averageWip.toFixed(3)} average = ${snapshot.objectiveEvidence.wip.scoreContribution.toFixed(3)} score`,
       ...snapshot.objectiveEvidence.wip.resources.slice(0, 5).map((resource) =>
         `    ${resource.resource}: ${resource.averageInventory.toFixed(3)} average / ${resource.peakInventory.toFixed(3)} peak / ${resource.finalInventory.toFixed(3)} final · ${(resource.shareOfAverageWip * 100).toFixed(1)}% · ${resource.scoreContribution.toFixed(3)} score`),
+      "  Physical WIP locations:",
+      ...snapshot.objectiveEvidence.wip.locations.slice(0, 8).map((location) =>
+        `    ${location.resource} @ ${location.physicalLocation} (${location.kind}): ${location.averageInventory.toFixed(3)} average / ${location.peakInventory.toFixed(3)} peak / ${location.finalInventory.toFixed(3)} final · ${(location.shareOfAverageWip * 100).toFixed(1)}% · ${location.scoreContribution.toFixed(3)} score`),
       "  Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.",
     ] : []),
     `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
@@ -1047,6 +1050,11 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
       .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
       .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
       .map(([resource, accounting]) => `  WIP ${resource}: ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak · ${accounting.finalInventory.toFixed(3)} final`),
+    ...Object.values(result.metrics.inventoryAccounting.locations)
+      .filter((accounting) => accounting.averageInventory > 0)
+      .sort((left, right) => right.averageInventory - left.averageInventory)
+      .slice(0, 8)
+      .map((accounting) => `    at ${describeWipInventoryLocation(accounting)} (${accounting.kind}, ${accounting.resource}): ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak · ${accounting.finalInventory.toFixed(3)} final`),
     ...(result.metrics.lotFlow.family ? [
       `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released}/${result.metrics.lotFlow.scheduled} completed/released/scheduled · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
       `Release flow: ${(result.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(3)} s planned interval · ${(result.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(3)} s actual · ${(result.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(3)} s mean / ${(result.metrics.releaseFlow.maximumReleaseDelayTicks / 1000).toFixed(3)} s maximum delay · ${result.metrics.releaseFlow.pending} pending`,

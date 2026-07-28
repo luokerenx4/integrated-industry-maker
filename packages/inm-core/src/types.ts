@@ -1347,6 +1347,30 @@ export interface BeltTransit extends ResourceTransit {
   blockedCause?: TransportBlockCause;
   blockedStage?: TransportBlockStage;
 }
+export type WipInventoryLocationIdentity =
+  | {
+    kind: "buffer";
+    resource: ResourceId;
+    device: DeviceInstanceId;
+    buffer: BufferId;
+  }
+  | {
+    kind: "local-transit";
+    resource: ResourceId;
+    connection: ConnectionId;
+    phase: BeltTransitPhase;
+  }
+  | {
+    kind: "station-transit";
+    resource: ResourceId;
+    network: string;
+    route: string;
+  };
+export type WipInventoryLocationAccounting = WipInventoryLocationIdentity & {
+  averageInventory: number;
+  peakInventory: number;
+  finalInventory: number;
+};
 export interface FactoryState {
   tick: Tick;
   devices: Record<DeviceInstanceId, DeviceRuntimeState>;
@@ -1896,6 +1920,7 @@ export interface FactoryMetrics {
       peakInventory: number;
       finalInventory: number;
     }>;
+    locations: Record<string, WipInventoryLocationAccounting>;
   };
   averageBeltItems: number;
   averageBlockedBeltItems: number;

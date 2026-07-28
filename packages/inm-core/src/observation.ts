@@ -98,7 +98,7 @@ function subjectView(
     id: `focus:${subject.kind}:${subject.id}`,
     kind: "factory-focus",
     label: `Inspect ${subject.kind} ${subject.id}`,
-    purpose: "Relate the measured diagnostic to the exact spatial equipment or material path.",
+    purpose: "Relate the measured diagnostic or Objective exposure to the exact spatial equipment or material path.",
     studioRoute: withRun(`${projectRoute}/factory/${subject.kind === "device" ? "devices" : "connections"}/${encoded}`, runId),
     required: true,
     subject: { ...subject },
@@ -138,16 +138,16 @@ export function buildFactoryObservationBrief(
       && !disposedDiagnosticIds.has(diagnostic.id))
     ?? null;
   const objectiveEvidence = snapshot.objectiveEvidence;
-  const objectiveAction = snapshot.nextAction.target;
-  const objectiveTarget = objectiveAction.kind === "objective-component"
-    && objectiveEvidence !== null
+  const objectiveTarget = objectiveEvidence !== null
     && objectiveEvidence.runId === run?.id
-    && objectiveEvidence.dominantPenalty?.id === objectiveAction.component
     ? objectiveEvidence
     : null;
   const objectiveSubjects: WorkbenchSubjectReference[] = objectiveTarget?.dominantPenalty?.id === "wip"
-    ? objectiveTarget.wip.resources.slice(0, 2)
-      .map((resource) => ({ kind: "resource" as const, id: resource.resource }))
+    ? objectiveTarget.wip.locations
+      .flatMap((location) => location.subject ? [{ ...location.subject }] : [])
+      .filter((subject, index, subjects) => subjects.findIndex((item) =>
+        item.kind === subject.kind && item.id === subject.id) === index)
+      .slice(0, 2)
     : [];
   const leadingObjectiveTradeoff = objectiveTarget?.dominantPenalty ? {
     component: objectiveTarget.dominantPenalty.id,
@@ -155,15 +155,18 @@ export function buildFactoryObservationBrief(
     runId: objectiveTarget.runId,
     subjects: objectiveSubjects,
     summary: objectiveTarget.dominantPenalty.id === "wip"
-      ? `${objectiveTarget.wip.averageWip.toFixed(3)} average scored WIP contributes ${objectiveTarget.wip.scoreContribution.toFixed(3)} to the exact Objective score.`
+      ? `${objectiveTarget.wip.averageWip.toFixed(3)} average scored WIP contributes ${objectiveTarget.wip.scoreContribution.toFixed(3)} to the exact Objective score; leading physical exposure is ${objectiveTarget.wip.locations.slice(0, 2).map((location) => `${location.averageInventory.toFixed(3)} at ${location.physicalLocation}`).join(" and ")}.`
       : `${objectiveTarget.dominantPenalty.id} contributes ${objectiveTarget.dominantPenalty.contribution.toFixed(3)} to the exact Objective score.`,
     interpretation: "objective-accounting-not-causal-loss" as const,
   } : null;
-  const focusSubjects = leadingDiagnostic?.subjects ?? leadingObjectiveTradeoff?.subjects ?? [];
+  const focusSubjects = [
+    ...(leadingDiagnostic?.subjects.slice(0, 3) ?? []),
+    ...(leadingObjectiveTradeoff?.subjects ?? []),
+  ];
   const focusViews = [...new Map(focusSubjects
     .map((subject) => subjectView(projectRoute, run?.id ?? null, subject))
     .filter((view): view is FactoryObservationView => view !== null)
-    .map((view) => [view.id, view])).values()].slice(0, 3);
+    .map((view) => [view.id, view])).values()].slice(0, 5);
   const views: FactoryObservationView[] = [
     {
       id: "factory-overview",
@@ -229,17 +232,19 @@ export function buildFactoryObservationBrief(
     handoff: {
       requiredStatements: [
         "What spatial or operating behavior was visible in the exact run-qualified views?",
-        leadingDiagnostic
-          ? "How does that behavior relate—or not relate—to the leading structured diagnostic?"
-          : leadingObjectiveTradeoff
-            ? "Which part of the Objective tradeoff appears avoidable, and which part is necessary industrial inventory?"
-            : "What visible behavior, if any, justifies opening a new causal investigation after the current bounded loss frontier?",
+        leadingDiagnostic && leadingObjectiveTradeoff
+          ? "How does that behavior relate—or not relate—to the leading structured diagnostic and the separately measured Objective tradeoff?"
+          : leadingDiagnostic
+            ? "How does that behavior relate—or not relate—to the leading structured diagnostic?"
+            : leadingObjectiveTradeoff
+              ? "Which part of the Objective tradeoff appears avoidable, and which part is necessary industrial inventory?"
+              : "What visible behavior, if any, justifies opening a new causal investigation after the current bounded loss frontier?",
         "What falsifiable industrial hypothesis and smallest exact intervention should be tested?",
         "Which metrics, locked cases, and visible behavior must improve or remain unchanged?",
       ],
       nextStep: run
         ? leadingDiagnostic
-          ? "Author one deliberate Blueprint or Candidate intervention, then simulate, Benchmark, and visually compare before deciding."
+          ? "Choose one explicit diagnostic or Objective-tradeoff hypothesis, author one deliberate Blueprint or Candidate intervention, then simulate, Benchmark, and visually compare before deciding."
           : leadingObjectiveTradeoff
             ? "Use the Objective tradeoff and Resource-qualified views to author a bounded hypothesis; preserve valued output, service, and quality while testing whether the exposure can fall."
             : "Review the compatible Run and bounded loss frontier; open a new intervention only when spatial or typed evidence supports a falsifiable hypothesis."

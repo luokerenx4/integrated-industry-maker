@@ -10,6 +10,12 @@ import type {
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
 import { emptyTransportBlockTicks } from "./transport-blocking";
+import {
+  bufferInventoryLocation,
+  localTransitInventoryLocation,
+  stationTransitInventoryLocation,
+  wipInventoryLocationId,
+} from "./inventory-location";
 
 type InternalEvent =
   | { kind: "lot-release"; lotIds: string[] }
@@ -527,7 +533,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
-    durations: {}, wipArea: 0, inventoryArea: {}, inventoryPeak: {}, peakTotalInventory: 0, peakWip: 0,
+    durations: {}, wipArea: 0, inventoryArea: {}, inventoryPeak: {},
+    wipLocationArea: {}, wipLocationPeak: {}, wipLocationIdentities: {},
+    peakTotalInventory: 0, peakWip: 0,
     congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
     releaseControlServiceLevelOpenings: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedAreaByCause: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
@@ -951,11 +959,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const delta = tick - state.tick;
     if (delta <= 0) return;
     const inventory: Record<string, number> = {};
+    const wipLocationInventory: Record<string, number> = {};
+    const addWipLocationInventory = (
+      location: ReturnType<typeof bufferInventoryLocation>
+        | ReturnType<typeof localTransitInventoryLocation>
+        | ReturnType<typeof stationTransitInventoryLocation>,
+      count: number,
+    ) => {
+      const id = wipInventoryLocationId(location);
+      wipLocationInventory[id] = (wipLocationInventory[id] ?? 0) + count;
+      stats.wipLocationIdentities[id] ??= location;
+    };
     for (const deviceId of measurementDeviceIds) {
       const runtime = state.devices[deviceId]!;
       for (const bufferId of bufferIdsByDevice[deviceId]!) {
         for (const [resource, count] of Object.entries(runtime.buffers[bufferId]!)) {
           inventory[resource] = (inventory[resource] ?? 0) + count;
+          if (measurementWipResources.has(resource)) {
+            addWipLocationInventory(bufferInventoryLocation(resource, deviceId, bufferId), count);
+          }
         }
       }
     }
@@ -970,6 +992,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       const blockedByCause = stats.connectionBlockedAreaByCause[connectionId] ??= emptyTransportBlockTicks();
       for (const transit of transits) {
         inventory[transit.resource] = (inventory[transit.resource] ?? 0) + transit.count;
+        if (measurementWipResources.has(transit.resource)) {
+          addWipLocationInventory(
+            localTransitInventoryLocation(transit.resource, connectionId, transit.phase),
+            transit.count,
+          );
+        }
         connectionItems += transit.count;
         if (transit.phase === "belt") {
           occupiedBeltCells++;
@@ -994,6 +1022,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     for (const networkId of measurementLogisticsNetworkIds) {
       for (const transit of state.logisticsTransports[networkId]!) {
         inventory[transit.resource] = (inventory[transit.resource] ?? 0) + transit.count;
+        if (measurementWipResources.has(transit.resource)) {
+          if (!transit.logisticsRoute) throw new Error(`Station transit '${transit.id}' has no logistics route`);
+          addWipLocationInventory(
+            stationTransitInventoryLocation(transit.resource, networkId, transit.logisticsRoute),
+            transit.count,
+          );
+        }
       }
     }
     let totalInventory = 0;
@@ -1003,6 +1038,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (measurementWipResources.has(resource)) wip += count;
       stats.inventoryArea[resource] = (stats.inventoryArea[resource] ?? 0) + count * delta;
       stats.inventoryPeak[resource] = Math.max(stats.inventoryPeak[resource] ?? 0, count);
+    }
+    const locatedWip = Object.entries(wipLocationInventory).reduce((sum, [id, count]) => {
+      stats.wipLocationArea[id] = (stats.wipLocationArea[id] ?? 0) + count * delta;
+      stats.wipLocationPeak[id] = Math.max(stats.wipLocationPeak[id] ?? 0, count);
+      return sum + count;
+    }, 0);
+    if (locatedWip !== wip) {
+      throw new Error(`WIP location inventory ${locatedWip} does not reconcile with Objective WIP ${wip} at tick ${state.tick}`);
     }
     stats.peakTotalInventory = Math.max(stats.peakTotalInventory, totalInventory);
     stats.peakWip = Math.max(stats.peakWip, wip);
