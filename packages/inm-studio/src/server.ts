@@ -16,6 +16,7 @@ import {
   evaluateBenchmarkOperation,
   indexDesignRuns,
   inspectCandidateDecision,
+  inspectDesignProgramEvidence,
   listBlueprintBenchmarks,
   listCandidateChangeSets,
   listDesignPrograms,
@@ -613,7 +614,7 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(designProgramMatch[1]!));
         const programId = decoded(designProgramMatch[2]!);
-        return Response.json({ brief: await buildDesignProgramBrief(projectDir, programId), ...await indexDesignRuns(projectDir, programId) });
+        return Response.json(await inspectDesignProgramEvidence(projectDir, programId));
       }
 
       const designExecuteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/run$/);

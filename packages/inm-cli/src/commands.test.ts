@@ -430,7 +430,7 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
       authority: "human-or-agent",
       evidence: { state: "compatible", run: expect.objectContaining({ id: "092-simulate" }) },
       leadingDiagnostic: expect.objectContaining({
-        code: "fab-loss.input-starvation",
+        code: "fab-loss.yield-quality",
         evidence: expect.objectContaining({ runId: "092-simulate" }),
       }),
       leadingObjectiveTradeoff: expect.objectContaining({
@@ -560,7 +560,13 @@ test("public Design Program workflow discovers, inspects, and executes without m
     result: expect.objectContaining({
       program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
       benchmark: expect.objectContaining({ cases: 5 }),
-      evidence: { validRuns: 0, invalidRuns: 1 },
+      evidence: {
+        state: "missing",
+        authorityRunId: null,
+        currentRuns: 0,
+        historicalRuns: 0,
+        invalidRuns: 1,
+      },
     }),
   }));
   expect(inspection.nextActions).toEqual([expect.objectContaining({ id: "design.run:integrated-dram-fab", effect: "creates-artifact" })]);
@@ -569,7 +575,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(humanInspection.stdout).toContain("Focus: broad industrial search");
   expect(humanInspection.stdout).toContain("Current-best guardrail: uniform · max 0.000000 regression/case");
   expect(humanInspection.stdout).toContain("Frontier: 1 leader + up to 1 alternative branch");
-  expect(humanInspection.stdout).toContain("Evidence: 0 valid immutable runs · 1 invalid run excluded");
+  expect(humanInspection.stdout).toContain("Evidence: 0 current · 0 historical · 1 invalid excluded · authority none (missing)");
   expect(humanInspection.stdout).toContain(`excluded ${invalidRunId.slice(0, 12)} · design.invalid-run`);
 
   const generated = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--json"]);
@@ -728,7 +734,18 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect({ exitCode: runs.exitCode, stderr: runs.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(runs.stdout).data).toEqual({
     section: "runs",
-    result: {
+    result: expect.objectContaining({
+      evidence: expect.objectContaining({
+        state: "continuable",
+        authorityRunId: continuedHash,
+        currentRuns: 2,
+        historicalRuns: 0,
+        invalidRuns: 1,
+        runs: expect.arrayContaining([
+          expect.objectContaining({ id: resultHash, currentness: { state: "current", reasons: [] }, outcome: "continuable" }),
+          expect.objectContaining({ id: continuedHash, currentness: { state: "current", reasons: [] }, outcome: "continuable" }),
+        ]),
+      }),
       runs: expect.arrayContaining([
         expect.objectContaining({ id: resultHash, program: "integrated-dram-fab", benchmark: "dispatch-research", continuation: null }),
         expect.objectContaining({ id: continuedHash, continuation: expect.objectContaining({ sourceResultHash: resultHash }), budget: { maximum: 2, evaluated: 2 } }),
@@ -740,9 +757,29 @@ test("public Design Program workflow discovers, inspects, and executes without m
         code: "design.invalid-run",
         message: `Design run '${invalidRunId}' manifest identity or completion state is invalid`,
       }],
-    },
+    }),
   });
   expect(JSON.parse(runs.stdout).data.result.runs).toHaveLength(2);
+  const currentBrief = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--json"]);
+  expect({ exitCode: currentBrief.exitCode, stderr: currentBrief.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(currentBrief.stdout)).toEqual(expect.objectContaining({
+    data: expect.objectContaining({
+      result: expect.objectContaining({
+        evidence: {
+          state: "continuable",
+          authorityRunId: continuedHash,
+          currentRuns: 2,
+          historicalRuns: 0,
+          invalidRuns: 1,
+        },
+      }),
+    }),
+    nextActions: [expect.objectContaining({
+      id: `design.continue:${continuedHash}`,
+      effect: "creates-artifact",
+      argv: expect.arrayContaining(["--run-id", continuedHash, "--continue"]),
+    })],
+  }));
 
   const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "7", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);
@@ -1009,7 +1046,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("substrate-receiving-to-packaging-loader · grid-cleanroom-shipping-power / loader · 163.8s / 29.7% · 1 shortages / 0 restores · device peak 500mW · grid 149450mJ unserved / 7000mW peak / 21225mJ envelope");
 });
 
-test("public inspect gives Agents and humans the same current WIP evidence and historical Design boundary", async () => {
+test("public inspect gives Agents and humans the same current WIP and Design evidence boundary", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const [machine, objective, dispositions, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
@@ -1045,7 +1082,6 @@ test("public inspect gives Agents and humans the same current WIP evidence and h
     ["back-end-die-handoff", 2],
     ["burn-in-changeover-convergence", 4],
     ["front-end-queue-convergence", 2],
-    ["inspection-supply-path", 3],
     ["layer-two-particle-control", 3],
     ["lithography-maintenance-convergence", 2],
     ["release-admission-convergence", 2],
@@ -1064,16 +1100,49 @@ test("public inspect gives Agents and humans the same current WIP evidence and h
       },
     }));
   }
-  expect(result.lossDispositions).toEqual([]);
+  expect(result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path")).toEqual(expect.objectContaining({
+    alignment: { state: "aligned", reasons: [] },
+    evidence: {
+      state: "exhausted",
+      authorityRunId: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
+      authorityAddressedLosses: ["input-starvation"],
+      currentRuns: 1,
+      historicalRuns: 3,
+      invalidRuns: 0,
+    },
+  }));
+  expect(result.lossDispositions).toEqual([
+    expect.objectContaining({
+      state: "bounded-deferred",
+      loss: "input-starvation",
+      target: {
+        contributor: "device:inspection-1:material-input-shortage",
+        metric: "starvationTicks",
+        direction: "decrease",
+        currentValue: 59_584,
+      },
+      source: expect.objectContaining({
+        programId: "inspection-supply-path",
+        runId: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
+      }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 6,
+        improvedCandidates: 6,
+        rejectedCandidates: 6,
+        bestObservedValue: 57_084,
+        largestReduction: 2_500,
+      }),
+    }),
+  ]);
   expect(JSON.parse(dispositions.stdout).data).toEqual({ section: "dispositions", result: result.lossDispositions });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:inspection-supply-path:/),
-    title: "Investigate the leading loss with Inspection Supply Path Convergence",
+    id: expect.stringMatching(/^design\.inspect:layer-two-particle-control:/),
+    title: "Investigate the leading loss with Layer-two Particle Control",
     actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    argv: ["inm", "design", projectDir, "--program", "inspection-supply-path", "--json"],
-    studioRoute: "/memory-fab/designs/inspection-supply-path",
+    argv: ["inm", "design", projectDir, "--program", "layer-two-particle-control", "--json"],
+    studioRoute: "/memory-fab/designs/layer-two-particle-control",
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
     runId: "092-simulate",
@@ -1089,12 +1158,12 @@ test("public inspect gives Agents and humans the same current WIP evidence and h
   expect(human.stdout).toContain("packaged-dram-device @ burn-in-1.package-input (buffer): 9.781 average");
   expect(human.stdout).toContain("known-good-dram-die @ packaging-1.die-input (buffer): 7.966 average");
   expect(human.stdout).toContain("Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.");
-  expect(human.stdout).toContain("inspection-supply-path · MISSING");
-  expect(human.stdout).not.toContain("Bounded deferred loss evidence:");
-  expect(human.stdout).toContain("Next action: Investigate the leading loss with Inspection Supply Path Convergence");
+  expect(human.stdout).toContain("inspection-supply-path · EXHAUSTED · 159ea491ae78");
+  expect(human.stdout).toContain("Bounded deferred loss evidence:");
+  expect(human.stdout).toContain("Next action: Investigate the leading loss with Layer-two Particle Control");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 0 valid immutable runs · 32 invalid runs excluded");
+  expect(brief.stdout).toContain("Evidence: 0 current · 0 historical · 32 invalid excluded · authority none (missing)");
   const invalidated = await runCli([
     "design",
     projectDir,

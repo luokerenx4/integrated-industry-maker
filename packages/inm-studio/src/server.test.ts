@@ -527,6 +527,10 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       brief: expect.objectContaining({ program: expect.objectContaining({ id: "integrated-dram-fab", currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 } }), benchmark: expect.objectContaining({ cases: 5 }) }),
       runs: [],
       invalidRuns: [],
+      evidence: expect.objectContaining({
+        state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0,
+      }),
+      action: { kind: "run", effect: "creates-artifact", runId: null },
     }));
     const generatedProgramResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab`);
     expect(generatedProgramResponse.status).toBe(200);
@@ -538,6 +542,10 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       }),
       runs: [],
       invalidRuns: [expect.objectContaining({ id: invalidRunId, code: "design.invalid-run" })],
+      evidence: expect.objectContaining({
+        state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 1,
+      }),
+      action: { kind: "run", effect: "creates-artifact", runId: null },
     }));
     const invalidRunResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${invalidRunId}`);
     expect(invalidRunResponse.status).toBe(400);
@@ -570,6 +578,25 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         nodes: expect.any(Array),
       },
     });
+    const currentCampaignProgramResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab`);
+    expect(currentCampaignProgramResponse.status).toBe(200);
+    expect(await currentCampaignProgramResponse.json()).toEqual(expect.objectContaining({
+      evidence: expect.objectContaining({
+        state: "promotable",
+        authorityRunId: campaignRepairRunId,
+        currentRuns: 1,
+        historicalRuns: 0,
+        invalidRuns: 1,
+        runs: expect.arrayContaining([
+          expect.objectContaining({
+            id: campaignRepairRunId,
+            currentness: { state: "current", reasons: [] },
+            outcome: "promotable",
+          }),
+        ]),
+      }),
+      action: { kind: "promote", effect: "creates-artifact", runId: campaignRepairRunId },
+    }));
     const campaignRepairResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}`);
     expect(campaignRepairResponse.status).toBe(200);
     expect(await campaignRepairResponse.json()).toEqual(expect.objectContaining({ manifest: expect.objectContaining({

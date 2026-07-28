@@ -9,6 +9,7 @@ import {
   classifyDesignProgramEvidence,
   deriveWorkbenchLossDisposition,
   openProjectWorkbenchSnapshot,
+  recommendedDesignProgramEvidenceAction,
   type ProjectWorkbenchSnapshot,
   type WorkbenchDesignEvidenceIdentity,
 } from "./workbench";
@@ -677,7 +678,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
 
-test("current inspection and yield evidence advances the shared handoff to the focused layer-one queue Program", async () => {
+test("current inspection evidence advances the shared handoff to the yield-quality Program", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-workbench-before-queue-"));
   const projectDir = join(root, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
@@ -698,6 +699,48 @@ test("current inspection and yield evidence advances the shared handoff to the f
         kind: "design-program",
         programId: "inspection-supply-path",
         diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      }),
+    }));
+    await rm(root, { recursive: true, force: true });
+    return;
+  }
+  const inspectionEvidence = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
+  if (inspectionEvidence?.authorityRunId === "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8") {
+    expect(snapshot.lossDispositions).toEqual([
+      expect.objectContaining({
+        state: "bounded-deferred",
+        diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+        loss: "input-starvation",
+        target: {
+          contributor: "device:inspection-1:material-input-shortage",
+          metric: "starvationTicks",
+          direction: "decrease",
+          currentValue: 59_584,
+        },
+        source: expect.objectContaining({
+          programId: "inspection-supply-path",
+          benchmarkId: "greenfield-dram-design",
+          runId: inspectionEvidence.authorityRunId,
+        }),
+        observed: expect.objectContaining({ runId: "092-simulate" }),
+        evidence: expect.objectContaining({
+          attemptedCandidates: 6,
+          improvedCandidates: 6,
+          rejectedCandidates: 6,
+          bestObservedValue: 57_084,
+          largestReduction: 2_500,
+        }),
+      }),
+    ]);
+    expect(snapshot.nextAction).toEqual(expect.objectContaining({
+      id: expect.stringMatching(/^design\.inspect:layer-two-particle-control:fab-loss\.yield-quality:/),
+      title: "Investigate the leading loss with Layer-two Particle Control",
+      argv: ["inm", "design", projectDir, "--program", "layer-two-particle-control", "--json"],
+      studioRoute: "/memory-fab/designs/layer-two-particle-control",
+      target: expect.objectContaining({
+        kind: "design-program",
+        programId: "layer-two-particle-control",
+        diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
       }),
     }));
     await rm(root, { recursive: true, force: true });
@@ -1083,8 +1126,21 @@ test("Design evidence classification chooses current leaf authority without time
   expect(evidence.runs.find((item) => item.id === staleDriver.id)?.currentness)
     .toEqual({ state: "historical", reasons: ["driver-hashes-mismatch"] });
   expect(evidence.runs.find((item) => item.id === continuation.id)?.outcome).toBe("continuable");
-  expect(classifyDesignProgramEvidence(identity, [exhausted], []).state).toBe("exhausted");
-  expect(classifyDesignProgramEvidence(identity, [], []).state).toBe("missing");
+  expect(recommendedDesignProgramEvidenceAction(evidence)).toEqual({
+    kind: "promote", effect: "creates-artifact", runId: promotable.id,
+  });
+  const continuableEvidence = classifyDesignProgramEvidence(identity, [source, continuation], []);
+  expect(recommendedDesignProgramEvidenceAction(continuableEvidence)).toEqual({
+    kind: "continue", effect: "creates-artifact", runId: continuation.id,
+  });
+  const exhaustedEvidence = classifyDesignProgramEvidence(identity, [exhausted], []);
+  expect(recommendedDesignProgramEvidenceAction(exhaustedEvidence)).toEqual({
+    kind: "open", effect: "read-only", runId: exhausted.id,
+  });
+  const missingEvidence = classifyDesignProgramEvidence(identity, [historical], []);
+  expect(recommendedDesignProgramEvidenceAction(missingEvidence)).toEqual({
+    kind: "run", effect: "creates-artifact", runId: null,
+  });
 });
 
 test("a historical run with a stale Device catalog cannot supply current fab loss authority", async () => {

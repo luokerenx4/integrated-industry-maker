@@ -2,7 +2,8 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { openFactoryObservationBrief } from "./observation";
+import { buildFactoryObservationBrief, openFactoryObservationBrief } from "./observation";
+import { openProjectWorkbenchSnapshot, type ProjectWorkbenchSnapshot } from "./workbench";
 
 const repository = resolve(import.meta.dir, "../../..");
 
@@ -26,10 +27,10 @@ test("observation brief keeps the Objective WIP tradeoff visible beside the curr
     decision: "BASELINE",
   }));
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "fab-loss.input-starvation",
+    code: "fab-loss.yield-quality",
     subjects: expect.arrayContaining([
-      { kind: "device", id: "inspection-1" },
-      { kind: "connection", id: "etch-to-inspection" },
+      { kind: "device", id: "etch-l2" },
+      { kind: "route", id: "dram-front-end" },
     ]),
   }));
   expect(brief.leadingObjectiveTradeoff).toEqual({
@@ -50,7 +51,7 @@ test("observation brief keeps the Objective WIP tradeoff visible beside the curr
     studioRoute: "/memory-fab/factory?run=092-simulate",
     required: true,
   }));
-  expect(brief.views).toHaveLength(7);
+  expect(brief.views).toHaveLength(6);
   expect(brief.views).toEqual(expect.arrayContaining([
     expect.objectContaining({
       kind: "factory-focus",
@@ -67,22 +68,20 @@ test("observation brief keeps the Objective WIP tradeoff visible beside the curr
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
 });
 
-test("observation brief exposes the exact shipping grid before power interruption is dispositioned", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inm-observation-power-"));
-  const projectDir = join(root, "memory-fab");
-  const powerRuns = join("design-runs", "shipping-power-convergence");
-  await cp(join(repository, "examples/memory-fab"), projectDir, {
-    recursive: true,
-    filter: (source) => !source.includes(powerRuns) && !source.split("/").includes(".inm"),
-  });
-  const brief = await openFactoryObservationBrief(projectDir, {}, "092-simulate");
-  if (brief.leadingDiagnostic?.code === "fab-loss.input-starvation") {
-    expect(brief.views).toContainEqual(expect.objectContaining({
-      studioRoute: "/memory-fab/factory/devices/inspection-1?run=092-simulate",
-    }));
-    await rm(root, { recursive: true, force: true });
-    return;
+async function observationBriefForDiagnostic(code: string) {
+  const projectDir = join(repository, "examples/memory-fab");
+  const snapshot = structuredClone(await openProjectWorkbenchSnapshot(projectDir));
+  const diagnostic = snapshot.diagnostics.find((item) => item.code === code);
+  if (!diagnostic || !("diagnosticId" in snapshot.nextAction.target)) {
+    throw new Error(`Missing observation fixture diagnostic '${code}'`);
   }
+  snapshot.nextAction.target.diagnosticId = diagnostic.id;
+  snapshot.lossDispositions = snapshot.lossDispositions.filter((item) => item.diagnosticId !== diagnostic.id);
+  return buildFactoryObservationBrief(snapshot as ProjectWorkbenchSnapshot, "092-simulate");
+}
+
+test("observation brief exposes the exact shipping grid for power interruption", async () => {
+  const brief = await observationBriefForDiagnostic("fab-loss.power-interruption");
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.power-interruption",
     subjects: [
@@ -98,22 +97,8 @@ test("observation brief exposes the exact shipping grid before power interruptio
   ]));
 });
 
-test("observation brief exposes the exact release boundary before release admission is dispositioned", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inm-observation-release-"));
-  const projectDir = join(root, "memory-fab");
-  const releaseRuns = join("design-runs", "release-admission-convergence");
-  await cp(join(repository, "examples/memory-fab"), projectDir, {
-    recursive: true,
-    filter: (source) => !source.includes(releaseRuns) && !source.split("/").includes(".inm"),
-  });
-  const brief = await openFactoryObservationBrief(projectDir, {}, "092-simulate");
-  if (brief.leadingDiagnostic?.code === "fab-loss.input-starvation") {
-    expect(brief.views).toContainEqual(expect.objectContaining({
-      studioRoute: "/memory-fab/factory/devices/inspection-1?run=092-simulate",
-    }));
-    await rm(root, { recursive: true, force: true });
-    return;
-  }
+test("observation brief exposes the exact release boundary for release admission", async () => {
+  const brief = await observationBriefForDiagnostic("fab-loss.release-admission");
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.release-admission",
     subjects: [
@@ -127,22 +112,8 @@ test("observation brief exposes the exact release boundary before release admiss
   ]));
 });
 
-test("observation brief exposes the exact equipment and service path before maintenance is dispositioned", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inm-observation-maintenance-"));
-  const projectDir = join(root, "memory-fab");
-  const maintenanceRuns = join("design-runs", "lithography-maintenance-convergence");
-  await cp(join(repository, "examples/memory-fab"), projectDir, {
-    recursive: true,
-    filter: (source) => !source.includes(maintenanceRuns) && !source.split("/").includes(".inm"),
-  });
-  const brief = await openFactoryObservationBrief(projectDir, {}, "092-simulate");
-  if (brief.leadingDiagnostic?.code === "fab-loss.input-starvation") {
-    expect(brief.views).toContainEqual(expect.objectContaining({
-      studioRoute: "/memory-fab/factory/devices/inspection-1?run=092-simulate",
-    }));
-    await rm(root, { recursive: true, force: true });
-    return;
-  }
+test("observation brief exposes the exact equipment and service path for maintenance", async () => {
+  const brief = await observationBriefForDiagnostic("fab-loss.maintenance-qualification");
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.maintenance-qualification",
     subjects: [

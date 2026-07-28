@@ -117,7 +117,7 @@ No current evidence opens the read-only Program brief with exact `inm design ...
 
 An exhausted authority becomes `bounded-deferred` only under a stricter gate than ordinary currentness. The exact current compatible bucket must contain the same contributor and metric at the same before value; every evaluated Candidate must share and improve that target, complete locked evaluation, and be rejected; the seed must remain the unchanged zero-patch leader; the single-node frontier and scheduler must be fully exhausted; and the Program, Benchmark, driver selection, driver hashes, source/promotion Blueprint hashes, observed run, diagnostic, and target must all remain current. The disposition labels a decision boundary, not a solved loss. A change to any binding removes it automatically. The diagnostic and ranked bucket stay visible, while only that exact diagnostic leaves the active work queue.
 
-For the current memory fab, broad `commissioned-dram-fab`, historical focused `inspection-supply-path`, and loss-focused `layer-two-particle-control` all align with `generated-dram-fab`. Inspection Run `26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d` records six interventions that all reduce `device:inspection-1:material-input-shortage.starvationTicks` from the current `59,584` ticks, yet five lose current-best score and one fails the locked Benchmark gate. Workbench labels that exact target bounded deferred.
+For the current memory fab, broad `commissioned-dram-fab`, focused `inspection-supply-path`, and loss-focused `layer-two-particle-control` all align with `generated-dram-fab`. Current `inm-sim/0.87.0` Inspection Run `159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8` records six interventions that all reduce `device:inspection-1:material-input-shortage.starvationTicks` from `59,584` ticks, yet five lose current-best score and the vacuum handoff fails the locked Benchmark gate. Workbench labels that exact target bounded deferred and advances the active queue to `yield-quality`; three earlier inspection runs remain historical.
 
 The next active loss selects `layer-two-particle-control` because its explicit focus names `yield-quality`. Current Run `eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb` reduces the exact origin contributor's `introducedDefectInstances` from `2` to `1` but retains the seed because at least one current-best case regresses.
 
@@ -135,11 +135,12 @@ Current Design authority compares driver selection and every driver hash, not on
 
 Every target already exists in the snapshot and carries exact CLI argv plus a Studio route. CLI returns the object unchanged and Studio renders it unchanged; neither surface chooses priority locally. Orientation never executes a Benchmark, creates a review receipt, mutates a Blueprint, or claims that a non-matching run proves the selected selection.
 
-All remaining operation descriptors stay available under explicit progressive disclosure with their effect, scope, guards, and exact CLI reproduction. Recommendation identity is domain-derived and exposed semantically for browser-capable operators. The route-backed Design workbench applies the same evidence-authority rule: Core indexes strict valid runs separately from invalid local siblings, CLI and Studio expose both lists, and invalid evidence cannot enter Workbench authority, Design ranking, continuation, or promotion.
+All remaining operation descriptors stay available under explicit progressive disclosure with their effect, scope, guards, and exact CLI reproduction. Recommendation identity is domain-derived and exposed semantically for browser-capable operators. The route-backed Design workbench applies the same Core evidence-authority projection: CLI and Studio expose current, historical, and invalid evidence plus the same authority/action; score-only UI ranking cannot revive a historical result, and historical or invalid evidence cannot enter continuation, promotion, or bounded disposition.
 
 ## Source of truth
 
 - Snapshot types, diagnostics, operations, and builder: `packages/inm-core/src/workbench.ts`
+- Shared Design currentness, authority, and action projection: `packages/inm-core/src/design-evidence.ts`
 - Candidate review receipts and decision reconstruction: `packages/inm-core/src/candidate-review.ts`
 - Production evidence: `packages/inm-core/src/production-analysis.ts`
 - Capacity evidence: `packages/inm-core/src/capacity-plan.ts`

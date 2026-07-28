@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/current-design-evidence-continuity]] | Keep exact current Design authority and next actions continuous across Workbench, CLI, Studio, and the memory-fab inspection frontier. | 2026-07-29 |
 | [[plans/location-qualified-wip-exposure]] | Make Objective-scored WIP physically actionable across Core, CLI, Studio, and memory-fab design evidence. | 2026-07-29 |
 | [[plans/frictionless-experiment-session]] | Make a routine local experiment open and run without hydrating the full operator workbench or leaking test-owned Studio services. | 2026-07-29 |
 | [[plans/objective-tradeoff-design-handoff]] | Hand the human or Agent the dominant compatible-Run Objective tradeoff after the current realized-loss frontier is bounded. | 2026-07-29 |
