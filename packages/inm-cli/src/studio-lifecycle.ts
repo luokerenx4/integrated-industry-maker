@@ -5,6 +5,7 @@ import { platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { manifestSchema, readJson, resolveProjectDirectory, stableStringify, studioSourceHash } from "@inm/core";
+import type { OperationExecutionSnapshot, OperationExecutionStartResponse } from "@inm/core/operation-execution";
 import { CliCommandError, cliSuccess, manifestProjectContext } from "./contract";
 
 const STUDIO_PROTOCOL = "inm-studio";
@@ -25,6 +26,11 @@ export interface StudioLifecycleOptions {
   project?: string;
   noOpen?: boolean;
   json?: boolean;
+}
+
+export interface ExperimentSessionOptions extends StudioLifecycleOptions {
+  experiment: string;
+  run?: boolean;
 }
 
 type StudioPortSelection = "explicit" | "managed" | "default" | "fallback";
@@ -75,6 +81,23 @@ export interface StudioLifecycleResult {
     state: "current" | "stale" | "not-running";
     expectedHash: string;
     runningHash: string | null;
+  };
+}
+
+export interface ExperimentSessionResult {
+  lifecycle: StudioLifecycleResult;
+  experiment: {
+    id: string;
+    name: string;
+    locked: boolean;
+    cases: number;
+  };
+  route: string;
+  url: string;
+  operation: null | {
+    reused: boolean;
+    snapshot: OperationExecutionSnapshot;
+    pollUrl: string;
   };
 }
 
@@ -517,6 +540,116 @@ function openBrowser(url: string): void {
   const args = platform() === "win32" ? ["/c", "start", "", url] : [url];
   const child = spawn(command, args, { detached: true, stdio: "ignore" });
   child.unref();
+}
+
+async function responseJson<T>(url: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(5_000) });
+  } catch (error) {
+    throw new CliCommandError(
+      "session.studio-unavailable",
+      `Could not reach the source-current Studio session: ${error instanceof Error ? error.message : String(error)}`,
+      { retryable: true },
+    );
+  }
+  const value = await response.json().catch(() => null) as ({ code?: unknown; error?: unknown } & T) | null;
+  if (!response.ok) throw new CliCommandError(
+    typeof value?.code === "string" ? value.code : "session.request-failed",
+    typeof value?.error === "string" ? value.error : `Studio session request failed with HTTP ${response.status}.`,
+    { retryable: response.status >= 500 },
+  );
+  if (value === null) throw new CliCommandError("session.invalid-response", "Studio returned an empty session response.");
+  return value;
+}
+
+export async function experimentSessionCommand(
+  input: string,
+  options: ExperimentSessionOptions,
+): Promise<void> {
+  if (options.port !== undefined && (!Number.isInteger(options.port) || options.port < 1 || options.port > 65_535)) {
+    throw new Error("Usage: --port must be an integer from 1 to 65535");
+  }
+  const inputDir = resolve(input);
+  const projectDir = await resolveProjectDirectory(inputDir, options.project);
+  const manifest = manifestSchema.parse(await readJson(join(projectDir, "inm.json")));
+  const context = manifestProjectContext(projectDir, manifest);
+  const selectedPort = await resolveLifecyclePort("start", inputDir, options);
+  const lifecycle = await startManaged(inputDir, {
+    ...options,
+    port: selectedPort.port,
+    portSelection: selectedPort.portSelection,
+  });
+  const baseUrl = `http://127.0.0.1:${lifecycle.port}`;
+  const projectId = encodeURIComponent(manifest.id);
+  const catalog = await responseJson<{
+    experiments: Array<{ id: string; name: string; locked: boolean; cases: unknown[] }>;
+  }>(`${baseUrl}/api/projects/${projectId}/experiments`);
+  const selected = catalog.experiments.find((experiment) => experiment.id === options.experiment);
+  if (!selected) throw new CliCommandError(
+    "session.unknown-experiment",
+    `Unknown Experiment '${options.experiment}' in project '${manifest.id}'. Available: ${catalog.experiments.map((experiment) => experiment.id).join(", ") || "none"}.`,
+    { context },
+  );
+  const route = `/${projectId}/experiments/${encodeURIComponent(selected.id)}`;
+  const url = `${baseUrl}${route}`;
+  const started = options.run
+    ? await responseJson<OperationExecutionStartResponse>(
+      `${baseUrl}/api/projects/${projectId}/experiments/${encodeURIComponent(selected.id)}/run`,
+      { method: "POST" },
+    )
+    : null;
+  const result: ExperimentSessionResult = {
+    lifecycle,
+    experiment: {
+      id: selected.id,
+      name: selected.name,
+      locked: selected.locked,
+      cases: selected.cases.length,
+    },
+    route,
+    url,
+    operation: started ? {
+      reused: started.reused,
+      snapshot: started.operation,
+      pollUrl: `${baseUrl}/api/projects/${projectId}/operations/${encodeURIComponent(started.operation.id)}`,
+    } : null,
+  };
+  if (!options.noOpen) openBrowser(url);
+  if (options.json) {
+    process.stdout.write(`${stableStringify(cliSuccess("session", result, {
+      context,
+      nextActions: options.run ? [{
+        id: "open-experiment-session",
+        description: "Open or reconnect to the exact Studio Experiment session.",
+        argv: ["inm", "session", inputDir, ...(options.project ? ["--project", options.project] : []), "--experiment", selected.id],
+        effect: "read-only",
+        requiresConfirmation: false,
+        studioRoute: route,
+      }] : [{
+        id: "run-experiment-session",
+        description: "Start the locked Experiment as a reconnectable Studio operation.",
+        argv: ["inm", "session", inputDir, ...(options.project ? ["--project", options.project] : []), "--experiment", selected.id, "--run", "--json", "--no-open"],
+        effect: "read-only",
+        requiresConfirmation: false,
+        studioRoute: route,
+      }],
+    }), 2)}\n`);
+    return;
+  }
+  process.stdout.write([
+    "INM Experiment session ready",
+    `Experiment: ${selected.name} · ${selected.id} · ${selected.cases.length} ${selected.cases.length === 1 ? "case" : "cases"} · ${selected.locked ? "LOCKED" : "UNLOCKED"}`,
+    `Studio: ${url}`,
+    `Service: ${lifecycle.state.toUpperCase()} · port ${lifecycle.port} ${lifecycle.portSelection.toUpperCase()} · source ${lifecycle.source.state.toUpperCase()}`,
+    ...(started ? [
+      `Operation: ${started.operation.id} · ${started.operation.status.toUpperCase()}${started.reused ? " · RECONNECTED" : ""}`,
+      `Poll: ${baseUrl}/api/projects/${projectId}/operations/${encodeURIComponent(started.operation.id)}`,
+    ] : [
+      `Run: inm session ${JSON.stringify(inputDir)}${options.project ? ` --project ${JSON.stringify(options.project)}` : ""} --experiment ${JSON.stringify(selected.id)} --run`,
+    ]),
+    "",
+  ].join("\n"));
 }
 
 function emit(lifecycle: StudioLifecycleResult, context: ReturnType<typeof manifestProjectContext>, json: boolean): void {

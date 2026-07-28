@@ -198,6 +198,24 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 }
 ```
 
+### `inm session <project-or-workspace-dir> --experiment ID [--run] [--project ID] [--port N] [--no-open]`
+
+Enters one exact project-local Experiment session without composing lifecycle, port discovery, and navigation commands manually. The command ensures a managed source-current Studio, safely replacing only a verified stale instance, resolves the authored Experiment, and opens its lightweight project-qualified route. Omit `--port` for the ordinary managed/default/fallback discovery policy.
+
+`--run` starts the locked evaluation through Studio's reconnectable operation registry and returns immediately; it does not wait for the Benchmark result. Human output prints the exact operation id and polling URL. JSON output returns the same lifecycle/source record, Experiment identity, route, URL, start/reuse state, complete initial operation snapshot, polling URL, and an exact next action. `--no-open` is intended for Agents or terminal-only use. Standalone `inm benchmark` remains the browser-free synchronous evaluator and shares the same Core contract without pretending its local process is reconnectable.
+
+```bash
+# Human: repair/reuse Studio, open the workbench, and start the run.
+bun run inm session examples/memory-fab \
+  --experiment equipment-energy-research \
+  --run
+
+# Agent: receive the URL and retained operation id without opening a browser.
+bun run inm session examples/memory-fab \
+  --experiment equipment-energy-research \
+  --run --no-open --json
+```
+
 ### `inm studio <start|status|restart|stop|serve> <project-or-workspace-dir> [--project ID] [--port N]`
 
 Manages the local Studio workbench. Omit `--port` for ordinary use: the command discovers the one live service recorded for the exact root/project selection. If none exists, `start` and `restart` reuse a free recorded project port, otherwise choose `4176`, or choose the first free bounded fallback through `4199` when the default is occupied. Supplying `--port` is strict and never silently moves.

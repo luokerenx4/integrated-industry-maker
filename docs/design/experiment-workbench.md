@@ -153,7 +153,7 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 bun test packages/inm-studio/src/server.test.ts
 bun run inm benchmark examples/memory-fab --benchmark equipment-energy-research --json
 bun run inm inspect examples/memory-fab --section candidates --json
-bun run inm studio start examples/memory-fab --no-open
+bun run inm session examples/memory-fab --experiment equipment-energy-research --run --no-open --json
 ```
 
 Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, proposed-context compilation, immutable receipt reuse, Design continuation prefix/source immutability and new-only simulation work, and absence of incidental Blueprint writes. Browser QA must use domain-derived accessible ids to inspect the verified commissioned Candidate and source identity, follow the locally available Design evidence, observe `COMMISSIONING COMPLETE` without stale continuation/promotion controls, navigate between experiments, and inspect console errors.

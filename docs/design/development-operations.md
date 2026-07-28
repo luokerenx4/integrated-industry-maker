@@ -54,6 +54,8 @@ Inside one exact simulation, project-local Device evaluation does not clone the 
 
 Studio Benchmark, Candidate preview, Design run, and Design continuation are server-owned operations rather than response-owned streams. Starting work returns a project-local operation id; closing the modal, navigating, refreshing, or losing a browser connection only detaches the observer. Reopening the same Experiment or Design Program discovers the newest exact-subject operation and resumes progress/result polling.
 
+`inm session <path> --experiment <id>` is the ordinary bridge into that model. It composes safe source-current lifecycle repair, port discovery, authored Experiment validation, and the direct lightweight route. With `--run`, it starts the same Studio-owned Benchmark operation and returns the operation id and polling URL immediately; it does not hold the terminal open for evaluation. Human output may open the route, while `--no-open --json` gives an Agent the identical lifecycle, route, and operation identity. This is coordination convenience, not a second evaluator: `inm benchmark` remains the independent browser-free synchronous path.
+
 Cancellation is explicit and cooperative. The registry records the request and aborts the running evaluator. Sequential work checks the signal between exact locked cases; an isolated or parallel Worker wave terminates the complete operation-owned set and rejects without partial evidence, including when cancellation arrives during Worker startup. A cancelled Design writes no partial immutable run. Once Core has crossed its atomic write/artifact boundary and returned completion, that result wins even if the request raced with completion; the registry retains the late `cancelRequestedAt` but does not invent a cancelled state around committed work. A server restart cannot recover process memory, so an unfinished persisted snapshot becomes `interrupted` with an exact error while any already completed immutable evidence remains independently reopenable.
 
 Operational recovery state lives below ignored `.inm/operations/<id>/`. `state.json` is the lightweight committed list index, `progress.json` retains the bounded reconnect log, and completed work publishes dense `result.json` before state advertises its availability. Listing never parses progress or results; exact polling composes them. Retention is limited to sixteen terminal operation directories per project and removes every component together. Combined pre-release snapshot files are deleted rather than migrated. These records are recovery aids, not factory evidence and not a substitute for immutable Runs, Design Runs, or Candidate review receipts.
@@ -66,6 +68,7 @@ CLI Benchmark, Candidate preview/apply, Design run, and Design continuation do n
 
 - Lifecycle controller: `packages/inm-cli/src/studio-lifecycle.ts`
 - Public parsing and discovery: `packages/inm-cli/src/bin.ts`, `packages/inm-cli/src/capabilities.ts`
+- One-command Experiment entry: `packages/inm-cli/src/studio-lifecycle.ts`
 - Health endpoint and foreground server: `packages/inm-studio/src/server.ts`
 - Long-operation registry: `packages/inm-studio/src/operation-registry.ts`
 - Repository scripts: `package.json`, `scripts/check-fast.ts`

@@ -41,6 +41,9 @@ bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-star
 
 # Choose a project, inspect its local assets, and replay experiments in 3D
 bun run inm studio start examples/ironworks
+
+# Or repair/reuse Studio, open one exact Experiment, and start it without waiting
+bun run inm session examples/memory-fab --experiment equipment-energy-research --run
 ```
 
 The bundled experiment demonstrates the complete loop:
@@ -63,6 +66,7 @@ inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
 inm validate|inspect|analyze|plan|compare|benchmark|candidate|design|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
+inm session <project-or-workspace-dir> --experiment ID [--run] [--project ID]
 inm studio <start|status|restart|stop|serve> <project-or-workspace-dir> [--project ID]
 ```
 

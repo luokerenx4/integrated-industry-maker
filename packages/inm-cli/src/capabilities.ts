@@ -173,6 +173,17 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "seed", form: "option", value: "integer", required: false, description: "Deterministic seed.", default: 42 },
       { name: "agent-command", form: "option", value: "string", required: false, description: "External proposal process command." }, sectionArgument(["summary", "iterations", "all"]), json], outputSections: ["summary", "iterations", "all"],
   },
+  {
+    id: "session", usage: "inm session <path> --experiment ID [--run] [--project ID] [--port N] [--no-open] [--json]",
+    description: "Ensure a source-current Studio and enter one exact reconnectable Experiment session.",
+    effect: "mode-dependent", supportsJson: true, arguments: [path, project,
+      { name: "experiment", form: "option", value: "string", required: true, description: "Project-local Benchmark id to open as an Experiment." },
+      { name: "run", form: "option", value: "boolean", required: false, description: "Start the locked evaluation as a reconnectable Studio operation and return immediately.", default: false },
+      { name: "port", form: "option", value: "integer", required: false, description: "Strict local HTTP port. Omit to discover the target service or allocate a bounded fallback." },
+      { name: "no-open", form: "option", value: "boolean", required: false, description: "Do not open the Experiment route in a browser.", default: false },
+      json],
+    outputSections: [],
+  },
   ...(["start", "status", "restart", "stop", "serve"] as const).map((action): Omit<CliCommandDescriptor, "exitCodes"> => ({
     id: `studio.${action}`,
     usage: `inm studio ${action} <path> [--project ID] [--port N]${action === "start" || action === "restart" || action === "serve" ? " [--no-open]" : ""}${action === "serve" ? "" : " [--json]"}`,

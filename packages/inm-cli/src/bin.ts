@@ -5,7 +5,7 @@ import {
   analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
-import { studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
+import { experimentSessionCommand, studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
 
 const HELP = `inm — Integrated Industry Maker
 
@@ -38,6 +38,7 @@ PROJECT COMMANDS
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
   research <path>             Optimize a blueprint with JSON Patch experiments
+  session <path>              Enter one source-current Experiment session
   studio <action> <path>      Manage the local Studio workbench
 
 COMMON OPTIONS
@@ -199,6 +200,27 @@ async function main(signal: AbortSignal): Promise<void> {
     const { values, positionals } = parseArgs({ args, options: { ...common, ...section, iterations: { type: "string", default: "5" }, seed: { type: "string", default: "42" }, "agent-command": { type: "string" } }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm research <project-or-workspace-dir> [--project ID]", values.project);
     return researchCommand(projectDir, selectionOf(values), { iterations: Number(values.iterations), seed: Number(values.seed), json: values.json, section: values.section, agentCommand: values["agent-command"] });
+  }
+  if (subcommand === "session") {
+    commandId = "session";
+    const { values, positionals } = parseArgs({ args, options: {
+      ...projectOption,
+      experiment: { type: "string" },
+      run: { type: "boolean", default: false },
+      port: { type: "string" },
+      "no-open": { type: "boolean", default: false },
+      json: common.json,
+    }, allowPositionals: true });
+    if (!values.experiment) throw new Error("Usage: inm session <project-or-workspace-dir> --experiment ID [--run] [--no-open] [--json]");
+    const inputDir = oneArg(positionals, "inm session <project-or-workspace-dir> --experiment ID [--run]");
+    return experimentSessionCommand(inputDir, {
+      experiment: values.experiment,
+      run: values.run,
+      ...(values.port !== undefined ? { port: Number(values.port) } : {}),
+      project: values.project,
+      noOpen: values["no-open"],
+      json: values.json,
+    });
   }
   if (subcommand === "studio") {
     const action = args.shift() as StudioLifecycleAction | undefined;

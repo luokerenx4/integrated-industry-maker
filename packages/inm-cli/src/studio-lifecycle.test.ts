@@ -75,6 +75,86 @@ test("Studio lifecycle is explicit in machine-readable CLI discovery", async () 
   expect(foregroundPort.default).toBe(4176);
 });
 
+test("one command enters and starts a reconnectable Experiment session without port memory", async () => {
+  const project = await temporaryProject("session");
+  const port = 51_500 + process.pid % 400;
+  try {
+    const started = await runCli([
+      "session", project,
+      "--experiment", "power-priority",
+      "--run",
+      "--port", String(port),
+      "--no-open",
+      "--json",
+    ]);
+    expect(started).toEqual(expect.objectContaining({ exitCode: 0, stderr: "" }));
+    const envelope = JSON.parse(started.stdout) as {
+      command: string;
+      context: { project: { id: string; rootDir: string } };
+      data: {
+        lifecycle: { state: string; port: number; source: { state: string } };
+        experiment: { id: string; name: string; cases: number; locked: boolean };
+        route: string;
+        url: string;
+        operation: {
+          reused: boolean;
+          snapshot: { id: string; status: string; subject: { kind: string; benchmarkId: string } };
+          pollUrl: string;
+        };
+      };
+    };
+    expect(envelope).toEqual(expect.objectContaining({
+      command: "session",
+      context: expect.objectContaining({ project: { id: "ironworks", name: "Ironworks Research Cell", rootDir: project } }),
+      data: expect.objectContaining({
+        lifecycle: expect.objectContaining({ state: "running", port, source: expect.objectContaining({ state: "current" }) }),
+        experiment: expect.objectContaining({ id: "power-priority", cases: 1, locked: true }),
+        route: "/ironworks/experiments/power-priority",
+        url: `http://127.0.0.1:${port}/ironworks/experiments/power-priority`,
+        operation: expect.objectContaining({
+          reused: false,
+          snapshot: expect.objectContaining({
+            id: expect.any(String),
+            status: "running",
+            subject: { kind: "benchmark", benchmarkId: "power-priority" },
+          }),
+          pollUrl: expect.stringContaining(`/api/projects/ironworks/operations/`),
+        }),
+      }),
+    }));
+
+    let completed: { operation: { id: string; status: string; result: unknown } } | null = null;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      completed = await fetch(envelope.data.operation.pollUrl).then((response) => response.json()) as {
+        operation: { id: string; status: string; result: unknown };
+      };
+      if (completed?.operation.status !== "running") break;
+      await Bun.sleep(25);
+    }
+    expect(completed?.operation).toEqual(expect.objectContaining({
+      id: envelope.data.operation.snapshot.id,
+      status: "completed",
+      result: expect.objectContaining({ command: "benchmark", benchmark: "power-priority" }),
+    }));
+
+    const opened = await runCli([
+      "session", project,
+      "--experiment", "power-priority",
+      "--port", String(port),
+      "--no-open",
+      "--json",
+    ]);
+    expect(opened.exitCode).toBe(0);
+    expect(JSON.parse(opened.stdout).data).toEqual(expect.objectContaining({
+      lifecycle: expect.objectContaining({ state: "reused", port }),
+      operation: null,
+      route: "/ironworks/experiments/power-priority",
+    }));
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"]);
+  }
+}, 30_000);
+
 test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact project", async () => {
   const project = await temporaryProject("managed");
   const port = 52_000 + process.pid % 1_000;
