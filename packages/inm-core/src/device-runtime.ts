@@ -121,7 +121,11 @@ function assertSynchronous(assetId: string, value: unknown, hook: string): unkno
 
 export function evaluateDeviceProgram(assetId: string, program: DeviceProgram, context: DeviceProgramContext): DeviceProgramDecision {
   try {
-    const value = assertSynchronous(assetId, program.evaluate(freezeDeep(structuredClone(context))), "evaluate");
+    // Evaluation receives a detached snapshot, so even a misbehaving project
+    // program cannot mutate simulator-owned state. Deep-freezing that same
+    // object graph on every settle pass duplicates the isolation traversal and
+    // dominates large-factory runtime without strengthening the host boundary.
+    const value = assertSynchronous(assetId, program.evaluate(structuredClone(context)), "evaluate");
     return parseDeviceDecision(assetId, value);
   } catch (error) {
     if (error instanceof DeviceProgramError) throw error;

@@ -16,9 +16,7 @@ There are no active plans.
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/simulator-hot-path-performance]] | Reduce fresh memory-fab Candidate evaluation time through measured simulator work without changing exact industrial evidence. | 2026-07-28 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/simulator-hot-path-performance]] | Reduce fresh memory-fab Candidate evaluation time through measured simulator work without changing exact industrial evidence. | 2026-07-28 |
 | [[plans/observable-benchmark-execution]] | Make long Benchmark and Candidate evaluation visibly advance across CLI and Studio and identify the next measured performance intervention. | 2026-07-28 |
 | [[plans/low-friction-development-operations]] | Make Studio lifecycle and the everyday local verification loop predictable for humans and Agents. | 2026-07-28 |
 | [[plans/causal-queue-design-handoff]] | Make the shared queue next action execute an exact `etch-1` queue-convergence Program instead of reopening already bounded losses or unrelated terminal equipment. | 2026-07-28 |

@@ -22,7 +22,7 @@ The runtime may not depend on wall clock, frame rate, object insertion order, br
 
 `mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, identity-preserving WIP lots and buffer queues, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation and carrier-energy ledgers, per-Device/per-grid stored energy, and metrics integrals. Lot mutations update identity, location, elapsed-state clocks, and aggregate buffer/material counts as one authoritative transition.
 
-Device TypeScript is trusted project code but not state authority. Programs receive frozen local context and return declarative decisions: `start`, `treat`, `extract`, `generate`, `consume`, `wait`, or `none`. For a shared work center, the host first ranks qualified operations, selects the first whose exact inputs are resident and outputs have reserved capacity, then exposes only that immutable plan in `context.process`. For production and treatment, the returned action must match its selected operation, material levels, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist and whose treatment level satisfies downstream demand, even when both endpoint buffers accept a wider set.
+Device TypeScript is trusted project code but not state authority. Programs receive a typed read-only detached snapshot and return declarative decisions: `start`, `treat`, `extract`, `generate`, `consume`, `wait`, or `none`. The host clones the complete context before invocation, so even a misbehaving program that casts away TypeScript readonly declarations cannot mutate simulator-owned state; it does not redundantly deep-freeze that already isolated object graph on every settle pass. For a shared work center, the host first ranks qualified operations, selects the first whose exact inputs are resident and outputs have reserved capacity, then exposes only that selected plan in `context.process`. For production and treatment, the returned action must match its selected operation, material levels, inputs, outputs, duration, and active power exactly. The host validates every referenced Resource, buffer, node, count, duration, power request, and compiled plan before scheduling or mutation. Local transport dispatch is likewise host-owned: it considers only inventory whose Resource appears in the compiled connection allowlist and whose treatment level satisfies downstream demand, even when both endpoint buffers accept a wider set.
 
 ## Failures and blocking
 
@@ -57,6 +57,7 @@ Studio viewing never creates a run. Only explicit CLI simulation/research workfl
 ## Source of truth
 
 - Scheduler/simulation: `packages/inm-core/src/simulator.ts`
+- Device program isolation and decision parsing: `packages/inm-core/src/device-runtime.ts`
 - State mutations: `packages/inm-core/src/state.ts`
 - Events/types: `packages/inm-core/src/types.ts`
 - Evaluation: `packages/inm-core/src/evaluator.ts`
