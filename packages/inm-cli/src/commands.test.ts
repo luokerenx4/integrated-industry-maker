@@ -362,6 +362,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
       action: "list",
       programs: [
         expect.objectContaining({ id: "commissioned-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
+        expect.objectContaining({ id: "front-end-queue-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["queue-congestion"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
         expect.objectContaining({ id: "inspection-supply-path", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
@@ -809,7 +810,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).not.toContain("burn-in-1 · process-queue-wait");
 });
 
-test("public inspect gives Agents and humans the same bounded inspection and yield dispositions", async () => {
+test("public inspect gives Agents and humans the same bounded inspection, queue, and yield dispositions", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const [machine, dispositions, human] = await Promise.all([
     runCli(["inspect", projectDir, "--json"]),
@@ -843,8 +844,21 @@ test("public inspect gives Agents and humans the same bounded inspection and yie
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
       state: "exhausted",
-      authorityRunId: "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
+      authorityRunId: "9ede1fd47e7006179f29e5ca9434762d7fa098c81139d15340626ee4faf0d269",
       authorityAddressedLosses: ["input-starvation"],
+      currentRuns: 1,
+      historicalRuns: 1,
+      invalidRuns: 0,
+    }),
+  }));
+  const queueProgram = result.designPrograms.find((item: { id: string }) => item.id === "front-end-queue-convergence");
+  expect(queueProgram).toEqual(expect.objectContaining({
+    focus: { kind: "losses", losses: ["queue-congestion"] },
+    alignment: { state: "aligned", reasons: [] },
+    evidence: expect.objectContaining({
+      state: "exhausted",
+      authorityRunId: "5f7484028f8c9fe7906ad5b16e6cf7e191e85c3dfa7a99ea91b16b307c39ac09",
+      authorityAddressedLosses: ["queue-congestion"],
       currentRuns: 1,
       historicalRuns: 0,
       invalidRuns: 0,
@@ -856,10 +870,10 @@ test("public inspect gives Agents and humans the same bounded inspection and yie
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
       state: "exhausted",
-      authorityRunId: "47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7",
+      authorityRunId: "eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb",
       authorityAddressedLosses: ["yield-quality"],
       currentRuns: 1,
-      historicalRuns: 0,
+      historicalRuns: 1,
       invalidRuns: 0,
     }),
   }));
@@ -876,15 +890,42 @@ test("public inspect gives Agents and humans the same bounded inspection and yie
       },
       source: expect.objectContaining({
         programId: "inspection-supply-path",
-        runId: "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
+        runId: "9ede1fd47e7006179f29e5ca9434762d7fa098c81139d15340626ee4faf0d269",
       }),
-      observed: expect.objectContaining({ runId: "089-simulate" }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 6,
         improvedCandidates: 6,
         rejectedCandidates: 6,
         bestObservedValue: 57_084,
         largestReduction: 2_500,
+      }),
+    }),
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      loss: "queue-congestion",
+      target: {
+        contributor: "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+        metric: "queueTicks",
+        direction: "decrease",
+        currentValue: 21_500,
+      },
+      source: expect.objectContaining({
+        programId: "front-end-queue-convergence",
+        runId: "5f7484028f8c9fe7906ad5b16e6cf7e191e85c3dfa7a99ea91b16b307c39ac09",
+      }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 4,
+        improvedCandidates: 4,
+        rejectedCandidates: 4,
+        bestObservedValue: 18_500,
+        largestReduction: 3_000,
+        decisionBases: expect.objectContaining({
+          "benchmark-gate": 2,
+          "current-best-case-guardrail": 2,
+        }),
       }),
     }),
     expect.objectContaining({
@@ -899,9 +940,9 @@ test("public inspect gives Agents and humans the same bounded inspection and yie
       },
       source: expect.objectContaining({
         programId: "layer-two-particle-control",
-        runId: "47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7",
+        runId: "eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb",
       }),
-      observed: expect.objectContaining({ runId: "089-simulate" }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -922,16 +963,20 @@ test("public inspect gives Agents and humans the same bounded inspection and yie
     target: {
       kind: "design-program",
       programId: "commissioned-dram-fab",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
     },
   }));
-  expect(human.stdout).toContain("inspection-supply-path · EXHAUSTED · 26972cba3dcc");
-  expect(human.stdout).toContain("layer-two-particle-control · EXHAUSTED · 47e469f0d22b");
+  expect(human.stdout).toContain("front-end-queue-convergence · EXHAUSTED · 5f7484028f8c");
+  expect(human.stdout).toContain("inspection-supply-path · EXHAUSTED · 9ede1fd47e70");
+  expect(human.stdout).toContain("layer-two-particle-control · EXHAUSTED · eee125da8b31");
   expect(human.stdout).toContain("Bounded deferred loss evidence:");
   expect(human.stdout).toContain("[input-starvation] device:inspection-1:material-input-shortage.starvationTicks=59584 · 6/6 improved, 6/6 rejected · best 57084 (−2500)");
+  expect(human.stdout).toContain("[queue-congestion] device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1.queueTicks=21500 · 4/4 improved, 4/4 rejected · best 18500 (−3000)");
   expect(human.stdout).toContain("[yield-quality] quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2.introducedDefectInstances=2 · 1/1 improved, 1/1 rejected · best 1 (−1)");
   expect(human.stdout).toContain("benchmark-gate=1, no-current-best-improvement=5");
+  expect(human.stdout).toContain("benchmark-gate=2, current-best-case-guardrail=2");
   expect(human.stdout).toContain("[fab-loss.input-starvation] [BOUNDED DEFERRED]");
+  expect(human.stdout).toContain("[fab-loss.queue-congestion] [BOUNDED DEFERRED]");
   expect(human.stdout).toContain("[fab-loss.yield-quality] [BOUNDED DEFERRED]");
   expect(human.stdout).toContain("Next action: Investigate the leading loss with Commissioned DRAM Fab Optimization");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
@@ -1037,7 +1082,7 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
   }));
   expect(control.normalJobs).toBeGreaterThan(0);
   expect(control.recoveryJobs).toBeGreaterThan(0);
-  expect(human.stdout).toContain(`Cadence control deposition-1: deposit-dielectric-stack · ${control.normalJobs} qualified / ${control.recoveryJobs} agile-pulse jobs · ${control.recoveryActivations} recovery activations · recover after 0.0s below 1 items on deposition-to-batch-furnace`);
+  expect(human.stdout).toContain(`Cadence control deposition-1: ${control.normalJobs} qualified / ${control.recoveryJobs} agile-pulse jobs · ${control.recoveryActivations} recovery activations · deposit-dielectric-stack · recover after 0.0s below 1 items on deposition-to-batch-furnace`);
 
   await writeFile(join(projectDir, "blueprints/experiment.blueprint.json"), `${JSON.stringify(blueprint, null, 2)}\n`);
   const benchmarkMachine = await runCli([

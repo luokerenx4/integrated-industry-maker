@@ -733,7 +733,7 @@ A re-entrant work center uses `recipes` instead of `recipe`:
 
 `recipe` and `recipes` are mutually exclusive. `recipeDispatch` accepts static operation rules (`authored-order`, `shortest-cycle`, `highest-priority`, `minimize-changeover`) and tracked-WIP rules (`oldest-lot`, `earliest-due-date`, `least-slack`, `highest-lot-priority`); omission means `authored-order`. `least-slack` ranks the best resident lot for each ready operation by `dueTick - currentTick - nominalRemainingRouteTicks`; every qualified operation on that Device must consume a tracked Route lot. The current operation uses its exact compiled duration, while downstream work uses the shortest complete path through immutable base Process durations. `minimize-changeover` prefers ready work in the Device's current setup group. `lotDispatch` is `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority` and chooses the exact identity set within the winning operation. Optional `setupCampaign` retains the current setup while a different target group accumulates `minimumReadyLots`, but releases the held changeover after `maximumHoldTicks`; it is valid only on a changeover-capable work center whose qualified operations preserve tracked lots across at least two setup groups. Optional `batchFormation` gives one qualified multi-lot `preferredProcess` first claim on ready WIP. When only a compatible smaller tracked-lot operation is ready, the Device holds it for at most `maximumWaitTicks`; a complete preferred batch releases immediately, while timeout enters fallback-drain mode until the residual compatible WIP is empty. It cannot be combined with `setupCampaign`.
 
-An exactly two-mode same-Process Device may instead declare an explicit downstream recovery controller:
+An exactly two-mode same-Process Device may instead declare one explicit cadence controller. A downstream-coverage controller reacts to predictive output pressure:
 
 ```json
 "cadenceControl": {
@@ -748,6 +748,22 @@ An exactly two-mode same-Process Device may instead declare an explicit downstre
 ```
 
 Both qualified recipes must compile to identical material work and one unambiguous output Resource. The named physical Connection must originate at that output port, carry only that Resource, and end in a buffer whose Resource capacity is at least `recoverBelowItems`. Both boundaries are required positive integers. Before each non-preemptive job, resident destination inventory plus all exact in-flight cargo updates a continuous coverage-deficit timer; recovery is eligible only after it reaches `minimumCoverageDeficitTicks`, and healthy coverage resets it. This is a predictive inventory-pressure signal, not proof that the downstream Device is already input-starved. `cadenceControl` cannot be combined with `recipeDispatch`, `setupCampaign`, or `batchFormation`. Production start/finish events include the chosen mode, and `cadenceControl.devices` metrics expose the authored inventory/time boundary plus normal/recovery jobs, recovery activations, coverage-deficit episodes, and coverage-deficit time. Actual material-input starvation remains a separate event-backed fab-loss record.
+
+An input-queue controller instead reacts to exact tracked lots already resident at one Process input:
+
+```json
+"cadenceControl": {
+  "kind": "input-queue-recovery",
+  "process": "etch-cell-layer-1",
+  "normalMode": "qualified",
+  "recoveryMode": "queue-high-rate-4-5",
+  "inputResource": "patterned-cell-l1-lot",
+  "recoverAtItems": 1,
+  "minimumQueueTicks": 5000
+}
+```
+
+`inputResource` must be a tracked input consumed by both otherwise-identical plans, and `recoverAtItems` may not exceed its physical input-buffer capacity. Before a non-preemptive start, the controller counts route-eligible resident identities and derives the oldest wait only from each lot's authoritative queued-state boundary. Recovery requires both the resident-count and oldest-wait boundaries; transport, predicted arrivals, unrelated buffers, and fungible inventory do not qualify. Its metric record exposes the exact input/count/time boundary and normal/recovery jobs and activations. It does not fabricate a coverage-deficit episode counter because the trigger is directly reconstructed from lot state.
 
 Optional `preventiveMaintenance` separates `opportunistic` and `planned` timing. Each may declare `afterJobs`, `afterQualificationTicks`, or both. Opportunistic timing may pull immutable asset maintenance into an otherwise-idle window; planned timing blocks the next production start once its boundary is reached. Every authored boundary must strictly precede the corresponding asset-owned `maximumJobs` or `maximumQualificationTicks`, and an opportunistic boundary on the same axis must precede its planned boundary. Asset limits, planned boundaries, and opportunistic windows retain distinct event and metric attribution. A successfully completed qualification resets both usage and calendar state; omission leaves asset-limit-only maintenance. Dispatch considers only operations whose complete input batch is resident and whose output batch fits, never preempts an active job, and resolves ties deterministically. An equal multi-lot tracked input/output count is one fixed identity-preserving batch; see [[docs/design/batch-processing]]. Per-operation rates in `inm analyze` are exclusive maxima because qualified operations share one Device capacity envelope. `inm plan` separately allocates Objective-required time across the qualification matrix and reports a `toolset` gap when finite physical Device clocks cannot satisfy all selected operations together. A Blueprint may instead copy the project-local equipment, narrow each instance's qualification, and split/reroute exact material lanes as a physical specialization; see [[docs/design/work-center-specialization]]. See [[docs/design/work-center-dispatch]], [[docs/design/fab-capacity-planning]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], and [[docs/design/usage-based-maintenance]].
 

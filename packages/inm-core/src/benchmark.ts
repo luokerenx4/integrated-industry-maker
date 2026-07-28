@@ -165,18 +165,23 @@ function validCadenceControlSnapshot(value: unknown): boolean {
   return Object.entries(devices).every(([device, entry]) => {
     if (!device || !entry || typeof entry !== "object" || Array.isArray(entry)) return false;
     const control = entry as Record<string, unknown>;
-    return control.kind === "downstream-coverage-recovery"
-      && typeof control.process === "string" && control.process.length > 0
+    const common = typeof control.process === "string" && control.process.length > 0
       && typeof control.normalMode === "string" && control.normalMode.length > 0
       && typeof control.recoveryMode === "string" && control.recoveryMode.length > 0
-      && typeof control.downstreamConnection === "string" && control.downstreamConnection.length > 0
-      && Number.isSafeInteger(control.recoverBelowItems) && (control.recoverBelowItems as number) >= 0
-      && Number.isSafeInteger(control.minimumCoverageDeficitTicks) && (control.minimumCoverageDeficitTicks as number) > 0
       && Number.isSafeInteger(control.normalJobs) && (control.normalJobs as number) >= 0
       && Number.isSafeInteger(control.recoveryJobs) && (control.recoveryJobs as number) >= 0
-      && Number.isSafeInteger(control.recoveryActivations) && (control.recoveryActivations as number) >= 0
+      && Number.isSafeInteger(control.recoveryActivations) && (control.recoveryActivations as number) >= 0;
+    if (!common) return false;
+    if (control.kind === "downstream-coverage-recovery") return typeof control.downstreamConnection === "string"
+      && control.downstreamConnection.length > 0
+      && Number.isSafeInteger(control.recoverBelowItems) && (control.recoverBelowItems as number) >= 0
+      && Number.isSafeInteger(control.minimumCoverageDeficitTicks) && (control.minimumCoverageDeficitTicks as number) > 0
       && Number.isSafeInteger(control.coverageDeficitEpisodes) && (control.coverageDeficitEpisodes as number) >= 0
       && Number.isSafeInteger(control.coverageDeficitTicks) && (control.coverageDeficitTicks as number) >= 0;
+    return control.kind === "input-queue-recovery"
+      && typeof control.inputResource === "string" && control.inputResource.length > 0
+      && Number.isSafeInteger(control.recoverAtItems) && (control.recoverAtItems as number) > 0
+      && Number.isSafeInteger(control.minimumQueueTicks) && (control.minimumQueueTicks as number) > 0;
   });
 }
 

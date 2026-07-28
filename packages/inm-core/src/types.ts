@@ -499,6 +499,22 @@ export interface DownstreamCoverageRecoveryPolicy {
   /** Require continuous below-boundary coverage for this long before selecting recoveryMode. */
   minimumCoverageDeficitTicks: Tick;
 }
+export interface InputQueueRecoveryPolicy {
+  kind: "input-queue-recovery";
+  /** The one material transformation shared by both qualified modes. */
+  process: ProcessId;
+  /** Normal qualified mode used below the authored input-queue boundary. */
+  normalMode: string;
+  /** Recovery-oriented qualified mode used once the exact input queue crosses both boundaries. */
+  recoveryMode: string;
+  /** Exact tracked input Resource whose resident lots and wait ages define queue pressure. */
+  inputResource: ResourceId;
+  /** Select recoveryMode only when at least this many eligible lots are resident. */
+  recoverAtItems: number;
+  /** Oldest eligible resident lot must have waited this long before selecting recoveryMode. */
+  minimumQueueTicks: Tick;
+}
+export type CadenceControlPolicy = DownstreamCoverageRecoveryPolicy | InputQueueRecoveryPolicy;
 export interface BlueprintDevice {
   id: DeviceInstanceId;
   asset: DeviceAssetId;
@@ -526,7 +542,7 @@ export interface BlueprintDevice {
     /** Deterministic selection among ready qualified operations. */
     recipeDispatch?: RecipeDispatchPolicy;
     /** Non-preemptive same-Process mode selection from explicit downstream physical coverage. */
-    cadenceControl?: DownstreamCoverageRecoveryPolicy;
+    cadenceControl?: CadenceControlPolicy;
     /** Deterministic selection of identity-preserving lots within a ready operation. */
     lotDispatch?: LotDispatchPolicy;
     /** Setup-sensitive work-center campaign formation before switching to another recipe family. */
@@ -1648,20 +1664,26 @@ export interface FactoryMetrics {
     }>;
   };
   cadenceControl: {
-    devices: Record<DeviceInstanceId, {
-      kind: "downstream-coverage-recovery";
+    devices: Record<DeviceInstanceId, ({
       process: ProcessId;
       normalMode: string;
       recoveryMode: string;
-      downstreamConnection: ConnectionId;
-      recoverBelowItems: number;
-      minimumCoverageDeficitTicks: Tick;
       normalJobs: number;
       recoveryJobs: number;
       recoveryActivations: number;
+    } & ({
+      kind: "downstream-coverage-recovery";
+      downstreamConnection: ConnectionId;
+      recoverBelowItems: number;
+      minimumCoverageDeficitTicks: Tick;
       coverageDeficitEpisodes: number;
       coverageDeficitTicks: Tick;
-    }>;
+    } | {
+      kind: "input-queue-recovery";
+      inputResource: ResourceId;
+      recoverAtItems: number;
+      minimumQueueTicks: Tick;
+    }))>;
   };
   energyConsumedMilliJoules: number;
   electricityCosts: {

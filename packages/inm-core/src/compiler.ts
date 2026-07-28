@@ -1787,28 +1787,45 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       path: controlPath, code: "production.cadence-material-mismatch",
       message: `Cadence modes '${control.normalMode}' and '${control.recoveryMode}' on '${device.id}' must execute identical input, output, and lot material work`,
     });
-    if (normalPlan.outputs.length !== 1) issues.push({
-      path: controlPath, code: "production.cadence-output-ambiguous",
-      message: `Cadence-controlled Process '${control.process}' on '${device.id}' must have exactly one compiled output Resource`,
-    });
-    const output = normalPlan.outputs[0];
-    const connection = connections[control.downstreamConnection];
-    if (!connection) issues.push({
-      path: `${controlPath}/downstreamConnection`, code: "production.cadence-connection",
-      message: `Cadence control on '${device.id}' references unknown compiled Connection '${control.downstreamConnection}'`,
-    });
-    else if (!output || connection.fromDevice.id !== device.id || connection.fromPort.buffer !== output.buffer
-      || connection.resources.length !== 1 || connection.resources[0] !== output.resource) issues.push({
-      path: `${controlPath}/downstreamConnection`, code: "production.cadence-connection-contract",
-      message: `Cadence Connection '${connection.id}' must originate at '${device.id}' and carry only the controlled Process output through its bound output buffer`,
-    });
-    else {
-      const destinationBuffer = connection.toDevice.buffers[connection.toPort.buffer]!;
-      const destinationCapacity = destinationBuffer.resourceCapacities?.[output.resource] ?? destinationBuffer.capacity;
-      if (control.recoverBelowItems > destinationCapacity) issues.push({
-        path: `${controlPath}/recoverBelowItems`, code: "production.cadence-threshold-capacity",
-        message: `Cadence recovery boundary ${control.recoverBelowItems} exceeds destination capacity ${destinationCapacity} for '${output.resource}'`,
+    if (control.kind === "downstream-coverage-recovery") {
+      if (normalPlan.outputs.length !== 1) issues.push({
+        path: controlPath, code: "production.cadence-output-ambiguous",
+        message: `Downstream cadence-controlled Process '${control.process}' on '${device.id}' must have exactly one compiled output Resource`,
       });
+      const output = normalPlan.outputs[0];
+      const connection = connections[control.downstreamConnection];
+      if (!connection) issues.push({
+        path: `${controlPath}/downstreamConnection`, code: "production.cadence-connection",
+        message: `Cadence control on '${device.id}' references unknown compiled Connection '${control.downstreamConnection}'`,
+      });
+      else if (!output || connection.fromDevice.id !== device.id || connection.fromPort.buffer !== output.buffer
+        || connection.resources.length !== 1 || connection.resources[0] !== output.resource) issues.push({
+        path: `${controlPath}/downstreamConnection`, code: "production.cadence-connection-contract",
+        message: `Cadence Connection '${connection.id}' must originate at '${device.id}' and carry only the controlled Process output through its bound output buffer`,
+      });
+      else {
+        const destinationBuffer = connection.toDevice.buffers[connection.toPort.buffer]!;
+        const destinationCapacity = destinationBuffer.resourceCapacities?.[output.resource] ?? destinationBuffer.capacity;
+        if (control.recoverBelowItems > destinationCapacity) issues.push({
+          path: `${controlPath}/recoverBelowItems`, code: "production.cadence-threshold-capacity",
+          message: `Cadence recovery boundary ${control.recoverBelowItems} exceeds destination capacity ${destinationCapacity} for '${output.resource}'`,
+        });
+      }
+    } else {
+      const inputs = normalPlan.inputs.filter((input) => input.resource === control.inputResource);
+      if (inputs.length !== 1 || !loaded.resources[control.inputResource]?.tracking) issues.push({
+        path: `${controlPath}/inputResource`, code: "production.cadence-input-queue-contract",
+        message: `Input-queue cadence control on '${device.id}' must name one tracked input Resource consumed by Process '${control.process}'`,
+      });
+      const input = inputs[0];
+      if (input) {
+        const buffer = device.buffers[input.buffer]!;
+        const inputCapacity = buffer.resourceCapacities?.[input.resource] ?? buffer.capacity;
+        if (control.recoverAtItems > inputCapacity) issues.push({
+          path: `${controlPath}/recoverAtItems`, code: "production.cadence-threshold-capacity",
+          message: `Input-queue recovery boundary ${control.recoverAtItems} exceeds '${device.id}.${input.buffer}' capacity ${inputCapacity} for '${input.resource}'`,
+        });
+      }
     }
   }
 

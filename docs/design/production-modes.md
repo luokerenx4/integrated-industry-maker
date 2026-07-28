@@ -1,6 +1,6 @@
 # Production modes and exact jobs
 
-Status: treatment-aware, in-situ-quality-aware, and downstream-coverage adaptive-cadence modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.85.0`.
+Status: treatment-aware, in-situ-quality-aware, downstream-coverage, and tracked-input-queue adaptive-cadence modes with physical auxiliary-input ports and setup-sensitive equipment implemented through engine version `inm-sim/0.86.0`.
 
 Related: [[docs/PROJECT_FORMAT]], [[docs/design/material-contracts]], [[docs/design/material-treatment]], [[docs/design/work-center-dispatch]], [[docs/design/equipment-changeover]], [[docs/design/power]], [[docs/design/simulation-runtime]], [[docs/design/blueprint-optimization]], [[docs/CLI]].
 
@@ -58,6 +58,12 @@ Selection occurs only before a new non-preemptive job. Destination coverage is t
 
 Coverage deficit is deliberately predictive and must not be interpreted as downstream material starvation. The downstream Device may still be processing while its next input coverage is below the boundary, and a finite campaign can leave the timer open after the last useful job. Actual material-input shortage is emitted only when an eligible productive Device lacks the exact policy-resolved inputs inside an event-backed opportunity interval; see [[docs/design/fab-loss-attribution]].
 
+## Tracked input-queue recovery
+
+`policy.cadenceControl.kind: input-queue-recovery` uses the same two-mode, identical-material, non-preemptive contract but names one exact tracked input Resource, a positive resident-lot boundary, and a positive oldest-wait boundary. The compiler requires that Resource on the controlled Process input and bounds `recoverAtItems` by its backing buffer capacity.
+
+At each selection boundary, only route-eligible identities currently resident in that exact input buffer count. Their wait age is `currentTick - statusSinceTick` only while evaluator-owned lot state is `queued`. Recovery is selected only when both `recoverAtItems` and `minimumQueueTicks` are met. In-flight lots, downstream coverage, and inferred future demand do not enter this trigger. This makes local queue pressure distinct from downstream-coverage prediction and from event-backed input starvation.
+
 ## Analysis, planning, and synthesis
 
 Static recipe alternatives enumerate every compatible `(Device instance, Process, mode)` tuple. Their displayed inputs/outputs are effective job quantities, including auxiliary Resources and required treatment level; their rates use compiled duration and their power uses the mode multiplier. See [[docs/design/material-treatment]] for graded lot availability and physical treatment infrastructure.
@@ -68,7 +74,7 @@ Synthesis writes `recipe.mode` into the generated blueprint, routes auxiliary Re
 
 ## Observability
 
-`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates, mode power, and declared prevention capability. Production `device.start` and `device.finish` events record the exact selected mode. Simulation metrics preserve the authored inventory/time boundary and count normal jobs, recovery jobs, recovery activations, coverage-deficit episodes, and total observed coverage-deficit time for every controlled Device. CLI and Studio expose this same record without requiring event-log reconstruction. Studio also exposes prevention capability in the project-local asset catalog/recipe alternatives and measured prevention in the selected Device inspector and performance panel.
+`inm analyze`, `inm plan`, and `inm synthesize` identify the selected mode and show effective jobs/rates, mode power, and declared prevention capability. Production `device.start` and `device.finish` events record the exact selected mode. Simulation metrics preserve the authored discriminated control boundary and count normal jobs, recovery jobs, and recovery activations for every controlled Device. Downstream coverage additionally records deficit episodes/time; input-queue control records its input Resource, resident boundary, and oldest-wait boundary. CLI and Studio expose the same union without event-log reconstruction. Studio also exposes prevention capability in the project-local asset catalog/recipe alternatives and measured prevention in the selected Device inspector and performance panel.
 
 Engine hashes include asset and blueprint content, so changing a mode or selection invalidates prior run identity. Immutable runs record the compiled blueprint and engine version used for replay.
 

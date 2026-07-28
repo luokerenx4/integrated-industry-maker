@@ -71,14 +71,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
-    evidence: { state: "current", runId: "089-simulate" },
+    evidence: { state: "current", runId: "090-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "089-simulate",
+    runId: "090-simulate",
     averageWip: 19.872825,
     averageTotalInventory: 116.16841666666667,
     averageExcludedInventory: 96.29559166666667,
@@ -119,12 +119,20 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(5);
+  expect(snapshot.counts.designPrograms).toBe(6);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "commissioned-dram-fab",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
+    expect.objectContaining({
+      id: "front-end-queue-convergence",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["queue-congestion"] },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -434,8 +442,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
 
-test("current memory-fab evidence bounds exhausted inspection and yield targets then advances to terminal queue", async () => {
-  const projectDir = join(repository, "examples/memory-fab");
+test("current inspection and yield evidence advances the shared handoff to the focused layer-one queue Program", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-workbench-before-queue-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
+  await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
   expect(snapshot.version).toBe(10);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
@@ -453,9 +464,9 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
       source: expect.objectContaining({
         programId: "inspection-supply-path",
         benchmarkId: "greenfield-dram-design",
-        runId: "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
+        runId: "9ede1fd47e7006179f29e5ca9434762d7fa098c81139d15340626ee4faf0d269",
       }),
-      observed: expect.objectContaining({ runId: "089-simulate" }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 6,
         improvedCandidates: 6,
@@ -477,9 +488,9 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
       source: expect.objectContaining({
         programId: "layer-two-particle-control",
         benchmarkId: "greenfield-dram-design",
-        runId: "47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7",
+        runId: "eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb",
       }),
-      observed: expect.objectContaining({ runId: "089-simulate" }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -496,18 +507,25 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
     focus: { kind: "losses", losses: ["yield-quality"] },
     evidence: expect.objectContaining({
       state: "exhausted",
-      authorityRunId: "47e469f0d22b4d25ff46d89376dfacf1ce70e55f72a5d98743ac7347eafd11a7",
+      authorityRunId: "eee125da8b3184e8042e64ac1f06a9d23e068731ec9df97a4907db679881cefb",
       authorityAddressedLosses: ["yield-quality"],
     }),
   }));
+  expect(snapshot.designPrograms.find((program) => program.id === "front-end-queue-convergence")).toEqual(expect.objectContaining({
+    focus: { kind: "losses", losses: ["queue-congestion"] },
+    evidence: expect.objectContaining({
+      state: "missing",
+      authorityRunId: null,
+    }),
+  }));
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:commissioned-dram-fab:fab-loss\.queue-congestion:/),
-    title: "Investigate the leading loss with Commissioned DRAM Fab Optimization",
-    argv: ["inm", "design", projectDir, "--program", "commissioned-dram-fab", "--json"],
-    studioRoute: "/memory-fab/designs/commissioned-dram-fab",
+    id: expect.stringMatching(/^design\.inspect:front-end-queue-convergence:fab-loss\.queue-congestion:/),
+    title: "Investigate the leading loss with Layer-one Etch Queue Convergence",
+    argv: ["inm", "design", projectDir, "--program", "front-end-queue-convergence", "--json"],
+    studioRoute: "/memory-fab/designs/front-end-queue-convergence",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "commissioned-dram-fab",
+      programId: "front-end-queue-convergence",
       diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
@@ -539,6 +557,7 @@ test("current memory-fab evidence bounds exhausted inspection and yield targets 
     }),
   }));
   expect(queue?.subjects).not.toContainEqual({ kind: "device", id: "burn-in-1" });
+  await rm(root, { recursive: true, force: true });
 }, 20_000);
 
 test("bounded loss disposition expires on any changed authority, target evidence, or frontier", async () => {
@@ -600,6 +619,25 @@ test("Design evidence classification chooses current leaf authority without time
       sourceBlueprintHash: hash("c"),
       blueprintHash: hash("d"),
     },
+    driver: {
+      selection: {
+        world: "cleanroom",
+        blueprint: "generated-dram-fab",
+        scenario: "production-window",
+        objective: "dram-output",
+      },
+      hashes: {
+        engineVersion: "inm-sim/test",
+        resourceCatalogHash: hash("r"),
+        processCatalogHash: hash("p"),
+        routeCatalogHash: hash("t"),
+        deviceCatalogHash: hash("v"),
+        worldHash: hash("w"),
+        blueprintHash: hash("d"),
+        scenarioHash: hash("s"),
+        objectiveHash: hash("o"),
+      },
+    },
     promotionBase: { blueprint: "generated-dram-fab", hash: hash("c") },
   };
   const run = (id: string, overrides: Partial<DesignRunSummary> = {}): DesignRunSummary => ({
@@ -612,6 +650,7 @@ test("Design evidence classification chooses current leaf authority without time
     benchmark: identity.benchmark.id,
     benchmarkContractHash: identity.benchmark.contractHash,
     seed: structuredClone(identity.seed),
+    driver: structuredClone(identity.driver),
     promotionBase: { ...identity.promotionBase },
     continuation: null,
     budget: { maximum: 1, evaluated: 1 },
@@ -638,18 +677,26 @@ test("Design evidence classification chooses current leaf authority without time
     stopReason: "frontier-exhausted",
   });
   const historical = run("5", { programHash: hash("e") });
-  const evidence = classifyDesignProgramEvidence(identity, [historical, exhausted, source, promotable, continuation], [{
+  const staleDriver = run("7", {
+    driver: {
+      ...structuredClone(identity.driver),
+      hashes: { ...identity.driver.hashes, deviceCatalogHash: hash("x") },
+    },
+  });
+  const evidence = classifyDesignProgramEvidence(identity, [historical, staleDriver, exhausted, source, promotable, continuation], [{
     id: hash("6"), path: "/invalid", program: identity.program.id, code: "design.invalid-run", message: "invalid evidence",
   }]);
   expect(evidence).toEqual(expect.objectContaining({
     state: "promotable",
     authorityRunId: promotable.id,
     currentRuns: 4,
-    historicalRuns: 1,
+    historicalRuns: 2,
     invalidRuns: 1,
   }));
   expect(evidence.runs.find((item) => item.id === historical.id)?.currentness)
     .toEqual({ state: "historical", reasons: ["program-hash-mismatch"] });
+  expect(evidence.runs.find((item) => item.id === staleDriver.id)?.currentness)
+    .toEqual({ state: "historical", reasons: ["driver-hashes-mismatch"] });
   expect(evidence.runs.find((item) => item.id === continuation.id)?.outcome).toBe("continuable");
   expect(classifyDesignProgramEvidence(identity, [exhausted], []).state).toBe("exhausted");
   expect(classifyDesignProgramEvidence(identity, [], []).state).toBe("missing");

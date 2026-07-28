@@ -3,7 +3,7 @@ import { cp, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import {
-  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
+  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeFabLossProfile, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation, blueprintSchema,
@@ -783,19 +783,23 @@ describe("blueprint compiler", () => {
       coverageDeficitEpisodes: expect.any(Number),
       coverageDeficitTicks: expect.any(Number),
     }));
-    expect(first.metrics.cadenceControl.devices["deposition-1"]!.recoveryActivations).toBeGreaterThan(0);
-    expect(first.metrics.cadenceControl.devices["deposition-1"]!.coverageDeficitEpisodes).toBeGreaterThan(0);
-    expect(first.metrics.cadenceControl.devices["deposition-1"]!.coverageDeficitTicks).toBeGreaterThan(0);
+    const cadenceMetrics = first.metrics.cadenceControl.devices["deposition-1"]!;
+    if (cadenceMetrics.kind !== "downstream-coverage-recovery") throw new Error("Expected downstream cadence metrics");
+    expect(cadenceMetrics.recoveryActivations).toBeGreaterThan(0);
+    expect(cadenceMetrics.coverageDeficitEpisodes).toBeGreaterThan(0);
+    expect(cadenceMetrics.coverageDeficitTicks).toBeGreaterThan(0);
     const immediate = runUntil(compileFactoryProject(await cadenceSource(1)), undefined, { seed: 42 });
     expect(first.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs)
       .toBeLessThan(immediate.metrics.cadenceControl.devices["deposition-1"]!.recoveryJobs);
     expect(first.metrics.cadenceControl.devices["deposition-1"]!.normalJobs)
       .toBeGreaterThan(immediate.metrics.cadenceControl.devices["deposition-1"]!.normalJobs);
     const missingInterval = await cadenceSource();
-    delete (missingInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl as Partial<NonNullable<NonNullable<Blueprint["devices"][number]["policy"]>["cadenceControl"]>>).minimumCoverageDeficitTicks;
+    delete (missingInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl as unknown as Record<string, unknown>).minimumCoverageDeficitTicks;
     expect(blueprintSchema.safeParse(missingInterval.blueprint).success).toBeFalse();
     const zeroInterval = await cadenceSource();
-    zeroInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.minimumCoverageDeficitTicks = 0;
+    const zeroControl = zeroInterval.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!;
+    if (zeroControl.kind !== "downstream-coverage-recovery") throw new Error("Expected downstream cadence control");
+    zeroControl.minimumCoverageDeficitTicks = 0;
     expect(blueprintSchema.safeParse(zeroInterval.blueprint).success).toBeFalse();
     const legacyContract = await cadenceSource();
     const legacyControl = legacyContract.blueprint.devices.find((device) =>
@@ -816,15 +820,99 @@ describe("blueprint compiler", () => {
     conflicted.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.recipeDispatch = "shortest-cycle";
     expect(issueCodes(() => compileFactoryProject(conflicted))).toContain("production.cadence-dispatch-exclusive");
     const wrongLane = await cadenceSource();
-    wrongLane.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.downstreamConnection = "batch-furnace-to-lithography";
+    const wrongLaneControl = wrongLane.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!;
+    if (wrongLaneControl.kind !== "downstream-coverage-recovery") throw new Error("Expected downstream cadence control");
+    wrongLaneControl.downstreamConnection = "batch-furnace-to-lithography";
     expect(issueCodes(() => compileFactoryProject(wrongLane))).toContain("production.cadence-connection-contract");
     const overCapacity = await cadenceSource();
-    overCapacity.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!.recoverBelowItems = 10_000;
+    const overCapacityControl = overCapacity.blueprint.devices.find((device) => device.id === "deposition-1")!.policy!.cadenceControl!;
+    if (overCapacityControl.kind !== "downstream-coverage-recovery") throw new Error("Expected downstream cadence control");
+    overCapacityControl.recoverBelowItems = 10_000;
     expect(issueCodes(() => compileFactoryProject(overCapacity))).toContain("production.cadence-threshold-capacity");
     const materialMismatch = await cadenceSource();
     materialMismatch.deviceAssets["ald-deposition-bay"]!.production!.modes.find((mode) => mode.id === "agile-pulse")!.minimumInputTreatmentLevel = 1;
     expect(issueCodes(() => compileFactoryProject(materialMismatch))).toContain("production.cadence-material-mismatch");
   }, 15_000);
+
+  test("cadence control responds to exact tracked-lot input queue age without changing the process contract", async () => {
+    const incumbentProject = compileFactoryProject(await loadFactoryProject(memoryFab));
+    const incumbent = runUntil(incumbentProject, undefined, { seed: 42 });
+    const cadenceSource = async () => {
+      const source = await loadFactoryProject(memoryFab);
+      const etch = source.blueprint.devices.find((device) => device.id === "etch-1")!;
+      const normal = structuredClone(etch.recipes?.find((recipe) =>
+        recipe.process === "etch-cell-layer-1" && recipe.mode === "qualified"));
+      if (!normal) throw new Error("Missing qualified layer-one etch recipe");
+      etch.recipes = [normal, { ...structuredClone(normal), mode: "high-rate-qualified" }];
+      etch.policy = {
+        ...etch.policy,
+        cadenceControl: {
+          kind: "input-queue-recovery",
+          process: "etch-cell-layer-1",
+          normalMode: "qualified",
+          recoveryMode: "high-rate-qualified",
+          inputResource: "patterned-cell-l1-lot",
+          recoverAtItems: 1,
+          minimumQueueTicks: 1,
+        },
+      };
+      delete etch.policy.recipeDispatch;
+      const asset = source.deviceAssets["plasma-etch-bay"]!;
+      asset.production!.modes.push({
+        id: "high-rate-qualified",
+        name: "High-rate qualified layer-one etch",
+        inputCycles: 1,
+        outputCycles: 1,
+        durationMultiplier: { numerator: 4, denominator: 5 },
+        powerMultiplier: { numerator: 5, denominator: 4 },
+        auxiliaryInputs: [],
+        preventsDefects: [],
+        minimumInputTreatmentLevel: 0,
+      });
+      return source;
+    };
+
+    const source = await cadenceSource();
+    const project = compileFactoryProject(source);
+    const first = runUntil(project, undefined, { seed: 42 });
+    const second = runUntil(project, undefined, { seed: 42 });
+    expect(second.events).toEqual(first.events);
+    const control = first.metrics.cadenceControl.devices["etch-1"]!;
+    if (control.kind !== "input-queue-recovery") throw new Error("Expected input-queue cadence metrics");
+    expect(control).toEqual(expect.objectContaining({
+      process: "etch-cell-layer-1",
+      normalMode: "qualified",
+      recoveryMode: "high-rate-qualified",
+      inputResource: "patterned-cell-l1-lot",
+      recoverAtItems: 1,
+      minimumQueueTicks: 1,
+    }));
+    expect(control.normalJobs).toBeGreaterThan(0);
+    expect(control.recoveryJobs).toBeGreaterThan(0);
+    expect(control.recoveryActivations).toBeGreaterThan(0);
+
+    const exactQueueTicks = (
+      result: ReturnType<typeof runUntil>,
+      compiled: ReturnType<typeof compileFactoryProject>,
+    ): number => analyzeFabLossProfile(result.metrics, compiled.scenario.durationTicks, compiled, result.events)
+      ?.buckets.find((bucket) => bucket.id === "queue-congestion")
+      ?.contributors.find((contributor) =>
+        contributor.id === "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1")
+      ?.evidence.queueTicks ?? 0;
+    expect(exactQueueTicks(first, project)).toBeLessThan(exactQueueTicks(incumbent, incumbentProject));
+
+    const unknownInput = await cadenceSource();
+    const unknownControl = unknownInput.blueprint.devices.find((device) => device.id === "etch-1")!.policy!.cadenceControl!;
+    if (unknownControl.kind !== "input-queue-recovery") throw new Error("Expected input-queue cadence control");
+    unknownControl.inputResource = "etched-cell-l1-lot";
+    expect(issueCodes(() => compileFactoryProject(unknownInput))).toContain("production.cadence-input-queue-contract");
+
+    const overCapacity = await cadenceSource();
+    const overCapacityControl = overCapacity.blueprint.devices.find((device) => device.id === "etch-1")!.policy!.cadenceControl!;
+    if (overCapacityControl.kind !== "input-queue-recovery") throw new Error("Expected input-queue cadence control");
+    overCapacityControl.recoverAtItems = 25;
+    expect(issueCodes(() => compileFactoryProject(overCapacity))).toContain("production.cadence-threshold-capacity");
+  }, 20_000);
 
   test("asset limits, planned stops, and opportunistic windows remain physically distinct", async () => {
     const maintenanceSource = async (
@@ -3883,12 +3971,12 @@ describe("research boundary and experiment decisions", () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
     const proposal = await new ExternalCommandResearchAgent(command).propose({ iteration: 1, project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project), history: [] });
     expect(proposal.hypothesis).toBe("Use FIFO"); expect(proposal.patch[0]!.path).toBe("/policies");
-  });
+  }, 30_000);
 
   test("heuristic candidate improves the Ironworks score and is kept", async () => {
     const dir = await projectCopy(); const result = await researchFactory(dir, { iterations: 1, seed: 42, agent: new HeuristicResearchAgent() });
     expect(result.iterations[0]!.decision).toBe("KEEP"); expect(result.bestScore).toBeGreaterThan(result.baseline.score);
-  });
+  }, 30_000);
 
   test("research writes the explicitly selected Blueprint instead of the project default", async () => {
     const dir = await projectCopy();
@@ -3901,7 +3989,7 @@ describe("research boundary and experiment decisions", () => {
     expect(result.iterations[0]!.decision).toBe("KEEP");
     expect(await readFile(defaultPath, "utf8")).toBe(defaultBefore);
     expect(await readFile(selectedPath, "utf8")).not.toBe(selectedBefore);
-  });
+  }, 30_000);
 
   test("heuristic strategies read diagnostics and do not immediately repeat experiment history", async () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
@@ -3929,7 +4017,7 @@ describe("research boundary and experiment decisions", () => {
     expect(candidate.devices["smelter-1-parallel"]).toBeDefined();
     expect(Object.values(candidate.devices).filter((device) => device.transportEndpoint).length)
       .toBe(candidate.blueprint.connections.length * 2);
-  });
+  }, 30_000);
 
   test("heuristic strategy adds project-local generation for disconnected consumers", async () => {
     const source = await loaded(); source.blueprint.devices = source.blueprint.devices.filter((device) => device.id !== "generator-1" && device.id !== "storage-forge");

@@ -1804,18 +1804,32 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const ranked = candidates.map((plan) => ({ plan, index: device.processPlans.indexOf(plan) }));
     const cadence = device.policy?.cadenceControl;
     if (cadence) {
-      const connection = project.connections[cadence.downstreamConnection]!;
-      const output = device.processPlans.find((plan) =>
-        plan.definition.id === cadence.process && plan.mode.id === cadence.normalMode)!.outputs[0]!;
-      const coverage = materialQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0)
-        + incomingQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0);
-      const coverageDeficit = coverage < cadence.recoverBelowItems;
-      mutateFactoryState(state, { kind: "cadence.coverage", device: device.id, deficit: coverageDeficit });
-      const runtimeCadence = state.devices[device.id]!.cadenceControl!;
-      const coverageDeficitTicks = runtimeCadence.coverageDeficitSinceTick === null
-        ? 0 : state.tick - runtimeCadence.coverageDeficitSinceTick;
-      const preferredMode = coverageDeficit && coverageDeficitTicks >= cadence.minimumCoverageDeficitTicks
-        ? cadence.recoveryMode : cadence.normalMode;
+      const normalPlan = device.processPlans.find((plan) =>
+        plan.definition.id === cadence.process && plan.mode.id === cadence.normalMode)!;
+      let preferredMode: string;
+      if (cadence.kind === "downstream-coverage-recovery") {
+        const connection = project.connections[cadence.downstreamConnection]!;
+        const output = normalPlan.outputs[0]!;
+        const coverage = materialQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0)
+          + incomingQuantity(connection.toDevice.id, connection.toPort.buffer, output.resource, output.treatmentLevel ?? 0);
+        const coverageDeficit = coverage < cadence.recoverBelowItems;
+        mutateFactoryState(state, { kind: "cadence.coverage", device: device.id, deficit: coverageDeficit });
+        const runtimeCadence = state.devices[device.id]!.cadenceControl!;
+        const coverageDeficitTicks = runtimeCadence.coverageDeficitSinceTick === null
+          ? 0 : state.tick - runtimeCadence.coverageDeficitSinceTick;
+        preferredMode = coverageDeficit && coverageDeficitTicks >= cadence.minimumCoverageDeficitTicks
+          ? cadence.recoveryMode : cadence.normalMode;
+      } else {
+        const input = normalPlan.inputs.find((amount) => amount.resource === cadence.inputResource)!;
+        const eligibleLots = rankedLotIds(device, input.buffer, input.resource)
+          .filter((id) => state.lots[id]!.treatmentLevel >= (input.minimumTreatmentLevel ?? 0) && routeAllows(id, cadence.process));
+        const oldestQueueTicks = Math.max(0, ...eligibleLots.map((id) => {
+          const lot = state.lots[id]!;
+          return lot.status === "queued" ? state.tick - lot.statusSinceTick : 0;
+        }));
+        preferredMode = eligibleLots.length >= cadence.recoverAtItems && oldestQueueTicks >= cadence.minimumQueueTicks
+          ? cadence.recoveryMode : cadence.normalMode;
+      }
       ranked.sort((left, right) => Number(right.plan.definition.id === cadence.process && right.plan.mode.id === preferredMode)
         - Number(left.plan.definition.id === cadence.process && left.plan.mode.id === preferredMode)
         || left.index - right.index);

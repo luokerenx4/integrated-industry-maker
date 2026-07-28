@@ -55,6 +55,22 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       budget: { maxCandidates: 7 },
     }),
     expect.objectContaining({
+      id: "front-end-queue-convergence",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["queue-congestion"] },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/front-end-queue-convergence-proposals.ts",
+        decisionFamilies: ["dispatch", "recipe"],
+      },
+      locked: true,
+      budget: { maxCandidates: 5 },
+    }),
+    expect.objectContaining({
       id: "greenfield-dram-fab",
       benchmark: "greenfield-dram-design",
       seed: { kind: "synthesis", inputBlueprint: "greenfield" },
@@ -179,7 +195,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   });
 
   expect(result.artifact).toEqual(expect.objectContaining({
-    id: "26972cba3dccdc953c0b0845ac33d12143ef7b3ce6dddf427cba40386d1e0e4d",
+    id: "9ede1fd47e7006179f29e5ca9434762d7fa098c81139d15340626ee4faf0d269",
     created: true,
   }));
   expect(result.manifest).toMatchObject({

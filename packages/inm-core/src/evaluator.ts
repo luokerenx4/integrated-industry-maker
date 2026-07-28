@@ -686,10 +686,10 @@ export function evaluateFactory(
     utilization: fleet.count > 0 ? (stats.stationFleetBusyArea[key] ?? 0) / duration / fleet.count : 0,
   }] as const;
   })));
-  const cadenceControl: FactoryMetrics["cadenceControl"] = {
-    devices: Object.fromEntries(Object.values(project.devices).flatMap((device) => {
+  const cadenceDevices: FactoryMetrics["cadenceControl"]["devices"] = {};
+  for (const device of Object.values(project.devices)) {
       const control = device.policy?.cadenceControl;
-      if (!control) return [];
+      if (!control) continue;
       const starts = events.filter((event): event is Extract<FactoryEvent, { type: "device.start" }> =>
         event.type === "device.start" && event.device === device.id
         && event.operation === control.process && (event.mode === control.normalMode || event.mode === control.recoveryMode));
@@ -700,17 +700,27 @@ export function evaluateFactory(
         previousMode = event.mode;
       }
       const runtime = state.devices[device.id]!.cadenceControl!;
-      return [[device.id, {
-        ...control,
+      const common = {
+        process: control.process,
+        normalMode: control.normalMode,
+        recoveryMode: control.recoveryMode,
         normalJobs: starts.filter((event) => event.mode === control.normalMode).length,
         recoveryJobs: starts.filter((event) => event.mode === control.recoveryMode).length,
         recoveryActivations,
-        coverageDeficitEpisodes: runtime.coverageDeficitEpisodes,
-        coverageDeficitTicks: runtime.coverageDeficitTicks
-          + (runtime.coverageDeficitSinceTick === null ? 0 : state.tick - runtime.coverageDeficitSinceTick),
-      }]];
-    })),
-  };
+      };
+      if (control.kind === "downstream-coverage-recovery") {
+        cadenceDevices[device.id] = {
+          ...common,
+          ...control,
+          coverageDeficitEpisodes: runtime.coverageDeficitEpisodes,
+          coverageDeficitTicks: runtime.coverageDeficitTicks
+            + (runtime.coverageDeficitSinceTick === null ? 0 : state.tick - runtime.coverageDeficitSinceTick),
+        };
+      } else {
+        cadenceDevices[device.id] = { ...common, ...control };
+      }
+  }
+  const cadenceControl: FactoryMetrics["cadenceControl"] = { devices: cadenceDevices };
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,

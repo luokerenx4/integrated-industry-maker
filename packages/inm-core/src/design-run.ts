@@ -240,6 +240,10 @@ export interface DesignRunSummary {
     sourceBlueprintHash: string;
     blueprintHash: string;
   };
+  driver: {
+    selection: DesignRunManifest["driver"]["selection"];
+    hashes: DesignRunManifest["driver"]["hashes"];
+  };
   promotionBase: DesignRunManifest["promotionBase"];
   continuation: DesignRunManifest["continuation"];
   budget: DesignRunManifest["budget"];
@@ -1038,6 +1042,10 @@ export async function indexDesignRuns(projectDir: string, programId?: string): P
             source: structuredClone(run.manifest.seed.source),
             sourceBlueprintHash: run.manifest.seed.sourceBlueprintHash,
             blueprintHash: run.manifest.seed.blueprintHash,
+          },
+          driver: {
+            selection: { ...run.manifest.driver.selection },
+            hashes: { ...run.manifest.driver.hashes },
           },
           promotionBase: { ...run.manifest.promotionBase },
           continuation: structuredClone(run.manifest.continuation),

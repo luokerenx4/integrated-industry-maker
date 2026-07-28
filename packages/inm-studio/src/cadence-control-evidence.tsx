@@ -10,8 +10,15 @@ function ControlState({ label, control }: { label: string; control: CadenceContr
       ? <>
         <b>{control.normalJobs} NORMAL · {control.recoveryJobs} RECOVERY · {control.recoveryActivations} ACTIVATIONS</b>
         <code>{control.normalMode} / {control.recoveryMode}</code>
-        <em>RECOVER AFTER {(control.minimumCoverageDeficitTicks / 1000).toFixed(1)}S BELOW {control.recoverBelowItems} · {control.downstreamConnection}</em>
-        <code>{control.coverageDeficitEpisodes} COVERAGE-DEFICIT EPISODES · {(control.coverageDeficitTicks / 1000).toFixed(1)}S</code>
+        {control.kind === "downstream-coverage-recovery"
+          ? <>
+            <em>RECOVER AFTER {(control.minimumCoverageDeficitTicks / 1000).toFixed(1)}S BELOW {control.recoverBelowItems} · {control.downstreamConnection}</em>
+            <code>{control.coverageDeficitEpisodes} COVERAGE-DEFICIT EPISODES · {(control.coverageDeficitTicks / 1000).toFixed(1)}S</code>
+          </>
+          : <>
+            <em>RECOVER AFTER OLDEST LOT WAITS {(control.minimumQueueTicks / 1000).toFixed(1)}S WITH {control.recoverAtItems}+ {control.inputResource}</em>
+            <code>INPUT-QUEUE PRESSURE</code>
+          </>}
       </>
       : <b>OFF</b>}
   </span>;

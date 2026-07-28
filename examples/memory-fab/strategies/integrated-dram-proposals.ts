@@ -961,6 +961,11 @@ export default {
       ? candidates.map((candidate, index) => {
         const targets = lossChain.filter((loss) => {
           if (!candidate.addresses.includes(loss)) return false;
+          if (loss === "queue-congestion" && candidate.subjects?.length) {
+            const queueBucket = context.fabLoss?.buckets.find((bucket) => bucket.id === "queue-congestion");
+            const leadingSubjects = queueBucket?.contributors[0]?.subjects.map((subject) => subject.id) ?? [];
+            if (!candidate.subjects.some((subject) => leadingSubjects.includes(subject))) return false;
+          }
           if (loss !== "input-starvation") return true;
           const inputBucket = context.fabLoss?.buckets.find((bucket) => bucket.id === "input-starvation");
           const observedSubjects = inputBucket
@@ -980,7 +985,9 @@ export default {
           ? context.fabLoss?.buckets.find((bucket) => bucket.id === addressedLoss)
           : undefined;
         const observedSubjects = observedBucket
-          ? [...observedBucket.subjects, ...observedBucket.contributors.flatMap((contributor) => contributor.subjects)]
+          ? (addressedLoss === "queue-congestion" && observedBucket.contributors[0]
+            ? observedBucket.contributors[0].subjects
+            : [...observedBucket.subjects, ...observedBucket.contributors.flatMap((contributor) => contributor.subjects)])
             .map((subject) => subject.id)
           : [];
         const subjectMatch = candidate.subjects?.some((subject) => observedSubjects.includes(subject)) ?? false;

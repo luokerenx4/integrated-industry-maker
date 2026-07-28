@@ -101,6 +101,8 @@ export type WorkbenchDesignRunCurrentnessReason =
   | "seed-source-mismatch"
   | "seed-source-hash-mismatch"
   | "seed-blueprint-hash-mismatch"
+  | "driver-selection-mismatch"
+  | "driver-hashes-mismatch"
   | "promotion-base-mismatch";
 
 export type WorkbenchDesignEvidenceState = "not-applicable" | "missing" | "promotable" | "continuable" | "exhausted";
@@ -112,6 +114,7 @@ export interface WorkbenchDesignEvidenceIdentity {
   program: { id: string; hash: string };
   benchmark: { id: string; contractHash: string };
   seed: { source: DesignRunSummary["seed"]["source"]; sourceBlueprintHash: string; blueprintHash: string };
+  driver: DesignRunSummary["driver"];
   promotionBase: DesignRunSummary["promotionBase"];
 }
 
@@ -411,6 +414,8 @@ function designRunCurrentness(identity: WorkbenchDesignEvidenceIdentity, run: De
   if (stableStringify(run.seed.source) !== stableStringify(identity.seed.source)) reasons.push("seed-source-mismatch");
   if (run.seed.sourceBlueprintHash !== identity.seed.sourceBlueprintHash) reasons.push("seed-source-hash-mismatch");
   if (run.seed.blueprintHash !== identity.seed.blueprintHash) reasons.push("seed-blueprint-hash-mismatch");
+  if (stableStringify(run.driver.selection) !== stableStringify(identity.driver.selection)) reasons.push("driver-selection-mismatch");
+  if (stableStringify(run.driver.hashes) !== stableStringify(identity.driver.hashes)) reasons.push("driver-hashes-mismatch");
   if (stableStringify(run.promotionBase) !== stableStringify(identity.promotionBase)) reasons.push("promotion-base-mismatch");
   return reasons;
 }
@@ -957,6 +962,18 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
           source: structuredClone(program.seed),
           sourceBlueprintHash: project.hashes.blueprintHash,
           blueprintHash: hashValue(normalizedSeed),
+        },
+        driver: {
+          selection: {
+            world: selection.world.id,
+            blueprint: selection.blueprint.id,
+            scenario: selection.scenario.id,
+            objective: selection.objective.id,
+          },
+          hashes: {
+            ...project.hashes,
+            blueprintHash: hashValue(normalizedSeed),
+          },
         },
         promotionBase: { blueprint: promotionTarget, hash: project.hashes.blueprintHash },
       }, indexed.runs, indexed.invalidRuns);

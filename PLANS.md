@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/causal-queue-design-handoff]] | Make the shared queue next action execute an exact `etch-1` queue-convergence Program instead of reopening already bounded losses or unrelated terminal equipment. | 2026-07-28 |
 | [[plans/causal-tracked-lot-queue-attribution]] | Partition completed tracked-lot queue time into exact conserved Device/connection contributors and remove unrelated bottleneck context from the shared work queue. | 2026-07-25 |
 | [[plans/current-yield-quality-disposition]] | Turn the current layer-two particle excursion into an exact promotion-safe or bounded-deferred Design decision shared by humans and Agents. | 2026-07-25 |
 | [[plans/evidence-backed-loss-disposition]] | Preserve an exact loss path as bounded deferred evidence and advance the shared memory-fab handoff to the next actionable diagnostic. | 2026-07-25 |

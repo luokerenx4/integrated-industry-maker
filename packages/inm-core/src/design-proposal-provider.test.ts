@@ -103,8 +103,10 @@ test("commissioned input starvation proposes the measured fast-pulse furnace rec
   const authoredRecoveryRecipe = authoredDeposition.recipes!
     .find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "agile-pulse-fast")!;
   authoredRecoveryRecipe.mode = "agile-pulse";
-  authoredDeposition.policy!.cadenceControl!.recoveryMode = "agile-pulse";
-  authoredDeposition.policy!.cadenceControl!.minimumCoverageDeficitTicks = 10_000;
+  const cadenceControl = authoredDeposition.policy!.cadenceControl!;
+  if (cadenceControl.kind !== "downstream-coverage-recovery") throw new Error("Expected downstream cadence control");
+  cadenceControl.recoveryMode = "agile-pulse";
+  cadenceControl.minimumCoverageDeficitTicks = 10_000;
   loaded.blueprint.revision = "design-normalized-source-hash";
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
@@ -161,7 +163,7 @@ test("commissioned input starvation proposes the measured fast-pulse furnace rec
   })).not.toThrow();
 });
 
-test("commissioned terminal queue proposes the bounded agile screening mode", async () => {
+test("broad provider does not mislabel an upstream tracked-lot queue as terminal screening", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab",
@@ -207,24 +209,15 @@ test("commissioned terminal queue proposes the bounded agile screening mode", as
     capacityPlan: planProductionCapacity(project),
     history: [],
   });
-  const burnInIndex = project.blueprint.devices.findIndex((device) => device.id === "burn-in-1");
-
   expect(proposal).toMatchObject({
-    strategy: "recipe:agile-qualified-terminal-screening",
+    strategy: "dispatch:conwip-9-6-edd",
     addressedLoss: "queue-congestion",
-    patch: [
-      {
-        op: "replace",
-        path: `/devices/${burnInIndex}/recipes/0/mode`,
-        value: "agile-screening-5-8",
-      },
-      {
-        op: "replace",
-        path: `/devices/${burnInIndex}/recipes/1/mode`,
-        value: "agile-screening-5-8",
-      },
-    ],
+    patch: [{
+      op: "replace",
+      path: "/policies/lotRelease",
+    }],
   });
+  expect(proposal.strategy).not.toBe("recipe:agile-qualified-terminal-screening");
   expect(() => compileFactoryProject({
     ...loaded,
     blueprint: applyResearchPatch(project.blueprint, proposal.patch),
@@ -242,8 +235,10 @@ test("commissioned provider uses causal ALD recovery rather than mislabeling lay
   const authoredRecoveryRecipe = authoredDeposition.recipes!
     .find((recipe) => recipe.process === "deposit-dielectric-stack" && recipe.mode === "agile-pulse-fast")!;
   authoredRecoveryRecipe.mode = "agile-pulse";
-  authoredDeposition.policy!.cadenceControl!.recoveryMode = "agile-pulse";
-  authoredDeposition.policy!.cadenceControl!.minimumCoverageDeficitTicks = 10_000;
+  const cadenceControl = authoredDeposition.policy!.cadenceControl!;
+  if (cadenceControl.kind !== "downstream-coverage-recovery") throw new Error("Expected downstream cadence control");
+  cadenceControl.recoveryMode = "agile-pulse";
+  cadenceControl.minimumCoverageDeficitTicks = 10_000;
   const lithography = loaded.blueprint.devices.find((device) => device.id === "lithography-l2")!;
   lithography.policy!.lotDispatch = "fifo";
   const project = compileFactoryProject(loaded);
@@ -1131,6 +1126,85 @@ test("focused layer-two control targets the current etch-origin defect count exa
       score: 0,
       scoreDelta: -1,
     }],
+  })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
+});
+
+test("focused front-end queue provider binds every intervention to the exact layer-one wait contributor", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
+  const baseInput = {
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader" as const, depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform" as const, passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+  };
+  const agent = new ProjectStrategyResearchAgent(root, "strategies/front-end-queue-convergence-proposals.ts");
+  const proposals = [];
+  for (let index = 0; index < 4; index++) {
+    const proposal = await agent.propose({
+      ...baseInput,
+      iteration: index + 1,
+      history: proposals.map((item, historyIndex) => ({
+        iteration: historyIndex + 1,
+        strategy: item.strategy!,
+        hypothesis: item.hypothesis,
+        addressedLoss: item.addressedLoss,
+        decision: "REVERT" as const,
+        score: 0,
+        scoreDelta: -1,
+      })),
+    });
+    proposals.push(proposal);
+    expect(proposal).toMatchObject({
+      addressedLoss: "queue-congestion",
+      addressedLossTarget: {
+        contributor: "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+        metric: "queueTicks",
+        direction: "decrease",
+      },
+    });
+    expect(() => compileFactoryProject({
+      ...loaded,
+      blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+    })).not.toThrow();
+  }
+  expect(proposals.map((proposal) => proposal.strategy)).toEqual([
+    "dispatch:conwip-reopen-6-4",
+    "recipe:input-queue-high-rate-after-5s",
+    "recipe:endpoint-cycle-optimized-19-20",
+    "recipe:conwip-6-4+endpoint-19-20",
+  ]);
+  const withoutExactContributor = {
+    ...fabLoss,
+    buckets: fabLoss.buckets.map((bucket) => bucket.id === "queue-congestion"
+      ? { ...bucket, contributors: bucket.contributors.filter((contributor) =>
+        contributor.id !== "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1") }
+      : bucket),
+  };
+  await expect(agent.propose({
+    ...baseInput,
+    fabLoss: withoutExactContributor,
+    history: [],
   })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
 });
 

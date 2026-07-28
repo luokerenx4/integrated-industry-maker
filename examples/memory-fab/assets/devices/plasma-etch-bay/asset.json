@@ -107,6 +107,40 @@
         "auxiliaryInputs": [],
         "preventsDefects": [],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "queue-cycle-optimized-19-20",
+        "name": "Endpoint-optimized layer-one recipe 19/20",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 19,
+          "denominator": 20
+        },
+        "powerMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "queue-high-rate-4-5",
+        "name": "High-rate layer-one queue recovery 4/5",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 4,
+          "denominator": 5
+        },
+        "powerMultiplier": {
+          "numerator": 5,
+          "denominator": 4
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0
       }
     ],
     "changeover": {
