@@ -367,7 +367,7 @@ function projectDiagnostics(project: CompiledFactoryProject, analysis: Productio
       actionIds: diagnostic.severity === "warning" ? ["analyze", "plan"] : ["analyze"],
     };
   });
-  const realized = (lossAttribution?.buckets ?? []).slice(0, 5).map((bucket, index): WorkbenchDiagnostic => {
+  const realized = (lossAttribution?.buckets ?? []).map((bucket, index): WorkbenchDiagnostic => {
     const subjects = bucket.subjects.length ? bucket.subjects.map((subject) => subject.kind === "project"
       ? { kind: "project" as const, id: project.manifest.id }
       : { ...subject }) : [{ kind: "project" as const, id: project.manifest.id }];

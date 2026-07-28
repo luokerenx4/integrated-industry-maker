@@ -601,7 +601,10 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     });
   }
 
-  const boundarySupply = new Set<ResourceId>();
+  const boundarySupply = new Set<ResourceId>([
+    ...(project.scenario.lotReleases ?? []).map((release) => release.resource),
+    ...(project.scenario.materialDeliveries ?? []).map((delivery) => delivery.resource),
+  ]);
   const boundaryDemand = declaredBoundaryResources(project);
   const resourceIds = [...new Set([...Object.keys(produced), ...Object.keys(consumed)])].sort();
   const resources = resourceIds.map((resource) => ({

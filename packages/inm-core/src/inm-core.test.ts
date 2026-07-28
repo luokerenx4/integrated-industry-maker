@@ -2326,6 +2326,17 @@ describe("deterministic discrete-event simulation", () => {
       })],
     }));
   });
+  test("static production analysis recognizes Scenario-scheduled boundary supply", async () => {
+    const analysis = analyzeProduction(await openFactoryProject(memoryFab));
+    const scheduledInputs = ["blank-dram-wafer-lot", "dram-package-substrate"];
+    for (const resourceId of scheduledInputs) {
+      expect(analysis.resources.find((resource) => resource.resource === resourceId)).toEqual(
+        expect.objectContaining({ resource: resourceId, hasBoundarySupply: true }),
+      );
+      expect(analysis.diagnostics.some((diagnostic) =>
+        diagnostic.code === "material-deficit" && diagnostic.resource === resourceId)).toBeFalse();
+    }
+  });
   test("target-rate planning sizes recipes, extraction, logistics, station fleets, power, and finite reserves", async () => {
     const project = await openFactoryProject(ironworks);
     const plan = planProductionCapacity(project);

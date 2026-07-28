@@ -107,9 +107,12 @@ export interface FabLossContributor {
     | "transport-endpoint-capacity"
     | "transport-endpoint-power"
     | "transport-endpoint-failure"
+    | "power-supply-interruption"
     | "quality-excursion"
     | "equipment-process-drift"
     | "route-q-time-defect";
+  grid?: string | null;
+  endpointStage?: "loader" | "unloader" | null;
   route: string | null;
   step: string | null;
   resources: string[];

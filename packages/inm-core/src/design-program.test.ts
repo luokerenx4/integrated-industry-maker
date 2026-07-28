@@ -156,6 +156,22 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       locked: true,
       budget: { maxCandidates: 2 },
     }),
+    expect.objectContaining({
+      id: "shipping-power-convergence",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["power-interruption"] },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/shipping-power-convergence-proposals.ts",
+        decisionFamilies: ["generation"],
+      },
+      locked: true,
+      budget: { maxCandidates: 2 },
+    }),
   ]);
   const before = await readFile(join(projectDir, "design-programs", "integrated-dram-fab.design.json"), "utf8");
   const brief = await buildDesignProgramBrief(projectDir, "integrated-dram-fab");
@@ -227,7 +243,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   });
 
   expect(result.artifact).toEqual(expect.objectContaining({
-    id: "4e09ef9f41b9b5c58b279d0dcb882985cf50fce573b57d20e2743ab6f5c281fd",
+    id: "ed8dea6b0c1e002d07eaa53c5fc4c317dc1c7d962b2dea226ccb8fd6394dbfed",
     created: true,
   }));
   expect(result.manifest).toMatchObject({
@@ -577,14 +593,15 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     continuation: null,
     budget: { maximum: 7, evaluated: 7 },
     frontier: {
-      leader: "candidate-7",
-      alternatives: [],
-      scheduler: { searchOrder: ["candidate-7"], exhausted: [] },
+      leader: "candidate-4",
+      alternatives: ["candidate-7"],
+      scheduler: { searchOrder: ["candidate-7", "candidate-4"], exhausted: [] },
       nodes: [
-        expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
+        expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
+        expect.objectContaining({ nodeId: "candidate-7", role: "alternative", searchStatus: "searchable" }),
       ],
     },
-    best: { iteration: 7, verdict: "KEEP" },
+    best: { iteration: 4, verdict: "KEEP" },
     exhaustions: [],
     stopReason: "budget-exhausted",
   });
@@ -602,8 +619,8 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     { iteration: 3, strategy: "maintenance:lithography-jobs-6", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 4, strategy: "dispatch:conwip-8-5-edd", decision: "KEEP", parent: "candidate-1", outcome: "leader-promoted" },
     { iteration: 5, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
-    { iteration: 6, strategy: "dispatch:conwip-10-7-edd", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
-    { iteration: 7, strategy: "dispatch:inspection-earliest-due-date", decision: "KEEP", parent: "candidate-4", outcome: "leader-promoted" },
+    { iteration: 6, strategy: "setup-campaign:lithography-3-12000", decision: "BRANCH", parent: "candidate-4", outcome: "branch-retained" },
+    { iteration: 7, strategy: "facility:utility-n-plus-one", decision: "BRANCH", parent: "candidate-6", outcome: "branch-retained" },
   ]);
   expect(first.manifest.iterations[0]).toMatchObject({
     addressedLoss: "q-time",

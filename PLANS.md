@@ -12,6 +12,8 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
+| Plan | Outcome | Updated |
+| --- | --- | --- |
 There are no active plans.
 
 ## Proposed plans
@@ -26,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/continuous-loss-queue-power-handoff]] | Keep the realized-loss queue continuous beyond five dispositions and turn power interruption into an exact locked-case decision. | 2026-07-28 |
 | [[plans/causal-release-admission-design-handoff]] | Turn the current memory-fab release signal into an exact per-lot observable and locked-case design decision. | 2026-07-28 |
 | [[plans/causal-maintenance-design-handoff]] | Turn the current memory-fab maintenance signal into an exact observable and locked-case design decision. | 2026-07-28 |
 | [[plans/observation-led-design-harness]] | Make visual factory observation an exact, shared step in the human/Agent industrial design loop. | 2026-07-28 |

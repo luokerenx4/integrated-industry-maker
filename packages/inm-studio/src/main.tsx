@@ -2071,6 +2071,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   const maintenanceContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
   const releaseContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "release-admission")?.contributors ?? [];
+  const powerContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")?.contributors ?? [];
   const wipContributors = snapshot.inventoryAccounting
     ? Object.entries(snapshot.inventoryAccounting.resources)
       .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
@@ -2088,6 +2089,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     "transport-endpoint-capacity": "TRANSPORT ENDPOINT CAPACITY",
     "transport-endpoint-power": "TRANSPORT ENDPOINT POWER",
     "transport-endpoint-failure": "TRANSPORT ENDPOINT FAILURE",
+    "power-supply-interruption": "POWER SUPPLY INTERRUPTION",
     "quality-excursion": "AUTHORED QUALITY EXCURSION",
     "equipment-process-drift": "EQUIPMENT PROCESS DRIFT",
     "route-q-time-defect": "ROUTE Q-TIME DEFECT",
@@ -2168,7 +2170,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       </section>
       {snapshot.lossAttribution && <section className="overview-panel fab-loss-panel" data-testid="fab-loss-attribution">
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
-        <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.slice(0, 5).map((bucket, index) => {
+        <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.map((bucket, index) => {
           const disposition = snapshot.lossDispositions.find((item) => item.loss === bucket.id);
           return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${disposition ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
         })}</div>
@@ -2237,6 +2239,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
               <code>service: {serviceConsumables} · qualification: {qualificationConsumables} · {contributor.evidence.driftedJobs} drifted jobs / {contributor.evidence.driftDefects} defects</code>
             </article>;
           })}</div>
+        </div>}
+        {powerContributors.length > 0 && <div className="q-time-contributors power-contributors" data-testid="power-interruption-contributors">
+          <header><span className="eyebrow">POWER-INTERRUPTION CONTRIBUTORS</span><small>Device time conserved to the exact grid and sorter endpoint · top {Math.min(7, powerContributors.length)} of {powerContributors.length}</small></header>
+          <div>{powerContributors.slice(0, 7).map((contributor) => <article key={contributor.id} data-testid={`power-interruption-contributor-${contributor.label}`}>
+            <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.label}</strong><code>{contributor.grid ?? "unbound grid"}{contributor.endpointStage ? ` · ${contributor.endpointStage}` : ""}</code></span>
+            <span><b>{(contributor.evidence.unpoweredTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.unpoweredShare! * 100).toFixed(1)}% OF UNPOWERED TIME</small></span>
+            <span><b>{contributor.evidence.peakDeficitMilliWatts}mW</b><small>DEVICE PEAK DEFICIT · {contributor.evidence.shortageEvents} SHORTAGES / {contributor.evidence.restorationEvents} RESTORES</small></span>
+            <span><b>{contributor.evidence.gridUnservedMilliJoules}mJ</b><small>GRID UNSERVED · {contributor.evidence.gridPeakDeficitMilliWatts}mW PEAK / {contributor.evidence.gridRequiredStorageCapacityMilliJoules}mJ ENVELOPE</small></span>
+            <code>{contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")} · active {contributor.evidence.activeJobShortageEvents} / standby {contributor.evidence.standbyShortageEvents} / transport {contributor.evidence.transportShortageEvents}</code>
+          </article>)}</div>
         </div>}
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">
           <header><span className="eyebrow">Q-TIME CONTRIBUTORS</span><small>Exact event-backed step, equipment, lot, and wait evidence</small></header>

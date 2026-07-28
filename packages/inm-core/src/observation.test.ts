@@ -26,8 +26,8 @@ test("observation brief advances past every current bounded memory-fab loss", as
     decision: "BASELINE",
   }));
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "analysis.material-deficit",
-    subjects: [{ kind: "resource", id: "blank-dram-wafer-lot" }],
+    code: "fab-loss.setup-campaign",
+    subjects: [{ kind: "device", id: "burn-in-1" }],
   }));
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
@@ -37,13 +37,37 @@ test("observation brief advances past every current bounded memory-fab loss", as
     required: true,
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/resources/blank-dram-wafer-lot" }),
+    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/burn-in-1?run=090-simulate" }),
     expect.objectContaining({ kind: "analysis-evidence", studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/") }),
   ]));
-  expect(brief.views.some((view) => view.kind === "catalog-focus")).toBeTrue();
+  expect(brief.views.some((view) => view.kind === "factory-focus")).toBeTrue();
   expect(brief.handoff.requiredStatements).toHaveLength(4);
   expect(await openFactoryObservationBrief(projectDir, {}, "090-simulate")).toEqual(brief);
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
+});
+
+test("observation brief exposes the exact shipping grid before power interruption is dispositioned", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-observation-power-"));
+  const projectDir = join(root, "memory-fab");
+  const powerRuns = join("design-runs", "shipping-power-convergence");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.includes(powerRuns) && !source.split("/").includes(".inm"),
+  });
+  const brief = await openFactoryObservationBrief(projectDir, {}, "090-simulate");
+  expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
+    code: "fab-loss.power-interruption",
+    subjects: [
+      { kind: "device", id: "substrate-receiving-to-packaging-loader" },
+      { kind: "connection", id: "substrate-receiving-to-packaging" },
+      { kind: "device", id: "shipping-power" },
+    ],
+  }));
+  expect(brief.views).toEqual(expect.arrayContaining([
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=090-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/connections/substrate-receiving-to-packaging?run=090-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/shipping-power?run=090-simulate" }),
+  ]));
 });
 
 test("observation brief exposes the exact release boundary before release admission is dispositioned", async () => {

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "shipping-power-convergence",
+  "name": "Shipping Power Convergence",
+  "description": "Evaluate one explicit shipping-grid generation increment against the leading sorter-endpoint power interruption while preserving every commissioned operating case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "focus": {
+    "kind": "losses",
+    "losses": [
+      "power-interruption"
+    ]
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 0
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/shipping-power-convergence-proposals.ts",
+    "decisionFamilies": [
+      "generation"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 2
+  }
+}

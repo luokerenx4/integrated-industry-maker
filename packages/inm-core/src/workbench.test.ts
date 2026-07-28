@@ -70,7 +70,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
-    flow: { state: "at-risk", warningCount: 14, infoCount: 12 },
+    flow: { state: "at-risk", warningCount: 15, infoCount: 12 },
     evidence: { state: "current", runId: "090-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 },
   }));
@@ -90,8 +90,50 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   }));
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
     version: 8,
-    chain: ["input-starvation", "yield-quality", "queue-congestion", "maintenance-qualification", "release-admission"],
+    chain: [
+      "input-starvation",
+      "yield-quality",
+      "queue-congestion",
+      "maintenance-qualification",
+      "release-admission",
+      "power-interruption",
+      "setup-campaign",
+      "transport-blocking",
+    ],
   }));
+  expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")).toMatchObject({
+    evidence: {
+      unpoweredTicks: 552_076,
+      attributedTicks: 552_076,
+      unattributedTicks: 0,
+      contributors: 7,
+      affectedGrids: 1,
+    },
+    subjects: [
+      { kind: "device", id: "substrate-receiving-to-packaging-loader" },
+      { kind: "connection", id: "substrate-receiving-to-packaging" },
+      { kind: "device", id: "shipping-power" },
+    ],
+    contributors: expect.arrayContaining([
+      expect.objectContaining({
+        id: "device:substrate-receiving-to-packaging-loader:power-interruption",
+        mechanism: "power-supply-interruption",
+        grid: "grid-cleanroom-shipping-power",
+        endpointStage: "loader",
+        evidence: expect.objectContaining({
+          unpoweredTicks: 163_777,
+          gridUnservedMilliJoules: 149_450,
+          gridPeakDeficitMilliWatts: 7_000,
+          gridRequiredStorageCapacityMilliJoules: 21_225,
+        }),
+      }),
+      expect.objectContaining({
+        id: "device:substrate-receiving-to-packaging-unloader:power-interruption",
+        endpointStage: "unloader",
+        evidence: expect.objectContaining({ unpoweredTicks: 163_777 }),
+      }),
+    ]),
+  });
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")).toMatchObject({
     label: "Local transport blocking by cause",
     evidence: {
@@ -215,10 +257,10 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       expect.objectContaining({ id: "lot:dram-lot-12:release-admission", evidence: expect.objectContaining({ totalTicks: 1_623 }) }),
     ],
   });
-  expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
+  expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeTrue();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(8);
+  expect(snapshot.counts.designPrograms).toBe(9);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "commissioned-dram-fab",
@@ -277,6 +319,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       id: "release-admission-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
       focus: { kind: "losses", losses: ["release-admission"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
+    expect.objectContaining({
+      id: "shipping-power-convergence",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["power-interruption"] },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -612,6 +662,31 @@ test("current inspection and yield evidence advances the shared handoff to the f
         rejectedCandidates: 1,
         bestObservedValue: 17_000,
         largestReduction: 17_000,
+        decisionBases: expect.objectContaining({ "benchmark-gate": 1 }),
+      }),
+    }),
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
+      loss: "power-interruption",
+      target: {
+        contributor: "device:substrate-receiving-to-packaging-loader:power-interruption",
+        metric: "unpoweredTicks",
+        direction: "decrease",
+        currentValue: 163_777,
+      },
+      source: expect.objectContaining({
+        programId: "shipping-power-convergence",
+        benchmarkId: "greenfield-dram-design",
+        runId: "efdf2963a73292a245dc9c562f1e6642785b7dfeec10bbf258aa5e6d6fce6227",
+      }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 1,
+        improvedCandidates: 1,
+        rejectedCandidates: 1,
+        bestObservedValue: 0,
+        largestReduction: 163_777,
         decisionBases: expect.objectContaining({ "benchmark-gate": 1 }),
       }),
     }),

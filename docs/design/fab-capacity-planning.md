@@ -35,6 +35,8 @@ Every matching `Scenario.lotReleases` lot and `Scenario.materialDeliveries` item
 
 The planner raises a raw-rate gap only when extraction plus scheduled external supply cannot sustain the target. It raises a Scenario balance gap when finite deposits plus scheduled supply cannot cover the full horizon. Scheduled lots and purchased items are counted at their authored quantity even though actual admission may wait for receiving capacity or Blueprint CONWIP; that temporal behavior belongs to simulation.
 
+Nominal production analysis uses the same boundary declaration: a Resource present in `lotReleases` or `materialDeliveries` is marked `hasBoundarySupply` and is not reported as lacking an internal producer. Rate adequacy remains the capacity planner's responsibility, while runtime arrival and admission remain the simulator's.
+
 ## AutoResearch contract
 
 The benchmark freezes World, Scenario, Objective, catalogs, engine version, baseline Blueprint, and case seeds. The candidate Blueprint is the only editable variable. Capacity readiness can therefore be a hard acceptance gate without letting the candidate manufacture work or relax demand.

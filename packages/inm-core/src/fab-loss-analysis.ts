@@ -34,6 +34,7 @@ export type FabLossContributorMechanism =
   | "transport-endpoint-capacity"
   | "transport-endpoint-power"
   | "transport-endpoint-failure"
+  | "power-supply-interruption"
   | "quality-excursion"
   | "equipment-process-drift"
   | "route-q-time-defect";
@@ -42,6 +43,8 @@ export interface FabLossContributor {
   id: string;
   label: string;
   mechanism: FabLossContributorMechanism;
+  grid?: string | null;
+  endpointStage?: "loader" | "unloader" | null;
   route: string | null;
   step: string | null;
   resources: string[];
@@ -1317,7 +1320,7 @@ export function analyzeMaintenanceQualification(
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
-  project: Pick<CompiledFactoryProject, "devices" | "resources" | "routes" | "scenario">,
+  project: Pick<CompiledFactoryProject, "devices" | "powerGrids" | "resources" | "routes" | "scenario">,
   events: readonly FactoryEvent[],
 ): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
@@ -1410,8 +1413,102 @@ export function analyzeFabLossProfile(
   add({ id: "equipment-failure", label: "Equipment failure", score: ratio(failedTicks, durationTicks * Math.max(1, Object.keys(metrics.failedTime).length)), summary: `Equipment accumulated ${(failedTicks / 1000).toFixed(1)} failed device-s.`, subjects: failedDevice ? [{ kind: "device", id: failedDevice }] : [], evidence: { failedTicks } });
 
   const unpoweredTicks = sum(metrics.unpoweredTime);
-  const unpoweredDevice = topKey(metrics.unpoweredTime);
-  add({ id: "power-interruption", label: "Power interruption", score: ratio(unpoweredTicks, durationTicks * Math.max(1, Object.keys(metrics.unpoweredTime).length)), summary: `Equipment accumulated ${(unpoweredTicks / 1000).toFixed(1)} unpowered device-s across the selected operating window.`, subjects: unpoweredDevice ? [{ kind: "device", id: unpoweredDevice }] : [], evidence: { unpoweredTicks } });
+  const powerContributors = Object.entries(metrics.unpoweredTime)
+    .filter(([, ticks]) => ticks > 0)
+    .map(([deviceId, ticks]): FabLossContributor => {
+      const device = project.devices[deviceId];
+      const endpoint = device?.transportEndpoint ?? null;
+      const powerShortages = events.filter((event): event is Extract<FactoryEvent, { type: "power.shortage" }> =>
+        event.type === "power.shortage" && event.device === deviceId);
+      const transportShortages = events.filter((event): event is Extract<FactoryEvent, { type: "transport.power-shortage" }> =>
+        event.type === "transport.power-shortage" && event.device === deviceId);
+      const shortages = [...powerShortages, ...transportShortages];
+      const grid = device?.powerGrid
+        ?? shortages.map((event) => event.grid).filter((value): value is string => value !== null).sort()[0]
+        ?? null;
+      const gridMetrics = grid ? metrics.powerGrids[grid] : undefined;
+      const gridDefinition = grid ? project.powerGrids[grid] : undefined;
+      const peakShortage = shortages
+        .map((event) => ({
+          tick: event.tick,
+          requiredMilliWatts: event.requiredMilliWatts,
+          availableMilliWatts: event.availableMilliWatts,
+          deficitMilliWatts: Math.max(0, event.requiredMilliWatts - event.availableMilliWatts),
+        }))
+        .sort((left, right) => right.deficitMilliWatts - left.deficitMilliWatts || left.tick - right.tick)[0];
+      const restorationEvents = events.filter((event) =>
+        (event.type === "power.restored"
+          || event.type === "power.standby-restored"
+          || event.type === "transport.power-restored")
+        && event.device === deviceId);
+      const subjects = [
+        { kind: "device" as const, id: deviceId },
+        ...(endpoint ? [{ kind: "connection" as const, id: endpoint.connection }] : []),
+        ...(gridDefinition?.distributors ?? []).map((id) => ({ kind: "device" as const, id })),
+      ].filter((subject, index, all) =>
+        all.findIndex((candidate) => candidate.kind === subject.kind && candidate.id === subject.id) === index);
+      return {
+        id: `device:${deviceId}:power-interruption`,
+        label: deviceId,
+        mechanism: "power-supply-interruption",
+        grid,
+        endpointStage: endpoint?.stage ?? null,
+        route: null,
+        step: null,
+        resources: [],
+        processes: [],
+        defects: [],
+        lots: [],
+        subjects,
+        evidence: {
+          unpoweredTicks: ticks,
+          unpoweredShare: ratio(ticks, unpoweredTicks),
+          shortageEvents: shortages.length,
+          activeJobShortageEvents: powerShortages.filter((event) => event.remainingTicks !== undefined || event.workedTicks !== undefined).length,
+          standbyShortageEvents: powerShortages.filter((event) => event.remainingTicks === undefined && event.workedTicks === undefined).length,
+          transportShortageEvents: transportShortages.length,
+          restorationEvents: restorationEvents.length,
+          peakRequiredMilliWatts: peakShortage?.requiredMilliWatts ?? 0,
+          availableAtPeakMilliWatts: peakShortage?.availableMilliWatts ?? 0,
+          peakDeficitMilliWatts: peakShortage?.deficitMilliWatts ?? 0,
+          transportEndpoint: endpoint ? 1 : 0,
+          loaderEndpoint: endpoint?.stage === "loader" ? 1 : 0,
+          unloaderEndpoint: endpoint?.stage === "unloader" ? 1 : 0,
+          gridGeneratedMilliJoules: gridMetrics?.generatedMilliJoules ?? 0,
+          gridDemandMilliJoules: gridMetrics?.demandMilliJoules ?? 0,
+          gridServedMilliJoules: gridMetrics?.servedMilliJoules ?? 0,
+          gridUnservedMilliJoules: gridMetrics?.unservedMilliJoules ?? 0,
+          gridPeakDeficitMilliWatts: gridMetrics?.peakDeficitMilliWatts ?? 0,
+          gridRequiredStorageCapacityMilliJoules: gridMetrics?.requiredStorageCapacityMilliJoules ?? 0,
+        },
+        consumables: { service: {}, qualification: {} },
+        inputStates: [],
+      };
+    })
+    .sort((left, right) =>
+      right.evidence.unpoweredTicks! - left.evidence.unpoweredTicks!
+      || left.id.localeCompare(right.id));
+  const attributedUnpoweredTicks = powerContributors.reduce((total, contributor) =>
+    total + contributor.evidence.unpoweredTicks!, 0);
+  if (attributedUnpoweredTicks !== unpoweredTicks) {
+    throw new Error(`Power-interruption attribution mismatch: contributors=${attributedUnpoweredTicks}, metrics=${unpoweredTicks}`);
+  }
+  const leadingPower = powerContributors[0] ?? null;
+  add({
+    id: "power-interruption",
+    label: "Power interruption",
+    score: ratio(unpoweredTicks, durationTicks * Math.max(1, Object.keys(metrics.unpoweredTime).length)),
+    summary: `Equipment accumulated ${(unpoweredTicks / 1000).toFixed(1)} unpowered device-s across the selected operating window.${leadingPower ? ` ${leadingPower.label} leads on ${leadingPower.grid ?? "an unbound grid"} with ${(leadingPower.evidence.unpoweredTicks! / 1000).toFixed(1)} device-s.` : ""}`,
+    subjects: leadingPower?.subjects ?? [],
+    evidence: {
+      unpoweredTicks,
+      attributedTicks: attributedUnpoweredTicks,
+      unattributedTicks: unpoweredTicks - attributedUnpoweredTicks,
+      contributors: powerContributors.length,
+      affectedGrids: new Set(powerContributors.map((contributor) => contributor.grid).filter(Boolean)).size,
+    },
+    contributors: powerContributors,
+  });
 
   add({
     id: "transport-blocking",
@@ -1496,7 +1593,7 @@ export function analyzeFabLossProfile(
       deliveryShortfall, deliveryOverflow, portfolioNetValue: metrics.deliveryPortfolio.netValue,
     },
     primary: buckets[0] ?? null,
-    chain: buckets.slice(0, 5).map((bucket) => bucket.id),
+    chain: buckets.map((bucket) => bucket.id),
     buckets,
     caveat: "Bucket scores are deterministic ranking signals derived from overlapping measured delays and losses; they are not additive units of foregone output or calibrated causal estimates.",
   };
@@ -1506,7 +1603,7 @@ export function analyzeFabLosses(
   metrics: FactoryMetrics,
   durationTicks: number,
   run: { id: string; resultHash: string },
-  project: Pick<CompiledFactoryProject, "devices" | "resources" | "routes" | "scenario">,
+  project: Pick<CompiledFactoryProject, "devices" | "powerGrids" | "resources" | "routes" | "scenario">,
   events: readonly FactoryEvent[],
 ): FabLossAttribution | null {
   const profile = analyzeFabLossProfile(metrics, durationTicks, project, events);

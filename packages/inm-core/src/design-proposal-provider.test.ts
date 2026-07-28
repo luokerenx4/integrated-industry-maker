@@ -494,7 +494,17 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
         },
       }],
     },
-    chain: ["q-time", "yield-quality", "input-starvation", "queue-congestion", "maintenance-qualification"],
+    chain: [
+      "q-time",
+      "yield-quality",
+      "input-starvation",
+      "queue-congestion",
+      "maintenance-qualification",
+      "batch-formation",
+      "delivery-portfolio",
+      "release-admission",
+      "setup-campaign",
+    ],
   });
   const yieldQuality = fabLoss.buckets.find((bucket) => bucket.id === "yield-quality");
   expect(yieldQuality).toMatchObject({
@@ -735,7 +745,17 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
         subjectScrappedLots: 2,
       },
     },
-    chain: ["yield-quality", "q-time", "queue-congestion", "input-starvation", "batch-formation"],
+    chain: [
+      "yield-quality",
+      "q-time",
+      "queue-congestion",
+      "input-starvation",
+      "batch-formation",
+      "maintenance-qualification",
+      "delivery-portfolio",
+      "release-admission",
+      "setup-campaign",
+    ],
   });
 
   const proposal = await new ProjectStrategyResearchAgent(root, "strategies/integrated-dram-proposals.ts").propose({

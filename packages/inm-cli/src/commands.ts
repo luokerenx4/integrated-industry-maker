@@ -411,6 +411,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
   const releaseContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "release-admission")?.contributors ?? [];
+  const powerContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "power-interruption")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
       summary: () => ({
@@ -549,6 +551,12 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
           return `  ${contributor.label} · ${(contributor.evidence.totalTicks! / 1000).toFixed(1)}s total = ${(contributor.evidence.maintenanceTicks! / 1000).toFixed(1)}s service + ${(contributor.evidence.qualificationTicks! / 1000).toFixed(1)}s qualification + ${(contributor.evidence.inputWaitTicks! / 1000).toFixed(1)}s input wait + ${(contributor.evidence.crewWaitTicks! / 1000).toFixed(1)}s crew wait · ${contributor.evidence.assetLimit} asset / ${contributor.evidence.plannedBoundary} planned / ${contributor.evidence.opportunistic} opportunistic · ${contributor.evidence.usageTriggered} usage / ${contributor.evidence.calendarTriggered} calendar · service ${serviceConsumables} · qualification ${qualificationConsumables} · ${devices}`;
         }),
         ...(maintenanceContributors.length > 5 ? [`  … ${maintenanceContributors.length - 5} more in --section losses --json`] : []),
+      ] : []),
+      ...(powerContributors.length ? [
+        "Power-interruption contributors:",
+        ...powerContributors.slice(0, 7).map((contributor) =>
+          `  ${contributor.label} · ${contributor.grid ?? "unbound grid"}${contributor.endpointStage ? ` / ${contributor.endpointStage}` : ""} · ${(contributor.evidence.unpoweredTicks! / 1000).toFixed(1)}s / ${(contributor.evidence.unpoweredShare! * 100).toFixed(1)}% · ${contributor.evidence.shortageEvents} shortages / ${contributor.evidence.restorationEvents} restores · device peak ${contributor.evidence.peakDeficitMilliWatts}mW · grid ${contributor.evidence.gridUnservedMilliJoules}mJ unserved / ${contributor.evidence.gridPeakDeficitMilliWatts}mW peak / ${contributor.evidence.gridRequiredStorageCapacityMilliJoules}mJ envelope · ${contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")}`),
+        ...(powerContributors.length > 7 ? [`  … ${powerContributors.length - 7} more in --section losses --json`] : []),
       ] : []),
       ...(qTimeContributors.length ? [
         "Q-time contributors:",
