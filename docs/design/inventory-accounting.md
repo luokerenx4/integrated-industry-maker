@@ -28,6 +28,8 @@ At every deterministic measurement boundary, Core groups inventory by Resource a
 
 Each physical item appears in exactly one of those locations. Moving material therefore does not disappear from inventory and is not counted twice. For every observed Resource, the runtime integrates item-ticks, records peak quantity, and captures final quantity. It separately records total inventory and the sum whose Resource ids occur in `Objective.wipResources`.
 
+The boundary observation is read-only and disposable. Core traverses each resident Buffer, local transit, and station cargo collection once, groups its exact current contents into one boundary-local Resource projection, and consumes that projection once for total, WIP, area, and peak integration. The same local-transit pass integrates belt occupancy, connection occupancy, sorter-stage activity, and typed blocking causes; the same carrier-mission pass integrates congestion and fleet busy area. Stable Device, Buffer, connection, network, fleet, and Objective-WIP membership is prepared once per simulation, while every quantity, phase, status, and cause is read live from `FactoryState`. There is no cached mutable inventory or metrics shadow ledger.
+
 `FactoryMetrics.inventoryAccounting` contains:
 
 - average and peak total inventory;

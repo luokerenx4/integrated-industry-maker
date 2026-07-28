@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/single-pass-runtime-measurement]] | Observe authoritative inventory, transport, and mission state once per deterministic metric boundary. | 2026-07-29 |
 | [[plans/prepared-device-program-context]] | Reuse immutable Device Program descriptions while constructing a fresh invocation root around exact live simulator state. | 2026-07-29 |
 | [[plans/compiled-local-dispatch-topology]] | Reuse one simulation-local view of static local-logistics sources, outgoing connections, and authored priority while preserving live deterministic dispatch. | 2026-07-29 |
 | [[plans/structural-input-starvation-evidence]] | Detect exact material-shortage evidence changes structurally and use compiled incoming supply paths instead of serializing and rescanning topology. | 2026-07-29 |

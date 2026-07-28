@@ -77,20 +77,6 @@ function sameMaterialInputShortages(left: MaterialInputShortage[], right: Materi
   }
   return true;
 }
-function inventoryByResource(state: FactoryState): Record<string, number> {
-  const result: Record<string, number> = {};
-  const add = (resource: string, count: number) => {
-    result[resource] = (result[resource] ?? 0) + count;
-  };
-  for (const runtime of Object.values(state.devices)) {
-    for (const inventory of Object.values(runtime.buffers)) {
-      for (const [resource, count] of Object.entries(inventory)) add(resource, count);
-    }
-  }
-  for (const transit of Object.values(state.transports).flat()) add(transit.resource, transit.count);
-  for (const transit of Object.values(state.logisticsTransports).flat()) add(transit.resource, transit.count);
-  return result;
-}
 function stationFleetKey(network: string, station: string): string { return `${network}:${station}`; }
 
 function renewableProfileFor(project: CompiledFactoryProject, deviceId: string) {
@@ -397,6 +383,25 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const bufferIdsByDevice = Object.fromEntries(devices.map((device) => [device.id, Object.keys(device.buffers)]));
   const connectionIds = Object.keys(project.connections);
   const logisticsNetworkIds = Object.keys(project.logisticsNetworks);
+  const measurementDeviceIds = Object.keys(state.devices);
+  const measurementLotIds = Object.keys(state.lots);
+  const measurementConnectionIds = Object.keys(state.transports);
+  const measurementLogisticsNetworkIds = Object.keys(state.logisticsTransports);
+  const measurementWipResources = new Set(project.objective.wipResources);
+  const measurementTransportCellCount = Math.max(1, Object.keys(project.transportCells).length);
+  const measurementConnectionCount = connectionIds.length;
+  const measurementStationFleets = measurementLogisticsNetworkIds.flatMap((network) =>
+    project.logisticsNetworks[network]!.fleets.map((fleet) => ({
+      network,
+      station: fleet.station,
+      asset: fleet.asset.id,
+      count: fleet.count,
+      metricKey: stationFleetKey(network, fleet.station),
+    })));
+  const measurementStationFleetByIdentity = Object.fromEntries(measurementStationFleets.map((fleet, index) => [
+    `${fleet.network}\0${fleet.station}\0${fleet.asset}`,
+    { index, metricKey: fleet.metricKey },
+  ]));
   const connectionsInIdOrder = Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id));
   const outgoingConnectionsBySource: Record<string, CompiledConnection[]> = {};
   const incomingConnectionsByDeviceBufferResource: Record<string, Record<string, Record<string, CompiledConnection[]>>> = {};
@@ -522,8 +527,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const pendingMaterialDeliveries = new Set<string>();
   const materialDeliveries = Object.fromEntries((project.scenario.materialDeliveries ?? []).map((delivery) => [delivery.id, delivery]));
   const releasePolicy = project.blueprint.policies.lotRelease;
-  const activeLotWip = () => Object.values(state.lots)
-    .filter((lot) => lot.releasedAtTick !== undefined && lot.status !== "completed" && lot.status !== "scrapped").length;
+  const activeLotWip = () => {
+    let active = 0;
+    for (const id of measurementLotIds) {
+      const lot = state.lots[id]!;
+      if (lot.releasedAtTick !== undefined && lot.status !== "completed" && lot.status !== "scrapped") active++;
+    }
+    return active;
+  };
   const updatePeakActiveLots = () => { stats.peakActiveLots = Math.max(stats.peakActiveLots, activeLotWip()); };
   const isServiceProtectedLot = (id: string): boolean => {
     const lot = state.lots[id];
@@ -815,54 +826,84 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const measureUntil = (tick: number) => {
     const delta = tick - state.tick;
     if (delta <= 0) return;
-    const inventory = inventoryByResource(state);
-    const wipScope = new Set(project.objective.wipResources);
-    const totalInventory = Object.values(inventory).reduce((sum, count) => sum + count, 0);
-    const wip = Object.entries(inventory).reduce((sum, [resource, count]) => sum + (wipScope.has(resource) ? count : 0), 0);
+    const inventory: Record<string, number> = {};
+    for (const deviceId of measurementDeviceIds) {
+      const runtime = state.devices[deviceId]!;
+      for (const bufferId of bufferIdsByDevice[deviceId]!) {
+        for (const [resource, count] of Object.entries(runtime.buffers[bufferId]!)) {
+          inventory[resource] = (inventory[resource] ?? 0) + count;
+        }
+      }
+    }
+    let occupiedBeltCells = 0;
+    let beltItems = 0;
+    let blockedBeltItems = 0;
+    for (const connectionId of measurementConnectionIds) {
+      const transits = state.transports[connectionId]!;
+      let loadingTransits = 0;
+      let unloadingTransits = 0;
+      let connectionItems = 0;
+      const blockedByCause = stats.connectionBlockedAreaByCause[connectionId] ??= emptyTransportBlockTicks();
+      for (const transit of transits) {
+        inventory[transit.resource] = (inventory[transit.resource] ?? 0) + transit.count;
+        connectionItems += transit.count;
+        if (transit.phase === "belt") {
+          occupiedBeltCells++;
+          beltItems += transit.count;
+        } else if (transit.phase === "loading") loadingTransits++;
+        else unloadingTransits++;
+        if (!transit.blockedBy) continue;
+        blockedBeltItems += transit.count;
+        if (!transit.blockedCause || !transit.blockedStage) {
+          throw new Error(`Blocked transit '${transit.id}' on '${connectionId}' has no typed cause and stage`);
+        }
+        blockedByCause[transit.blockedCause][transit.blockedStage] += transit.count * delta;
+      }
+      const active = stats.transportStageActiveArea[connectionId] ??= { loader: 0, unloader: 0 };
+      const connection = project.connections[connectionId]!;
+      const loader = transportStage(connection, "loader");
+      const unloader = transportStage(connection, "unloader");
+      if (state.devices[loader.device!.id]!.status === "processing") active.loader += loadingTransits * delta;
+      if (state.devices[unloader.device!.id]!.status === "processing") active.unloader += unloadingTransits * delta;
+      stats.connectionOccupancyArea[connectionId] = (stats.connectionOccupancyArea[connectionId] ?? 0) + connectionItems * delta;
+    }
+    for (const networkId of measurementLogisticsNetworkIds) {
+      for (const transit of state.logisticsTransports[networkId]!) {
+        inventory[transit.resource] = (inventory[transit.resource] ?? 0) + transit.count;
+      }
+    }
+    let totalInventory = 0;
+    let wip = 0;
     for (const [resource, count] of Object.entries(inventory)) {
+      totalInventory += count;
+      if (measurementWipResources.has(resource)) wip += count;
       stats.inventoryArea[resource] = (stats.inventoryArea[resource] ?? 0) + count * delta;
       stats.inventoryPeak[resource] = Math.max(stats.inventoryPeak[resource] ?? 0, count);
     }
     stats.peakTotalInventory = Math.max(stats.peakTotalInventory, totalInventory);
     stats.peakWip = Math.max(stats.peakWip, wip);
     updatePeakActiveLots();
-    const beltTransits = Object.values(state.transports).flat().filter((transit) => transit.phase === "belt");
-    const occupiedBeltCells = beltTransits.length;
-    const beltItems = beltTransits.reduce((sum, transit) => sum + transit.count, 0);
-    const blockedBeltItems = Object.values(state.transports).flat().filter((transit) => transit.blockedBy).reduce((sum, transit) => sum + transit.count, 0);
-    const connectionCongestion = occupiedBeltCells / Math.max(1, Object.keys(project.transportCells).length) * Object.keys(project.connections).length;
-    const stationCongestion = Object.entries(state.logisticsMissions).reduce((sum, [id, missions]) => sum
-      + project.logisticsNetworks[id]!.fleets.reduce((fleetSum, fleet) => {
-        if (fleet.count <= 0) return fleetSum;
-        const busy = missions.filter((mission) => mission.homeStation === fleet.station && mission.carrierAsset === fleet.asset.id).length;
-        return fleetSum + busy / fleet.count;
-      }, 0), 0);
+    const connectionCongestion = occupiedBeltCells / measurementTransportCellCount * measurementConnectionCount;
+    const stationFleetBusyCounts = new Array<number>(measurementStationFleets.length).fill(0);
+    for (const networkId of measurementLogisticsNetworkIds) {
+      for (const mission of state.logisticsMissions[networkId]!) {
+        const fleet = measurementStationFleetByIdentity[`${networkId}\0${mission.homeStation}\0${mission.carrierAsset}`];
+        if (fleet) stationFleetBusyCounts[fleet.index] = stationFleetBusyCounts[fleet.index]! + 1;
+        const key = fleet?.metricKey ?? stationFleetKey(mission.network, mission.homeStation);
+        stats.stationFleetBusyArea[key] = (stats.stationFleetBusyArea[key] ?? 0) + delta;
+      }
+    }
+    let stationCongestion = 0;
+    for (let index = 0; index < measurementStationFleets.length; index++) {
+      const fleet = measurementStationFleets[index]!;
+      if (fleet.count > 0) stationCongestion += stationFleetBusyCounts[index]! / fleet.count;
+    }
     const congestion = connectionCongestion + stationCongestion;
     stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
     stats.beltOccupancyArea += occupiedBeltCells * delta;
     stats.beltItemArea += beltItems * delta;
     stats.beltBlockedArea += blockedBeltItems * delta;
     stats.peakBeltItems = Math.max(stats.peakBeltItems, beltItems);
-    for (const missions of Object.values(state.logisticsMissions)) for (const mission of missions) {
-      const key = stationFleetKey(mission.network, mission.homeStation);
-      stats.stationFleetBusyArea[key] = (stats.stationFleetBusyArea[key] ?? 0) + delta;
-    }
-    for (const [connectionId, transits] of Object.entries(state.transports)) {
-      const active = stats.transportStageActiveArea[connectionId] ??= { loader: 0, unloader: 0 };
-      const connection = project.connections[connectionId]!;
-      const loader = transportStage(connection, "loader"); const unloader = transportStage(connection, "unloader");
-      if (state.devices[loader.device!.id]!.status === "processing") active.loader += transits.filter((transit) => transit.phase === "loading").length * delta;
-      if (state.devices[unloader.device!.id]!.status === "processing") active.unloader += transits.filter((transit) => transit.phase === "unloading").length * delta;
-      stats.connectionOccupancyArea[connectionId] = (stats.connectionOccupancyArea[connectionId] ?? 0)
-        + transits.reduce((sum, transit) => sum + transit.count, 0) * delta;
-      const blockedByCause = stats.connectionBlockedAreaByCause[connectionId] ??= emptyTransportBlockTicks();
-      for (const transit of transits.filter((item) => item.blockedBy)) {
-        if (!transit.blockedCause || !transit.blockedStage) {
-          throw new Error(`Blocked transit '${transit.id}' on '${connectionId}' has no typed cause and stage`);
-        }
-        blockedByCause[transit.blockedCause][transit.blockedStage] += transit.count * delta;
-      }
-    }
     const regionalMeteredPower: Record<string, number> = {};
     for (const grid of powerGridIds) {
       const generated = generationPower(grid); const load = gridLoad(grid); const requestedLoad = requestedPower(grid);
