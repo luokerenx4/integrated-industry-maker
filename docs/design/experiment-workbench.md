@@ -2,7 +2,7 @@
 
 Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, and V7 control activation causality implemented.
 
-Related: [[docs/design/coding-agent-optimization]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
+Related: [[docs/design/coding-agent-optimization]], [[docs/design/observation-led-design]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
 ## Product boundary
 
@@ -13,6 +13,8 @@ INM is AI-first and human-legible. Industrial complexity remains explicit; diffe
 - Browser-capable Agents may operate the same semantic DOM when spatial or user-facing verification matters.
 
 Capability parity does not require interaction parity. A model should not scrape hundreds of visible metrics when the CLI can return typed JSON, and a human should not have to read raw JSON to inspect a layout or causal regression.
+
+Factory design nevertheless requires both projections. Before authoring a substantive intervention, `inm observe` binds the exact structured evidence to stable run-qualified Factory views. The observer uses CLI data for exact quantities and Studio for spatial interpretation; neither projection substitutes for the other in the observation-led design loop.
 
 ## One authoritative protocol
 

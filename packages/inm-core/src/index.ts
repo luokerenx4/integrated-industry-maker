@@ -31,6 +31,7 @@ export * from "./design-proposal-provider";
 export * from "./fab-loss-analysis";
 export * from "./transport-blocking";
 export * from "./workbench";
+export * from "./observation";
 export * from "./artifact-schema";
 export * from "./operation";
 

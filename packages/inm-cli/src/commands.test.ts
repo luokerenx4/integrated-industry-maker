@@ -304,6 +304,57 @@ test("public inspect summary exposes bounded current Design evidence to Agents a
   expect(human.stdout).toContain("Design handoff: commissioned-dram-fab · MISSING");
 });
 
+test("public observe binds the exact memory-fab run to shared visual targets without writes", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
+  const [machine, human, help] = await Promise.all([
+    runCli(["observe", projectDir, "--run", "090-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "090-simulate"]),
+    runCli(["help", "--json"]),
+  ]);
+  expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
+    .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+  const envelope = JSON.parse(machine.stdout);
+  expect(envelope).toEqual(expect.objectContaining({
+    schemaVersion: 1,
+    ok: true,
+    command: "observe",
+    context: expect.objectContaining({
+      scope: "project",
+      selection: {
+        world: "cleanroom",
+        blueprint: "generated-dram-fab",
+        scenario: "production-window",
+        objective: "dram-output",
+      },
+    }),
+    data: expect.objectContaining({
+      status: "ready",
+      authority: "human-or-agent",
+      evidence: { state: "compatible", run: expect.objectContaining({ id: "090-simulate" }) },
+      views: expect.arrayContaining([
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=090-simulate" }),
+      ]),
+    }),
+  }));
+  expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
+    id: "author-observation-hypothesis",
+    effect: "read-only",
+    studioRoute: "/memory-fab/factory?run=090-simulate",
+  }));
+  expect(human.stdout).toContain("observation brief");
+  expect(human.stdout).toContain("/memory-fab/factory?run=090-simulate");
+  const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
+  expect(observeCapability).toEqual(expect.objectContaining({
+    effect: "read-only",
+    supportsJson: true,
+    outputSections: [],
+  }));
+  expect(observeCapability.arguments.find((argument: { name: string }) => argument.name === "run")
+    .description).toContain("Compatible immutable run id");
+  expect(await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text()).toBe(before);
+});
+
 test("public inspect rejects an invalid explicit selection", async () => {
   const projectDir = join(repository, "examples/ironworks");
   const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);

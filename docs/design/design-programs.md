@@ -2,11 +2,13 @@
 
 Status: strict authored or synthesized seed, loss-guided bounded proposal search over a locked Benchmark, immutable content-addressed Design Run V3 evidence and continuation, hash-addressed reopening, and exact Candidate promotion implemented.
 
-Related: [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/project-boundaries]], [[docs/PROJECT_FORMAT]], [[docs/CLI]], [[plans/memory-fab-design-loop]], and [[plans/immutable-design-run-continuation]].
+Related: [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/project-boundaries]], [[docs/PROJECT_FORMAT]], [[docs/CLI]], [[plans/memory-fab-design-loop]], and [[plans/immutable-design-run-continuation]].
 
 ## Product boundary
 
 A Design Program coordinates industrial design without becoming another evaluator. It declares whether its working seed comes from an authored Blueprint or project-local synthesis, which locked multi-case Benchmark owns acceptance and the mutable promotion target, which Benchmark case supplies proposal evidence, which current-best operating-case regressions the search may trade, how many non-promotable Pareto alternatives it may retain, which decision families an Agent may consider, and the maximum number of candidates it may evaluate.
+
+A Design Program is a bounded proposal/evaluation instrument, not autonomous design authority. Its provider may encode researched alternatives and use measured loss evidence, but the product loop remains observation-led: a human or reasoning Agent inspects the exact Factory run, states the hypothesis and intended effect, authors or curates the intervention portfolio, and makes the commissioning judgment. A deterministic `KEEP` result proves only the declared locked gates and score relationship; it does not replace spatial interpretation, Candidate review, or explicit apply.
 
 The current flow is:
 

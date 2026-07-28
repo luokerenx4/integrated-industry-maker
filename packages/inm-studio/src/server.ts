@@ -27,6 +27,7 @@ import {
   loadWorkspace,
   manifestSchema,
   worldSchema,
+  buildFactoryObservationBrief,
   openFactoryProject,
   openProjectWorkbenchSnapshot,
   pathExists,
@@ -154,19 +155,30 @@ async function loadStudioData(projectId: string, runName?: string) {
   const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
   const defaultLoaded = await loadFactoryProject(projectDir);
   const defaultProject = compileFactoryProject(defaultLoaded);
-  const selected = runName
-    ? runs.find((run) => run.name === runName)
-    : runs.filter((run) => run.manifest.decision !== "REVERT"
+  const requestedRun = runName ? runs.find((run) => run.name === runName) : undefined;
+  if (runName && !requestedRun) throw new Error(`Unknown compatible immutable run '${runName}' in project '${projectId}'`);
+  const requestedLoaded = requestedRun ? await loadFactoryProject(projectDir, requestedRun.manifest.selection) : undefined;
+  const requestedProject = requestedLoaded ? compileFactoryProject(requestedLoaded) : undefined;
+  if (requestedRun && stableStringify(requestedRun.manifest.hashes) !== stableStringify(requestedProject!.hashes)) {
+    throw new Error(`Immutable run '${requestedRun.name}' is not compatible with the exact selected project hashes`);
+  }
+  const selected = requestedRun
+    ?? (!runName ? runs.filter((run) => run.manifest.decision !== "REVERT"
       && run.manifest.selection.world === defaultProject.selection.world
       && run.manifest.selection.blueprint === defaultProject.selection.blueprint
       && run.manifest.selection.scenario === defaultProject.selection.scenario
       && run.manifest.selection.objective === defaultProject.selection.objective
-      && stableStringify(run.manifest.hashes) === stableStringify(defaultProject.hashes)).at(-1);
-  const loaded = selected ? await loadFactoryProject(projectDir, selected.manifest.selection) : defaultLoaded;
+      && stableStringify(run.manifest.hashes) === stableStringify(defaultProject.hashes)).at(-1) : undefined);
+  const loaded = requestedLoaded ?? defaultLoaded;
   const runBlueprint = selected
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
     : loaded.blueprint;
   const project = compileFactoryProject({ ...loaded, blueprint: runBlueprint });
+  const compatibleSelection = selected?.manifest.selection ?? defaultProject.selection;
+  const compatibleHashes = selected?.manifest.hashes ?? defaultProject.hashes;
+  const compatibleRuns = runs.filter((run) =>
+    stableStringify(run.manifest.selection) === stableStringify(compatibleSelection)
+    && stableStringify(run.manifest.hashes) === stableStringify(compatibleHashes));
   const regionLayout = layoutRegions(project.world.regions);
   let events = [];
   let metrics = null;
@@ -430,7 +442,7 @@ async function loadStudioData(projectId: string, runName?: string) {
     events,
     metrics,
     selectedRun: selected?.name ?? null,
-    runs: runs.map((run) => ({
+    runs: compatibleRuns.map((run) => ({
       name: run.name,
       score: run.score,
       decision: run.manifest.decision,
@@ -578,6 +590,14 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(overviewMatch[1]!));
         return Response.json(await openProjectWorkbenchSnapshot(projectDir, projectSelection(url)));
+      }
+
+      const observationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/observation$/);
+      if (observationMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(observationMatch[1]!));
+        const snapshot = await openProjectWorkbenchSnapshot(projectDir, projectSelection(url));
+        return Response.json(buildFactoryObservationBrief(snapshot, url.searchParams.get("run") ?? undefined));
       }
 
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, studioRoute, viewPath } from "./routes";
 
 test("Studio builds and parses every stable project-qualified route", () => {
   const cases = [
@@ -22,6 +22,14 @@ test("malformed or unknown Studio routes fall back to the launcher", () => {
   for (const path of ["/memory-fab/unknown", "/memory-fab/factory/assets/x", "/%E0%A4%A"]) {
     expect(studioRoute(path)).toEqual(expect.objectContaining({ projectId: null, view: "overview" }));
   }
+});
+
+test("Factory paths preserve one encoded immutable run identity", () => {
+  expect(factoryObjectPath("memory-fab", null, "090 simulate")).toBe("/memory-fab/factory?run=090%20simulate");
+  expect(factoryObjectPath("memory-fab", { kind: "device", id: "etch/l2" }, "090-simulate"))
+    .toBe("/memory-fab/factory/devices/etch%2Fl2?run=090-simulate");
+  expect(factoryRunId("?run=090-simulate")).toBe("090-simulate");
+  expect(factoryRunId("")).toBeNull();
 });
 
 test("reload, back, and forward reconstruct route state without browser-only authority", () => {

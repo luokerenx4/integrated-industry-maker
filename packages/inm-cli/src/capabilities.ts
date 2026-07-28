@@ -98,6 +98,13 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     };
   }),
   {
+    id: "observe", usage: "inm observe <path> [selection] [--run ID] [--json]", description: "Bind exact run evidence to stable Factory views and a human/Agent design handoff.",
+    effect: "read-only", supportsJson: true, arguments: [path, project, ...selection,
+      { name: "run", form: "option", value: "string", required: false, description: "Compatible immutable run id; defaults to the newest exact matching run." },
+      json],
+    outputSections: [],
+  },
+  {
     id: "compare", usage: "inm compare <path> --from-blueprint ID --to-blueprint ID [selection] [--seed N] [--json]", description: "Compare and evaluate two Blueprints without writing.",
     effect: "read-only", supportsJson: true, arguments: [path, project, ...selection.filter((item) => item.name !== "blueprint"),
       { name: "from-blueprint", form: "option", value: "string", required: true, description: "Baseline Blueprint id." },

@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
@@ -36,18 +36,22 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
 
     const defaultResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/data`);
     expect(defaultResponse.status).toBe(200);
-    expect(await defaultResponse.json()).toEqual(expect.objectContaining({
+    const defaultData = await defaultResponse.json() as { selectedRun: string | null; selection: Record<string, string>; runs: Array<{ name: string }> };
+    expect(defaultData).toEqual(expect.objectContaining({
       environment: null,
       selectedRun: current.data.run.id,
       selection: { world: "main", blueprint: "main", scenario: "baseline", objective: "default" },
     }));
+    expect(defaultData.runs.map((run) => run.name)).toEqual([current.data.run.id]);
 
     const explicitResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/data?run=${unrelated.data.run.id}`);
     expect(explicitResponse.status).toBe(200);
-    expect(await explicitResponse.json()).toEqual(expect.objectContaining({
+    const explicitData = await explicitResponse.json() as { selectedRun: string | null; selection: Record<string, string>; runs: Array<{ name: string }> };
+    expect(explicitData).toEqual(expect.objectContaining({
       selectedRun: unrelated.data.run.id,
       selection: { world: "main", blueprint: "main", scenario: "machine-failure", objective: "default" },
     }));
+    expect(explicitData.runs.map((run) => run.name)).toEqual([unrelated.data.run.id]);
   } finally {
     child.kill();
     await child.exited;
@@ -248,6 +252,14 @@ test("opening a project without runs does not write a Studio baseline", async ()
     }));
     const overviewMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/overview`, { method: "POST" });
     expect(overviewMethod.status).toBe(405);
+
+    const observationResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/observation?world=main&blueprint=main&scenario=baseline&objective=default`);
+    expect(observationResponse.status).toBe(200);
+    expect(await observationResponse.json()).toEqual(await openFactoryObservationBrief(projectDir, {
+      world: "main", blueprint: "main", scenario: "baseline", objective: "default",
+    }));
+    const observationMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/observation`, { method: "POST" });
+    expect(observationMethod.status).toBe(405);
 
     for (const operation of ["validate", "analyze", "plan"]) {
       const operationResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/operations/${operation}`, {

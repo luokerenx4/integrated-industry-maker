@@ -6,6 +6,20 @@ Use TypeScript for repository scripts and Device runtimes. Keep projects self-co
 
 Use the cheapest honest verification boundary while iterating: start with the affected test or `bun run check:fast`, then run the full `bun run test` at a deliberate completion, commit, or handoff boundary. A fast pass is local feedback, not a substitute for the checkpoint boundary.
 
+## Observation-led design
+
+INM is a Harness for human/Agent industrial reasoning, not an autonomous factory optimizer. A human or reasoning Agent owns the design hypothesis and commissioning judgment. RL, black-box search, or automatic layout generation must not become the product design loop.
+
+For every substantive factory-design intervention:
+
+1. Bind the exact project selection, hashes, and compatible immutable run with `inm observe`.
+2. Inspect both typed evidence and the spatial Factory replay. Browser-capable Agents use the stable Studio routes directly; CLI-only Agents may open them through Playwright, MCP, or an equivalent screenshot-capable browser.
+3. State what was visible, the concrete industrial hypothesis, the smallest exact intervention, and the expected measured and visual effect.
+4. Author the Blueprint or Candidate change, then simulate and evaluate it through the locked Benchmark.
+5. Compare quantitative and visual before/after evidence. A human or Agent explicitly decides KEEP, revise, defer, or discard.
+
+Deterministic tools may compile, simulate, attribute loss, compare, and rank explicitly bounded alternatives. They supply evidence; they do not replace observation or subjective judgment. Project-local Design Programs are bounded proposal/evaluation instruments, not autonomous design authority. The complete contract is defined in [[docs/design/observation-led-design]].
+
 ## Plan workflow
 
 Read [[PLANS]] before starting non-trivial work. A plan is required when work crosses packages or public surfaces, changes a domain model, contains meaningful unknowns, or needs multiple implementation steps. Small, local fixes can proceed without one.
@@ -49,6 +63,7 @@ Read the relevant linked document before changing a subsystem:
 - Hot standby, low-power sleep, physical wake work, and Blueprint idle policy: [[docs/design/equipment-energy-states]]
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]
+- Human/Agent design authority, multimodal factory observation, and the required closed loop: [[docs/design/observation-led-design]]
 - Project-local Design Programs, bounded robust search, and immutable design-run evidence: [[docs/design/design-programs]]
 - Hash-compatible tracked-lot loss ranking and workbench priority: [[docs/design/fab-loss-attribution]]
 - Locked multi-case benchmarks and the Coding Agent keep/discard loop: [[docs/design/coding-agent-optimization]]
@@ -68,9 +83,10 @@ Read the relevant linked document before changing a subsystem:
 1. Read [[PLANS]], the active plan when one exists, and the relevant design document(s) above; identify the current invariant being changed.
 2. Edit source files and project-local TypeScript/JSON artifacts.
 3. Update every affected design document in the same change. If the concept has no document, create one under `docs/design/` and add its double-link entry here.
-4. Exercise the public loop: `inm validate`, `inm analyze` or `inm plan`, then `inm simulate`/`inm test` as appropriate.
-5. Run `bun run test`; it includes double-link validation, type checking, code tests, Studio tests, and project fixtures.
-6. If engine semantics or hashes changed, regenerate the checked-in immutable runs and verify replay before committing.
-7. If a locked Coding Agent benchmark input or contract changed, review and regenerate its `--lock`, then prove the unchanged candidate and a known improvement path.
+4. For a substantive factory-design change, run `inm observe`, inspect its required Studio views, and record the observed run, hypothesis, and expected effect in the active plan or handoff.
+5. Exercise the public loop: `inm validate`, `inm analyze` or `inm plan`, then `inm simulate`/`inm test` as appropriate.
+6. Run `bun run test`; it includes double-link validation, type checking, code tests, Studio tests, and project fixtures.
+7. If engine semantics or hashes changed, regenerate the checked-in immutable runs and verify replay before committing.
+8. If a locked Coding Agent benchmark input or contract changed, review and regenerate its `--lock`, then prove the unchanged candidate and a known improvement path.
 
 Tests prove executable behavior; design documents explain why the behavior exists and which invariants future changes must preserve. Neither substitutes for the other.

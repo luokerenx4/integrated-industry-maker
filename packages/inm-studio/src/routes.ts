@@ -18,7 +18,9 @@ export interface StudioRoute {
 
 export const projectPath = (projectId: string) => `/${encodeURIComponent(projectId)}`;
 export const viewPath = (projectId: string, view: Exclude<StudioView, "overview">) => `${projectPath(projectId)}/${view}`;
-export const factoryObjectPath = (projectId: string, selection?: StudioSelection | null) => `${viewPath(projectId, "factory")}${selection ? `/${selection.kind === "device" ? "devices" : "connections"}/${encodeURIComponent(selection.id)}` : ""}`;
+export const factoryObjectPath = (projectId: string, selection?: StudioSelection | null, runId?: string | null) =>
+  `${viewPath(projectId, "factory")}${selection ? `/${selection.kind === "device" ? "devices" : "connections"}/${encodeURIComponent(selection.id)}` : ""}${runId ? `?run=${encodeURIComponent(runId)}` : ""}`;
+export const factoryRunId = (search = window.location.search): string | null => new URLSearchParams(search).get("run");
 export const catalogPath = (projectId: string, kind?: AssetKind | null, assetId?: string | null) => `${viewPath(projectId, "catalog")}${kind ? `/${kind}` : ""}${kind && assetId ? `/${encodeURIComponent(assetId)}` : ""}`;
 export const analysisPath = (projectId: string, diagnosticId?: string | null) => `${viewPath(projectId, "analysis")}${diagnosticId ? `/diagnostics/${encodeURIComponent(diagnosticId)}` : ""}`;
 export const experimentPath = (projectId: string, experimentId?: string, candidateId?: string) => `${projectPath(projectId)}/experiments${experimentId ? `/${encodeURIComponent(experimentId)}` : ""}${candidateId ? `/candidates/${encodeURIComponent(candidateId)}` : ""}`;

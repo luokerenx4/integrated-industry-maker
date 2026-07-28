@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/observation-led-design-harness]] | Make visual factory observation an exact, shared step in the human/Agent industrial design loop. | 2026-07-28 |
 | [[plans/simulator-hot-path-performance]] | Reduce fresh memory-fab Candidate evaluation time through measured simulator work without changing exact industrial evidence. | 2026-07-28 |
 | [[plans/observable-benchmark-execution]] | Make long Benchmark and Candidate evaluation visibly advance across CLI and Studio and identify the next measured performance intervention. | 2026-07-28 |
 | [[plans/low-friction-development-operations]] | Make Studio lifecycle and the everyday local verification loop predictable for humans and Agents. | 2026-07-28 |

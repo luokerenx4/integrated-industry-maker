@@ -2,7 +2,7 @@
 import { parseArgs } from "node:util";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 import { studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
@@ -26,6 +26,7 @@ PROJECT COMMANDS
   schema [kind]               List or emit project artifact JSON Schemas
   validate <path>             Parse, resolve, and compile a blueprint
   inspect <path>              Show assets, topology, objective, hashes, and runs
+  observe <path>              Bind exact run evidence to required Factory views
   analyze <path>              Compile nominal process rates and material balance
   plan <path>                 Size the factory for the objective target rate
   compare <path>              Diff and evaluate two Blueprint files
@@ -123,11 +124,16 @@ async function main(): Promise<void> {
     }
     throw new Error("Usage: inm project <create|list|default> ...");
   }
-  if (subcommand === "validate" || subcommand === "inspect" || subcommand === "analyze" || subcommand === "plan") {
-    const { values, positionals } = parseArgs({ args, options: { ...common, ...section }, allowPositionals: true });
+  if (subcommand === "validate" || subcommand === "inspect" || subcommand === "observe" || subcommand === "analyze" || subcommand === "plan") {
+    const { values, positionals } = parseArgs({ args, options: { ...common, ...section, ...(subcommand === "observe" ? { run: { type: "string" as const } } : {}) }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, `inm ${subcommand} <project-or-workspace-dir> [--project ID]`, values.project);
     if (subcommand === "validate") return validateCommand(projectDir, selectionOf(values), values);
     if (subcommand === "inspect") return inspectCommand(projectDir, selectionOf(values), values);
+    if (subcommand === "observe") return observeCommand(projectDir, selectionOf(values), {
+      json: values.json,
+      section: values.section,
+      run: typeof values.run === "string" ? values.run : undefined,
+    });
     if (subcommand === "plan") return planCommand(projectDir, selectionOf(values), values);
     return analyzeCommand(projectDir, selectionOf(values), values);
   }

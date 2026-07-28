@@ -2,7 +2,7 @@
 
 Status: V9 shared decision status, explicit Design Program focus, Objective-owned inventory accounting, hash-compatible tracked-lot loss attribution with exact material-shortage supply states, current-Blueprint Design evidence authority, evidence-backed bounded loss disposition, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
-Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
+Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/observation-led-design]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
 ## Scope
 
@@ -84,6 +84,14 @@ GET /api/projects/<project-id>/overview?world=<id>&blueprint=<id>&scenario=<id>&
 
 Explicit query selection never falls back when invalid. The endpoint is project-qualified, accepts only GET, and creates no run or cache state. The task-oriented project root consumes this contract for selection, readiness, diagnostics, evidence, loss attribution, and operation descriptors. When Factory selects a run, Studio requests Overview with that run's exact selection so spatial replay and workbench conclusions cannot drift apart.
 
+The observation-led design projection is a separate read-only view over that snapshot:
+
+```text
+GET /api/projects/<project-id>/observation?world=<id>&blueprint=<id>&scenario=<id>&objective=<id>&run=<id>
+```
+
+Core builds the same `FactoryObservationBrief` returned by `inm observe`. Studio renders it beside the Factory replay, while stable `?run=<id>` Factory URLs preserve evidence identity through direct open, reload, focused Device/Connection navigation, history, and the run picker. The brief adds no new diagnosis or optimizer authority; it binds current Workbench evidence to the spatial observation required before a human/Agent-authored design intervention.
+
 ### Shared next action
 
 Core derives one visible and machine-readable next action from existing workbench facts so operators do not assign equal weight to every panel. This is an operating projection, not a new industrial conclusion. It selects, in order, the first blocking capacity diagnostic, an exact reviewed KEEP awaiting confirmation, a new current Candidate proposal awaiting review, missing or incompatible immutable factory evidence for the exact effective selection, the current Design authority or aligned Program brief for the first active compatible-run loss, the first remaining flow warning, the latest matching factory run, or shared analysis. A reviewed non-KEEP verdict is resolved evidence, and a stale Candidate is historical evidence; both remain visible in the catalog and status counts but neither can permanently displace work on the current factory.
@@ -117,6 +125,7 @@ All remaining operation descriptors stay available under explicit progressive di
 - Production evidence: `packages/inm-core/src/production-analysis.ts`
 - Capacity evidence: `packages/inm-core/src/capacity-plan.ts`
 - Compatible-run fab loss evidence: `packages/inm-core/src/fab-loss-analysis.ts`
+- Observation brief: `packages/inm-core/src/observation.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio API projection: `packages/inm-studio/src/server.ts`
 

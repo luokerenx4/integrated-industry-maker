@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
@@ -551,6 +551,63 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     "",
     "Available operations",
     ...snapshot.operations.map((operation) => `  ${operation.availability.state === "available" ? "✓" : operation.availability.state === "conditional" ? "?" : "·"} ${operation.id.padEnd(20)} ${operation.effect} · ${operation.description}${operation.availability.reasons.length ? ` [${operation.availability.reasons.join("; ")}]` : ""}`),
+    "",
+  ].join("\n"), false);
+}
+
+export async function observeCommand(
+  projectDir: string,
+  selection: ProjectSelection,
+  options: OutputOptions & { run?: string },
+): Promise<void> {
+  rejectSection("observe", options);
+  const brief = await openFactoryObservationBrief(projectDir, selection, options.run);
+  const selectionArguments = [
+    "--world", brief.selection.world,
+    "--blueprint", brief.selection.blueprint,
+    "--scenario", brief.selection.scenario,
+    "--objective", brief.selection.objective,
+  ];
+  const nextActions: CliNextAction[] = brief.status === "needs-run"
+    ? [{
+      id: "simulate-for-observation",
+      description: "Create compatible immutable runtime evidence before interpreting factory behavior.",
+      argv: ["inm", "simulate", brief.project.rootDir, ...selectionArguments, "--json"],
+      effect: "creates-artifact",
+      requiresConfirmation: false,
+      studioRoute: brief.views[0]!.studioRoute,
+    }]
+    : [{
+      id: "author-observation-hypothesis",
+      description: "Open the exact visual targets, state a falsifiable hypothesis, then author one deliberate intervention.",
+      argv: ["inm", "inspect", brief.project.rootDir, ...selectionArguments, "--section", "losses", "--json"],
+      effect: "read-only",
+      requiresConfirmation: false,
+      studioRoute: brief.views[0]!.studioRoute,
+    }];
+  if (options.json) {
+    writeSuccess("observe", brief, {
+      context: {
+        scope: "project",
+        project: { ...brief.project },
+        selection: { ...brief.selection },
+        hashes: { ...brief.hashes },
+      },
+      diagnostics: brief.leadingDiagnostic ? [brief.leadingDiagnostic] : [],
+      nextActions,
+    });
+    return;
+  }
+  write([
+    `${brief.project.name} · observation brief ${brief.id.slice(0, 12)}`,
+    `Selection: ${brief.selection.world} / ${brief.selection.blueprint} / ${brief.selection.scenario} / ${brief.selection.objective}`,
+    `Evidence: ${brief.evidence.run ? `${brief.evidence.run.id} · ${brief.evidence.run.resultHash.slice(0, 12)} · score ${brief.evidence.run.score.toFixed(3)} · ${brief.evidence.run.decision}` : "MISSING · simulate before runtime interpretation"}`,
+    ...(brief.leadingDiagnostic ? [`Leading evidence: ${brief.leadingDiagnostic.code} · ${brief.leadingDiagnostic.message}`] : []),
+    "Required views:",
+    ...brief.views.map((view) => `  ${view.label}: ${view.studioRoute}`),
+    "Observation handoff:",
+    ...brief.handoff.requiredStatements.map((statement, index) => `  ${index + 1}. ${statement}`),
+    `Next: ${brief.handoff.nextStep}`,
     "",
   ].join("\n"), false);
 }

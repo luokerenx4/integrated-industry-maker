@@ -1,6 +1,6 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals } from "@inm/core/transport-blocking";
-import type { BlueprintBenchmarkSummary, DesignProgramSummary, ProjectOperationResult, ProjectWorkbenchSnapshot, TransportBlockTicks, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
+import type { BlueprintBenchmarkSummary, DesignProgramSummary, FactoryObservationBrief, ProjectOperationResult, ProjectWorkbenchSnapshot, TransportBlockTicks, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -8,7 +8,7 @@ import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 import { factoryPresentation, type FactoryLabelDensity, type FactoryPresentation as FactoryPresentationPolicy, type FactoryPresentationRequest } from "./factory-presentation";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 import { DesignWorkbench } from "./design-workbench";
 
@@ -1940,12 +1940,13 @@ function ProjectLoading({ projectId, onBack }: { projectId: string; onBack: () =
   return <div className="route-state"><div className="route-mark">INM</div><span>OPENING PROJECT</span><strong>{projectId}</strong><div className="loading-bar"><i /></div><button onClick={onBack}>← PROJECTS</button></div>;
 }
 
-function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNavigate, onRefresh }: {
+function ProjectHeader({ indexName, data, overview, view, loading, selectedRun, onBack, onNavigate, onRefresh }: {
   indexName: string;
   data: StudioData;
   overview: ProjectWorkbenchSnapshot;
   view: StudioView;
   loading: boolean;
+  selectedRun: string | null;
   onBack: () => void;
   onNavigate: (view: StudioView) => void;
   onRefresh: () => void;
@@ -1964,7 +1965,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, onBack, onNav
       : target === "analysis" ? analysisPath(data.projectId)
         : target === "designs" ? designPath(data.projectId)
         : target === "experiments" ? experimentPath(data.projectId)
-          : target === "factory" ? factoryObjectPath(data.projectId)
+          : target === "factory" ? factoryObjectPath(data.projectId, null, selectedRun)
             : viewPath(data.projectId, "runs");
   return <header className="project-header">
     <div className="header-project">
@@ -2264,7 +2265,23 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
 function RunsOverview({ snapshot, onOpenFactory }: { snapshot: ProjectWorkbenchSnapshot; onOpenFactory: (runId: string) => void }) {
   return <section className="runs-page" aria-label="Project runs">
     <header><span className="eyebrow">IMMUTABLE EVIDENCE</span><h2>Simulation runs</h2><p>Every result is reconstructed from project files; browser memory is not authoritative.</p></header>
-    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
+    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} disabled={!run.compatible} title={run.compatible ? "Open exact compatible Factory replay" : "Historical run: current project hashes differ"} onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}{run.compatible ? "" : " · HISTORICAL"}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
+  </section>;
+}
+
+function FactoryObservationPanel({ brief }: { brief: FactoryObservationBrief }) {
+  return <section className={`panel observation-panel ${brief.status}`} data-testid="factory-observation-brief" aria-label="Factory observation brief">
+    <header><div><span>OBSERVATION HARNESS</span><code>{brief.id.slice(0, 12)}</code></div><b>{brief.status === "ready" ? "RUN BOUND" : "NEEDS RUN"}</b></header>
+    <p>{brief.evidence.run
+      ? `${brief.evidence.run.id} · ${brief.evidence.run.resultHash.slice(0, 12)} · ${brief.evidence.run.decision}`
+      : "Static layout only. Simulate before interpreting runtime behavior."}</p>
+    {brief.leadingDiagnostic && <div className="observation-leading"><small>LEADING EVIDENCE</small><strong>{brief.leadingDiagnostic.code}</strong><span>{brief.leadingDiagnostic.message}</span></div>}
+    <div className="observation-views">
+      {brief.views.map((view) => <a key={view.id} href={view.studioRoute} data-testid={`observation-view-${view.id.replaceAll(":", "-")}`}>
+        <b>{view.label}</b><span>{view.purpose}</span>
+      </a>)}
+    </div>
+    <details><summary>DESIGN HANDOFF · HUMAN / AGENT</summary><ol>{brief.handoff.requiredStatements.map((statement) => <li key={statement}>{statement}</li>)}</ol><p>{brief.handoff.nextStep}</p></details>
   </section>;
 }
 
@@ -2282,7 +2299,9 @@ function App() {
   const [index, setIndex] = useState<ProjectIndex | null>(null);
   const [data, setData] = useState<StudioData | null>(null);
   const [overview, setOverview] = useState<ProjectWorkbenchSnapshot | null>(null);
+  const [observation, setObservation] = useState<FactoryObservationBrief | null>(null);
   const [run, setRun] = useState<string | null>(null);
+  const [routeRun, setRouteRun] = useState<string | null>(initialRoute.view === "factory" ? factoryRunId() : null);
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(4);
@@ -2311,10 +2330,16 @@ function App() {
       const query = selectedRun ? `?run=${encodeURIComponent(selectedRun)}` : "";
       const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`));
       const overviewQuery = new URLSearchParams(next.selection).toString();
-      const nextOverview = await responseJson<ProjectWorkbenchSnapshot>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/overview?${overviewQuery}`));
+      const observationQuery = new URLSearchParams(next.selection);
+      if (next.selectedRun) observationQuery.set("run", next.selectedRun);
+      const [nextOverview, nextObservation] = await Promise.all([
+        responseJson<ProjectWorkbenchSnapshot>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/overview?${overviewQuery}`)),
+        responseJson<FactoryObservationBrief>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/observation?${observationQuery}`)),
+      ]);
       if (sequence !== requestSequence.current) return;
       setData(next);
       setOverview(nextOverview);
+      setObservation(nextObservation);
       setSelection((current) => normalizeStudioSelection(next, current ?? studioRoute().selection));
       setRun(next.selectedRun);
       runRef.current = next.selectedRun;
@@ -2332,6 +2357,7 @@ function App() {
     window.history.pushState({}, "", projectId ? projectPath(projectId) : "/");
     projectRef.current = projectId;
     runRef.current = null;
+    setRouteRun(null);
     setRouteProject(projectId);
     setRouteView("overview");
     setRouteExperiment(null);
@@ -2347,6 +2373,7 @@ function App() {
       requestSequence.current += 1;
       setData(null);
       setOverview(null);
+      setObservation(null);
       setLoading(false);
     }
   }, []);
@@ -2358,7 +2385,7 @@ function App() {
         : view === "designs" ? designPath(routeProject)
         : view === "catalog" ? catalogPath(routeProject)
           : view === "analysis" ? analysisPath(routeProject)
-            : view === "factory" ? factoryObjectPath(routeProject)
+            : view === "factory" ? factoryObjectPath(routeProject, null, run)
               : viewPath(routeProject, "runs");
     if (path === window.location.pathname) return;
     const overlay = view === "catalog" || view === "analysis" || view === "experiments" || view === "designs";
@@ -2369,7 +2396,7 @@ function App() {
     setRouteView(view); setRouteExperiment(view === "experiments" ? "" : null); setRouteCandidate(null);
     setRouteDesignProgram(view === "designs" ? "" : null); setRouteDesignRun(null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
-  }, [routeProject, routeView]);
+  }, [routeProject, routeView, run]);
 
   const closeRouteSurface = useCallback(() => {
     if (!routeProject) return;
@@ -2442,15 +2469,15 @@ function App() {
 
   const navigateFactoryObject = useCallback((next: StudioSelection | null) => {
     if (!routeProject) return;
-    window.history.pushState({}, "", factoryObjectPath(routeProject, next));
+    window.history.pushState({}, "", factoryObjectPath(routeProject, next, run));
     setRouteView("factory"); setSelection(next);
-  }, [routeProject]);
+  }, [routeProject, run]);
 
   const clearFactorySelection = useCallback(() => {
     if (!routeProject) return;
-    window.history.replaceState({}, "", factoryObjectPath(routeProject));
+    window.history.replaceState({}, "", factoryObjectPath(routeProject, null, run));
     setSelection(null);
-  }, [routeProject]);
+  }, [routeProject, run]);
 
   useEffect(() => { void loadIndex(); }, [loadIndex]);
   useEffect(() => {
@@ -2467,14 +2494,19 @@ function App() {
       setRouteAssetId(nextRoute.assetId);
       setRouteDiagnostic(nextRoute.diagnosticId);
       setSelection(nextRoute.selection);
-      if (!nextRoute.projectId) { setData(null); setOverview(null); }
+      if (nextRoute.view === "factory") setRouteRun(factoryRunId());
+      if (!nextRoute.projectId) { setData(null); setOverview(null); setObservation(null); }
     };
     window.addEventListener("popstate", popstate);
     return () => window.removeEventListener("popstate", popstate);
   }, []);
   useEffect(() => {
-    if (routeProject) void loadProject(routeProject);
-  }, [routeProject, loadProject]);
+    if (routeProject) void loadProject(routeProject, routeRun);
+  }, [routeProject, routeRun, loadProject]);
+  useEffect(() => {
+    if (routeView !== "factory" || !data || !run || factoryRunId() === run) return;
+    window.history.replaceState(window.history.state, "", factoryObjectPath(data.projectId, selection, run));
+  }, [data, routeView, run, selection]);
   useEffect(() => {
     let source: WebSocket | undefined;
     let reconnectTimer: number | undefined;
@@ -2540,11 +2572,11 @@ function App() {
     if (error && !index) return <div className="route-state error-state"><span>WORKSPACE ERROR</span><strong>{error}</strong><button onClick={() => window.location.reload()}>RETRY</button></div>;
     return <ProjectLauncher index={index!} />;
   }
-  if ((!data || !overview) && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
-  if (!data || !overview || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
+  if ((!data || !overview || !observation) && loading) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
+  if (!data || !overview || !observation || error) return <div className="route-state error-state"><div className="route-mark">!</div><span>PROJECT UNAVAILABLE</span><strong>{error ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
 
   const header = <ProjectHeader
-    indexName={index?.name ?? "WORKSPACE"} data={data} overview={overview} view={routeView} loading={loading}
+    indexName={index?.name ?? "WORKSPACE"} data={data} overview={overview} view={routeView} loading={loading} selectedRun={run}
     onBack={() => navigateProject(null)} onNavigate={navigateView} onRefresh={() => void loadProject(data.projectId, run)}
   />;
   const openDiagnostic = (diagnostic: WorkbenchDiagnostic) => {
@@ -2579,8 +2611,10 @@ function App() {
     }
   };
   const openRun = (runId: string) => {
-    void loadProject(data.projectId, runId);
-    navigateView("factory");
+    window.history.pushState({}, "", factoryObjectPath(data.projectId, null, runId));
+    setRouteView("factory");
+    setSelection(null);
+    setRouteRun(runId);
   };
   const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic} onDiagnosticFocus={navigateAnalysisDiagnostic}
     onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect}
@@ -2616,8 +2650,8 @@ function App() {
     ? Math.min(...Object.values(data.metrics.powerGrids).map((grid) => grid.minimumSatisfactionPpm)) / 10_000 : null;
   const chooseSceneObject = (next: StudioSelection) => setSelection((current) => {
     const selected = selectStudioObject(current, next);
-    if (selected) window.history.pushState({}, "", factoryObjectPath(data.projectId, selected));
-    else window.history.replaceState({}, "", factoryObjectPath(data.projectId));
+    if (selected) window.history.pushState({}, "", factoryObjectPath(data.projectId, selected, run));
+    else window.history.replaceState({}, "", factoryObjectPath(data.projectId, null, run));
     return selected;
   });
 
@@ -2789,14 +2823,17 @@ function App() {
               </div>
             </div>
           )}
+          <FactoryObservationPanel brief={observation} />
           <div className="panel run-panel">
             <label>SIMULATION RUN</label>
             <select
               value={run ?? ""}
               disabled={!data.runs.length}
-              onChange={(event) =>
-                void loadProject(data.projectId, event.target.value)
-              }
+              onChange={(event) => {
+                const selectedRunId = event.target.value || null;
+                window.history.replaceState({}, "", factoryObjectPath(data.projectId, selection, selectedRunId));
+                setRouteRun(selectedRunId);
+              }}
             >
               {!data.runs.length && (
                 <option value="">NO COMPLETED RUNS · USE INM SIMULATE</option>
