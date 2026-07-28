@@ -55,7 +55,7 @@ const { values, positionals } = parseArgs({
 });
 
 if (positionals.length !== 1) {
-  throw new Error("Usage: inm studio <project-or-workspace-dir> [--project ID] [--port N] [--no-open]");
+  throw new Error("Usage: inm studio serve <project-or-workspace-dir> [--project ID] [--port N] [--no-open]");
 }
 
 const inputDir = resolve(positionals[0]!);
@@ -498,14 +498,30 @@ function designRunStream(projectDir: string, programId: string, maxCandidates?: 
 }
 
 const WATCH_TOPIC = "studio:refresh";
+const startedAt = new Date().toISOString();
 const html = `<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#071014"/><title>INM Studio</title><link rel="stylesheet" href="/main.css"/></head><body><div id="root"></div><script type="module" src="/main.js"></script></body></html>`;
 
 const server = Bun.serve({
+  hostname: "127.0.0.1",
   port,
   idleTimeout: 255,
   async fetch(request, server) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/api/health") {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const rootUrl = `http://127.0.0.1:${port}`;
+        return Response.json({
+          service: "inm-studio",
+          protocolVersion: 1,
+          engineVersion: ENGINE_VERSION,
+          pid: process.pid,
+          inputDir,
+          project: values.project ?? null,
+          startedAt,
+          url: values.project ? `${rootUrl}/${encodeURIComponent(values.project)}` : rootUrl,
+        });
+      }
       if (url.pathname === "/api/watch") {
         if (server.upgrade(request)) return;
         return new Response("WebSocket upgrade required", { status: 426 });
@@ -711,7 +727,7 @@ const server = Bun.serve({
 })();
 
 if (values.project) await projectDirectory(values.project);
-const rootUrl = `http://localhost:${server.port}`;
+const rootUrl = `http://127.0.0.1:${server.port}`;
 const openUrl = values.project ? `${rootUrl}/${encodeURIComponent(values.project)}` : rootUrl;
 process.stdout.write(`INM Studio: ${openUrl}\n${workspaceMode ? `Workspace: ${inputDir}` : `Project: ${inputDir}`}\nProject selector: ${rootUrl}/\nPress Ctrl+C to stop.\n`);
 if (!values["no-open"]) Bun.spawn(["open", openUrl], { stdout: "ignore", stderr: "ignore" });

@@ -1,5 +1,5 @@
 import { findCachedRun, writeRunArtifact } from "./artifacts";
-import { evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkResult } from "./benchmark";
+import { blueprintBenchmarkCacheStats, evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkCacheStats, type BlueprintBenchmarkResult } from "./benchmark";
 import { inspectCandidateDecision, recordCandidateReview } from "./candidate-review";
 import {
   applyCandidateChangeSet,
@@ -188,13 +188,19 @@ async function benchmarkProject(projectDir: string, benchmarkId: string, candida
   });
 }
 
-export async function evaluateBenchmarkOperation(projectDir: string, benchmarkId: string): Promise<ProjectOperationResult<BlueprintBenchmarkResult>> {
+export async function evaluateBenchmarkOperation(projectDir: string, benchmarkId: string): Promise<ProjectOperationResult<BlueprintBenchmarkResult & { baselineCache: BlueprintBenchmarkCacheStats }>> {
   const startedAt = performance.now();
   const project = await benchmarkProject(projectDir, benchmarkId);
-  return timed("benchmark.evaluate", "read-only", project, startedAt, async () => ({
-    diagnostics: [], artifacts: [], writeSet: [], data: await evaluateBlueprintBenchmark(projectDir, benchmarkId),
-    verification: [{ id: "candidate.preview", description: "Preview an exact Candidate Change Set against this locked Benchmark." }],
-  }));
+  return timed("benchmark.evaluate", "read-only", project, startedAt, async () => {
+    const result = await evaluateBlueprintBenchmark(projectDir, benchmarkId);
+    return {
+      diagnostics: [],
+      artifacts: [],
+      writeSet: [],
+      data: { ...result, baselineCache: blueprintBenchmarkCacheStats(result) },
+      verification: [{ id: "candidate.preview", description: "Preview an exact Candidate Change Set against this locked Benchmark." }],
+    };
+  });
 }
 
 export async function previewCandidateOperation(projectDir: string, candidateId: string): Promise<ProjectOperationResult<CandidateChangeSetPreview>> {

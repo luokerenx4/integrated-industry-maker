@@ -75,6 +75,7 @@ async function directorySnapshot(root: string, excluded: Set<string> = new Set()
   async function visit(directory: string): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name); const name = relative(root, path).split("\\").join("/");
+      if (entry.isDirectory() && name === ".inm") continue;
       if (entry.isDirectory()) await visit(path);
       else if (entry.isFile() && !excluded.has(name)) snapshot[name] = (await readFile(path)).toString("base64");
     }

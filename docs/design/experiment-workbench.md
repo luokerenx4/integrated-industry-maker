@@ -18,6 +18,8 @@ Capability parity does not require interaction parity. A model should not scrape
 
 `evaluateBlueprintBenchmark()` remains the only evaluator. The named `benchmark.evaluate`, `candidate.preview`, and `candidate.apply` Core operations wrap that evaluator with the shared effect/context/hash/artifact/write-set result contract. Both CLI and Studio receive the same `BlueprintBenchmarkResult`: hashes, weighted scores, cases, evaluator-owned Objective breakdowns and component deltas, capacity readiness, ordered hard-outcome evidence, gate reasons, exact RFC 6902 patch, semantic changes, and KEEP/DISCARD/UNCHANGED verdict.
 
+Fixed baseline evaluation is content-addressed below the project's ignored `.inm/cache/benchmark-baselines/` directory. Its identity binds engine version, Benchmark contract, exact case/seed, and every locked project hash. Core still loads, compiles, and lock-checks the baseline before reading the cache; a missing, malformed, corrupted, or identity-mismatched entry is recomputed and atomically replaced. Candidate evaluation, acceptance, patches, and decisions are always recomputed. The operation projection's `baselineCache` reports hits and misses through CLI and Studio so reduced wall time is visible rather than implicit; operational cache state never enters immutable Benchmark/Design evidence or its result hash.
+
 `listBlueprintBenchmarks()` discovers project-local `benchmarks/*.benchmark.json` files in stable id order and projects their immutable case and acceptance contracts. Studio does not invent sessions or copy Benchmark state into browser storage.
 
 Studio exposes project-qualified endpoints:
@@ -141,7 +143,7 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 bun test packages/inm-studio/src/server.test.ts
 bun run inm benchmark examples/memory-fab --benchmark equipment-energy-research --json
 bun run inm inspect examples/memory-fab --section candidates --json
-bun run inm studio examples/memory-fab --port 4176 --no-open
+bun run inm studio start examples/memory-fab --port 4176 --no-open
 ```
 
 Tests must prove catalog ordering, project isolation, stable deep-link HTML fallback, method/error codes, evaluator parity, proposed-context compilation, immutable receipt reuse, Design continuation prefix/source immutability and new-only simulation work, and absence of incidental Blueprint writes. Browser QA must use domain-derived accessible ids to inspect the verified commissioned Candidate and source identity, follow the locally available Design evidence, observe `COMMISSIONING COMPLETE` without stale continuation/promotion controls, navigate between experiments, and inspect console errors.

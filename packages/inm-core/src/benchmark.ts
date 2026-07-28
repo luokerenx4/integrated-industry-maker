@@ -13,7 +13,7 @@ import type { JsonPatchOperation } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import type { Blueprint, CompiledFactoryProject, ProjectHashes } from "./types";
-import { atomicWriteJson, hashValue, readJson } from "./utils";
+import { atomicWriteJson, ENGINE_VERSION, hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
@@ -235,6 +235,7 @@ export interface BlueprintBenchmarkProgress {
   candidateScore?: number;
   scoreDelta?: number;
   candidateCapacityReady?: boolean;
+  cached?: boolean;
 }
 
 export type BlueprintBenchmarkProgressHandler = (progress: BlueprintBenchmarkProgress) => void;
@@ -243,6 +244,7 @@ export interface PreparedBlueprintBenchmarkCase {
   manifest: BlueprintBenchmarkManifest["cases"][number];
   baseline: CompiledFactoryProject;
   evaluation: FactoryBlueprintEvaluation;
+  cached: boolean;
 }
 
 export interface PreparedBlueprintBenchmark {
@@ -251,9 +253,80 @@ export interface PreparedBlueprintBenchmark {
   cases: PreparedBlueprintBenchmarkCase[];
 }
 
+export interface BlueprintBenchmarkCacheStats {
+  hits: number;
+  misses: number;
+}
+
+const benchmarkCacheStats = new WeakMap<BlueprintBenchmarkResult, BlueprintBenchmarkCacheStats>();
+
+export function blueprintBenchmarkCacheStats(result: BlueprintBenchmarkResult): BlueprintBenchmarkCacheStats {
+  return benchmarkCacheStats.get(result) ?? { hits: 0, misses: 0 };
+}
+
 function benchmarkPath(projectDir: string, benchmarkId: string): string {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(benchmarkId)) throw new Error("Benchmark id must use lowercase kebab-case");
   return join(resolve(projectDir), "benchmarks", `${benchmarkId}.benchmark.json`);
+}
+
+interface CachedBaselineEvaluation {
+  version: 1;
+  identityHash: string;
+  evaluationHash: string;
+  evaluation: FactoryBlueprintEvaluation;
+}
+
+function baselineCacheIdentity(
+  manifest: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> },
+  item: BlueprintBenchmarkManifest["cases"][number],
+  hashes: ProjectHashes,
+): string {
+  return hashValue({
+    version: 1,
+    engineVersion: ENGINE_VERSION,
+    benchmark: manifest.id,
+    contractHash: manifest.lock.contractHash,
+    case: item,
+    hashes,
+  });
+}
+
+function baselineCachePath(projectDir: string, benchmarkId: string, caseId: string, identityHash: string): string {
+  return join(resolve(projectDir), ".inm", "cache", "benchmark-baselines", benchmarkId, caseId, `${identityHash}.json`);
+}
+
+async function readCachedBaselineEvaluation(
+  projectDir: string,
+  manifest: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> },
+  item: BlueprintBenchmarkManifest["cases"][number],
+  baseline: CompiledFactoryProject,
+): Promise<FactoryBlueprintEvaluation | null> {
+  const identityHash = baselineCacheIdentity(manifest, item, baseline.hashes);
+  try {
+    const cached = await readJson(baselineCachePath(projectDir, manifest.id, item.id, identityHash)) as Partial<CachedBaselineEvaluation>;
+    if (cached.version !== 1 || cached.identityHash !== identityHash || !cached.evaluation
+      || cached.evaluation.blueprintHash !== baseline.hashes.blueprintHash
+      || cached.evaluationHash !== hashValue(cached.evaluation)) return null;
+    return cached.evaluation;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedBaselineEvaluation(
+  projectDir: string,
+  manifest: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> },
+  item: BlueprintBenchmarkManifest["cases"][number],
+  baseline: CompiledFactoryProject,
+  evaluation: FactoryBlueprintEvaluation,
+): Promise<void> {
+  const identityHash = baselineCacheIdentity(manifest, item, baseline.hashes);
+  await atomicWriteJson(baselineCachePath(projectDir, manifest.id, item.id, identityHash), {
+    version: 1,
+    identityHash,
+    evaluationHash: hashValue(evaluation),
+    evaluation,
+  } satisfies CachedBaselineEvaluation);
 }
 
 function benchmarkContract(manifest: BlueprintBenchmarkManifest): unknown {
@@ -386,8 +459,11 @@ export async function prepareBlueprintBenchmark(
       world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
     });
     assertLockedHashes(benchmarkId, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
-    const evaluation = evaluateFactoryBlueprint(baseline, manifest.baselineBlueprint, item.seed);
-    cases.push({ manifest: item, baseline, evaluation });
+    const cachedEvaluation = await readCachedBaselineEvaluation(projectDir, manifest, item, baseline);
+    const cached = cachedEvaluation !== null;
+    const evaluation = cachedEvaluation ?? evaluateFactoryBlueprint(baseline, manifest.baselineBlueprint, item.seed);
+    if (!cached) await writeCachedBaselineEvaluation(projectDir, manifest, item, baseline, evaluation);
+    cases.push({ manifest: item, baseline, evaluation, cached });
     options.onProgress?.({
       version: 1,
       phase: "baseline-case-completed",
@@ -395,6 +471,7 @@ export async function prepareBlueprintBenchmark(
       case: caseIdentity,
       evaluationId,
       baselineScore: evaluation.metrics.score,
+      cached,
     });
   }
   return { projectDir: resolve(projectDir), manifest, cases };
@@ -491,7 +568,7 @@ export async function evaluatePreparedBlueprintBenchmark(
     `outcome guardrail '${guardrail.id}' failed in case '${item.id}': ${guardrail.metric} ${item.candidateValue.toFixed(6)} must be ${guardrail.operator === "minimum" ? ">=" : "<="} ${item.threshold.toFixed(6)}`,
   );
   const accepted = reasons.length === 0;
-  return {
+  const result: BlueprintBenchmarkResult = {
     benchmark: manifest.id, name: manifest.name,
     baselineBlueprint: manifest.baselineBlueprint, candidateBlueprint: manifest.candidateBlueprint,
     baselineBlueprintHash: comparisons[0]!.from.blueprintHash, candidateBlueprintHash: comparisons[0]!.to.blueprintHash,
@@ -500,4 +577,9 @@ export async function evaluatePreparedBlueprintBenchmark(
     accepted, reasons, ...(outcomeGuardrails ? { outcomeGuardrails } : {}), totalSimulationTicks, cases,
     patch: comparisons[0]!.patch, changes: comparisons[0]!.changes,
   };
+  benchmarkCacheStats.set(result, {
+    hits: prepared.cases.filter((item) => item.cached).length,
+    misses: prepared.cases.filter((item) => !item.cached).length,
+  });
+  return result;
 }

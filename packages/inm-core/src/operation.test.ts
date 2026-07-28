@@ -25,6 +25,7 @@ async function temporaryProject(example: "ironworks" | "memory-fab"): Promise<st
   const projectDir = join(parent, example);
   await cp(join(repository, "examples", example), projectDir, { recursive: true });
   await rm(join(projectDir, "runs"), { recursive: true, force: true });
+  await rm(join(projectDir, ".inm"), { recursive: true, force: true });
   return projectDir;
 }
 
@@ -76,9 +77,13 @@ test("Benchmark evaluation uses the same operation result model without writes",
   const candidatePath = join(projectDir, "blueprints", "power-priority-candidate.blueprint.json");
   const before = await readFile(candidatePath, "utf8");
   const benchmark = await evaluateBenchmarkOperation(projectDir, "power-priority");
+  const repeated = await evaluateBenchmarkOperation(projectDir, "power-priority");
 
   expect(benchmark).toEqual(expect.objectContaining({ operation: "benchmark.evaluate", effect: "read-only", writeSet: [], artifacts: [] }));
   expect(benchmark.data.benchmark).toBe("power-priority");
+  expect(benchmark.data.baselineCache).toEqual({ hits: 0, misses: benchmark.data.cases.length });
+  expect(repeated.data.baselineCache).toEqual({ hits: repeated.data.cases.length, misses: 0 });
+  expect({ ...repeated.data, baselineCache: benchmark.data.baselineCache }).toEqual(benchmark.data);
   expect(await readFile(candidatePath, "utf8")).toBe(before);
 });
 

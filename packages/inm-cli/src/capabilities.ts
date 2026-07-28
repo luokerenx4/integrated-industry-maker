@@ -158,12 +158,26 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "seed", form: "option", value: "integer", required: false, description: "Deterministic seed.", default: 42 },
       { name: "agent-command", form: "option", value: "string", required: false, description: "External proposal process command." }, sectionArgument(["summary", "iterations", "all"]), json], outputSections: ["summary", "iterations", "all"],
   },
-  {
-    id: "studio", usage: "inm studio <path> [--project ID] [--port N] [--no-open]", description: "Launch the local Studio server.",
-    effect: "long-running-server", supportsJson: false, arguments: [path, project,
-      { name: "port", form: "option", value: "integer", required: false, description: "Local HTTP port.", default: 4175 },
-      { name: "no-open", form: "option", value: "boolean", required: false, description: "Do not open a browser.", default: false }], outputSections: [],
-  },
+  ...(["start", "status", "restart", "stop", "serve"] as const).map((action): Omit<CliCommandDescriptor, "exitCodes"> => ({
+    id: `studio.${action}`,
+    usage: `inm studio ${action} <path> [--project ID] [--port N]${action === "start" || action === "restart" || action === "serve" ? " [--no-open]" : ""}${action === "serve" ? "" : " [--json]"}`,
+    description: ({
+      start: "Start or idempotently reuse a managed local Studio server.",
+      status: "Inspect the exact managed Studio project, URL, PID, and log.",
+      restart: "Stop the verified managed Studio and start it from current source.",
+      stop: "Stop only the verified managed Studio for this root and port.",
+      serve: "Run Studio directly in the foreground for debugging and tests.",
+    })[action],
+    effect: action === "status" ? "read-only" : "long-running-server",
+    supportsJson: action !== "serve",
+    arguments: [path, project,
+      { name: "port", form: "option", value: "integer", required: false, description: "Local HTTP port.", default: 4176 },
+      ...((action === "start" || action === "restart" || action === "serve")
+        ? [{ name: "no-open", form: "option" as const, value: "boolean" as const, required: false, description: "Do not open a browser.", default: false }]
+        : []),
+      ...(action === "serve" ? [] : [json])],
+    outputSections: [],
+  })),
 ];
 
 export const CLI_COMMANDS: CliCommandDescriptor[] = COMMANDS.map((command) => ({ ...command, exitCodes }));

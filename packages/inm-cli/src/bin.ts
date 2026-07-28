@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
-import { spawn } from "node:child_process";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
   analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliUsageError, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
+import { studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
 
 const HELP = `inm — Integrated Industry Maker
 
@@ -37,7 +37,7 @@ PROJECT COMMANDS
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
   research <path>             Optimize a blueprint with JSON Patch experiments
-  studio <path>               Launch the read-only 3D visual debugger
+  studio <action> <path>      Manage the local Studio workbench
 
 COMMON OPTIONS
   --project <id>              Project inside a workspace (default from workspace)
@@ -194,13 +194,24 @@ async function main(): Promise<void> {
     return researchCommand(projectDir, selectionOf(values), { iterations: Number(values.iterations), seed: Number(values.seed), json: values.json, section: values.section, agentCommand: values["agent-command"] });
   }
   if (subcommand === "studio") {
-    const { values, positionals } = parseArgs({ args, options: { ...projectOption, port: { type: "string", default: "4175" }, "no-open": { type: "boolean", default: false } }, allowPositionals: true });
-    const inputDir = oneArg(positionals, "inm studio <project-or-workspace-dir> [--project ID]");
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(process.execPath, ["packages/inm-studio/src/server.ts", inputDir, "--port", values.port!, ...(values.project ? ["--project", values.project] : []), ...(values["no-open"] ? ["--no-open"] : [])], { cwd: new URL("../../..", import.meta.url), stdio: "inherit" });
-      child.once("error", reject); child.once("exit", (code) => code === 0 ? resolve() : reject(new Error(`Studio exited with code ${code}`)));
+    const action = args.shift() as StudioLifecycleAction | undefined;
+    if (!action || !["start", "status", "restart", "stop", "serve"].includes(action)) throw new Error("Usage: inm studio <start|status|restart|stop|serve> <project-or-workspace-dir> [options]");
+    commandId = `studio.${action}`;
+    const { values, positionals } = parseArgs({ args, options: {
+      ...projectOption,
+      port: { type: "string", default: "4176" },
+      ...((action === "start" || action === "restart" || action === "serve")
+        ? { "no-open": { type: "boolean" as const, default: false } }
+        : {}),
+      json: common.json,
+    }, allowPositionals: true });
+    const inputDir = oneArg(positionals, `inm studio ${action} <project-or-workspace-dir> [--project ID]`);
+    return studioLifecycleCommand(action, inputDir, {
+      port: Number(values.port),
+      project: values.project,
+      noOpen: "no-open" in values && values["no-open"] === true,
+      json: values.json,
     });
-    return;
   }
   throw new Error(`Unknown command '${subcommand}'\n\n${HELP}`);
 }

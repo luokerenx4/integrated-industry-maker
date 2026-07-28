@@ -2,7 +2,7 @@
 
 Status: V1 implemented.
 
-Related: [[docs/CLI]], [[docs/design/operator-workbench]], [[docs/design/coding-agent-optimization]], [[docs/design/experiment-workbench]], [[docs/PROJECT_FORMAT]], [[plans/human-ai-workbench]].
+Related: [[docs/CLI]], [[docs/design/development-operations]], [[docs/design/operator-workbench]], [[docs/design/coding-agent-optimization]], [[docs/design/experiment-workbench]], [[docs/PROJECT_FORMAT]], [[plans/human-ai-workbench]].
 
 ## Purpose
 
@@ -64,6 +64,8 @@ INM is pre-alpha. An envelope/schema version change replaces commands, documenta
 - read/write or mode-dependent effect;
 - JSON support and selectable output sections;
 - success, failure, and usage exit codes.
+
+Studio lifecycle discovery uses separate `studio.start`, `studio.status`, `studio.restart`, `studio.stop`, and `studio.serve` descriptors. Managed operations return ordinary versioned envelopes; foreground `serve` intentionally owns the terminal and has no JSON mode. Lifecycle identity and non-destructive port behavior are defined by [[docs/design/development-operations]].
 
 `inm schema --json` lists every authored project artifact kind. `inm schema <kind> --json` returns a deterministic JSON Schema Draft 7 projection of the authoritative strict Zod schema. This includes workspace/project manifests, World, Blueprint, Scenario, Objective, Resource/Device assets and visuals, Process, Product Route, Benchmark, Candidate Change Set, and Design Program.
 

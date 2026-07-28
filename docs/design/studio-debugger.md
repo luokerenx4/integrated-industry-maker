@@ -2,7 +2,7 @@
 
 Status: task-oriented project Overview, stable workbench/experiment/candidate/object routes, shared Benchmark and candidate-review workbench, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]], [[plans/operator-interaction-refinement]].
+Related: [[docs/design/project-boundaries]], [[docs/design/development-operations]], [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]], [[plans/operator-interaction-refinement]].
 
 ## Scope
 
@@ -88,7 +88,7 @@ Inspectors are navigation and debugging surfaces only. They contain no Blueprint
 
 ```bash
 bun test packages/inm-studio
-bun run inm studio examples/ironworks --port 4178 --no-open
+bun run inm studio serve examples/ironworks --port 4178 --no-open
 ```
 
 Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward `factory`, `runs`, `catalog`, `analysis`, experiment and Candidate routes, diagnostic/asset/factory-object deep links, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, catalog/diagnostic filtering, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on a temporary project must cover actual apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.

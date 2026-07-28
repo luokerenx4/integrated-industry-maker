@@ -986,7 +986,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   const result = operation.data;
   if (options.json) {
     const data = sectionResult("benchmark", options, {
-      summary: () => ({ action: "evaluate", benchmark: result.benchmark, name: result.name, baselineBlueprint: result.baselineBlueprint, candidateBlueprint: result.candidateBlueprint, baselineBlueprintHash: result.baselineBlueprintHash, candidateBlueprintHash: result.candidateBlueprintHash, baselineScore: result.baselineScore, candidateScore: result.candidateScore, scoreDelta: result.scoreDelta, verdict: result.verdict, accepted: result.accepted, reasons: result.reasons, totalSimulationTicks: result.totalSimulationTicks, caseCount: result.cases.length, outcomeGuardrails: outcomeGuardrailSummary(result), patchOperations: result.patch.length, semanticChanges: result.changes.length }),
+      summary: () => ({ action: "evaluate", benchmark: result.benchmark, name: result.name, baselineBlueprint: result.baselineBlueprint, candidateBlueprint: result.candidateBlueprint, baselineBlueprintHash: result.baselineBlueprintHash, candidateBlueprintHash: result.candidateBlueprintHash, baselineScore: result.baselineScore, candidateScore: result.candidateScore, scoreDelta: result.scoreDelta, verdict: result.verdict, accepted: result.accepted, reasons: result.reasons, totalSimulationTicks: result.totalSimulationTicks, baselineCache: result.baselineCache, caseCount: result.cases.length, outcomeGuardrails: outcomeGuardrailSummary(result), patchOperations: result.patch.length, semanticChanges: result.changes.length }),
       cases: () => result.cases,
       changes: () => ({ patch: result.patch, changes: result.changes }),
       all: () => ({ action: "evaluate", ...result }),
@@ -997,6 +997,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     `${result.name} · coding-agent Blueprint benchmark`,
     `BASELINE ${result.baselineBlueprint} ${result.baselineBlueprintHash.slice(0, 12)} → CANDIDATE ${result.candidateBlueprint} ${result.candidateBlueprintHash.slice(0, 12)}`,
     `Fixed work: ${result.cases.length} cases · ${result.totalSimulationTicks} simulated ticks (baseline + candidate)`, "",
+    `Baseline cache: ${result.baselineCache.hits} reused · ${result.baselineCache.misses} evaluated`, "",
     ...result.cases.flatMap((item) => [
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
       ...scoreBreakdownLines(item.baselineMetrics.scoreBreakdown, item.candidateMetrics.scoreBreakdown, item.scoreBreakdownDelta),

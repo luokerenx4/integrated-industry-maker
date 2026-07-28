@@ -5,7 +5,7 @@ import type {
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 
-interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark" }
+interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark"; baselineCache: { hits: number; misses: number } }
 interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
 interface CandidateApplyResponse extends AppliedCandidateChangeSet { command: "candidate"; action: "apply"; decisionState?: CandidateDecisionState }
 interface CandidateReviewResponse { state: CandidateDecisionState; review: CandidatePreviewResponse | null }
@@ -212,7 +212,7 @@ export function ExperimentWorkbench({
               </article>)}
             </section>}
             <section className="experiment-cases">
-              <div className="experiment-section-title"><span>CASE EVALUATION</span><b>{result.totalSimulationTicks.toLocaleString()} SIMULATED TICKS</b></div>
+              <div className="experiment-section-title"><span>CASE EVALUATION</span><b>{result.totalSimulationTicks.toLocaleString()} SIMULATED TICKS{benchmarkResult ? ` · BASELINE ${benchmarkResult.baselineCache.hits}/${result.cases.length} REUSED` : ""}</b></div>
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>THROUGHPUT</span><span>CONTRACTS</span></div>
               {result.cases.map((item) => <article className="experiment-case-evidence" key={item.id}>
                 <div className="experiment-case-result" data-testid={`experiment-case-${item.id}`}>

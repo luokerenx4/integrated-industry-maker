@@ -4,6 +4,8 @@ INM is a pre-alpha industrial engine. Domain correctness and a coherent model ta
 
 Use TypeScript for repository scripts and Device runtimes. Keep projects self-contained: a workspace owns project discovery only, never shared assets.
 
+Use the cheapest honest verification boundary while iterating: start with the affected test or `bun run check:fast`, then run the full `bun run test` at a deliberate completion, commit, or handoff boundary. A fast pass is local feedback, not a substitute for the checkpoint boundary.
+
 ## Plan workflow
 
 Read [[PLANS]] before starting non-trivial work. A plan is required when work crosses packages or public surfaces, changes a domain model, contains meaningful unknowns, or needs multiple implementation steps. Small, local fixes can proceed without one.
@@ -53,6 +55,7 @@ Read the relevant linked document before changing a subsystem:
 - Shared human/AI experiment protocol, Studio workbench, CLI parity, and stable deep links: [[docs/design/experiment-workbench]]
 - Shared human/AI project orientation, prioritized diagnostics, operation effects, and cross-surface parity: [[docs/design/operator-workbench]]
 - Versioned CLI envelopes, machine discovery, artifact schemas, scoped output, and exit behavior: [[docs/design/agent-cli-contract]]
+- Studio process ownership, port diagnosis, and local verification boundaries: [[docs/design/development-operations]]
 - Exact Blueprint patches, semantic changes, and controlled before/after evaluation: [[docs/design/blueprint-comparison]]
 - Objective-owned WIP Resource scope, inventory integration, scoring, and shared evidence: [[docs/design/inventory-accounting]]
 - Project launcher, stable routes, asset catalog, analysis, and 3D replay: [[docs/design/studio-debugger]]

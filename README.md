@@ -40,7 +40,7 @@ bun run inm design examples/memory-fab --program commissioned-dram-fab
 bun run inm synthesize examples/ironworks --blueprint blank --scenario cold-start --output synthesized
 
 # Choose a project, inspect its local assets, and replay experiments in 3D
-bun run inm studio examples/ironworks
+bun run inm studio start examples/ironworks
 ```
 
 The bundled experiment demonstrates the complete loop:
@@ -63,7 +63,7 @@ inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
 inm validate|inspect|analyze|plan|compare|benchmark|candidate|design|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
-inm studio <project-or-workspace-dir> [--project ID]
+inm studio <start|status|restart|stop|serve> <project-or-workspace-dir> [--project ID]
 ```
 
 Every headless command supports explicit exit codes; inspection, validation, comparison, locked benchmarking, simulation, tests, runs, and research support `--json` where machine-readable output matters. See [CLI reference](docs/CLI.md).
