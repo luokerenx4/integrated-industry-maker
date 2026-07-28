@@ -455,6 +455,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         hashes: snapshot.hashes,
         objective: snapshot.objective,
         inventoryAccounting: snapshot.inventoryAccounting,
+        objectiveEvidence: snapshot.objectiveEvidence,
         status: snapshot.status,
         lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null,
         designPrograms: snapshot.designPrograms.map((program) => ({
@@ -480,6 +481,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         counts: snapshot.counts,
       }),
       "next-action": () => snapshot.nextAction,
+      objective: () => snapshot.objectiveEvidence,
       diagnostics: () => snapshot.diagnostics,
       losses: () => snapshot.lossAttribution,
       dispositions: () => snapshot.lossDispositions,
@@ -512,6 +514,13 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         .slice(0, 5)
         .map(([resource, accounting]) => `  ${resource}: ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak`),
     ] : ["Inventory evidence: no compatible run"]),
+    ...(snapshot.objectiveEvidence ? [
+      `Objective evidence: run ${snapshot.objectiveEvidence.runId} · score ${snapshot.objectiveEvidence.finalScore.toFixed(3)} · dominant penalty ${snapshot.objectiveEvidence.dominantPenalty ? `${snapshot.objectiveEvidence.dominantPenalty.id} ${snapshot.objectiveEvidence.dominantPenalty.contribution.toFixed(3)}` : "none"}`,
+      `  WIP: weight ${snapshot.objectiveEvidence.wip.weight} × ${snapshot.objectiveEvidence.wip.averageWip.toFixed(3)} average = ${snapshot.objectiveEvidence.wip.scoreContribution.toFixed(3)} score`,
+      ...snapshot.objectiveEvidence.wip.resources.slice(0, 5).map((resource) =>
+        `    ${resource.resource}: ${resource.averageInventory.toFixed(3)} average / ${resource.peakInventory.toFixed(3)} peak / ${resource.finalInventory.toFixed(3)} final · ${(resource.shareOfAverageWip * 100).toFixed(1)}% · ${resource.scoreContribution.toFixed(3)} score`),
+      "  Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.",
+    ] : []),
     `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
     `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
     `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
@@ -652,7 +661,7 @@ export async function observeCommand(
     : [{
       id: "author-observation-hypothesis",
       description: "Open the exact visual targets, state a falsifiable hypothesis, then author one deliberate intervention.",
-      argv: ["inm", "inspect", brief.project.rootDir, ...selectionArguments, "--section", "losses", "--json"],
+      argv: ["inm", "inspect", brief.project.rootDir, ...selectionArguments, "--section", brief.leadingObjectiveTradeoff ? "objective" : "losses", "--json"],
       effect: "read-only",
       requiresConfirmation: false,
       studioRoute: brief.views[0]!.studioRoute,
@@ -675,6 +684,10 @@ export async function observeCommand(
     `Selection: ${brief.selection.world} / ${brief.selection.blueprint} / ${brief.selection.scenario} / ${brief.selection.objective}`,
     `Evidence: ${brief.evidence.run ? `${brief.evidence.run.id} · ${brief.evidence.run.resultHash.slice(0, 12)} · score ${brief.evidence.run.score.toFixed(3)} · ${brief.evidence.run.decision}` : "MISSING · simulate before runtime interpretation"}`,
     ...(brief.leadingDiagnostic ? [`Leading evidence: ${brief.leadingDiagnostic.code} · ${brief.leadingDiagnostic.message}`] : []),
+    ...(brief.leadingObjectiveTradeoff ? [
+      `Leading Objective tradeoff: ${brief.leadingObjectiveTradeoff.component} ${brief.leadingObjectiveTradeoff.contribution.toFixed(3)} · ${brief.leadingObjectiveTradeoff.summary}`,
+      "Interpretation: Objective accounting evidence, not a causal fab loss.",
+    ] : []),
     "Required views:",
     ...brief.views.map((view) => `  ${view.label}: ${view.studioRoute}`),
     "Observation handoff:",

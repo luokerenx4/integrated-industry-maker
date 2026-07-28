@@ -2054,7 +2054,7 @@ function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperat
   </div>;
 }
 
-function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus, onExperiment, onCandidate, onDesign, onRun, onOperation }: {
+function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus, onExperiment, onCandidate, onDesign, onRun, onObjectiveTradeoff, onOperation }: {
   snapshot: ProjectWorkbenchSnapshot;
   onNavigate: (view: StudioView) => void;
   onDiagnostic: (diagnostic: WorkbenchDiagnostic) => void;
@@ -2063,6 +2063,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   onCandidate: (benchmarkId: string, candidateId: string) => void;
   onDesign: (programId: string, runId?: string) => void;
   onRun: (runId: string) => void;
+  onObjectiveTradeoff: (runId: string) => void;
   onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
   const latestRun = snapshot.runs.at(-1);
@@ -2080,11 +2081,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const maintenanceContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
   const releaseContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "release-admission")?.contributors ?? [];
   const powerContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")?.contributors ?? [];
-  const wipContributors = snapshot.inventoryAccounting
-    ? Object.entries(snapshot.inventoryAccounting.resources)
-      .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
-      .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
-    : [];
+  const wipContributors = snapshot.objectiveEvidence?.wip.resources ?? [];
   const contributorMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
     "release-admission-wait": "RELEASE ADMISSION WAIT",
     "process-queue-wait": "PROCESS INPUT QUEUE",
@@ -2129,6 +2126,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     if (target.kind === "candidate") { onCandidate(target.benchmarkId, target.candidateId); return; }
     if (target.kind === "design-program") { onDesign(target.programId); return; }
     if (target.kind === "design-run") { onDesign(target.programId, target.runId); return; }
+    if (target.kind === "objective-component") { onObjectiveTradeoff(target.runId); return; }
     if (target.kind === "run") { onRun(target.runId); return; }
     const operation = snapshot.operations.find((item) => item.id === target.operationId);
     if (operation) onOperation(operation, operationCli(snapshot, operation));
@@ -2284,10 +2282,12 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         <footer><span>FIRST-PASS YIELD {(snapshot.lossAttribution.outcome.firstPassYield * 100).toFixed(1)}%</span><span>CONTRACTS {(snapshot.lossAttribution.outcome.contractFulfillment * 100).toFixed(1)}%</span><small>Ranking signals overlap; they are not additive lost output.</small></footer>
       </section>}
       <section className="overview-panel inventory-panel" data-testid="objective-inventory-accounting">
-        <header><div><span className="eyebrow">OBJECTIVE ACCOUNTING{snapshot.inventoryAccounting ? ` · ${snapshot.inventoryAccounting.runId}` : ""}</span><h3>Scored work in process</h3></div>{snapshot.inventoryAccounting && <b>{snapshot.inventoryAccounting.averageWip.toFixed(2)}<small> AVG WIP</small></b>}</header>
-        {snapshot.inventoryAccounting ? <>
-          <div className="contract-list">{wipContributors.slice(0, 6).map(([resource, accounting]) => <div key={resource}><span><strong>{resource}</strong><code>{accounting.finalInventory.toFixed(2)} final · {accounting.peakInventory.toFixed(2)} peak</code></span><b>{accounting.averageInventory.toFixed(2)}<small> AVG</small></b></div>)}</div>
+        <header><div><span className="eyebrow">OBJECTIVE TRADEOFF{snapshot.objectiveEvidence ? ` · ${snapshot.objectiveEvidence.runId}` : ""}</span><h3>Scored work in process</h3></div>{snapshot.objectiveEvidence && <b>{snapshot.objectiveEvidence.wip.scoreContribution.toFixed(2)}<small> SCORE</small></b>}</header>
+        {snapshot.objectiveEvidence && snapshot.inventoryAccounting ? <>
+          <div className="objective-component-list" data-testid="objective-score-components">{snapshot.objectiveEvidence.components.slice(0, 6).map((component) => <div key={component.id} className={component.role}><span>{component.id}</span><b>{component.contribution > 0 ? "+" : ""}{component.contribution.toFixed(2)}</b></div>)}</div>
+          <div className="contract-list">{wipContributors.slice(0, 6).map((resource) => <div key={resource.resource}><span><strong>{resource.resource}</strong><code>{resource.finalInventory.toFixed(2)} final · {resource.peakInventory.toFixed(2)} peak · {(resource.shareOfAverageWip * 100).toFixed(1)}%</code></span><b>{resource.averageInventory.toFixed(2)}<small> AVG · {resource.scoreContribution.toFixed(2)} SCORE</small></b></div>)}</div>
           <footer><span>{snapshot.inventoryAccounting.averageTotalInventory.toFixed(2)} average total inventory</span><span>{snapshot.inventoryAccounting.averageExcludedInventory.toFixed(2)} excluded</span><span>{snapshot.inventoryAccounting.peakWip.toFixed(2)} peak WIP</span></footer>
+          <p className="objective-interpretation">Objective accounting evidence, not proof that the inventory is avoidable.</p>
         </> : <div className="overview-empty"><span>Create a compatible immutable run to measure the Objective's WIP scope.</span></div>}
         <code>{snapshot.objective.wipResources.join(" · ") || "Objective scores no Resource inventory as WIP"}</code>
       </section>
@@ -2338,6 +2338,7 @@ function FactoryObservationPanel({ brief }: { brief: FactoryObservationBrief }) 
       ? `${brief.evidence.run.id} · ${brief.evidence.run.resultHash.slice(0, 12)} · ${brief.evidence.run.decision}`
       : "Static layout only. Simulate before interpreting runtime behavior."}</p>
     {brief.leadingDiagnostic && <div className="observation-leading"><small>LEADING EVIDENCE</small><strong>{brief.leadingDiagnostic.code}</strong><span>{brief.leadingDiagnostic.message}</span></div>}
+    {brief.leadingObjectiveTradeoff && <div className="observation-leading objective-tradeoff" data-testid="observation-objective-tradeoff"><small>LEADING OBJECTIVE TRADEOFF · NOT A CAUSAL LOSS</small><strong>{brief.leadingObjectiveTradeoff.component} {brief.leadingObjectiveTradeoff.contribution.toFixed(3)}</strong><span>{brief.leadingObjectiveTradeoff.summary}</span></div>}
     <div className="observation-views">
       {brief.views.map((view) => <a key={view.id} href={view.studioRoute} data-testid={`observation-view-${view.id.replaceAll(":", "-")}`}>
         <b>{view.label}</b><span>{view.purpose}</span>
@@ -2535,6 +2536,14 @@ function App() {
     setRouteView("factory"); setSelection(next);
   }, [routeProject, run]);
 
+  const navigateObjectiveTradeoff = useCallback((runId: string) => {
+    if (!routeProject) return;
+    window.history.pushState({}, "", factoryObjectPath(routeProject, null, runId));
+    setRouteView("factory");
+    setSelection(null);
+    setRouteRun(runId);
+  }, [routeProject]);
+
   const clearFactorySelection = useCallback(() => {
     if (!routeProject) return;
     window.history.replaceState({}, "", factoryObjectPath(routeProject, null, run));
@@ -2681,7 +2690,7 @@ function App() {
   const overviewContent = <ProjectOverview snapshot={overview} onNavigate={navigateView} onDiagnostic={openDiagnostic} onDiagnosticFocus={navigateAnalysisDiagnostic}
     onExperiment={(id) => navigateExperiment(id)} onCandidate={navigateCandidateDirect}
     onDesign={(programId, runId) => runId ? navigateDesignSource(programId, runId) : navigateDesignProgram(programId)}
-    onRun={openRun} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
+    onRun={openRun} onObjectiveTradeoff={navigateObjectiveTradeoff} onOperation={(operation, cli) => { void executeOperation(operation, cli); }} />;
 
   if (routeView !== "factory") {
     const focusedDiagnostic = routeDiagnostic ? overview.diagnostics.find((diagnostic) => diagnostic.id === routeDiagnostic) : undefined;

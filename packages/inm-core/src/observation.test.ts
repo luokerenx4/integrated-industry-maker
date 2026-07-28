@@ -9,7 +9,7 @@ const repository = resolve(import.meta.dir, "../../..");
 test("observation brief advances past every current bounded memory-fab loss", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const brief = await openFactoryObservationBrief(projectDir);
-  expect(brief.version).toBe(1);
+  expect(brief.version).toBe(2);
   expect(brief.status).toBe("ready");
   expect(brief.authority).toBe("human-or-agent");
   expect(brief.project).toEqual(expect.objectContaining({ id: "memory-fab", rootDir: projectDir }));
@@ -26,6 +26,17 @@ test("observation brief advances past every current bounded memory-fab loss", as
     decision: "BASELINE",
   }));
   expect(brief.leadingDiagnostic).toBeNull();
+  expect(brief.leadingObjectiveTradeoff).toEqual({
+    component: "wip",
+    contribution: -29.8092375,
+    runId: "091-simulate",
+    subjects: [
+      { kind: "resource", id: "packaged-dram-device" },
+      { kind: "resource", id: "known-good-dram-die" },
+    ],
+    summary: "19.873 average scored WIP contributes -29.809 to the exact Objective score.",
+    interpretation: "objective-accounting-not-causal-loss",
+  });
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
     id: "factory-overview",
@@ -33,10 +44,19 @@ test("observation brief advances past every current bounded memory-fab loss", as
     studioRoute: "/memory-fab/factory?run=091-simulate",
     required: true,
   }));
-  expect(brief.views).toHaveLength(1);
-  expect(brief.views.some((view) => view.kind !== "factory-overview")).toBeFalse();
+  expect(brief.views).toHaveLength(3);
+  expect(brief.views).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      kind: "catalog-focus",
+      studioRoute: "/memory-fab/catalog/resources/packaged-dram-device",
+    }),
+    expect.objectContaining({
+      kind: "catalog-focus",
+      studioRoute: "/memory-fab/catalog/resources/known-good-dram-die",
+    }),
+  ]));
   expect(brief.handoff.requiredStatements).toHaveLength(4);
-  expect(brief.handoff.nextStep).toContain("bounded loss frontier");
+  expect(brief.handoff.nextStep).toContain("preserve valued output, service, and quality");
   expect(await openFactoryObservationBrief(projectDir, {}, "091-simulate")).toEqual(brief);
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
 });

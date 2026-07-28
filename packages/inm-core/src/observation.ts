@@ -5,6 +5,7 @@ import {
   type WorkbenchDiagnostic,
   type WorkbenchSubjectReference,
 } from "./workbench";
+import type { ScoreBreakdownComponent } from "./types";
 import { hashValue } from "./utils";
 
 export type FactoryObservationViewKind = "factory-overview" | "factory-focus" | "catalog-focus" | "analysis-evidence";
@@ -20,7 +21,7 @@ export interface FactoryObservationView {
 }
 
 export interface FactoryObservationBrief {
-  version: 1;
+  version: 2;
   id: string;
   status: "ready" | "needs-run";
   authority: "human-or-agent";
@@ -42,6 +43,14 @@ export interface FactoryObservationBrief {
     };
   };
   leadingDiagnostic: null | Pick<WorkbenchDiagnostic, "id" | "code" | "severity" | "message" | "subjects" | "evidence">;
+  leadingObjectiveTradeoff: null | {
+    component: ScoreBreakdownComponent;
+    contribution: number;
+    runId: string;
+    subjects: WorkbenchSubjectReference[];
+    summary: string;
+    interpretation: "objective-accounting-not-causal-loss";
+  };
   views: FactoryObservationView[];
   handoff: {
     requiredStatements: string[];
@@ -128,7 +137,30 @@ export function buildFactoryObservationBrief(
       diagnostic.severity !== "info"
       && !disposedDiagnosticIds.has(diagnostic.id))
     ?? null;
-  const focusViews = [...new Map((leadingDiagnostic?.subjects ?? [])
+  const objectiveEvidence = snapshot.objectiveEvidence;
+  const objectiveAction = snapshot.nextAction.target;
+  const objectiveTarget = objectiveAction.kind === "objective-component"
+    && objectiveEvidence !== null
+    && objectiveEvidence.runId === run?.id
+    && objectiveEvidence.dominantPenalty?.id === objectiveAction.component
+    ? objectiveEvidence
+    : null;
+  const objectiveSubjects: WorkbenchSubjectReference[] = objectiveTarget?.dominantPenalty?.id === "wip"
+    ? objectiveTarget.wip.resources.slice(0, 2)
+      .map((resource) => ({ kind: "resource" as const, id: resource.resource }))
+    : [];
+  const leadingObjectiveTradeoff = objectiveTarget?.dominantPenalty ? {
+    component: objectiveTarget.dominantPenalty.id,
+    contribution: objectiveTarget.dominantPenalty.contribution,
+    runId: objectiveTarget.runId,
+    subjects: objectiveSubjects,
+    summary: objectiveTarget.dominantPenalty.id === "wip"
+      ? `${objectiveTarget.wip.averageWip.toFixed(3)} average scored WIP contributes ${objectiveTarget.wip.scoreContribution.toFixed(3)} to the exact Objective score.`
+      : `${objectiveTarget.dominantPenalty.id} contributes ${objectiveTarget.dominantPenalty.contribution.toFixed(3)} to the exact Objective score.`,
+    interpretation: "objective-accounting-not-causal-loss" as const,
+  } : null;
+  const focusSubjects = leadingDiagnostic?.subjects ?? leadingObjectiveTradeoff?.subjects ?? [];
+  const focusViews = [...new Map(focusSubjects
     .map((subject) => subjectView(projectRoute, run?.id ?? null, subject))
     .filter((view): view is FactoryObservationView => view !== null)
     .map((view) => [view.id, view])).values()].slice(0, 3);
@@ -167,10 +199,13 @@ export function buildFactoryObservationBrief(
     hashes: snapshot.hashes,
     run: run ? { id: run.id, resultHash: run.resultHash } : null,
     diagnostic: leadingDiagnostic?.id ?? null,
+    objectiveTradeoff: leadingObjectiveTradeoff
+      ? { component: leadingObjectiveTradeoff.component, runId: leadingObjectiveTradeoff.runId, subjects: leadingObjectiveTradeoff.subjects }
+      : null,
     views: views.map((view) => ({ id: view.id, route: view.studioRoute })),
   };
   return {
-    version: 1,
+    version: 2,
     id: hashValue(identity),
     status: run ? "ready" : "needs-run",
     authority: "human-or-agent",
@@ -189,20 +224,25 @@ export function buildFactoryObservationBrief(
       subjects: leadingDiagnostic.subjects.map((subject) => ({ ...subject })),
       evidence: { ...leadingDiagnostic.evidence },
     } : null,
+    leadingObjectiveTradeoff,
     views,
     handoff: {
       requiredStatements: [
         "What spatial or operating behavior was visible in the exact run-qualified views?",
         leadingDiagnostic
           ? "How does that behavior relate—or not relate—to the leading structured diagnostic?"
-          : "What visible behavior, if any, justifies opening a new causal investigation after the current bounded loss frontier?",
+          : leadingObjectiveTradeoff
+            ? "Which part of the Objective tradeoff appears avoidable, and which part is necessary industrial inventory?"
+            : "What visible behavior, if any, justifies opening a new causal investigation after the current bounded loss frontier?",
         "What falsifiable industrial hypothesis and smallest exact intervention should be tested?",
         "Which metrics, locked cases, and visible behavior must improve or remain unchanged?",
       ],
       nextStep: run
         ? leadingDiagnostic
           ? "Author one deliberate Blueprint or Candidate intervention, then simulate, Benchmark, and visually compare before deciding."
-          : "Review the compatible Run and bounded loss frontier; open a new intervention only when spatial or typed evidence supports a falsifiable hypothesis."
+          : leadingObjectiveTradeoff
+            ? "Use the Objective tradeoff and Resource-qualified views to author a bounded hypothesis; preserve valued output, service, and quality while testing whether the exposure can fall."
+            : "Review the compatible Run and bounded loss frontier; open a new intervention only when spatial or typed evidence supports a falsifiable hypothesis."
         : "Create compatible immutable simulation evidence before making a runtime design hypothesis.",
       automationBoundary: "Computation may compile, simulate, measure, compare, and rank bounded authored alternatives; a human or reasoning Agent owns interpretation and design judgment.",
     },

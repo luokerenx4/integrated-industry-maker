@@ -215,6 +215,8 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .observation-leading { display: grid; gap: 4px; padding: 9px; border-left: 2px solid var(--accent); background: #071216; }
 .observation-leading strong { color: #d6e8eb; font: 9px var(--mono); }
 .observation-leading span { color: #82999f; font: 8px/1.5 var(--mono); }
+.observation-leading.objective-tradeoff { border-left-color: #e1b85e; background: #1b180e; }
+.observation-leading.objective-tradeoff small { color: #d0aa55; }
 .observation-views { display: grid; gap: 6px; margin-top: 9px; }
 .observation-views a { display: grid; gap: 3px; padding: 8px; border: 1px solid #1c4144; border-radius: 5px; color: inherit; text-decoration: none; background: #071317; }
 .observation-views a:hover, .observation-views a:focus-visible { border-color: var(--accent); outline: none; }
@@ -364,6 +366,15 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .overview-panel > header { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 17px; border-bottom: 1px solid #173138; }
 .overview-panel h3 { margin: 4px 0 0; color: #d9e8ea; font-size: 15px; }
 .overview-panel > header button { color: #659b90; border-color: #20463d; background: #0b211b; font-size: 7px; }
+.inventory-panel > header > b { display: grid; gap: 3px; color: #efbf67; text-align: right; font: 16px var(--mono); }
+.inventory-panel > header > b small { color: #806a43; font: 6px var(--mono); }
+.objective-component-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #193138; border-bottom: 1px solid #173138; }
+.objective-component-list > div { min-width: 0; display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; background: #081519; font: 7px var(--mono); }
+.objective-component-list span { overflow: hidden; color: #607980; text-overflow: ellipsis; }
+.objective-component-list b { color: #819ba1; font-weight: 400; }
+.objective-component-list .reward b { color: #62cda9; }
+.objective-component-list .penalty b { color: #e3b05e; }
+.objective-interpretation { margin: 0; padding: 9px 11px; color: #8a7650; border-top: 1px solid #302916; background: #15140d; font: 7px/1.5 var(--mono); }
 .overview-diagnostics { padding: 8px; }
 .overview-diagnostics > button { width: 100%; display: grid; grid-template-columns: 27px minmax(0, 1fr) 20px; align-items: center; gap: 9px; padding: 11px 10px; border: 0; border-top: 1px solid #142c32; border-radius: 0; text-align: left; background: transparent; }
 .overview-diagnostics > button:first-child { border-top: 0; }

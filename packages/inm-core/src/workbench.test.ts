@@ -18,7 +18,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(10);
+  expect(snapshot.version).toBe(11);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -88,6 +88,32 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     includedInWip: false,
     averageInventory: 39.4292,
   }));
+  expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
+    runId: "091-simulate",
+    finalScore: 42.826105841666674,
+    dominantPenalty: { id: "wip", contribution: -29.8092375, role: "penalty" },
+    wip: expect.objectContaining({
+      weight: 1.5,
+      scoreContribution: -29.8092375,
+      averageWip: 19.872825,
+      peakWip: 56,
+      resources: [
+        expect.objectContaining({
+          resource: "packaged-dram-device",
+          averageInventory: 10.152566666666667,
+          scoreContribution: -15.228850000000001,
+        }),
+        expect.objectContaining({
+          resource: "known-good-dram-die",
+          averageInventory: 8.9929,
+          scoreContribution: -13.489350000000002,
+        }),
+        ...snapshot.objectiveEvidence!.wip.resources.slice(2),
+      ],
+    }),
+  }));
+  expect(snapshot.objectiveEvidence!.components.reduce((sum, component) => sum + component.contribution, 0))
+    .toBeCloseTo(snapshot.objectiveEvidence!.finalScore, 12);
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
     version: 8,
     chain: [
@@ -630,7 +656,7 @@ test("current inspection and yield evidence advances the shared handoff to the f
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(10);
+  expect(snapshot.version).toBe(11);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   expect(snapshot.lossDispositions).toEqual([
     expect.objectContaining({

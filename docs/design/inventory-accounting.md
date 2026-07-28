@@ -45,9 +45,11 @@ This is inventory accounting, not lot-card control. CONWIP still counts released
 
 Immutable run `metrics.json` owns the complete machine-readable accounting. `report.md` prints the summary and one Resource table. Compare/Benchmark snapshots preserve the complete baseline/candidate tables and exact per-Resource deltas.
 
-`inm simulate` human output lists scored contributors; its bounded JSON summary retains the complete accounting object. `inm inspect` exposes the authored scope even without a run and, when a hash-compatible run exists, projects the same evidence through the V4 workbench. Studio Overview and Factory replay render those values without recomputation.
+`inm simulate` human output lists scored contributors; its bounded JSON summary retains the complete accounting object. `inm inspect` exposes the authored scope even without a run and, when a hash-compatible run exists, projects the same accounting plus a separate Objective tradeoff view through the V11 workbench. That view reconciles the complete score breakdown, identifies the dominant negative component, and converts each included Resource's exact average inventory through the immutable Objective WIP weight. Studio Overview and Factory replay render those values without recomputation.
 
 Total inventory remains visible so excluded raw, support, scrap, and finished stock can be diagnosed. It never silently contributes to the WIP score.
+
+The tradeoff projection is not fab-loss attribution. Necessary queue stock, batch companions, protected service inventory, and output awaiting the next physical cadence may all contribute to WIP. Ranking their accounting contribution tells a human or reasoning Agent where to observe; it does not declare the quantity avoidable or authorize an automatic buffer reduction.
 
 ## Source of truth
 

@@ -18,7 +18,15 @@ import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { analyzeProduction, type ProductionAnalysis, type ProductionDiagnostic } from "./production-analysis";
-import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, ProjectHashes } from "./types";
+import {
+  SCORE_BREAKDOWN_COMPONENTS,
+  type CompiledFactoryProject,
+  type FactoryEvent,
+  type FactoryMetrics,
+  type ProjectHashes,
+  type ScoreBreakdown,
+  type ScoreBreakdownComponent,
+} from "./types";
 import { ENGINE_VERSION, hashValue, readJson, stableStringify } from "./utils";
 
 export type WorkbenchDiagnosticSeverity = "blocking" | "warning" | "info";
@@ -75,6 +83,7 @@ export type WorkbenchNextActionTarget =
   | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
   | { kind: "design-program"; programId: string; diagnosticId: string }
   | { kind: "design-run"; programId: string; runId: string; phase: "promotable" | "continuable" | "exhausted"; diagnosticId: string }
+  | { kind: "objective-component"; component: ScoreBreakdownComponent; runId: string }
   | { kind: "operation"; operationId: "analyze" | "simulate" }
   | { kind: "run"; runId: string };
 
@@ -186,8 +195,36 @@ export interface WorkbenchLossDisposition {
   };
 }
 
+export interface WorkbenchObjectiveComponentEvidence {
+  id: ScoreBreakdownComponent;
+  contribution: number;
+  role: "reward" | "penalty" | "neutral";
+}
+
+export interface WorkbenchObjectiveEvidence {
+  runId: string;
+  finalScore: number;
+  scoreBreakdown: ScoreBreakdown;
+  components: WorkbenchObjectiveComponentEvidence[];
+  dominantPenalty: WorkbenchObjectiveComponentEvidence | null;
+  wip: {
+    weight: number;
+    scoreContribution: number;
+    averageWip: number;
+    peakWip: number;
+    resources: Array<{
+      resource: string;
+      averageInventory: number;
+      peakInventory: number;
+      finalInventory: number;
+      shareOfAverageWip: number;
+      scoreContribution: number;
+    }>;
+  };
+}
+
 export interface ProjectWorkbenchSnapshot {
-  version: 10;
+  version: 11;
   project: {
     id: string;
     name: string;
@@ -213,6 +250,7 @@ export interface ProjectWorkbenchSnapshot {
     }>;
   };
   inventoryAccounting: (FactoryMetrics["inventoryAccounting"] & { runId: string }) | null;
+  objectiveEvidence: WorkbenchObjectiveEvidence | null;
   status: {
     capacity: {
       state: "ready" | "blocked";
@@ -705,7 +743,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   ];
 }
 
-export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossDispositions">): WorkbenchNextAction {
+export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossDispositions" | "objectiveEvidence">): WorkbenchNextAction {
   const projectRoute = `/${encodeURIComponent(context.project.id)}`;
   const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
   if (blocking) return {
@@ -849,6 +887,27 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     target: { kind: "diagnostic", diagnosticId: warning.id },
   };
 
+  const objectivePenalty = context.objectiveEvidence?.dominantPenalty;
+  if (objectivePenalty) {
+    const runId = context.objectiveEvidence!.runId;
+    const wip = objectivePenalty.id === "wip" ? context.objectiveEvidence!.wip : null;
+    const leadingResources = wip?.resources.slice(0, 2) ?? [];
+    return {
+      id: `objective-component:${objectivePenalty.id}:${runId}`,
+      tone: "evidence",
+      title: `Review the dominant Objective tradeoff: ${objectivePenalty.id}`,
+      reason: wip
+        ? `WIP contributes ${objectivePenalty.contribution.toFixed(3)} to the exact Run score. ${leadingResources.map((resource) => `${resource.resource} averages ${resource.averageInventory.toFixed(2)}`).join(" and ")}. This is Objective accounting evidence, not proof that the inventory is avoidable.`
+        : `${objectivePenalty.id} contributes ${objectivePenalty.contribution.toFixed(3)} to the exact Run score. Review its measured context before authoring a bounded intervention.`,
+      actionLabel: "OBSERVE TRADEOFF",
+      effect: "read-only",
+      requiresConfirmation: false,
+      argv: ["inm", "observe", context.project.rootDir, ...selectionArgv(context.selection), "--run", runId, "--json"],
+      studioRoute: `${projectRoute}/factory?run=${encodeURIComponent(runId)}`,
+      target: { kind: "objective-component", component: objectivePenalty.id, runId },
+    };
+  }
+
   if (run) return {
     id: `run:${run.id}`,
     tone: "ready",
@@ -873,6 +932,56 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     argv: ["inm", "analyze", context.project.rootDir, ...selectionArgv(context.selection), "--json"],
     studioRoute: projectRoute,
     target: { kind: "operation", operationId: "analyze" },
+  };
+}
+
+function buildWorkbenchObjectiveEvidence(
+  project: CompiledFactoryProject,
+  runId: string,
+  metrics: FactoryMetrics,
+): WorkbenchObjectiveEvidence {
+  const components = SCORE_BREAKDOWN_COMPONENTS
+    .map((id): WorkbenchObjectiveComponentEvidence => ({
+      id,
+      contribution: metrics.scoreBreakdown[id],
+      role: metrics.scoreBreakdown[id] > 0 ? "reward" : metrics.scoreBreakdown[id] < 0 ? "penalty" : "neutral",
+    }))
+    .sort((left, right) =>
+      Math.abs(right.contribution) - Math.abs(left.contribution)
+      || SCORE_BREAKDOWN_COMPONENTS.indexOf(left.id) - SCORE_BREAKDOWN_COMPONENTS.indexOf(right.id));
+  const dominantPenalty = components
+    .filter((component) => component.role === "penalty")
+    .sort((left, right) =>
+      left.contribution - right.contribution
+      || SCORE_BREAKDOWN_COMPONENTS.indexOf(left.id) - SCORE_BREAKDOWN_COMPONENTS.indexOf(right.id))[0] ?? null;
+  const wipWeight = project.objective.weights.wip;
+  const wipResources = Object.entries(metrics.inventoryAccounting.resources)
+    .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
+    .map(([resource, accounting]) => ({
+      resource,
+      averageInventory: accounting.averageInventory,
+      peakInventory: accounting.peakInventory,
+      finalInventory: accounting.finalInventory,
+      shareOfAverageWip: metrics.inventoryAccounting.averageWip > 0
+        ? accounting.averageInventory / metrics.inventoryAccounting.averageWip
+        : 0,
+      scoreContribution: -accounting.averageInventory * wipWeight,
+    }))
+    .sort((left, right) =>
+      right.averageInventory - left.averageInventory || left.resource.localeCompare(right.resource));
+  return {
+    runId,
+    finalScore: metrics.finalScore,
+    scoreBreakdown: structuredClone(metrics.scoreBreakdown),
+    components,
+    dominantPenalty: dominantPenalty ? { ...dominantPenalty } : null,
+    wip: {
+      weight: wipWeight,
+      scoreContribution: metrics.scoreBreakdown.wip,
+      averageWip: metrics.inventoryAccounting.averageWip,
+      peakWip: metrics.inventoryAccounting.peakWip,
+      resources: wipResources,
+    },
   };
 }
 
@@ -1054,7 +1163,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 10 as const,
+    version: 11 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -1067,6 +1176,9 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     },
     inventoryAccounting: currentMetrics
       ? { ...structuredClone(currentMetrics.inventoryAccounting), runId: currentArtifact!.name }
+      : null,
+    objectiveEvidence: currentMetrics
+      ? buildWorkbenchObjectiveEvidence(project, currentArtifact!.name, currentMetrics)
       : null,
     status: {
       capacity: { state: capacity.ready ? "ready" as const : "blocked" as const, gapCount: capacity.gaps.length, gapsByKind },

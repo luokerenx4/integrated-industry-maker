@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/objective-tradeoff-design-handoff]] | Hand the human or Agent the dominant compatible-Run Objective tradeoff after the current realized-loss frontier is bounded. | 2026-07-29 |
 | [[plans/objective-authoritative-analysis-boundary]] | Keep descriptive installed envelopes from becoming Objective demand, realized loss, or factory-change authority. | 2026-07-29 |
 | [[plans/compact-retained-operation-index]] | Separate lightweight reconnectable operation lifecycle records from dense retained industrial results. | 2026-07-29 |
 | [[plans/responsive-studio-experiment-execution]] | Keep Studio responsive while every warm or cold locked Benchmark case executes outside the HTTP/UI event loop. | 2026-07-29 |
