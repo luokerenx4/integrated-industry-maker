@@ -18,9 +18,9 @@ tick → priority → insertion sequence
 
 The runtime may not depend on wall clock, frame rate, object insertion order, browser state, or unseeded randomness. `SeededRandom` is the only stochastic seam.
 
-Locked Benchmark cases are separate deterministic universes. Candidate cases with no shared runtime state execute in bounded workers when at least three cases are present; the host never parallelizes mutation inside one simulation. Each worker reloads and compiles the exact project selection and Blueprint, evaluates one seed, and returns only its compact evaluation plus the explicitly requested invocation-local driver trace. The parent verifies the returned case and Blueprint identities, compares against the prepared locked baseline, and aggregates results in manifest case order. Worker completion order and wall timing are operational facts only: they cannot change case ordering, scores, reasons, verdicts, events, metrics, Design manifests, or result hashes.
+Locked Benchmark cases are separate deterministic universes. Candidate cases with no shared runtime state execute in bounded workers when at least three cases are present; the host never parallelizes mutation inside one simulation. Each job reloads and compiles its exact project selection and Blueprint, evaluates one seed, and returns only its compact evaluation plus the explicitly requested invocation-local driver trace. A standalone Benchmark owns one disposable worker set for its Candidate wave. A Design operation owns one set across its seed and every Candidate wave, so later jobs reuse already-started runtimes without sharing simulation state or cached project inputs. The parent verifies returned case and Blueprint identities, compares against the prepared locked baseline, and aggregates results in manifest case order. Worker completion order, cold startup, warm reuse, and wall timing are operational facts only: they cannot change case ordering, scores, reasons, verdicts, events, metrics, Design manifests, or result hashes.
 
-The default worker bound is the smaller of the case count, eight, and the host's available parallelism minus one. One- and two-case evaluations remain in-process because worker startup would dominate. Tests and internal diagnostics can explicitly select sequential or parallel execution to prove byte-identical evidence; this is not a weaker evaluation mode.
+The default worker bound is the smaller of the case count, eight, and the host's available parallelism minus one. One- and two-case evaluations remain in-process because worker startup would dominate. A failed wave terminates the complete set before a later wave may create replacements; cancellation does the same and rejects without partial aggregate evidence. Normal completion always disposes the operation-owned set. Tests and internal diagnostics can explicitly select sequential or parallel execution to prove byte-identical evidence; this is not a weaker evaluation mode.
 
 ## State ownership
 
@@ -62,6 +62,7 @@ Studio viewing never creates a run. Only explicit CLI simulation/research workfl
 
 - Scheduler/simulation: `packages/inm-core/src/simulator.ts`
 - Device program isolation and decision parsing: `packages/inm-core/src/device-runtime.ts`
+- Bounded case workers and operation-scoped reuse: `packages/inm-core/src/benchmark-case-execution.ts`
 - State mutations: `packages/inm-core/src/state.ts`
 - Events/types: `packages/inm-core/src/types.ts`
 - Evaluation: `packages/inm-core/src/evaluator.ts`

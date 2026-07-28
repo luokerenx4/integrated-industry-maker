@@ -118,6 +118,8 @@ Treatment-aware jobs use the same host boundary. Programs see exact level batche
 
 Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract. Their exact context is exposed through an invocation-scoped read-only view: mutation fails, accepted decisions are detached by host parsing, and the view is revoked before control returns to the simulator.
 
+Parallel locked cases remain isolated jobs even when their Worker runtimes are reused. A Design operation owns one bounded set across seed and Candidate waves, sends every job its complete exact identity and Blueprint, resets the set after a failed wave, and disposes it at the operation boundary. Worker lifecycle and timing never enter industrial hashes or Design authority.
+
 ## Runtime and determinism
 
 Time is integer milliseconds. Production rates are integer counts per integer duration. The simulator uses a binary heap ordered by:

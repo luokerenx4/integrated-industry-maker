@@ -12,10 +12,12 @@ import {
 } from "./blueprint-comparison";
 import type { JsonPatchOperation } from "./artifacts";
 import {
-  executeBenchmarkCaseWorkers,
+  createBenchmarkCaseExecutor,
   resolveBenchmarkCaseExecution,
   type BenchmarkCaseExecution,
+  type BenchmarkCaseExecutor,
   type BenchmarkCaseExecutionRequest,
+  type BenchmarkCaseWorkerResult,
 } from "./benchmark-case-execution";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
@@ -247,6 +249,9 @@ export interface BlueprintBenchmarkProgress {
     cacheReadMs?: number;
     evaluationMs?: number;
     comparisonMs?: number;
+    workerStartupMs?: number;
+    workerReused?: boolean;
+    workerSlot?: number;
   };
   baselineScore?: number;
   candidateScore?: number;
@@ -261,6 +266,7 @@ export interface BlueprintBenchmarkEvaluationOptions {
   candidateBlueprint?: Blueprint;
   onProgress?: BlueprintBenchmarkProgressHandler;
   caseExecution?: BenchmarkCaseExecutionRequest;
+  caseExecutor?: BenchmarkCaseExecutor;
   traceCaseId?: string;
   onTraceCaseEvaluated?: (result: {
     case: BlueprintBenchmarkManifest["cases"][number];
@@ -539,6 +545,13 @@ export async function evaluatePreparedBlueprintBenchmark(
   const { manifest, projectDir } = prepared;
   const evaluationId = options.evaluationId ?? "evaluation";
   const execution = resolveBenchmarkCaseExecution(prepared.cases.length, options.caseExecution);
+  if (options.caseExecutor && (
+    options.caseExecutor.execution.mode !== execution.mode
+    || options.caseExecutor.execution.concurrency !== execution.concurrency
+  )) throw new Error(
+    `Benchmark case executor ${options.caseExecutor.execution.mode} ×${options.caseExecutor.execution.concurrency}`
+    + ` does not match requested ${execution.mode} ×${execution.concurrency}`,
+  );
   if (options.onTraceCaseEvaluated && !options.traceCaseId) throw new Error("Benchmark trace callback requires one exact traceCaseId");
   if (options.traceCaseId && !prepared.cases.some((item) => item.manifest.id === options.traceCaseId)) {
     throw new Error(`Benchmark trace case '${options.traceCaseId}' is not part of '${manifest.id}'`);
@@ -566,7 +579,14 @@ export async function evaluatePreparedBlueprintBenchmark(
     index: number,
     candidate: CompiledFactoryProject,
     candidateEvaluation: FactoryBlueprintEvaluation,
-    timing: { durationMs: number; compileMs: number; evaluationMs: number },
+    timing: {
+      durationMs: number;
+      compileMs: number;
+      evaluationMs: number;
+      workerStartupMs?: number;
+      workerReused?: boolean;
+      workerSlot?: number;
+    },
   ) => {
     const preparedCase = prepared.cases[index]!;
     const item = preparedCase.manifest;
@@ -608,6 +628,9 @@ export async function evaluatePreparedBlueprintBenchmark(
         compileMs: timing.compileMs,
         evaluationMs: timing.evaluationMs,
         comparisonMs,
+        ...(timing.workerStartupMs === undefined ? {} : { workerStartupMs: timing.workerStartupMs }),
+        ...(timing.workerReused === undefined ? {} : { workerReused: timing.workerReused }),
+        ...(timing.workerSlot === undefined ? {} : { workerSlot: timing.workerSlot }),
       },
       baselineScore: comparison.from.metrics.score,
       candidateScore: comparison.to.metrics.score,
@@ -656,25 +679,29 @@ export async function evaluatePreparedBlueprintBenchmark(
       }, options.candidateBlueprint));
       parentCompileMs.push(performance.now() - compileStartedAt);
     }
-    const workerResults = await executeBenchmarkCaseWorkers(
-      prepared.cases.map((preparedCase, index) => {
-        const item = preparedCase.manifest;
-        return {
-          id: item.id,
-          projectDir,
-          selection: { world: item.world, scenario: item.scenario, objective: item.objective },
-          blueprintName: manifest.candidateBlueprint,
-          blueprint: structuredClone(candidates[index]!.blueprint),
-          seed: item.seed,
-          includeTrace: item.id === options.traceCaseId,
-        };
-      }),
-      execution,
-      {
+    const jobs = prepared.cases.map((preparedCase, index) => {
+      const item = preparedCase.manifest;
+      return {
+        id: item.id,
+        projectDir,
+        selection: { world: item.world, scenario: item.scenario, objective: item.objective },
+        blueprintName: manifest.candidateBlueprint,
+        blueprint: structuredClone(candidates[index]!.blueprint),
+        seed: item.seed,
+        includeTrace: item.id === options.traceCaseId,
+      };
+    });
+    const caseExecutor = options.caseExecutor ?? createBenchmarkCaseExecutor(execution);
+    const ownedExecutor = options.caseExecutor ? undefined : caseExecutor;
+    let workerResults: BenchmarkCaseWorkerResult[];
+    try {
+      workerResults = await caseExecutor.execute(jobs, {
         signal: options.signal,
         onStarted: (_job, index) => emitStarted(index),
-      },
-    );
+      });
+    } finally {
+      ownedExecutor?.dispose();
+    }
     for (const [index, result] of workerResults.entries()) {
       options.signal?.throwIfAborted();
       const preparedCase = prepared.cases[index]!;
@@ -693,6 +720,9 @@ export async function evaluatePreparedBlueprintBenchmark(
         durationMs: parentCompileMs[index]! + result.timing.durationMs,
         compileMs: parentCompileMs[index]! + result.timing.compileMs,
         evaluationMs: result.timing.evaluationMs,
+        workerStartupMs: result.timing.workerStartupMs,
+        workerReused: result.timing.workerReused,
+        workerSlot: result.timing.workerSlot,
       });
     }
   }

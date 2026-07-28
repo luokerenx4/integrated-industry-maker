@@ -8,6 +8,8 @@ import type {
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject } from "./loader";
 
+self.postMessage({ type: "ready" } satisfies BenchmarkCaseWorkerResponse);
+
 self.onmessage = async (event: MessageEvent<BenchmarkCaseWorkerJob>) => {
   const job = event.data;
   try {

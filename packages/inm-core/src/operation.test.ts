@@ -16,6 +16,7 @@ import {
   prepareBlueprintBenchmark,
   type BlueprintBenchmarkProgress,
 } from "./benchmark";
+import { createBenchmarkCaseExecutor, resolveBenchmarkCaseExecution } from "./benchmark-case-execution";
 import { inspectCandidateDecision } from "./candidate-review";
 import { previewCandidateChangeSet } from "./candidate-change-set";
 import type { SimulationResult } from "./types";
@@ -137,6 +138,7 @@ test("parallel Benchmark cases preserve exact ordered evidence and terminate coo
   const parallelProgress: BlueprintBenchmarkProgress[] = [];
   let sequentialTrace: SimulationResult | undefined;
   let parallelTrace: SimulationResult | undefined;
+  const executor = createBenchmarkCaseExecutor(resolveBenchmarkCaseExecution(prepared.cases.length, "parallel"));
   const sequential = await evaluatePreparedBlueprintBenchmark(prepared, {
     caseExecution: "sequential",
     traceCaseId: "mixed-quality",
@@ -145,12 +147,20 @@ test("parallel Benchmark cases preserve exact ordered evidence and terminate coo
   });
   const parallel = await evaluatePreparedBlueprintBenchmark(prepared, {
     caseExecution: "parallel",
+    caseExecutor: executor,
     traceCaseId: "mixed-quality",
     onTraceCaseEvaluated: ({ simulation }) => { parallelTrace = simulation; },
     onProgress: (progress) => parallelProgress.push(progress),
   });
+  const repeatedProgress: BlueprintBenchmarkProgress[] = [];
+  const repeated = await evaluatePreparedBlueprintBenchmark(prepared, {
+    caseExecution: "parallel",
+    caseExecutor: executor,
+    onProgress: (progress) => repeatedProgress.push(progress),
+  });
 
   expect(stableStringify(parallel)).toBe(stableStringify(sequential));
+  expect(stableStringify(repeated)).toBe(stableStringify(sequential));
   expect(sequentialTrace).toBeDefined();
   expect(parallelTrace).toBeDefined();
   expect(hashValue(parallelTrace)).toBe(hashValue(sequentialTrace));
@@ -159,6 +169,12 @@ test("parallel Benchmark cases preserve exact ordered evidence and terminate coo
   expect(parallelProgress.filter((item) => item.phase === "candidate-case-completed").map((item) => item.case.id)).toEqual(caseOrder);
   expect(parallelProgress.map((item) => item.sequence)).toEqual(Array.from({ length: 10 }, (_, index) => index + 11));
   expect(parallelProgress.every((item) => item.execution.mode === "parallel" && item.execution.concurrency === 5)).toBeTrue();
+  expect(parallelProgress.filter((item) => item.phase === "candidate-case-completed")
+    .every((item) => item.timing.workerReused === false && (item.timing.workerStartupMs ?? 0) > 0)).toBeTrue();
+  expect(repeatedProgress.filter((item) => item.phase === "candidate-case-completed")
+    .every((item) => item.timing.workerReused === true && item.timing.workerStartupMs === 0)).toBeTrue();
+  expect(executor.stats()).toEqual({ workerStarts: 5, completedJobs: 10, completedWaves: 2 });
+  executor.dispose();
 
   const abort = new AbortController();
   let starts = 0;

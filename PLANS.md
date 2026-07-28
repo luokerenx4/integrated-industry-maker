@@ -18,7 +18,7 @@ There are no active plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/reusable-benchmark-worker-pool]] | Reuse one bounded worker set across seed and Candidate waves inside a single operation. | 2026-07-28 |
+| [[plans/current-simulator-settle-loop-performance]] | Re-profile the current warm memory-fab simulator and remove its next exact settle/event hot-path cost. | 2026-07-28 |
 
 ## Paused plans
 
@@ -28,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/reusable-benchmark-worker-pool]] | Reuse one bounded worker set across seed and Candidate waves inside a single operation. | 2026-07-28 |
 | [[plans/revocable-device-program-context]] | Replace per-decision whole-context cloning with a fast invocation-scoped read-only Device view. | 2026-07-28 |
 | [[plans/parallel-benchmark-case-execution]] | Reduce memory-fab Design wall time through exact, bounded parallel evaluation of independent locked cases. | 2026-07-28 |
 | [[plans/low-friction-experiment-loop]] | Make the memory-fab start, experiment, progress, reopen, and recovery loop source-current and interruption-tolerant. | 2026-07-28 |

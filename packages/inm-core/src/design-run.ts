@@ -9,7 +9,11 @@ import {
 } from "./types";
 import { hasBlueprintBenchmarkCadenceEvidence, type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult } from "./benchmark";
 import { evaluatePreparedBlueprintBenchmark, loadBlueprintBenchmark, prepareBlueprintBenchmark } from "./benchmark";
-import type { BenchmarkCaseExecutionRequest } from "./benchmark-case-execution";
+import {
+  createBenchmarkCaseExecutor,
+  resolveBenchmarkCaseExecution,
+  type BenchmarkCaseExecutionRequest,
+} from "./benchmark-case-execution";
 import { createBlueprintPatch, subtractScoreBreakdown } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
 import { compileFactoryProject } from "./compiler";
@@ -1245,6 +1249,11 @@ export async function runDesignProgram(
     onProgress: benchmarkProgress("baseline", 0),
     signal: options.signal,
   });
+  const caseExecution = resolveBenchmarkCaseExecution(benchmark.cases.length, options.caseExecution);
+  const caseExecutor = caseExecution.mode === "parallel"
+    ? createBenchmarkCaseExecutor(caseExecution)
+    : undefined;
+  try {
   const driverCase = prepared.driverCase;
   const loaded = prepared.loaded;
   const seedBlueprint = structuredClone(prepared.seedBlueprint);
@@ -1256,6 +1265,7 @@ export async function runDesignProgram(
       onProgress: benchmarkProgress("seed", 0),
       signal: options.signal,
       caseExecution: options.caseExecution,
+      caseExecutor,
       traceCaseId: driverCase.id,
       onTraceCaseEvaluated: ({ project, simulation }) => {
         seedDriverProject = project;
@@ -1425,6 +1435,7 @@ export async function runDesignProgram(
         onProgress: benchmarkProgress("candidate", iteration),
         signal: options.signal,
         caseExecution: options.caseExecution,
+        caseExecutor,
         traceCaseId: driverCase.id,
         onTraceCaseEvaluated: ({ project, simulation }) => {
           candidateDriverProject = project;
@@ -1599,6 +1610,9 @@ export async function runDesignProgram(
   plannedCases = completedCases;
   emit({ phase: "run-completed", resultHash: manifest.resultHash, stopReason: manifest.stopReason, best: manifest.best });
   return { manifest, bestBlueprint, artifact };
+  } finally {
+    caseExecutor?.dispose();
+  }
 }
 
 export async function continueDesignRun(

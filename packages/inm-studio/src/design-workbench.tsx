@@ -81,7 +81,7 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
     title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
     detail: `${progress.case.id} · ${progress.phase === "case-started"
       ? `evaluating${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}`
-      : `complete${progress.cached ? " · reused" : ""}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
+      : `complete${progress.cached ? " · reused" : ""}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? ` · warm worker #${(progress.timing.workerSlot ?? 0) + 1}` : ` · cold worker #${(progress.timing.workerSlot ?? 0) + 1} · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)} ms startup`}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
   };
   if (progress.phase === "driver-replay-started" || progress.phase === "driver-replay-completed") return {
     title: "RECOVERING HISTORICAL DRIVER TRACE",
@@ -123,7 +123,7 @@ export function latestCompletedDesignCase(
 }
 
 function completedCaseLabel(progress: CompletedDesignCaseProgress): string {
-  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
+  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? " · warm worker" : ` · cold worker · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)} ms startup`}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
 }
 
 export function DesignWorkbench({

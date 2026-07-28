@@ -318,6 +318,10 @@ test("inspection supply Design closes one exact causal frontier without changing
     event.phase === "case-completed");
   expect(completedCaseProgress.every((event) =>
     event.timing.durationMs !== undefined && event.timing.durationMs >= 0)).toBeTrue();
+  expect(completedCaseProgress.filter((event) => event.evaluation.kind === "seed")
+    .every((event) => event.timing.workerReused === false && (event.timing.workerStartupMs ?? 0) > 0)).toBeTrue();
+  expect(completedCaseProgress.filter((event) => event.evaluation.kind === "candidate")
+    .every((event) => event.timing.workerReused === true && event.timing.workerStartupMs === 0)).toBeTrue();
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     version: 4,
     phase: "run-completed",
