@@ -293,6 +293,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const proportionalPower = project.blueprint.policies.powerAllocation === "proportional";
   const powerGridIds = Object.keys(project.powerGrids).sort();
   const devices = Object.values(project.devices);
+  const devicesByRegion = Object.fromEntries(Object.keys(project.regions).map((region) => [
+    region,
+    devices.filter((device) => device.region === region),
+  ]));
+  const bufferIdsByDevice = Object.fromEntries(devices.map((device) => [device.id, Object.keys(device.buffers)]));
+  const connectionIds = Object.keys(project.connections);
+  const logisticsNetworkIds = Object.keys(project.logisticsNetworks);
+  const deliveryContractResourcesByRegion = Object.fromEntries(Object.keys(project.regions).map((region) => [
+    region,
+    [...new Set((project.objective.deliveryContracts ?? [])
+      .filter((contract) => contract.region === region)
+      .map((contract) => contract.resource))],
+  ]));
   const connectedDevices = devices.filter((device) => device.powerGrid !== undefined);
   const devicesByPowerGrid = Object.fromEntries(powerGridIds.map((grid) => [
     grid,
@@ -1684,29 +1697,51 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return allocations;
   };
-  const contractCommitted = (resource: string, region: string): number => {
-    const delivered = stats.consumedByRegion[region]?.[resource] ?? 0;
-    const buffered = Object.values(project.devices).filter((candidate) => candidate.region === region).reduce((sum, candidate) =>
-      sum + Object.values(state.devices[candidate.id]!.buffers).reduce((bufferSum, inventory) => bufferSum + (inventory[resource] ?? 0), 0), 0);
-    const inTransit = [...Object.values(state.transports).flat(), ...Object.values(state.logisticsTransports).flat()]
-      .filter((transit) => transit.resource === resource && project.devices[transit.to]?.region === region)
-      .reduce((sum, transit) => sum + transit.count, 0);
-    const activeOutputs = Object.values(project.devices).filter((candidate) => candidate.region === region).reduce((sum, candidate) =>
-      sum + (state.devices[candidate.id]!.activeJob?.produce ?? []).filter((amount) => amount.resource === resource)
-        .reduce((outputSum, amount) => outputSum + amount.count, 0), 0);
-    return delivered + buffered + inTransit + activeOutputs;
+  const contractCommitmentKey = (resource: string, region: string) => `${region}\0${resource}`;
+  const captureContractCommitments = (resources: readonly string[], region: string): ReadonlyMap<string, number> => {
+    const selected = new Set(resources);
+    const commitments = new Map(resources.map((resource) => [
+      contractCommitmentKey(resource, region),
+      stats.consumedByRegion[region]?.[resource] ?? 0,
+    ]));
+    if (!selected.size) return commitments;
+    const addCommitment = (resource: string, count: number) => {
+      if (!selected.has(resource) || count === 0) return;
+      const key = contractCommitmentKey(resource, region);
+      commitments.set(key, commitments.get(key)! + count);
+    };
+    for (const candidate of devicesByRegion[region] ?? []) {
+      const runtime = state.devices[candidate.id]!;
+      for (const buffer of bufferIdsByDevice[candidate.id]!) {
+        const inventory = runtime.buffers[buffer]!;
+        for (const resource of resources) addCommitment(resource, inventory[resource] ?? 0);
+      }
+      for (const output of runtime.activeJob?.produce ?? []) addCommitment(output.resource, output.count);
+    }
+    for (const connection of connectionIds) for (const transit of state.transports[connection]!) {
+      if (project.devices[transit.to]?.region === region) addCommitment(transit.resource, transit.count);
+    }
+    for (const network of logisticsNetworkIds) for (const transit of state.logisticsTransports[network]!) {
+      if (project.devices[transit.to]?.region === region) addCommitment(transit.resource, transit.count);
+    }
+    return commitments;
   };
+  const contractCommitted = (resource: string, region: string): number =>
+    captureContractCommitments([resource], region).get(contractCommitmentKey(resource, region)) ?? 0;
+  const committedFrom = (commitments: ReadonlyMap<string, number> | undefined, resource: string, region: string): number =>
+    commitments?.get(contractCommitmentKey(resource, region)) ?? contractCommitted(resource, region);
   const contractContribution = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
     executions = 1,
+    commitments?: ReadonlyMap<string, number>,
   ): number =>
     (project.objective.deliveryContracts ?? []).reduce((sum, contract) => {
       if (contract.region !== device.region) return sum;
       const output = (plan.outputs.find((amount) => amount.resource === contract.resource)?.count ?? 0) * executions;
       if (output <= 0) return sum;
       const demand = contract.demandPerMinute * project.scenario.durationTicks / 60_000;
-      const remaining = Math.max(0, demand - contractCommitted(contract.resource, contract.region));
+      const remaining = Math.max(0, demand - committedFrom(commitments, contract.resource, contract.region));
       return sum + output * contract.valuePerItem + Math.min(output, remaining) * contract.shortfallPenaltyPerItem;
     }, 0);
   const contractDeliveryLeadTicks = (
@@ -1727,6 +1762,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const contractWindowContribution = (
     device: CompiledDevice,
     plan: CompiledDevice["processPlans"][number],
+    commitments?: ReadonlyMap<string, number>,
   ): { value: number; firstDeliveryTicks: number } => {
     const setup = state.devices[device.id]!.setup;
     const changeoverTicks = setup && plan.setupGroup && setup.group !== plan.setupGroup
@@ -1749,7 +1785,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       );
       const output = outputPerExecution * timeExecutions;
       const demand = contract.demandPerMinute * project.scenario.durationTicks / 60_000;
-      const remaining = Math.max(0, demand - contractCommitted(contract.resource, contract.region));
+      const remaining = Math.max(0, demand - committedFrom(commitments, contract.resource, contract.region));
       value += output * contract.valuePerItem
         + Math.min(output, remaining) * contract.shortfallPenaltyPerItem;
     }
@@ -1763,10 +1799,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const isContractDispatchDevice = (device: CompiledDevice): boolean => device.policy?.recipeDispatch === "contract-value"
     && device.processPlans.some((plan) => plan.outputs.some((output) => (project.objective.deliveryContracts ?? [])
       .some((contract) => contract.resource === output.resource && contract.region === device.region)));
-  const processPlanMaterialReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
+  const captureDeviceContractCommitments = (device: CompiledDevice): ReadonlyMap<string, number> | undefined =>
+    isContractDispatchDevice(device)
+      ? captureContractCommitments(deliveryContractResourcesByRegion[device.region] ?? [], device.region)
+      : undefined;
+  const processPlanMaterialReady = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+    commitments?: ReadonlyMap<string, number>,
+  ): boolean =>
     plan.inputs.every((amount) => amountAvailable(device, amount) && (!isTracked(amount.resource)
       || rankedProcessLotIds(device, amount.buffer, amount.resource, plan.definition.id, amount.minimumTreatmentLevel ?? 0).length >= amount.count))
-      && (!isContractDispatchDevice(device) || contractWindowContribution(device, plan).value > 0)
+      && (!isContractDispatchDevice(device) || contractWindowContribution(device, plan, commitments).value > 0)
       && outputFits(device, plan.quality?.kind === "inspection"
         ? [resolveInspectionExecution(device, plan)?.output ?? plan.quality.passOutput]
         : resolveLotOutputExecution(device, plan)?.outputs ?? plan.outputs);
@@ -1877,13 +1921,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     });
     return true;
   };
-  const processPlanReady = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean =>
-    processPlanMaterialReady(device, plan)
+  const processPlanReady = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+    commitments?: ReadonlyMap<string, number>,
+  ): boolean =>
+    processPlanMaterialReady(device, plan, commitments)
       && (!plan.tooling.length || Boolean(toolingProviderFor(device, plan)))
       && (!plan.utilities.length || Boolean(utilityAllocationsFor(plan)));
   const rankProcessPlans = (
     device: CompiledDevice,
     candidates: CompiledDevice["processPlans"] = device.processPlans,
+    commitments?: ReadonlyMap<string, number>,
   ): Array<{ plan: CompiledDevice["processPlans"][number]; index: number }> => {
     const ranked = candidates.map((plan) => ({ plan, index: device.processPlans.indexOf(plan) }));
     const cadence = device.policy?.cadenceControl;
@@ -1927,10 +1976,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       ranked.sort((left, right) => Number(right.plan.setupGroup === currentGroup) - Number(left.plan.setupGroup === currentGroup) || left.index - right.index);
     }
     else if (policy === "contract-value") ranked.sort((left, right) => {
-      const leftWindow = contractWindowContribution(device, left.plan);
-      const rightWindow = contractWindowContribution(device, right.plan);
-      const leftRate = contractContribution(device, left.plan) / left.plan.durationTicks;
-      const rightRate = contractContribution(device, right.plan) / right.plan.durationTicks;
+      const leftWindow = contractWindowContribution(device, left.plan, commitments);
+      const rightWindow = contractWindowContribution(device, right.plan, commitments);
+      const leftRate = contractContribution(device, left.plan, 1, commitments) / left.plan.durationTicks;
+      const rightRate = contractContribution(device, right.plan, 1, commitments) / right.plan.durationTicks;
       return rightWindow.value - leftWindow.value
         || leftWindow.firstDeliveryTicks - rightWindow.firstDeliveryTicks
         || rightRate - leftRate
@@ -1966,9 +2015,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     device: CompiledDevice,
     candidates: CompiledDevice["processPlans"] = device.processPlans,
     fallback = true,
+    commitments?: ReadonlyMap<string, number>,
   ): CompiledDevice["processPlans"][number] | undefined => {
-    const ranked = rankProcessPlans(device, candidates);
-    const ready = ranked.find(({ plan }) => processPlanReady(device, plan));
+    const ranked = rankProcessPlans(device, candidates, commitments);
+    const ready = ranked.find(({ plan }) => processPlanReady(device, plan, commitments));
     return (ready ?? (fallback && !isContractDispatchDevice(device) ? ranked[0] : undefined))?.plan;
   };
   const readyLotsForSetupGroup = (device: CompiledDevice, setupGroup: string): number => {
@@ -1999,16 +2049,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     return ids.size;
   };
-  const selectBatchFormationProcessPlan = (device: CompiledDevice): {
+  const selectBatchFormationProcessPlan = (device: CompiledDevice, commitments?: ReadonlyMap<string, number>): {
     plan?: CompiledDevice["processPlans"][number]; held: boolean; changed: boolean;
   } => {
     const policy = device.policy?.batchFormation;
     const formation = state.devices[device.id]!.batchFormation;
-    if (!policy || !formation) return { plan: selectProcessPlan(device), held: false, changed: false };
+    if (!policy || !formation) return { plan: selectProcessPlan(device, device.processPlans, true, commitments), held: false, changed: false };
     const preferred = device.processPlans.find((plan) => plan.definition.id === policy.preferredProcess)!;
     const fallbacks = compatibleBatchFallbacks(device, preferred);
-    const preferredReady = processPlanReady(device, preferred);
-    const fallback = selectProcessPlan(device, fallbacks, false);
+    const preferredReady = processPlanReady(device, preferred, commitments);
+    const fallback = selectProcessPlan(device, fallbacks, false, commitments);
     const readyLots = readyTrackedLotsForPlan(device, preferred);
     const preferredLots = Math.max(...preferred.lotTransfers.map((transfer) => transfer.input.count));
     if (preferredReady) {
@@ -2038,15 +2088,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     if (formation.draining) {
       if (fallback) return { plan: fallback, held: false, changed: false };
       if (fallbacks.some((plan) => readyTrackedLotsForPlan(device, plan) > 0)) {
-        return { plan: selectProcessPlan(device, fallbacks), held: false, changed: false };
+        return { plan: selectProcessPlan(device, fallbacks, true, commitments), held: false, changed: false };
       }
       mutateFactoryState(state, { kind: "batch.reset", device: device.id });
-      return { plan: selectProcessPlan(device), held: false, changed: true };
+      return { plan: selectProcessPlan(device, device.processPlans, true, commitments), held: false, changed: true };
     }
     if (policy.maximumWaitTicks === 0) {
-      return { plan: fallback ?? selectProcessPlan(device, fallbacks), held: false, changed: false };
+      return { plan: fallback ?? selectProcessPlan(device, fallbacks, true, commitments), held: false, changed: false };
     }
-    if (!fallback) return { plan: selectProcessPlan(device), held: false, changed: false };
+    if (!fallback) return { plan: selectProcessPlan(device, device.processPlans, true, commitments), held: false, changed: false };
     const deadlineTick = state.tick + policy.maximumWaitTicks;
     mutateFactoryState(state, { kind: "batch.hold", device: device.id, preferredProcess: preferred.definition.id, deadlineTick });
     emit({
@@ -2056,22 +2106,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(deadlineTick, 3, { kind: "batch-timeout", device: device.id, preferredProcess: preferred.definition.id, deadlineTick });
     return { held: true, changed: true };
   };
-  const selectCampaignProcessPlan = (device: CompiledDevice): {
+  const selectCampaignProcessPlan = (device: CompiledDevice, commitments?: ReadonlyMap<string, number>): {
     plan?: CompiledDevice["processPlans"][number];
     held: boolean;
     changed: boolean;
   } => {
-    if (device.policy?.batchFormation) return selectBatchFormationProcessPlan(device);
+    if (device.policy?.batchFormation) return selectBatchFormationProcessPlan(device, commitments);
     const policy = device.policy?.setupCampaign;
     const setup = state.devices[device.id]!.setup;
-    if (!policy || !setup || setup.group === null) return { plan: selectProcessPlan(device), held: false, changed: false };
-    const readyPlans = device.processPlans.filter((plan) => processPlanReady(device, plan));
+    if (!policy || !setup || setup.group === null) return { plan: selectProcessPlan(device, device.processPlans, true, commitments), held: false, changed: false };
+    const readyPlans = device.processPlans.filter((plan) => processPlanReady(device, plan, commitments));
     const currentPlans = readyPlans.filter((plan) => plan.setupGroup === setup.group);
-    const currentPlan = selectProcessPlan(device, currentPlans, false);
+    const currentPlan = selectProcessPlan(device, currentPlans, false, commitments);
     if (setup.campaign) {
       const hold = setup.campaign;
       const targetPlans = readyPlans.filter((plan) => plan.setupGroup === hold.targetGroup);
-      const targetPlan = selectProcessPlan(device, targetPlans, false);
+      const targetPlan = selectProcessPlan(device, targetPlans, false, commitments);
       if (targetPlan) {
         const readyLots = readyLotsForSetupGroup(device, hold.targetGroup);
         const cause = readyLots >= policy.minimumReadyLots ? "minimum-ready-lots"
@@ -2089,8 +2139,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       return { held: true, changed: false };
     }
     if (currentPlan) return { plan: currentPlan, held: false, changed: false };
-    const selected = selectProcessPlan(device);
-    if (!selected || !processPlanReady(device, selected) || !selected.setupGroup || selected.setupGroup === setup.group) {
+    const selected = selectProcessPlan(device, device.processPlans, true, commitments);
+    if (!selected || !processPlanReady(device, selected, commitments) || !selected.setupGroup || selected.setupGroup === setup.group) {
       return { plan: selected, held: false, changed: false };
     }
     const readyLots = readyLotsForSetupGroup(device, selected.setupGroup);
@@ -2108,10 +2158,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   };
   const changeoverTransition = (device: CompiledDevice, from: string | null, to: string) =>
     device.assetDef.production?.changeover?.transitions.find((transition) => transition.from === from && transition.to === to);
-  const requiresChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
+  const requiresChangeover = (
+    device: CompiledDevice,
+    plan: CompiledDevice["processPlans"][number],
+    commitments?: ReadonlyMap<string, number>,
+  ): boolean => {
     const setup = state.devices[device.id]!.setup;
     return Boolean(setup && plan.setupGroup && setup.group !== plan.setupGroup
-      && changeoverTransition(device, setup.group, plan.setupGroup) && processPlanReady(device, plan));
+      && changeoverTransition(device, setup.group, plan.setupGroup) && processPlanReady(device, plan, commitments));
   };
   const tryStartChangeover = (device: CompiledDevice, plan: CompiledDevice["processPlans"][number]): boolean => {
     const runtime = state.devices[device.id]!;
@@ -2340,21 +2394,22 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       closeInputStarvation(device.id, "unavailable");
       return runtime.energyManagement?.mode === "sleeping" ? tryStartWake(device) : tryStartQualification(device);
     }
-    const campaignSelection = selectCampaignProcessPlan(device);
+    const commitments = captureDeviceContractCommitments(device);
+    const campaignSelection = selectCampaignProcessPlan(device, commitments);
     const selectedProcessPlan = campaignSelection.plan;
     const toolingBlockedPlan = selectedProcessPlan?.tooling.length
-      && processPlanMaterialReady(device, selectedProcessPlan) && !toolingProviderFor(device, selectedProcessPlan)
+      && processPlanMaterialReady(device, selectedProcessPlan, commitments) && !toolingProviderFor(device, selectedProcessPlan)
       ? selectedProcessPlan
       : selectedProcessPlan ? undefined : device.processPlans.find((plan) =>
-        plan.tooling.length > 0 && processPlanMaterialReady(device, plan) && !toolingProviderFor(device, plan));
+        plan.tooling.length > 0 && processPlanMaterialReady(device, plan, commitments) && !toolingProviderFor(device, plan));
     const previousToolingWait = runtime.productionTooling?.wait;
     const utilityBlockedPlan = selectedProcessPlan?.utilities.length
-      && processPlanMaterialReady(device, selectedProcessPlan) && !utilityAllocationsFor(selectedProcessPlan)
+      && processPlanMaterialReady(device, selectedProcessPlan, commitments) && !utilityAllocationsFor(selectedProcessPlan)
       ? selectedProcessPlan
       : selectedProcessPlan ? undefined : device.processPlans.find((plan) =>
-        plan.utilities.length > 0 && processPlanMaterialReady(device, plan) && !utilityAllocationsFor(plan));
+        plan.utilities.length > 0 && processPlanMaterialReady(device, plan, commitments) && !utilityAllocationsFor(plan));
     const previousUtilityWait = runtime.productionUtilities?.wait;
-    const productionReady = Boolean(selectedProcessPlan && processPlanReady(device, selectedProcessPlan));
+    const productionReady = Boolean(selectedProcessPlan && processPlanReady(device, selectedProcessPlan, commitments));
     const blockingMaintenance = maintenanceDecision(device, false);
     const plannedStopDue = blockingMaintenance?.cause === "planned-boundary";
     if (runtime.energyManagement?.mode === "sleeping") {
@@ -2413,7 +2468,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       setStatus(device.id, "waiting-input");
       return campaignSelection.changed || previousStatus !== runtime.status;
     }
-    if (selectedProcessPlan && requiresChangeover(device, selectedProcessPlan)) return tryStartChangeover(device, selectedProcessPlan);
+    if (selectedProcessPlan && requiresChangeover(device, selectedProcessPlan, commitments)) return tryStartChangeover(device, selectedProcessPlan);
     const inputStarvationChanged = setProcessInputStarvation(device, selectedProcessPlan);
     const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
       apiVersion: 1, tick: state.tick,
