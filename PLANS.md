@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/single-pass-grid-power-observation]] | Observe exact live grid and transport power once per metric or scheduling boundary. | 2026-07-29 |
 | [[plans/lazy-input-starvation-evidence]] | Materialize immutable shortage evidence only when exact live observations change. | 2026-07-29 |
 | [[plans/compiled-contract-commitment-sources]] | Build exact contract-value snapshots from compiled Resource-specific live-state sources. | 2026-07-29 |
 | [[plans/single-pass-runtime-measurement]] | Observe authoritative inventory, transport, and mission state once per deterministic metric boundary. | 2026-07-29 |
