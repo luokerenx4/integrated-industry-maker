@@ -23,6 +23,43 @@ function freezeDeep<T>(value: T): Readonly<T> {
   return value;
 }
 
+function revocableReadonlyView<T extends object>(value: T): { value: Readonly<T>; revoke: () => void } {
+  const proxies = new WeakMap<object, object>();
+  const revocations: Array<() => void> = [];
+  const mutationError = () => {
+    throw new TypeError("Device program context is read-only");
+  };
+  const view = (current: unknown): unknown => {
+    if (!current || typeof current !== "object") return current;
+    const existing = proxies.get(current);
+    if (existing) return existing;
+    const revocable = Proxy.revocable(current, {
+      get(target, property, receiver) {
+        return view(Reflect.get(target, property, receiver));
+      },
+      getOwnPropertyDescriptor(target, property) {
+        const descriptor = Reflect.getOwnPropertyDescriptor(target, property);
+        if (!descriptor || !("value" in descriptor) || (!descriptor.configurable && !descriptor.writable)) return descriptor;
+        return { ...descriptor, value: view(descriptor.value) };
+      },
+      set: mutationError,
+      deleteProperty: mutationError,
+      defineProperty: mutationError,
+      setPrototypeOf: mutationError,
+      preventExtensions: mutationError,
+    });
+    proxies.set(current, revocable.proxy);
+    revocations.push(revocable.revoke);
+    return revocable.proxy;
+  };
+  return {
+    value: view(value) as Readonly<T>,
+    revoke() {
+      for (let index = revocations.length - 1; index >= 0; index--) revocations[index]!();
+    },
+  };
+}
+
 function amounts(value: unknown, path: string): ResourceBufferQuantity[] {
   if (!Array.isArray(value)) throw new Error(`${path} must be an array`);
   return value.map((item, index) => {
@@ -120,16 +157,15 @@ function assertSynchronous(assetId: string, value: unknown, hook: string): unkno
 }
 
 export function evaluateDeviceProgram(assetId: string, program: DeviceProgram, context: DeviceProgramContext): DeviceProgramDecision {
+  const invocation = revocableReadonlyView(context);
   try {
-    // Evaluation receives a detached snapshot, so even a misbehaving project
-    // program cannot mutate simulator-owned state. Deep-freezing that same
-    // object graph on every settle pass duplicates the isolation traversal and
-    // dominates large-factory runtime without strengthening the host boundary.
-    const value = assertSynchronous(assetId, program.evaluate(structuredClone(context)), "evaluate");
+    const value = assertSynchronous(assetId, program.evaluate(invocation.value), "evaluate");
     return parseDeviceDecision(assetId, value);
   } catch (error) {
     if (error instanceof DeviceProgramError) throw error;
     throw new DeviceProgramError(assetId, `evaluate() failed: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    invocation.revoke();
   }
 }
 

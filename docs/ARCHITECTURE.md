@@ -116,7 +116,7 @@ Treatment-aware jobs use the same host boundary. Programs see exact level batche
 
 `inm analyze` compiles selected recipes and Resource-to-physical-port bindings, treatment requirements and Device/agent rates, effective port contracts and backing-buffer partitions, compatible alternatives, a globally balanced production graph, extraction and finite-deposit lifetime, material/fuel balance, grade-aware local and station logistics envelopes, effective dispatch policies and coverage profiles, endpoint power, accumulator capacity/startup energy/charge/discharge limits, and per-grid steady-state headroom without running the event simulator. This analysis is also included in every Research Agent input, giving an optimizer explicit industrial semantics rather than requiring it to reverse-engineer Device scripts.
 
-Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract.
+Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract. Their exact context is exposed through an invocation-scoped read-only view: mutation fails, accepted decisions are detached by host parsing, and the view is revoked before control returns to the simulator.
 
 ## Runtime and determinism
 

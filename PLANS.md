@@ -16,7 +16,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/reusable-benchmark-worker-pool]] | Reuse one bounded worker set across seed and Candidate waves inside a single operation. | 2026-07-28 |
 
 ## Paused plans
 
@@ -26,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/revocable-device-program-context]] | Replace per-decision whole-context cloning with a fast invocation-scoped read-only Device view. | 2026-07-28 |
 | [[plans/parallel-benchmark-case-execution]] | Reduce memory-fab Design wall time through exact, bounded parallel evaluation of independent locked cases. | 2026-07-28 |
 | [[plans/low-friction-experiment-loop]] | Make the memory-fab start, experiment, progress, reopen, and recovery loop source-current and interruption-tolerant. | 2026-07-28 |
 | [[plans/back-end-die-handoff-convergence]] | Turn the current Probe-to-packaging transport blocking into a focused locked Design decision using explicit die-handling equipment. | 2026-07-28 |

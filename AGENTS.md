@@ -12,6 +12,8 @@ Long CLI Benchmark, Candidate, and Design work uses the same Core execution life
 
 Locked Benchmark cases may execute concurrently only through Core's bounded isolated-worker boundary. Preserve exact per-case simulation, manifest-ordered aggregation/progress, driver-trace identity, and whole-wave cancellation; worker finish order and timing are operational evidence, never industrial authority.
 
+Device programs receive one synchronous invocation-scoped read-only view, not a mutable state copy. Preserve lazy nested wrapping, mutation rejection (including property-descriptor access), host-side decision parsing, and revocation before simulator control resumes; never expose a retained live view of simulator state.
+
 ## Observation-led design
 
 INM is a Harness for human/Agent industrial reasoning, not an autonomous factory optimizer. A human or reasoning Agent owns the design hypothesis and commissioning judgment. RL, black-box search, or automatic layout generation must not become the product design loop.

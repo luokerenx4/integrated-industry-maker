@@ -2,7 +2,7 @@
 
 Status: managed lifecycle, bounded feedback loops, reconnectable Studio work, and cooperative CLI execution implemented.
 
-Related: [[docs/design/studio-debugger]], [[docs/design/agent-cli-contract]], [[docs/design/operator-workbench]], [[docs/CLI]], [[plans/low-friction-development-operations]].
+Related: [[docs/design/studio-debugger]], [[docs/design/agent-cli-contract]], [[docs/design/operator-workbench]], [[docs/CLI]], [[plans/low-friction-development-operations]], and [[plans/revocable-device-program-context]].
 
 ## Purpose
 
@@ -39,6 +39,8 @@ A fast pass is not described as release or merge proof. Full checks run at inten
 Locked Benchmark execution also removes deterministic duplicate work without hiding design decisions. Fixed baseline simulations may be reused only through the exact cache contract in [[docs/design/experiment-workbench]]; candidate simulations and every acceptance decision remain fresh.
 
 Design execution likewise avoids duplicate work without caching Candidate decisions. Each fresh locked driver-case simulation supplies both the compact Benchmark score and the ephemeral event trace used for causal loss evidence. Three or more independent fresh cases run in bounded isolated workers and are aggregated in locked manifest order; CLI and Studio report the exact execution mode/concurrency, case evaluations, cache reuse, and timing. They never label a reused baseline as a fresh simulation. Historical continuation may explicitly replay a driver trace when the source artifact cannot retain runtime events.
+
+Inside one exact simulation, project-local Device evaluation does not clone the complete buffer/material context on every settle pass. Core exposes one recursively lazy read-only view for the synchronous invocation, parses the declarative decision into host-owned data, then revokes every exposed proxy. This removes repeat object-graph copying without weakening state ownership or making the project script a mutable simulator participant.
 
 ## Reconnectable long work
 
