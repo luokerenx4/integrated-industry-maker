@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary, InvalidDesignRunSummary, ResearchPromotionBoundary } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
+import { cancelStudioOperation, followStudioOperation, listStudioOperations, readStudioOperation, startStudioOperation } from "./studio-operation-client";
+import { isTerminalStudioOperation, type StudioOperationSnapshot } from "./studio-operation-contract";
 
 class DesignResponseError extends Error {
   constructor(public readonly code: string | null, public readonly detail: string) {
@@ -33,37 +35,6 @@ export function designRunSelectionIssue(code: string | null, message: string, ru
 function scoreDriverCase(evidence: DesignDecisionEvidence) {
   const target = evidence.guardrail.violations[0] ?? evidence.limitingCase;
   return evidence.cases.find((item) => item.id === target) ?? evidence.cases[0]!;
-}
-
-type DesignRunStreamRecord =
-  | { version: 1; type: "progress"; progress: DesignRunProgress }
-  | { version: 1; type: "result"; result: DesignRunResult }
-  | { version: 1; type: "error"; error: { code?: string; error: string } };
-
-async function responseDesignStream(response: Response, onProgress: (progress: DesignRunProgress) => void): Promise<DesignRunResult> {
-  if (!response.ok || !response.body) return responseJson<DesignRunResult>(response);
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: DesignRunResult | null = null;
-  const consume = (line: string) => {
-    if (!line.trim()) return;
-    const record = JSON.parse(line) as DesignRunStreamRecord;
-    if (record.type === "progress") onProgress(record.progress);
-    else if (record.type === "result") result = record.result;
-    else throw new Error(`${record.error.code ? `[${record.error.code}] ` : ""}${record.error.error}`);
-  };
-  while (true) {
-    const chunk = await reader.read();
-    buffer += decoder.decode(chunk.value, { stream: !chunk.done });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) consume(line);
-    if (chunk.done) break;
-  }
-  consume(buffer);
-  if (!result) throw new Error("Design stream ended without a completed result");
-  return result;
 }
 
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(6)}`;
@@ -165,6 +136,8 @@ export function DesignWorkbench({
   const [running, setRunning] = useState(false);
   const [runProgress, setRunProgress] = useState<DesignRunProgress | null>(null);
   const [lastCompletedCase, setLastCompletedCase] = useState<CompletedDesignCaseProgress | null>(null);
+  const [activeOperation, setActiveOperation] = useState<StudioOperationSnapshot<DesignRunResult> | null>(null);
+  const pollAbort = useRef<AbortController | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [candidateId, setCandidateId] = useState("");
   const [promoted, setPromoted] = useState<CandidateChangeSet | null>(null);
@@ -206,7 +179,8 @@ export function DesignWorkbench({
   };
 
   useEffect(() => {
-    setBrief(null); setRuns([]); setInvalidRuns([]); setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setLastCompletedCase(null); setError(null);
+    pollAbort.current?.abort();
+    setRunning(false); setActiveOperation(null); setBrief(null); setRuns([]); setInvalidRuns([]); setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setLastCompletedCase(null); setError(null);
     if (!selectedProgramId) return;
     let active = true;
     void loadProgram(selectedProgramId).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
@@ -253,32 +227,93 @@ export function DesignWorkbench({
     if (progress.phase === "case-completed") setLastCompletedCase(progress as CompletedDesignCaseProgress);
   };
 
+  const applyOperationSnapshot = (snapshot: StudioOperationSnapshot<DesignRunResult>) => {
+    setActiveOperation(snapshot);
+    setRunning(!isTerminalStudioOperation(snapshot.status));
+    if (snapshot.progress && "program" in snapshot.progress) recordRunProgress(snapshot.progress as DesignRunProgress);
+    if (snapshot.status === "completed" && snapshot.result) {
+      setSelectedRun(snapshot.result);
+      setCandidateId(`${snapshot.result.manifest.program.id}-${snapshot.result.manifest.resultHash.slice(0, 8)}`);
+      void loadProgram(snapshot.result.manifest.program.id);
+      if (selectedRunId !== snapshot.result.manifest.resultHash) onSelectRun(snapshot.result.manifest.resultHash);
+    } else if (snapshot.status === "failed" || snapshot.status === "interrupted") {
+      setError(`${snapshot.error?.code ? `[${snapshot.error.code}] ` : ""}${snapshot.error?.message ?? "Design operation failed"}`);
+    }
+  };
+
+  const follow = async (initial: StudioOperationSnapshot<DesignRunResult>) => {
+    pollAbort.current?.abort();
+    const abort = new AbortController();
+    pollAbort.current = abort;
+    try {
+      await followStudioOperation(projectId, initial, applyOperationSnapshot, abort.signal);
+    } catch (nextError) {
+      if (!(nextError instanceof DOMException && nextError.name === "AbortError")) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      if (pollAbort.current === abort) pollAbort.current = null;
+    }
+  };
+
+  useEffect(() => {
+    pollAbort.current?.abort();
+    setRunning(false); setActiveOperation(null);
+    if (!selectedProgramId) return;
+    const abort = new AbortController();
+    pollAbort.current = abort;
+    void listStudioOperations(projectId).then(async (operations) => {
+      if (abort.signal.aborted) return;
+      const operation = operations.find((item) =>
+        (item.subject.kind === "design-run" || item.subject.kind === "design-continue")
+        && item.subject.programId === selectedProgramId);
+      if (!operation) return;
+      const snapshot = await readStudioOperation<DesignRunResult>(projectId, operation.id);
+      await followStudioOperation(projectId, snapshot, applyOperationSnapshot, abort.signal);
+    }).catch((nextError) => {
+      if (!abort.signal.aborted) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }).finally(() => {
+      if (pollAbort.current === abort) pollAbort.current = null;
+    });
+    return () => abort.abort();
+  }, [projectId, selectedProgramId]);
+  useEffect(() => () => pollAbort.current?.abort(), []);
+
   const run = async () => {
     if (!selectedProgram || running) return;
     setRunning(true); setRunProgress(null); setLastCompletedCase(null); setError(null); setPromoted(null);
     try {
-      const result = await responseDesignStream(await fetch(
+      const started = await startStudioOperation<DesignRunResult>(
         `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/run`,
-        { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
-      ), recordRunProgress);
-      await loadProgram(selectedProgram.id);
-      onSelectRun(result.manifest.resultHash);
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
-    finally { setRunning(false); }
+        { maxCandidates: budget },
+      );
+      await follow(started.operation);
+    } catch (nextError) {
+      setRunning(false);
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
   };
 
   const continueRun = async () => {
     if (!selectedProgram || !selectedRun || !selectedRunContinuable || running) return;
     setRunning(true); setRunProgress(null); setLastCompletedCase(null); setError(null); setPromoted(null);
     try {
-      const result = await responseDesignStream(await fetch(
+      const started = await startStudioOperation<DesignRunResult>(
         `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/runs/${encodeURIComponent(selectedRun.manifest.resultHash)}/continue`,
-        { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
-      ), recordRunProgress);
-      await loadProgram(selectedProgram.id);
-      onSelectRun(result.manifest.resultHash);
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
-    finally { setRunning(false); }
+        { maxCandidates: budget },
+      );
+      await follow(started.operation);
+    } catch (nextError) {
+      setRunning(false);
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  };
+
+  const cancelRun = async () => {
+    if (!activeOperation || isTerminalStudioOperation(activeOperation.status)) return;
+    try {
+      applyOperationSnapshot(await cancelStudioOperation(projectId, activeOperation.id) as StudioOperationSnapshot<DesignRunResult>);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
   };
 
   const promote = async () => {
@@ -317,7 +352,7 @@ export function DesignWorkbench({
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>PROGRAM FOCUS</i><strong>{selectedProgram.focus.kind === "broad" ? "BROAD INDUSTRIAL SEARCH" : selectedProgram.focus.losses.join(" + ")}</strong><span>{selectedProgram.focus.kind === "broad" ? "eligible for any measured loss" : "preferred for matching Workbench diagnostics"}</span><i>HARD INDUSTRIAL OUTCOMES</i><strong>{brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} ABSOLUTE GUARDRAILS</strong><span>{brief.benchmark.acceptance.outcomeGuardrails?.reduce((total, guardrail) => total + Object.keys(guardrail.thresholds).length, 0) ?? 0} case thresholds · Benchmark-owned</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>CURRENT PROMOTION TARGET</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
             <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : running ? "STARTING…" : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
-          {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code>{lastCompletedCase && runProgress.phase !== "case-completed" && <code data-testid="design-last-completed-case">{completedCaseLabel(lastCompletedCase)}</code>}</div><div><b>{runProgress.work.completedCases}/{runProgress.work.plannedCases}</b><small>CASES</small><progress value={runProgress.work.completedCases} max={runProgress.work.plannedCases}/></div></section>}
+          {activeOperation && <section className={`design-live-progress ${activeOperation.status}`} aria-live="polite" data-testid="design-progress"><div><span>RECONNECTABLE OPERATION · {activeOperation.status.toUpperCase()}</span><strong>{runProgress ? progressLabel(runProgress).title : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING DESIGN CONTRACT"}</strong><code>OP {shortHash(activeOperation.id)} · {runProgress ? progressLabel(runProgress).detail : selectedProgram.id}</code>{lastCompletedCase && runProgress?.phase !== "case-completed" && <code data-testid="design-last-completed-case">{completedCaseLabel(lastCompletedCase)}</code>}{activeOperation.error && <code>{activeOperation.error.code} · {activeOperation.error.message}</code>}</div><div><b>{runProgress ? `${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : "0/—"}</b><small>CASES</small><progress value={runProgress?.work.completedCases ?? 0} max={runProgress?.work.plannedCases ?? 1}/></div>{!isTerminalStudioOperation(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-design">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}</section>}
           <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
           <section className="design-readiness">
             <span><small>CAPACITY</small><b className={brief.staticEvidence.capacity.state}>{brief.staticEvidence.capacity.state.toUpperCase()}</b><em>{brief.staticEvidence.capacity.gapCount} gaps</em></span>

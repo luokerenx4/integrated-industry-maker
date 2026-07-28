@@ -382,6 +382,30 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   await expect(prepareDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("must match Benchmark 'dispatch-research' cases exactly");
 });
 
+test("Design execution honours cancellation between exact case evaluations without writing a partial run", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-design-cancel-"));
+  temporaryDirectories.push(root);
+  const copy = join(root, "memory-fab");
+  await cp(projectDir, copy, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const controller = new AbortController();
+  let completedCases = 0;
+  const running = runDesignProgram(copy, "back-end-die-handoff", {
+    maxCandidates: 1,
+    signal: controller.signal,
+    onProgress: (event) => {
+      if (event.phase !== "case-completed") return;
+      completedCases++;
+      controller.abort(new DOMException("cancel test", "AbortError"));
+    },
+  });
+  await expect(running).rejects.toMatchObject({ name: "AbortError" });
+  expect(completedCases).toBe(1);
+  expect(await indexDesignRuns(copy, "back-end-die-handoff")).toEqual({ runs: [], invalidRuns: [] });
+}, 30_000);
+
 test("invalid sibling evidence is indexed without blocking strict Design operations", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-index-"));
   temporaryDirectories.push(root);

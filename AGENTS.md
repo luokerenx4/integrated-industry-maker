@@ -6,6 +6,8 @@ Use TypeScript for repository scripts and Device runtimes. Keep projects self-co
 
 Use the cheapest honest verification boundary while iterating: start with the affected test or `bun run check:fast`, then run the full `bun run test` at a deliberate completion, commit, or handoff boundary. A fast pass is local feedback, not a substitute for the checkpoint boundary.
 
+Do not bind long Studio Benchmark or Design work to one browser request. Use the project-local operation registry, retain Core progress/result state, and treat page close or navigation as observer detachment. Cancellation must be an explicit operation action and must stop at a safe Core case boundary without writing partial immutable evidence. The contract is defined in [[docs/design/operation-workbench]] and [[docs/design/development-operations]].
+
 ## Observation-led design
 
 INM is a Harness for human/Agent industrial reasoning, not an autonomous factory optimizer. A human or reasoning Agent owns the design hypothesis and commissioning judgment. RL, black-box search, or automatic layout generation must not become the product design loop.

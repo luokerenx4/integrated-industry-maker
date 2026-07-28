@@ -134,6 +134,7 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 - [x] Immutable review receipt, reload-safe decision phase, and post-write verification.
 - [x] Core, CLI, API, and browser tests against `examples/memory-fab`.
 - [x] Exact immutable Design continuation through Core, CLI discovery/NDJSON, Studio API/control, and real memory-fab evidence.
+- [x] Reconnectable Studio Benchmark, Candidate preview, Design run, and continuation operations with bounded retained progress/result state and explicit cancellation.
 - [x] Greenfield Candidate commissioning, checked-in receipt/provenance, proposed-context compilation, and honest post-apply Studio state.
 - [x] Exact-factory commissioned optimization, value-aware burn-in Candidate, five-case review receipt, and verified apply.
 - [x] Shared Objective-component causality across Core, CLI, Studio, and project-local Design providers.

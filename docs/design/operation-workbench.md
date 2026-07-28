@@ -33,26 +33,33 @@ The descriptor in [[docs/design/operator-workbench]] advertises availability and
 
 Candidate operations deliberately do not compile the pre-patch base as their operation context. A generative Candidate may pin a schema-valid empty commissioning site whose Scenario references only become satisfiable after the exact patch. Preview first verifies the raw base hash, then applies, schema-validates, compiles, and evaluates the proposed Blueprint; its context hash is that proposed industrial state. Apply repeats the evaluation and reports the post-write compiled state. Invalid proposed factories still fail before a receipt or Blueprint write, so this ordering does not create a permissive path.
 
-Refresh and a new process reconstruct evidence from project files. Read-only results can be deterministically invoked again; simulation results reopen from the immutable run; Candidate decisions reopen from the receipt plus current Blueprint hash. An exact reviewed KEEP Blueprint is `verified`; a moved Blueprint that matches neither reviewed base nor proposal is `stale`.
+Refresh and a new process reconstruct industrial evidence from project files. Read-only results can be deterministically invoked again; simulation results reopen from the immutable run; Candidate decisions reopen from the receipt plus current Blueprint hash. An exact reviewed KEEP Blueprint is `verified`; a moved Blueprint that matches neither reviewed base nor proposal is `stale`.
+
+Long-running Studio execution has a separate, explicitly non-authoritative operation handle. Starting a Benchmark, Candidate preview, Design run, or Design continuation returns one project-qualified operation id immediately. Its ignored `.inm/operations/<id>.json` snapshot retains the exact subject, status, latest and bounded progress log, result or error, timestamps, and cancellation request. Page navigation and client disconnect only stop observation; they do not cancel industrial work. `DELETE` is the explicit cancellation boundary, observed by Core between exact case evaluations so no partial Design Run is written.
+
+The registry retains sixteen newest terminal operations per project plus any live operations. A Studio restart marks a previously running snapshot `interrupted`; it never invents a result or resumes from incomplete process memory. Immutable Design Runs and Candidate review receipts remain the evidence authority. The registry is execution/recovery state and may be pruned without changing the factory.
 
 ## Projections
 
 CLI `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` commands call the named Core operation. Their versioned JSON envelope retains scoped output while `data.operation` carries the shared metadata without duplicating the dense payload.
 
-Studio exposes project-qualified POST operations at `/api/projects/<project-id>/operations/{validate,analyze,plan,simulate}`. The Overview states effect, selection scope, guards, and an exact equivalent CLI command before execution. The result dialog exposes context/hashes, duration, diagnostics, artifacts, actual writes, verification, and CLI reproduction. Existing Benchmark and Candidate routes also invoke the shared Core operations while retaining their richer review presentation.
+Studio exposes project-qualified POST operations at `/api/projects/<project-id>/operations/{validate,analyze,plan,simulate}`. The Overview states effect, selection scope, guards, and an exact equivalent CLI command before execution. The result dialog exposes context/hashes, duration, diagnostics, artifacts, actual writes, verification, and CLI reproduction.
+
+Benchmark, Candidate preview, Design run, and Design continuation start from their domain routes and return `StudioOperationStartResponse`. `GET /api/projects/<project-id>/operations` lists lightweight bounded summaries only; complete results and progress logs are fetched from `GET .../operations/<operation-id>` after selecting one exact identity. `DELETE` requests cancellation. Experiments and Design display the operation id and recover the newest exact subject after reopening their stable route. The list cost therefore scales with retained operation count, not historical result size.
 
 ## Source of truth
 
 - Operation contract and executors: `packages/inm-core/src/operation.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio HTTP projection: `packages/inm-studio/src/server.ts`
+- Studio execution registry and shared browser contract: `packages/inm-studio/src/operation-registry.ts`, `packages/inm-studio/src/studio-operation-contract.ts`
 - Studio operation/result UI: `packages/inm-studio/src/main.tsx`
 
 ## Verification
 
-Tests must prove a common serializable result shape, read-only empty write sets, simulation artifact creation/cache reuse, deterministic Candidate review receipts, commissioning from a schema-valid non-compiling base, proposed-state operation context, receipt-required apply, post-write hash verification, CLI metadata projection, and Studio endpoint parity. Candidate mutation scope and stale replay remain covered on temporary project copies. Browser QA must run mutating review/apply controls only on temporary project copies.
+Tests must prove a common serializable result shape, read-only empty write sets, simulation artifact creation/cache reuse, deterministic Candidate review receipts, commissioning from a schema-valid non-compiling base, proposed-state operation context, receipt-required apply, post-write hash verification, CLI metadata projection, and Studio endpoint parity. Registry tests prove active-subject deduplication, retained progress/result recovery, explicit cancellation, restart interruption, and bounded retention. Candidate mutation scope and stale replay remain covered on temporary project copies. Browser QA must run mutating review/apply controls only on temporary project copies.
 
 ## Known next gaps
 
 - Move synthesis behind the same typed input/result protocol.
-- Add persisted operation-result routes only if a new artifact owns them; do not invent browser-only history.
+- Project CLI invocation still reports synchronous Core operation results rather than the Studio execution id; align the two without making the CLI depend on a running Studio.

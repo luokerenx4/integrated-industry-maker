@@ -42,10 +42,10 @@ import {
   stableStringify,
   studioSourceHash,
   validateProjectOperation,
-  type BlueprintBenchmarkProgress,
-  type DesignRunProgress,
   type ProjectSelection,
 } from "@inm/core";
+import { StudioOperationRegistry } from "./operation-registry";
+import { summarizeStudioOperation } from "./studio-operation-contract";
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -67,6 +67,7 @@ const sourceHash = await studioSourceHash();
 const workspaceMode = await pathExists(join(inputDir, "inm-workspace.json"));
 const cacheDir = join(inputDir, ".inm", "cache", "studio");
 await mkdir(cacheDir, { recursive: true });
+const operationRegistry = new StudioOperationRegistry();
 
 const build = await Bun.build({
   entrypoints: [join(import.meta.dir, "main.tsx")],
@@ -482,76 +483,6 @@ function errorResponse(error: unknown): Response {
   return Response.json(details.body, { status: details.status });
 }
 
-function designRunStream(projectDir: string, programId: string, maxCandidates?: number, sourceResultHash?: string): Response {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      const send = (record: unknown) => controller.enqueue(encoder.encode(`${stableStringify(record)}\n`));
-      const operation = sourceResultHash
-        ? continueDesignRun(projectDir, programId, sourceResultHash, {
-          ...(maxCandidates === undefined ? {} : { maxCandidates }),
-          onProgress: (progress: DesignRunProgress) => send({ version: 1, type: "progress", progress }),
-        })
-        : runDesignProgram(projectDir, programId, {
-        ...(maxCandidates === undefined ? {} : { maxCandidates }),
-        onProgress: (progress: DesignRunProgress) => send({ version: 1, type: "progress", progress }),
-        });
-      void operation.then((result) => {
-        send({ version: 1, type: "result", result });
-        controller.close();
-      }).catch((error) => {
-        send({ version: 1, type: "error", error: errorDetails(error).body });
-        controller.close();
-      });
-    },
-  });
-  return new Response(stream, { headers: {
-    "content-type": "application/x-ndjson; charset=utf-8",
-    "cache-control": "no-cache, no-transform",
-    "x-content-type-options": "nosniff",
-  } });
-}
-
-function benchmarkEvaluationStream(
-  command: "benchmark" | "candidate",
-  evaluate: (options: { onProgress: (progress: BlueprintBenchmarkProgress) => void; signal: AbortSignal }) => Promise<unknown>,
-): Response {
-  const encoder = new TextEncoder();
-  const abort = new AbortController();
-  let closed = false;
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      const send = (record: unknown) => {
-        if (!closed) controller.enqueue(encoder.encode(`${stableStringify(record)}\n`));
-      };
-      void evaluate({
-        signal: abort.signal,
-        onProgress: (progress) => send({ version: 1, type: "progress", command, progress }),
-      }).then(async (result) => {
-        await new Promise<void>((complete) => setTimeout(complete, 0));
-        if (closed) return;
-        send({ version: 1, type: "result", command, result });
-        closed = true;
-        controller.close();
-      }).catch((error) => {
-        if (closed || abort.signal.aborted) return;
-        send({ version: 1, type: "error", command, error: errorDetails(error).body });
-        closed = true;
-        controller.close();
-      });
-    },
-    cancel() {
-      closed = true;
-      abort.abort(new DOMException("Benchmark stream cancelled", "AbortError"));
-    },
-  });
-  return new Response(stream, { headers: {
-    "content-type": "application/x-ndjson; charset=utf-8",
-    "cache-control": "no-cache, no-transform",
-    "x-content-type-options": "nosniff",
-  } });
-}
-
 const WATCH_TOPIC = "studio:refresh";
 const startedAt = new Date().toISOString();
 const html = `<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#071014"/><title>INM Studio</title><link rel="stylesheet" href="/main.css"/></head><body><div id="root"></div><script type="module" src="/main.js"></script></body></html>`;
@@ -636,6 +567,28 @@ const server = Bun.serve({
         return Response.json({ experiments: await listBlueprintBenchmarks(projectDir) });
       }
 
+      const operationsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations$/);
+      if (operationsMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectId = decoded(operationsMatch[1]!);
+        const projectDir = await projectDirectory(projectId);
+        return Response.json({ operations: (await operationRegistry.list(projectDir)).map(summarizeStudioOperation) });
+      }
+
+      const retainedOperationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/([^/]+)$/);
+      if (retainedOperationMatch) {
+        if (request.method !== "GET" && request.method !== "DELETE") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectId = decoded(retainedOperationMatch[1]!);
+        const projectDir = await projectDirectory(projectId);
+        const operationId = decoded(retainedOperationMatch[2]!);
+        const operation = request.method === "DELETE"
+          ? await operationRegistry.cancel(projectDir, operationId)
+          : await operationRegistry.get(projectDir, operationId);
+        return operation
+          ? Response.json({ operation })
+          : Response.json({ code: "studio.operation-not-found", error: `Unknown Studio operation '${operationId}'` }, { status: 404 });
+      }
+
       const designsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs$/);
       if (designsMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
@@ -658,11 +611,12 @@ const server = Bun.serve({
         const body = await request.json().catch(() => ({})) as { maxCandidates?: unknown };
         if (body.maxCandidates !== undefined && (!Number.isInteger(body.maxCandidates) || (body.maxCandidates as number) < 1)) throw new Error("maxCandidates must be a positive integer");
         const programId = decoded(designExecuteMatch[2]!);
-        const maxCandidates = body.maxCandidates === undefined ? undefined : body.maxCandidates as number;
-        if (request.headers.get("accept")?.includes("application/x-ndjson")) return designRunStream(projectDir, programId, maxCandidates);
-        return Response.json(await runDesignProgram(projectDir, programId, {
-          ...(maxCandidates === undefined ? {} : { maxCandidates }),
-        }));
+        const brief = await buildDesignProgramBrief(projectDir, programId);
+        const maxCandidates = body.maxCandidates === undefined ? brief.program.budget.maxCandidates : body.maxCandidates as number;
+        const started = await operationRegistry.start(projectDir, decoded(designExecuteMatch[1]!), {
+          kind: "design-run", programId, maxCandidates,
+        }, ({ signal, report }) => runDesignProgram(projectDir, programId, { maxCandidates, signal, onProgress: report }));
+        return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
       const designRunMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/runs\/([^/]+)$/);
@@ -680,11 +634,12 @@ const server = Bun.serve({
         if (body.maxCandidates !== undefined && (!Number.isInteger(body.maxCandidates) || (body.maxCandidates as number) < 1)) throw new Error("maxCandidates must be a positive integer");
         const programId = decoded(designContinueMatch[2]!);
         const sourceResultHash = decoded(designContinueMatch[3]!);
-        const maxCandidates = body.maxCandidates === undefined ? undefined : body.maxCandidates as number;
-        if (request.headers.get("accept")?.includes("application/x-ndjson")) return designRunStream(projectDir, programId, maxCandidates, sourceResultHash);
-        return Response.json(await continueDesignRun(projectDir, programId, sourceResultHash, {
-          ...(maxCandidates === undefined ? {} : { maxCandidates }),
-        }));
+        const brief = await buildDesignProgramBrief(projectDir, programId);
+        const maxCandidates = body.maxCandidates === undefined ? brief.program.budget.maxCandidates : body.maxCandidates as number;
+        const started = await operationRegistry.start(projectDir, decoded(designContinueMatch[1]!), {
+          kind: "design-continue", programId, sourceResultHash, maxCandidates,
+        }, ({ signal, report }) => continueDesignRun(projectDir, programId, sourceResultHash, { maxCandidates, signal, onProgress: report }));
+        return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
       const designPromoteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)\/runs\/([^/]+)\/promote$/);
@@ -701,15 +656,13 @@ const server = Bun.serve({
         if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(experimentRunMatch[1]!));
         const benchmarkId = decoded(experimentRunMatch[2]!);
-        if (request.headers.get("accept")?.includes("application/x-ndjson")) return benchmarkEvaluationStream(
-          "benchmark",
-          async (options) => {
-            const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, options);
-            return { command: "benchmark", ...operation.data, operation };
-          },
-        );
-        const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId);
-        return Response.json({ command: "benchmark", ...operation.data, operation });
+        const started = await operationRegistry.start(projectDir, decoded(experimentRunMatch[1]!), {
+          kind: "benchmark", benchmarkId,
+        }, async ({ signal, report }) => {
+          const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, { signal, onProgress: report });
+          return { command: "benchmark", ...operation.data, operation };
+        });
+        return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
       const experimentCandidatesMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments\/([^/]+)\/candidates$/);
@@ -744,21 +697,19 @@ const server = Bun.serve({
         const candidate = await loadCandidateChangeSet(projectDir, candidateId);
         if (candidate.benchmark !== benchmarkId) throw new CandidateChangeSetError("candidate.benchmark-mismatch", `Candidate '${candidateId}' belongs to Benchmark '${candidate.benchmark}', not '${benchmarkId}'`);
         if (action === "preview") {
-          if (request.headers.get("accept")?.includes("application/x-ndjson")) return benchmarkEvaluationStream(
-            "candidate",
-            async (options) => {
-              const operation = await previewCandidateOperation(projectDir, candidateId, options);
-              return {
-                command: "candidate",
-                action,
-                decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`,
-                ...operation.data,
-                operation,
-              };
-            },
-          );
-          const operation = await previewCandidateOperation(projectDir, candidateId);
-          return Response.json({ command: "candidate", action, decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`, ...operation.data, operation });
+          const started = await operationRegistry.start(projectDir, decoded(candidateActionMatch[1]!), {
+            kind: "candidate-preview", benchmarkId, candidateId,
+          }, async ({ signal, report }) => {
+            const operation = await previewCandidateOperation(projectDir, candidateId, { signal, onProgress: report });
+            return {
+              command: "candidate",
+              action,
+              decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`,
+              ...operation.data,
+              operation,
+            };
+          });
+          return Response.json(started, { status: started.reused ? 200 : 202 });
         }
         const reviewed = await request.json() as { proposalHash?: unknown; currentCandidateHash?: unknown; proposedCandidateHash?: unknown };
         if (typeof reviewed.proposalHash !== "string" || typeof reviewed.currentCandidateHash !== "string" || typeof reviewed.proposedCandidateHash !== "string") throw new CandidateChangeSetError("candidate.invalid-review", "Apply requires reviewed proposalHash, currentCandidateHash, and proposedCandidateHash");

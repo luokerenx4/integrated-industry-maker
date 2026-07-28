@@ -4,47 +4,18 @@ import type {
 } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
+import { cancelStudioOperation, followStudioOperation, listStudioOperations, readStudioOperation, startStudioOperation } from "./studio-operation-client";
+import { isTerminalStudioOperation, type StudioOperationSnapshot } from "./studio-operation-contract";
 
 interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark"; baselineCache: { hits: number; misses: number } }
 interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
 interface CandidateApplyResponse extends AppliedCandidateChangeSet { command: "candidate"; action: "apply"; decisionState?: CandidateDecisionState }
 interface CandidateReviewResponse { state: CandidateDecisionState; review: CandidatePreviewResponse | null }
-interface EvaluationStreamRecord<T> {
-  type: "progress" | "result" | "error";
-  progress?: BlueprintBenchmarkProgress;
-  result?: T;
-  error?: { code?: string; error?: string };
-}
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
   if (!response.ok) throw new Error(`${value.code ? `[${value.code}] ` : ""}${value.error ?? `Request failed (${response.status})`}`);
   return value;
-}
-
-async function streamedEvaluation<T>(
-  response: Response,
-  onProgress: (progress: BlueprintBenchmarkProgress) => void,
-): Promise<T> {
-  if (!response.ok || !response.body) return responseJson<T>(response);
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const record = JSON.parse(line) as EvaluationStreamRecord<T>;
-      if (record.type === "progress" && record.progress) onProgress(record.progress);
-      else if (record.type === "result" && record.result) return record.result;
-      else if (record.type === "error") throw new Error(`${record.error?.code ? `[${record.error.code}] ` : ""}${record.error?.error ?? "Evaluation failed"}`);
-    }
-    if (done) break;
-  }
-  throw new Error("Evaluation stream ended without a final result");
 }
 
 const signed = (value: number, digits = 3) => `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
@@ -74,7 +45,8 @@ export function ExperimentWorkbench({
   const [decisionState, setDecisionState] = useState<CandidateDecisionState | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<BlueprintBenchmarkProgress | null>(null);
-  const runAbort = useRef<AbortController | null>(null);
+  const [activeOperation, setActiveOperation] = useState<StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse> | null>(null);
+  const pollAbort = useRef<AbortController | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyArmed, setApplyArmed] = useState(false);
   const [applied, setApplied] = useState<CandidateApplyResponse | null>(null);
@@ -86,8 +58,8 @@ export function ExperimentWorkbench({
     if (!selectedId && experiments[0]) onSelect(experiments[0].id);
   }, [experiments, onSelect, selectedId]);
   useEffect(() => {
-    runAbort.current?.abort();
-    setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
+    pollAbort.current?.abort();
+    setRunning(false); setActiveOperation(null); setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId) return;
     let active = true;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates`)
@@ -98,7 +70,6 @@ export function ExperimentWorkbench({
     return () => { active = false; };
   }, [projectId, selectedId]);
   useEffect(() => {
-    runAbort.current?.abort();
     setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId || !selectedCandidateId) return;
     let active = true;
@@ -120,37 +91,89 @@ export function ExperimentWorkbench({
       .catch(() => { if (active) setSourceAvailable(false); });
     return () => { active = false; };
   }, [activeCandidate, projectId]);
-  useEffect(() => () => runAbort.current?.abort(), []);
+
+  const applyOperationSnapshot = (snapshot: StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse>) => {
+    setActiveOperation(snapshot);
+    setRunning(!isTerminalStudioOperation(snapshot.status));
+    if (snapshot.progress && "benchmark" in snapshot.progress) setProgress(snapshot.progress as BlueprintBenchmarkProgress);
+    if (snapshot.status === "completed" && snapshot.result) {
+      if (snapshot.kind === "benchmark") setBenchmarkResult(snapshot.result as BenchmarkResponse);
+      else {
+        const reviewed = snapshot.result as CandidatePreviewResponse;
+        setCandidatePreview(reviewed);
+        setDecisionState(reviewed.decisionState ?? `reviewed-${reviewed.result.verdict.toLowerCase()}` as CandidateDecisionState);
+      }
+    } else if (snapshot.status === "failed" || snapshot.status === "interrupted") {
+      setError(`${snapshot.error?.code ? `[${snapshot.error.code}] ` : ""}${snapshot.error?.message ?? "Operation failed"}`);
+    }
+  };
+
+  const follow = async (initial: StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse>) => {
+    pollAbort.current?.abort();
+    const abort = new AbortController();
+    pollAbort.current = abort;
+    try {
+      await followStudioOperation(projectId, initial, applyOperationSnapshot, abort.signal);
+    } catch (nextError) {
+      if (!(nextError instanceof DOMException && nextError.name === "AbortError")) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      if (pollAbort.current === abort) pollAbort.current = null;
+    }
+  };
+
+  useEffect(() => {
+    pollAbort.current?.abort();
+    setRunning(false); setActiveOperation(null);
+    if (!selectedId) return;
+    const abort = new AbortController();
+    pollAbort.current = abort;
+    void listStudioOperations(projectId).then(async (operations) => {
+      if (abort.signal.aborted) return;
+      const operation = operations.find((item) => selectedCandidateId
+        ? item.kind === "candidate-preview" && item.subject.kind === "candidate-preview"
+          && item.subject.benchmarkId === selectedId && item.subject.candidateId === selectedCandidateId
+        : item.kind === "benchmark" && item.subject.kind === "benchmark" && item.subject.benchmarkId === selectedId);
+      if (!operation) return;
+      const snapshot = await readStudioOperation<BenchmarkResponse | CandidatePreviewResponse>(projectId, operation.id);
+      await followStudioOperation(projectId, snapshot, applyOperationSnapshot, abort.signal);
+    }).catch((nextError) => {
+      if (!abort.signal.aborted) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }).finally(() => {
+      if (pollAbort.current === abort) pollAbort.current = null;
+    });
+    return () => abort.abort();
+  }, [projectId, selectedCandidateId, selectedId]);
+  useEffect(() => () => pollAbort.current?.abort(), []);
 
   const run = async () => {
     if (!selected || running) return;
-    const abort = new AbortController();
-    runAbort.current = abort;
     setRunning(true); setProgress(null); setError(null); setBenchmarkResult(null); setCandidatePreview(null); setApplied(null); setApplyArmed(false);
     try {
       const root = `/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selected.id)}`;
       if (activeCandidate) {
-        const reviewed = await streamedEvaluation<CandidatePreviewResponse>(await fetch(
+        const started = await startStudioOperation<CandidatePreviewResponse>(
           `${root}/candidates/${encodeURIComponent(activeCandidate.id)}/preview`,
-          { method: "POST", headers: { accept: "application/x-ndjson" }, signal: abort.signal },
-        ), setProgress);
-        setCandidatePreview(reviewed);
-        setDecisionState(reviewed.decisionState ?? `reviewed-${reviewed.result.verdict.toLowerCase()}` as CandidateDecisionState);
+        );
+        await follow(started.operation);
       }
-      else setBenchmarkResult(await streamedEvaluation<BenchmarkResponse>(await fetch(
-        `${root}/run`, { method: "POST", headers: { accept: "application/x-ndjson" }, signal: abort.signal },
-      ), setProgress));
+      else {
+        const started = await startStudioOperation<BenchmarkResponse>(`${root}/run`);
+        await follow(started.operation);
+      }
     } catch (nextError) {
       if (!(nextError instanceof DOMException && nextError.name === "AbortError")) setError(nextError instanceof Error ? nextError.message : String(nextError));
-    } finally {
-      if (runAbort.current === abort) {
-        runAbort.current = null;
-        setRunning(false);
-      }
+      setRunning(false);
     }
   };
 
-  const cancelRun = () => runAbort.current?.abort();
+  const cancelRun = async () => {
+    if (!activeOperation || isTerminalStudioOperation(activeOperation.status)) return;
+    try {
+      applyOperationSnapshot(await cancelStudioOperation(projectId, activeOperation.id) as StudioOperationSnapshot<BenchmarkResponse | CandidatePreviewResponse>);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  };
 
   const apply = async () => {
     if (!selected || !activeCandidate || !candidatePreview || applying || candidatePreview.result.verdict !== "KEEP") return;
@@ -197,15 +220,15 @@ export function ExperimentWorkbench({
               {running && progress ? `${progress.work.completed}/${progress.work.total} · ${progress.case.id}` : running ? "PREPARING FIXED WORK…" : !selected.locked ? "LOCK REQUIRED" : activeCandidate ? candidatePreview ? "RE-RUN RECORDED REVIEW" : "REVIEW PROPOSED CHANGE" : "RUN LOCKED EVALUATION"}
             </button>
           </section>
-          {running && <section className="experiment-live-progress" aria-live="polite" data-testid="experiment-progress">
+          {activeOperation && <section className={`experiment-live-progress ${activeOperation.status}`} aria-live="polite" data-testid="experiment-progress">
             <div>
-              <small>SHARED CORE PROGRESS</small>
-              <strong>{progress ? `${progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE"} · ${progress.case.index}/${progress.case.total}` : "PREPARING LOCKED CONTRACT"}</strong>
-              <code>{progress ? `${progress.case.name} · ${progress.case.id}` : selected.id}</code>
-              <span>{progress ? progress.phase.endsWith("completed") ? `${progress.cached ? "REUSED" : "EVALUATED"} · ${((progress.timing.durationMs ?? 0) / 1000).toFixed(2)}s` : "RUNNING EXACT LOCKED CASE" : "LOADING PROJECT-LOCAL CASES"}</span>
+              <small>RECONNECTABLE OPERATION · {activeOperation.status.toUpperCase()}</small>
+              <strong>{progress ? `${progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE"} · ${progress.case.index}/${progress.case.total}` : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING LOCKED CONTRACT"}</strong>
+              <code>OP {shortHash(activeOperation.id)} · {progress ? `${progress.case.name} · ${progress.case.id}` : selected.id}</code>
+              <span>{progress ? progress.phase.endsWith("completed") ? `${progress.cached ? "REUSED" : "EVALUATED"} · ${((progress.timing.durationMs ?? 0) / 1000).toFixed(2)}s` : "RUNNING EXACT LOCKED CASE" : activeOperation.error?.message ?? "LOADING PROJECT-LOCAL CASES"}</span>
             </div>
             <div><b>{progress ? `${progress.work.completed}/${progress.work.total}` : `0/${selected.cases.length * 2}`}</b><small>CASE EVALUATIONS</small><progress value={progress?.work.completed ?? 0} max={progress?.work.total ?? selected.cases.length * 2}/></div>
-            <button onClick={cancelRun} data-testid="cancel-experiment">CANCEL</button>
+            {!isTerminalStudioOperation(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-experiment">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}
           </section>}
           <section className="candidate-selector" aria-label="Candidate change sets">
             <div className="experiment-section-title"><span>REVIEW TARGET</span><b>{candidates.length} PROJECT-LOCAL PROPOSALS</b></div>

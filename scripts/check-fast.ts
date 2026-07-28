@@ -17,6 +17,7 @@ const checks: Check[] = [
       "packages/inm-core/src/artifact-schema.test.ts",
       "packages/inm-studio/src/design-workbench.test.ts",
       "packages/inm-studio/src/factory-presentation.test.ts",
+      "packages/inm-studio/src/operation-registry.test.ts",
       "packages/inm-studio/src/routes.test.ts",
       "packages/inm-studio/src/selection.test.ts",
     ],

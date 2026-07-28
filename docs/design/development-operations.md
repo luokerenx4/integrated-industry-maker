@@ -40,11 +40,20 @@ Locked Benchmark execution also removes deterministic duplicate work without hid
 
 Design execution likewise avoids duplicate work without caching Candidate decisions. Each fresh locked driver-case simulation supplies both the compact Benchmark score and the ephemeral event trace used for causal loss evidence. CLI and Studio report case evaluations, cache reuse, and timing; they never label a reused baseline as a fresh simulation. Historical continuation may explicitly replay a driver trace when the source artifact cannot retain runtime events.
 
+## Reconnectable long work
+
+Studio Benchmark, Candidate preview, Design run, and Design continuation are server-owned operations rather than response-owned streams. Starting work returns a project-local operation id; closing the modal, navigating, refreshing, or losing a browser connection only detaches the observer. Reopening the same Experiment or Design Program discovers the newest exact-subject operation and resumes progress/result polling.
+
+Cancellation is explicit and cooperative. The registry records the request, aborts the running evaluator, and Core checks the signal between exact locked case evaluations. A cancelled Design writes no partial immutable run. A server restart cannot recover process memory, so an unfinished persisted snapshot becomes `interrupted` with an exact error while any already completed immutable evidence remains independently reopenable.
+
+Operational snapshots live below ignored `.inm/operations/`, retain a bounded progress log and result, and are limited to sixteen terminal records per project. They are recovery aids, not factory evidence and not a substitute for immutable Runs, Design Runs, or Candidate review receipts.
+
 ## Source of truth
 
 - Lifecycle controller: `packages/inm-cli/src/studio-lifecycle.ts`
 - Public parsing and discovery: `packages/inm-cli/src/bin.ts`, `packages/inm-cli/src/capabilities.ts`
 - Health endpoint and foreground server: `packages/inm-studio/src/server.ts`
+- Long-operation registry: `packages/inm-studio/src/operation-registry.ts`
 - Repository scripts: `package.json`, `scripts/check-fast.ts`
 
 ## Verification

@@ -1168,9 +1168,11 @@ export async function promoteDesignRun(
 export async function runDesignProgram(
   projectDir: string,
   programId: string,
-  options: { maxCandidates?: number; continueFrom?: string; onProgress?: DesignRunProgressHandler } = {},
+  options: { maxCandidates?: number; continueFrom?: string; onProgress?: DesignRunProgressHandler; signal?: AbortSignal } = {},
 ): Promise<DesignRunResult> {
+  options.signal?.throwIfAborted();
   const prepared = await prepareDesignProgram(projectDir, programId);
+  options.signal?.throwIfAborted();
   const program = prepared.manifest;
   const brief = prepared.brief;
   const additionalMaximum = options.maxCandidates ?? program.budget.maxCandidates;
@@ -1232,6 +1234,7 @@ export async function runDesignProgram(
   const preparedBenchmark = await prepareBlueprintBenchmark(projectDir, program.benchmark, {
     evaluationId: "baseline",
     onProgress: benchmarkProgress("baseline", 0),
+    signal: options.signal,
   });
   const driverCase = prepared.driverCase;
   const loaded = prepared.loaded;
@@ -1242,6 +1245,7 @@ export async function runDesignProgram(
       candidateBlueprint: seedBlueprint,
       evaluationId: "seed",
       onProgress: benchmarkProgress("seed", 0),
+      signal: options.signal,
       onCandidateCaseEvaluated: ({ case: item, project, simulation }) => {
         if (item.id === driverCase.id) {
           seedDriverProject = project;
@@ -1293,6 +1297,7 @@ export async function runDesignProgram(
   }
 
   while (iterations.length < maximum) {
+    options.signal?.throwIfAborted();
     const iteration = iterations.length + 1;
     const selectedNodeId = frontierState.searchOrder[0];
     if (!selectedNodeId) {
@@ -1312,6 +1317,7 @@ export async function runDesignProgram(
         total: benchmark.cases.length,
       } });
       driverResult = runUntil(driverProject, undefined, { seed: driverCase.seed });
+      options.signal?.throwIfAborted();
       emit({
         phase: "driver-replay-completed",
         iteration,
@@ -1359,6 +1365,7 @@ export async function runDesignProgram(
       proposal = projectAgent
         ? await projectAgent.propose({ ...input, branch, promotionBoundary: selectedPromotionBoundary })
         : await heuristicAgent!.propose(input);
+      options.signal?.throwIfAborted();
     } catch (error) {
       if (error instanceof ProjectProposalExhaustedError
         || (error instanceof Error && error.message.startsWith("Heuristic agent found no valid blueprint strategy"))) {
@@ -1407,6 +1414,7 @@ export async function runDesignProgram(
         candidateBlueprint,
         evaluationId: `candidate-${iteration}`,
         onProgress: benchmarkProgress("candidate", iteration),
+        signal: options.signal,
         onCandidateCaseEvaluated: ({ case: item, project, simulation }) => {
           if (item.id === driverCase.id) {
             candidateDriverProject = project;
@@ -1503,6 +1511,7 @@ export async function runDesignProgram(
         frontierEvidence: advanced.evidence,
       });
     } catch (error) {
+      if (options.signal?.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
       const message = error instanceof Error ? error.message : String(error);
       const rejected = rejectedFrontierAttempt(frontierState, "invalid-candidate");
       parent.history.push({
@@ -1538,6 +1547,7 @@ export async function runDesignProgram(
   }
 
   const bestNode = frontierState.nodes.get(frontierState.leader)!;
+  options.signal?.throwIfAborted();
   const bestBlueprint = bestNode.blueprint!;
   const bestEvaluation = bestNode.evaluation;
 
@@ -1586,7 +1596,7 @@ export async function continueDesignRun(
   projectDir: string,
   programId: string,
   sourceResultHash: string,
-  options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler } = {},
+  options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler; signal?: AbortSignal } = {},
 ): Promise<DesignRunResult> {
   return runDesignProgram(projectDir, programId, { ...options, continueFrom: sourceResultHash });
 }

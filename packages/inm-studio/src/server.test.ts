@@ -3,9 +3,40 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
 import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { isTerminalStudioOperation, type StudioOperationSnapshot, type StudioOperationStartResponse } from "./studio-operation-contract";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
+
+async function terminalStudioOperation<TResult>(
+  port: number,
+  projectId: string,
+  response: Response,
+): Promise<StudioOperationSnapshot<TResult>> {
+  expect([200, 202]).toContain(response.status);
+  const started = await response.json() as StudioOperationStartResponse<TResult>;
+  expect(started.operation.id).toMatch(/^[0-9a-z-]{12,80}$/);
+  for (let attempt = 0; attempt < 2_000; attempt++) {
+    const current = await fetch(
+      `http://localhost:${port}/api/projects/${encodeURIComponent(projectId)}/operations/${encodeURIComponent(started.operation.id)}`,
+    );
+    expect(current.status).toBe(200);
+    const snapshot = (await current.json() as { operation: StudioOperationSnapshot<TResult> }).operation;
+    if (isTerminalStudioOperation(snapshot.status)) return snapshot;
+    await Bun.sleep(10);
+  }
+  throw new Error(`Studio operation '${started.operation.id}' did not complete`);
+}
+
+async function completedStudioOperation<TResult>(
+  port: number,
+  projectId: string,
+  response: Response,
+): Promise<StudioOperationSnapshot<TResult>> {
+  const snapshot = await terminalStudioOperation<TResult>(port, projectId, response);
+  if (snapshot.status !== "completed") throw new Error(`${snapshot.error?.code}: ${snapshot.error?.message}`);
+  return snapshot;
+}
 
 test("Studio defaults to current compatible evidence instead of the newest unrelated run", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-compatible-run-"));
@@ -123,13 +154,12 @@ test("Studio projects authored adaptive cadence control and measured mode use fr
       `http://localhost:${port}/api/projects/memory-fab/experiments/dispatch-research/run`,
       { method: "POST" },
     );
-    expect(benchmarkResponse.status).toBe(200);
-    const benchmark = await benchmarkResponse.json() as {
+    const benchmark = (await completedStudioOperation<{
       cases: Array<{
         baselineMetrics: { cadenceControl: { devices: Record<string, unknown> } };
         candidateMetrics: { cadenceControl: { devices: Record<string, { normalJobs: number; recoveryJobs: number }> } };
       }>;
-    };
+    }>(port, "memory-fab", benchmarkResponse)).result!;
     expect(benchmark.cases.every((item) => Object.keys(item.baselineMetrics.cadenceControl.devices).length === 0)).toBeTrue();
     expect(benchmark.cases.every((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"] !== undefined)).toBeTrue();
     expect(benchmark.cases.some((item) => item.candidateMetrics.cadenceControl.devices["deposition-1"]!.recoveryJobs > 0)).toBeTrue();
@@ -310,8 +340,7 @@ test("opening a project without runs does not write a Studio baseline", async ()
 
     const expected = await evaluateBlueprintBenchmark(projectDir, "power-priority");
     const runResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`, { method: "POST" });
-    expect(runResponse.status).toBe(200);
-    const result = await runResponse.json() as {
+    const runOperation = await completedStudioOperation<{
       command: string;
       benchmark: string;
       verdict: string;
@@ -324,7 +353,8 @@ test("opening a project without runs does not write a Studio baseline", async ()
         baselineMetrics: { scoreBreakdown: Record<string, number> };
         candidateMetrics: { scoreBreakdown: Record<string, number> };
       }>;
-    };
+    }>(port, "ironworks", runResponse);
+    const result = runOperation.result!;
     expect(result).toEqual(expect.objectContaining({
       command: "benchmark", benchmark: expected.benchmark, verdict: expected.verdict,
       scoreDelta: expected.scoreDelta, patch: expected.patch,
@@ -336,37 +366,46 @@ test("opening a project without runs does not write a Studio baseline", async ()
       candidateMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number) }) }),
     }));
     const streamedRunResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`, {
-      method: "POST", headers: { accept: "application/x-ndjson" },
+      method: "POST",
     });
-    expect(streamedRunResponse.headers.get("content-type")).toContain("application/x-ndjson");
-    const streamedRunRecords = (await streamedRunResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
-    expect(streamedRunRecords.filter((record) => record.type === "progress")).toHaveLength(4);
-    expect(streamedRunRecords[0]).toEqual(expect.objectContaining({
-      type: "progress",
-      command: "benchmark",
-      progress: expect.objectContaining({ version: 2, sequence: 1, work: { completed: 0, total: 2 } }),
+    const streamedRunOperation = await completedStudioOperation<typeof result>(port, "ironworks", streamedRunResponse);
+    expect(streamedRunOperation.progressLog).toHaveLength(4);
+    expect(streamedRunOperation.progressLog[0]).toEqual(expect.objectContaining({
+      version: 2, sequence: 1, work: { completed: 0, total: 2 },
     }));
-    expect(streamedRunRecords.at(-1)).toEqual(expect.objectContaining({
-      type: "result",
-      result: expect.objectContaining({ command: "benchmark", benchmark: "power-priority", verdict: expected.verdict }),
+    expect(streamedRunOperation.result).toEqual(expect.objectContaining({
+      command: "benchmark", benchmark: "power-priority", verdict: expected.verdict,
     }));
+    const retainedOperations = await fetch(`http://localhost:${port}/api/projects/ironworks/operations`);
+    const retainedOperationList = (await retainedOperations.json() as {
+      operations: Array<Record<string, unknown> & { id: string; progressEvents: number; resultAvailable: boolean }>;
+    }).operations;
+    expect(retainedOperationList[0]).toEqual(expect.objectContaining({
+      id: streamedRunOperation.id,
+      progressEvents: 4,
+      resultAvailable: true,
+    }));
+    expect(retainedOperationList[0]).not.toHaveProperty("result");
+    expect(retainedOperationList[0]).not.toHaveProperty("progressLog");
 
     const beforePreview = await readFile(candidateBlueprintPath, "utf8");
     const streamedPreviewResponse = await fetch(
       `http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`,
-      { method: "POST", headers: { accept: "application/x-ndjson" } },
+      { method: "POST" },
     );
-    const streamedPreviewRecords = (await streamedPreviewResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
-    expect(streamedPreviewRecords.filter((record) => record.type === "progress")).toHaveLength(4);
-    expect(streamedPreviewRecords[0]).toEqual(expect.objectContaining({ type: "progress", command: "candidate" }));
-    expect(streamedPreviewRecords.at(-1)).toEqual(expect.objectContaining({
-      type: "result",
-      result: expect.objectContaining({ command: "candidate", action: "preview", result: expect.objectContaining({ verdict: "KEEP" }) }),
+    const streamedPreviewOperation = await completedStudioOperation<{
+      command: "candidate"; action: "preview"; result: { verdict: string };
+    }>(port, "ironworks", streamedPreviewResponse);
+    expect(streamedPreviewOperation.progressLog).toHaveLength(4);
+    expect(streamedPreviewOperation.result).toEqual(expect.objectContaining({
+      command: "candidate", action: "preview", result: expect.objectContaining({ verdict: "KEEP" }),
     }));
     expect(await readFile(candidateBlueprintPath, "utf8")).toBe(beforePreview);
     const previewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
-    expect(previewResponse.status).toBe(200);
-    const preview = await previewResponse.json() as { currentCandidateHash: string; proposedCandidateHash: string; result: { verdict: string }; operation: { operation: string; effect: string; artifacts: Array<{ kind: string }> } };
+    const preview = (await completedStudioOperation<{
+      currentCandidateHash: string; proposedCandidateHash: string; result: { verdict: string };
+      operation: { operation: string; effect: string; artifacts: Array<{ kind: string }> };
+    }>(port, "ironworks", previewResponse)).result!;
     expect(preview.result.verdict).toBe("KEEP");
     expect(preview.operation.operation).toBe("candidate.preview");
     expect(preview.operation.effect).toBe("creates-artifact");
@@ -385,8 +424,11 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const verifiedReview = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/review`);
     expect(await verifiedReview.json()).toEqual(expect.objectContaining({ state: "verified" }));
     const staleResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
-    expect(staleResponse.status).toBe(409);
-    expect(await staleResponse.json()).toEqual(expect.objectContaining({ code: "candidate.stale-base" }));
+    const staleOperation = await terminalStudioOperation(port, "ironworks", staleResponse);
+    expect(staleOperation).toEqual(expect.objectContaining({
+      status: "failed",
+      error: expect.objectContaining({ code: "candidate.stale-base" }),
+    }));
 
     const methodResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`);
     expect(methodResponse.status).toBe(405);
@@ -489,19 +531,18 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       hashes: {},
     });
     const campaignRunResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/run`, {
-      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 7 }),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 7 }),
     });
-    expect(campaignRunResponse.status).toBe(200);
-    const campaignRecords = (await campaignRunResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
-    const campaignProgress = campaignRecords.filter((record) => record.type === "progress");
-    expect(campaignProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
-    expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    const campaignOperation = await completedStudioOperation<any>(port, "memory-fab", campaignRunResponse);
+    const campaignProgress = campaignOperation.progressLog as any[];
+    expect(campaignProgress.filter((progress) => progress.phase === "node-exhausted")).toHaveLength(0);
+    expect(campaignProgress).toContainEqual(expect.objectContaining({
       phase: "proposal-completed", iteration: 7, strategy: "facility:utility-n-plus-one",
-    }) }));
-    expect(campaignProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    }));
+    expect(campaignProgress).toContainEqual(expect.objectContaining({
       phase: "candidate-completed", iteration: 7, strategy: "facility:utility-n-plus-one", decision: "BRANCH",
-    }) }));
-    const campaignResult = campaignRecords.find((record) => record.type === "result").result;
+    }));
+    const campaignResult = campaignOperation.result!;
     const campaignRepairRunId = campaignResult.manifest.resultHash as string;
     expect(campaignResult.manifest).toMatchObject({
       budget: { maximum: 7, evaluated: 7 },
@@ -527,22 +568,21 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       })]),
     }) }));
     const continuationResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}/continue`, {
-      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 1 }),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 1 }),
     });
-    expect(continuationResponse.status).toBe(200);
-    const continuationRecords = (await continuationResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
-    const continuationProgress = continuationRecords.filter((record) => record.type === "progress");
-    expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
+    const continuationOperation = await completedStudioOperation<any>(port, "memory-fab", continuationResponse);
+    const continuationProgress = continuationOperation.progressLog as any[];
+    expect(continuationProgress[0]).toEqual(expect.objectContaining({
       version: 3,
       phase: "run-started",
       continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7 },
       budget: { maximum: 8, previousEvaluated: 7, additional: 1 },
-    }) }));
-    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
-    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "seed")).toHaveLength(0);
-    expect(continuationProgress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
-    expect(continuationProgress.filter((record) => record.progress.phase === "node-exhausted")).toEqual([]);
-    const continuationResult = continuationRecords.find((record) => record.type === "result").result;
+    }));
+    expect(continuationProgress.filter((progress) => progress.phase === "case-completed" && progress.evaluation.kind === "baseline")).toHaveLength(5);
+    expect(continuationProgress.filter((progress) => progress.phase === "case-completed" && progress.evaluation.kind === "seed")).toHaveLength(0);
+    expect(continuationProgress.filter((progress) => progress.phase === "case-completed" && progress.evaluation.kind === "candidate")).toHaveLength(5);
+    expect(continuationProgress.filter((progress) => progress.phase === "node-exhausted")).toEqual([]);
+    const continuationResult = continuationOperation.result!;
     expect(continuationResult.manifest).toMatchObject({
       continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 0, additionalCandidateBudget: 1 },
       budget: { maximum: 8, evaluated: 8 },
@@ -577,14 +617,13 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(await readFile(generatedPath, "utf8")).toBe(generatedBefore);
 
     const commissioningPreviewResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${commissionedCandidate}/preview`, { method: "POST" });
-    expect(commissioningPreviewResponse.status).toBe(200);
-    const commissioningPreview = await commissioningPreviewResponse.json() as {
+    const commissioningPreview = (await completedStudioOperation<{
       proposalHash: string;
       currentCandidateHash: string;
       proposedCandidateHash: string;
       result: { verdict: string };
       operation: { operation: string; effect: string; context: { hashes: { blueprintHash: string } } };
-    };
+    }>(port, "memory-fab", commissioningPreviewResponse)).result!;
     expect(commissioningPreview).toEqual(expect.objectContaining({
       result: expect.objectContaining({ verdict: "KEEP" }),
       operation: expect.objectContaining({ operation: "candidate.preview", effect: "creates-artifact" }),
@@ -624,28 +663,24 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     });
     expect(invalidRun.status).toBe(400);
 
-    const streamingFailure = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/missing-program/run`, {
-      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 1 }),
+    const missingProgram = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/missing-program/run`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 1 }),
     });
-    expect(streamingFailure.status).toBe(200);
-    expect((await streamingFailure.text()).trim().split("\n").map((line) => JSON.parse(line))).toEqual([
-      expect.objectContaining({ version: 1, type: "error", error: expect.objectContaining({ code: "studio.request-failed" }) }),
-    ]);
+    expect(missingProgram.status).toBe(400);
+    expect(await missingProgram.json()).toEqual(expect.objectContaining({ code: "studio.request-failed" }));
 
     const runResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab/run`, {
-      method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: 1 }),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ maxCandidates: 1 }),
     });
-    expect(runResponse.status).toBe(200);
-    expect(runResponse.headers.get("content-type")).toContain("application/x-ndjson");
-    const records = (await runResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
-    const progress = records.filter((record) => record.type === "progress");
-    expect(progress[0]).toEqual(expect.objectContaining({ version: 1, progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
-    expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
-    expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
-    expect(progress.filter((record) => record.progress.phase === "case-completed").every((record) =>
-      typeof record.progress.timing.durationMs === "number")).toBeTrue();
-    expect(progress.filter((record) => record.progress.phase.startsWith("driver-replay"))).toEqual([]);
-    expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    const runOperation = await completedStudioOperation<any>(port, "memory-fab", runResponse);
+    const progress = runOperation.progressLog as any[];
+    expect(progress[0]).toEqual(expect.objectContaining({ phase: "run-started", sequence: 1 }));
+    expect(progress.filter((item) => item.phase === "case-completed" && item.evaluation.kind === "baseline")).toHaveLength(5);
+    expect(progress.filter((item) => item.phase === "case-completed" && item.evaluation.kind === "candidate")).toHaveLength(5);
+    expect(progress.filter((item) => item.phase === "case-completed").every((item) =>
+      typeof item.timing.durationMs === "number")).toBeTrue();
+    expect(progress.filter((item) => item.phase.startsWith("driver-replay"))).toEqual([]);
+    expect(progress).toContainEqual(expect.objectContaining({
       phase: "proposal-started",
       branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
       promotionBoundary: expect.objectContaining({
@@ -661,9 +696,9 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         })]),
       }),
       driverEvidence: expect.objectContaining({ metricsHash: expect.any(String), fabLoss: expect.objectContaining({ primary: expect.objectContaining({ id: "yield-quality" }) }) }),
-    }) }));
-    expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "proposal-completed", addressedLoss: "yield-quality" }) }));
-    expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
+    }));
+    expect(progress).toContainEqual(expect.objectContaining({ phase: "proposal-completed", addressedLoss: "yield-quality" }));
+    expect(progress).toContainEqual(expect.objectContaining({
       phase: "candidate-completed",
       frontierEvidence: expect.objectContaining({ parent: { nodeId: "seed", role: "leader", depth: 0 }, candidateNodeId: "candidate-1", leaderAfter: expect.any(String), searchOrderAfter: expect.any(Array), exhaustedAfter: expect.any(Array) }),
       decisionEvidence: expect.objectContaining({
@@ -681,11 +716,9 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         guardrail: expect.objectContaining({ kind: "uniform", passed: expect.any(Boolean), violations: expect.any(Array) }),
         limitingCase: expect.any(String),
       }),
-    }) }));
-    expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedCases: 15, plannedCases: 15 } }) }));
-    const resultRecord = records.find((record) => record.type === "result");
-    expect(resultRecord).toBeDefined();
-    const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; exhaustions: unknown[]; iterations: Array<{ addressedLoss?: string; promotionBoundary: { promotable: boolean }; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };
+    }));
+    expect(progress.at(-1)).toEqual(expect.objectContaining({ phase: "run-completed", work: { completedCases: 15, plannedCases: 15 } }));
+    const run = runOperation.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; exhaustions: unknown[]; iterations: Array<{ addressedLoss?: string; promotionBoundary: { promotable: boolean }; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };
     expect(run).toEqual(expect.objectContaining({
       manifest: expect.objectContaining({
         budget: { maximum: 1, evaluated: 1 },
