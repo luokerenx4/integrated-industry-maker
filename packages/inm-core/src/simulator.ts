@@ -331,12 +331,34 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const bufferIdsByDevice = Object.fromEntries(devices.map((device) => [device.id, Object.keys(device.buffers)]));
   const connectionIds = Object.keys(project.connections);
   const logisticsNetworkIds = Object.keys(project.logisticsNetworks);
+  const connectionsInIdOrder = Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id));
+  const outgoingConnectionsBySource: Record<string, CompiledConnection[]> = {};
   const incomingConnectionsByDeviceBufferResource: Record<string, Record<string, Record<string, CompiledConnection[]>>> = {};
-  for (const connection of Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id))) {
+  const inputPriorityConnectionIds = new Set<string>();
+  const dispatchPolicyByConnection = Object.fromEntries(connectionsInIdOrder.map((connection) => [
+    connection.id,
+    effectiveDispatchPolicy(project, connection),
+  ]));
+  for (const connection of connectionsInIdOrder) {
+    (outgoingConnectionsBySource[connection.from.device] ??= []).push(connection);
     const byBuffer = incomingConnectionsByDeviceBufferResource[connection.to.device] ??= {};
     const byResource = byBuffer[connection.toPort.buffer] ??= {};
     for (const resource of connection.resources) (byResource[resource] ??= []).push(connection);
+    if (project.devices[connection.to.device]!.policy?.inputPriority === connection.to.port) inputPriorityConnectionIds.add(connection.id);
   }
+  const localDispatchSources = Object.keys(outgoingConnectionsBySource).sort().map((source) => {
+    const outgoing = outgoingConnectionsBySource[source]!;
+    const outputPriority = project.devices[source]!.policy?.outputPriority;
+    const preferred = outputPriority === undefined ? [] : outgoing.filter((connection) => connection.from.port === outputPriority);
+    const regular = outputPriority === undefined ? outgoing : outgoing.filter((connection) => connection.from.port !== outputPriority);
+    return {
+      source,
+      outgoing,
+      outputPriority,
+      policy: dispatchPolicyByConnection[outgoing[0]!.id]!,
+      fifoOrder: preferred.length ? [...preferred, ...regular] : regular,
+    };
+  });
   const deliveryContractResourcesByRegion = Object.fromEntries(Object.keys(project.regions).map((region) => [
     region,
     [...new Set((project.objective.deliveryContracts ?? [])
@@ -1090,7 +1112,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         + incomingQuantity(connection.to.device, connection.toPort.buffer, profile.resource, profile.minimumTreatmentLevel);
       return [{ ...profile, sourceLevel, coverage: residentAndInbound / profile.coverageUnit }];
     });
-    if (effectiveDispatchPolicy(project, connection) !== "shortage-first") return candidates.sort((a, b) => a.resource.localeCompare(b.resource));
+    if (dispatchPolicyByConnection[connection.id] !== "shortage-first") return candidates.sort((a, b) => a.resource.localeCompare(b.resource));
     return candidates.sort((a, b) => a.coverage - b.coverage
       || (a.criticalDepth ?? Number.MAX_SAFE_INTEGER) - (b.criticalDepth ?? Number.MAX_SAFE_INTEGER)
       || a.resource.localeCompare(b.resource));
@@ -1098,16 +1120,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
 
   const dispatch = (): boolean => {
     let moved = false;
-    const sourceIds = [...new Set(Object.values(project.connections).map((connection) => connection.from.device))].sort();
-    const sourceOrderedConnections = sourceIds.flatMap((sourceId) => {
-      const outgoing = Object.values(project.connections).filter((connection) => connection.from.device === sourceId).sort((a, b) => a.id.localeCompare(b.id));
-      const outputPriority = project.devices[sourceId]!.policy?.outputPriority;
+    const sourceOrderedConnections = localDispatchSources.flatMap(({ source, outgoing, outputPriority, policy, fifoOrder }) => {
       if (outgoing.length < 2) return outgoing;
-      const policy = effectiveDispatchPolicy(project, outgoing[0]!);
-      if (policy === "fifo") return outgoing.sort((a, b) => Number(b.from.port === outputPriority) - Number(a.from.port === outputPriority) || a.id.localeCompare(b.id));
-      const cursor = dispatchCursors[sourceId] ?? 0;
+      if (policy === "fifo") return fifoOrder;
+      const cursor = dispatchCursors[source] ?? 0;
       const rotated = [...outgoing.slice(cursor % outgoing.length), ...outgoing.slice(0, cursor % outgoing.length)];
-      if (policy === "round-robin") return rotated.sort((a, b) => Number(b.from.port === outputPriority) - Number(a.from.port === outputPriority));
+      if (policy === "round-robin") {
+        if (outputPriority === undefined) return rotated;
+        const preferred: CompiledConnection[] = [];
+        const regular: CompiledConnection[] = [];
+        for (const connection of rotated) (connection.from.port === outputPriority ? preferred : regular).push(connection);
+        return [...preferred, ...regular];
+      }
       return rotated.map((connection) => ({ connection, rank: dispatchResourceCandidates(connection)[0] }))
         .sort((a, b) => Number(b.connection.from.port === outputPriority) - Number(a.connection.from.port === outputPriority)
           || Number(Boolean(b.rank)) - Number(Boolean(a.rank))
@@ -1115,10 +1139,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           || (a.rank?.criticalDepth ?? Number.MAX_SAFE_INTEGER) - (b.rank?.criticalDepth ?? Number.MAX_SAFE_INTEGER))
         .map((item) => item.connection);
     });
-    const orderedConnections = sourceOrderedConnections.map((connection, index) => ({
-      connection, index,
-      inputPriority: Number(project.devices[connection.to.device]!.policy?.inputPriority === connection.to.port),
-    })).sort((a, b) => b.inputPriority - a.inputPriority || a.index - b.index).map((item) => item.connection);
+    const inputPrioritizedConnections: CompiledConnection[] = [];
+    const regularConnections: CompiledConnection[] = [];
+    for (const connection of sourceOrderedConnections) {
+      (inputPriorityConnectionIds.has(connection.id) ? inputPrioritizedConnections : regularConnections).push(connection);
+    }
+    const orderedConnections = [...inputPrioritizedConnections, ...regularConnections];
     for (const connection of orderedConnections) {
       const sourceState = state.devices[connection.from.device]!;
       const targetState = state.devices[connection.to.device]!;
@@ -1165,9 +1191,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       nextDispatchTick[connection.id] = state.tick + connection.loaderDispatchIntervalTicks;
       scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
       moved = true;
-      if (effectiveDispatchPolicy(project, connection) !== "fifo") {
-        const count = Object.values(project.connections).filter((item) => item.from.device === connection.from.device).length;
-        dispatchCursors[connection.from.device] = ((dispatchCursors[connection.from.device] ?? 0) + 1) % count;
+      if (dispatchPolicyByConnection[connection.id] !== "fifo") {
+        const outgoingCount = outgoingConnectionsBySource[connection.from.device]!.length;
+        dispatchCursors[connection.from.device] = ((dispatchCursors[connection.from.device] ?? 0) + 1) % outgoingCount;
       }
       if (sourceState.status === "blocked-output") { setStatus(connection.from.device, "idle"); emit({ type: "buffer.unblocked", tick: state.tick, device: connection.from.device }); }
     }

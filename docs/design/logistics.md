@@ -51,6 +51,8 @@ For a Process input with a minimum treatment level, only resident and inbound lo
 
 An explicit source `outputPriority` or destination `inputPriority` remains an operator override above automatic shortage ordering. A junction Resource filter remains absolute. Capacity, power, allowlists, filters, and destination reservations still decide eligibility before any policy can rank a candidate.
 
+Connection ownership, stable connection-id order, effective policy, authored input/output-priority membership, and the number of outgoing lanes are immutable for one simulation. Runtime prepares one source-grouped local-dispatch view from that topology instead of reconstructing it on every settle pass. Round-robin cursors, inventory, material grade, inbound reservations, free capacity, endpoint availability, power, and shortage coverage remain live authority; the prepared view is never a second demand or reservation ledger.
+
 ## Junctions
 
 A transport-junction is a real powered Device with an internal buffer and multiple ports. It uses the same FIFO, round-robin, or shortage-first policy as any source Device; input/output port priorities and a Resource-to-output filter are instance policies. Synthesis creates deterministic merge/split trees, assigns single-use physical ports, conserves planned rate on every edge, writes an exact Resource filter on every junction, and may retain round-robin on symmetric generated trees even when the factory default is shortage-first.

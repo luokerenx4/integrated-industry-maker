@@ -2916,6 +2916,37 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.connection)).toEqual(["preferred-lane"]);
   });
 
+  test("explicit input priority stably partitions connections above source dispatch order", async () => {
+    const source = await loaded();
+    source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+    source.deviceAssets.sorter!.power.activeMilliWatts = 0;
+    source.blueprint.devices = [
+      { id: "source-a", asset: "buffer", region: "forge-zone", position: { x: 0, y: 0 }, rotation: 0 },
+      { id: "regular", asset: "buffer", region: "forge-zone", position: { x: 6, y: 0 }, rotation: 0 },
+      { id: "source-m", asset: "buffer", region: "forge-zone", position: { x: 0, y: 4 }, rotation: 0 },
+      { id: "priority-m", asset: "buffer", region: "forge-zone", position: { x: 6, y: 4 }, rotation: 0, policy: { inputPriority: "input" } },
+      { id: "source-z", asset: "buffer", region: "forge-zone", position: { x: 0, y: 8 }, rotation: 0 },
+      { id: "priority-z", asset: "buffer", region: "forge-zone", position: { x: 6, y: 8 }, rotation: 0, policy: { inputPriority: "input" } },
+    ];
+    const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
+    setTestConnections(source, [
+      { id: "a-regular", from: { device: "source-a", port: "output" }, to: { device: "regular", port: "input" }, resources: ["iron-ore"], path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 0 })), logistics },
+      { id: "m-priority", from: { device: "source-m", port: "output" }, to: { device: "priority-m", port: "input" }, resources: ["iron-ore"], path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 4 })), logistics },
+      { id: "z-priority", from: { device: "source-z", port: "output" }, to: { device: "priority-z", port: "input" }, resources: ["iron-ore"], path: Array.from({ length: 5 }, (_, index) => ({ x: index + 1, y: 8 })), logistics },
+    ]);
+    source.blueprint.logisticsNetworks = [];
+    source.scenario.initialBuffers = {
+      "source-a": { storage: { "iron-ore": 1 } },
+      "source-m": { storage: { "iron-ore": 1 } },
+      "source-z": { storage: { "iron-ore": 1 } },
+    };
+    source.scenario.failures = [];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 100 });
+    expect(result.events.filter((event) => event.type === "resource.depart").map((event) => event.connection)).toEqual([
+      "m-priority", "z-priority", "a-regular",
+    ]);
+  });
+
   test("connection Resource filters admit only the declared material from a mixed source", async () => {
     const source = await loaded();
     source.deviceAssets.sorter!.power.idleMilliWatts = 0;
