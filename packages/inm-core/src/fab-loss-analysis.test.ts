@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
-import { analyzeInputStarvation, analyzeQualityContributors, analyzeQueueCongestion, analyzeTransportBlocking } from "./fab-loss-analysis";
+import { analyzeInputStarvation, analyzeQualityContributors, analyzeQueueCongestion, analyzeReleaseAdmission, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
 import { runUntil } from "./simulator";
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, InputSupplyState, MaterialInputShortage, TransportBlockTicks } from "./types";
@@ -30,6 +30,96 @@ const clearTransportFlow = {
   blockedFraction: 0,
   blockedItemTicksByCause: transportBlockTicks(),
 } satisfies FactoryMetrics["transportFlows"][string];
+
+test("release admission conserves exact per-lot controller wait and preserves Scenario authority", async () => {
+  const projectDir = resolve("examples/memory-fab");
+  const project = compileFactoryProject(await loadFactoryProject(projectDir));
+  const metrics = JSON.parse(await readFile(resolve(projectDir, "runs/090-simulate/metrics.json"), "utf8")) as FactoryMetrics;
+  const events = (await readFile(resolve(projectDir, "runs/090-simulate/events.ndjson"), "utf8"))
+    .trim().split("\n").map((line) => JSON.parse(line) as FactoryEvent);
+  const bucket = analyzeReleaseAdmission(metrics, project.scenario.durationTicks, project, events);
+
+  expect(bucket).toMatchObject({
+    subjects: [
+      { kind: "device", id: "lot-release" },
+      { kind: "route", id: "dram-front-end" },
+    ],
+    evidence: {
+      pendingLots: 0,
+      capacityBlockedLots: 0,
+      capacityBlockedTicks: 0,
+      controlBlockedLots: 6,
+      controlBlockedTicks: 171_738,
+      blockedTicks: 171_738,
+      attributedTicks: 171_738,
+      unattributedTicks: 0,
+      contributors: 6,
+      maximumWip: 6,
+      reopenAtWip: 5,
+    },
+  });
+  expect(bucket.contributors.map((contributor) => ({
+    lot: contributor.label,
+    ticks: contributor.evidence.totalTicks,
+    planned: contributor.evidence.plannedReleaseTick,
+    actual: contributor.evidence.actualReleaseTick,
+    due: contributor.evidence.dueTick,
+    priority: contributor.evidence.priority,
+    ordinal: contributor.evidence.releaseOrdinal,
+  }))).toEqual([
+    { lot: "dram-lot-07", ticks: 63_623, planned: 36_000, actual: 99_623, due: 180_000, priority: 5, ordinal: 12 },
+    { lot: "dram-lot-08", ticks: 49_623, planned: 42_000, actual: 91_623, due: 170_000, priority: 5, ordinal: 11 },
+    { lot: "dram-lot-09", ticks: 35_623, planned: 48_000, actual: 83_623, due: 160_000, priority: 5, ordinal: 10 },
+    { lot: "dram-lot-11", ticks: 15_623, planned: 60_000, actual: 75_623, due: 140_000, priority: 10, ordinal: 9 },
+    { lot: "dram-lot-10", ticks: 5_623, planned: 54_000, actual: 59_623, due: 150_000, priority: 10, ordinal: 7 },
+    { lot: "dram-lot-12", ticks: 1_623, planned: 66_000, actual: 67_623, due: 130_000, priority: 10, ordinal: 8 },
+  ]);
+  expect(bucket.contributors.reduce((total, contributor) => total + contributor.evidence.controlBlockedTicks!, 0))
+    .toBe(metrics.releaseFlow.controlBlockedTicks);
+});
+
+test("release admission partitions cause transitions for a pending lot", async () => {
+  const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
+  const metrics = JSON.parse(await readFile(resolve("examples/memory-fab/runs/090-simulate/metrics.json"), "utf8")) as FactoryMetrics;
+  const declaration = project.scenario.lotReleases![0]!;
+  const syntheticProject = {
+    resources: project.resources,
+    routes: project.routes,
+    scenario: { ...project.scenario, durationTicks: 100, lotReleases: [declaration] },
+  };
+  const syntheticMetrics = {
+    lotFlow: { ...metrics.lotFlow, scheduled: 1, released: 0, pendingRelease: 1 },
+    releaseFlow: {
+      ...metrics.releaseFlow,
+      scheduled: 1,
+      released: 0,
+      pending: 1,
+      capacityBlockedLots: 1,
+      capacityBlockedTicks: 50,
+      controlBlockedLots: 1,
+      controlBlockedTicks: 50,
+    },
+  };
+  const events: FactoryEvent[] = [
+    { type: "lot.release-blocked", tick: 0, device: declaration.device, buffer: declaration.buffer, lot: declaration.id, reason: "buffer-capacity", activeWip: 0, maximumWip: null },
+    { type: "lot.release-blocked", tick: 30, device: declaration.device, buffer: declaration.buffer, lot: declaration.id, reason: "resource-capacity", activeWip: 0, maximumWip: null },
+    { type: "lot.release-blocked", tick: 50, device: declaration.device, buffer: declaration.buffer, lot: declaration.id, reason: "conwip-limit", activeWip: 6, maximumWip: 6 },
+  ];
+  const bucket = analyzeReleaseAdmission(syntheticMetrics, 100, syntheticProject, events);
+
+  expect(bucket.contributors).toHaveLength(1);
+  expect(bucket.contributors[0]).toMatchObject({
+    label: "dram-lot-01",
+    evidence: {
+      totalTicks: 100,
+      bufferCapacityTicks: 30,
+      resourceCapacityTicks: 20,
+      controlBlockedTicks: 50,
+      pending: 1,
+      causeTransitions: 3,
+    },
+  });
+});
 
 test("necessary tracked-lot transit is context rather than recoverable transport loss", () => {
   const bucket = analyzeTransportBlocking({

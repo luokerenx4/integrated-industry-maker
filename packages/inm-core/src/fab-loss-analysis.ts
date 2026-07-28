@@ -23,6 +23,7 @@ export interface FabLossSubject {
 }
 
 export type FabLossContributorMechanism =
+  | "release-admission-wait"
   | "process-queue-wait"
   | "transport-dispatch-wait"
   | "batch-companion-wait"
@@ -109,6 +110,169 @@ const isFlowProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">
   return device.processPlans.length === 0
     || device.processPlans.some((plan) => plan.definition.quality?.kind !== "rework");
 };
+
+export function analyzeReleaseAdmission(
+  metrics: Pick<FactoryMetrics, "lotFlow" | "releaseFlow">,
+  durationTicks: number,
+  project: Pick<CompiledFactoryProject, "resources" | "routes" | "scenario">,
+  events: readonly FactoryEvent[],
+): Omit<FabLossBucket, "id" | "label"> {
+  const family = metrics.lotFlow.family;
+  const declarations = (project.scenario.lotReleases ?? [])
+    .filter((release) => project.resources[release.resource]?.tracking?.family === family)
+    .sort((left, right) => left.releaseTick - right.releaseTick || left.id.localeCompare(right.id));
+  if (declarations.length !== metrics.releaseFlow.scheduled) {
+    throw new Error(
+      `Release attribution expected ${metrics.releaseFlow.scheduled} scheduled '${family}' lots but found ${declarations.length} Scenario declarations`,
+    );
+  }
+  const declarationIds = new Set(declarations.map((release) => release.id));
+  const releaseEvents = events.filter((event): event is Extract<FactoryEvent, { type: "lot.released" }> =>
+    event.type === "lot.released" && event.family === family && declarationIds.has(event.lot));
+  if (releaseEvents.length !== metrics.releaseFlow.released) {
+    throw new Error(
+      `Release attribution expected ${metrics.releaseFlow.released} released '${family}' lots but found ${releaseEvents.length} release events`,
+    );
+  }
+  const releasedByLot = new Map(releaseEvents.map((event) => [event.lot, event]));
+  const releaseOrdinal = new Map(releaseEvents.map((event, index) => [event.lot, index + 1]));
+  const blockedByLot = new Map<string, Array<Extract<FactoryEvent, { type: "lot.release-blocked" }>>>();
+  for (const event of events) {
+    if (event.type !== "lot.release-blocked" || !declarationIds.has(event.lot)) continue;
+    const blocked = blockedByLot.get(event.lot) ?? [];
+    blocked.push(event);
+    blockedByLot.set(event.lot, blocked);
+  }
+  const controlOpeningsByTick = new Map(events
+    .filter((event): event is Extract<FactoryEvent, { type: "lot.release-control-opened" }> =>
+      event.type === "lot.release-control-opened")
+    .map((event) => [event.tick, event]));
+
+  const contributors: FabLossContributor[] = declarations.flatMap((declaration) => {
+    const released = releasedByLot.get(declaration.id);
+    const endTick = released?.tick ?? durationTicks;
+    const causeTicks = {
+      "buffer-capacity": 0,
+      "resource-capacity": 0,
+      "conwip-limit": 0,
+    };
+    let activeCause: keyof typeof causeTicks | null = null;
+    let activeSince = declaration.releaseTick;
+    const blockEvents = blockedByLot.get(declaration.id) ?? [];
+    for (const event of blockEvents) {
+      if (event.tick < activeSince || event.tick > endTick) {
+        throw new Error(`Release attribution found an invalid block boundary for lot '${declaration.id}'`);
+      }
+      if (activeCause) causeTicks[activeCause] += event.tick - activeSince;
+      activeCause = event.reason;
+      activeSince = event.tick;
+    }
+    if (activeCause) causeTicks[activeCause] += endTick - activeSince;
+    const totalTicks = sum(causeTicks);
+    if (totalTicks <= 0 && released) return [];
+    const tracking = project.resources[declaration.resource]?.tracking;
+    const opening = released ? controlOpeningsByTick.get(released.tick) : undefined;
+    return [{
+      id: `lot:${declaration.id}:release-admission`,
+      label: declaration.id,
+      mechanism: "release-admission-wait" as const,
+      route: tracking?.route ?? null,
+      step: null,
+      resources: [declaration.resource],
+      processes: [],
+      defects: [],
+      lots: [declaration.id],
+      subjects: [
+        { kind: "device" as const, id: declaration.device },
+        ...(tracking?.route && project.routes[tracking.route]
+          ? [{ kind: "route" as const, id: tracking.route }]
+          : []),
+      ],
+      evidence: {
+        totalTicks,
+        bufferCapacityTicks: causeTicks["buffer-capacity"],
+        resourceCapacityTicks: causeTicks["resource-capacity"],
+        controlBlockedTicks: causeTicks["conwip-limit"],
+        plannedReleaseTick: declaration.releaseTick,
+        actualReleaseTick: released?.tick ?? durationTicks,
+        releaseDelayTicks: Math.max(0, endTick - declaration.releaseTick),
+        dueTick: declaration.dueTick ?? 0,
+        hasDueTick: Number(declaration.dueTick !== undefined),
+        deadlineSlackAtReleaseTicks: declaration.dueTick === undefined ? 0 : declaration.dueTick - endTick,
+        priority: declaration.priority ?? 0,
+        released: Number(Boolean(released)),
+        pending: Number(!released),
+        releaseOrdinal: releaseOrdinal.get(declaration.id) ?? 0,
+        activeWipBeforeRelease: released?.activeWipBeforeRelease ?? 0,
+        maximumWip: metrics.releaseFlow.maximumWip ?? 0,
+        reopenAtWip: metrics.releaseFlow.reopenAtWip ?? 0,
+        serviceProtected: Number(released?.serviceProtected ?? false),
+        controllerOpenedAtRelease: Number(Boolean(opening)),
+        reopenThresholdOpening: Number(opening?.cause === "reopen-threshold"),
+        serviceLevelOpening: Number(opening?.cause === "service-level"),
+        causeTransitions: blockEvents.length,
+      },
+      consumables: { service: {}, qualification: {} },
+      inputStates: [],
+    }];
+  }).sort((left, right) =>
+    right.evidence.totalTicks! - left.evidence.totalTicks!
+    || left.evidence.plannedReleaseTick! - right.evidence.plannedReleaseTick!
+    || left.id.localeCompare(right.id));
+
+  const attributedControlTicks = contributors.reduce((total, contributor) =>
+    total + contributor.evidence.controlBlockedTicks!, 0);
+  const attributedCapacityTicks = contributors.reduce((total, contributor) =>
+    total + contributor.evidence.bufferCapacityTicks! + contributor.evidence.resourceCapacityTicks!, 0);
+  if (attributedControlTicks !== metrics.releaseFlow.controlBlockedTicks) {
+    throw new Error(
+      `Release attribution does not conserve controller blocking: ${attributedControlTicks} attributed vs ${metrics.releaseFlow.controlBlockedTicks} expected`,
+    );
+  }
+  if (attributedCapacityTicks !== metrics.releaseFlow.capacityBlockedTicks) {
+    throw new Error(
+      `Release attribution does not conserve capacity blocking: ${attributedCapacityTicks} attributed vs ${metrics.releaseFlow.capacityBlockedTicks} expected`,
+    );
+  }
+  const attributedControlLots = contributors.filter((contributor) =>
+    contributor.evidence.controlBlockedTicks! > 0).length;
+  const attributedCapacityLots = contributors.filter((contributor) =>
+    contributor.evidence.bufferCapacityTicks! + contributor.evidence.resourceCapacityTicks! > 0).length;
+  if (attributedControlLots !== metrics.releaseFlow.controlBlockedLots
+    || attributedCapacityLots !== metrics.releaseFlow.capacityBlockedLots) {
+    throw new Error(
+      `Release attribution does not conserve blocked lot counts: ${attributedCapacityLots}/${attributedControlLots} attributed vs ${metrics.releaseFlow.capacityBlockedLots}/${metrics.releaseFlow.controlBlockedLots} expected`,
+    );
+  }
+
+  const blockedTicks = attributedCapacityTicks + attributedControlTicks;
+  const primary = contributors[0] ?? null;
+  return {
+    score: ratio(metrics.releaseFlow.pending, Math.max(1, metrics.releaseFlow.scheduled))
+      + ratio(blockedTicks, durationTicks * Math.max(1, metrics.releaseFlow.scheduled)),
+    summary: primary
+      ? `${metrics.releaseFlow.pending} scheduled lots remained pending; ${metrics.releaseFlow.capacityBlockedLots} capacity-blocked and ${metrics.releaseFlow.controlBlockedLots} control-blocked releases accumulated ${(blockedTicks / 1000).toFixed(1)} lot-s; ${primary.label} owns ${(primary.evidence.totalTicks! / 1000).toFixed(1)} s.`
+      : `${metrics.releaseFlow.pending} scheduled lots remained pending; no release-admission blocking was observed.`,
+    subjects: primary?.subjects ?? [],
+    evidence: {
+      pendingLots: metrics.releaseFlow.pending,
+      capacityBlockedLots: metrics.releaseFlow.capacityBlockedLots,
+      capacityBlockedTicks: attributedCapacityTicks,
+      controlBlockedLots: metrics.releaseFlow.controlBlockedLots,
+      controlBlockedTicks: attributedControlTicks,
+      blockedTicks,
+      attributedTicks: contributors.reduce((total, contributor) => total + contributor.evidence.totalTicks!, 0),
+      unattributedTicks: 0,
+      contributors: contributors.length,
+      maximumWip: metrics.releaseFlow.maximumWip ?? 0,
+      reopenAtWip: metrics.releaseFlow.reopenAtWip ?? 0,
+      serviceLevelAfterTicks: metrics.releaseFlow.serviceLevelAfterTicks ?? 0,
+      serviceLevelOpenings: metrics.releaseFlow.serviceLevelOpenings,
+      serviceProtectedReleases: metrics.releaseFlow.serviceProtectedReleases,
+    },
+    contributors,
+  };
+}
 
 interface TickInterval {
   start: number;
@@ -1153,7 +1317,7 @@ export function analyzeMaintenanceQualification(
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
-  project: Pick<CompiledFactoryProject, "devices" | "routes">,
+  project: Pick<CompiledFactoryProject, "devices" | "resources" | "routes" | "scenario">,
   events: readonly FactoryEvent[],
 ): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
@@ -1188,12 +1352,10 @@ export function analyzeFabLossProfile(
     },
   });
 
-  const releaseBlockedTicks = metrics.releaseFlow.capacityBlockedTicks + metrics.releaseFlow.controlBlockedTicks;
   add({
-    id: "release-admission", label: "Release and admission", score: ratio(metrics.releaseFlow.pending, scheduled) + ratio(releaseBlockedTicks, durationTicks * scheduled),
-    summary: `${metrics.releaseFlow.pending} scheduled lots remained pending; ${metrics.releaseFlow.capacityBlockedLots} capacity-blocked and ${metrics.releaseFlow.controlBlockedLots} control-blocked releases accumulated ${(releaseBlockedTicks / 1000).toFixed(1)} lot-s.`,
-    subjects: [{ kind: "project", id: metrics.lotFlow.family }],
-    evidence: { pendingLots: metrics.releaseFlow.pending, capacityBlockedLots: metrics.releaseFlow.capacityBlockedLots, controlBlockedLots: metrics.releaseFlow.controlBlockedLots, blockedTicks: releaseBlockedTicks },
+    id: "release-admission",
+    label: "Release and admission",
+    ...analyzeReleaseAdmission(metrics, durationTicks, project, events),
   });
 
   add({
@@ -1344,7 +1506,7 @@ export function analyzeFabLosses(
   metrics: FactoryMetrics,
   durationTicks: number,
   run: { id: string; resultHash: string },
-  project: Pick<CompiledFactoryProject, "devices" | "routes">,
+  project: Pick<CompiledFactoryProject, "devices" | "resources" | "routes" | "scenario">,
   events: readonly FactoryEvent[],
 ): FabLossAttribution | null {
   const profile = analyzeFabLossProfile(metrics, durationTicks, project, events);

@@ -170,10 +170,55 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       }),
     ],
   });
+  expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "release-admission")).toMatchObject({
+    evidence: {
+      pendingLots: 0,
+      capacityBlockedLots: 0,
+      capacityBlockedTicks: 0,
+      controlBlockedLots: 6,
+      controlBlockedTicks: 171_738,
+      blockedTicks: 171_738,
+      attributedTicks: 171_738,
+      unattributedTicks: 0,
+      contributors: 6,
+      maximumWip: 6,
+      reopenAtWip: 5,
+    },
+    subjects: [
+      { kind: "device", id: "lot-release" },
+      { kind: "route", id: "dram-front-end" },
+    ],
+    contributors: [
+      expect.objectContaining({
+        id: "lot:dram-lot-07:release-admission",
+        mechanism: "release-admission-wait",
+        route: "dram-front-end",
+        resources: ["blank-dram-wafer-lot"],
+        lots: ["dram-lot-07"],
+        evidence: expect.objectContaining({
+          totalTicks: 63_623,
+          controlBlockedTicks: 63_623,
+          plannedReleaseTick: 36_000,
+          actualReleaseTick: 99_623,
+          dueTick: 180_000,
+          priority: 5,
+          releaseOrdinal: 12,
+          activeWipBeforeRelease: 5,
+          maximumWip: 6,
+          reopenAtWip: 5,
+        }),
+      }),
+      expect.objectContaining({ id: "lot:dram-lot-08:release-admission", evidence: expect.objectContaining({ totalTicks: 49_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-09:release-admission", evidence: expect.objectContaining({ totalTicks: 35_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-11:release-admission", evidence: expect.objectContaining({ totalTicks: 15_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-10:release-admission", evidence: expect.objectContaining({ totalTicks: 5_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-12:release-admission", evidence: expect.objectContaining({ totalTicks: 1_623 }) }),
+    ],
+  });
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(7);
+  expect(snapshot.counts.designPrograms).toBe(8);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "commissioned-dram-fab",
@@ -224,6 +269,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       id: "lithography-maintenance-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
       focus: { kind: "losses", losses: ["maintenance-qualification"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
+    expect.objectContaining({
+      id: "release-admission-convergence",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["release-admission"] },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -559,6 +612,31 @@ test("current inspection and yield evidence advances the shared handoff to the f
         rejectedCandidates: 1,
         bestObservedValue: 17_000,
         largestReduction: 17_000,
+        decisionBases: expect.objectContaining({ "benchmark-gate": 1 }),
+      }),
+    }),
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      loss: "release-admission",
+      target: {
+        contributor: "lot:dram-lot-07:release-admission",
+        metric: "totalTicks",
+        direction: "decrease",
+        currentValue: 63_623,
+      },
+      source: expect.objectContaining({
+        programId: "release-admission-convergence",
+        benchmarkId: "greenfield-dram-design",
+        runId: "1a23962af0674431da235210d017fa8cba39c296ecca06d4f61ff2e5a67ed49d",
+      }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 1,
+        improvedCandidates: 1,
+        rejectedCandidates: 1,
+        bestObservedValue: 0,
+        largestReduction: 63_623,
         decisionBases: expect.objectContaining({ "benchmark-gate": 1 }),
       }),
     }),

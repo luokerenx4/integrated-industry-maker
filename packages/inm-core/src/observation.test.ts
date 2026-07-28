@@ -26,8 +26,8 @@ test("observation brief advances past every current bounded memory-fab loss", as
     decision: "BASELINE",
   }));
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "fab-loss.release-admission",
-    subjects: [{ kind: "project", id: "memory-fab" }],
+    code: "analysis.material-deficit",
+    subjects: [{ kind: "resource", id: "blank-dram-wafer-lot" }],
   }));
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
@@ -37,12 +37,35 @@ test("observation brief advances past every current bounded memory-fab loss", as
     required: true,
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
+    expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/resources/blank-dram-wafer-lot" }),
     expect.objectContaining({ kind: "analysis-evidence", studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/") }),
   ]));
-  expect(brief.views.some((view) => view.kind === "factory-focus")).toBeFalse();
+  expect(brief.views.some((view) => view.kind === "catalog-focus")).toBeTrue();
   expect(brief.handoff.requiredStatements).toHaveLength(4);
   expect(await openFactoryObservationBrief(projectDir, {}, "090-simulate")).toEqual(brief);
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
+});
+
+test("observation brief exposes the exact release boundary before release admission is dispositioned", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-observation-release-"));
+  const projectDir = join(root, "memory-fab");
+  const releaseRuns = join("design-runs", "release-admission-convergence");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.includes(releaseRuns) && !source.split("/").includes(".inm"),
+  });
+  const brief = await openFactoryObservationBrief(projectDir, {}, "090-simulate");
+  expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
+    code: "fab-loss.release-admission",
+    subjects: [
+      { kind: "device", id: "lot-release" },
+      { kind: "route", id: "dram-front-end" },
+    ],
+  }));
+  expect(brief.views).toEqual(expect.arrayContaining([
+    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/lot-release?run=090-simulate" }),
+    expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/routes/dram-front-end" }),
+  ]));
 });
 
 test("observation brief exposes the exact equipment and service path before maintenance is dispositioned", async () => {

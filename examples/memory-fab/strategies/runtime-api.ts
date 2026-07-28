@@ -96,6 +96,7 @@ export interface FabLossContributor {
   id: string;
   label: string;
   mechanism:
+    | "release-admission-wait"
     | "process-queue-wait"
     | "transport-dispatch-wait"
     | "batch-companion-wait"

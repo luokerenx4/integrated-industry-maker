@@ -69,6 +69,8 @@ An exhaustive 3–9-card EDD high/low-watermark search found one release-only se
 
 Compatible mixed-quality run `079-simulate` records 12/12 lots complete, 11 on time, 64.556 seconds maximum actual admission delay, six controller-blocked lots / 177.336 lot-seconds, and zero service openings or protected releases. Current Design Run `e7d569b5e824259ec51beef79b22957e611146444fefc4e5c80eb58ce70ec87d` keeps that seed after four exact rejections; it is continuable rather than falsely exhausted.
 
+Current compatible run `090-simulate` makes the remaining controller hold causal: six lots own all `171,738` blocked lot-ticks, physical capacity owns zero, and `dram-lot-07` is the leading identity with `63,623` ticks. Focused Design Run `1a23962af0674431da235210d017fa8cba39c296ecca06d4f61ff2e5a67ed49d` tests only the smallest one-card intervention, `7/6 EDD`. It eliminates that exact contributor but regresses all five locked current-best cases, lowers aggregate current-best score by `2.488473`, and reduces facility-interruption on-time service from nine lots to eight. The unchanged `6/5 EDD` seed is therefore retained and the observed admission wait becomes bounded decision evidence: in this fab it is the measured cost of protecting downstream WIP and service, not a free optimization target.
+
 ## Current boundary
 
 The policy is factory-wide and deterministic. It does not yet support per-family cards, route-stage caps, time-varying thresholds, order cancellation, probabilistic arrival forecasts, or learned release code. Those extensions should preserve the Scenario/Blueprint boundary and evaluator-owned denominator.

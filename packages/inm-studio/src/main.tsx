@@ -2070,12 +2070,14 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const transportContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   const maintenanceContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
+  const releaseContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "release-admission")?.contributors ?? [];
   const wipContributors = snapshot.inventoryAccounting
     ? Object.entries(snapshot.inventoryAccounting.resources)
       .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
       .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
     : [];
   const contributorMechanismLabel = (mechanism: (typeof qTimeContributors)[number]["mechanism"]) => ({
+    "release-admission-wait": "RELEASE ADMISSION WAIT",
     "process-queue-wait": "PROCESS INPUT QUEUE",
     "transport-dispatch-wait": "TRANSPORT DISPATCH QUEUE",
     "batch-companion-wait": "BATCH COMPANION WAIT",
@@ -2170,6 +2172,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           const disposition = snapshot.lossDispositions.find((item) => item.loss === bucket.id);
           return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${disposition ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
         })}</div>
+        {releaseContributors.length > 0 && <div className="q-time-contributors release-admission-contributors" data-testid="release-admission-contributors">
+          <header><span className="eyebrow">RELEASE-ADMISSION CONTRIBUTORS</span><small>Scenario-owned identity and deadline · event-owned physical/controller wait and actual admission · top {Math.min(6, releaseContributors.length)} of {releaseContributors.length}</small></header>
+          <div>{releaseContributors.slice(0, 6).map((contributor) => <article key={contributor.id} data-testid={`release-admission-contributor-${contributor.label}`}>
+            <span><small>TRACKED LOT</small><strong>{contributor.label}</strong><code>{contributor.resources.join(" · ")} · {contributor.route}</code></span>
+            <span><b>{(contributor.evidence.totalTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.controlBlockedTicks! / 1000).toFixed(1)} CONTROL / {((contributor.evidence.bufferCapacityTicks! + contributor.evidence.resourceCapacityTicks!) / 1000).toFixed(1)} CAPACITY</small></span>
+            <span><b>{(contributor.evidence.plannedReleaseTick! / 1000).toFixed(1)} → {(contributor.evidence.actualReleaseTick! / 1000).toFixed(1)}s</b><small>PLANNED / ACTUAL · DUE {(contributor.evidence.dueTick! / 1000).toFixed(1)}s · PRIORITY {contributor.evidence.priority}</small></span>
+            <span><b>#{contributor.evidence.releaseOrdinal}</b><small>RELEASE ORDER · WIP {contributor.evidence.activeWipBeforeRelease}/{contributor.evidence.maximumWip} · {contributor.evidence.serviceProtected ? "SERVICE-PROTECTED" : "ORDINARY"}</small></span>
+            <code>{contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")} · deadline slack {(contributor.evidence.deadlineSlackAtReleaseTicks! / 1000).toFixed(1)}s</code>
+          </article>)}</div>
+        </div>}
         {queueContributors.length > 0 && <div className="q-time-contributors queue-contributors" data-testid="queue-congestion-contributors">
           <header><span className="eyebrow">TRACKED-LOT QUEUE CONTRIBUTORS</span><small>Completed-lot queue time conserved across exact process input and transport dispatch locations · top {Math.min(5, queueContributors.length)} of {queueContributors.length}</small></header>
           <div>{queueContributors.slice(0, 5).map((contributor) => <article key={contributor.id} data-testid={`queue-congestion-contributor-${contributor.label}`}>

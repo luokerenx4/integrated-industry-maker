@@ -409,6 +409,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
   const maintenanceContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
+  const releaseContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "release-admission")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
       summary: () => ({
@@ -499,6 +501,12 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
       `Loss chain: ${snapshot.lossAttribution.chain.join(" → ")}`,
+      ...(releaseContributors.length ? [
+        "Release-admission contributors:",
+        ...releaseContributors.slice(0, 6).map((contributor) =>
+          `  ${contributor.label} · ${(contributor.evidence.totalTicks! / 1000).toFixed(1)}s = ${(contributor.evidence.controlBlockedTicks! / 1000).toFixed(1)}s control + ${((contributor.evidence.bufferCapacityTicks! + contributor.evidence.resourceCapacityTicks!) / 1000).toFixed(1)}s capacity · planned ${(contributor.evidence.plannedReleaseTick! / 1000).toFixed(1)}s → actual ${(contributor.evidence.actualReleaseTick! / 1000).toFixed(1)}s · due ${(contributor.evidence.dueTick! / 1000).toFixed(1)}s / priority ${contributor.evidence.priority} · release #${contributor.evidence.releaseOrdinal} at WIP ${contributor.evidence.activeWipBeforeRelease}/${contributor.evidence.maximumWip} · ${contributor.evidence.serviceProtected ? "service-protected" : "ordinary"} · ${contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")}`),
+        ...(releaseContributors.length > 6 ? [`  … ${releaseContributors.length - 6} more in --section losses --json`] : []),
+      ] : []),
       ...(queueContributors.length ? [
         "Tracked-lot queue contributors:",
         ...queueContributors.slice(0, 5).map((contributor) =>
