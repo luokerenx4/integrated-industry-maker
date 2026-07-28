@@ -23,9 +23,10 @@ test("Studio operation registry retains progress and result independently of the
   const registry = new StudioOperationRegistry();
   const started = await registry.start(root, "test-project", { kind: "benchmark", benchmarkId: "bounded" }, async ({ report }) => {
     report({
-      version: 2, sequence: 1, phase: "baseline-case-started", benchmark: "bounded",
+      version: 3, sequence: 1, phase: "baseline-case-started", benchmark: "bounded",
       case: { id: "base", name: "Base", index: 1, total: 1 },
-      work: { completed: 0, total: 2 }, evaluationId: "benchmark:bounded", timing: {},
+      work: { completed: 0, total: 2 }, execution: { mode: "sequential", concurrency: 1 },
+      evaluationId: "benchmark:bounded", timing: {},
     });
     return { result: { verdict: "KEEP" }, artifacts: [] };
   });

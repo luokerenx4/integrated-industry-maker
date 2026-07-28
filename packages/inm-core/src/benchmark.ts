@@ -11,6 +11,12 @@ import {
   type FactoryBlueprintEvaluation,
 } from "./blueprint-comparison";
 import type { JsonPatchOperation } from "./artifacts";
+import {
+  executeBenchmarkCaseWorkers,
+  resolveBenchmarkCaseExecution,
+  type BenchmarkCaseExecution,
+  type BenchmarkCaseExecutionRequest,
+} from "./benchmark-case-execution";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import type { Blueprint, CompiledFactoryProject, ProjectHashes, SimulationResult } from "./types";
@@ -227,12 +233,13 @@ export interface BlueprintBenchmarkSummary {
 }
 
 export interface BlueprintBenchmarkProgress {
-  version: 2;
+  version: 3;
   sequence: number;
   phase: "baseline-case-started" | "baseline-case-completed" | "candidate-case-started" | "candidate-case-completed";
   benchmark: string;
   case: { id: string; name: string; index: number; total: number };
   work: { completed: number; total: number };
+  execution: BenchmarkCaseExecution;
   evaluationId: string;
   timing: {
     durationMs?: number;
@@ -253,7 +260,9 @@ export type BlueprintBenchmarkProgressHandler = (progress: BlueprintBenchmarkPro
 export interface BlueprintBenchmarkEvaluationOptions {
   candidateBlueprint?: Blueprint;
   onProgress?: BlueprintBenchmarkProgressHandler;
-  onCandidateCaseEvaluated?: (result: {
+  caseExecution?: BenchmarkCaseExecutionRequest;
+  traceCaseId?: string;
+  onTraceCaseEvaluated?: (result: {
     case: BlueprintBenchmarkManifest["cases"][number];
     project: CompiledFactoryProject;
     simulation: SimulationResult;
@@ -480,12 +489,13 @@ export async function prepareBlueprintBenchmark(
     const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: manifest.cases.length };
     const caseStartedAt = performance.now();
     options.onProgress?.({
-      version: 2,
+      version: 3,
       sequence: index * 2 + 1,
       phase: "baseline-case-started",
       benchmark: manifest.id,
       case: caseIdentity,
       work: { completed: index, total: manifest.cases.length * 2 },
+      execution: { mode: "sequential", concurrency: 1 },
       evaluationId,
       timing: {},
     });
@@ -506,12 +516,13 @@ export async function prepareBlueprintBenchmark(
     options.signal?.throwIfAborted();
     cases.push({ manifest: item, baseline, evaluation, cached });
     options.onProgress?.({
-      version: 2,
+      version: 3,
       sequence: index * 2 + 2,
       phase: "baseline-case-completed",
       benchmark: manifest.id,
       case: caseIdentity,
       work: { completed: index + 1, total: manifest.cases.length * 2 },
+      execution: { mode: "sequential", concurrency: 1 },
       evaluationId,
       timing: { durationMs: performance.now() - caseStartedAt, compileMs, cacheReadMs, evaluationMs },
       baselineScore: evaluation.metrics.score,
@@ -527,34 +538,39 @@ export async function evaluatePreparedBlueprintBenchmark(
 ): Promise<BlueprintBenchmarkResult> {
   const { manifest, projectDir } = prepared;
   const evaluationId = options.evaluationId ?? "evaluation";
+  const execution = resolveBenchmarkCaseExecution(prepared.cases.length, options.caseExecution);
+  if (options.onTraceCaseEvaluated && !options.traceCaseId) throw new Error("Benchmark trace callback requires one exact traceCaseId");
+  if (options.traceCaseId && !prepared.cases.some((item) => item.manifest.id === options.traceCaseId)) {
+    throw new Error(`Benchmark trace case '${options.traceCaseId}' is not part of '${manifest.id}'`);
+  }
   const comparisons: FactoryBlueprintComparison[] = [];
   const cases: BlueprintBenchmarkCaseResult[] = [];
   let weightedBaseline = 0; let weightedCandidate = 0; let totalWeight = 0; let totalSimulationTicks = 0;
-  for (const [index, preparedCase] of prepared.cases.entries()) {
-    options.signal?.throwIfAborted();
-    const item = preparedCase.manifest;
+  let progressSequence = prepared.cases.length * 2;
+  const emitStarted = (index: number) => {
+    const item = prepared.cases[index]!.manifest;
     const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: prepared.cases.length };
-    const caseStartedAt = performance.now();
-    const sequenceOffset = prepared.cases.length * 2;
     options.onProgress?.({
-      version: 2,
-      sequence: sequenceOffset + index * 2 + 1,
+      version: 3,
+      sequence: ++progressSequence,
       phase: "candidate-case-started",
       benchmark: manifest.id,
       case: caseIdentity,
-      work: { completed: prepared.cases.length + index, total: prepared.cases.length * 2 },
+      work: { completed: prepared.cases.length, total: prepared.cases.length * 2 },
+      execution,
       evaluationId,
       timing: {},
     });
-    const selection = { world: item.world, scenario: item.scenario, objective: item.objective };
-    const compileStartedAt = performance.now();
-    const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
-    const compileMs = performance.now() - compileStartedAt;
-    const evaluationStartedAt = performance.now();
-    const candidateTrace = evaluateFactoryBlueprintWithTrace(candidate, manifest.candidateBlueprint, item.seed);
-    const candidateEvaluation = candidateTrace.evaluation;
-    const evaluationMs = performance.now() - evaluationStartedAt;
-    options.onCandidateCaseEvaluated?.({ case: item, project: candidate, simulation: candidateTrace.simulation });
+  };
+  const recordCase = (
+    index: number,
+    candidate: CompiledFactoryProject,
+    candidateEvaluation: FactoryBlueprintEvaluation,
+    timing: { durationMs: number; compileMs: number; evaluationMs: number },
+  ) => {
+    const preparedCase = prepared.cases[index]!;
+    const item = preparedCase.manifest;
+    const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: prepared.cases.length };
     const comparisonStartedAt = performance.now();
     const comparison = compareFactoryBlueprints(preparedCase.baseline, candidate, {
       seed: item.seed,
@@ -579,19 +595,106 @@ export async function evaluatePreparedBlueprintBenchmark(
       candidateCapacityGaps: comparison.to.capacityPlan.gaps.map((gap) => `[${gap.kind}] ${gap.message}`),
     });
     options.onProgress?.({
-      version: 2,
-      sequence: sequenceOffset + index * 2 + 2,
+      version: 3,
+      sequence: ++progressSequence,
       phase: "candidate-case-completed",
       benchmark: manifest.id,
       case: caseIdentity,
       work: { completed: prepared.cases.length + index + 1, total: prepared.cases.length * 2 },
+      execution,
       evaluationId,
-      timing: { durationMs: performance.now() - caseStartedAt, compileMs, evaluationMs, comparisonMs },
+      timing: {
+        durationMs: timing.durationMs + comparisonMs,
+        compileMs: timing.compileMs,
+        evaluationMs: timing.evaluationMs,
+        comparisonMs,
+      },
       baselineScore: comparison.from.metrics.score,
       candidateScore: comparison.to.metrics.score,
       scoreDelta: comparison.delta.score,
       candidateCapacityReady: comparison.to.capacityPlan.ready,
     });
+  };
+
+  if (execution.mode === "sequential") {
+    for (const [index, preparedCase] of prepared.cases.entries()) {
+      options.signal?.throwIfAborted();
+      emitStarted(index);
+      const item = preparedCase.manifest;
+      const selection = { world: item.world, scenario: item.scenario, objective: item.objective };
+      const caseStartedAt = performance.now();
+      const compileStartedAt = performance.now();
+      const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
+      const compileMs = performance.now() - compileStartedAt;
+      const evaluationStartedAt = performance.now();
+      const candidateTrace = evaluateFactoryBlueprintWithTrace(candidate, manifest.candidateBlueprint, item.seed);
+      const evaluationMs = performance.now() - evaluationStartedAt;
+      if (item.id === options.traceCaseId) options.onTraceCaseEvaluated?.({
+        case: item,
+        project: candidate,
+        simulation: candidateTrace.simulation,
+      });
+      options.signal?.throwIfAborted();
+      recordCase(index, candidate, candidateTrace.evaluation, {
+        durationMs: performance.now() - caseStartedAt,
+        compileMs,
+        evaluationMs,
+      });
+    }
+  } else {
+    const candidates: CompiledFactoryProject[] = [];
+    const parentCompileMs: number[] = [];
+    for (const preparedCase of prepared.cases) {
+      options.signal?.throwIfAborted();
+      const item = preparedCase.manifest;
+      const compileStartedAt = performance.now();
+      candidates.push(await openSelectedProject(projectDir, {
+        world: item.world,
+        scenario: item.scenario,
+        objective: item.objective,
+        blueprint: manifest.candidateBlueprint,
+      }, options.candidateBlueprint));
+      parentCompileMs.push(performance.now() - compileStartedAt);
+    }
+    const workerResults = await executeBenchmarkCaseWorkers(
+      prepared.cases.map((preparedCase, index) => {
+        const item = preparedCase.manifest;
+        return {
+          id: item.id,
+          projectDir,
+          selection: { world: item.world, scenario: item.scenario, objective: item.objective },
+          blueprintName: manifest.candidateBlueprint,
+          blueprint: structuredClone(candidates[index]!.blueprint),
+          seed: item.seed,
+          includeTrace: item.id === options.traceCaseId,
+        };
+      }),
+      execution,
+      {
+        signal: options.signal,
+        onStarted: (_job, index) => emitStarted(index),
+      },
+    );
+    for (const [index, result] of workerResults.entries()) {
+      options.signal?.throwIfAborted();
+      const preparedCase = prepared.cases[index]!;
+      const candidate = candidates[index]!;
+      if (result.id !== preparedCase.manifest.id) throw new Error(
+        `Benchmark worker returned case '${result.id}' for '${preparedCase.manifest.id}'`,
+      );
+      if (result.evaluation.blueprintHash !== candidate.hashes.blueprintHash) throw new Error(
+        `Benchmark worker case '${result.id}' evaluated Blueprint ${result.evaluation.blueprintHash}, not ${candidate.hashes.blueprintHash}`,
+      );
+      if (preparedCase.manifest.id === options.traceCaseId) {
+        if (!result.simulation) throw new Error(`Benchmark worker omitted requested trace for case '${result.id}'`);
+        options.onTraceCaseEvaluated?.({ case: preparedCase.manifest, project: candidate, simulation: result.simulation });
+      }
+      recordCase(index, candidate, result.evaluation, {
+        durationMs: parentCompileMs[index]! + result.timing.durationMs,
+        compileMs: parentCompileMs[index]! + result.timing.compileMs,
+        evaluationMs: result.timing.evaluationMs,
+      });
+    }
   }
   const baselineScore = weightedBaseline / totalWeight; const candidateScore = weightedCandidate / totalWeight;
   const scoreDelta = candidateScore - baselineScore; const reasons: string[] = [];

@@ -2,12 +2,13 @@ import { expect, test } from "bun:test";
 import { CliExecutionFailure, CliOperationExecution } from "./execution";
 
 const progress = {
-  version: 2 as const,
+  version: 3 as const,
   sequence: 1,
   phase: "baseline-case-started" as const,
   benchmark: "bounded",
   case: { id: "base", name: "Base", index: 1, total: 1 },
   work: { completed: 0, total: 2 },
+  execution: { mode: "sequential" as const, concurrency: 1 },
   evaluationId: "benchmark:bounded",
   timing: {},
 };

@@ -23,6 +23,7 @@ export * from "./production-demand";
 export * from "./blueprint-comparison";
 export * from "./power-envelope";
 export * from "./benchmark";
+export * from "./benchmark-case-execution";
 export * from "./candidate-change-set";
 export * from "./candidate-review";
 export * from "./design-program";

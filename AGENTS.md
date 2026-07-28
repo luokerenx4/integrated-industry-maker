@@ -10,6 +10,8 @@ Do not bind long Studio Benchmark or Design work to one browser request. Use the
 
 Long CLI Benchmark, Candidate, and Design work uses the same Core execution lifecycle without depending on Studio. Preserve one operation id across progress and terminal envelopes, pass `SIGINT`/`SIGTERM` through `AbortSignal`, return `130` for cooperative cancellation, and never emit a partial success result or immutable Design artifact.
 
+Locked Benchmark cases may execute concurrently only through Core's bounded isolated-worker boundary. Preserve exact per-case simulation, manifest-ordered aggregation/progress, driver-trace identity, and whole-wave cancellation; worker finish order and timing are operational evidence, never industrial authority.
+
 ## Observation-led design
 
 INM is a Harness for human/Agent industrial reasoning, not an autonomous factory optimizer. A human or reasoning Agent owns the design hypothesis and commissioning judgment. RL, black-box search, or automatic layout generation must not become the product design loop.

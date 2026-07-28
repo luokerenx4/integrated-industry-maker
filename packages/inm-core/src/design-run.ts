@@ -9,6 +9,7 @@ import {
 } from "./types";
 import { hasBlueprintBenchmarkCadenceEvidence, type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult } from "./benchmark";
 import { evaluatePreparedBlueprintBenchmark, loadBlueprintBenchmark, prepareBlueprintBenchmark } from "./benchmark";
+import type { BenchmarkCaseExecutionRequest } from "./benchmark-case-execution";
 import { createBlueprintPatch, subtractScoreBreakdown } from "./blueprint-comparison";
 import { writeCandidateChangeSet, type CandidateChangeSet } from "./candidate-change-set";
 import { compileFactoryProject } from "./compiler";
@@ -205,7 +206,7 @@ export interface DesignRunResult {
 }
 
 interface DesignRunProgressBase {
-  version: 3;
+  version: 4;
   sequence: number;
   program: string;
   benchmark: string;
@@ -225,6 +226,7 @@ export type DesignRunProgress =
     scoreDelta?: number;
     candidateCapacityReady?: boolean;
     cached?: boolean;
+    execution: BlueprintBenchmarkProgress["execution"];
     timing: BlueprintBenchmarkProgress["timing"];
   }
   | DesignRunProgressBase & { phase: "driver-replay-started"; iteration: number; nodeId: DesignSearchNodeId; case: BlueprintBenchmarkProgress["case"] }
@@ -1168,7 +1170,13 @@ export async function promoteDesignRun(
 export async function runDesignProgram(
   projectDir: string,
   programId: string,
-  options: { maxCandidates?: number; continueFrom?: string; onProgress?: DesignRunProgressHandler; signal?: AbortSignal } = {},
+  options: {
+    maxCandidates?: number;
+    continueFrom?: string;
+    onProgress?: DesignRunProgressHandler;
+    signal?: AbortSignal;
+    caseExecution?: BenchmarkCaseExecutionRequest;
+  } = {},
 ): Promise<DesignRunResult> {
   options.signal?.throwIfAborted();
   const prepared = await prepareDesignProgram(projectDir, programId);
@@ -1205,7 +1213,7 @@ export async function runDesignProgram(
   let completedCases = 0;
   let plannedCases = benchmark.cases.length * (additionalMaximum + (source ? 1 : 2));
   const progressBase = (): DesignRunProgressBase => ({
-    version: 3,
+    version: 4,
     sequence: ++sequence,
     program: program.id,
     benchmark: benchmark.id,
@@ -1222,6 +1230,7 @@ export async function runDesignProgram(
       phase: progress.phase.endsWith("started") ? "case-started" : "case-completed",
       evaluation: { kind, id: progress.evaluationId, iteration },
       case: progress.case,
+      execution: progress.execution,
       timing: progress.timing,
       ...(progress.cached === undefined ? {} : { cached: progress.cached }),
       ...(progress.baselineScore === undefined ? {} : { baselineScore: progress.baselineScore }),
@@ -1246,11 +1255,11 @@ export async function runDesignProgram(
       evaluationId: "seed",
       onProgress: benchmarkProgress("seed", 0),
       signal: options.signal,
-      onCandidateCaseEvaluated: ({ case: item, project, simulation }) => {
-        if (item.id === driverCase.id) {
-          seedDriverProject = project;
-          seedDriverSimulation = simulation;
-        }
+      caseExecution: options.caseExecution,
+      traceCaseId: driverCase.id,
+      onTraceCaseEvaluated: ({ project, simulation }) => {
+        seedDriverProject = project;
+        seedDriverSimulation = simulation;
       },
     });
   const seedHash = hashValue(seedBlueprint);
@@ -1415,11 +1424,11 @@ export async function runDesignProgram(
         evaluationId: `candidate-${iteration}`,
         onProgress: benchmarkProgress("candidate", iteration),
         signal: options.signal,
-        onCandidateCaseEvaluated: ({ case: item, project, simulation }) => {
-          if (item.id === driverCase.id) {
-            candidateDriverProject = project;
-            candidateDriverSimulation = simulation;
-          }
+        caseExecution: options.caseExecution,
+        traceCaseId: driverCase.id,
+        onTraceCaseEvaluated: ({ project, simulation }) => {
+          candidateDriverProject = project;
+          candidateDriverSimulation = simulation;
         },
       });
       let candidateDriverEvidence: DesignDriverEvidence | undefined;
@@ -1596,7 +1605,12 @@ export async function continueDesignRun(
   projectDir: string,
   programId: string,
   sourceResultHash: string,
-  options: { maxCandidates?: number; onProgress?: DesignRunProgressHandler; signal?: AbortSignal } = {},
+  options: {
+    maxCandidates?: number;
+    onProgress?: DesignRunProgressHandler;
+    signal?: AbortSignal;
+    caseExecution?: BenchmarkCaseExecutionRequest;
+  } = {},
 ): Promise<DesignRunResult> {
   return runDesignProgram(projectDir, programId, { ...options, continueFrom: sourceResultHash });
 }

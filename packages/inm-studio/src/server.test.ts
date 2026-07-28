@@ -371,7 +371,7 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const streamedRunOperation = await completedStudioOperation<typeof result>(port, "ironworks", streamedRunResponse);
     expect(streamedRunOperation.progressLog).toHaveLength(4);
     expect(streamedRunOperation.progressLog[0]).toEqual(expect.objectContaining({
-      version: 2, sequence: 1, work: { completed: 0, total: 2 },
+      version: 3, sequence: 1, work: { completed: 0, total: 2 },
     }));
     expect(streamedRunOperation.result).toEqual(expect.objectContaining({
       command: "benchmark", benchmark: "power-priority", verdict: expected.verdict,
@@ -584,7 +584,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const continuationOperation = await completedStudioOperation<any>(port, "memory-fab", continuationResponse);
     const continuationProgress = continuationOperation.progressLog as any[];
     expect(continuationProgress[0]).toEqual(expect.objectContaining({
-      version: 3,
+      version: 4,
       phase: "run-started",
       continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7 },
       budget: { maximum: 8, previousEvaluated: 7, additional: 1 },

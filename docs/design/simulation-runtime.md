@@ -18,6 +18,10 @@ tick → priority → insertion sequence
 
 The runtime may not depend on wall clock, frame rate, object insertion order, browser state, or unseeded randomness. `SeededRandom` is the only stochastic seam.
 
+Locked Benchmark cases are separate deterministic universes. Candidate cases with no shared runtime state execute in bounded workers when at least three cases are present; the host never parallelizes mutation inside one simulation. Each worker reloads and compiles the exact project selection and Blueprint, evaluates one seed, and returns only its compact evaluation plus the explicitly requested invocation-local driver trace. The parent verifies the returned case and Blueprint identities, compares against the prepared locked baseline, and aggregates results in manifest case order. Worker completion order and wall timing are operational facts only: they cannot change case ordering, scores, reasons, verdicts, events, metrics, Design manifests, or result hashes.
+
+The default worker bound is the smaller of the case count, eight, and the host's available parallelism minus one. One- and two-case evaluations remain in-process because worker startup would dominate. Tests and internal diagnostics can explicitly select sequential or parallel execution to prove byte-identical evidence; this is not a weaker evaluation mode.
+
 ## State ownership
 
 `mutateFactoryState()` is the only mutation path. Runtime state contains Device status/buffers/jobs, identity-preserving WIP lots and buffer queues, resource-node remaining/reserved/extracted quantities, local cargo with exact phase and cell, station cargo/fleet reservation and carrier-energy ledgers, per-Device/per-grid stored energy, and metrics integrals. Lot mutations update identity, location, elapsed-state clocks, and aggregate buffer/material counts as one authoritative transition.

@@ -80,8 +80,8 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
   if (progress.phase === "case-started" || progress.phase === "case-completed") return {
     title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
     detail: `${progress.case.id} · ${progress.phase === "case-started"
-      ? "evaluating"
-      : `complete${progress.cached ? " · reused" : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
+      ? `evaluating${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}`
+      : `complete${progress.cached ? " · reused" : ""}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
   };
   if (progress.phase === "driver-replay-started" || progress.phase === "driver-replay-completed") return {
     title: "RECOVERING HISTORICAL DRIVER TRACE",
@@ -110,8 +110,20 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
 
 type CompletedDesignCaseProgress = DesignRunProgress & { phase: "case-completed" };
 
+export function latestCompletedDesignCase(
+  progressLog: OperationExecutionSnapshot["progressLog"],
+): CompletedDesignCaseProgress | null {
+  for (let index = progressLog.length - 1; index >= 0; index--) {
+    const progress = progressLog[index];
+    if (progress && "program" in progress && progress.phase === "case-completed") {
+      return progress as CompletedDesignCaseProgress;
+    }
+  }
+  return null;
+}
+
 function completedCaseLabel(progress: CompletedDesignCaseProgress): string {
-  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
+  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
 }
 
 export function DesignWorkbench({
@@ -230,6 +242,8 @@ export function DesignWorkbench({
   const applyOperationSnapshot = (snapshot: OperationExecutionSnapshot<DesignRunResult>) => {
     setActiveOperation(snapshot);
     setRunning(!isTerminalOperationExecution(snapshot.status));
+    const retainedCompletedCase = latestCompletedDesignCase(snapshot.progressLog);
+    if (retainedCompletedCase) setLastCompletedCase(retainedCompletedCase);
     if (snapshot.progress && "program" in snapshot.progress) recordRunProgress(snapshot.progress as DesignRunProgress);
     if (snapshot.status === "completed" && snapshot.result) {
       setSelectedRun(snapshot.result);

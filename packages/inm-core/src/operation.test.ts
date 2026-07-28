@@ -11,9 +11,15 @@ import {
   simulateProjectOperation,
   validateProjectOperation,
 } from "./operation";
-import type { BlueprintBenchmarkProgress } from "./benchmark";
+import {
+  evaluatePreparedBlueprintBenchmark,
+  prepareBlueprintBenchmark,
+  type BlueprintBenchmarkProgress,
+} from "./benchmark";
 import { inspectCandidateDecision } from "./candidate-review";
 import { previewCandidateChangeSet } from "./candidate-change-set";
+import type { SimulationResult } from "./types";
+import { hashValue, stableStringify } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
 const temporaryDirectories: string[] = [];
@@ -92,7 +98,7 @@ test("Benchmark evaluation uses the same operation result model without writes",
   expect(await readFile(candidatePath, "utf8")).toBe(before);
   expect(firstProgress.map((progress) => progress.sequence)).toEqual([1, 2, 3, 4]);
   expect(firstProgress.map((progress) => progress.work.completed)).toEqual([0, 1, 1, 2]);
-  expect(firstProgress.every((progress) => progress.version === 2 && progress.work.total === 2)).toBeTrue();
+  expect(firstProgress.every((progress) => progress.version === 3 && progress.work.total === 2)).toBeTrue();
   expect(firstProgress[1]).toEqual(expect.objectContaining({
     phase: "baseline-case-completed",
     cached: false,
@@ -123,6 +129,48 @@ test("aborting observable Benchmark work never emits a Candidate verdict or muta
   expect(progress.some((event) => event.phase.startsWith("candidate"))).toBeFalse();
   expect(await readFile(candidatePath, "utf8")).toBe(before);
 }, 15_000);
+
+test("parallel Benchmark cases preserve exact ordered evidence and terminate cooperatively", async () => {
+  const projectDir = await temporaryProject("memory-fab");
+  const prepared = await prepareBlueprintBenchmark(projectDir, "greenfield-dram-design");
+  const sequentialProgress: BlueprintBenchmarkProgress[] = [];
+  const parallelProgress: BlueprintBenchmarkProgress[] = [];
+  let sequentialTrace: SimulationResult | undefined;
+  let parallelTrace: SimulationResult | undefined;
+  const sequential = await evaluatePreparedBlueprintBenchmark(prepared, {
+    caseExecution: "sequential",
+    traceCaseId: "mixed-quality",
+    onTraceCaseEvaluated: ({ simulation }) => { sequentialTrace = simulation; },
+    onProgress: (progress) => sequentialProgress.push(progress),
+  });
+  const parallel = await evaluatePreparedBlueprintBenchmark(prepared, {
+    caseExecution: "parallel",
+    traceCaseId: "mixed-quality",
+    onTraceCaseEvaluated: ({ simulation }) => { parallelTrace = simulation; },
+    onProgress: (progress) => parallelProgress.push(progress),
+  });
+
+  expect(stableStringify(parallel)).toBe(stableStringify(sequential));
+  expect(sequentialTrace).toBeDefined();
+  expect(parallelTrace).toBeDefined();
+  expect(hashValue(parallelTrace)).toBe(hashValue(sequentialTrace));
+  const caseOrder = prepared.cases.map((item) => item.manifest.id);
+  expect(parallelProgress.filter((item) => item.phase === "candidate-case-started").map((item) => item.case.id)).toEqual(caseOrder);
+  expect(parallelProgress.filter((item) => item.phase === "candidate-case-completed").map((item) => item.case.id)).toEqual(caseOrder);
+  expect(parallelProgress.map((item) => item.sequence)).toEqual(Array.from({ length: 10 }, (_, index) => index + 11));
+  expect(parallelProgress.every((item) => item.execution.mode === "parallel" && item.execution.concurrency === 5)).toBeTrue();
+
+  const abort = new AbortController();
+  let starts = 0;
+  await expect(evaluatePreparedBlueprintBenchmark(prepared, {
+    caseExecution: "parallel",
+    signal: abort.signal,
+    onProgress: (progress) => {
+      if (progress.phase === "candidate-case-started" && ++starts === prepared.cases.length) abort.abort();
+    },
+  })).rejects.toMatchObject({ name: "AbortError" });
+  expect(starts).toBe(prepared.cases.length);
+}, 45_000);
 
 test("aborting after Candidate simulation cannot record a partial review receipt", async () => {
   const projectDir = await temporaryProject("memory-fab");

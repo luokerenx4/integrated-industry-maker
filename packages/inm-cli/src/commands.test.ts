@@ -230,7 +230,7 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
   expect(progress).toHaveLength(20);
   expect(progress[0]).toEqual(expect.objectContaining({
     command: "benchmark",
-    progress: expect.objectContaining({ version: 2, sequence: 1, phase: "baseline-case-started", work: { completed: 0, total: 10 } }),
+    progress: expect.objectContaining({ version: 3, sequence: 1, phase: "baseline-case-started", work: { completed: 0, total: 10 } }),
   }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     progress: expect.objectContaining({ sequence: 20, phase: "candidate-case-completed", work: { completed: 10, total: 10 } }),
@@ -290,7 +290,7 @@ test("public CLI cancellation retains one operation identity and exits without a
     "benchmark",
     join(repository, "examples/memory-fab"),
     "--benchmark",
-    "equipment-energy-research",
+    "greenfield-dram-design",
     "--progress",
     "ndjson",
     "--json",
@@ -304,7 +304,7 @@ test("public CLI cancellation retains one operation identity and exits without a
     const chunk = await reader.read();
     if (chunk.done) break;
     stderr += decoder.decode(chunk.value, { stream: true });
-    if (!cancellationRequested && stderr.includes("\n")) {
+    if (!cancellationRequested && stderr.includes("\"mode\":\"parallel\"")) {
       cancellationRequested = true;
       child.kill("SIGINT");
     }
@@ -675,7 +675,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(continued.exitCode).toBe(0);
   const continuationProgress = continued.stderr.trim().split("\n").map((line) => JSON.parse(line));
   expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
-    version: 3,
+    version: 4,
     phase: "run-started",
     continuation: { sourceResultHash: resultHash, reusedIterations: 1 },
     budget: { maximum: 2, previousEvaluated: 1, additional: 1 },

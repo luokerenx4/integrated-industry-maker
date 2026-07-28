@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/parallel-benchmark-case-execution]] | Reduce memory-fab Design wall time through exact, bounded parallel evaluation of independent locked cases. | 2026-07-28 |
 | [[plans/low-friction-experiment-loop]] | Make the memory-fab start, experiment, progress, reopen, and recovery loop source-current and interruption-tolerant. | 2026-07-28 |
 | [[plans/back-end-die-handoff-convergence]] | Turn the current Probe-to-packaging transport blocking into a focused locked Design decision using explicit die-handling equipment. | 2026-07-28 |
 | [[plans/single-pass-design-evidence]] | Reuse each locked driver-case simulation for causal Design evidence and expose honest timed case progress. | 2026-07-28 |
