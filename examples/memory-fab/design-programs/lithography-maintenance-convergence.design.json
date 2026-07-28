@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "lithography-maintenance-convergence",
+  "name": "Lithography Maintenance Convergence",
+  "description": "Evaluate one explicit extension of the leading lithography service cadence against its exact maintenance-time contributor while preserving every commissioned operating case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "focus": {
+    "kind": "losses",
+    "losses": [
+      "maintenance-qualification"
+    ]
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 0
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/lithography-maintenance-convergence-proposals.ts",
+    "decisionFamilies": [
+      "maintenance"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 2
+  }
+}

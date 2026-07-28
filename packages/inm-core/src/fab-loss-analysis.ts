@@ -49,6 +49,10 @@ export interface FabLossContributor {
   lots: string[];
   subjects: FabLossSubject[];
   evidence: Record<string, number>;
+  consumables: {
+    service: Record<string, number>;
+    qualification: Record<string, number>;
+  };
   inputStates: Array<{
     process: string;
     starvationTicks: number;
@@ -329,6 +333,7 @@ export function analyzeQueueCongestion(
         meanQueueTicksPerSegment: ratio(contributor.queueTicks, contributor.segments),
         maximumQueueTicks: contributor.maximumQueueTicks,
       },
+      consumables: { service: {}, qualification: {} },
       inputStates: [],
     }))
     .sort((left, right) =>
@@ -569,6 +574,7 @@ export function analyzeInputStarvation(
         utilization,
         weightedStarvationTicks: deviceStarvationTicks * utilization,
       },
+      consumables: { service: {}, qualification: {} },
       inputStates: [...inputStates.values()].sort((left, right) =>
         right.starvationTicks - left.starvationTicks
         || left.process.localeCompare(right.process)
@@ -720,6 +726,7 @@ function qTimeContributors(
       totalOverrunTicks: group.totalOverrunTicks,
       maximumOverrunTicks: group.maximumOverrunTicks,
     },
+    consumables: { service: {}, qualification: {} },
     inputStates: [],
   })).sort((left, right) =>
     right.evidence.violations! - left.evidence.violations!
@@ -873,6 +880,7 @@ export function analyzeQualityContributors(
         scrappedLots: scrappedLots.size,
         escapedLots: escapedLots.size,
       },
+      consumables: { service: {}, qualification: {} },
       inputStates: [],
     };
   }).sort((left, right) =>
@@ -947,6 +955,7 @@ export function analyzeTransportBlocking(
           loaderFailureTicks: flow.blockedItemTicksByCause["endpoint-failure"].loader,
           unloaderFailureTicks: flow.blockedItemTicksByCause["endpoint-failure"].unloader,
         },
+        consumables: { service: {}, qualification: {} },
         inputStates: [],
       };
     })
@@ -977,6 +986,165 @@ export function analyzeTransportBlocking(
       endpointCapacityTicks,
       endpointPowerTicks,
       endpointFailureTicks,
+    },
+    contributors,
+  };
+}
+
+export function analyzeMaintenanceQualification(
+  metrics: FactoryMetrics,
+  durationTicks: number,
+  project: Pick<CompiledFactoryProject, "devices">,
+  events: readonly FactoryEvent[],
+): Omit<FabLossBucket, "id" | "label"> {
+  const observedProviders = new Map<string, {
+    service: Set<string>;
+    qualification: Set<string>;
+  }>();
+  const providerSet = (device: string) => {
+    const current = observedProviders.get(device) ?? {
+      service: new Set<string>(),
+      qualification: new Set<string>(),
+    };
+    observedProviders.set(device, current);
+    return current;
+  };
+  for (const event of events) {
+    if (event.type === "device.maintenance-start" || event.type === "device.maintenance-cancelled") {
+      providerSet(event.device).service.add(event.provider);
+    }
+    if (event.type === "device.qualification-start" || event.type === "device.qualification-cancelled") {
+      providerSet(event.device).qualification.add(event.provider);
+    }
+  }
+
+  const sortedPositiveRecord = (values: Record<string, number>) =>
+    Object.fromEntries(Object.entries(values)
+      .filter(([, count]) => count > 0)
+      .sort(([left], [right]) => left.localeCompare(right)));
+  const contributors: FabLossContributor[] = Object.entries(metrics.equipmentMaintenance.devices)
+    .flatMap(([device, maintenance]): FabLossContributor[] => {
+      const totalTicks = maintenance.maintenanceTicks
+        + maintenance.qualificationTicks
+        + maintenance.inputWaitTicks
+        + maintenance.crewWaitTicks;
+      if (totalTicks <= 0) return [];
+      const compiled = project.devices[device];
+      const observed = observedProviders.get(device);
+      const serviceProviders = observed?.service.size
+        ? [...observed.service].sort()
+        : (compiled?.maintenanceProviders ?? []).map((provider) => provider.device).sort();
+      const qualificationProviders = observed?.qualification.size
+        ? [...observed.qualification].sort()
+        : (compiled?.qualificationProviders ?? []).map((provider) => provider.device).sort();
+      const allProviders = [...new Set([...serviceProviders, ...qualificationProviders])].sort();
+      const serviceConsumables = sortedPositiveRecord(maintenance.serviceConsumables);
+      const qualificationConsumables = sortedPositiveRecord(maintenance.qualificationConsumables);
+      return [{
+        id: `device:${device}:maintenance-qualification`,
+        label: device,
+        mechanism: "maintenance-qualification" as const,
+        route: null,
+        step: null,
+        resources: [...new Set([
+          ...Object.keys(serviceConsumables),
+          ...Object.keys(qualificationConsumables),
+        ])].sort(),
+        processes: [...new Set((compiled?.processPlans ?? []).map((plan) => plan.definition.id))].sort(),
+        defects: [],
+        lots: [],
+        subjects: [
+          { kind: "device" as const, id: device },
+          ...allProviders.map((provider) => ({ kind: "device" as const, id: provider })),
+        ],
+        evidence: {
+          totalTicks,
+          maintenanceTicks: maintenance.maintenanceTicks,
+          qualificationTicks: maintenance.qualificationTicks,
+          inputWaitTicks: maintenance.inputWaitTicks,
+          crewWaitTicks: maintenance.crewWaitTicks,
+          maintenanceCompleted: maintenance.completed,
+          qualificationCompleted: maintenance.qualificationCompleted,
+          maintenanceCancelled: maintenance.cancelled,
+          qualificationCancelled: maintenance.qualificationCancelled,
+          usageTriggered: maintenance.usageTriggered,
+          calendarTriggered: maintenance.calendarTriggered,
+          assetLimit: maintenance.assetLimit,
+          plannedBoundary: maintenance.plannedBoundary,
+          opportunistic: maintenance.opportunistic,
+          inputBlocks: maintenance.inputBlocks,
+          crewBlocks: maintenance.crewBlocks,
+          driftedJobs: maintenance.driftedJobs,
+          driftedLots: maintenance.driftedLots,
+          driftDefects: maintenance.driftDefects,
+          serviceConsumableUnits: sum(serviceConsumables),
+          qualificationConsumableUnits: sum(qualificationConsumables),
+          observedServiceProviders: observed?.service.size ?? 0,
+          observedQualificationProviders: observed?.qualification.size ?? 0,
+          eligibleServiceProviders: compiled?.maintenanceProviders.length ?? 0,
+          eligibleQualificationProviders: compiled?.qualificationProviders.length ?? 0,
+        },
+        consumables: {
+          service: serviceConsumables,
+          qualification: qualificationConsumables,
+        },
+        inputStates: [],
+      }];
+    })
+    .sort((left, right) =>
+      right.evidence.totalTicks! - left.evidence.totalTicks!
+      || right.evidence.maintenanceTicks! - left.evidence.maintenanceTicks!
+      || left.id.localeCompare(right.id));
+
+  const expected = {
+    maintenanceTicks: metrics.equipmentMaintenance.totalMaintenanceTicks,
+    qualificationTicks: metrics.equipmentMaintenance.totalQualificationTicks,
+    inputWaitTicks: metrics.equipmentMaintenance.totalInputWaitTicks,
+    crewWaitTicks: metrics.equipmentMaintenance.totalCrewWaitTicks,
+  };
+  for (const [metric, expectedTicks] of Object.entries(expected)) {
+    const attributedTicks = contributors.reduce((total, contributor) =>
+      total + (contributor.evidence[metric] ?? 0), 0);
+    if (attributedTicks !== expectedTicks) {
+      throw new Error(
+        `Maintenance attribution does not conserve ${metric}: ${attributedTicks} attributed vs ${expectedTicks} expected`,
+      );
+    }
+  }
+  const maintenanceTicks = Object.values(expected).reduce((total, ticks) => total + ticks, 0);
+  const primary = contributors[0] ?? null;
+  return {
+    score: ratio(
+      maintenanceTicks,
+      durationTicks * Math.max(1, Object.keys(metrics.equipmentMaintenance.devices).length),
+    ),
+    summary: primary
+      ? `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions consumed ${(maintenanceTicks / 1000).toFixed(1)} service/wait device-s; ${primary.label} owns ${(primary.evidence.totalTicks! / 1000).toFixed(1)} s (${(ratio(primary.evidence.totalTicks!, maintenanceTicks) * 100).toFixed(1)}%).`
+      : `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions consumed ${(maintenanceTicks / 1000).toFixed(1)} service/wait device-s.`,
+    subjects: primary?.subjects ?? [],
+    evidence: {
+      maintenanceTicks: expected.maintenanceTicks,
+      qualificationTicks: expected.qualificationTicks,
+      inputWaitTicks: expected.inputWaitTicks,
+      crewWaitTicks: expected.crewWaitTicks,
+      totalTicks: maintenanceTicks,
+      attributedTicks: contributors.reduce((total, contributor) => total + contributor.evidence.totalTicks!, 0),
+      unattributedTicks: 0,
+      contributors: contributors.length,
+      maintenanceCompleted: metrics.equipmentMaintenance.totalCompleted,
+      qualificationCompleted: metrics.equipmentMaintenance.totalQualificationCompleted,
+      maintenanceCancelled: metrics.equipmentMaintenance.totalCancelled,
+      qualificationCancelled: metrics.equipmentMaintenance.totalQualificationCancelled,
+      usageTriggered: metrics.equipmentMaintenance.totalUsageTriggered,
+      calendarTriggered: metrics.equipmentMaintenance.totalCalendarTriggered,
+      assetLimit: metrics.equipmentMaintenance.totalAssetLimit,
+      plannedBoundary: metrics.equipmentMaintenance.totalPlannedBoundary,
+      opportunistic: metrics.equipmentMaintenance.totalOpportunistic,
+      inputBlocks: metrics.equipmentMaintenance.totalInputBlocks,
+      crewBlocks: metrics.equipmentMaintenance.totalCrewBlocks,
+      driftedJobs: metrics.equipmentMaintenance.totalDriftedJobs,
+      driftedLots: metrics.equipmentMaintenance.totalDriftedLots,
+      driftDefects: metrics.equipmentMaintenance.totalDriftDefects,
     },
     contributors,
   };
@@ -1053,13 +1221,10 @@ export function analyzeFabLossProfile(
     evidence: { changeovers: metrics.equipmentSetups.totalChangeovers, setupTicks: metrics.equipmentSetups.totalSetupTicks, campaignHolds: metrics.equipmentSetups.totalCampaignHolds, campaignHoldTicks: metrics.equipmentSetups.totalCampaignHoldTicks },
   });
 
-  const maintenanceTicks = metrics.equipmentMaintenance.totalMaintenanceTicks + metrics.equipmentMaintenance.totalQualificationTicks + metrics.equipmentMaintenance.totalInputWaitTicks + metrics.equipmentMaintenance.totalCrewWaitTicks;
-  const maintenanceDevice = topKey(Object.fromEntries(Object.entries(metrics.equipmentMaintenance.devices).map(([id, value]) => [id, value.maintenanceTicks + value.qualificationTicks + value.inputWaitTicks + value.crewWaitTicks])));
   add({
-    id: "maintenance-qualification", label: "Maintenance and qualification", score: ratio(maintenanceTicks, durationTicks * Math.max(1, Object.keys(metrics.equipmentMaintenance.devices).length)),
-    summary: `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions consumed ${(maintenanceTicks / 1000).toFixed(1)} service/wait device-s; ${metrics.equipmentMaintenance.totalCancelled + metrics.equipmentMaintenance.totalQualificationCancelled} phases were cancelled.`,
-    subjects: maintenanceDevice ? [{ kind: "device", id: maintenanceDevice }] : [],
-    evidence: { maintenanceTicks: metrics.equipmentMaintenance.totalMaintenanceTicks, qualificationTicks: metrics.equipmentMaintenance.totalQualificationTicks, inputWaitTicks: metrics.equipmentMaintenance.totalInputWaitTicks, crewWaitTicks: metrics.equipmentMaintenance.totalCrewWaitTicks, cancelled: metrics.equipmentMaintenance.totalCancelled + metrics.equipmentMaintenance.totalQualificationCancelled },
+    id: "maintenance-qualification",
+    label: "Maintenance and qualification",
+    ...analyzeMaintenanceQualification(metrics, durationTicks, project, events),
   });
 
   const toolingDevice = topKey(Object.fromEntries(Object.entries(metrics.productionTooling.devices).map(([id, value]) => [id, value.inputWaitTicks])));

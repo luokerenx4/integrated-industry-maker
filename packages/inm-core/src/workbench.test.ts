@@ -116,10 +116,64 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       }),
     })]),
   });
+  expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")).toMatchObject({
+    evidence: {
+      maintenanceTicks: 94_000,
+      qualificationTicks: 30_000,
+      inputWaitTicks: 0,
+      crewWaitTicks: 0,
+      totalTicks: 124_000,
+      attributedTicks: 124_000,
+      unattributedTicks: 0,
+      contributors: 4,
+    },
+    subjects: [
+      { kind: "device", id: "lithography-1" },
+      { kind: "device", id: "maintenance-service-1" },
+    ],
+    contributors: [
+      expect.objectContaining({
+        id: "device:lithography-1:maintenance-qualification",
+        label: "lithography-1",
+        resources: ["chamber-clean-kit", "tool-qualification-wafer"],
+        subjects: [
+          { kind: "device", id: "lithography-1" },
+          { kind: "device", id: "maintenance-service-1" },
+        ],
+        evidence: expect.objectContaining({
+          totalTicks: 34_000,
+          maintenanceTicks: 26_000,
+          qualificationTicks: 8_000,
+          inputWaitTicks: 0,
+          crewWaitTicks: 0,
+          usageTriggered: 2,
+          calendarTriggered: 0,
+          plannedBoundary: 2,
+          opportunistic: 0,
+        }),
+        consumables: {
+          service: { "chamber-clean-kit": 2 },
+          qualification: { "tool-qualification-wafer": 2 },
+        },
+      }),
+      expect.objectContaining({
+        id: "device:lithography-l2:maintenance-qualification",
+        evidence: expect.objectContaining({ totalTicks: 34_000, opportunistic: 2 }),
+      }),
+      expect.objectContaining({
+        id: "device:etch-1:maintenance-qualification",
+        evidence: expect.objectContaining({ totalTicks: 28_000, opportunistic: 2 }),
+      }),
+      expect.objectContaining({
+        id: "device:etch-l2:maintenance-qualification",
+        evidence: expect.objectContaining({ totalTicks: 28_000, opportunistic: 2 }),
+      }),
+    ],
+  });
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeFalse();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(6);
+  expect(snapshot.counts.designPrograms).toBe(7);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "commissioned-dram-fab",
@@ -162,6 +216,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       id: "layer-two-particle-control",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
       focus: { kind: "losses", losses: ["yield-quality"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
+    expect.objectContaining({
+      id: "lithography-maintenance-convergence",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["maintenance-qualification"] },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -473,6 +535,31 @@ test("current inspection and yield evidence advances the shared handoff to the f
         rejectedCandidates: 6,
         bestObservedValue: 57_084,
         largestReduction: 2_500,
+      }),
+    }),
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
+      loss: "maintenance-qualification",
+      target: {
+        contributor: "device:lithography-1:maintenance-qualification",
+        metric: "totalTicks",
+        direction: "decrease",
+        currentValue: 34_000,
+      },
+      source: expect.objectContaining({
+        programId: "lithography-maintenance-convergence",
+        benchmarkId: "greenfield-dram-design",
+        runId: "630b46d261c21a6c31a39d1d0ea345eebdc73d2100224e64fb01eac2fd27dde2",
+      }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 1,
+        improvedCandidates: 1,
+        rejectedCandidates: 1,
+        bestObservedValue: 17_000,
+        largestReduction: 17_000,
+        decisionBases: expect.objectContaining({ "benchmark-gate": 1 }),
       }),
     }),
     expect.objectContaining({

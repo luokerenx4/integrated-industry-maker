@@ -2069,6 +2069,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   const transportContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
+  const maintenanceContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
   const wipContributors = snapshot.inventoryAccounting
     ? Object.entries(snapshot.inventoryAccounting.resources)
       .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
@@ -2208,6 +2209,22 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
             <span><b>{contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}</b><small>/ {contributor.evidence.capacityItemsPerMinute!.toFixed(1)} ITEMS/MIN</small></span>
             <code>{transportContributorBreakdown(contributor.evidence)} · {contributor.evidence.deliveredItems} delivered · {contributor.evidence.averageInFlightItems!.toFixed(2)} average in flight</code>
           </article>)}</div>
+        </div>}
+        {maintenanceContributors.length > 0 && <div className="q-time-contributors maintenance-contributors" data-testid="maintenance-qualification-contributors">
+          <header><span className="eyebrow">MAINTENANCE + QUALIFICATION CONTRIBUTORS</span><small>Device-owned physical service, release qualification, wait, trigger, consumable, and observed provider evidence · top {Math.min(5, maintenanceContributors.length)} of {maintenanceContributors.length}</small></header>
+          <div>{maintenanceContributors.slice(0, 5).map((contributor) => {
+            const serviceConsumables = Object.entries(contributor.consumables.service)
+              .map(([resource, count]) => `${count} ${resource}`).join(" + ") || "none";
+            const qualificationConsumables = Object.entries(contributor.consumables.qualification)
+              .map(([resource, count]) => `${count} ${resource}`).join(" + ") || "none";
+            return <article key={contributor.id} data-testid={`maintenance-qualification-contributor-${contributor.label}`}>
+              <span><small>MAINTENANCE + QUALIFICATION</small><strong>{contributor.label}</strong><code>{contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")}</code></span>
+              <span><b>{(contributor.evidence.totalTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.maintenanceTicks! / 1000).toFixed(1)} SERVICE / {(contributor.evidence.qualificationTicks! / 1000).toFixed(1)} QUALIFICATION</small></span>
+              <span><b>{((contributor.evidence.inputWaitTicks! + contributor.evidence.crewWaitTicks!) / 1000).toFixed(1)}s</b><small>INPUT + CREW WAIT · {contributor.evidence.inputBlocks! + contributor.evidence.crewBlocks!} BLOCKS</small></span>
+              <span><b>{contributor.evidence.usageTriggered} / {contributor.evidence.calendarTriggered}</b><small>USAGE / CALENDAR · {contributor.evidence.assetLimit} ASSET / {contributor.evidence.plannedBoundary} PLANNED / {contributor.evidence.opportunistic} OPPORTUNISTIC</small></span>
+              <code>service: {serviceConsumables} · qualification: {qualificationConsumables} · {contributor.evidence.driftedJobs} drifted jobs / {contributor.evidence.driftDefects} defects</code>
+            </article>;
+          })}</div>
         </div>}
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">
           <header><span className="eyebrow">Q-TIME CONTRIBUTORS</span><small>Exact event-backed step, equipment, lot, and wait evidence</small></header>

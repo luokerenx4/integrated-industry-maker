@@ -407,6 +407,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     .find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets
     .find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
+  const maintenanceContributors = snapshot.lossAttribution?.buckets
+    .find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
   if (options.json) {
     const data = sectionResult("inspect", options, {
       summary: () => ({
@@ -524,6 +526,21 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         ...transportContributors.slice(0, 5).map((contributor) =>
           `  ${contributor.label} · ${transportMechanismLabel(contributor.mechanism)} · ${(contributor.evidence.blockedItemTicks! / 1000).toFixed(1)} blocked item-s · ${transportContributorBreakdown(contributor.evidence)} · ${contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}/${contributor.evidence.capacityItemsPerMinute!.toFixed(1)} items/min · ${contributor.resources.join("+") || "no delivered resources"}`),
         ...(transportContributors.length > 5 ? [`  … ${transportContributors.length - 5} more in --section losses --json`] : []),
+      ] : []),
+      ...(maintenanceContributors.length ? [
+        "Maintenance and qualification contributors:",
+        ...maintenanceContributors.slice(0, 5).map((contributor) => {
+          const devices = contributor.subjects
+            .filter((subject) => subject.kind === "device")
+            .map((subject) => subject.id)
+            .join(" → ");
+          const serviceConsumables = Object.entries(contributor.consumables.service)
+            .map(([resource, count]) => `${count} ${resource}`).join(" + ") || "none";
+          const qualificationConsumables = Object.entries(contributor.consumables.qualification)
+            .map(([resource, count]) => `${count} ${resource}`).join(" + ") || "none";
+          return `  ${contributor.label} · ${(contributor.evidence.totalTicks! / 1000).toFixed(1)}s total = ${(contributor.evidence.maintenanceTicks! / 1000).toFixed(1)}s service + ${(contributor.evidence.qualificationTicks! / 1000).toFixed(1)}s qualification + ${(contributor.evidence.inputWaitTicks! / 1000).toFixed(1)}s input wait + ${(contributor.evidence.crewWaitTicks! / 1000).toFixed(1)}s crew wait · ${contributor.evidence.assetLimit} asset / ${contributor.evidence.plannedBoundary} planned / ${contributor.evidence.opportunistic} opportunistic · ${contributor.evidence.usageTriggered} usage / ${contributor.evidence.calendarTriggered} calendar · service ${serviceConsumables} · qualification ${qualificationConsumables} · ${devices}`;
+        }),
+        ...(maintenanceContributors.length > 5 ? [`  … ${maintenanceContributors.length - 5} more in --section losses --json`] : []),
       ] : []),
       ...(qTimeContributors.length ? [
         "Q-time contributors:",

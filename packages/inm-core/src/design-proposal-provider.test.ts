@@ -1243,6 +1243,7 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
         endpointPowerTicks: 2,
         endpointFailureTicks: 1,
       },
+      consumables: { service: {}, qualification: {} },
       inputStates: [],
     }],
   } satisfies FabLossBucket;

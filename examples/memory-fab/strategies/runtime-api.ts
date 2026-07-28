@@ -117,6 +117,10 @@ export interface FabLossContributor {
   lots: string[];
   subjects: Array<{ kind: "project" | "device" | "connection" | "route"; id: string }>;
   evidence: Record<string, number>;
+  consumables: {
+    service: Record<string, number>;
+    qualification: Record<string, number>;
+  };
   inputStates: Array<{
     process: string;
     starvationTicks: number;

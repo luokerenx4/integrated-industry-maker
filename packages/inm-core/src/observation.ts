@@ -112,7 +112,19 @@ export function buildFactoryObservationBrief(
 ): FactoryObservationBrief {
   const run = selectedRun(snapshot, requestedRunId);
   const projectRoute = `/${encodeURIComponent(snapshot.project.id)}`;
-  const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) => diagnostic.evidence.source === "compatible-run")
+  const nextDiagnosticId = "diagnosticId" in snapshot.nextAction.target
+    ? snapshot.nextAction.target.diagnosticId
+    : null;
+  const disposedDiagnosticIds = new Set(
+    snapshot.lossDispositions.map((disposition) => disposition.diagnosticId),
+  );
+  const leadingDiagnostic = (nextDiagnosticId
+    ? snapshot.diagnostics.find((diagnostic) => diagnostic.id === nextDiagnosticId)
+    : null)
+    ?? snapshot.diagnostics.find((diagnostic) =>
+      diagnostic.evidence.source === "compatible-run"
+      && !disposedDiagnosticIds.has(diagnostic.id))
+    ?? snapshot.diagnostics.find((diagnostic) => !disposedDiagnosticIds.has(diagnostic.id))
     ?? snapshot.diagnostics[0]
     ?? null;
   const focusViews = [...new Map((leadingDiagnostic?.subjects ?? [])
