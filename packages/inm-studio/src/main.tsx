@@ -462,6 +462,12 @@ interface Metrics {
 }
 
 interface IndustrialAnalysis {
+  configuredEnvelope: {
+    authority: "descriptive-only";
+    resourceBasis: "equal-share-configured-operations";
+    powerBasis: "simultaneous-rated-load";
+    summary: string;
+  };
   powerAllocation: "proportional" | "priority-load-shedding";
   declarativeDevices: number;
   opaqueDevices: number;
@@ -1826,9 +1832,10 @@ function AnalysisBrowser({ data, focusDiagnostic, onClose }: { data: StudioData;
           </div>)}</div>
         </section>
         <section className="analysis-section material-analysis">
-          <div className="analysis-section-title"><span>MATERIAL BALANCE</span><b>ITEMS / MIN</b></div>
-          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RESOURCE</span><span>PRODUCE</span><span>CONSUME</span><span>NET</span></div>{analysis.resources.map((resource) => <div key={resource.resource}>
-            <strong>{resource.resource}</strong><span>{resource.producedPerMinute.toFixed(3)}</span><span>{resource.consumedPerMinute.toFixed(3)}</span><b className={resource.netPerMinute < 0 ? "negative" : resource.netPerMinute > 0 ? "positive" : ""}>{resource.netPerMinute.toFixed(3)}</b>
+          <div className="analysis-section-title"><span>CONFIGURED MATERIAL ENVELOPE</span><b>DESCRIPTIVE ONLY</b></div>
+          <p className="analysis-envelope-note">{analysis.configuredEnvelope.summary}</p>
+          <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RESOURCE</span><span>NOMINAL OUT</span><span>NOMINAL IN</span><span>DIFFERENCE</span></div>{analysis.resources.map((resource) => <div key={resource.resource}>
+            <strong>{resource.resource}</strong><span>{resource.producedPerMinute.toFixed(3)}</span><span>{resource.consumedPerMinute.toFixed(3)}</span><b>{resource.netPerMinute.toFixed(3)}</b>
             <small>{resource.hasBoundarySupply ? "SUPPLY" : ""}{resource.hasBoundarySupply && resource.hasBoundaryDemand ? " · " : ""}{resource.hasBoundaryDemand ? "DEMAND" : ""}</small>
           </div>)}</div>
         </section>
@@ -1904,14 +1911,14 @@ function AnalysisBrowser({ data, focusDiagnostic, onClose }: { data: StudioData;
           </div>) : <div className="diagnostics-clear"><i>·</i><span>NO STATION NETWORK</span></div>}</div>
         </section>
         <section className="analysis-section power-analysis">
-          <div className="analysis-section-title"><span>POWER GRIDS</span><b>{analysis.powerAllocation.toUpperCase()}</b></div>
+          <div className="analysis-section-title"><span>POWER GRIDS · SIMULTANEOUS RATED ENVELOPE</span><b>DESCRIPTIVE ONLY · {analysis.powerAllocation.toUpperCase()}</b></div>
           <div className="power-grid-list">{analysis.powerGrids.length ? analysis.powerGrids.map((grid) => {
             const utilization = grid.productionMilliWatts ? Math.min(100, grid.ratedConsumptionMilliWatts / grid.productionMilliWatts * 100) : 100;
             const measuredStorage = data.metrics?.energyStorage[grid.grid];
             const measuredPower = data.metrics?.powerGrids[grid.grid];
             const tariff = data.electricityTariffs.find((item) => item.region === grid.region);
             const electricity = data.metrics?.electricityCosts.regions[grid.region];
-            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.idleConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>IDLE LOAD</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={(measuredPower?.unservedMilliJoules ?? 0) > 0 || grid.headroomMilliWatts < 0 ? "negative" : "positive"}><b>{measuredPower ? `${(measuredPower.unservedMilliJoules / 1e6).toFixed(2)} MJ` : `${(grid.headroomMilliWatts / 1000).toFixed(0)} W`}</b><small>{measuredPower ? "UNSERVED" : "HEADROOM"}</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{measuredPower ? `SATISFACTION ${(measuredPower.averageSatisfactionPpm / 10_000).toFixed(1)}% AVG / ${(measuredPower.minimumSatisfactionPpm / 10_000).toFixed(1)}% MIN · MEASURED ${(measuredPower.generatedMilliJoules / 1e6).toFixed(2)} MJ GENERATED · ${(measuredPower.demandMilliJoules / 1e6).toFixed(2)} MJ DEMAND · ${(measuredPower.requiredStorageCapacityMilliJoules / 1e6).toFixed(2)} MJ STORAGE ENVELOPE · ` : ""}{tariff ? `TARIFF ${tariff.points.map((point) => `${(point.atTick / 1000).toFixed(0)}s@${(point.energyPriceMicroCurrencyPerKiloWattHour / 1e6).toFixed(3)}/kWh`).join(" · ")} · DEMAND ${(tariff.demandChargeMicroCurrencyPerKiloWatt / 1e6).toFixed(3)}/kW${electricity ? ` · COST ${(electricity.totalMicroCurrency / 1e6).toFixed(6)}` : ""} · ` : ""}{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
+            return <div className="power-grid-card" key={grid.grid}><div><strong>{grid.grid}</strong><code>{grid.region} · {grid.generators.map((generator) => `${generator.device} (${generator.kind}${generator.fuelResource ? `, ${generator.fuelPerMinute!.toFixed(2)} ${generator.fuelResource}/min` : ""})`).join(", ") || "no generator"}</code></div><span><b>{(grid.productionMilliWatts / 1000).toFixed(0)} W</b><small>RATED GEN</small></span><span><b>{(grid.idleConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>IDLE LOAD</small></span><span><b>{(grid.ratedConsumptionMilliWatts / 1000).toFixed(0)} W</b><small>RATED LOAD</small></span><span className={measuredPower ? measuredPower.unservedMilliJoules > 0 ? "negative" : "positive" : ""}><b>{measuredPower ? `${(measuredPower.unservedMilliJoules / 1e6).toFixed(2)} MJ` : `${(grid.headroomMilliWatts / 1000).toFixed(0)} W`}</b><small>{measuredPower ? "UNSERVED" : "RATED DIFFERENCE"}</small></span><span><b>{grid.storageCapacityMilliJoules ? `${((measuredStorage?.storedMilliJoules ?? grid.initialStoredMilliJoules) / 1e6).toFixed(2)} MJ` : "—"}</b><small>STORED</small></span><div className="power-bar"><i style={{ width: `${utilization}%` }} /></div><footer>{measuredPower ? `SATISFACTION ${(measuredPower.averageSatisfactionPpm / 10_000).toFixed(1)}% AVG / ${(measuredPower.minimumSatisfactionPpm / 10_000).toFixed(1)}% MIN · MEASURED ${(measuredPower.generatedMilliJoules / 1e6).toFixed(2)} MJ GENERATED · ${(measuredPower.demandMilliJoules / 1e6).toFixed(2)} MJ DEMAND · ${(measuredPower.requiredStorageCapacityMilliJoules / 1e6).toFixed(2)} MJ STORAGE ENVELOPE · ` : ""}{tariff ? `TARIFF ${tariff.points.map((point) => `${(point.atTick / 1000).toFixed(0)}s@${(point.energyPriceMicroCurrencyPerKiloWattHour / 1e6).toFixed(3)}/kWh`).join(" · ")} · DEMAND ${(tariff.demandChargeMicroCurrencyPerKiloWatt / 1e6).toFixed(3)}/kW${electricity ? ` · COST ${(electricity.totalMicroCurrency / 1e6).toFixed(6)}` : ""} · ` : ""}{grid.members.length} DEVICES · {grid.storageDevices.length} ACCUMULATORS · {grid.transportStages.length} POWERED TRANSPORT STAGES</footer></div>;
           }) : <div className="diagnostics-clear"><i>!</i><span>NO POWER GRID</span></div>}</div>
         </section>
       </div>

@@ -716,10 +716,9 @@ function powerCandidates(input: ResearchInput): StrategyCandidate[] {
     .sort((a, b) => (b.power.generation?.outputMilliWatts ?? 0) - (a.power.generation?.outputMilliWatts ?? 0) || a.id.localeCompare(b.id));
   const generator = generators[0]; if (!generator) return [];
   const candidates: StrategyCandidate[] = [];
-  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "power-disconnected" || item.code === "power-deficit")) {
+  for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "power-disconnected")) {
     const target = diagnostic.device ? input.project.devices[diagnostic.device] : undefined;
-    const grid = diagnostic.code === "power-deficit" ? input.production.powerGrids.find((item) => diagnostic.message.startsWith(item.grid)) : undefined;
-    const anchorId = target?.id ?? grid?.distributors[0]; const anchor = anchorId ? input.project.devices[anchorId] : undefined;
+    const anchorId = target?.id; const anchor = anchorId ? input.project.devices[anchorId] : undefined;
     const id = uniqueDeviceId(input.blueprint, `${generator.id}-support`);
     const device: Blueprint["devices"][number] = { id, asset: generator.id, region: anchor?.region ?? input.project.world.regions[0]!.id, position: { x: 0, y: 0 }, rotation: 0 };
     if (!placeDevice(input.blueprint, device, input.project, anchor?.position)) continue;
@@ -1169,14 +1168,6 @@ export class HeuristicResearchAgent implements BlueprintResearchAgent {
     ];
     const diagnosed = candidates.find((candidate) => this.allows(candidate.key) && !used.has(candidate.key));
     if (diagnosed) return diagnosed.proposal;
-    for (const diagnostic of input.production.diagnostics.filter((item) => item.code === "material-deficit" && item.resource)) {
-      const producer = input.production.devices.filter((device) => (device.outputsPerMinute[diagnostic.resource!] ?? 0) > 0)
-        .sort((a, b) => (b.outputsPerMinute[diagnostic.resource!] ?? 0) - (a.outputsPerMinute[diagnostic.resource!] ?? 0) || a.device.localeCompare(b.device))[0];
-      if (producer) {
-        const candidate = duplicateProcessorCandidate(input, input.project.devices[producer.device]!, diagnostic.message);
-        if (candidate) candidates.push(candidate);
-      }
-    }
     candidates.push(...bufferCandidates(input));
     candidates.push(...policyCandidates(input));
     candidates.push(...stationPolicyCandidates(input));

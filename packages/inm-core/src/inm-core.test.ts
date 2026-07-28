@@ -2308,7 +2308,7 @@ describe("deterministic discrete-event simulation", () => {
     expect(extraction.length).toBeGreaterThan(1);
     expect(extraction.at(-1)!.remaining![0]).toBeLessThan(extraction[0]!.remaining![0]!);
   });
-  test("static production analysis exposes nominal material deficits before simulation", async () => {
+  test("static production analysis exposes a descriptive configured envelope before simulation", async () => {
     const analysis = analyzeProduction(await openFactoryProject(ironworks));
     const plate = analysis.resources.find((resource) => resource.resource === "iron-plate")!;
     expect(analysis.declarativeDevices).toBe(9);
@@ -2329,6 +2329,12 @@ describe("deterministic discrete-event simulation", () => {
     expect(plate.producedPerMinute).toBe(15);
     expect(plate.consumedPerMinute).toBe(40);
     expect(plate.netPerMinute).toBe(-25);
+    expect(analysis.configuredEnvelope).toEqual({
+      authority: "descriptive-only",
+      resourceBasis: "equal-share-configured-operations",
+      powerBasis: "simultaneous-rated-load",
+      summary: expect.stringContaining("use Objective capacity planning"),
+    });
     expect(analysis.productionGraph).toEqual(expect.objectContaining({
       targetResource: "gear", rawInputsPerTarget: { coal: 1, "iron-ore": 4 },
     }));
@@ -2345,7 +2351,6 @@ describe("deterministic discrete-event simulation", () => {
       cycleTicks: 3000, powerMilliWatts: 330000, minimumInputTreatmentLevel: 2,
       inputs: [{ resource: "coal", count: 1 }, { resource: "iron-plate", count: 2 }], outputs: [{ resource: "gear", count: 2 }],
     }));
-    expect(analysis.diagnostics.some((diagnostic) => diagnostic.code === "material-deficit" && diagnostic.resource === "iron-plate")).toBeTrue();
     expect(analysis.powerGrids).toEqual([
       expect.objectContaining({ grid: "grid-assembly-zone-generator-2", region: "assembly-zone", headroomMilliWatts: 290_000 }),
       expect.objectContaining({ grid: "grid-forge-zone-generator-1", region: "forge-zone", headroomMilliWatts: -292_000 }),
@@ -2377,8 +2382,6 @@ describe("deterministic discrete-event simulation", () => {
       expect(analysis.resources.find((resource) => resource.resource === resourceId)).toEqual(
         expect.objectContaining({ resource: resourceId, hasBoundarySupply: true }),
       );
-      expect(analysis.diagnostics.some((diagnostic) =>
-        diagnostic.code === "material-deficit" && diagnostic.resource === resourceId)).toBeFalse();
     }
   });
   test("target-rate planning sizes recipes, extraction, logistics, station fleets, power, and finite reserves", async () => {
@@ -4106,29 +4109,23 @@ describe("research boundary and experiment decisions", () => {
     expect(await readFile(selectedPath, "utf8")).not.toBe(selectedBefore);
   }, 30_000);
 
-  test("heuristic strategies read diagnostics and do not immediately repeat experiment history", async () => {
+  test("heuristic strategies use measured and Objective evidence without treating rated envelopes as demand", async () => {
     const project = await openFactoryProject(ironworks); const result = runUntil(project, undefined, { seed: 42 });
     const agent = new HeuristicResearchAgent();
     const base = { project, blueprint: project.blueprint, metrics: result.metrics, fabLoss: null, production: analyzeProduction(project), capacityPlan: planProductionCapacity(project) };
     const first = await agent.propose({ iteration: 1, ...base, history: [] });
-    expect(first.strategy).toBe("power:power-deficit:generator-1");
+    expect(first.strategy).toBe("generation:grid-forge-zone-generator-1:wind-turbine:+1");
     const firstHistory = [{
       iteration: 1, strategy: first.strategy!, hypothesis: first.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
     }] as const;
     const second = await agent.propose({ iteration: 2, ...base, history: [...firstHistory] });
-    expect(second.strategy).toBe("generation:grid-forge-zone-generator-1:wind-turbine:+1");
+    expect(second.strategy).toBe("recipe:assembler-1:forge-gear-pair:standard");
     const third = await agent.propose({ iteration: 3, ...base, history: [...firstHistory, {
       iteration: 2, strategy: second.strategy!, hypothesis: second.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
     }] });
-    expect(third.strategy).toBe("recipe:assembler-1:forge-gear-pair:standard");
-    const fourth = await agent.propose({ iteration: 4, ...base, history: [...firstHistory, {
-      iteration: 2, strategy: second.strategy!, hypothesis: second.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
-    }, {
-      iteration: 3, strategy: third.strategy!, hypothesis: third.hypothesis, decision: "REVERT", score: result.metrics.finalScore, scoreDelta: -1,
-    }] });
-    expect(fourth.strategy).toBe("capacity-plan:smelt-iron:1->2");
-    expect(fourth.patch.some((operation) => operation.path === "/devices" || operation.path === "/connections")).toBeFalse();
-    const candidate = compileFactoryProject({ ...await loaded(), blueprint: applyResearchPatch(project.blueprint, fourth.patch) });
+    expect(third.strategy).toBe("capacity-plan:smelt-iron:1->2");
+    expect(third.patch.some((operation) => operation.path === "/devices" || operation.path === "/connections")).toBeFalse();
+    const candidate = compileFactoryProject({ ...await loaded(), blueprint: applyResearchPatch(project.blueprint, third.patch) });
     expect(candidate.devices["smelter-1-parallel"]).toBeDefined();
     expect(Object.values(candidate.devices).filter((device) => device.transportEndpoint).length)
       .toBe(candidate.blueprint.connections.length * 2);

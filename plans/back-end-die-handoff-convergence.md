@@ -60,6 +60,7 @@ The current Workbench can identify this loss but falls back to broad `commission
 - 2026-07-28 — Final authority `f380b7f17083…` retains one credible prioritized tray Candidate. It reduces the exact target to zero but fails the uniform zero-regression current-best policy in all five cases, so no Candidate is promoted or applied.
 - 2026-07-28 — Before/after Factory replay confirms the semantic evidence spatially: stack capacity rises from one to four, endpoint priority from zero to eight, and blocked item-time falls to zero while delivered quantity and cycle outcome remain unchanged.
 - 2026-07-28 — Workbench records eight current bounded dispositions and advances from the exhausted realized-loss chain to `analysis.material-deficit:resource:dielectric-stack-lot`, whose nominal demand exceeds production by `1.786/min`.
+- 2026-07-29 — [[plans/objective-authoritative-analysis-boundary]] later proved that value is an equal-share configured-operation envelope rather than Objective demand and retired it from the active diagnostic queue.
 
 ## Verification
 

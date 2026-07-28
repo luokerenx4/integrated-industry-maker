@@ -70,7 +70,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
-    flow: { state: "at-risk", warningCount: 15, infoCount: 12 },
+    flow: { state: "at-risk", warningCount: 8, infoCount: 8 },
     evidence: { state: "current", runId: "091-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 15, verifiedCount: 1 },
   }));

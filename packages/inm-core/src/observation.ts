@@ -124,8 +124,9 @@ export function buildFactoryObservationBrief(
     ?? snapshot.diagnostics.find((diagnostic) =>
       diagnostic.evidence.source === "compatible-run"
       && !disposedDiagnosticIds.has(diagnostic.id))
-    ?? snapshot.diagnostics.find((diagnostic) => !disposedDiagnosticIds.has(diagnostic.id))
-    ?? snapshot.diagnostics[0]
+    ?? snapshot.diagnostics.find((diagnostic) =>
+      diagnostic.severity !== "info"
+      && !disposedDiagnosticIds.has(diagnostic.id))
     ?? null;
   const focusViews = [...new Map((leadingDiagnostic?.subjects ?? [])
     .map((subject) => subjectView(projectRoute, run?.id ?? null, subject))
@@ -192,12 +193,16 @@ export function buildFactoryObservationBrief(
     handoff: {
       requiredStatements: [
         "What spatial or operating behavior was visible in the exact run-qualified views?",
-        "How does that behavior relate—or not relate—to the leading structured diagnostic?",
+        leadingDiagnostic
+          ? "How does that behavior relate—or not relate—to the leading structured diagnostic?"
+          : "What visible behavior, if any, justifies opening a new causal investigation after the current bounded loss frontier?",
         "What falsifiable industrial hypothesis and smallest exact intervention should be tested?",
         "Which metrics, locked cases, and visible behavior must improve or remain unchanged?",
       ],
       nextStep: run
-        ? "Author one deliberate Blueprint or Candidate intervention, then simulate, Benchmark, and visually compare before deciding."
+        ? leadingDiagnostic
+          ? "Author one deliberate Blueprint or Candidate intervention, then simulate, Benchmark, and visually compare before deciding."
+          : "Review the compatible Run and bounded loss frontier; open a new intervention only when spatial or typed evidence supports a falsifiable hypothesis."
         : "Create compatible immutable simulation evidence before making a runtime design hypothesis.",
       automationBoundary: "Computation may compile, simulate, measure, compare, and rank bounded authored alternatives; a human or reasoning Agent owns interpretation and design judgment.",
     },

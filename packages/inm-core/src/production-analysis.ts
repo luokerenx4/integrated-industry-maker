@@ -253,7 +253,7 @@ export interface StationNetworkAnalysis {
 }
 
 export interface ProductionDiagnostic {
-  code: "material-deficit" | "material-surplus" | "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-deficit" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "lot-release-schedule" | "lot-release-control" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
+  code: "input-logistics" | "output-logistics" | "treatment-input-unfed" | "treatment-agent-unfed" | "power-disconnected" | "power-transport-disconnected" | "power-fuel-unfed" | "station-unmatched-demand" | "station-unmatched-supply" | "station-fleet-deficit" | "station-energy-deficit" | "resource-unmined" | "resource-depletes-during-scenario" | "shared-work-center" | "lot-release-schedule" | "lot-release-control" | "batch-process" | "quality-inspection" | "quality-rework" | "quality-escape-risk";
   severity: "warning" | "info";
   resource?: ResourceId;
   device?: string;
@@ -263,6 +263,12 @@ export interface ProductionDiagnostic {
 }
 
 export interface ProductionAnalysis {
+  configuredEnvelope: {
+    authority: "descriptive-only";
+    resourceBasis: "equal-share-configured-operations";
+    powerBasis: "simultaneous-rated-load";
+    summary: string;
+  };
   powerAllocation: PowerAllocationPolicy;
   declarativeDevices: number;
   opaqueDevices: number;
@@ -835,17 +841,6 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     if (!node.miners.length) diagnostics.push({ code: "resource-unmined", severity: "info", resource: node.resource, message: `${node.node} contains ${node.amount} ${node.resource} in ${node.region} but has no bound extractor` });
     else if (node.estimatedDepletionMinutes !== null && node.estimatedDepletionMinutes * 60_000 < project.scenario.durationTicks) diagnostics.push({ code: "resource-depletes-during-scenario", severity: "warning", resource: node.resource, message: `${node.node} is estimated to deplete after ${node.estimatedDepletionMinutes.toFixed(3)} min, before the ${(project.scenario.durationTicks / 60_000).toFixed(3)} min scenario ends` });
   }
-  for (const balance of resources) {
-    if (balance.netPerMinute < -1e-9 && !balance.hasBoundarySupply) diagnostics.push({
-      code: "material-deficit", severity: "warning", resource: balance.resource,
-      message: `${balance.resource} nominal demand exceeds production by ${(-balance.netPerMinute).toFixed(3)}/min`,
-    });
-    if (balance.netPerMinute > 1e-9 && !balance.hasBoundaryDemand) diagnostics.push({
-      code: "material-surplus", severity: "info", resource: balance.resource,
-      message: `${balance.resource} has ${balance.netPerMinute.toFixed(3)}/min nominal surplus without a declared boundary consumer`,
-    });
-  }
-
   for (const device of Object.values(project.devices).sort((a, b) => a.id.localeCompare(b.id))) {
     for (const plan of device.processPlans) for (const input of plan.inputs) {
       const minimumLevel = input.minimumTreatmentLevel ?? 0;
@@ -886,10 +881,6 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       message: `${stage.device?.id ?? `${connection.id}.${stage.stage}`} (${stage.asset.id}) requires power but its endpoint is outside every distribution grid`,
     });
   }
-  for (const grid of powerGrids) if (grid.headroomMilliWatts < 0) diagnostics.push({
-    code: "power-deficit", severity: "warning",
-    message: `${grid.grid} rated demand exceeds generation by ${(-grid.headroomMilliWatts / 1000).toFixed(3)} W`,
-  });
   for (const generator of generationDevices.filter((device) => device.kind === "fuel")) {
     const inbound = Object.values(project.connections).some((connection) => connection.to.device === generator.device
       && connection.toPort.buffer === generator.fuelBuffer && connection.resources.includes(generator.fuelResource!));
@@ -949,6 +940,12 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
     ...utilityProviders.map((device) => device.device),
   ]);
   return {
+    configuredEnvelope: {
+      authority: "descriptive-only",
+      resourceBasis: "equal-share-configured-operations",
+      powerBasis: "simultaneous-rated-load",
+      summary: "Configured operation and rated-power envelopes describe installed topology; use Objective capacity planning for required rates and compatible simulation for realized flow.",
+    },
     powerAllocation: project.blueprint.policies.powerAllocation,
     declarativeDevices: declarativeDeviceIds.size,
     opaqueDevices: Object.keys(project.devices).length - declarativeDeviceIds.size,

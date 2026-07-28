@@ -509,6 +509,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .analysis-section { min-width: 0; overflow: hidden; border: 1px solid #1a353c; border-radius: 8px; background: linear-gradient(145deg, #0b181c, #081216); }
 .analysis-section-title { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-bottom: 1px solid #193239; color: #94a8ad; font: 8px var(--mono); letter-spacing: .11em; }
 .analysis-section-title b { color: #506970; font-weight: 400; }
+.analysis-envelope-note { margin: 0; padding: 10px 13px; border-bottom: 1px solid #193239; color: #638087; background: #071114; font: 7px/1.6 var(--mono); letter-spacing: .03em; }
 .analysis-diagnostic-title { gap: 10px; }
 .analysis-diagnostic-title > label { min-width: 0; display: flex; align-items: center; gap: 7px; margin-left: auto; }
 .analysis-diagnostic-title > label span { color: #3f5960; font-size: 6px; }

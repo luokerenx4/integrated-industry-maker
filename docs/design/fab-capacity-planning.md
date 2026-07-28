@@ -35,7 +35,7 @@ Every matching `Scenario.lotReleases` lot and `Scenario.materialDeliveries` item
 
 The planner raises a raw-rate gap only when extraction plus scheduled external supply cannot sustain the target. It raises a Scenario balance gap when finite deposits plus scheduled supply cannot cover the full horizon. Scheduled lots and purchased items are counted at their authored quantity even though actual admission may wait for receiving capacity or Blueprint CONWIP; that temporal behavior belongs to simulation.
 
-Nominal production analysis uses the same boundary declaration: a Resource present in `lotReleases` or `materialDeliveries` is marked `hasBoundarySupply` and is not reported as lacking an internal producer. Rate adequacy remains the capacity planner's responsibility, while runtime arrival and admission remain the simulator's.
+Configured production analysis uses the same boundary declaration: a Resource present in `lotReleases` or `materialDeliveries` is marked `hasBoundarySupply`. Its equal-share configured-operation table is an explicitly descriptive installed envelope, not a demand solver. It does not infer material deficit/surplus from the sign of independently installed maxima. Rate adequacy remains this Objective-derived capacity planner's responsibility, while runtime arrival and admission remain the simulator's.
 
 ## AutoResearch contract
 
@@ -48,6 +48,8 @@ This follows the same experimental separation as [AutoResearch](https://github.c
 ## Static boundary
 
 This is a deterministic design-rate feasibility test, not a fab scheduling oracle. It does not add setup/changeover loss, fixed-batch formation, preventive or corrective maintenance, random downtime, utility/tooling contention, release blocking, or dispatch-dependent queue time to device demand. Those mechanisms are explicit in the event simulator and locked benchmarks. Future static margins must remain named, inspectable assumptions rather than hidden utilization discounts.
+
+The inverse boundary matters too: dense Analysis may show every grid's simultaneous rated load and every configured operation's exclusive nominal rate, but those rows cannot override an Objective-scaled `READY` result or a compatible Run. Built-in research may act on this plan's exact gaps, structural disconnection, or measured power/material loss; it may not buy equipment merely because a descriptive installed-envelope difference is negative.
 
 ## Source of truth
 

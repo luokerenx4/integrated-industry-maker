@@ -839,7 +839,7 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
   if (warning) return {
     id: `diagnostic:${warning.id}`,
     tone: "attention",
-    title: "Inspect the highest-priority industrial loss",
+    title: "Inspect the highest-priority structural risk",
     reason: warning.message,
     actionLabel: "FOLLOW EVIDENCE",
     effect: "read-only",

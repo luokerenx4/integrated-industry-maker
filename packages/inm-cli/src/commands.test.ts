@@ -429,13 +429,9 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
       status: "ready",
       authority: "human-or-agent",
       evidence: { state: "compatible", run: expect.objectContaining({ id: "091-simulate" }) },
-      leadingDiagnostic: expect.objectContaining({
-        code: "analysis.material-deficit",
-        subjects: [{ kind: "resource", id: "dielectric-stack-lot" }],
-      }),
+      leadingDiagnostic: null,
       views: expect.arrayContaining([
         expect.objectContaining({ studioRoute: "/memory-fab/factory?run=091-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/catalog/resources/dielectric-stack-lot" }),
       ]),
     }),
   }));
@@ -446,8 +442,7 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   }));
   expect(human.stdout).toContain("observation brief");
   expect(human.stdout).toContain("/memory-fab/factory?run=091-simulate");
-  expect(human.stdout).toContain("/memory-fab/catalog/resources/dielectric-stack-lot");
-  expect(human.stdout).toContain("analysis.material-deficit");
+  expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
   expect(observeCapability).toEqual(expect.objectContaining({
     effect: "read-only",
@@ -1292,12 +1287,12 @@ test("public inspect gives Agents and humans the same bounded physical-loss disp
   ]);
   expect(JSON.parse(dispositions.stdout).data).toEqual({ section: "dispositions", result: result.lossDispositions });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    title: "Inspect the highest-priority industrial loss",
-    actionLabel: "FOLLOW EVIDENCE",
+    title: "Inspect the latest matching evidence",
+    actionLabel: "OPEN RUN",
     effect: "read-only",
-    argv: expect.arrayContaining(["inm", "analyze", projectDir, "--section", "diagnostics", "--json"]),
-    studioRoute: expect.stringMatching(/^\/memory-fab\/analysis\/diagnostics\/analysis\.material-deficit/),
-    target: expect.objectContaining({ kind: "diagnostic" }),
+    argv: ["inm", "runs", projectDir, "--json"],
+    studioRoute: "/memory-fab/runs",
+    target: { kind: "run", runId: "091-simulate" },
   }));
   expect(human.stdout).toContain("back-end-die-handoff · EXHAUSTED · f380b7f17083");
   expect(human.stdout).toContain("front-end-queue-convergence · EXHAUSTED · aafad3b7eaf0");
@@ -1326,7 +1321,7 @@ test("public inspect gives Agents and humans the same bounded physical-loss disp
   expect(human.stdout).toContain("[fab-loss.setup-campaign] [BOUNDED DEFERRED]");
   expect(human.stdout).toContain("[fab-loss.transport-blocking] [BOUNDED DEFERRED]");
   expect(human.stdout).toContain("[fab-loss.yield-quality] [BOUNDED DEFERRED]");
-  expect(human.stdout).toContain("Next action: Inspect the highest-priority industrial loss");
+  expect(human.stdout).toContain("Next action: Inspect the latest matching evidence");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 0 valid immutable runs · 32 invalid runs excluded");

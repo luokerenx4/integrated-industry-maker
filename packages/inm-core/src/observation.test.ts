@@ -25,10 +25,7 @@ test("observation brief advances past every current bounded memory-fab loss", as
     resultHash: expect.any(String),
     decision: "BASELINE",
   }));
-  expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "analysis.material-deficit",
-    subjects: [{ kind: "resource", id: "dielectric-stack-lot" }],
-  }));
+  expect(brief.leadingDiagnostic).toBeNull();
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
     id: "factory-overview",
@@ -36,12 +33,10 @@ test("observation brief advances past every current bounded memory-fab loss", as
     studioRoute: "/memory-fab/factory?run=091-simulate",
     required: true,
   }));
-  expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/resources/dielectric-stack-lot" }),
-    expect.objectContaining({ kind: "analysis-evidence", studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/") }),
-  ]));
-  expect(brief.views.some((view) => view.kind === "catalog-focus")).toBeTrue();
+  expect(brief.views).toHaveLength(1);
+  expect(brief.views.some((view) => view.kind !== "factory-overview")).toBeFalse();
   expect(brief.handoff.requiredStatements).toHaveLength(4);
+  expect(brief.handoff.nextStep).toContain("bounded loss frontier");
   expect(await openFactoryObservationBrief(projectDir, {}, "091-simulate")).toEqual(brief);
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
 });

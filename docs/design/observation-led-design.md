@@ -42,7 +42,7 @@ Core owns one deterministic `FactoryObservationBrief`. It is read-only and conta
 
 - exact project identity, effective World/Blueprint/Scenario/Objective, and project hashes;
 - observation readiness and one selected compatible immutable run with result hash, score, and decision;
-- the leading shared Workbench diagnostic and its typed subjects;
+- the leading active shared Workbench diagnostic and its typed subjects, or `null` when no diagnostic remains in the active queue;
 - a stable run-qualified Factory overview;
 - stable focused Factory or Catalog views for relevant Device, Connection, Resource, Process, or Route subjects;
 - the corresponding Analysis evidence route;
@@ -50,7 +50,7 @@ Core owns one deterministic `FactoryObservationBrief`. It is read-only and conta
 
 `inm observe` and Studio consume the same Core object. The CLI command does not take screenshots and Core does not claim that pixels were understood. It gives an Agent an exact visual task that a browser tool can execute. Studio renders the same task beside the replay so a human can perform it without translating raw JSON.
 
-The “leading” diagnostic is the current Workbench task, not the first raw loss bucket. When the shared next action carries a diagnostic identity—directly or through an aligned Design Program/Run target—the brief selects that exact diagnostic. Otherwise it selects the first compatible-run diagnostic that is not covered by a current bounded disposition, then the first remaining active diagnostic. A bounded physical loss remains visible in Analysis but cannot silently reopen itself in Observation while unchanged authority says the explored intervention frontier is exhausted. When a new Design Run dispositions the observed target, the next brief advances to the next active diagnostic.
+The “leading” diagnostic is the current Workbench task, not the first raw loss bucket. When the shared next action carries a diagnostic identity—directly or through an aligned Design Program/Run target—the brief selects that exact diagnostic. Otherwise it selects the first compatible-run diagnostic that is not covered by a current bounded disposition, then the first remaining non-info active diagnostic. A bounded physical loss remains visible in Analysis but cannot silently reopen itself in Observation while unchanged authority says the explored intervention frontier is exhausted. Configured installed envelopes are descriptive and never enter this queue. When all realized losses are bounded and no structural warning remains, `leadingDiagnostic` is `null`: the brief still requires the exact run-qualified Factory overview, but opening a new intervention requires fresh spatial or typed causal evidence.
 
 When no compatible run exists, the brief is `needs-run`. It still identifies the exact selection and Factory overview, but it must direct the operator to simulate before drawing behavior conclusions. Static layout observation is allowed; runtime claims are not.
 

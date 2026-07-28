@@ -36,7 +36,7 @@ test("reload, back, and forward reconstruct route state without browser-only aut
   const history = [
     projectPath("memory-fab"),
     catalogPath("memory-fab", "devices", "thermal-batch-furnace"),
-    analysisPath("memory-fab", "analysis.material-deficit:resource:wafer"),
+    analysisPath("memory-fab", "analysis.input-logistics:resource:wafer"),
     factoryObjectPath("memory-fab", { kind: "device", id: "burn-in-1" }),
     viewPath("memory-fab", "runs"),
     experimentPath("memory-fab", "equipment-energy-research", "stable-furnace-sleep"),

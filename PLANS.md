@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/objective-authoritative-analysis-boundary]] | Keep descriptive installed envelopes from becoming Objective demand, realized loss, or factory-change authority. | 2026-07-29 |
 | [[plans/compact-retained-operation-index]] | Separate lightweight reconnectable operation lifecycle records from dense retained industrial results. | 2026-07-29 |
 | [[plans/responsive-studio-experiment-execution]] | Keep Studio responsive while every warm or cold locked Benchmark case executes outside the HTTP/UI event loop. | 2026-07-29 |
 | [[plans/project-discovered-studio-lifecycle]] | Discover or allocate a project's managed Studio port so routine lifecycle commands require no port memory. | 2026-07-29 |
