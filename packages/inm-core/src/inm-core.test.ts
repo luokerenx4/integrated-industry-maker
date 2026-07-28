@@ -3420,6 +3420,32 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.events.some((event) => event.type === "device.start" && event.device === "a-smelter")).toBeFalse();
   });
 
+  test("equal-priority active consumers shed in stable Device-id order after generation falls", async () => {
+    const source = await accumulatorProjectSource({ wind: true, initialEnergyMilliJoules: 0 });
+    source.deviceAssets["wind-turbine"]!.power.generation = { kind: "renewable", outputMilliWatts: 360_000 };
+    const smelter = source.blueprint.devices.find((device) => device.id === "smelter-1")!;
+    source.blueprint.devices = [
+      source.blueprint.devices.find((device) => device.id === "wind-1")!,
+      { ...structuredClone(smelter), id: "a-smelter", position: { x: 5, y: 6 } },
+      { ...structuredClone(smelter), id: "b-smelter", position: { x: 9, y: 6 } },
+    ];
+    source.scenario.durationTicks = 200;
+    source.scenario.initialBuffers = {
+      "a-smelter": { input: { "iron-ore": 2 } },
+      "b-smelter": { input: { "iron-ore": 2 } },
+    };
+    source.scenario.initialEnergyMilliJoules = {};
+    source.scenario.renewableProfiles = [{
+      region: "forge-zone", asset: "wind-turbine", periodTicks: 2_000,
+      points: [{ atTick: 0, outputPermille: 1_000 }, { atTick: 50, outputPermille: 528 }],
+    }];
+    const result = runUntil(compileFactoryProject(source));
+    expect(result.events.filter((event) => event.type === "device.start").map((event) => event.device)).toEqual(["a-smelter", "b-smelter"]);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "power.shortage", tick: 50, device: "b-smelter" }));
+    expect(result.state.devices["a-smelter"]!.status).toBe("processing");
+    expect(result.state.devices["b-smelter"]!.status).toBe("unpowered");
+  });
+
   test("explicit sorter power priority preempts and resumes lower-ranked stage work", async () => {
     const source = await loaded();
     source.blueprint.policies = { ...source.blueprint.policies, powerAllocation: "priority-load-shedding" };

@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/compiled-power-allocation-order]] | Allocate standby and active power from compiled Device/kind order instead of rebuilding and sorting equivalent collections every settle pass. | 2026-07-29 |
 | [[plans/allocation-free-material-grade-queries]] | Read and consume exact graded material directly from its authoritative ledger without rebuilding and sorting temporary level arrays. | 2026-07-29 |
 | [[plans/shared-revocation-device-context]] | Preserve strict invocation-scoped Device context isolation with one shared lifetime instead of one native revocation handle per visited object. | 2026-07-29 |
 | [[plans/contract-value-dispatch-performance]] | Evaluate each contract-value Device against one exact same-state commitment snapshot instead of rescanning the factory inside sort comparisons. | 2026-07-29 |
