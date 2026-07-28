@@ -260,8 +260,16 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeTrue();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(9);
+  expect(snapshot.counts.designPrograms).toBe(10);
   expect(snapshot.designPrograms).toEqual([
+    expect.objectContaining({
+      id: "burn-in-changeover-convergence",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["setup-campaign"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
     expect.objectContaining({
       id: "commissioned-dram-fab",
       benchmark: "greenfield-dram-design",
@@ -713,6 +721,31 @@ test("current inspection and yield evidence advances the shared handoff to the f
         bestObservedValue: 0,
         largestReduction: 63_623,
         decisionBases: expect.objectContaining({ "benchmark-gate": 1 }),
+      }),
+    }),
+    expect.objectContaining({
+      state: "bounded-deferred",
+      diagnosticId: expect.stringMatching(/^fab-loss\.setup-campaign:/),
+      loss: "setup-campaign",
+      target: {
+        contributor: "device:burn-in-1:production-changeover:reliability-screen:commercial-screen:screen-commercial-dram",
+        metric: "setupTicks",
+        direction: "decrease",
+        currentValue: 8_000,
+      },
+      source: expect.objectContaining({
+        programId: "burn-in-changeover-convergence",
+        benchmarkId: "greenfield-dram-design",
+        runId: "6a7626c73bf85cace72571fcd155c631d600000416841a519829eee5e9b91c12",
+      }),
+      observed: expect.objectContaining({ runId: "090-simulate" }),
+      evidence: expect.objectContaining({
+        attemptedCandidates: 1,
+        improvedCandidates: 1,
+        rejectedCandidates: 1,
+        bestObservedValue: 0,
+        largestReduction: 8_000,
+        decisionBases: expect.objectContaining({ "no-current-best-improvement": 1 }),
       }),
     }),
     expect.objectContaining({

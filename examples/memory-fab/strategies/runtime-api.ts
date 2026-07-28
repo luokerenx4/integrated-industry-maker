@@ -100,6 +100,9 @@ export interface FabLossContributor {
     | "process-queue-wait"
     | "transport-dispatch-wait"
     | "batch-companion-wait"
+    | "equipment-commissioning-setup"
+    | "equipment-production-changeover"
+    | "setup-campaign-hold"
     | "maintenance-qualification"
     | "equipment-availability"
     | "material-input-shortage"
@@ -113,6 +116,9 @@ export interface FabLossContributor {
     | "route-q-time-defect";
   grid?: string | null;
   endpointStage?: "loader" | "unloader" | null;
+  setupFrom?: string | null;
+  setupTo?: string | null;
+  releaseCause?: "minimum-ready-lots" | "maximum-hold" | null;
   route: string | null;
   step: string | null;
   resources: string[];

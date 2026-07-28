@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
-import { analyzeInputStarvation, analyzeQualityContributors, analyzeQueueCongestion, analyzeReleaseAdmission, analyzeTransportBlocking } from "./fab-loss-analysis";
+import { analyzeInputStarvation, analyzeQualityContributors, analyzeQueueCongestion, analyzeReleaseAdmission, analyzeSetupCampaign, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
 import { runUntil } from "./simulator";
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, InputSupplyState, MaterialInputShortage, TransportBlockTicks } from "./types";
@@ -30,6 +30,132 @@ const clearTransportFlow = {
   blockedFraction: 0,
   blockedItemTicksByCause: transportBlockTicks(),
 } satisfies FactoryMetrics["transportFlows"][string];
+
+test("setup attribution separates commissioning from exact recurring Process transitions", async () => {
+  const projectDir = resolve("examples/memory-fab");
+  const project = compileFactoryProject(await loadFactoryProject(projectDir));
+  const metrics = JSON.parse(await readFile(resolve(projectDir, "runs/090-simulate/metrics.json"), "utf8")) as FactoryMetrics;
+  const events = (await readFile(resolve(projectDir, "runs/090-simulate/events.ndjson"), "utf8"))
+    .trim().split("\n").map((line) => JSON.parse(line) as FactoryEvent);
+  const bucket = analyzeSetupCampaign(metrics, project.scenario.durationTicks, project, events);
+
+  expect(bucket).toMatchObject({
+    subjects: [{ kind: "device", id: "burn-in-1" }],
+    evidence: {
+      changeovers: 5,
+      setupTicks: 21_000,
+      commissioningSetupTicks: 10_000,
+      productionChangeoverTicks: 11_000,
+      campaignHolds: 0,
+      campaignHoldTicks: 0,
+      totalTicks: 21_000,
+      attributedTicks: 21_000,
+      unattributedTicks: 0,
+      contributors: 5,
+    },
+  });
+  expect(bucket.contributors.map((contributor) => ({
+    id: contributor.id,
+    mechanism: contributor.mechanism,
+    process: contributor.processes[0],
+    ticks: contributor.evidence.totalTicks,
+    power: contributor.evidence.powerMilliWatts,
+  }))).toEqual([
+    {
+      id: "device:burn-in-1:production-changeover:reliability-screen:commercial-screen:screen-commercial-dram",
+      mechanism: "equipment-production-changeover",
+      process: "screen-commercial-dram",
+      ticks: 8_000,
+      power: 180_000,
+    },
+    {
+      id: "device:lithography-l2:commissioning-setup:unconfigured:photo-mask-l2:pattern-cell-layer-2",
+      mechanism: "equipment-commissioning-setup",
+      process: "pattern-cell-layer-2",
+      ticks: 4_000,
+      power: 180_000,
+    },
+    {
+      id: "device:burn-in-1:commissioning-setup:unconfigured:reliability-screen:screen-performance-mix",
+      mechanism: "equipment-commissioning-setup",
+      process: "screen-performance-mix",
+      ticks: 3_000,
+      power: 180_000,
+    },
+    {
+      id: "device:burn-in-1:production-changeover:commercial-screen:reliability-screen:screen-performance-mix",
+      mechanism: "equipment-production-changeover",
+      process: "screen-performance-mix",
+      ticks: 3_000,
+      power: 180_000,
+    },
+    {
+      id: "device:etch-l2:commissioning-setup:unconfigured:etch-recipe-l2:etch-cell-layer-2",
+      mechanism: "equipment-commissioning-setup",
+      process: "etch-cell-layer-2",
+      ticks: 3_000,
+      power: 180_000,
+    },
+  ]);
+  expect(bucket.contributors.reduce((total, contributor) => total + contributor.evidence.setupTicks!, 0))
+    .toBe(metrics.equipmentSetups.totalSetupTicks);
+});
+
+test("setup attribution retains campaign release cause and held time separately", async () => {
+  const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
+  const events: FactoryEvent[] = [
+    {
+      type: "device.campaign-held",
+      tick: 10_000,
+      device: "burn-in-1",
+      from: "reliability-screen",
+      to: "commercial-screen",
+      readyLots: 1,
+      minimumReadyLots: 3,
+      deadlineTick: 15_000,
+    },
+    {
+      type: "device.campaign-released",
+      tick: 15_000,
+      device: "burn-in-1",
+      from: "reliability-screen",
+      to: "commercial-screen",
+      readyLots: 2,
+      heldTicks: 5_000,
+      cause: "maximum-hold",
+    },
+  ];
+  const metrics = {
+    equipmentSetups: {
+      totalChangeovers: 0,
+      totalSetupTicks: 0,
+      totalCampaignHolds: 1,
+      totalCampaignHoldTicks: 5_000,
+      campaignMinimumLotReleases: 0,
+      campaignMaximumHoldReleases: 1,
+      devices: {},
+    },
+  };
+  const bucket = analyzeSetupCampaign(metrics, 20_000, project, events);
+
+  expect(bucket.contributors).toEqual([
+    expect.objectContaining({
+      id: "device:burn-in-1:campaign-hold:reliability-screen:commercial-screen:screen-commercial-dram:maximum-hold",
+      mechanism: "setup-campaign-hold",
+      setupFrom: "reliability-screen",
+      setupTo: "commercial-screen",
+      releaseCause: "maximum-hold",
+      processes: ["screen-commercial-dram"],
+      evidence: expect.objectContaining({
+        totalTicks: 5_000,
+        setupTicks: 0,
+        campaignHoldTicks: 5_000,
+        campaignHolds: 1,
+        maximumHoldReleases: 1,
+      }),
+    }),
+  ]);
+});
 
 test("release admission conserves exact per-lot controller wait and preserves Scenario authority", async () => {
   const projectDir = resolve("examples/memory-fab");

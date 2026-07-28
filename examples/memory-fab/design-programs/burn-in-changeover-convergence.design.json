@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "burn-in-changeover-convergence",
+  "name": "Burn-in Changeover Convergence",
+  "description": "Evaluate one explicit burn-in recipe-dispatch intervention against the exact recurring reliability-to-commercial transition while preserving every commissioned operating case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "focus": {
+    "kind": "losses",
+    "losses": [
+      "setup-campaign"
+    ]
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 0
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/burn-in-changeover-convergence-proposals.ts",
+    "decisionFamilies": [
+      "dispatch"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 1
+  }
+}

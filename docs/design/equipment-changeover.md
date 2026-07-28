@@ -48,6 +48,8 @@ This separation exposes a real scheduling tradeoff. An urgency-first operation p
 
 An optional Objective `weights.changeovers` penalty applies once per completed changeover. Throughput, on-time delivery, cycle time, tardiness, WIP, power, cost, and area remain simultaneous terms. `inm simulate`, `inm compare`, immutable reports, and Studio expose count and setup work directly.
 
+Fab-loss attribution does not treat the aggregate setup counter as one scheduling instruction. Every completed `null → group` transition is commissioning work; every completed `group → group` transition is recurring production changeover. The immutable event order binds each completion to the next productive `device.start` on that setup group, preserving exact target Process, Resource, lot, Route/step, timing, power, and energy without rewriting historical Run events. CLI and Studio order the resulting contributors by measured work, so Design may target a stable transition identity such as `Device + from + to + Process` rather than a mutable event tick or aggregate Device total.
+
 ## Static-analysis boundary
 
 Per-operation rates remain exclusive no-changeover maxima. `inm analyze` shows each setup group and the Device's directed duration range and emits the shared-work-center diagnostic, but it does not pretend to derive a sequence-dependent effective rate without a schedule. Studio exposes the complete matrix on the asset and Device inspector. Event simulation is authoritative for setup-sensitive capacity.
@@ -59,6 +61,8 @@ The memory-fab lithography bay uses four seconds for layer 1 → layer 2 and for
 The focused `changeover-specialization-research` workload fixes due dates that make urgency-first shared tools cross those directed boundaries repeatedly. The shared baseline performs seven changes and 97 seconds of setup work. A candidate Blueprint purchases dedicated layer-2 lithography and etch equipment, physically splits the material lanes, and adds the facility capacity required for real concurrency. It performs five commissioning/forward changes and 21 seconds of setup work, raises completed lots from 4 to 10 and delivered devices from 24 to 56, and improves the locked score by `+51.243435`. This is a capital/layout optimization, not a scheduler exemption: every added tool, sorter, belt cell, utility plant, setup state, cost, area, power draw, maintenance contract, and qualification remains explicit.
 
 These are synthetic timings and not a proprietary DRAM recipe. Their purpose is to make directional cleaning/setup structure executable and optimizable.
+
+The commissioned memory-fab run `090-simulate` makes the intervention boundary concrete. Its five completed transitions contain `10.0` seconds of one-time commissioning work and `11.0` seconds of recurring burn-in changes. The leading recoverable contributor is `burn-in-1 reliability-screen → commercial-screen → screen-commercial-dram` at `8.0` seconds, `180 W`, and `1.44 MJ`; packaged screening has no tracked wafer-lot identity at this terminal fungible stage. Focused Design Run `6a7626c73bf85cace72571fcd155c631d600000416841a519829eee5e9b91c12` proved that `recipeDispatch: minimize-changeover` removes that exact contributor, but it also starves the commercial product mix: all five locked cases regress, aggregate current-best score falls `61.641258`, and delivery value loses `74` per minute. The Candidate is therefore bounded-deferred and the commissioned `contract-value` policy remains unchanged.
 
 ## Verification
 

@@ -26,8 +26,8 @@ test("observation brief advances past every current bounded memory-fab loss", as
     decision: "BASELINE",
   }));
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "fab-loss.setup-campaign",
-    subjects: [{ kind: "device", id: "burn-in-1" }],
+    code: "fab-loss.transport-blocking",
+    subjects: [{ kind: "connection", id: "probe-to-packaging" }],
   }));
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
@@ -37,7 +37,7 @@ test("observation brief advances past every current bounded memory-fab loss", as
     required: true,
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/burn-in-1?run=090-simulate" }),
+    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/connections/probe-to-packaging?run=090-simulate" }),
     expect.objectContaining({ kind: "analysis-evidence", studioRoute: expect.stringContaining("/memory-fab/analysis/diagnostics/") }),
   ]));
   expect(brief.views.some((view) => view.kind === "factory-focus")).toBeTrue();

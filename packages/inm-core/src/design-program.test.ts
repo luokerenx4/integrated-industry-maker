@@ -44,6 +44,22 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
   const programs = await listDesignPrograms(projectDir);
   expect(programs).toEqual([
     expect.objectContaining({
+      id: "burn-in-changeover-convergence",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: { kind: "losses", losses: ["setup-campaign"] },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/burn-in-changeover-convergence-proposals.ts",
+        decisionFamilies: ["dispatch"],
+      },
+      locked: true,
+      budget: { maxCandidates: 1 },
+    }),
+    expect.objectContaining({
       id: "commissioned-dram-fab",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
@@ -243,7 +259,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   });
 
   expect(result.artifact).toEqual(expect.objectContaining({
-    id: "ed8dea6b0c1e002d07eaa53c5fc4c317dc1c7d962b2dea226ccb8fd6394dbfed",
+    id: "50b86f9523a2f364c596f440aeb424fff429e523fd2b42d70f70983dd61c0bdd",
     created: true,
   }));
   expect(result.manifest).toMatchObject({

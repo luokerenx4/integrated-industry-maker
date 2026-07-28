@@ -2069,6 +2069,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   const inputStarvationContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "input-starvation")?.contributors ?? [];
   const transportContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors ?? [];
   const qualityContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors ?? [];
+  const setupContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "setup-campaign")?.contributors ?? [];
   const maintenanceContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")?.contributors ?? [];
   const releaseContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "release-admission")?.contributors ?? [];
   const powerContributors = snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")?.contributors ?? [];
@@ -2082,6 +2083,9 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     "process-queue-wait": "PROCESS INPUT QUEUE",
     "transport-dispatch-wait": "TRANSPORT DISPATCH QUEUE",
     "batch-companion-wait": "BATCH COMPANION WAIT",
+    "equipment-commissioning-setup": "COMMISSIONING SETUP",
+    "equipment-production-changeover": "PRODUCTION CHANGEOVER",
+    "setup-campaign-hold": "SETUP CAMPAIGN HOLD",
     "maintenance-qualification": "MAINTENANCE + QUALIFICATION",
     "equipment-availability": "EQUIPMENT AVAILABILITY",
     "material-input-shortage": "MATERIAL INPUT SHORTAGE",
@@ -2222,6 +2226,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
             <span><b>{(contributor.evidence.lineContentionTicks! / 1000).toFixed(1)}s</b><small>LINE CONTENTION</small></span>
             <span><b>{contributor.evidence.deliveredItemsPerMinute!.toFixed(1)}</b><small>/ {contributor.evidence.capacityItemsPerMinute!.toFixed(1)} ITEMS/MIN</small></span>
             <code>{transportContributorBreakdown(contributor.evidence)} · {contributor.evidence.deliveredItems} delivered · {contributor.evidence.averageInFlightItems!.toFixed(2)} average in flight</code>
+          </article>)}</div>
+        </div>}
+        {setupContributors.length > 0 && <div className="q-time-contributors setup-contributors" data-testid="setup-campaign-contributors">
+          <header><span className="eyebrow">SETUP + CHANGEOVER CONTRIBUTORS</span><small>Commissioning, recurring setup, and voluntary campaign time remain separate and conserve the measured bucket · top {Math.min(7, setupContributors.length)} of {setupContributors.length}</small></header>
+          <div>{setupContributors.slice(0, 7).map((contributor) => <article key={contributor.id} data-testid={`setup-campaign-contributor-${contributor.id}`}>
+            <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.label}</strong><code>{contributor.processes.join(" + ") || "unresolved process"}</code></span>
+            <span><b>{(contributor.evidence.totalTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.setupTicks! / 1000).toFixed(1)} SETUP / {(contributor.evidence.campaignHoldTicks! / 1000).toFixed(1)} HOLD</small></span>
+            <span><b>{contributor.evidence.powerMilliWatts}mW</b><small>{contributor.evidence.energyMilliJoules}mJ TRANSITION ENERGY</small></span>
+            <span><b>{contributor.evidence.changeovers} / {contributor.evidence.campaignHolds}</b><small>CHANGES / HOLDS · {contributor.releaseCause ?? "PHYSICAL TRANSITION"}</small></span>
+            <code>{contributor.resources.join(" · ") || "no material context"} · {contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")} · {(contributor.evidence.firstStartTick! / 1000).toFixed(1)}–{(contributor.evidence.lastFinishTick! / 1000).toFixed(1)}s</code>
           </article>)}</div>
         </div>}
         {maintenanceContributors.length > 0 && <div className="q-time-contributors maintenance-contributors" data-testid="maintenance-qualification-contributors">

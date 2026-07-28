@@ -27,6 +27,9 @@ export type FabLossContributorMechanism =
   | "process-queue-wait"
   | "transport-dispatch-wait"
   | "batch-companion-wait"
+  | "equipment-commissioning-setup"
+  | "equipment-production-changeover"
+  | "setup-campaign-hold"
   | "maintenance-qualification"
   | "equipment-availability"
   | "material-input-shortage"
@@ -45,6 +48,9 @@ export interface FabLossContributor {
   mechanism: FabLossContributorMechanism;
   grid?: string | null;
   endpointStage?: "loader" | "unloader" | null;
+  setupFrom?: string | null;
+  setupTo?: string | null;
+  releaseCause?: "minimum-ready-lots" | "maximum-hold" | null;
   route: string | null;
   step: string | null;
   resources: string[];
@@ -1317,6 +1323,297 @@ export function analyzeMaintenanceQualification(
   };
 }
 
+export function analyzeSetupCampaign(
+  metrics: Pick<FactoryMetrics, "equipmentSetups">,
+  durationTicks: number,
+  project: Pick<CompiledFactoryProject, "devices" | "routes">,
+  events: readonly FactoryEvent[],
+): Omit<FabLossBucket, "id" | "label"> {
+  type TargetContext = {
+    process: string | null;
+    resources: string[];
+    lots: string[];
+    route: string | null;
+    step: string | null;
+  };
+  type ContributorGroup = {
+    id: string;
+    label: string;
+    mechanism: Extract<FabLossContributorMechanism,
+      "equipment-commissioning-setup" | "equipment-production-changeover" | "setup-campaign-hold">;
+    device: string;
+    from: string | null;
+    to: string;
+    releaseCause: "minimum-ready-lots" | "maximum-hold" | null;
+    processes: Set<string>;
+    resources: Set<string>;
+    lots: Set<string>;
+    routes: Set<string>;
+    steps: Set<string>;
+    totalTicks: number;
+    setupTicks: number;
+    campaignHoldTicks: number;
+    changeovers: number;
+    campaignHolds: number;
+    firstStartTick: number;
+    lastFinishTick: number;
+    maximumDurationTicks: number;
+    powerMilliWatts: number;
+    energyMilliJoules: number;
+    readyLotsAtRelease: number;
+    minimumReadyLots: number;
+  };
+
+  const processPlan = (device: string, process: string) =>
+    project.devices[device]?.processPlans.find((plan) => plan.definition.id === process);
+  const targetContext = (eventIndex: number, device: string, setupGroup: string): TargetContext => {
+    let start: Extract<FactoryEvent, { type: "device.start" }> | undefined;
+    for (let index = eventIndex + 1; index < events.length; index++) {
+      const event = events[index]!;
+      if (!("device" in event) || event.device !== device) continue;
+      if (event.type === "device.changeover-start" && event.to !== setupGroup) break;
+      if (event.type !== "device.start") continue;
+      const plan = processPlan(device, event.operation);
+      if (plan?.setupGroup === setupGroup) {
+        start = event;
+        break;
+      }
+    }
+    const candidates = project.devices[device]?.processPlans
+      .filter((plan) => plan.setupGroup === setupGroup) ?? [];
+    const plan = start
+      ? processPlan(device, start.operation)
+      : candidates.length === 1 ? candidates[0] : undefined;
+    const process = plan?.definition.id ?? null;
+    const location = process ? routeStepForProcess(project, process) : null;
+    return {
+      process,
+      resources: plan ? [...new Set([
+        ...plan.inputs.map((input) => input.resource),
+        ...plan.outputs.map((output) => output.resource),
+      ])].sort() : [],
+      lots: [...new Set(start?.lotIds ?? [])].sort(),
+      route: location?.route ?? null,
+      step: location?.step ?? null,
+    };
+  };
+
+  const groups = new Map<string, ContributorGroup>();
+  const groupFor = (
+    mechanism: ContributorGroup["mechanism"],
+    device: string,
+    from: string | null,
+    to: string,
+    context: TargetContext,
+    releaseCause: ContributorGroup["releaseCause"] = null,
+  ) => {
+    const transitionKind = mechanism === "equipment-commissioning-setup"
+      ? "commissioning-setup"
+      : mechanism === "equipment-production-changeover"
+        ? "production-changeover"
+        : "campaign-hold";
+    const process = context.process ?? "unresolved-process";
+    const cause = mechanism === "setup-campaign-hold" ? `:${releaseCause ?? "open"}` : "";
+    const id = `device:${device}:${transitionKind}:${from ?? "unconfigured"}:${to}:${process}${cause}`;
+    const current = groups.get(id) ?? {
+      id,
+      label: `${device} · ${from ?? "unconfigured"} → ${to}`,
+      mechanism,
+      device,
+      from,
+      to,
+      releaseCause,
+      processes: new Set<string>(),
+      resources: new Set<string>(),
+      lots: new Set<string>(),
+      routes: new Set<string>(),
+      steps: new Set<string>(),
+      totalTicks: 0,
+      setupTicks: 0,
+      campaignHoldTicks: 0,
+      changeovers: 0,
+      campaignHolds: 0,
+      firstStartTick: Number.POSITIVE_INFINITY,
+      lastFinishTick: 0,
+      maximumDurationTicks: 0,
+      powerMilliWatts: 0,
+      energyMilliJoules: 0,
+      readyLotsAtRelease: 0,
+      minimumReadyLots: 0,
+    };
+    if (context.process) current.processes.add(context.process);
+    for (const resource of context.resources) current.resources.add(resource);
+    for (const lot of context.lots) current.lots.add(lot);
+    if (context.route) current.routes.add(context.route);
+    if (context.step) current.steps.add(context.step);
+    groups.set(id, current);
+    return current;
+  };
+
+  const activeChangeovers = new Map<string, Extract<FactoryEvent, { type: "device.changeover-start" }>>();
+  const activeCampaigns = new Map<string, Extract<FactoryEvent, { type: "device.campaign-held" }>>();
+  for (let index = 0; index < events.length; index++) {
+    const event = events[index]!;
+    if (event.type === "device.changeover-start") {
+      activeChangeovers.set(event.device, event);
+      continue;
+    }
+    if (event.type === "device.changeover-cancelled") {
+      activeChangeovers.delete(event.device);
+      continue;
+    }
+    if (event.type === "device.changeover-finish") {
+      const started = activeChangeovers.get(event.device);
+      if (started && (started.from !== event.from || started.to !== event.to)) {
+        throw new Error(`Setup attribution found mismatched changeover boundaries for Device '${event.device}'`);
+      }
+      const context = targetContext(index, event.device, event.to);
+      const mechanism = event.from === null
+        ? "equipment-commissioning-setup" as const
+        : "equipment-production-changeover" as const;
+      const group = groupFor(mechanism, event.device, event.from, event.to, context);
+      group.totalTicks += event.durationTicks;
+      group.setupTicks += event.durationTicks;
+      group.changeovers++;
+      group.firstStartTick = Math.min(group.firstStartTick, started?.tick ?? event.tick - event.durationTicks);
+      group.lastFinishTick = Math.max(group.lastFinishTick, event.tick);
+      group.maximumDurationTicks = Math.max(group.maximumDurationTicks, event.durationTicks);
+      group.powerMilliWatts = Math.max(group.powerMilliWatts, event.powerMilliWatts);
+      group.energyMilliJoules += event.durationTicks * event.powerMilliWatts / 1000;
+      activeChangeovers.delete(event.device);
+      continue;
+    }
+    if (event.type === "device.campaign-held") {
+      activeCampaigns.set(event.device, event);
+      continue;
+    }
+    if (event.type === "device.campaign-released") {
+      const held = activeCampaigns.get(event.device);
+      if (!held || held.from !== event.from || held.to !== event.to) {
+        throw new Error(`Setup attribution found a campaign release without a matching hold for Device '${event.device}'`);
+      }
+      const context = targetContext(index, event.device, event.to);
+      const group = groupFor("setup-campaign-hold", event.device, event.from, event.to, context, event.cause);
+      group.totalTicks += event.heldTicks;
+      group.campaignHoldTicks += event.heldTicks;
+      group.campaignHolds++;
+      group.firstStartTick = Math.min(group.firstStartTick, held.tick);
+      group.lastFinishTick = Math.max(group.lastFinishTick, event.tick);
+      group.maximumDurationTicks = Math.max(group.maximumDurationTicks, event.heldTicks);
+      group.readyLotsAtRelease += event.readyLots;
+      group.minimumReadyLots = Math.max(group.minimumReadyLots, held.minimumReadyLots);
+      activeCampaigns.delete(event.device);
+    }
+  }
+  for (const held of activeCampaigns.values()) {
+    const eventIndex = events.indexOf(held);
+    const context = targetContext(eventIndex, held.device, held.to);
+    const heldTicks = durationTicks - held.tick;
+    const group = groupFor("setup-campaign-hold", held.device, held.from, held.to, context);
+    group.totalTicks += heldTicks;
+    group.campaignHoldTicks += heldTicks;
+    group.campaignHolds++;
+    group.firstStartTick = Math.min(group.firstStartTick, held.tick);
+    group.lastFinishTick = Math.max(group.lastFinishTick, durationTicks);
+    group.maximumDurationTicks = Math.max(group.maximumDurationTicks, heldTicks);
+    group.minimumReadyLots = Math.max(group.minimumReadyLots, held.minimumReadyLots);
+  }
+
+  const contributors: FabLossContributor[] = [...groups.values()].map((group) => {
+    const route = group.routes.size === 1 ? [...group.routes][0]! : null;
+    const step = group.steps.size === 1 ? [...group.steps][0]! : null;
+    return {
+      id: group.id,
+      label: group.label,
+      mechanism: group.mechanism,
+      setupFrom: group.from,
+      setupTo: group.to,
+      releaseCause: group.releaseCause,
+      route,
+      step,
+      resources: [...group.resources].sort(),
+      processes: [...group.processes].sort(),
+      defects: [],
+      lots: [...group.lots].sort(),
+      subjects: [
+        { kind: "device" as const, id: group.device },
+        ...(route ? [{ kind: "route" as const, id: route }] : []),
+      ],
+      evidence: {
+        totalTicks: group.totalTicks,
+        setupTicks: group.setupTicks,
+        campaignHoldTicks: group.campaignHoldTicks,
+        changeovers: group.changeovers,
+        campaignHolds: group.campaignHolds,
+        commissioningChangeovers: group.mechanism === "equipment-commissioning-setup" ? group.changeovers : 0,
+        productionChangeovers: group.mechanism === "equipment-production-changeover" ? group.changeovers : 0,
+        firstStartTick: Number.isFinite(group.firstStartTick) ? group.firstStartTick : 0,
+        lastFinishTick: group.lastFinishTick,
+        maximumDurationTicks: group.maximumDurationTicks,
+        powerMilliWatts: group.powerMilliWatts,
+        energyMilliJoules: group.energyMilliJoules,
+        readyLotsAtRelease: group.readyLotsAtRelease,
+        minimumReadyLots: group.minimumReadyLots,
+        minimumReadyLotReleases: group.releaseCause === "minimum-ready-lots" ? group.campaignHolds : 0,
+        maximumHoldReleases: group.releaseCause === "maximum-hold" ? group.campaignHolds : 0,
+        openHolds: group.mechanism === "setup-campaign-hold" && group.releaseCause === null ? group.campaignHolds : 0,
+      },
+      consumables: { service: {}, qualification: {} },
+      inputStates: [],
+    };
+  }).sort((left, right) =>
+    right.evidence.totalTicks! - left.evidence.totalTicks!
+    || right.evidence.setupTicks! - left.evidence.setupTicks!
+    || left.id.localeCompare(right.id));
+
+  const attributed = {
+    changeovers: contributors.reduce((total, contributor) => total + contributor.evidence.changeovers!, 0),
+    setupTicks: contributors.reduce((total, contributor) => total + contributor.evidence.setupTicks!, 0),
+    campaignHolds: contributors.reduce((total, contributor) => total + contributor.evidence.campaignHolds!, 0),
+    campaignHoldTicks: contributors.reduce((total, contributor) => total + contributor.evidence.campaignHoldTicks!, 0),
+  };
+  const expected = {
+    changeovers: metrics.equipmentSetups.totalChangeovers,
+    setupTicks: metrics.equipmentSetups.totalSetupTicks,
+    campaignHolds: metrics.equipmentSetups.totalCampaignHolds,
+    campaignHoldTicks: metrics.equipmentSetups.totalCampaignHoldTicks,
+  };
+  for (const metric of Object.keys(expected) as Array<keyof typeof expected>) {
+    if (attributed[metric] !== expected[metric]) {
+      throw new Error(
+        `Setup attribution does not conserve ${metric}: ${attributed[metric]} attributed vs ${expected[metric]} expected`,
+      );
+    }
+  }
+
+  const commissioningSetupTicks = contributors
+    .filter((contributor) => contributor.mechanism === "equipment-commissioning-setup")
+    .reduce((total, contributor) => total + contributor.evidence.setupTicks!, 0);
+  const productionChangeoverTicks = contributors
+    .filter((contributor) => contributor.mechanism === "equipment-production-changeover")
+    .reduce((total, contributor) => total + contributor.evidence.setupTicks!, 0);
+  const totalTicks = expected.setupTicks + expected.campaignHoldTicks;
+  const primary = contributors[0] ?? null;
+  return {
+    score: ratio(totalTicks, durationTicks * Math.max(1, Object.keys(metrics.equipmentSetups.devices).length)),
+    summary: `${expected.changeovers} changeovers consumed ${(expected.setupTicks / 1000).toFixed(1)} equipment-s: ${(commissioningSetupTicks / 1000).toFixed(1)} commissioning and ${(productionChangeoverTicks / 1000).toFixed(1)} recurring; ${expected.campaignHolds} campaign holds consumed ${(expected.campaignHoldTicks / 1000).toFixed(1)} equipment-s.`,
+    subjects: primary?.subjects ?? [],
+    evidence: {
+      changeovers: expected.changeovers,
+      setupTicks: expected.setupTicks,
+      commissioningSetupTicks,
+      productionChangeoverTicks,
+      campaignHolds: expected.campaignHolds,
+      campaignHoldTicks: expected.campaignHoldTicks,
+      totalTicks,
+      attributedTicks: contributors.reduce((total, contributor) => total + contributor.evidence.totalTicks!, 0),
+      unattributedTicks: 0,
+      contributors: contributors.length,
+    },
+    contributors,
+  };
+}
+
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
@@ -1378,12 +1675,9 @@ export function analyzeFabLossProfile(
     evidence: { holds: metrics.batchFlow.formationHolds, holdTicks: metrics.batchFlow.formationHoldTicks, meanWaitTicks: metrics.batchFlow.meanQueueWaitTicksPerLot, timeoutReleases: metrics.batchFlow.timeoutReleases },
   });
 
-  const setupDevice = topKey(Object.fromEntries(Object.entries(metrics.equipmentSetups.devices).map(([id, value]) => [id, value.setupTicks + value.campaignHoldTicks])));
   add({
-    id: "setup-campaign", label: "Setup and campaign control", score: ratio(metrics.equipmentSetups.totalSetupTicks + metrics.equipmentSetups.totalCampaignHoldTicks, durationTicks * Math.max(1, Object.keys(metrics.equipmentSetups.devices).length)),
-    summary: `${metrics.equipmentSetups.totalChangeovers} changeovers and ${metrics.equipmentSetups.totalCampaignHolds} campaign holds consumed ${((metrics.equipmentSetups.totalSetupTicks + metrics.equipmentSetups.totalCampaignHoldTicks) / 1000).toFixed(1)} equipment-s.`,
-    subjects: setupDevice ? [{ kind: "device", id: setupDevice }] : [],
-    evidence: { changeovers: metrics.equipmentSetups.totalChangeovers, setupTicks: metrics.equipmentSetups.totalSetupTicks, campaignHolds: metrics.equipmentSetups.totalCampaignHolds, campaignHoldTicks: metrics.equipmentSetups.totalCampaignHoldTicks },
+    id: "setup-campaign", label: "Setup and campaign control",
+    ...analyzeSetupCampaign(metrics, durationTicks, project, events),
   });
 
   add({

@@ -37,6 +37,8 @@ The timeout is an event-queue boundary, not a polling approximation. A factory w
 
 `device.campaign-held` records source/target setup, current ready lots, threshold, and deadline. `device.campaign-released` records held time and causal release `minimum-ready-lots` or `maximum-hold`. `FactoryState.devices[*].setup.campaign` makes an active hold inspectable in an intermediate state. `FactoryMetrics.equipmentSetups` aggregates holds, hold ticks, and both release causes for CLI, immutable reports, comparisons, benchmarks, and Studio.
 
+Measured loss keeps campaign formation separate from physical changeover. Each released hold is attributed to its exact Device, source/target groups, target Process, held ticks, ready-lot evidence, and release cause; a hold still open at the end of the observation window is conserved through the Run duration with an explicit open boundary. Campaign ticks never inflate commissioning or recurring changeover work, and a zero-hold run does not imply that all setup work was campaign fragmentation.
+
 ## Memory-fab research evidence
 
 `bun run memory-fab:research-campaign` searches campaign scope, lot threshold, and hold duration against the same four locked cases as the candidate Blueprint. Optional `--maximum-wip`, `--reopen-at-wip`, and `--release-dispatch` cross campaign control with a fixed CONWIP setting without editing project files.
