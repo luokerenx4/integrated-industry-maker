@@ -149,18 +149,18 @@ async function main(): Promise<void> {
   }
   if (subcommand === "benchmark") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, benchmark: { type: "string", default: "autoresearch" }, lock: { type: "boolean", default: false }, json: common.json, ...section,
+      ...projectOption, benchmark: { type: "string", default: "autoresearch" }, lock: { type: "boolean", default: false }, progress: { type: "string" }, json: common.json, ...section,
     }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm benchmark <project-or-workspace-dir> [--project ID] [--benchmark ID] [--lock]", values.project);
-    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock, section: values.section });
+    return benchmarkCommand(projectDir, values.benchmark!, { json: values.json, lock: values.lock, progress: values.progress, section: values.section });
   }
   if (subcommand === "candidate") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, candidate: { type: "string" }, apply: { type: "boolean", default: false }, json: common.json, ...section,
+      ...projectOption, candidate: { type: "string" }, apply: { type: "boolean", default: false }, progress: { type: "string" }, json: common.json, ...section,
     }, allowPositionals: true });
     if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--apply] [--json]");
     const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--apply]", values.project);
-    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, section: values.section });
+    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, progress: values.progress, section: values.section });
   }
   if (subcommand === "design") {
     const { values, positionals } = parseArgs({ args, options: {

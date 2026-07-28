@@ -689,7 +689,13 @@ function assertComparable(before: CompiledFactoryProject, after: CompiledFactory
 export function compareFactoryBlueprints(
   before: CompiledFactoryProject,
   after: CompiledFactoryProject,
-  options: { seed?: number; fromLabel?: string; toLabel?: string; beforeEvaluation?: FactoryBlueprintEvaluation } = {},
+  options: {
+    seed?: number;
+    fromLabel?: string;
+    toLabel?: string;
+    beforeEvaluation?: FactoryBlueprintEvaluation;
+    afterEvaluation?: FactoryBlueprintEvaluation;
+  } = {},
 ): FactoryBlueprintComparison {
   assertComparable(before, after);
   const seed = options.seed ?? 42;
@@ -698,8 +704,11 @@ export function compareFactoryBlueprints(
   if (options.beforeEvaluation && options.beforeEvaluation.blueprintHash !== before.hashes.blueprintHash) {
     throw new Error(`Prepared Blueprint evaluation ${options.beforeEvaluation.blueprintHash} does not match '${beforeLabel}' ${before.hashes.blueprintHash}`);
   }
+  if (options.afterEvaluation && options.afterEvaluation.blueprintHash !== after.hashes.blueprintHash) {
+    throw new Error(`Prepared Blueprint evaluation ${options.afterEvaluation.blueprintHash} does not match '${afterLabel}' ${after.hashes.blueprintHash}`);
+  }
   const beforeEvaluation = options.beforeEvaluation ?? evaluateFactoryBlueprint(before, beforeLabel, seed);
-  const afterEvaluation = evaluateFactoryBlueprint(after, afterLabel, seed);
+  const afterEvaluation = options.afterEvaluation ?? evaluateFactoryBlueprint(after, afterLabel, seed);
   const beforeMetrics = beforeEvaluation.metrics;
   const afterMetrics = afterEvaluation.metrics;
   const delta = metricDelta(beforeMetrics, afterMetrics);

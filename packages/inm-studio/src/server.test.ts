@@ -323,8 +323,35 @@ test("opening a project without runs does not write a Studio baseline", async ()
       baselineMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number) }) }),
       candidateMetrics: expect.objectContaining({ scoreBreakdown: expect.objectContaining({ deliveryValue: expect.any(Number) }) }),
     }));
+    const streamedRunResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`, {
+      method: "POST", headers: { accept: "application/x-ndjson" },
+    });
+    expect(streamedRunResponse.headers.get("content-type")).toContain("application/x-ndjson");
+    const streamedRunRecords = (await streamedRunResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
+    expect(streamedRunRecords.filter((record) => record.type === "progress")).toHaveLength(4);
+    expect(streamedRunRecords[0]).toEqual(expect.objectContaining({
+      type: "progress",
+      command: "benchmark",
+      progress: expect.objectContaining({ version: 2, sequence: 1, work: { completed: 0, total: 2 } }),
+    }));
+    expect(streamedRunRecords.at(-1)).toEqual(expect.objectContaining({
+      type: "result",
+      result: expect.objectContaining({ command: "benchmark", benchmark: "power-priority", verdict: expected.verdict }),
+    }));
 
     const beforePreview = await readFile(candidateBlueprintPath, "utf8");
+    const streamedPreviewResponse = await fetch(
+      `http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`,
+      { method: "POST", headers: { accept: "application/x-ndjson" } },
+    );
+    const streamedPreviewRecords = (await streamedPreviewResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
+    expect(streamedPreviewRecords.filter((record) => record.type === "progress")).toHaveLength(4);
+    expect(streamedPreviewRecords[0]).toEqual(expect.objectContaining({ type: "progress", command: "candidate" }));
+    expect(streamedPreviewRecords.at(-1)).toEqual(expect.objectContaining({
+      type: "result",
+      result: expect.objectContaining({ command: "candidate", action: "preview", result: expect.objectContaining({ verdict: "KEEP" }) }),
+    }));
+    expect(await readFile(candidateBlueprintPath, "utf8")).toBe(beforePreview);
     const previewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
     expect(previewResponse.status).toBe(200);
     const preview = await previewResponse.json() as { currentCandidateHash: string; proposedCandidateHash: string; result: { verdict: string }; operation: { operation: string; effect: string; artifacts: Array<{ kind: string }> } };

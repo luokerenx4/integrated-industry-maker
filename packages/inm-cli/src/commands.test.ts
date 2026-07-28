@@ -206,9 +206,20 @@ test("current memory-fab Benchmark exposes the explicit on-time service contract
     "greenfield-dram-design",
     "--section",
     "all",
+    "--progress",
+    "ndjson",
     "--json",
   ]);
-  expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(result.exitCode).toBe(0);
+  const progress = result.stderr.trim().split("\n").map((line) => JSON.parse(line));
+  expect(progress).toHaveLength(20);
+  expect(progress[0]).toEqual(expect.objectContaining({
+    command: "benchmark",
+    progress: expect.objectContaining({ version: 2, sequence: 1, phase: "baseline-case-started", work: { completed: 0, total: 10 } }),
+  }));
+  expect(progress.at(-1)).toEqual(expect.objectContaining({
+    progress: expect.objectContaining({ sequence: 20, phase: "candidate-case-completed", work: { completed: 10, total: 10 } }),
+  }));
   const evaluation = JSON.parse(result.stdout).data.result;
   expect(evaluation).toEqual(expect.objectContaining({
     verdict: "KEEP",
@@ -1094,7 +1105,7 @@ test("simulate exposes adaptive cadence policy use equally in human and Agent ou
     human: benchmarkHuman.exitCode,
     machineStderr: benchmarkMachine.stderr,
     humanStderr: benchmarkHuman.stderr,
-  }).toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
+  }).toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: expect.stringContaining("BASELINE") });
   const benchmarkCases = JSON.parse(benchmarkMachine.stdout).data.result as Array<{
     baselineMetrics: { cadenceControl: { devices: Record<string, unknown> } };
     candidateMetrics: { cadenceControl: { devices: Record<string, { normalJobs: number; recoveryJobs: number }> } };

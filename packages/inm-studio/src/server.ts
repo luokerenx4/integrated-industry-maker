@@ -40,6 +40,7 @@ import {
   simulateProjectOperation,
   stableStringify,
   validateProjectOperation,
+  type BlueprintBenchmarkProgress,
   type DesignRunProgress,
   type ProjectSelection,
 } from "@inm/core";
@@ -497,6 +498,46 @@ function designRunStream(projectDir: string, programId: string, maxCandidates?: 
   } });
 }
 
+function benchmarkEvaluationStream(
+  command: "benchmark" | "candidate",
+  evaluate: (options: { onProgress: (progress: BlueprintBenchmarkProgress) => void; signal: AbortSignal }) => Promise<unknown>,
+): Response {
+  const encoder = new TextEncoder();
+  const abort = new AbortController();
+  let closed = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const send = (record: unknown) => {
+        if (!closed) controller.enqueue(encoder.encode(`${stableStringify(record)}\n`));
+      };
+      void evaluate({
+        signal: abort.signal,
+        onProgress: (progress) => send({ version: 1, type: "progress", command, progress }),
+      }).then(async (result) => {
+        await new Promise<void>((complete) => setTimeout(complete, 0));
+        if (closed) return;
+        send({ version: 1, type: "result", command, result });
+        closed = true;
+        controller.close();
+      }).catch((error) => {
+        if (closed || abort.signal.aborted) return;
+        send({ version: 1, type: "error", command, error: errorDetails(error).body });
+        closed = true;
+        controller.close();
+      });
+    },
+    cancel() {
+      closed = true;
+      abort.abort(new DOMException("Benchmark stream cancelled", "AbortError"));
+    },
+  });
+  return new Response(stream, { headers: {
+    "content-type": "application/x-ndjson; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    "x-content-type-options": "nosniff",
+  } });
+}
+
 const WATCH_TOPIC = "studio:refresh";
 const startedAt = new Date().toISOString();
 const html = `<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#071014"/><title>INM Studio</title><link rel="stylesheet" href="/main.css"/></head><body><div id="root"></div><script type="module" src="/main.js"></script></body></html>`;
@@ -637,6 +678,13 @@ const server = Bun.serve({
         if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(experimentRunMatch[1]!));
         const benchmarkId = decoded(experimentRunMatch[2]!);
+        if (request.headers.get("accept")?.includes("application/x-ndjson")) return benchmarkEvaluationStream(
+          "benchmark",
+          async (options) => {
+            const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, options);
+            return { command: "benchmark", ...operation.data, operation };
+          },
+        );
         const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId);
         return Response.json({ command: "benchmark", ...operation.data, operation });
       }
@@ -673,6 +721,19 @@ const server = Bun.serve({
         const candidate = await loadCandidateChangeSet(projectDir, candidateId);
         if (candidate.benchmark !== benchmarkId) throw new CandidateChangeSetError("candidate.benchmark-mismatch", `Candidate '${candidateId}' belongs to Benchmark '${candidate.benchmark}', not '${benchmarkId}'`);
         if (action === "preview") {
+          if (request.headers.get("accept")?.includes("application/x-ndjson")) return benchmarkEvaluationStream(
+            "candidate",
+            async (options) => {
+              const operation = await previewCandidateOperation(projectDir, candidateId, options);
+              return {
+                command: "candidate",
+                action,
+                decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`,
+                ...operation.data,
+                operation,
+              };
+            },
+          );
           const operation = await previewCandidateOperation(projectDir, candidateId);
           return Response.json({ command: "candidate", action, decisionState: `reviewed-${operation.data.result.verdict.toLowerCase()}`, ...operation.data, operation });
         }

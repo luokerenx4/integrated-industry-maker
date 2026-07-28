@@ -6,7 +6,7 @@ import {
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -18,7 +18,7 @@ export interface OutputOptions { json?: boolean; section?: string }
 const write = (value: unknown, json: boolean) => process.stdout.write(json ? `${stableStringify(value, 2)}\n` : String(value));
 const writeSuccess = (command: string, data: unknown, options: CliSuccessOptions = {}) => write(cliSuccess(command, data, options), true);
 
-type DesignProgressMode = "off" | "human" | "ndjson";
+type ProgressMode = "off" | "human" | "ndjson";
 
 const scoreComponentLabel = (component: string) => component.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
 
@@ -136,7 +136,7 @@ function designPromotionBoundaryDetail(boundary: DesignRunIteration["promotionBo
   return `alternative vs leader ${signed(boundary.aggregate.scoreDelta, 6)}`;
 }
 
-function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMode): void {
+function writeDesignProgress(progress: DesignRunProgress, mode: ProgressMode): void {
   if (mode === "off") return;
   if (mode === "ndjson") {
     process.stderr.write(`${stableStringify(cliProgress("design", progress))}\n`);
@@ -155,6 +155,30 @@ function writeDesignProgress(progress: DesignRunProgress, mode: DesignProgressMo
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
   else return;
   process.stderr.write(`${line}\n`);
+}
+
+function evaluationProgressMode(command: "benchmark" | "candidate", options: { json: boolean; progress?: string }): ProgressMode {
+  if (options.progress !== undefined && !["off", "human", "ndjson"].includes(options.progress)) throw new CliCommandError(
+    `${command}.invalid-progress`,
+    `Unknown ${command} progress mode '${options.progress}'. Expected one of: off, human, ndjson.`,
+  );
+  return (options.progress ?? (options.json ? "off" : "human")) as ProgressMode;
+}
+
+function writeBenchmarkProgress(command: "benchmark" | "candidate", progress: BlueprintBenchmarkProgress, mode: ProgressMode): void {
+  if (mode === "off") return;
+  if (mode === "ndjson") {
+    process.stderr.write(`${stableStringify(cliProgress(command, progress))}\n`);
+    return;
+  }
+  const stage = progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE";
+  const done = progress.phase.endsWith("completed");
+  const timing = progress.timing.durationMs === undefined ? "" : ` · ${(progress.timing.durationMs / 1000).toFixed(2)}s`;
+  const reuse = progress.cached === undefined ? "" : ` · ${progress.cached ? "reused" : "evaluated"}`;
+  const score = !done ? "" : progress.candidateScore === undefined
+    ? ` · score ${progress.baselineScore?.toFixed(6)}`
+    : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${signed(progress.scoreDelta ?? 0, 6)}`;
+  process.stderr.write(`${done ? "DONE " : "CASE "}  ${progress.work.completed}/${progress.work.total}  ${stage} ${progress.case.index}/${progress.case.total} ${progress.case.id}${timing}${reuse}${score}\n`);
 }
 
 function designExhaustionLine(exhaustion: DesignSearchExhaustionEvidence): string {
@@ -970,9 +994,11 @@ export async function runsCommand(projectDir: string, options: OutputOptions): P
   else write(`${runs.map((run) => `${run.name.padEnd(52)} ${run.manifest.decision.padEnd(8)} score ${run.score.toFixed(3)}`).join("\n")}\n`, false);
 }
 
-export async function benchmarkCommand(projectDir: string, benchmarkId: string, options: { json: boolean; lock: boolean; section?: string }): Promise<void> {
+export async function benchmarkCommand(projectDir: string, benchmarkId: string, options: { json: boolean; lock: boolean; progress?: string; section?: string }): Promise<void> {
   requireJsonSection("benchmark", options);
+  const progressMode = evaluationProgressMode("benchmark", options);
   if (options.lock) {
+    if (options.progress !== undefined) throw new CliCommandError("benchmark.evaluate-required", "--progress is not supported with benchmark --lock.");
     if (options.section) throw new CliCommandError("cli.invalid-section", "--section is not supported with benchmark --lock.");
     const benchmark = await lockBlueprintBenchmark(projectDir, benchmarkId);
     if (options.json) writeSuccess("benchmark", { action: "lock", benchmark: benchmark.id, lock: benchmark.lock }, {
@@ -982,7 +1008,9 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     else write(`Locked Blueprint benchmark '${benchmark.id}' across ${benchmark.cases.length} deterministic case(s).\n`, false);
     return;
   }
-  const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId);
+  const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, {
+    onProgress: (progress) => writeBenchmarkProgress("benchmark", progress, progressMode),
+  });
   const result = operation.data;
   if (options.json) {
     const data = sectionResult("benchmark", options, {
@@ -1044,12 +1072,14 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   ].join("\n"), false);
 }
 
-export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean; section?: string }): Promise<void> {
+export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean; progress?: string; section?: string }): Promise<void> {
   requireJsonSection("candidate", options);
-  const previewOperation = await previewCandidateOperation(projectDir, candidateId);
+  const progressMode = evaluationProgressMode("candidate", options);
+  const progress = { onProgress: (event: BlueprintBenchmarkProgress) => writeBenchmarkProgress("candidate", event, progressMode) };
+  const previewOperation = await previewCandidateOperation(projectDir, candidateId, progress);
   const preview = previewOperation.data;
   if (options.apply) {
-    const operation = await applyCandidateOperation(projectDir, candidateId, preview);
+    const operation = await applyCandidateOperation(projectDir, candidateId, preview, progress);
     const applied = operation.data;
     if (options.json) { const data = sectionResult("candidate", options, {
       summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, scoreDelta: applied.result.scoreDelta, outcomeGuardrails: outcomeGuardrailSummary(applied.result), applied: true, blueprintPath: applied.blueprintPath }),
@@ -1201,7 +1231,7 @@ export async function designCommand(projectDir: string, programId: string | unde
   };
   if (options.runId) {
     if (options.continue) {
-      const progressMode = (options.progress ?? (options.json ? "off" : "human")) as DesignProgressMode;
+      const progressMode = (options.progress ?? (options.json ? "off" : "human")) as ProgressMode;
       const result = await continueDesignRun(projectDir, programId, options.runId, {
         ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
         onProgress: (progress) => writeDesignProgress(progress, progressMode),
@@ -1325,7 +1355,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     ].join("\n"), false);
     return;
   }
-  const progressMode = (options.progress ?? (options.json ? "off" : "human")) as DesignProgressMode;
+  const progressMode = (options.progress ?? (options.json ? "off" : "human")) as ProgressMode;
   const result = await runDesignProgram(projectDir, programId, {
     ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
     onProgress: (progress) => writeDesignProgress(progress, progressMode),

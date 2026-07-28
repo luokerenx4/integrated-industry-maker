@@ -226,11 +226,20 @@ export interface BlueprintBenchmarkSummary {
 }
 
 export interface BlueprintBenchmarkProgress {
-  version: 1;
+  version: 2;
+  sequence: number;
   phase: "baseline-case-started" | "baseline-case-completed" | "candidate-case-started" | "candidate-case-completed";
   benchmark: string;
   case: { id: string; name: string; index: number; total: number };
+  work: { completed: number; total: number };
   evaluationId: string;
+  timing: {
+    durationMs?: number;
+    compileMs?: number;
+    cacheReadMs?: number;
+    evaluationMs?: number;
+    comparisonMs?: number;
+  };
   baselineScore?: number;
   candidateScore?: number;
   scoreDelta?: number;
@@ -239,6 +248,13 @@ export interface BlueprintBenchmarkProgress {
 }
 
 export type BlueprintBenchmarkProgressHandler = (progress: BlueprintBenchmarkProgress) => void;
+
+export interface BlueprintBenchmarkEvaluationOptions {
+  candidateBlueprint?: Blueprint;
+  onProgress?: BlueprintBenchmarkProgressHandler;
+  evaluationId?: string;
+  signal?: AbortSignal;
+}
 
 export interface PreparedBlueprintBenchmarkCase {
   manifest: BlueprintBenchmarkManifest["cases"][number];
@@ -434,11 +450,12 @@ function assertLockedHashes(benchmarkId: string, caseId: string, expected: Proje
 export async function evaluateBlueprintBenchmark(
   projectDir: string,
   benchmarkId: string,
-  options: { candidateBlueprint?: Blueprint; onProgress?: BlueprintBenchmarkProgressHandler; evaluationId?: string } = {},
+  options: BlueprintBenchmarkEvaluationOptions = {},
 ): Promise<BlueprintBenchmarkResult> {
   const prepared = await prepareBlueprintBenchmark(projectDir, benchmarkId, {
     onProgress: options.onProgress,
     evaluationId: options.evaluationId ?? "evaluation",
+    signal: options.signal,
   });
   return evaluatePreparedBlueprintBenchmark(prepared, options);
 }
@@ -446,30 +463,51 @@ export async function evaluateBlueprintBenchmark(
 export async function prepareBlueprintBenchmark(
   projectDir: string,
   benchmarkId: string,
-  options: { onProgress?: BlueprintBenchmarkProgressHandler; evaluationId?: string } = {},
+  options: Pick<BlueprintBenchmarkEvaluationOptions, "onProgress" | "evaluationId" | "signal"> = {},
 ): Promise<PreparedBlueprintBenchmark> {
   const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
   assertBenchmarkLock(manifest, benchmarkId);
   const evaluationId = options.evaluationId ?? "evaluation";
   const cases: PreparedBlueprintBenchmarkCase[] = [];
   for (const [index, item] of manifest.cases.entries()) {
+    options.signal?.throwIfAborted();
     const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: manifest.cases.length };
-    options.onProgress?.({ version: 1, phase: "baseline-case-started", benchmark: manifest.id, case: caseIdentity, evaluationId });
+    const caseStartedAt = performance.now();
+    options.onProgress?.({
+      version: 2,
+      sequence: index * 2 + 1,
+      phase: "baseline-case-started",
+      benchmark: manifest.id,
+      case: caseIdentity,
+      work: { completed: index, total: manifest.cases.length * 2 },
+      evaluationId,
+      timing: {},
+    });
+    const compileStartedAt = performance.now();
     const baseline = await openSelectedProject(projectDir, {
       world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
     });
+    const compileMs = performance.now() - compileStartedAt;
     assertLockedHashes(benchmarkId, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
+    const cacheStartedAt = performance.now();
     const cachedEvaluation = await readCachedBaselineEvaluation(projectDir, manifest, item, baseline);
+    const cacheReadMs = performance.now() - cacheStartedAt;
     const cached = cachedEvaluation !== null;
+    const evaluationStartedAt = performance.now();
     const evaluation = cachedEvaluation ?? evaluateFactoryBlueprint(baseline, manifest.baselineBlueprint, item.seed);
+    const evaluationMs = cached ? 0 : performance.now() - evaluationStartedAt;
     if (!cached) await writeCachedBaselineEvaluation(projectDir, manifest, item, baseline, evaluation);
+    options.signal?.throwIfAborted();
     cases.push({ manifest: item, baseline, evaluation, cached });
     options.onProgress?.({
-      version: 1,
+      version: 2,
+      sequence: index * 2 + 2,
       phase: "baseline-case-completed",
       benchmark: manifest.id,
       case: caseIdentity,
+      work: { completed: index + 1, total: manifest.cases.length * 2 },
       evaluationId,
+      timing: { durationMs: performance.now() - caseStartedAt, compileMs, cacheReadMs, evaluationMs },
       baselineScore: evaluation.metrics.score,
       cached,
     });
@@ -479,7 +517,7 @@ export async function prepareBlueprintBenchmark(
 
 export async function evaluatePreparedBlueprintBenchmark(
   prepared: PreparedBlueprintBenchmark,
-  options: { candidateBlueprint?: Blueprint; onProgress?: BlueprintBenchmarkProgressHandler; evaluationId?: string } = {},
+  options: BlueprintBenchmarkEvaluationOptions = {},
 ): Promise<BlueprintBenchmarkResult> {
   const { manifest, projectDir } = prepared;
   const evaluationId = options.evaluationId ?? "evaluation";
@@ -487,17 +525,38 @@ export async function evaluatePreparedBlueprintBenchmark(
   const cases: BlueprintBenchmarkCaseResult[] = [];
   let weightedBaseline = 0; let weightedCandidate = 0; let totalWeight = 0; let totalSimulationTicks = 0;
   for (const [index, preparedCase] of prepared.cases.entries()) {
+    options.signal?.throwIfAborted();
     const item = preparedCase.manifest;
     const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: prepared.cases.length };
-    options.onProgress?.({ version: 1, phase: "candidate-case-started", benchmark: manifest.id, case: caseIdentity, evaluationId });
+    const caseStartedAt = performance.now();
+    const sequenceOffset = prepared.cases.length * 2;
+    options.onProgress?.({
+      version: 2,
+      sequence: sequenceOffset + index * 2 + 1,
+      phase: "candidate-case-started",
+      benchmark: manifest.id,
+      case: caseIdentity,
+      work: { completed: prepared.cases.length + index, total: prepared.cases.length * 2 },
+      evaluationId,
+      timing: {},
+    });
     const selection = { world: item.world, scenario: item.scenario, objective: item.objective };
+    const compileStartedAt = performance.now();
     const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
+    const compileMs = performance.now() - compileStartedAt;
+    const evaluationStartedAt = performance.now();
+    const candidateEvaluation = evaluateFactoryBlueprint(candidate, manifest.candidateBlueprint, item.seed);
+    const evaluationMs = performance.now() - evaluationStartedAt;
+    const comparisonStartedAt = performance.now();
     const comparison = compareFactoryBlueprints(preparedCase.baseline, candidate, {
       seed: item.seed,
       fromLabel: manifest.baselineBlueprint,
       toLabel: manifest.candidateBlueprint,
       beforeEvaluation: preparedCase.evaluation,
+      afterEvaluation: candidateEvaluation,
     });
+    const comparisonMs = performance.now() - comparisonStartedAt;
+    options.signal?.throwIfAborted();
     comparisons.push(comparison);
     weightedBaseline += comparison.from.metrics.score * item.weight;
     weightedCandidate += comparison.to.metrics.score * item.weight;
@@ -512,11 +571,14 @@ export async function evaluatePreparedBlueprintBenchmark(
       candidateCapacityGaps: comparison.to.capacityPlan.gaps.map((gap) => `[${gap.kind}] ${gap.message}`),
     });
     options.onProgress?.({
-      version: 1,
+      version: 2,
+      sequence: sequenceOffset + index * 2 + 2,
       phase: "candidate-case-completed",
       benchmark: manifest.id,
       case: caseIdentity,
+      work: { completed: prepared.cases.length + index + 1, total: prepared.cases.length * 2 },
       evaluationId,
+      timing: { durationMs: performance.now() - caseStartedAt, compileMs, evaluationMs, comparisonMs },
       baselineScore: comparison.from.metrics.score,
       candidateScore: comparison.to.metrics.score,
       scoreDelta: comparison.delta.score,

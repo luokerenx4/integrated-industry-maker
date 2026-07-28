@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
-  AppliedCandidateChangeSet, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState,
+  AppliedCandidateChangeSet, BlueprintBenchmarkProgress, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState,
 } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
@@ -9,11 +9,42 @@ interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchma
 interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
 interface CandidateApplyResponse extends AppliedCandidateChangeSet { command: "candidate"; action: "apply"; decisionState?: CandidateDecisionState }
 interface CandidateReviewResponse { state: CandidateDecisionState; review: CandidatePreviewResponse | null }
+interface EvaluationStreamRecord<T> {
+  type: "progress" | "result" | "error";
+  progress?: BlueprintBenchmarkProgress;
+  result?: T;
+  error?: { code?: string; error?: string };
+}
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
   if (!response.ok) throw new Error(`${value.code ? `[${value.code}] ` : ""}${value.error ?? `Request failed (${response.status})`}`);
   return value;
+}
+
+async function streamedEvaluation<T>(
+  response: Response,
+  onProgress: (progress: BlueprintBenchmarkProgress) => void,
+): Promise<T> {
+  if (!response.ok || !response.body) return responseJson<T>(response);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const record = JSON.parse(line) as EvaluationStreamRecord<T>;
+      if (record.type === "progress" && record.progress) onProgress(record.progress);
+      else if (record.type === "result" && record.result) return record.result;
+      else if (record.type === "error") throw new Error(`${record.error?.code ? `[${record.error.code}] ` : ""}${record.error?.error ?? "Evaluation failed"}`);
+    }
+    if (done) break;
+  }
+  throw new Error("Evaluation stream ended without a final result");
 }
 
 const signed = (value: number, digits = 3) => `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
@@ -42,6 +73,8 @@ export function ExperimentWorkbench({
   const [candidatePreview, setCandidatePreview] = useState<CandidatePreviewResponse | null>(null);
   const [decisionState, setDecisionState] = useState<CandidateDecisionState | null>(null);
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<BlueprintBenchmarkProgress | null>(null);
+  const runAbort = useRef<AbortController | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyArmed, setApplyArmed] = useState(false);
   const [applied, setApplied] = useState<CandidateApplyResponse | null>(null);
@@ -53,7 +86,8 @@ export function ExperimentWorkbench({
     if (!selectedId && experiments[0]) onSelect(experiments[0].id);
   }, [experiments, onSelect, selectedId]);
   useEffect(() => {
-    setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setError(null);
+    runAbort.current?.abort();
+    setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId) return;
     let active = true;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates`)
@@ -64,7 +98,8 @@ export function ExperimentWorkbench({
     return () => { active = false; };
   }, [projectId, selectedId]);
   useEffect(() => {
-    setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setError(null);
+    runAbort.current?.abort();
+    setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId || !selectedCandidateId) return;
     let active = true;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates/${encodeURIComponent(selectedCandidateId)}/review`)
@@ -85,27 +120,37 @@ export function ExperimentWorkbench({
       .catch(() => { if (active) setSourceAvailable(false); });
     return () => { active = false; };
   }, [activeCandidate, projectId]);
+  useEffect(() => () => runAbort.current?.abort(), []);
 
   const run = async () => {
     if (!selected || running) return;
-    setRunning(true); setError(null); setBenchmarkResult(null); setCandidatePreview(null); setApplied(null); setApplyArmed(false);
+    const abort = new AbortController();
+    runAbort.current = abort;
+    setRunning(true); setProgress(null); setError(null); setBenchmarkResult(null); setCandidatePreview(null); setApplied(null); setApplyArmed(false);
     try {
       const root = `/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selected.id)}`;
       if (activeCandidate) {
-        const reviewed = await responseJson<CandidatePreviewResponse>(await fetch(
+        const reviewed = await streamedEvaluation<CandidatePreviewResponse>(await fetch(
           `${root}/candidates/${encodeURIComponent(activeCandidate.id)}/preview`,
-          { method: "POST", headers: { accept: "application/json" } },
-        ));
+          { method: "POST", headers: { accept: "application/x-ndjson" }, signal: abort.signal },
+        ), setProgress);
         setCandidatePreview(reviewed);
         setDecisionState(reviewed.decisionState ?? `reviewed-${reviewed.result.verdict.toLowerCase()}` as CandidateDecisionState);
       }
-      else setBenchmarkResult(await responseJson<BenchmarkResponse>(await fetch(
-        `${root}/run`, { method: "POST", headers: { accept: "application/json" } },
-      )));
+      else setBenchmarkResult(await streamedEvaluation<BenchmarkResponse>(await fetch(
+        `${root}/run`, { method: "POST", headers: { accept: "application/x-ndjson" }, signal: abort.signal },
+      ), setProgress));
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
-    } finally { setRunning(false); }
+      if (!(nextError instanceof DOMException && nextError.name === "AbortError")) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      if (runAbort.current === abort) {
+        runAbort.current = null;
+        setRunning(false);
+      }
+    }
   };
+
+  const cancelRun = () => runAbort.current?.abort();
 
   const apply = async () => {
     if (!selected || !activeCandidate || !candidatePreview || applying || candidatePreview.result.verdict !== "KEEP") return;
@@ -149,9 +194,19 @@ export function ExperimentWorkbench({
             <div><span className="eyebrow">LOCKED CONTRACT</span><h3>{selected.name}</h3><code>{selected.id}</code></div>
             <div className="experiment-blueprints"><span><small>BASELINE</small><strong>{selected.baselineBlueprint}</strong></span><i>→</i><span><small>EDITABLE CANDIDATE</small><strong>{selected.candidateBlueprint}</strong></span></div>
             <button className="experiment-run" disabled={running || !selected.locked} onClick={() => void run()} data-testid="run-experiment">
-              {running ? "EVALUATING FIXED WORK…" : !selected.locked ? "LOCK REQUIRED" : activeCandidate ? candidatePreview ? "RE-RUN RECORDED REVIEW" : "REVIEW PROPOSED CHANGE" : "RUN LOCKED EVALUATION"}
+              {running && progress ? `${progress.work.completed}/${progress.work.total} · ${progress.case.id}` : running ? "PREPARING FIXED WORK…" : !selected.locked ? "LOCK REQUIRED" : activeCandidate ? candidatePreview ? "RE-RUN RECORDED REVIEW" : "REVIEW PROPOSED CHANGE" : "RUN LOCKED EVALUATION"}
             </button>
           </section>
+          {running && <section className="experiment-live-progress" aria-live="polite" data-testid="experiment-progress">
+            <div>
+              <small>SHARED CORE PROGRESS</small>
+              <strong>{progress ? `${progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE"} · ${progress.case.index}/${progress.case.total}` : "PREPARING LOCKED CONTRACT"}</strong>
+              <code>{progress ? `${progress.case.name} · ${progress.case.id}` : selected.id}</code>
+              <span>{progress ? progress.phase.endsWith("completed") ? `${progress.cached ? "REUSED" : "EVALUATED"} · ${((progress.timing.durationMs ?? 0) / 1000).toFixed(2)}s` : "RUNNING EXACT LOCKED CASE" : "LOADING PROJECT-LOCAL CASES"}</span>
+            </div>
+            <div><b>{progress ? `${progress.work.completed}/${progress.work.total}` : `0/${selected.cases.length * 2}`}</b><small>CASE EVALUATIONS</small><progress value={progress?.work.completed ?? 0} max={progress?.work.total ?? selected.cases.length * 2}/></div>
+            <button onClick={cancelRun} data-testid="cancel-experiment">CANCEL</button>
+          </section>}
           <section className="candidate-selector" aria-label="Candidate change sets">
             <div className="experiment-section-title"><span>REVIEW TARGET</span><b>{candidates.length} PROJECT-LOCAL PROPOSALS</b></div>
             <div className="candidate-tabs">

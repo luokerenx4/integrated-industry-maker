@@ -20,6 +20,8 @@ Capability parity does not require interaction parity. A model should not scrape
 
 Fixed baseline evaluation is content-addressed below the project's ignored `.inm/cache/benchmark-baselines/` directory. Its identity binds engine version, Benchmark contract, exact case/seed, and every locked project hash. Core still loads, compiles, and lock-checks the baseline before reading the cache; a missing, malformed, corrupted, or identity-mismatched entry is recomputed and atomically replaced. Candidate evaluation, acceptance, patches, and decisions are always recomputed. The operation projection's `baselineCache` reports hits and misses through CLI and Studio so reduced wall time is visible rather than implicit; operational cache state never enters immutable Benchmark/Design evidence or its result hash.
 
+Core also owns one operational `BlueprintBenchmarkProgress` V2 stream. Every baseline and Candidate case has ordered start/completion events, completed/total work, explicit cache reuse, and separate compilation, cache-read, simulation, and comparison timings. CLI projects it on stderr; Studio requests `application/x-ndjson` and renders the same event before the final result exists. Timings and transport envelopes are diagnostic state only and never enter the evaluator verdict or immutable evidence.
+
 `listBlueprintBenchmarks()` discovers project-local `benchmarks/*.benchmark.json` files in stable id order and projects their immutable case and acceptance contracts. Studio does not invent sessions or copy Benchmark state into browser storage.
 
 Studio exposes project-qualified endpoints:
@@ -32,6 +34,8 @@ POST /api/projects/<project>/experiments/<benchmark>/candidates/<candidate>/{pre
 ```
 
 Benchmark evaluation is an explicit user action and is read-only: it writes no Blueprint, lock, run artifact, result table, or Git state. Candidate review is a separate explicit operation that writes only its immutable decision receipt. Lock mutation remains the explicit CLI `--lock` workflow.
+
+Closing, changing selection, or pressing `CANCEL` aborts the Studio request. Core checks cancellation between exact cases and again before emitting completion; an interrupted evaluation may populate only rebuildable baseline cache, but it cannot emit a verdict, record a Candidate receipt, or mutate a Blueprint. A final NDJSON `result` is the only authority that the work completed.
 
 ## Stable navigation and accessible operation
 

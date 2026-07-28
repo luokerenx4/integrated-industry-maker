@@ -1,5 +1,12 @@
 import { findCachedRun, writeRunArtifact } from "./artifacts";
-import { blueprintBenchmarkCacheStats, evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkCacheStats, type BlueprintBenchmarkResult } from "./benchmark";
+import {
+  blueprintBenchmarkCacheStats,
+  evaluateBlueprintBenchmark,
+  loadBlueprintBenchmark,
+  type BlueprintBenchmarkCacheStats,
+  type BlueprintBenchmarkProgressHandler,
+  type BlueprintBenchmarkResult,
+} from "./benchmark";
 import { inspectCandidateDecision, recordCandidateReview } from "./candidate-review";
 import {
   applyCandidateChangeSet,
@@ -188,11 +195,24 @@ async function benchmarkProject(projectDir: string, benchmarkId: string, candida
   });
 }
 
-export async function evaluateBenchmarkOperation(projectDir: string, benchmarkId: string): Promise<ProjectOperationResult<BlueprintBenchmarkResult & { baselineCache: BlueprintBenchmarkCacheStats }>> {
+export interface ObservableEvaluationOptions {
+  onProgress?: BlueprintBenchmarkProgressHandler;
+  signal?: AbortSignal;
+}
+
+export async function evaluateBenchmarkOperation(
+  projectDir: string,
+  benchmarkId: string,
+  options: ObservableEvaluationOptions = {},
+): Promise<ProjectOperationResult<BlueprintBenchmarkResult & { baselineCache: BlueprintBenchmarkCacheStats }>> {
   const startedAt = performance.now();
   const project = await benchmarkProject(projectDir, benchmarkId);
   return timed("benchmark.evaluate", "read-only", project, startedAt, async () => {
-    const result = await evaluateBlueprintBenchmark(projectDir, benchmarkId);
+    const result = await evaluateBlueprintBenchmark(projectDir, benchmarkId, {
+      evaluationId: `benchmark:${benchmarkId}`,
+      onProgress: options.onProgress,
+      signal: options.signal,
+    });
     return {
       diagnostics: [],
       artifacts: [],
@@ -203,11 +223,18 @@ export async function evaluateBenchmarkOperation(projectDir: string, benchmarkId
   });
 }
 
-export async function previewCandidateOperation(projectDir: string, candidateId: string): Promise<ProjectOperationResult<CandidateChangeSetPreview>> {
+export async function previewCandidateOperation(
+  projectDir: string,
+  candidateId: string,
+  options: ObservableEvaluationOptions = {},
+): Promise<ProjectOperationResult<CandidateChangeSetPreview>> {
   const startedAt = performance.now();
-  const prepared = await prepareCandidateChangeSet(projectDir, candidateId);
+  const prepared = await prepareCandidateChangeSet(projectDir, candidateId, options);
   const { proposedBlueprint: _, blueprintPath: __, operationProject: project, ...data } = prepared;
   return timed("candidate.preview", "creates-artifact", project, startedAt, async () => {
+    options.signal?.throwIfAborted();
+    await new Promise<void>((complete) => setTimeout(complete, 0));
+    options.signal?.throwIfAborted();
     const review = await recordCandidateReview(projectDir, data);
     return {
       diagnostics: [],
@@ -221,7 +248,12 @@ export async function previewCandidateOperation(projectDir: string, candidateId:
   });
 }
 
-export async function applyCandidateOperation(projectDir: string, candidateId: string, reviewed: CandidateApplyReview): Promise<ProjectOperationResult<AppliedCandidateChangeSet>> {
+export async function applyCandidateOperation(
+  projectDir: string,
+  candidateId: string,
+  reviewed: CandidateApplyReview,
+  options: ObservableEvaluationOptions = {},
+): Promise<ProjectOperationResult<AppliedCandidateChangeSet>> {
   const startedAt = performance.now();
   const decision = await inspectCandidateDecision(projectDir, candidateId);
   if (decision.state !== "reviewed-keep" || !decision.preview) throw new CandidateChangeSetError(
@@ -234,7 +266,7 @@ export async function applyCandidateOperation(projectDir: string, candidateId: s
     "candidate.review-receipt-mismatch",
     `Candidate '${candidateId}' apply hashes do not match its recorded KEEP review`,
   );
-  const applied = await applyCandidateChangeSet(projectDir, candidateId, reviewed);
+  const applied = await applyCandidateChangeSet(projectDir, candidateId, reviewed, options);
   const verified = await inspectCandidateDecision(projectDir, candidateId);
   if (verified.state !== "verified" || verified.currentCandidateHash !== applied.proposedCandidateHash) throw new CandidateChangeSetError(
     "candidate.post-write-verification-failed",

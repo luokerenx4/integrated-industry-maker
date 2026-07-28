@@ -584,6 +584,15 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .experiment-run { min-width: 185px; padding: 12px 14px; color: #061a20; border-color: #64d2ee; background: #64d2ee; font-weight: 700; }
 .experiment-run:hover { color: #061a20; background: #8ae4fa; }
 .experiment-run:disabled { cursor: default; color: #49646b; border-color: #23424b; background: #102126; }
+.experiment-live-progress { display: grid; grid-template-columns: minmax(0, 1fr) 180px auto; gap: 18px; align-items: center; padding: 16px 18px; border-bottom: 1px solid #17343d; background: linear-gradient(90deg, rgba(23, 85, 84, .28), rgba(7, 20, 25, .9)); }
+.experiment-live-progress > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.experiment-live-progress small { color: #7095a0; font: 10px/1.2 var(--mono); letter-spacing: .13em; }
+.experiment-live-progress strong { color: #d8fbf6; font: 700 14px/1.3 var(--mono); }
+.experiment-live-progress code, .experiment-live-progress span { overflow: hidden; color: #86b1ba; font: 11px/1.35 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.experiment-live-progress > div:nth-child(2) { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; }
+.experiment-live-progress > div:nth-child(2) b { color: #45dfc1; font: 700 18px/1 var(--mono); }
+.experiment-live-progress progress { grid-column: 1 / -1; width: 100%; accent-color: #45dfc1; }
+.experiment-live-progress button { padding: 9px 12px; color: #e5aa98; border-color: #643f36; background: #241713; }
 .candidate-selector, .candidate-review, .candidate-patch { overflow: hidden; margin-top: 11px; border: 1px solid #1b414d; border-radius: 7px; background: #07151a; }
 .candidate-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 9px 10px; }
 .candidate-tabs button { min-width: max-content; padding: 8px 10px; color: #6b8992; border-color: #1a3842; background: #091a20; font: 8px var(--mono); }
@@ -728,6 +737,8 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
   .operation-grid { grid-template-columns: repeat(3, 1fr); }
   .experiment-contract { grid-template-columns: minmax(170px, .8fr) minmax(250px, 1.2fr); }
   .experiment-run { grid-column: 1 / -1; width: 100%; }
+  .experiment-live-progress { grid-template-columns: minmax(0, 1fr) auto; }
+  .experiment-live-progress > div:nth-child(2) { display: none; }
   .experiment-case-head, .experiment-case-result { grid-template-columns: minmax(155px, 1.3fr) 1fr .65fr .75fr; }
   .experiment-case-head > :nth-child(n+5), .experiment-case-result > :nth-child(n+5) { display: none; }
 }

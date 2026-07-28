@@ -7,9 +7,12 @@ import {
   analyzeProjectOperation,
   evaluateBenchmarkOperation,
   planProjectOperation,
+  previewCandidateOperation,
   simulateProjectOperation,
   validateProjectOperation,
 } from "./operation";
+import type { BlueprintBenchmarkProgress } from "./benchmark";
+import { inspectCandidateDecision } from "./candidate-review";
 import { previewCandidateChangeSet } from "./candidate-change-set";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -76,8 +79,10 @@ test("Benchmark evaluation uses the same operation result model without writes",
   const projectDir = await temporaryProject("ironworks");
   const candidatePath = join(projectDir, "blueprints", "power-priority-candidate.blueprint.json");
   const before = await readFile(candidatePath, "utf8");
-  const benchmark = await evaluateBenchmarkOperation(projectDir, "power-priority");
-  const repeated = await evaluateBenchmarkOperation(projectDir, "power-priority");
+  const firstProgress: BlueprintBenchmarkProgress[] = [];
+  const repeatedProgress: BlueprintBenchmarkProgress[] = [];
+  const benchmark = await evaluateBenchmarkOperation(projectDir, "power-priority", { onProgress: (progress) => firstProgress.push(progress) });
+  const repeated = await evaluateBenchmarkOperation(projectDir, "power-priority", { onProgress: (progress) => repeatedProgress.push(progress) });
 
   expect(benchmark).toEqual(expect.objectContaining({ operation: "benchmark.evaluate", effect: "read-only", writeSet: [], artifacts: [] }));
   expect(benchmark.data.benchmark).toBe("power-priority");
@@ -85,7 +90,54 @@ test("Benchmark evaluation uses the same operation result model without writes",
   expect(repeated.data.baselineCache).toEqual({ hits: repeated.data.cases.length, misses: 0 });
   expect({ ...repeated.data, baselineCache: benchmark.data.baselineCache }).toEqual(benchmark.data);
   expect(await readFile(candidatePath, "utf8")).toBe(before);
+  expect(firstProgress.map((progress) => progress.sequence)).toEqual([1, 2, 3, 4]);
+  expect(firstProgress.map((progress) => progress.work.completed)).toEqual([0, 1, 1, 2]);
+  expect(firstProgress.every((progress) => progress.version === 2 && progress.work.total === 2)).toBeTrue();
+  expect(firstProgress[1]).toEqual(expect.objectContaining({
+    phase: "baseline-case-completed",
+    cached: false,
+    timing: expect.objectContaining({ durationMs: expect.any(Number), compileMs: expect.any(Number), cacheReadMs: expect.any(Number), evaluationMs: expect.any(Number) }),
+  }));
+  expect(firstProgress[3]).toEqual(expect.objectContaining({
+    phase: "candidate-case-completed",
+    timing: expect.objectContaining({ durationMs: expect.any(Number), compileMs: expect.any(Number), evaluationMs: expect.any(Number), comparisonMs: expect.any(Number) }),
+  }));
+  expect(repeatedProgress[1]).toEqual(expect.objectContaining({ phase: "baseline-case-completed", cached: true }));
 });
+
+test("aborting observable Benchmark work never emits a Candidate verdict or mutates its Blueprint", async () => {
+  const projectDir = await temporaryProject("ironworks");
+  const candidatePath = join(projectDir, "blueprints", "power-priority-candidate.blueprint.json");
+  const before = await readFile(candidatePath, "utf8");
+  const abort = new AbortController();
+  const progress: BlueprintBenchmarkProgress[] = [];
+
+  await expect(evaluateBenchmarkOperation(projectDir, "power-priority", {
+    signal: abort.signal,
+    onProgress: (event) => {
+      progress.push(event);
+      if (event.phase === "baseline-case-completed") abort.abort();
+    },
+  })).rejects.toMatchObject({ name: "AbortError" });
+
+  expect(progress.some((event) => event.phase.startsWith("candidate"))).toBeFalse();
+  expect(await readFile(candidatePath, "utf8")).toBe(before);
+}, 15_000);
+
+test("aborting after Candidate simulation cannot record a partial review receipt", async () => {
+  const projectDir = await temporaryProject("memory-fab");
+  const abort = new AbortController();
+  const beforeDecision = await inspectCandidateDecision(projectDir, "stable-furnace-sleep");
+
+  await expect(previewCandidateOperation(projectDir, "stable-furnace-sleep", {
+    signal: abort.signal,
+    onProgress: (event) => {
+      if (event.phase === "candidate-case-completed") abort.abort();
+    },
+  })).rejects.toMatchObject({ name: "AbortError" });
+
+  expect(await inspectCandidateDecision(projectDir, "stable-furnace-sleep")).toEqual(beforeDecision);
+}, 15_000);
 
 test("Candidate apply requires project-local immutable review evidence", async () => {
   const projectDir = await temporaryProject("memory-fab");

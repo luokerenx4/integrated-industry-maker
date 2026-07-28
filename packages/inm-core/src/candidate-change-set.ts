@@ -1,7 +1,12 @@
 import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
-import { evaluateBlueprintBenchmark, loadBlueprintBenchmark, type BlueprintBenchmarkResult } from "./benchmark";
+import {
+  evaluateBlueprintBenchmark,
+  loadBlueprintBenchmark,
+  type BlueprintBenchmarkProgressHandler,
+  type BlueprintBenchmarkResult,
+} from "./benchmark";
 import { compileFactoryProject } from "./compiler";
 import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
@@ -102,7 +107,16 @@ export async function listCandidateChangeSets(projectDir: string, benchmarkId?: 
   return candidates.filter((candidate) => !benchmarkId || candidate.benchmark === benchmarkId);
 }
 
-export async function prepareCandidateChangeSet(projectDir: string, candidateId: string): Promise<CandidateChangeSetPreview & {
+export interface CandidateEvaluationOptions {
+  onProgress?: BlueprintBenchmarkProgressHandler;
+  signal?: AbortSignal;
+}
+
+export async function prepareCandidateChangeSet(
+  projectDir: string,
+  candidateId: string,
+  options: CandidateEvaluationOptions = {},
+): Promise<CandidateChangeSetPreview & {
   proposedBlueprint: Blueprint;
   blueprintPath: string;
   operationProject: CompiledFactoryProject;
@@ -141,9 +155,15 @@ export async function prepareCandidateChangeSet(projectDir: string, candidateId:
     // A generative Candidate may start from a schema-valid commissioning site
     // whose Scenario references only become valid after this exact patch.
     operationProject = compileFactoryProject({ ...loaded, blueprint: proposedBlueprint });
-    result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, { candidateBlueprint: proposedBlueprint });
+    result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, {
+      candidateBlueprint: proposedBlueprint,
+      evaluationId: `candidate:${candidate.id}`,
+      onProgress: options.onProgress,
+      signal: options.signal,
+    });
   }
   catch (error) {
+    if (options.signal?.aborted) throw error;
     throw new CandidateChangeSetError("candidate.evaluation-failed", `Candidate change set '${candidate.id}' could not be evaluated: ${error instanceof Error ? error.message : String(error)}`);
   }
   return {
@@ -158,8 +178,12 @@ export async function prepareCandidateChangeSet(projectDir: string, candidateId:
   };
 }
 
-export async function previewCandidateChangeSet(projectDir: string, candidateId: string): Promise<CandidateChangeSetPreview> {
-  const { proposedBlueprint: _, blueprintPath: __, operationProject: ___, ...preview } = await prepareCandidateChangeSet(projectDir, candidateId);
+export async function previewCandidateChangeSet(
+  projectDir: string,
+  candidateId: string,
+  options: CandidateEvaluationOptions = {},
+): Promise<CandidateChangeSetPreview> {
+  const { proposedBlueprint: _, blueprintPath: __, operationProject: ___, ...preview } = await prepareCandidateChangeSet(projectDir, candidateId, options);
   return preview;
 }
 
@@ -167,8 +191,9 @@ export async function applyCandidateChangeSet(
   projectDir: string,
   candidateId: string,
   reviewed: { proposalHash: string; currentCandidateHash: string; proposedCandidateHash: string },
+  options: CandidateEvaluationOptions = {},
 ): Promise<AppliedCandidateChangeSet> {
-  const prepared = await prepareCandidateChangeSet(projectDir, candidateId);
+  const prepared = await prepareCandidateChangeSet(projectDir, candidateId, options);
   if (reviewed.proposalHash !== prepared.proposalHash) throw new CandidateChangeSetError(
     "candidate.review-proposal-mismatch",
     `Reviewed proposal hash ${reviewed.proposalHash} does not match current proposal hash ${prepared.proposalHash}`,
@@ -188,6 +213,7 @@ export async function applyCandidateChangeSet(
     "candidate.not-accepted",
     `Candidate change set '${candidateId}' cannot be applied because its locked Benchmark verdict is ${prepared.result.verdict}`,
   );
+  options.signal?.throwIfAborted();
   const latestBlueprintHash = hashValue(await readJson(prepared.blueprintPath));
   if (latestBlueprintHash !== prepared.currentCandidateHash) throw new CandidateChangeSetError(
     "candidate.write-conflict",
@@ -199,6 +225,7 @@ export async function applyCandidateChangeSet(
     "candidate.proposal-conflict",
     `Candidate change set '${candidateId}' changed after evaluation; review it again`,
   );
+  options.signal?.throwIfAborted();
   await atomicWriteJson(prepared.blueprintPath, prepared.proposedBlueprint);
   const { proposedBlueprint: _, operationProject: __, ...result } = prepared;
   return { ...result, applied: true };
