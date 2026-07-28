@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { closeSync, openSync } from "node:fs";
-import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -9,6 +9,11 @@ import { CliCommandError, cliSuccess, manifestProjectContext } from "./contract"
 
 const STUDIO_PROTOCOL = "inm-studio";
 const STUDIO_PROTOCOL_VERSION = 2;
+const configuredDefaultPort = Number(process.env.INM_STUDIO_DEFAULT_PORT ?? 4176);
+const DEFAULT_STUDIO_PORT = Number.isSafeInteger(configuredDefaultPort) && configuredDefaultPort > 0 && configuredDefaultPort <= 65_535
+  ? configuredDefaultPort
+  : 4176;
+const FALLBACK_STUDIO_PORTS = 24;
 const START_TIMEOUT_MS = 15_000;
 const repository = resolve(import.meta.dir, "../../..");
 const serverEntry = join(repository, "packages/inm-studio/src/server.ts");
@@ -16,10 +21,17 @@ const serverEntry = join(repository, "packages/inm-studio/src/server.ts");
 export type StudioLifecycleAction = "start" | "status" | "restart" | "stop" | "serve";
 
 export interface StudioLifecycleOptions {
-  port: number;
+  port?: number;
   project?: string;
   noOpen?: boolean;
   json?: boolean;
+}
+
+type StudioPortSelection = "explicit" | "managed" | "default" | "fallback";
+
+interface ResolvedStudioLifecycleOptions extends StudioLifecycleOptions {
+  port: number;
+  portSelection: StudioPortSelection;
 }
 
 export interface StudioHealth {
@@ -55,6 +67,7 @@ export interface StudioLifecycleResult {
   inputDir: string;
   project: string | null;
   port: number;
+  portSelection: StudioPortSelection;
   url: string;
   pid: number | null;
   logPath: string;
@@ -119,14 +132,39 @@ ${args.map((argument) => `    <string>${xml(argument)}</string>`).join("\n")}
 async function readState(inputDir: string, port: number): Promise<StudioState | null> {
   try {
     const state = JSON.parse(await readFile(statePath(inputDir, port), "utf8")) as Partial<StudioState>;
+    const expectedRuntimeDirectory = runtimeDirectory(inputDir, port);
     if (state.version !== 2 || state.inputDir !== inputDir || state.port !== port
       || (state.backend !== "launchd" && state.backend !== "detached")
-      || typeof state.label !== "string" || typeof state.logPath !== "string"
+      || state.label !== serviceLabel(inputDir, port)
+      || state.logPath !== join(expectedRuntimeDirectory, "studio.log")
+      || state.plistPath !== (state.backend === "launchd" ? join(expectedRuntimeDirectory, "service.plist") : null)
+      || (state.project !== null && typeof state.project !== "string")
+      || (state.pid !== null && (!Number.isSafeInteger(state.pid) || state.pid! <= 0))
+      || typeof state.startedAt !== "string"
       || !/^[0-9a-f]{64}$/.test(state.sourceHash ?? "")) return null;
     return state as StudioState;
   } catch {
     return null;
   }
+}
+
+async function managedStates(inputDir: string, project: string | null): Promise<StudioState[]> {
+  let entries;
+  try {
+    entries = await readdir(join(inputDir, ".inm", "studio"), { withFileTypes: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  const states: StudioState[] = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!entry.isDirectory() || !/^[1-9][0-9]{0,4}$/.test(entry.name)) continue;
+    const port = Number(entry.name);
+    if (port > 65_535) continue;
+    const state = await readState(inputDir, port);
+    if (state?.project === project) states.push(state);
+  }
+  return states.sort((left, right) => right.startedAt.localeCompare(left.startedAt) || left.port - right.port);
 }
 
 async function writeState(state: StudioState): Promise<void> {
@@ -165,6 +203,104 @@ async function probeHealth(port: number): Promise<{ kind: "free" } | { kind: "st
       return { kind: "free" };
     }
   }
+}
+
+interface StudioPortResolution {
+  port: number;
+  portSelection: StudioPortSelection;
+  targetFound: boolean;
+}
+
+function healthMatchesTarget(health: StudioHealth, inputDir: string, project: string | null): boolean {
+  return health.inputDir === inputDir && health.project === project;
+}
+
+function stateVerifiesHealth(state: StudioState, health: StudioHealth): boolean {
+  return state.inputDir === health.inputDir
+    && state.project === health.project
+    && state.pid === health.pid
+    && state.sourceHash === health.sourceHash;
+}
+
+async function resolveLifecyclePort(
+  action: Exclude<StudioLifecycleAction, "serve">,
+  inputDir: string,
+  options: StudioLifecycleOptions,
+): Promise<StudioPortResolution> {
+  if (options.port !== undefined) return {
+    port: options.port,
+    portSelection: "explicit",
+    targetFound: true,
+  };
+
+  const project = options.project ?? null;
+  const states = await managedStates(inputDir, project);
+  const probes = new Map<number, Awaited<ReturnType<typeof probeHealth>>>();
+  const probe = async (port: number) => {
+    const known = probes.get(port);
+    if (known) return known;
+    const observed = await probeHealth(port);
+    probes.set(port, observed);
+    return observed;
+  };
+  await Promise.all(states.map(async (state) => { await probe(state.port); }));
+  const targetInstances = states.flatMap((state) => {
+    const observed = probes.get(state.port);
+    return observed?.kind === "studio" && healthMatchesTarget(observed.health, inputDir, project)
+      ? [{ port: state.port, health: observed.health, recorded: true }]
+      : [];
+  });
+
+  const defaultObserved = await probe(DEFAULT_STUDIO_PORT);
+  if (defaultObserved.kind === "studio" && healthMatchesTarget(defaultObserved.health, inputDir, project)
+    && !targetInstances.some((instance) => instance.health.pid === defaultObserved.health.pid)) {
+    targetInstances.push({
+      port: DEFAULT_STUDIO_PORT,
+      health: defaultObserved.health,
+      recorded: states.some((state) => state.port === DEFAULT_STUDIO_PORT),
+    });
+  }
+
+  if (targetInstances.length > 1) throw new CliCommandError(
+    "studio.multiple-target-instances",
+    `Multiple Studio instances serve this target on ports ${targetInstances.map((instance) => instance.port).sort((left, right) => left - right).join(", ")}. Stop them with explicit --port before using portless lifecycle commands.`,
+  );
+  if (targetInstances.length === 1) {
+    const instance = targetInstances[0]!;
+    return {
+      port: instance.port,
+      portSelection: instance.recorded ? "managed" : "default",
+      targetFound: true,
+    };
+  }
+
+  if (action === "status" || action === "stop") return {
+    port: states[0]?.port ?? DEFAULT_STUDIO_PORT,
+    portSelection: states.length ? "managed" : "default",
+    targetFound: false,
+  };
+
+  for (const state of states) if ((await probe(state.port)).kind === "free") return {
+    port: state.port,
+    portSelection: "managed",
+    targetFound: false,
+  };
+  if (defaultObserved.kind === "free") return {
+    port: DEFAULT_STUDIO_PORT,
+    portSelection: "default",
+    targetFound: false,
+  };
+  for (let port = DEFAULT_STUDIO_PORT + 1; port < DEFAULT_STUDIO_PORT + FALLBACK_STUDIO_PORTS; port++) {
+    if ((await probe(port)).kind === "free") return {
+      port,
+      portSelection: "fallback",
+      targetFound: false,
+    };
+  }
+  throw new CliCommandError(
+    "studio.no-available-port",
+    `No free Studio port is available from ${DEFAULT_STUDIO_PORT} through ${DEFAULT_STUDIO_PORT + FALLBACK_STUDIO_PORTS - 1}. Pass an explicit --port or stop an existing service.`,
+  );
 }
 
 async function waitForHealth(inputDir: string, project: string | null, port: number, sourceHash: string): Promise<StudioHealth> {
@@ -224,7 +360,7 @@ async function waitForFreePort(port: number): Promise<void> {
   throw new CliCommandError("studio.stop-timeout", `Studio did not release port ${port} within 5s.`);
 }
 
-async function startManaged(inputDir: string, options: StudioLifecycleOptions): Promise<StudioLifecycleResult> {
+async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOptions): Promise<StudioLifecycleResult> {
   const sourceHash = await studioSourceHash();
   const existing = await probeHealth(options.port);
   const logPath = join(runtimeDirectory(inputDir, options.port), "studio.log");
@@ -310,7 +446,7 @@ function result(
   action: StudioLifecycleAction,
   state: StudioLifecycleResult["state"],
   inputDir: string,
-  options: StudioLifecycleOptions,
+  options: ResolvedStudioLifecycleOptions,
   health: StudioHealth | null,
   expectedSourceHash: string,
   logPath = join(runtimeDirectory(inputDir, options.port), "studio.log"),
@@ -322,6 +458,7 @@ function result(
     inputDir,
     project: options.project ?? null,
     port: options.port,
+    portSelection: options.portSelection,
     url: health?.url ?? `http://127.0.0.1:${options.port}${options.project ? `/${encodeURIComponent(options.project)}` : ""}`,
     pid: health?.pid ?? null,
     logPath,
@@ -333,7 +470,7 @@ function result(
   };
 }
 
-async function currentStatus(inputDir: string, options: StudioLifecycleOptions): Promise<StudioLifecycleResult> {
+async function currentStatus(inputDir: string, options: ResolvedStudioLifecycleOptions): Promise<StudioLifecycleResult> {
   const sourceHash = await studioSourceHash();
   const probe = await probeHealth(options.port);
   const localState = await readState(inputDir, options.port);
@@ -351,7 +488,7 @@ async function currentStatus(inputDir: string, options: StudioLifecycleOptions):
   return result("status", "not-running", inputDir, options, null, sourceHash, localState?.logPath);
 }
 
-async function stopManaged(inputDir: string, options: StudioLifecycleOptions): Promise<StudioLifecycleResult> {
+async function stopManaged(inputDir: string, options: ResolvedStudioLifecycleOptions): Promise<StudioLifecycleResult> {
   const sourceHash = await studioSourceHash();
   const localState = await readState(inputDir, options.port);
   const probe = await probeHealth(options.port);
@@ -363,11 +500,11 @@ async function stopManaged(inputDir: string, options: StudioLifecycleOptions): P
     "studio.port-owned-by-unknown-service",
     `Port ${options.port} is occupied by an unknown service and will not be stopped.`,
   );
+  if (probe.kind === "studio" && (!localState || !stateVerifiesHealth(localState, probe.health))) throw new CliCommandError(
+    "studio.unmanaged-instance",
+    `Port ${options.port} serves this project but its PID and source hash are not verified by matching managed state; stop its owning foreground process explicitly.`,
+  );
   if (!localState) {
-    if (probe.kind === "studio") throw new CliCommandError(
-      "studio.unmanaged-instance",
-      `Port ${options.port} serves this project but has no matching managed state; stop its owning foreground process explicitly.`,
-    );
     return result("stop", "not-running", inputDir, options, null, sourceHash);
   }
   await unload(localState, probe.kind === "studio" ? probe.health : null);
@@ -397,7 +534,7 @@ function emit(lifecycle: StudioLifecycleResult, context: ReturnType<typeof manif
   process.stdout.write([
     label,
     `URL: ${lifecycle.url}`,
-    `Port: ${lifecycle.port}`,
+    `Port: ${lifecycle.port} · ${lifecycle.portSelection.toUpperCase()}`,
     `PID: ${lifecycle.pid ?? "—"}`,
     `Source: ${lifecycle.source.state.toUpperCase()} · ${lifecycle.source.runningHash?.slice(0, 12) ?? "—"} / expected ${lifecycle.source.expectedHash.slice(0, 12)}`,
     `Project root: ${lifecycle.inputDir}`,
@@ -411,7 +548,9 @@ export async function studioLifecycleCommand(
   input: string,
   options: StudioLifecycleOptions,
 ): Promise<void> {
-  if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65_535) throw new Error("Usage: --port must be an integer from 1 to 65535");
+  if (options.port !== undefined && (!Number.isInteger(options.port) || options.port < 1 || options.port > 65_535)) {
+    throw new Error("Usage: --port must be an integer from 1 to 65535");
+  }
   const inputDir = resolve(input);
   const projectDir = await resolveProjectDirectory(inputDir, options.project);
   const manifest = manifestSchema.parse(await readJson(join(projectDir, "inm.json")));
@@ -419,11 +558,12 @@ export async function studioLifecycleCommand(
 
   if (action === "serve") {
     if (options.json) throw new Error("Usage: inm studio serve <path> does not support --json");
+    const port = options.port ?? DEFAULT_STUDIO_PORT;
     const child = spawn(process.execPath, [
       serverEntry,
       inputDir,
       "--port",
-      String(options.port),
+      String(port),
       ...(options.project ? ["--project", options.project] : []),
       ...(options.noOpen ? ["--no-open"] : []),
     ], { cwd: repository, stdio: "inherit" });
@@ -434,16 +574,28 @@ export async function studioLifecycleCommand(
     return;
   }
 
+  const port = await resolveLifecyclePort(action, inputDir, options);
+  const resolvedOptions: ResolvedStudioLifecycleOptions = {
+    ...options,
+    port: port.port,
+    portSelection: port.portSelection,
+  };
   if (action === "status") {
-    emit(await currentStatus(inputDir, options), context, Boolean(options.json));
+    const lifecycle = port.targetFound
+      ? await currentStatus(inputDir, resolvedOptions)
+      : result("status", "not-running", inputDir, resolvedOptions, null, await studioSourceHash());
+    emit(lifecycle, context, Boolean(options.json));
     return;
   }
   if (action === "stop") {
-    emit(await stopManaged(inputDir, options), context, Boolean(options.json));
+    const lifecycle = port.targetFound
+      ? await stopManaged(inputDir, resolvedOptions)
+      : result("stop", "not-running", inputDir, resolvedOptions, null, await studioSourceHash());
+    emit(lifecycle, context, Boolean(options.json));
     return;
   }
-  if (action === "restart") await stopManaged(inputDir, options);
-  const started = await startManaged(inputDir, options);
+  if (action === "restart" && port.targetFound) await stopManaged(inputDir, resolvedOptions);
+  const started = await startManaged(inputDir, resolvedOptions);
   const lifecycle = action === "restart" ? { ...started, action } : started;
   if (!options.noOpen) openBrowser(lifecycle.url);
   emit(lifecycle, context, Boolean(options.json));

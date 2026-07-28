@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/project-discovered-studio-lifecycle]] | Discover or allocate a project's managed Studio port so routine lifecycle commands require no port memory. | 2026-07-29 |
 | [[plans/prepared-priority-power-consumers]] | Visit only statically possible Device/kind consumers during live priority power arbitration. | 2026-07-29 |
 | [[plans/single-pass-grid-power-observation]] | Observe exact live grid and transport power once per metric or scheduling boundary. | 2026-07-29 |
 | [[plans/lazy-input-starvation-evidence]] | Materialize immutable shortage evidence only when exact live observations change. | 2026-07-29 |

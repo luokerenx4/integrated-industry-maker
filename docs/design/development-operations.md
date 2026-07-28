@@ -12,18 +12,22 @@ This contract automates execution and diagnosis, not factory-design judgment. A 
 
 ## Studio lifecycle
 
-The public lifecycle owns four operations: start, status, restart, and stop. Each operation is scoped by an explicit project or workspace root and port. The server exposes a bounded health record containing a protocol identity, engine version, process id, resolved input root, project selection, deterministic runtime-source hash, start time, and URL. The source hash covers package/lock identity and non-test Core, CLI, and Studio runtime source; it is process identity, not project-content identity.
+The public managed lifecycle owns four operations: start, status, restart, and stop. Each operation is scoped by an explicit project or workspace root plus optional workspace project selection. The port is normally discovered from that target's ignored lifecycle state and live health; `--port` is a strict diagnostic or override, not a value an operator must remember. The foreground `serve` primitive remains explicitly port-scoped and defaults to `4176`.
 
-Start probes the requested port before creating a process:
+The server exposes a bounded health record containing a protocol identity, engine version, process id, resolved input root, project selection, deterministic runtime-source hash, start time, and URL. The source hash covers package/lock identity and non-test Core, CLI, and Studio runtime source; it is process identity, not project-content identity. Portless discovery enumerates only the selected root's `.inm/studio/<port>/state.json` records, then checks their live health identity. A single live target instance is selected wherever it is running. Multiple live instances of the same target are an explicit ambiguity rather than an arbitrary choice.
+
+When the target is not running, portless start and restart first reuse a free previously recorded project port, otherwise select `4176` when free, and otherwise select the first free port in the bounded `4176`–`4199` range. They never displace an occupant. An explicit `--port` requests exactly that port and never falls back. Start then applies the same ownership rules to the selected port:
 
 - the same healthy, source-current INM Studio is reused idempotently;
 - a same-root stale Studio is replaced automatically only when project-local lifecycle state exactly verifies its PID and running source hash;
 - a same-root stale foreground or otherwise unverifiable Studio is reported as an exact blocker and is never killed;
 - a healthy INM Studio for another root is reported as an exact conflict;
 - an unknown HTTP or TCP service is reported as unowned and is never killed;
-- an unused port receives a managed Studio process and a bounded startup health check.
+- an unused selected port receives a managed Studio process and a bounded startup health check.
 
-`status` computes the expected hash from the calling checkout and reports source as `current`, `stale`, or `not-running` alongside the expected and running hashes. Restart and stop act only on lifecycle state whose root and port match the request. They must not convert “a PID exists” or “a port is occupied” into ownership. Logs and state live below the selected root's ignored `.inm/` directory. The direct server remains available as an explicit foreground `serve` operation for test harnesses and interactive debugging.
+Portless `status`, `restart`, and `stop` rediscover the target, so routine operation carries no port memory. JSON and human output report the selected port plus whether it was `explicit`, `managed`, `default`, or `fallback`. `status` also computes the expected hash from the calling checkout and reports source as `current`, `stale`, or `not-running` alongside the expected and running hashes.
+
+Restart and stop mutate only when state and health agree on root, project, PID, running source hash, deterministic service label, log path, and manager path. They must not convert “a PID exists,” “a state file exists,” or “a port is occupied” into ownership. A mismatched or incomplete state record is treated as unmanaged; another root and an unknown HTTP or TCP service are never stopped. Logs and state live below the selected root's ignored `.inm/` directory. The direct server remains available as the explicit foreground `serve` operation for test harnesses and interactive debugging.
 
 On macOS, managed execution uses the user's service manager so the server does not inherit a transient terminal or Agent tool session. Other platforms may use a detached process backend, but must preserve the same health and non-destructive ownership rules.
 
@@ -62,6 +66,6 @@ CLI Benchmark, Candidate preview/apply, Design run, and Design continuation do n
 
 ## Verification
 
-Lifecycle tests must prove successful startup, source-current same-root reuse, explicit current/stale status, verified stale-source replacement, restart, stop, different-root conflict, and unknown-port conflict without terminating the foreign listener. Tests use temporary projects and ports rather than the developer's active Studio.
+Lifecycle tests must prove successful startup, source-current same-root reuse, explicit current/stale status, verified stale-source replacement, restart, stop, project-local port rediscovery, bounded fallback selection, ambiguity and exhaustion errors, tampered-state refusal, different-root conflict, and unknown-port conflict without terminating any foreign listener. Tests use temporary projects and ports rather than the developer's active Studio.
 
 The final manual check runs the actual managed backend, queries health/status, restarts onto current source, and leaves the memory-fab Studio available at its expected URL.

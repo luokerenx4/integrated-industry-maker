@@ -178,15 +178,21 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     usage: `inm studio ${action} <path> [--project ID] [--port N]${action === "start" || action === "restart" || action === "serve" ? " [--no-open]" : ""}${action === "serve" ? "" : " [--json]"}`,
     description: ({
       start: "Start or idempotently reuse a managed local Studio server.",
-      status: "Inspect the exact managed Studio project, URL, PID, and log.",
-      restart: "Stop the verified managed Studio and start it from current source.",
-      stop: "Stop only the verified managed Studio for this root and port.",
+      status: "Discover and inspect the exact managed Studio project, URL, PID, and log.",
+      restart: "Discover and restart the verified managed Studio from current source.",
+      stop: "Discover and stop only the verified managed Studio for this target.",
       serve: "Run Studio directly in the foreground for debugging and tests.",
     })[action],
     effect: action === "status" ? "read-only" : "long-running-server",
     supportsJson: action !== "serve",
     arguments: [path, project,
-      { name: "port", form: "option", value: "integer", required: false, description: "Local HTTP port.", default: 4176 },
+      {
+        name: "port", form: "option", value: "integer", required: false,
+        description: action === "serve"
+          ? "Foreground HTTP port; defaults to 4176."
+          : "Strict local HTTP port. Omit to discover the target service or allocate 4176 plus a bounded fallback.",
+        ...(action === "serve" ? { default: 4176 } : {}),
+      },
       ...((action === "start" || action === "restart" || action === "serve")
         ? [{ name: "no-open", form: "option" as const, value: "boolean" as const, required: false, description: "Do not open a browser.", default: false }]
         : []),

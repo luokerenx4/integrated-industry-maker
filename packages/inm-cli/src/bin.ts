@@ -206,7 +206,7 @@ async function main(signal: AbortSignal): Promise<void> {
     commandId = `studio.${action}`;
     const { values, positionals } = parseArgs({ args, options: {
       ...projectOption,
-      port: { type: "string", default: "4176" },
+      port: { type: "string" },
       ...((action === "start" || action === "restart" || action === "serve")
         ? { "no-open": { type: "boolean" as const, default: false } }
         : {}),
@@ -214,7 +214,7 @@ async function main(signal: AbortSignal): Promise<void> {
     }, allowPositionals: true });
     const inputDir = oneArg(positionals, `inm studio ${action} <project-or-workspace-dir> [--project ID]`);
     return studioLifecycleCommand(action, inputDir, {
-      port: Number(values.port),
+      ...(values.port !== undefined ? { port: Number(values.port) } : {}),
       project: values.project,
       noOpen: "no-open" in values && values["no-open"] === true,
       json: values.json,
